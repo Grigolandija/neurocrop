@@ -24,11 +24,14 @@ type Props = {
 export function AppShell({ page, email, lowBatteryCount, mode, onNavigate, onMode, onLogout, children }: Props) {
   return <div className="app-shell">
     <aside className="sidebar">
+      <div className="brand"><div className="brand-mark">N</div><div><small>NeuroCrop</small><strong>Control Center</strong></div></div>
       <nav>{nav.map((item) => <button key={item.page} data-active={page === item.page} onClick={() => onNavigate(item.page)}><span>{item.mark}</span>{item.label}</button>)}</nav>
+      <div className="sidebar-foot"><span className="online-dot" /> System online</div>
     </aside>
     <div className="workspace">
       <header className="topbar">
         <div className="view-switch" role="group" aria-label="Dashboard view">
+          <span>View</span>
           <button data-active={mode === 'simple'} onClick={() => onMode('simple')}>Simple</button>
           <button data-active={mode === 'detailed'} onClick={() => onMode('detailed')}>Detailed</button>
         </div>
