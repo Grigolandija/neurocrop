@@ -9388,7 +9388,7 @@
         zoneId: "",
         name: "",
         profile: options.profile || getDefaultProfileKey(),
-        sensorCount: String(options.sensorCount ?? 4)
+        sensorCount: String(options.sensorCount ?? 0)
       };
     }
 
@@ -9539,8 +9539,7 @@
                 <label class="block sm:col-span-2"><span class="text-sm font-semibold text-ink/72">Block name</span><input name="modalBlockName" value="${escapeAttribute(zone.name)}" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
                 <label class="block"><span class="text-sm font-semibold text-ink/72">Location</span><select name="modalBlockSiteId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">${dashboardData.sites.map((item) => `<option value="${escapeAttribute(item.id)}" ${item.id === site.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>
                 <label class="block"><span class="text-sm font-semibold text-ink/72">Crop profile</span><select name="modalBlockProfile" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">${profileOptions}</select></label>
-                <label class="block"><span class="text-sm font-semibold text-ink/72">Planned nodes</span><input name="modalBlockSensorCount" type="number" min="0" max="48" step="1" value="${escapeAttribute(nodeCount)}" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"><span class="mt-1.5 block text-xs leading-5 text-ink/50">Reducing this count removes the last placeholder nodes. Use Nodes for real DevEUI assignments.</span></label>
-                <div class="rounded-[18px] bg-[#f8f3ea] px-4 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Current setup</div><div class="mt-1 font-bold text-ink">${escapeHtml(site.name)}</div><div class="mt-1 text-sm text-ink/56">${nodeCount} node${nodeCount === 1 ? "" : "s"} · ${escapeHtml(cropProfiles[zone.profile]?.name || zone.profile)}</div></div>
+                <div class="rounded-[18px] bg-[#f8f3ea] px-4 py-3 sm:col-span-2"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Current setup</div><div class="mt-1 font-bold text-ink">${escapeHtml(site.name)}</div><div class="mt-1 text-sm text-ink/56">${nodeCount} registered node${nodeCount === 1 ? "" : "s"} · ${escapeHtml(cropProfiles[zone.profile]?.name || zone.profile)}</div></div>
               </div>
               <p class="management-modal-error mt-3 rounded-[16px] bg-[#f9e3df] px-3.5 py-2.5 text-sm font-semibold text-ember" role="alert" hidden></p>
               <div class="mt-5 flex flex-wrap gap-3"><button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save changes</button><button type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink/72" data-modal-block-open-live-site="${escapeAttribute(site.id)}" data-modal-block-open-live-zone="${escapeAttribute(zone.id)}">Open live view</button></div>
@@ -9609,7 +9608,6 @@
       const nextName = String(formData.get("modalBlockName") || "").trim();
       const targetSiteId = String(formData.get("modalBlockSiteId") || "");
       const nextProfile = String(formData.get("modalBlockProfile") || "");
-      const nextSensorCount = clamp(Math.round(Number(formData.get("modalBlockSensorCount")) || 0), 0, 48);
       if (!nextName) return setManagementModalError("Block name is required before saving.");
       if (!cropProfiles[nextProfile]) return setManagementModalError("Choose a valid crop profile.");
 
@@ -9622,7 +9620,6 @@
       zone.name = nextName;
       zone.profile = nextProfile;
       zone.availableMetrics = Object.keys(cropProfiles[nextProfile].metrics);
-      resizeZoneBatteryNodes(nextData, zone, nextSensorCount);
       if (sourceSite.id !== targetSite.id) {
         sourceSite.zones = (sourceSite.zones || []).filter((item) => item.id !== zone.id);
         targetSite.zones = [...(targetSite.zones || []), zone];
@@ -13067,21 +13064,7 @@
                     </label>
                   </div>
 
-                  <div class="grid gap-3 lg:grid-cols-[220px_auto] lg:items-end">
-                    <label class="block">
-                      <span class="text-sm font-semibold text-ink/72">Planned nodes</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="48"
-                        step="1"
-                        name="blockSensorCount"
-                        value="${escapeAttribute(blockFormState.sensorCount)}"
-                        class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"
-                      >
-                    </label>
-
-                    <div class="flex flex-wrap gap-3 pt-1 lg:justify-end">
+                  <div class="flex flex-wrap gap-3 pt-1 lg:justify-end">
                       <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">
                         ${blockFormButtonLabel}
                       </button>
@@ -13092,7 +13075,6 @@
                           </button>
                         `
                         : ""}
-                    </div>
                   </div>
                 </form>
               `}
@@ -13730,7 +13712,6 @@
       const nextName = blockFormState.name.trim();
       const nextSiteId = blockFormState.siteId;
       const nextProfile = blockFormState.profile;
-      const nextSensorCount = clamp(Math.round(Number(blockFormState.sensorCount) || 0), 0, 48);
 
       if (!nextName) {
         setManagementNotice("blocks", "Block name is required before saving.", "warning");
@@ -13767,7 +13748,6 @@
         zone.name = nextName;
         zone.profile = nextProfile;
         zone.availableMetrics = availableMetrics.slice();
-        resizeZoneBatteryNodes(nextData, zone, nextSensorCount);
 
         if (sourceSite.id !== targetSite.id) {
           sourceSite.zones = (sourceSite.zones || []).filter((item) => item.id !== zone.id);
@@ -13801,7 +13781,6 @@
 
       targetSite.zones = Array.isArray(targetSite.zones) ? targetSite.zones : [];
       targetSite.zones.push(nextZone);
-      resizeZoneBatteryNodes(nextData, nextZone, nextSensorCount);
 
       persistDashboardData(nextData);
       activeBlockFilterSiteId = targetSite.id;
