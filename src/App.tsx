@@ -23,8 +23,8 @@ function readData(): DashboardData {
 }
 
 function readPage(): Page {
-  const hash = location.hash.replace('#/', '') as Page
-  return validPages.includes(hash) ? hash : 'overview'
+  const path = location.pathname.replace('/', '') as Page
+  return validPages.includes(path) ? path : 'overview'
 }
 
 function App() {
@@ -42,9 +42,9 @@ function App() {
   }, [data])
 
   useEffect(() => {
-    function hashChanged() { setPage(readPage()) }
-    window.addEventListener('hashchange', hashChanged)
-    return () => window.removeEventListener('hashchange', hashChanged)
+    function pathChanged() { setPage(readPage()) }
+    window.addEventListener('popstate', pathChanged)
+    return () => window.removeEventListener('popstate', pathChanged)
   }, [])
 
   useEffect(() => {
@@ -63,7 +63,10 @@ function App() {
     setEmail(resolvedEmail)
   }
 
-  function navigate(next: Page) { location.hash = `/${next}`; setPage(next) }
+  function navigate(next: Page) {
+    history.pushState(null, '', next === 'overview' ? '/' : `/${next}`)
+    setPage(next)
+  }
   function logout() { sessionStorage.removeItem(sessionKey); setEmail('') }
   function addLocation(name: string) { setData((current) => ({ ...current, locations: [...current.locations, { id: `location-${Date.now()}`, name }] })) }
   function addBlock(locationId: string, name: string) { setData((current) => ({ ...current, blocks: [...current.blocks, { id: `block-${Date.now()}`, locationId, name, cropProfile: 'Unassigned crop profile', nodes: [], installedMetrics: ['airTemp', 'humidity'], readings: { airTemp: 22, humidity: 68 } }] })) }
