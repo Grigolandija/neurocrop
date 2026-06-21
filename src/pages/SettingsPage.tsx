@@ -1,0 +1,9 @@
+import { useState, type FormEvent } from 'react'
+
+const sections = ['Crop profiles', 'Alert rules', 'Notifications', 'Team & access', 'Units & time', 'Integrations', 'Data retention', 'Organization']
+
+export function SettingsPage() {
+  const [notice, setNotice] = useState('')
+  function save(e: FormEvent) { e.preventDefault(); setNotice('Settings saved in this browser prototype.') }
+  return <><header className="page-head"><div><p className="eyebrow">System settings</p><h1>Settings</h1><p>Biological targets, account rules and backend connections.</p></div></header>{notice && <div className="success-notice">{notice}</div>}<form className="settings-grid" onSubmit={save}>{sections.map((section, index) => <section className="settings-card" key={section}><p className="eyebrow">{section}</p><h2>{index === 0 ? 'Tomatoes, vegetative' : section}</h2>{section === 'Crop profiles' ? <><label>Profile name<input defaultValue="Tomatoes, vegetative" /></label><label>Growth stage<select defaultValue="Vegetative"><option>Vegetative</option><option>Flowering</option><option>Fruiting</option></select></label></> : section === 'Integrations' ? <><label>API endpoint<input placeholder="https://api.example.lt/api/v1" /></label><label>ChirpStack status<select><option>Not connected</option><option>Connected</option></select></label></> : section === 'Units & time' ? <><label>Temperature<select><option>Celsius (°C)</option><option>Fahrenheit (°F)</option></select></label><label>Time zone<select><option>Europe/Vilnius</option></select></label></> : <><label>Primary value<input placeholder={`Configure ${section.toLowerCase()}`} /></label><label className="check"><input type="checkbox" defaultChecked /> Enabled</label></>}</section>)}<button className="primary-button settings-save">Save settings</button></form></>
+}
