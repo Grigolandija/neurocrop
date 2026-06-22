@@ -7749,6 +7749,136 @@
       .login-aside { padding: 2rem; }
       .login-form-panel { padding: 2rem; }
     }
+    .today-priority-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .today-priority-main,
+    .today-priority-alerts {
+      border: 1px solid rgba(20, 32, 27, 0.09);
+      border-radius: 30px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 18px 36px rgba(20, 32, 27, 0.06);
+    }
+
+    .today-priority-main {
+      padding: 24px;
+    }
+
+    .today-priority-alerts {
+      padding: 20px;
+    }
+
+    .today-priority-kicker {
+      color: rgba(31, 47, 39, 0.52);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .today-priority-title {
+      margin-top: 8px;
+      color: var(--ink);
+      font-family: var(--font-display);
+      font-size: clamp(1.45rem, 2.4vw, 2rem);
+      font-weight: 700;
+      line-height: 1.12;
+    }
+
+    .today-priority-copy {
+      max-width: 48rem;
+      margin-top: 10px;
+      color: rgba(31, 47, 39, 0.68);
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    .today-priority-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 16px;
+      background: var(--pine);
+      color: white;
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      font-weight: 750;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .today-priority-action:hover,
+    .today-priority-action:focus-visible {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 20px rgba(25, 71, 51, 0.22);
+      outline: none;
+    }
+
+    .today-priority-alert-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .today-priority-alert-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .today-priority-alert {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      border: 1px solid rgba(20, 32, 27, 0.07);
+      border-radius: 16px;
+      background: rgba(249, 248, 244, 0.8);
+      padding: 10px 12px;
+      color: var(--ink);
+      text-align: left;
+    }
+
+    .today-priority-alert:hover,
+    .today-priority-alert:focus-visible {
+      border-color: rgba(38, 102, 74, 0.26);
+      background: white;
+      outline: none;
+    }
+
+    .today-priority-alert-name {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 750;
+    }
+
+    .today-priority-alert-meta {
+      display: block;
+      margin-top: 2px;
+      color: rgba(31, 47, 39, 0.54);
+      font-size: 0.72rem;
+    }
+
+    .today-priority-empty {
+      margin-top: 14px;
+      color: rgba(31, 47, 39, 0.62);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      .today-priority-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
   </style>
 </head>
 <body class="designer-app" data-dashboard-state="optimal" data-workspace-focus="all">
@@ -7948,6 +8078,10 @@
           <div id="settingsManagementShell"></div>
         </section>
 
+        <section id="alertsManagementSection" class="mb-6 section-jump-target" hidden>
+          <div id="alertsManagementShell"></div>
+        </section>
+
         <section id="opsDockSection" class="ops-dock-shell section-jump-target">
           <div class="ops-dock-panel">
             <div class="ops-dock-top">
@@ -8038,6 +8172,11 @@
               </div>
             </div>
           </div>
+        </section>
+
+        <section id="todayPriorityPanel" class="today-priority-panel section-jump-target" hidden>
+          <div id="todayPriorityMain" class="today-priority-main"></div>
+          <div id="todayPriorityAlerts" class="today-priority-alerts"></div>
         </section>
 
         <section id="heroStatusPanel" data-state="optimal" class="surface hero-panel section-jump-target rounded-[40px] p-6 md:p-8 lg:p-10">
@@ -8843,8 +8982,13 @@
       nodesManagementShell: document.getElementById("nodesManagementShell"),
       settingsManagementSection: document.getElementById("settingsManagementSection"),
       settingsManagementShell: document.getElementById("settingsManagementShell"),
+      alertsManagementSection: document.getElementById("alertsManagementSection"),
+      alertsManagementShell: document.getElementById("alertsManagementShell"),
       sidebarQuickActions: document.getElementById("sidebarQuickActions"),
       heroStatusPanel: document.getElementById("heroStatusPanel"),
+      todayPriorityPanel: document.getElementById("todayPriorityPanel"),
+      todayPriorityMain: document.getElementById("todayPriorityMain"),
+      todayPriorityAlerts: document.getElementById("todayPriorityAlerts"),
       siteChip: document.getElementById("siteChip"),
       zoneChip: document.getElementById("zoneChip"),
       commandPaletteButton: document.getElementById("commandPaletteButton"),
@@ -9123,6 +9267,8 @@
     let isHeaderBatteryDropdownOpen = false;
     let isHeaderAccountMenuOpen = false;
     let currentActionDeckCards = [];
+    let currentTodayPriorityAction = null;
+    let currentAlertRecords = [];
     let actionDeckShortcutMap = new Map();
     let highlightedJumpTarget = null;
     let zoneImpactAction = null;
@@ -9142,6 +9288,7 @@
     let activeSensorHealthFilterKey = "focus";
     let activeInspectionRouteFilterKey = "focus";
     let activeWorkspaceFocus = "all";
+    let activeAlertsPageFilter = "active";
     let activeTrendMetricKey = "";
     let activeTrendRangeKey = "24h";
     let currentTrendMetricOptions = [];
@@ -9149,6 +9296,17 @@
     let activeBlockFilterSiteId = "all";
     let activeSettingsProfileKey = activeProfileKey;
     let managementNotice = { page: "", tone: "optimal", text: "" };
+    const alertActionStorageKey = "neurocrop-dashboard-alert-actions-v1";
+    let alertActionState = {};
+
+    try {
+      const savedAlertActions = JSON.parse(window.localStorage.getItem(alertActionStorageKey) || "{}");
+      if (savedAlertActions && typeof savedAlertActions === "object" && !Array.isArray(savedAlertActions)) {
+        alertActionState = savedAlertActions;
+      }
+    } catch (error) {
+      // Alert actions are optional while the dashboard is running without a backend.
+    }
     let locationFormState = { mode: "create", siteId: "", name: "" };
     let blockFormState = { mode: "create", siteId: activeSiteId, zoneId: "", name: "", profile: activeProfileKey, sensorCount: "4" };
     let nodeFormState = { siteId: activeSiteId, zoneId: activeZoneId, devEui: "" };
@@ -10337,6 +10495,52 @@
       `).join("");
     }
 
+    function renderTodayPriority(action, issues) {
+      currentTodayPriorityAction = action || null;
+
+      if (!action) {
+        elements.todayPriorityMain.innerHTML = `
+          <div class="today-priority-kicker">Today</div>
+          <h2 class="today-priority-title">No priority action right now</h2>
+          <p class="today-priority-copy">Current readings are steady. Keep monitoring this section and return here when the next reading arrives.</p>
+        `;
+      } else {
+        elements.todayPriorityMain.innerHTML = `
+          <div class="today-priority-kicker">Today’s priority</div>
+          <h2 class="today-priority-title">${escapeHtml(action.title)}</h2>
+          <p class="today-priority-copy">${escapeHtml(action.note)}</p>
+          <button type="button" class="today-priority-action" data-today-priority-action>
+            ${escapeHtml(action.cta)}
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        `;
+      }
+
+      const visibleIssues = issues.slice(0, 3);
+      elements.todayPriorityAlerts.innerHTML = `
+        <div class="today-priority-alert-head">
+          <div>
+            <div class="today-priority-kicker">Needs attention</div>
+            <div class="mt-1 text-base font-bold text-ink">${issues.length ? `${issues.length} active ${issues.length === 1 ? "alert" : "alerts"}` : "No active alerts"}</div>
+          </div>
+          ${issues.length ? `<span class="state-chip" data-state="${visibleIssues[0].overall.state}">${stateConfig[visibleIssues[0].overall.state].label}</span>` : `<span class="state-chip" data-state="optimal">Stable</span>`}
+        </div>
+        ${visibleIssues.length ? `
+          <div class="today-priority-alert-list">
+            ${visibleIssues.map((item) => `
+              <button type="button" class="today-priority-alert" data-today-alert-site-id="${escapeAttribute(item.site.id)}" data-today-alert-zone-id="${escapeAttribute(item.zone.id)}">
+                <span class="min-w-0">
+                  <span class="today-priority-alert-name">${escapeHtml(item.zone.name)}</span>
+                  <span class="today-priority-alert-meta">${escapeHtml(item.site.name)} · ${escapeHtml(item.summary)}</span>
+                </span>
+                <i class="fa-solid fa-arrow-right shrink-0 text-xs text-ink/44" aria-hidden="true"></i>
+              </button>
+            `).join("")}
+          </div>
+        ` : `<p class="today-priority-empty">Everything is within the current target ranges. No action is required.</p>`}
+      `;
+    }
+
     function ensureAdvancedToolsOpenForTarget(targetId) {
       if (!elements.advancedToolsPanel) return;
       if (!["scenarioLabPanel", "impactBoardPanel", "decisionBriefPanel"].includes(targetId)) return;
@@ -10437,6 +10641,8 @@
         activeAction = "nodes";
       } else if (activePrimaryPage === "history") {
         activeAction = "history";
+      } else if (activePrimaryPage === "alerts") {
+        activeAction = "alerts";
       } else if (activePrimaryPage === "settings") {
         activeAction = "settings";
       } else if (sidebarActionOverride) {
@@ -10508,11 +10714,11 @@
           scrollToSection("settingsManagementSection");
           return;
         case "alerts":
-          activePrimaryPage = "overview";
-          setExperienceMode("detailed");
-          sidebarActionOverride = "alerts";
-          updateSidebarActionState();
-          scrollToSection("globalSystemCard");
+          activePrimaryPage = "alerts";
+          sidebarActionOverride = null;
+          closeContextMenus();
+          renderDashboard();
+          scrollToSection("alertsManagementSection");
           return;
         case "analytics":
           runDashboardAction("history");
@@ -14980,6 +15186,184 @@
       }
     }
 
+    function persistAlertActionState() {
+      try {
+        window.localStorage.setItem(alertActionStorageKey, JSON.stringify(alertActionState));
+      } catch (error) {
+        // The prototype remains usable if browser storage is unavailable.
+      }
+    }
+
+    function formatAlertDuration(timestamp) {
+      const minutes = Math.max(1, Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000));
+      if (minutes < 60) return `${minutes} min`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours} h ${minutes % 60} min`;
+      return `${Math.floor(hours / 24)} d ${hours % 24} h`;
+    }
+
+    function buildAlertRecords(issues) {
+      let changed = false;
+      const records = issues.map((issue) => {
+        const primaryResult = issue.results
+          .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
+          .sort((left, right) => right.severity - left.severity)[0];
+        if (!primaryResult) return null;
+
+        const definition = issue.profile.metrics[primaryResult.key];
+        const id = `${issue.site.id}:${issue.zone.id}:${primaryResult.key}`;
+        if (!alertActionState[id]) {
+          // The actual start time will come from the backend; this keeps the prototype actionable today.
+          alertActionState[id] = {
+            status: "open",
+            detectedAt: new Date(Date.now() - Math.round(18 + primaryResult.severity * 110) * 60000).toISOString(),
+            updatedAt: null,
+            updatedBy: null,
+            snapshot: {
+              siteId: issue.site.id,
+              zoneId: issue.zone.id,
+              metricKey: primaryResult.key,
+              metricLabel: definition.label,
+              value: formatValue(primaryResult.value, definition),
+              deviation: primaryResult.deviationText,
+              state: primaryResult.state
+            }
+          };
+          changed = true;
+        }
+
+        const action = alertActionState[id];
+        return {
+          id,
+          site: issue.site,
+          zone: issue.zone,
+          state: primaryResult.state,
+          metricKey: primaryResult.key,
+          metricLabel: definition.label,
+          value: formatValue(primaryResult.value, definition),
+          deviation: primaryResult.deviationText,
+          detectedAt: action.detectedAt,
+          status: action.status || "open",
+          updatedAt: action.updatedAt || null,
+          updatedBy: action.updatedBy || null
+        };
+      }).filter(Boolean);
+
+      Object.entries(alertActionState).forEach(([id, action]) => {
+        if (action.status !== "resolved" || records.some((record) => record.id === id) || !action.snapshot) return;
+        const site = dashboardData.sites.find((item) => item.id === action.snapshot.siteId);
+        const zone = site?.zones?.find((item) => item.id === action.snapshot.zoneId);
+        if (!site || !zone) return;
+        records.push({
+          id,
+          site,
+          zone,
+          state: action.snapshot.state || "optimal",
+          metricKey: action.snapshot.metricKey,
+          metricLabel: action.snapshot.metricLabel,
+          value: action.snapshot.value,
+          deviation: action.snapshot.deviation,
+          detectedAt: action.detectedAt,
+          status: "resolved",
+          updatedAt: action.updatedAt || null,
+          updatedBy: action.updatedBy || null
+        });
+      });
+
+      if (changed) persistAlertActionState();
+      return records;
+    }
+
+    function renderAlertsManagementPage(records) {
+      currentAlertRecords = records;
+      const statusOrder = ["critical", "warning", "acknowledged", "snoozed", "resolved"];
+      const filters = [
+        { key: "active", label: "Active", count: records.filter((record) => record.status !== "resolved").length },
+        { key: "critical", label: "Critical", count: records.filter((record) => record.status !== "resolved" && record.state === "critical").length },
+        { key: "warning", label: "Warning", count: records.filter((record) => record.status !== "resolved" && record.state === "warning").length },
+        { key: "acknowledged", label: "Acknowledged", count: records.filter((record) => record.status === "acknowledged").length },
+        { key: "snoozed", label: "Snoozed", count: records.filter((record) => record.status === "snoozed").length },
+        { key: "resolved", label: "Resolved", count: records.filter((record) => record.status === "resolved").length }
+      ];
+      const selectedFilter = filters.some((filter) => filter.key === activeAlertsPageFilter) ? activeAlertsPageFilter : "active";
+      activeAlertsPageFilter = selectedFilter;
+      const visibleRecords = records.filter((record) => {
+        if (selectedFilter === "active") return record.status !== "resolved";
+        if (statusOrder.includes(selectedFilter)) {
+          if (selectedFilter === "critical" || selectedFilter === "warning") return record.status !== "resolved" && record.state === selectedFilter;
+          return record.status === selectedFilter;
+        }
+        return true;
+      });
+      const criticalCount = filters.find((filter) => filter.key === "critical").count;
+      const warningCount = filters.find((filter) => filter.key === "warning").count;
+      const resolvedCount = filters.find((filter) => filter.key === "resolved").count;
+
+      elements.alertsManagementShell.innerHTML = `
+        <div class="surface rounded-[34px] p-6 md:p-8">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.28em] text-pine/56">Alerts</p>
+              <h2 class="mt-2 font-display text-3xl font-bold text-ink">Work the issues that need attention</h2>
+              <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/62">Each alert is tied to an Area, Section and live sensor reading. Actions are recorded locally until the backend is connected.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <span class="state-chip" data-state="critical">${criticalCount} critical</span>
+              <span class="state-chip" data-state="warning">${warningCount} warning</span>
+              <span class="state-chip" data-state="optimal">${resolvedCount} resolved</span>
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-2" role="toolbar" aria-label="Alert status filters">
+            ${filters.map((filter) => `<button type="button" data-alert-page-filter="${filter.key}" data-active="${String(filter.key === selectedFilter)}" class="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-ink/68 transition data-[active=true]:border-pine/20 data-[active=true]:bg-pine data-[active=true]:text-white">${escapeHtml(filter.label)} <span class="ml-1 opacity-70">${filter.count}</span></button>`).join("")}
+          </div>
+
+          <div class="mt-6 grid gap-3">
+            ${visibleRecords.length ? visibleRecords.map((record) => `
+              <article class="rounded-[24px] border border-black/8 bg-white p-5 shadow-[0_12px_28px_rgba(20,32,27,0.04)]" data-alert-record="${escapeAttribute(record.id)}">
+                <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="state-chip" data-state="${record.state}">${stateConfig[record.state].label}</span>
+                      ${record.status !== "open" ? `<span class="rounded-full bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink/60">${escapeHtml(record.status)}</span>` : ""}
+                      <span class="text-xs font-semibold text-ink/46">Open for ${formatAlertDuration(record.detectedAt)}</span>
+                    </div>
+                    <h3 class="mt-3 text-lg font-bold text-ink">${escapeHtml(record.metricLabel)}: ${escapeHtml(record.value)}</h3>
+                    <p class="mt-1 text-sm text-ink/64">${escapeHtml(record.site.name)} · ${escapeHtml(record.zone.name)} · ${escapeHtml(record.deviation)}</p>
+                    ${record.updatedAt ? `<p class="mt-2 text-xs text-ink/46">${escapeHtml(record.status)} by ${escapeHtml(record.updatedBy || "team member")} · ${new Date(record.updatedAt).toLocaleString("lt-LT", { dateStyle: "medium", timeStyle: "short" })}</p>` : ""}
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 xl:justify-end">
+                    <button type="button" data-alert-history="${escapeAttribute(record.id)}" class="rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm font-semibold text-ink/72">View history</button>
+                    ${record.status === "open" ? `<button type="button" data-alert-action="acknowledged" data-alert-id="${escapeAttribute(record.id)}" class="rounded-xl border border-pine/18 bg-pine/8 px-3.5 py-2.5 text-sm font-semibold text-pine">Acknowledge</button>` : ""}
+                    ${record.status !== "resolved" ? `<button type="button" data-alert-action="snoozed" data-alert-id="${escapeAttribute(record.id)}" class="rounded-xl border border-amber/18 bg-amber/8 px-3.5 py-2.5 text-sm font-semibold text-amber">Snooze</button><button type="button" data-alert-action="resolved" data-alert-id="${escapeAttribute(record.id)}" class="rounded-xl bg-pine px-3.5 py-2.5 text-sm font-semibold text-white">Resolve</button>` : ""}
+                  </div>
+                </div>
+              </article>
+            `).join("") : `
+              <div class="rounded-[24px] border border-dashed border-black/12 bg-[#fbfaf7] p-8 text-center">
+                <div class="text-lg font-bold text-ink">No ${escapeHtml(selectedFilter)} alerts</div>
+                <p class="mt-2 text-sm text-ink/58">There is nothing to action in this list right now.</p>
+              </div>
+            `}
+          </div>
+        </div>
+      `;
+    }
+
+    function openAlertHistory(record) {
+      activeSiteId = record.site.id;
+      activeZoneId = record.zone.id;
+      activeProfileKey = record.zone.profile;
+      activeViewScope = "zone";
+      activeTrendMetricKey = record.metricKey;
+      activePrimaryPage = "history";
+      sidebarActionOverride = null;
+      renderZoneOptions();
+      resetCurrentReadingsFromActiveZone();
+      renderDashboard();
+      scrollToSection("historySection");
+    }
+
     function renderGlobalSystemList(items, options = {}) {
       const { activeSiteId, activeFilterKey = "all" } = options;
       if (items.length === 0) {
@@ -15090,7 +15474,8 @@
       const isNodesPage = activePrimaryPage === "nodes";
       const isHistoryPage = activePrimaryPage === "history";
       const isSettingsPage = activePrimaryPage === "settings";
-      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isSettingsPage;
+      const isAlertsPage = activePrimaryPage === "alerts";
+      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isSettingsPage || isAlertsPage;
       const isPrimaryWorkspacePage = isManagementPage || isHistoryPage;
       const site = getActiveSite();
       const zone = getActiveZone(site);
@@ -15176,6 +15561,7 @@
       const criticalSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "critical");
       const warningSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "warning");
       const currentSiteSystemIssues = allSystemIssues.filter((snapshot) => snapshot.site.id === site.id);
+      const alertRecords = buildAlertRecords(allSystemIssues);
       const siteSnapshots = globalSnapshots.filter((snapshot) => snapshot.site.id === site.id);
       const weakestSiteSnapshot = getWeakestSiteSnapshot(siteSnapshots);
       const siteOverallState = deriveSiteOverallState(siteSnapshots);
@@ -15558,16 +15944,19 @@
       renderBlocksManagementPage(globalSnapshots);
       renderNodesManagementPage();
       renderSettingsManagementPage(globalSnapshots);
+      renderAlertsManagementPage(alertRecords);
 
-      elements.siteChip.textContent = isManagementPage ? "Structure workspace" : site.name;
+      elements.siteChip.textContent = isAlertsPage ? "Operations workspace" : isManagementPage ? "Structure workspace" : site.name;
       elements.zoneChip.textContent = isLocationsPage
-        ? "Locations"
+        ? "Areas"
         : isBlocksPage
-          ? "Blocks"
+          ? "Sections"
           : isNodesPage
             ? "Nodes"
           : isHistoryPage
             ? "History"
+          : isAlertsPage
+            ? "Alerts"
           : isSettingsPage
             ? "Settings"
           : isSiteView ? "Site view" : zone.name;
@@ -15641,6 +16030,7 @@
       elements.blocksManagementSection.hidden = !isBlocksPage;
       elements.nodesManagementSection.hidden = !isNodesPage;
       elements.settingsManagementSection.hidden = !isSettingsPage;
+      elements.alertsManagementSection.hidden = !isAlertsPage;
       elements.sidebarQuickActions.hidden = isSimpleExperienceMode || isPrimaryWorkspacePage;
       elements.opsDockSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode;
       elements.alertsSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "alerts");
@@ -15758,6 +16148,7 @@
           }))
         : actionDeck.cards;
       elements.actionDeckLabel.textContent = isSimpleExperienceMode ? "Recommended next step" : "What to do now";
+      elements.actionDeckShell.hidden = isSimpleExperienceMode;
       elements.actionDeckSummary.textContent = actionDeck.cards[0]
         ? isSimpleExperienceMode
           ? `Start with ${actionDeck.cards[0].title.toLowerCase()}. Open detailed analysis only if you need full readings, hardware checks, or wider system context.`
@@ -15768,6 +16159,12 @@
       elements.actionDeck.innerHTML = renderActionDeckCards(visibleActionDeckCards);
       currentActionDeckCards = visibleActionDeckCards;
       actionDeckShortcutMap = new Map(visibleActionDeckCards.map((card, index) => [String(index + 1), card]));
+      elements.todayPriorityPanel.hidden = isPrimaryWorkspacePage || !isSimpleExperienceMode;
+      if (isSimpleExperienceMode && !isPrimaryWorkspacePage) {
+        renderTodayPriority(actionDeck.cards[0], allSystemIssues);
+      } else {
+        currentTodayPriorityAction = null;
+      }
       elements.indicatorUplink.textContent = isSiteView
         ? manualOverride
           ? `${siteSnapshots.length} blocks | manual branch`
@@ -16733,6 +17130,47 @@
       if (!card) return;
 
       executeActionDeckAction(currentActionDeckCards[Number(card.dataset.actionIndex)]);
+    });
+
+    elements.todayPriorityPanel.addEventListener("click", (event) => {
+      if (event.target.closest("[data-today-priority-action]")) {
+        executeActionDeckAction(currentTodayPriorityAction);
+        return;
+      }
+
+      const alert = event.target.closest("[data-today-alert-site-id]");
+      if (!alert) return;
+      openZoneDetail(alert.dataset.todayAlertSiteId, alert.dataset.todayAlertZoneId);
+    });
+
+    elements.alertsManagementSection.addEventListener("click", (event) => {
+      const filterButton = event.target.closest("[data-alert-page-filter]");
+      if (filterButton) {
+        activeAlertsPageFilter = filterButton.dataset.alertPageFilter || "active";
+        renderDashboard();
+        return;
+      }
+
+      const historyButton = event.target.closest("[data-alert-history]");
+      if (historyButton) {
+        const record = currentAlertRecords.find((item) => item.id === historyButton.dataset.alertHistory);
+        if (record) openAlertHistory(record);
+        return;
+      }
+
+      const actionButton = event.target.closest("[data-alert-action]");
+      if (!actionButton) return;
+      const id = actionButton.dataset.alertId;
+      const status = actionButton.dataset.alertAction;
+      if (!id || !status || !alertActionState[id]) return;
+      alertActionState[id] = {
+        ...alertActionState[id],
+        status,
+        updatedAt: new Date().toISOString(),
+        updatedBy: "admin@neurocrop.com"
+      };
+      persistAlertActionState();
+      renderDashboard();
     });
 
     elements.metricsGrid.addEventListener("click", (event) => {
