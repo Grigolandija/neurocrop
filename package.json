@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "prepare-legacy": "node ./scripts/prepare-legacy.mjs",
+    "predev": "pnpm prepare-legacy",
     "dev": "vite",
+    "prebuild": "pnpm prepare-legacy",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

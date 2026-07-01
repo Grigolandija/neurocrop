@@ -522,12 +522,14 @@ Integracija laikoma baigta, kai:
 ## Svarbūs failai
 
 ```text
-src/App.tsx                 React route’ai ir bendra aplikacijos būsena
-src/lib/api.ts              tipizuotas frontend API klientas
-src/pages/                  atskiri React puslapiai
+src/App.tsx                 React Router URL apvalkalas
+legacy/dashboard.html       dabartinis pilnas dashboard UI
+legacy/dashboard-store.js   lokalūs demonstraciniai duomenys ir CRUD
+legacy/api.js               dabartinio dashboard API klientas
+src/pages/                  būsimos palaipsnės React migracijos komponentai
+scripts/prepare-legacy.mjs  paruošia legacy asset’us dev/build metu
 public/runtime-config.js    API URL konfigūracija
 public/.htaccess            SPA route fallback Apache hostingui
-legacy/dashboard.html       tik sena vizualinė nuoroda, nedeployinama
 API-CONTRACT.md             endpointų ir JSON formatų sutartis
 ```
 

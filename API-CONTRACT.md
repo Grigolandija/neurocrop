@@ -43,43 +43,39 @@ GET  /auth/me
 GET /dashboard
 ```
 
-Minimalus šiuo metu React naudojamas atsakymas:
+Minimalus dabartinio dashboard naudojamas pereinamasis atsakymas:
 
 ```json
 {
-  "areas": [
+  "sites": [
     {
       "id": "greenhouse-1",
-      "name": "Greenhouse No. 1"
-    }
-  ],
-  "sections": [
-    {
-      "id": "tomato-rear",
-      "locationId": "greenhouse-1",
-      "name": "Tomato Block A, Rear",
-      "cropProfile": "Tomatoes, vegetative",
-      "nodes": [
+      "name": "Greenhouse No. 1",
+      "zones": [
         {
-          "id": "NS-000001",
-          "devEui": "0011223344556677",
-          "battery": 63,
-          "active": true
+          "id": "tomato-a-back",
+          "name": "Tomato Block A, Rear",
+          "profile": "tomato",
+          "sensorCount": 1,
+          "batteryNodes": [
+            {
+              "id": "NS-000001",
+              "devEui": "0011223344556677",
+              "level": 63,
+              "active": true
+            }
+          ],
+          "availableMetrics": ["airTemp", "humidity", "co2"]
         }
-      ],
-      "installedMetrics": ["airTemp", "humidity", "co2"],
-      "readings": {
-        "airTemp": 23.4,
-        "humidity": 63,
-        "co2": 890
-      }
+      ]
     }
   ]
 }
 ```
 
-`locationId` paliktas tik kaip laikinas React modelio lauko pavadinimas.
-Backend domeno modelyje rekomenduojama naudoti `areaId`.
+`sites/zones` yra laikinas esamo UI wire formatas. Backend domeno modelyje ir
+naujuose endpointuose naudoti `areas/sections`; formatas bus pakeistas kartu
+su kiekvieno puslapio 1:1 React migracija.
 
 ## CRUD
 

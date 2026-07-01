@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 public/vendor/
+public/dashboard.html
+public/dashboard-store.js
+public/api.js
 *.local
 
 # Editor directories and files
