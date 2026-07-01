@@ -10650,7 +10650,10 @@
     };
 
     function resolveDashboardRoute(rawValue) {
-      const normalizedValue = String(rawValue || "").replace(/^#/, "").toLowerCase();
+      const normalizedValue = String(rawValue || "")
+        .replace(/^#/, "")
+        .replace(/^\/+/, "")
+        .toLowerCase();
       return dashboardRouteMap[normalizedValue] || dashboardRouteMap.overview;
     }
 
@@ -10658,18 +10661,49 @@
       const normalizedRoute = route || "/";
       try {
         if (window.top && window.top !== window) {
-          if (window.top.location.pathname !== normalizedRoute) {
-            if (options.replace) {
-              window.top.location.replace(normalizedRoute);
-            } else {
-              window.top.location.assign(normalizedRoute);
-            }
-          }
+          window.top.postMessage({
+            type: "neurocrop:navigate",
+            route: normalizedRoute,
+            replace: Boolean(options.replace)
+          }, window.location.origin);
         }
       } catch (error) {
         // Parent routing is optional when the dashboard is opened standalone.
       }
     }
+
+    function applyDashboardRoute(rawRoute) {
+      const nextRoute = resolveDashboardRoute(rawRoute);
+      if (nextRoute.page === activePrimaryPage) return;
+
+      activePrimaryPage = nextRoute.page;
+      sidebarActionOverride = null;
+      closeContextMenus();
+
+      if (activePrimaryPage === "history") {
+        activeWorkspaceFocus = "all";
+        setExperienceMode("detailed");
+      }
+
+      renderDashboard();
+
+      const targetByPage = {
+        overview: "heroStatusPanel",
+        locations: "locationsManagementSection",
+        blocks: "blocksManagementSection",
+        nodes: "nodesManagementSection",
+        history: "historySection",
+        alerts: "alertsManagementSection",
+        settings: "settingsManagementSection"
+      };
+      scrollToSection(targetByPage[activePrimaryPage] || "heroStatusPanel");
+    }
+
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.type !== "neurocrop:route") return;
+      applyDashboardRoute(event.data.route);
+    });
 
     function isDetailedExperience() {
       return activeExperienceMode === "detailed";

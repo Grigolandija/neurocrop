@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import './App.css'
 
@@ -41,7 +41,15 @@ function DashboardFrame() {
   const location = useLocation()
   const navigate = useNavigate()
   const route = normalizeRoute(location.pathname)
-  const dashboardSrc = buildDashboardSrc(route)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const initialDashboardSrc = useRef(buildDashboardSrc(route))
+
+  function syncDashboardRoute() {
+    iframeRef.current?.contentWindow?.postMessage({
+      type: 'neurocrop:route',
+      route,
+    }, window.location.origin)
+  }
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
@@ -58,13 +66,18 @@ function DashboardFrame() {
     return () => window.removeEventListener('message', handleMessage)
   }, [navigate, route])
 
+  useEffect(() => {
+    syncDashboardRoute()
+  }, [route])
+
   return (
     <main className="app-shell">
       <iframe
-        key={route}
+        ref={iframeRef}
         className="dashboard-frame"
         title="NeuroCrop Control Center"
-        src={dashboardSrc}
+        src={initialDashboardSrc.current}
+        onLoad={syncDashboardRoute}
       />
     </main>
   )
