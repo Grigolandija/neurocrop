@@ -6,267 +6,35 @@ pateikimui.
 
 Šis dokumentas pirmiausia skirtas backend ir duomenų bazės programuotojui.
 
-## Komandų atmintinė
+## Greitas tinklalapio atnaujinimas
 
-Ši dalis skirta kasdieniam naudojimui, kad nereikėtų prisiminti komandų.
-Komandas vykdyti Terminal lange.
-
-### Pereiti į projektą
-
-Jeigu projektas yra kataloge `~/neurocrop`:
+Jeigu projektas jau atsisiųstas į kompiuterį arba serverį:
 
 ```bash
 cd ~/neurocrop
-```
-
-Jeigu katalogas yra kitoje vietoje, naudoti tikrą jo kelią:
-
-```bash
-cd "/pilnas/kelias/iki/frontend"
-```
-
-### Pirmą kartą atsisiųsti projektą iš GitHub
-
-`GITHUB_REPO_URL` pakeisti tikru GitHub repozitorijos adresu:
-
-```bash
-git clone GITHUB_REPO_URL neurocrop
-cd neurocrop
-pnpm install
-```
-
-Šias komandas reikia atlikti tik pirmą kartą konkrečiame kompiuteryje.
-
-### Paleisti frontend darbui
-
-```bash
-pnpm dev
-```
-
-Terminal parodys lokalų adresą, dažniausiai `http://localhost:5173`.
-
-Sustabdyti veikiantį development serverį:
-
-```text
-Ctrl + C
-```
-
-### Patikrinti, kokie failai pakeisti
-
-```bash
-git status
-```
-
-Peržiūrėti konkrečius kodo pakeitimus:
-
-```bash
-git diff
-```
-
-### Gauti naujausius pakeitimus iš GitHub
-
-```bash
-git pull --ff-only
-```
-
-Jeigu buvo pakeistas `package.json` arba `pnpm-lock.yaml`:
-
-```bash
-pnpm install
-```
-
-### Viena komanda gauti pakeitimus ir paruošti tinklalapį
-
-```bash
 pnpm update-site
 ```
 
-Ji automatiškai atlieka:
+Ši viena komanda automatiškai:
+
+1. atsisiunčia naujausius GitHub pakeitimus su saugiu `git pull --ff-only`;
+2. patikrina ir įdiegia tiksliai `pnpm-lock.yaml` nurodytas priklausomybes;
+3. sukuria naują production versiją kataloge `dist/`.
+
+Po komandos reikia įkelti **visą `dist/` katalogo turinį** į hostingo
+`public_html` katalogą.
+
+Jeigu projekto katalogas vadinasi kitaip arba yra kitoje vietoje, pirmoje
+komandoje reikia naudoti tikrą jo kelią, pvz.:
 
 ```bash
-git pull --ff-only
-pnpm install --frozen-lockfile
-pnpm build
+cd "/home/user/projects/neurocrop-frontend"
+pnpm update-site
 ```
 
-Baigus nauja svetainės versija yra kataloge `dist/`.
-
-### Patikrinti projektą prieš įkeliant
-
-Patikrinti kodo taisykles:
-
-```bash
-pnpm lint
-```
-
-Sukurti production versiją ir patikrinti, ar nėra build klaidų:
-
-```bash
-pnpm build
-```
-
-Lokaliai peržiūrėti sukurtą `dist/` versiją:
-
-```bash
-pnpm preview
-```
-
-### Įkelti frontend į hostingą
-
-Pirmiausia sukurti naują versiją:
-
-```bash
-pnpm build
-```
-
-Tada į hostingo `public_html` įkelti **visą `dist/` katalogo turinį**, o ne
-patį `dist` katalogą.
-
-Į hostingą nereikia kelti:
-
-```text
-src/
-node_modules/
-.git/
-package.json
-pnpm-lock.yaml
-README.md
-```
-
-### Paruošti ZIP įkėlimui
-
-macOS arba Linux:
-
-```bash
-pnpm build
-cd dist
-zip -r ../NEUROCROP-IKELTI-I-PUBLIC-HTML.zip . -x "*.DS_Store"
-cd ..
-```
-
-Sukurtas failas:
-
-```text
-NEUROCROP-IKELTI-I-PUBLIC-HTML.zip
-```
-
-Jo turinį išskleisti hostingo `public_html` kataloge.
-
-### Išsaugoti savo pakeitimus GitHub
-
-Patikrinti pakeitimus:
-
-```bash
-git status
-git diff
-```
-
-Pridėti pakeistus failus, sukurti commit ir įkelti į GitHub:
-
-```bash
-git add .
-git commit -m "Trumpas pakeitimo aprašymas"
-git push origin main
-```
-
-Pavyzdys:
-
-```bash
-git add .
-git commit -m "Atnaujinti Trends grafikai"
-git push origin main
-```
-
-### Dirbti atskiroje Git šakoje
-
-Rekomenduojama didesnius frontend arba backend pakeitimus daryti atskiroje
-šakoje:
-
-```bash
-git switch -c feature/trumpas-pavadinimas
-```
-
-Pirmą kartą įkelti naują šaką į GitHub:
-
-```bash
-git push -u origin feature/trumpas-pavadinimas
-```
-
-Vėliau toje pačioje šakoje užtenka:
-
-```bash
-git add .
-git commit -m "Pakeitimo aprašymas"
-git push
-```
-
-Grįžti į pagrindinę šaką:
-
-```bash
-git switch main
-git pull --ff-only
-```
-
-### Patikrinti naudojamas versijas
-
-```bash
-node --version
-pnpm --version
-git --version
-```
-
-### Pakeisti backend API adresą
-
-Redaguoti:
-
-```text
-public/runtime-config.js
-```
-
-Įrašyti:
-
-```js
-window.NEUROCROP_CONFIG = {
-  apiBaseUrl: "https://api.neurocrop.lt/api/v1"
-};
-```
-
-Po pakeitimo iš naujo sukurti svetainę:
-
-```bash
-pnpm build
-```
-
-### Dažniausia pilna frontend darbo eiga
-
-```bash
-cd ~/neurocrop
-git pull --ff-only
-pnpm install
-pnpm dev
-```
-
-Baigus pakeitimus:
-
-```bash
-pnpm lint
-pnpm build
-git status
-git add .
-git commit -m "Pakeitimo aprašymas"
-git push origin main
-```
-
-### Svarbios pastabos
-
-- Prieš `git pull` patikrinti `git status`. Jeigu yra nebaigtų pakeitimų, juos
-  pirmiausia commitinti.
-- Nenaudoti `git reset --hard`, jeigu tiksliai nežinoma, ką ši komanda padarys.
-- Necommitinti slaptažodžių, MySQL prisijungimų, ChirpStack API raktų ar kitų
-  paslapčių.
-- `dist/` generuojamas su `pnpm build` ir pagal dabartinį `.gitignore` nėra
-  keliamas į GitHub.
-- `node_modules/` niekada nereikia kelti nei į GitHub, nei į `public_html`.
+Komanda sąmoningai pati nekopijuoja failų į `public_html`, nes skirtinguose
+hostinguose skiriasi katalogo kelias ir prieigos būdas. Taip išvengiama
+atsitiktinio ne to katalogo perrašymo.
 
 ## Svarbiausia architektūros taisyklė
 
