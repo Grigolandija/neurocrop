@@ -83,7 +83,7 @@ function makeChartOption(block: Block, keys: MetricKey[], range: Range): echarts
       textStyle: { color: '#fff' },
       axisPointer: { type: 'cross', lineStyle: { color: 'rgba(24,33,29,.3)' } },
       formatter: (raw) => {
-        const params = (Array.isArray(raw) ? raw : [raw]) as Array<{ seriesIndex: number; value: SeriesPoint; marker: string }>
+        const params = (Array.isArray(raw) ? raw : [raw]) as unknown as Array<{ seriesIndex: number; value: SeriesPoint; marker: string }>
         const first = params[0]
         if (!first || !Array.isArray(first.value)) return ''
         const date = new Date(first.value[0]).toLocaleString('lt-LT')
@@ -169,8 +169,8 @@ function makeChartOption(block: Block, keys: MetricKey[], range: Range): echarts
           itemStyle: { color: '#fff', borderColor: color, borderWidth: 2 },
           label: { color, fontWeight: 800, backgroundColor: 'rgba(255,255,255,.94)', borderRadius: 7, padding: [3, 6] },
           data: [
-            { coord: minPoint, value: min, label: { formatter: `MIN ${valueLabel(min, metric)}`, position: 'bottom' } },
-            { coord: maxPoint, value: max, label: { formatter: `MAX ${valueLabel(max, metric)}`, position: 'top' } },
+            { name: 'Minimum', coord: minPoint, value: min, label: { formatter: `MIN ${valueLabel(min, metric)}`, position: 'bottom' } },
+            { name: 'Maximum', coord: maxPoint, value: max, label: { formatter: `MAX ${valueLabel(max, metric)}`, position: 'top' } },
           ],
         },
       }
