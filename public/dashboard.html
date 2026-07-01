@@ -9694,7 +9694,6 @@
 
     const lithuanianInterfaceText = {
       "Language": "Kalba",
-      "Online": "Prisijungta",
       "Sign out": "Atsijungti",
       "Control Center": "Valdymo centras",
       "Overview": "Apžvalga",
@@ -16508,22 +16507,21 @@
       const definition = item.option.definition;
       const optimalRange = item.option.optimalRange || definition.optimal;
       const warningRange = definition.warning || optimalRange;
-      const warningColor = "#b47a24";
       const criticalColor = "#b13d32";
 
       if (definition.behavior === "higherIsBetter") {
         return [
           { lt: warningRange[0], color: criticalColor },
-          { gte: warningRange[0], lt: optimalRange[0], color: warningColor },
+          { gte: warningRange[0], lt: optimalRange[0], color: criticalColor },
           { gte: optimalRange[0], color: optimalColor }
         ];
       }
 
       return [
         { lt: warningRange[0], color: criticalColor },
-        { gte: warningRange[0], lt: optimalRange[0], color: warningColor },
+        { gte: warningRange[0], lt: optimalRange[0], color: criticalColor },
         { gte: optimalRange[0], lte: optimalRange[1], color: optimalColor },
-        { gt: optimalRange[1], lte: warningRange[1], color: warningColor },
+        { gt: optimalRange[1], lte: warningRange[1], color: criticalColor },
         { gt: warningRange[1], color: criticalColor }
       ];
     }
@@ -16740,26 +16738,6 @@
         };
       }
 
-      const rapidChangeOverlaySeries = rapidChangeIntervals.map((interval, index) => ({
-        name: `__rapid_change_${interval.seriesIndex}_${index}`,
-        type: "line",
-        yAxisIndex: interval.seriesIndex,
-        data: [
-          [interval.start, interval.startValue],
-          [interval.end, interval.endValue]
-        ],
-        showSymbol: false,
-        silent: true,
-        animation: false,
-        z: 8,
-        lineStyle: {
-          color: "#b13d32",
-          width: 3,
-          cap: "round",
-          join: "round"
-        },
-        tooltip: { show: false }
-      }));
       const trendValueVisualMaps = seriesItems.map((item, index) => ({
         show: false,
         type: "piecewise",
@@ -16907,7 +16885,7 @@
           splitLine: { show: false }
         },
         yAxis,
-        series: [...chartSeries, ...rapidChangeOverlaySeries]
+        series: chartSeries
       };
     }
 
