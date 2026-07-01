@@ -25,8 +25,8 @@ export type Location = {
 }
 
 export type DashboardData = {
-  locations: Location[]
-  blocks: Block[]
+  areas: Location[]
+  sections: Block[]
 }
 
 export type MetricDefinition = {

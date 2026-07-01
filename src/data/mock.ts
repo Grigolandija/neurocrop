@@ -12,11 +12,11 @@ export const metricDefinitions: MetricDefinition[] = [
 const allMetrics = metricDefinitions.map((metric) => metric.key) as MetricKey[]
 
 export const mockDashboardData: DashboardData = {
-  locations: [
+  areas: [
     { id: 'greenhouse-1', name: 'Greenhouse No. 1' },
     { id: 'greenhouse-2', name: 'Greenhouse No. 2' },
   ],
-  blocks: [
+  sections: [
     {
       id: 'tomato-rear', locationId: 'greenhouse-1', name: 'Tomato Block A, Rear', cropProfile: 'Tomatoes, vegetative',
       nodes: [

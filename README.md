@@ -522,9 +522,12 @@ Integracija laikoma baigta, kai:
 ## Svarbūs failai
 
 ```text
-public/api.js               frontend API klientas
+src/App.tsx                 React route’ai ir bendra aplikacijos būsena
+src/lib/api.ts              tipizuotas frontend API klientas
+src/pages/                  atskiri React puslapiai
 public/runtime-config.js    API URL konfigūracija
-public/dashboard.html       dashboard UI
+public/.htaccess            SPA route fallback Apache hostingui
+legacy/dashboard.html       tik sena vizualinė nuoroda, nedeployinama
 API-CONTRACT.md             endpointų ir JSON formatų sutartis
 ```
 

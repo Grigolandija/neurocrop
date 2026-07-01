@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NeuroCrop | Growing Conditions Index</title>
+  <title>NeuroCrop | Legacy dashboard reference</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7683,8 +7683,7 @@
     }
 
     .trend-history-chart-shell,
-    .trend-history-callout,
-    .trend-history-stat-card {
+    .trend-history-callout {
       border: 1px solid rgba(24, 33, 29, 0.08);
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 241, 233, 0.84));
       box-shadow: 0 18px 36px rgba(24, 33, 29, 0.08);
@@ -7796,8 +7795,8 @@
     .trend-history-chart {
       position: relative;
       margin-top: 0.85rem;
-      height: clamp(440px, 42vw, 560px);
-      min-height: 440px;
+      height: clamp(520px, 48vw, 660px);
+      min-height: 520px;
       border-radius: 24px;
       border: 1px solid rgba(24, 33, 29, 0.06);
       background:
@@ -7843,7 +7842,7 @@
     }
 
     @media (min-width: 1180px) {
-      .trend-history-chart { min-height: 470px; }
+      .trend-history-chart { min-height: 560px; }
     }
 
     .trend-history-axis {
@@ -7864,47 +7863,6 @@
 
     .trend-history-axis span:last-child {
       text-align: right;
-    }
-
-    .trend-history-stats {
-      display: grid;
-      gap: 0.6rem;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      margin-top: 0.85rem;
-    }
-
-    @media (min-width: 1180px) {
-      .trend-history-stats {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-    }
-
-    .trend-history-stat-card {
-      border-radius: 18px;
-      padding: 0.68rem 0.8rem;
-    }
-
-    .trend-history-stat-label {
-      font-size: 0.6rem;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: rgba(24, 33, 29, 0.44);
-    }
-
-    .trend-history-stat-value {
-      margin-top: 0.2rem;
-      font-size: 0.98rem;
-      font-weight: 800;
-      line-height: 1.15;
-      color: var(--designer-text);
-    }
-
-    .trend-history-stat-note {
-      margin-top: 0.18rem;
-      font-size: 0.7rem;
-      line-height: 1.25;
-      color: rgba(24, 33, 29, 0.58);
     }
 
     .trend-history-callout-title {
@@ -9635,8 +9593,6 @@
                 </div>
               </div>
 
-              <div id="trendHistoryStats" class="trend-history-stats"></div>
-
               <div class="trend-history-callout">
                 <div class="trend-history-callout-title">Why this matters</div>
                 <p id="trendHistoryCallout" class="trend-history-callout-copy">Historical curves help clients understand whether the current reading is a one-off spike or part of a longer drift.</p>
@@ -10468,7 +10424,6 @@
       trendHistoryStartLabel: document.getElementById("trendHistoryStartLabel"),
       trendHistoryMidLabel: document.getElementById("trendHistoryMidLabel"),
       trendHistoryEndLabel: document.getElementById("trendHistoryEndLabel"),
-      trendHistoryStats: document.getElementById("trendHistoryStats"),
       trendHistoryCallout: document.getElementById("trendHistoryCallout"),
       trendHistoryBackendNote: document.getElementById("trendHistoryBackendNote"),
       sensorHealthTitle: document.getElementById("sensorHealthTitle"),
@@ -10627,8 +10582,6 @@
     let activeTrendRangeKey = "24h";
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
-    let currentTrendHistoryChartState = null;
-    let activeTrendHistoryHoverSeriesIndex = -1;
     let trendHistoryChartInstance = null;
     let activeBlockFilterSiteId = "all";
     let activeSettingsProfileKey = activeProfileKey;
@@ -16130,6 +16083,7 @@
       const currentValue = clamp(option.value, domain[0], domain[1]);
       const optimalMid = midpoint(optimalRange);
       const trendSeed = hashString(`${scopeSeed}:${option.key}:${rangeKey}`);
+      const chartPrecision = Math.max(option.definition.decimals + 2, 3);
       const baseAmplitude = span * (rangeKey === "24h" ? 0.06 : rangeKey === "7d" ? 0.09 : 0.12);
       const driftBias = option.state === "critical"
         ? (currentValue - optimalMid) * 1.08
@@ -16150,13 +16104,10 @@
         const drift = startValue + (currentValue - startValue) * Math.pow(progress, 1.12);
         return roundValue(
           clamp(drift + ((waveA + waveB) * easing), domain[0], domain[1]),
-          option.definition.decimals
+          chartPrecision
         );
       });
-      const rapidChangeHints = [];
-
       // Demonstrate two independent events when temperature and CO2 are compared.
-      // Live API data is evaluated directly by the rate detector below.
       const directedDemoEvents = {
         airTemp: { index: 8, direction: 1 },
         co2: { index: 14, direction: -1 }
@@ -16166,9 +16117,7 @@
         ? directedDemoEvents[option.key]
         : null;
       if (directedEvent && points.length >= 20) {
-        const pointIntervalHours = rangeConfig.totalHours / Math.max(points.length - 1, 1);
-        const detectableMagnitude = getRapidChangeThreshold({ option }) * pointIntervalHours * 1.5;
-        const eventMagnitude = Math.max(span * 0.06, baseAmplitude, detectableMagnitude);
+        const eventMagnitude = Math.max(span * 0.06, baseAmplitude);
         const recoveryWeights = [1, 0.82, 0.64, 0.46, 0.28, 0.1];
         recoveryWeights.forEach((weight, offset) => {
           const pointIndex = directedEvent.index + offset;
@@ -16178,29 +16127,17 @@
               domain[0],
               domain[1]
             ),
-            option.definition.decimals
+            chartPrecision
           );
-        });
-        rapidChangeHints.push({
-          startIndex: directedEvent.index - 1,
-          endIndex: directedEvent.index,
-          direction: directedEvent.direction > 0 ? "rise" : "drop"
         });
       } else if (rangeKey === "24h" && option.state !== "optimal" && points.length >= 12) {
         const eventIndex = 7 + (trendSeed % 5);
         const eventDirection = currentValue < optimalMid ? -1 : 1;
-        const pointIntervalHours = rangeConfig.totalHours / Math.max(points.length - 1, 1);
-        const detectableMagnitude = getRapidChangeThreshold({ option }) * pointIntervalHours * 1.5;
-        const eventMagnitude = Math.max(span * 0.04, baseAmplitude * 0.75, detectableMagnitude);
+        const eventMagnitude = Math.max(span * 0.04, baseAmplitude * 0.75);
         points[eventIndex] = roundValue(
           clamp(points[eventIndex - 1] + (eventDirection * eventMagnitude), domain[0], domain[1]),
-          option.definition.decimals
+          chartPrecision
         );
-        rapidChangeHints.push({
-          startIndex: eventIndex - 1,
-          endIndex: eventIndex,
-          direction: eventDirection > 0 ? "rise" : "drop"
-        });
       }
 
       points[points.length - 1] = currentValue;
@@ -16208,8 +16145,7 @@
         domain,
         optimalRange,
         pointCount,
-        values: points,
-        rapidChangeHints
+        values: points
       };
     }
 
@@ -16245,16 +16181,6 @@
         >
           <span>${escapeHtml(config.label)}</span>
         </button>
-      `).join("");
-    }
-
-    function renderTrendStats(items) {
-      return items.map((item) => `
-        <article class="trend-history-stat-card">
-          <div class="trend-history-stat-label">${escapeHtml(item.label)}</div>
-          <div class="trend-history-stat-value">${escapeHtml(item.value)}</div>
-          <p class="trend-history-stat-note">${escapeHtml(item.note)}</p>
-        </article>
       `).join("");
     }
 
@@ -16586,99 +16512,6 @@
       ];
     }
 
-    const rapidChangeThresholdPerHour = {
-      airTemp: 0.9,
-      humidity: 2,
-      co2: 100,
-      lux: 3500,
-      soilTemp: 0.7,
-      vpd: 0.12,
-      soilMoisture: 3,
-      ec: 0.15,
-      ph: 0.2,
-      leafTemp: 0.8,
-      soilEc: 0.15,
-      waterTemp: 0.8,
-      airPressure: 2.5,
-      batteryLevel: 4
-    };
-
-    function getRapidChangeThreshold(item) {
-      const configuredThreshold = rapidChangeThresholdPerHour[item.option.key];
-      if (Number.isFinite(configuredThreshold)) return configuredThreshold;
-      const optimalRange = item.option.optimalRange || item.option.definition.optimal;
-      return Math.max(Math.abs(optimalRange[1] - optimalRange[0]) * 0.25, 0.01);
-    }
-
-    function detectRapidChangeIntervals(item, data, seriesIndex) {
-      const threshold = getRapidChangeThreshold(item);
-      const intervals = [];
-
-      for (let index = 1; index < data.length; index += 1) {
-        const previousPoint = data[index - 1];
-        const currentPoint = data[index];
-        const durationHours = Math.max((currentPoint[0] - previousPoint[0]) / (60 * 60 * 1000), 1 / 60);
-        const delta = currentPoint[1] - previousPoint[1];
-        const ratePerHour = delta / durationHours;
-        if (Math.abs(ratePerHour) < threshold) continue;
-
-        const direction = ratePerHour > 0 ? "rise" : "drop";
-        const previousInterval = intervals[intervals.length - 1];
-        if (
-          previousInterval
-          && previousInterval.direction === direction
-          && previousInterval.end === previousPoint[0]
-        ) {
-          previousInterval.end = currentPoint[0];
-          previousInterval.endValue = currentPoint[1];
-          previousInterval.peakRate = Math.max(previousInterval.peakRate, Math.abs(ratePerHour));
-          continue;
-        }
-
-        intervals.push({
-          seriesIndex,
-          metricKey: item.option.key,
-          metricLabel: item.option.label,
-          definition: item.option.definition,
-          direction,
-          start: previousPoint[0],
-          end: currentPoint[0],
-          startValue: previousPoint[1],
-          endValue: currentPoint[1],
-          peakRate: Math.abs(ratePerHour)
-        });
-      }
-
-      return intervals;
-    }
-
-    function getRapidChangeLabel(interval) {
-      const metricLabel = translateInterfaceText(interval.metricLabel);
-      if (interfaceLanguage === "lt") {
-        return `${interval.direction === "rise" ? "Staigus kilimas" : "Staigus kritimas"} · ${metricLabel}`;
-      }
-      return `${interval.direction === "rise" ? "Rapid rise" : "Rapid drop"} · ${metricLabel}`;
-    }
-
-    function mergeRapidChangeAreas(intervals) {
-      return [...intervals]
-        .sort((left, right) => left.start - right.start)
-        .reduce((areas, interval) => {
-          const previousArea = areas[areas.length - 1];
-          if (previousArea && interval.start <= previousArea.end) {
-            previousArea.end = Math.max(previousArea.end, interval.end);
-            previousArea.labels.add(getRapidChangeLabel(interval));
-            return areas;
-          }
-          areas.push({
-            start: interval.start,
-            end: interval.end,
-            labels: new Set([getRapidChangeLabel(interval)])
-          });
-          return areas;
-        }, []);
-    }
-
     function buildTrendValueColorPieces(item, optimalColor) {
       const definition = item.option.definition;
       const optimalRange = item.option.optimalRange || definition.optimal;
@@ -16709,8 +16542,7 @@
         rangeLabel,
         totalHours,
         rangeStart,
-        ariaLabel,
-        hoveredSeriesIndex = -1
+        ariaLabel
       } = state;
       const isMultiMetric = seriesItems.length > 1;
       const rangeEnd = rangeStart + (totalHours * 60 * 60 * 1000);
@@ -16727,6 +16559,22 @@
       const shortMetricLabel = (label) => translateInterfaceText(label)
         .replace("Air temperature", "Temperature")
         .replace("Relative humidity", "Humidity");
+      const targetBandLayerBySeries = new Map(
+        seriesItems
+          .map((item, index) => {
+            const definition = item.option.definition;
+            const optimalRange = item.option.optimalRange || definition.optimal;
+            const axisDomain = getTrendAxisDomain(item.series.values, definition, optimalRange);
+            const visualSpan = (optimalRange[1] - optimalRange[0])
+              / Math.max(axisDomain[1] - axisDomain[0], 0.0001);
+            return { index, visualSpan };
+          })
+          .sort((left, right) => right.visualSpan - left.visualSpan)
+          .reduce((layers, item, layer) => {
+            layers.set(item.index, layer);
+            return layers;
+          }, new Map())
+      );
 
       const yAxis = seriesItems.map((item, index) => {
         const color = colors[index];
@@ -16778,7 +16626,6 @@
         };
       });
 
-      const rapidChangeIntervals = [];
       const chartSeries = seriesItems.map((item, index) => {
         const color = colors[index];
         const definition = item.option.definition;
@@ -16789,34 +16636,14 @@
         ]);
         const labelSide = index === 0 ? "insideStartTop" : "insideEndTop";
         const labelPrefix = shortMetricLabel(item.option.label);
-        const detectedIntervals = detectRapidChangeIntervals(item, data, index);
-        const hintedIntervals = (item.series.rapidChangeHints || [])
-          .map((hint) => {
-            const startPoint = data[hint.startIndex];
-            const endPoint = data[hint.endIndex];
-            if (!startPoint || !endPoint) return null;
-            const durationHours = Math.max((endPoint[0] - startPoint[0]) / (60 * 60 * 1000), 1 / 60);
-            return {
-              seriesIndex: index,
-              metricKey: item.option.key,
-              metricLabel: item.option.label,
-              definition,
-              direction: hint.direction,
-              start: startPoint[0],
-              end: endPoint[0],
-              startValue: startPoint[1],
-              endValue: endPoint[1],
-              peakRate: Math.abs(endPoint[1] - startPoint[1]) / durationHours
-            };
-          })
-          .filter(Boolean)
-          .filter((hint) => !detectedIntervals.some((interval) => (
-            interval.start === hint.start && interval.end === hint.end
-          )));
-        rapidChangeIntervals.push(...detectedIntervals, ...hintedIntervals);
-        const isHovered = hoveredSeriesIndex === index;
         const targetMinLabel = `${labelPrefix} min ${formatValue(optimalRange[0], definition)}`;
         const targetMaxLabel = `${labelPrefix} max ${formatValue(optimalRange[1], definition)}`;
+        const minimumValue = Math.min(...item.series.values);
+        const maximumValue = Math.max(...item.series.values);
+        const minimumIndex = item.series.values.indexOf(minimumValue);
+        const maximumIndex = item.series.values.indexOf(maximumValue);
+        const extremaLabelColor = colorWithAlpha(color, 0.94);
+        const extremaBackground = "rgba(255, 255, 255, 0.94)";
 
         const seriesOption = {
           name: translateInterfaceText(item.option.label),
@@ -16834,34 +16661,15 @@
             width: 2,
             cap: "round",
             join: "round",
-            opacity: isHovered || hoveredSeriesIndex === -1 ? 1 : 0.22
+            opacity: 1
           },
           itemStyle: {
             borderColor: "#ffffff",
             borderWidth: 2,
-            opacity: isHovered || hoveredSeriesIndex === -1 ? 1 : 0.30
+            opacity: 1
           },
           emphasis: {
-            focus: "series",
-            lineStyle: {
-              width: 3,
-              opacity: 1
-            },
-            itemStyle: {
-              borderWidth: 2.5,
-              opacity: 1
-            },
-            areaStyle: {
-              color: colorWithAlpha(color, 0.10)
-            }
-          },
-          blur: {
-            lineStyle: {
-              opacity: 0.20
-            },
-            itemStyle: {
-              opacity: 0.20
-            }
+            disabled: true
           },
           areaStyle: {
             opacity: 0
@@ -16902,68 +16710,72 @@
                 label: { formatter: targetMinLabel }
               }
             ]
+          },
+          markPoint: {
+            silent: true,
+            animation: false,
+            symbol: "circle",
+            symbolSize: 10,
+            itemStyle: {
+              color: extremaBackground,
+              borderColor: extremaLabelColor,
+              borderWidth: 2,
+              opacity: 1
+            },
+            label: {
+              show: true,
+              distance: 8,
+              color: extremaLabelColor,
+              fontSize: 10,
+              fontWeight: 850,
+              backgroundColor: extremaBackground,
+              borderColor: colorWithAlpha(color, 0.20),
+              borderWidth: 1,
+              borderRadius: 7,
+              padding: [3, 6],
+              formatter: (params) => params.data?.displayLabel || ""
+            },
+            data: [
+              {
+                name: "Minimum",
+                coord: data[minimumIndex],
+                value: minimumValue,
+                displayLabel: `MIN ${formatValue(minimumValue, definition)}`,
+                label: { position: "bottom" }
+              },
+              {
+                name: "Maximum",
+                coord: data[maximumIndex],
+                value: maximumValue,
+                displayLabel: `MAX ${formatValue(maximumValue, definition)}`,
+                label: { position: "top" }
+              }
+            ]
           }
         };
 
-        if (isHovered) {
-          seriesOption.markArea = {
-            silent: true,
-            animation: false,
-            z: 0,
-            itemStyle: {
-              color: colorWithAlpha(color, 0.10),
-              borderColor: colorWithAlpha(color, 0.22),
-              borderWidth: 1
+        const targetBandLayer = targetBandLayerBySeries.get(index) || 0;
+        seriesOption.markArea = {
+          silent: true,
+          animation: false,
+          z: targetBandLayer,
+          itemStyle: {
+            color: colorWithAlpha(color, isMultiMetric && targetBandLayer === 0 ? 0.065 : 0.105),
+            borderColor: "transparent",
+            borderWidth: 0
+          },
+          data: [[
+            {
+              yAxis: optimalRange[0]
             },
-            data: [[
-              {
-                yAxis: optimalRange[0]
-              },
-              {
-                yAxis: optimalRange[1]
-              }
-            ]]
-          };
-        }
+            {
+              yAxis: optimalRange[1]
+            }
+          ]]
+        };
 
         return seriesOption;
       });
-      const rapidChangeAreas = mergeRapidChangeAreas(rapidChangeIntervals);
-
-      if (chartSeries[0] && rapidChangeAreas.length > 0 && hoveredSeriesIndex !== 0) {
-        chartSeries[0].markArea = {
-          silent: true,
-          animation: false,
-          z: 1,
-          itemStyle: {
-            color: "rgba(177, 61, 50, 0.11)",
-            borderColor: "rgba(177, 61, 50, 0.18)",
-            borderWidth: 1
-          },
-          label: {
-            show: true,
-            position: "insideTop",
-            color: "#9a4337",
-            fontSize: 10,
-            fontWeight: 800,
-            backgroundColor: "rgba(255, 248, 246, 0.94)",
-            borderColor: "rgba(177, 61, 50, 0.18)",
-            borderWidth: 1,
-            borderRadius: 7,
-            padding: [3, 6],
-            formatter: (params) => params.name
-          },
-          data: rapidChangeAreas.map((area) => [
-            {
-              name: [...area.labels].join(" / "),
-              xAxis: area.start
-            },
-            {
-              xAxis: area.end
-            }
-          ])
-        };
-      }
 
       const trendValueVisualMaps = seriesItems.map((item, index) => ({
         show: false,
@@ -17043,9 +16855,6 @@
             const firstPoint = params.find((param) => Array.isArray(param.value));
             if (!firstPoint) return "";
             const timestamp = tooltipDateFormat.format(new Date(firstPoint.value[0]));
-            const activeRapidChanges = rapidChangeIntervals.filter((interval) => (
-              firstPoint.value[0] >= interval.start && firstPoint.value[0] <= interval.end
-            ));
             const rows = params
               .filter((param) => Array.isArray(param.value) && param.seriesIndex < seriesItems.length)
               .map((param) => {
@@ -17062,14 +16871,7 @@
                 `;
               })
               .join("");
-            const rapidChangeRows = activeRapidChanges
-              .map((interval) => `
-                <div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.14);color:#ffb5ac;font-weight:800;">
-                  ${escapeHtml(getRapidChangeLabel(interval))}
-                </div>
-              `)
-              .join("");
-            return `<div style="font-weight:700;color:rgba(255,255,255,.72);">${escapeHtml(timestamp)}</div>${rows}${rapidChangeRows}`;
+            return `<div style="font-weight:700;color:rgba(255,255,255,.72);">${escapeHtml(timestamp)}</div>${rows}`;
           }
           },
           xAxis: {
@@ -17307,8 +17109,7 @@
         rangeLabel: rangeConfig.label,
         totalHours: rangeConfig.totalHours,
         rangeStart,
-        ariaLabel: `${selectedMetrics.map((metric) => metric.label).join(", ")} over the last ${rangeConfig.label}`,
-        hoveredSeriesIndex: activeTrendHistoryHoverSeriesIndex
+        ariaLabel: `${selectedMetrics.map((metric) => metric.label).join(", ")} over the last ${rangeConfig.label}`
       };
 
       return {
@@ -17333,7 +17134,6 @@
         rangeButtons: renderTrendRangeButtons(activeTrendRangeKey),
         readoutHtml: renderTrendReadout(seriesItems, rangeConfig),
         hoverPoints,
-        statsHtml: "",
         callout,
         backendNote: "Ready for real sensor history once live readings are connected."
       };
@@ -17364,26 +17164,7 @@
         { renderer: "svg" }
       );
       trendHistoryChartInstance.setOption(chartOption, { notMerge: true });
-      trendHistoryChartInstance.on("mouseover", (params) => {
-        if (params && Number.isInteger(params.seriesIndex)) {
-          refreshTrendHistoryHoverSeries(params.seriesIndex);
-        }
-      });
-      trendHistoryChartInstance.on("globalout", () => {
-        refreshTrendHistoryHoverSeries(-1);
-      });
       window.requestAnimationFrame(() => trendHistoryChartInstance?.resize());
-    }
-
-    function refreshTrendHistoryHoverSeries(nextSeriesIndex) {
-      const normalizedIndex = Number.isInteger(nextSeriesIndex) ? nextSeriesIndex : -1;
-      if (normalizedIndex === activeTrendHistoryHoverSeriesIndex) return;
-      activeTrendHistoryHoverSeriesIndex = normalizedIndex;
-      if (!currentTrendHistoryChartState) return;
-      renderTrendEChart(buildTrendEChartsOption({
-        ...currentTrendHistoryChartState,
-        hoveredSeriesIndex: activeTrendHistoryHoverSeriesIndex
-      }));
     }
 
     function openTrendHistory(metricKey) {
@@ -18941,19 +18722,14 @@
         elements.trendHistoryMetricLabel.textContent = trendHistoryState.metricLabel;
         elements.trendHistoryMetricMeta.textContent = trendHistoryState.metricMeta;
         elements.trendHistoryReadout.innerHTML = trendHistoryState.readoutHtml;
-        currentTrendHistoryChartState = trendHistoryState.chartState;
-        activeTrendHistoryHoverSeriesIndex = -1;
         renderTrendEChart(trendHistoryState.chartOption);
         elements.trendHistoryStartLabel.textContent = trendHistoryState.axisLabels.start;
         elements.trendHistoryMidLabel.textContent = trendHistoryState.axisLabels.mid;
         elements.trendHistoryEndLabel.textContent = trendHistoryState.axisLabels.end;
-        elements.trendHistoryStats.innerHTML = trendHistoryState.statsHtml;
         elements.trendHistoryCallout.textContent = trendHistoryState.callout;
         elements.trendHistoryBackendNote.textContent = trendHistoryState.backendNote;
       } else {
         currentTrendHistoryPoints = [];
-        currentTrendHistoryChartState = null;
-        activeTrendHistoryHoverSeriesIndex = -1;
         if (trendHistoryChartInstance) {
           trendHistoryChartInstance.dispose();
           trendHistoryChartInstance = null;
