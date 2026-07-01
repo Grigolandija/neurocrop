@@ -1,9 +1,6 @@
 # NeuroCrop integravimo instrukcija
 
-Šis dokumentas skirtas IT specialistui, kuris turi prijungti NeuroCrop
-frontend prie backend API, MySQL ir ChirpStack.
-
-## Frontend atnaujinimas ir ZIP
+Komandos Andriui:
 
 ```bash
 cd ~/neurocrop
@@ -14,9 +11,7 @@ cd dist
 zip -r ../REACT-DOMENUI.zip .
 ```
 
-Į domeno `public_html` keliami failai iš `dist/`, o ne pats `dist` katalogas.
-
-## Privaloma architektūra
+Dainiui:
 
 Frontend jungiasi tik prie NeuroCrop API:
 
