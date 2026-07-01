@@ -4,9 +4,10 @@ Komandos Andriui:
 
 ```bash
 cd ~/neurocrop
-git pull
+git pull --ff-only origin main
 pnpm install
 pnpm build
+rm -f REACT-DOMENUI.zip
 cd dist
 zip -r ../REACT-DOMENUI.zip .
 ```
