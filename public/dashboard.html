@@ -560,17 +560,54 @@
 
     .hero-panel {
       position: relative;
-      overflow: hidden;
+      overflow: visible;
       transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
+    }
+
+    .hero-main-stack {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #heroStatusPanel .indicator-stage {
+      order: 1;
+      margin-top: 0 !important;
+    }
+
+    #heroStatusPanel .hero-top-row {
+      order: 2;
+      margin-top: 0.85rem;
+      position: relative;
+      z-index: 80;
+    }
+
+    #heroStatusPanel .hero-control-strip {
+      order: 3;
+      margin-top: 0.55rem !important;
+      gap: 0.55rem;
+    }
+
+    #heroStatusPanel .advanced-tools-shell {
+      order: 4;
     }
 
     .dashboard-main-inner {
       display: flex;
       flex-direction: column;
+      padding-top: 0.1rem !important;
     }
 
     .dashboard-main-inner > section {
       width: 100%;
+    }
+
+    .dashboard-main-inner > section:first-of-type {
+      margin-top: 0 !important;
+    }
+
+    #todayPriorityPanel {
+      order: 2;
+      margin-top: 1.25rem;
     }
 
     #heroStatusPanel {
@@ -578,27 +615,27 @@
     }
 
     #metricsSection {
-      order: 2;
-    }
-
-    #historySection {
       order: 3;
     }
 
-    #sensorHealthSection {
+    #historySection {
       order: 4;
     }
 
-    #zoneImpactSection {
+    #sensorHealthSection {
       order: 5;
     }
 
-    #alertsSection {
+    #zoneImpactSection {
       order: 6;
     }
 
-    #opsDockSection {
+    #alertsSection {
       order: 7;
+    }
+
+    #opsDockSection {
+      order: 8;
     }
 
     .hero-panel[data-state="optimal"] {
@@ -800,11 +837,11 @@
     }
 
     .hero-control-strip {
-      order: 2;
+      order: 3;
     }
 
     .hero-main-stack .indicator-stage {
-      order: 3;
+      order: 1;
     }
 
     .advanced-tools-shell {
@@ -3303,16 +3340,220 @@
 
     .context-bar {
       position: relative;
-      z-index: 30;
+      z-index: 160;
       display: grid;
-      gap: 12px;
+      gap: 0.6rem;
       width: 100%;
+    }
+
+    .selection-panel {
+      position: relative;
+      z-index: 160;
+    }
+
+    .selection-panel {
+      border-radius: 24px;
+      border: 1px solid rgba(20, 32, 27, 0.08);
+      background:
+        radial-gradient(circle at top left, rgba(47, 106, 79, 0.06), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(248, 244, 237, 0.72));
+      padding: 0.7rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    }
+
+    .selection-panel-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .selection-panel-kicker {
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(20, 32, 27, 0.46);
+    }
+
+    .selection-panel-summary {
+      margin-top: 0.12rem;
+      color: rgba(20, 32, 27, 0.62);
+      font-size: 0.82rem;
+      font-weight: 650;
+      line-height: 1.25;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .selection-panel .scope-toggle {
+      padding: 0.24rem;
+    }
+
+    .selection-panel .scope-toggle-button {
+      min-height: 2.05rem;
+      padding: 0.45rem 1rem;
+      font-size: 0.78rem;
+    }
+
+    .selection-panel .context-card {
+      min-height: 0;
+      border-radius: 18px;
+      padding: 0.7rem 0.85rem !important;
+      box-shadow: 0 8px 18px rgba(20, 32, 27, 0.04);
+      width: 100%;
+    }
+
+    .selection-panel .context-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(20, 32, 27, 0.055);
+    }
+
+    .selection-panel .context-card-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+    }
+
+    .selection-panel .context-card-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.09em;
+    }
+
+    .selection-panel .context-card-value {
+      margin-top: 0.15rem;
+      font-size: 0.95rem;
+      line-height: 1.12;
+    }
+
+    .selection-panel .context-card-meta {
+      margin-top: 0.28rem;
+      font-size: 0.72rem;
+      line-height: 1.15;
+    }
+
+    .selection-panel .context-card-chevron {
+      top: 0.95rem;
+      right: 1rem;
+    }
+
+    @media (min-width: 1280px) {
+      .selection-panel {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.42rem;
+      }
+
+      .selection-panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex: 0 0 auto;
+        order: 2;
+        margin-bottom: 0;
+      }
+
+      .selection-panel-head > div:first-child {
+        display: none;
+      }
+
+      .selection-panel-head > .scope-toggle {
+        justify-self: end;
+      }
+
+      .selection-panel .context-bar {
+        flex: 1 1 auto;
+        order: 1;
+        min-width: 0;
+        justify-content: stretch;
+      }
+
+      .selection-panel-summary {
+        display: none;
+      }
+
+      .selection-panel .context-card {
+        padding: 0.48rem 0.72rem !important;
+      }
+
+      .selection-panel .context-bar {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 0.55rem;
+      }
+
+      .selection-panel .context-card-value {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .selection-panel .context-card-meta {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .selection-panel .context-card-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        font-size: 0.78rem;
+      }
+
+      .selection-panel .context-card-value {
+        font-size: 0.88rem;
+      }
+
+      .selection-panel .context-card-meta {
+        margin-top: 0.18rem;
+        font-size: 0.66rem;
+      }
+
+      .selection-panel .scope-toggle-button {
+        min-height: 1.82rem;
+        padding: 0.34rem 0.82rem;
+      }
+
+      #heroStatusPanel .hero-control-strip {
+        margin-top: 0.45rem !important;
+      }
+
+      #heroStatusPanel.hero-panel {
+        padding-top: 1rem !important;
+      }
+    }
+
+    #heroStatusPanel .hero-control-strip .control-pill {
+      padding: 0.45rem 0.9rem;
+      font-size: 0.8rem;
+      box-shadow: 0 8px 18px rgba(20, 32, 27, 0.04);
+    }
+
+    #heroStatusPanel .hero-control-strip .header-view-control {
+      padding: 0.22rem;
+      box-shadow: 0 8px 18px rgba(20, 32, 27, 0.04);
+    }
+
+    #heroStatusPanel .hero-control-strip .header-view-choice {
+      min-height: 2rem;
+      padding: 0.42rem 0.85rem;
+      font-size: 0.78rem;
+    }
+
+    #heroStatusPanel .hero-control-strip .header-view-label {
+      padding-left: 0.45rem;
+      font-size: 0.68rem;
     }
 
     @media (min-width: 1024px) {
       .context-bar {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        max-width: 860px;
       }
     }
 
@@ -3425,7 +3666,7 @@
       top: calc(100% + 10px);
       left: 0;
       right: 0;
-      z-index: 60;
+      z-index: 220;
       padding: 10px;
       border-radius: 20px;
       border: 1px solid rgba(20, 32, 27, 0.08);
@@ -3455,7 +3696,19 @@
     }
 
     .context-menu-option[data-active="true"] {
-      background: #eef5ef;
+      background: linear-gradient(180deg, #e6f1ea, #dce9e1);
+      box-shadow: inset 3px 0 0 #2f6a4f;
+      font-weight: 800;
+    }
+
+    .context-menu-option[data-active="true"]::after {
+      float: right;
+      color: #2f6a4f;
+      content: "Current";
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
     }
 
     .context-menu-label {
@@ -6376,16 +6629,18 @@
     .dashboard-shell {
       position: relative;
       z-index: 1;
-      gap: 1rem;
-      padding: clamp(0.75rem, 2vw, 1.2rem);
+      align-items: flex-start;
+      gap: 0.35rem;
+      padding: calc(44px + 0.1rem) 0.2rem 0.25rem;
     }
 
     .dashboard-main-inner,
     .dashboard-header-inner {
       position: relative;
       z-index: 1;
-      max-width: 1500px;
-      margin: 0 auto;
+      width: 100%;
+      max-width: none;
+      margin: 0;
     }
 
     .dashboard-sidebar,
@@ -6645,15 +6900,6 @@
       transform: translateX(8px);
     }
 
-    .nav-link[data-active="true"]::after {
-      content: "";
-      position: absolute;
-      inset: 8px auto 8px 10px;
-      width: 4px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.78);
-    }
-
     .control-pill,
     .header-command-button,
     .ops-dock-action-button,
@@ -6751,7 +6997,7 @@
 
     #heroStatusPanel {
       position: relative;
-      overflow: hidden;
+      overflow: visible;
       border: 1px solid rgba(255, 255, 255, 0.72);
       border-radius: 42px;
       background:
@@ -6867,6 +7113,15 @@
       text-shadow: 0 16px 24px rgba(0, 0, 0, 0.18);
     }
 
+    #heroStatusPanel .indicator-score-state {
+      margin-top: 0.1rem;
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.82);
+    }
+
     /* Keep the score readable when the selected section is healthy. */
     #heroStatusPanel .indicator-score-display[data-state="optimal"] {
       background: linear-gradient(180deg, #1f5b42 0%, #2f7a58 100%);
@@ -6880,6 +7135,14 @@
     #heroStatusPanel .indicator-score-display[data-state="optimal"] #indicatorScore {
       color: #ffffff !important;
       text-shadow: 0 12px 22px rgba(8, 35, 24, 0.28);
+    }
+
+    #heroStatusPanel .indicator-score-display[data-state="warning"] .indicator-score-state {
+      color: rgba(255, 248, 236, 0.9);
+    }
+
+    #heroStatusPanel .indicator-score-display[data-state="critical"] .indicator-score-state {
+      color: rgba(255, 243, 241, 0.92);
     }
 
     #heroStatusPanel .overall-state-card[data-state="optimal"] {
@@ -7161,13 +7424,85 @@
       color: rgba(24, 33, 29, 0.64);
     }
 
+    .trend-history-context {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.9rem;
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid rgba(24, 33, 29, 0.07);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.64);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    }
+
+    .trend-history-context-copy {
+      min-width: 0;
+    }
+
+    .trend-history-context-kicker {
+      display: block;
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(24, 33, 29, 0.42);
+    }
+
+    .trend-history-context-value {
+      margin-top: 0.18rem;
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: var(--designer-text);
+    }
+
+    .trend-history-context-selects {
+      display: grid;
+      gap: 0.5rem;
+      width: min(100%, 34rem);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .trend-history-context-selects label {
+      display: block;
+    }
+
+    .trend-history-context-selects span {
+      display: block;
+      font-size: 0.63rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(24, 33, 29, 0.42);
+    }
+
+    .trend-history-context-selects select {
+      margin-top: 0.35rem;
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid rgba(24, 33, 29, 0.10);
+      background: rgba(255, 255, 255, 0.94);
+      padding: 0.55rem 0.75rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--designer-text);
+      outline: none;
+    }
+
+    .trend-history-context-selects select:focus {
+      border-color: rgba(47, 106, 79, 0.22);
+      box-shadow: 0 0 0 2px rgba(47, 106, 79, 0.10);
+    }
+
     .trend-history-toolbar {
       display: grid;
-      gap: 0.85rem;
-      margin-top: 1.2rem;
-      padding: 1rem;
+      gap: 0.65rem;
+      margin-top: 0.85rem;
+      padding: 0.85rem;
       border: 1px solid rgba(24, 33, 29, 0.08);
-      border-radius: 28px;
+      border-radius: 24px;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 240, 232, 0.60));
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
     }
@@ -7243,13 +7578,14 @@
 
     .trend-history-layout {
       display: grid;
-      gap: 1rem;
-      margin-top: 1rem;
+      gap: 0.85rem;
+      margin-top: 0.9rem;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     @media (min-width: 1180px) {
       .trend-history-layout {
-        grid-template-columns: minmax(0, 1.7fr) minmax(290px, 0.9fr);
+        grid-template-columns: minmax(0, 1fr);
       }
     }
 
@@ -7264,7 +7600,12 @@
     .trend-history-chart-shell,
     .trend-history-callout {
       border-radius: 30px;
-      padding: 1.15rem;
+      padding: 1rem 1.05rem;
+    }
+
+    .trend-history-callout {
+      border-radius: 20px;
+      padding: 0.85rem 0.95rem;
     }
 
     .trend-history-chart-head {
@@ -7288,11 +7629,82 @@
       color: rgba(24, 33, 29, 0.58);
     }
 
+    .trend-history-readout {
+      display: grid;
+      gap: 0.65rem;
+      margin-top: 0.8rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .trend-history-readout-card {
+      border: 1px solid rgba(24, 33, 29, 0.08);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 0.78rem 0.85rem;
+      box-shadow: 0 10px 22px rgba(24, 33, 29, 0.055);
+    }
+
+    .trend-history-readout-card[data-tone="optimal"] {
+      border-color: rgba(53, 107, 83, 0.18);
+      background: linear-gradient(180deg, rgba(241, 248, 243, 0.86), rgba(255, 255, 255, 0.78));
+    }
+
+    .trend-history-readout-card[data-tone="warning"] {
+      border-color: rgba(175, 123, 44, 0.20);
+      background: linear-gradient(180deg, rgba(255, 246, 229, 0.88), rgba(255, 255, 255, 0.78));
+    }
+
+    .trend-history-readout-card[data-tone="critical"] {
+      border-color: rgba(160, 84, 68, 0.20);
+      background: linear-gradient(180deg, rgba(255, 237, 232, 0.88), rgba(255, 255, 255, 0.78));
+    }
+
+    .trend-history-readout-kicker {
+      display: flex;
+      align-items: center;
+      gap: 0.42rem;
+      font-size: 0.64rem;
+      font-weight: 850;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(24, 33, 29, 0.46);
+    }
+
+    .trend-history-readout-dot {
+      width: 0.48rem;
+      height: 0.48rem;
+      border-radius: 999px;
+      background: var(--designer-accent);
+    }
+
+    .trend-history-readout-card[data-tone="warning"] .trend-history-readout-dot {
+      background: #af7b2c;
+    }
+
+    .trend-history-readout-card[data-tone="critical"] .trend-history-readout-dot {
+      background: #a05444;
+    }
+
+    .trend-history-readout-main {
+      margin-top: 0.42rem;
+      font-size: 1rem;
+      font-weight: 850;
+      line-height: 1.25;
+      color: var(--designer-text);
+    }
+
+    .trend-history-readout-note {
+      margin-top: 0.28rem;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: rgba(24, 33, 29, 0.58);
+    }
+
     .trend-history-chart {
       position: relative;
-      margin-top: 1rem;
-      min-height: 260px;
-      border-radius: 26px;
+      margin-top: 0.85rem;
+      min-height: 300px;
+      border-radius: 24px;
       border: 1px solid rgba(24, 33, 29, 0.06);
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 242, 234, 0.90)),
@@ -7331,6 +7743,14 @@
       display: block;
       width: 100%;
       height: auto;
+      shape-rendering: geometricPrecision;
+      text-rendering: geometricPrecision;
+    }
+
+    @media (min-width: 1180px) {
+      .trend-history-chart {
+        min-height: 340px;
+      }
     }
 
     .trend-history-axis {
@@ -7353,67 +7773,69 @@
       text-align: right;
     }
 
-    .trend-history-side {
-      display: grid;
-      gap: 1rem;
-      align-content: start;
-    }
-
     .trend-history-stats {
       display: grid;
-      gap: 0.8rem;
+      gap: 0.6rem;
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 0.85rem;
+    }
+
+    @media (min-width: 1180px) {
+      .trend-history-stats {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
     }
 
     .trend-history-stat-card {
-      border-radius: 24px;
-      padding: 1rem;
+      border-radius: 18px;
+      padding: 0.68rem 0.8rem;
     }
 
     .trend-history-stat-label {
-      font-size: 0.68rem;
+      font-size: 0.6rem;
       font-weight: 800;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       color: rgba(24, 33, 29, 0.44);
     }
 
     .trend-history-stat-value {
-      margin-top: 0.45rem;
-      font-size: 1.15rem;
+      margin-top: 0.2rem;
+      font-size: 0.98rem;
       font-weight: 800;
       line-height: 1.15;
       color: var(--designer-text);
     }
 
     .trend-history-stat-note {
-      margin-top: 0.35rem;
-      font-size: 0.8rem;
-      line-height: 1.5;
+      margin-top: 0.18rem;
+      font-size: 0.7rem;
+      line-height: 1.25;
       color: rgba(24, 33, 29, 0.58);
     }
 
     .trend-history-callout-title {
-      font-size: 0.78rem;
+      font-size: 0.66rem;
       font-weight: 800;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       color: rgba(24, 33, 29, 0.46);
     }
 
     .trend-history-callout-copy {
-      margin-top: 0.55rem;
-      font-size: 0.92rem;
-      line-height: 1.7;
+      margin-top: 0.3rem;
+      font-size: 0.82rem;
+      line-height: 1.45;
       color: rgba(24, 33, 29, 0.66);
     }
 
     .trend-history-backend-note {
-      margin-top: 0.8rem;
-      font-size: 0.82rem;
-      line-height: 1.6;
+      margin-top: 0.3rem;
+      font-size: 0.7rem;
+      line-height: 1.35;
       color: rgba(24, 33, 29, 0.52);
     }
+
 
     .alert-filter-chip[data-active="true"],
     .power-filter-chip[data-active="true"],
@@ -7580,12 +8002,24 @@
       }
     }
 
-    @media (max-width: 767px) {
+    @media (max-width: 1179px) {
+      html,
+      body,
+      .designer-app {
+        overflow-x: auto !important;
+      }
+
       .dashboard-shell {
         gap: 0.8rem;
         padding: 0.7rem;
+        min-width: 1180px;
       }
 
+      .dashboard-main-inner {
+        min-width: 0;
+      }
+    }
+    @media (max-width: 767px) {
       #dashboardHeader {
         border-radius: 24px;
       }
@@ -7752,8 +8186,13 @@
     .today-priority-panel {
       display: grid;
       grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+      align-items: start;
       gap: 16px;
       margin-bottom: 24px;
+    }
+
+    .today-priority-panel[data-has-secondary-alerts="false"] {
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .today-priority-main,
@@ -7761,15 +8200,17 @@
       border: 1px solid rgba(20, 32, 27, 0.09);
       border-radius: 30px;
       background: rgba(255, 255, 255, 0.9);
-      box-shadow: 0 18px 36px rgba(20, 32, 27, 0.06);
+      box-shadow: 0 9px 20px rgba(20, 32, 27, 0.035);
     }
 
     .today-priority-main {
-      padding: 24px;
+      padding: 16px 20px;
+      height: fit-content;
     }
 
     .today-priority-alerts {
       padding: 20px;
+      height: fit-content;
     }
 
     .today-priority-kicker {
@@ -7781,41 +8222,163 @@
     }
 
     .today-priority-title {
-      margin-top: 8px;
+      margin-top: 6px;
       color: var(--ink);
       font-family: var(--font-display);
-      font-size: clamp(1.45rem, 2.4vw, 2rem);
+      font-size: clamp(1.35rem, 2.1vw, 1.8rem);
       font-weight: 700;
       line-height: 1.12;
     }
+
+    .today-priority-context {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+      margin-top: 6px;
+      color: rgba(31, 47, 39, 0.62);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .today-priority-context i { color: #2f6a4f; }
+    .today-priority-context span { color: rgba(31, 47, 39, 0.34); }
 
     .today-priority-copy {
       max-width: 48rem;
       margin-top: 10px;
       color: rgba(31, 47, 39, 0.68);
       font-size: 0.95rem;
-      line-height: 1.55;
+      line-height: 1.4;
     }
+
+    .today-priority-facts {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .today-priority-fact {
+      min-width: 0;
+      border-left: 2px solid rgba(20, 32, 27, 0.1);
+      padding: 2px 10px;
+    }
+
+    .today-priority-fact span {
+      display: block;
+      color: rgba(31, 47, 39, 0.54);
+      font-size: 0.72rem;
+      font-weight: 650;
+    }
+
+    .today-priority-fact strong {
+      display: block;
+      margin-top: 3px;
+      color: #1f2f27;
+      font-size: 0.9rem;
+      line-height: 1.25;
+    }
+
+    .today-priority-fact strong[data-state="warning"] { color: #af7b2c; }
+    .today-priority-fact strong[data-state="critical"] { color: #a05444; }
 
     .today-priority-action {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      margin-top: 18px;
       border: 0;
-      border-radius: 16px;
-      background: var(--pine);
-      color: white;
-      padding: 12px 16px;
+      background: transparent;
+      color: #21473b;
+      padding: 4px 0;
       font-size: 0.9rem;
-      font-weight: 750;
-      transition: transform 160ms ease, box-shadow 160ms ease;
+      font-weight: 800;
+      text-align: left;
+      transition: color 160ms ease;
     }
 
     .today-priority-action:hover,
     .today-priority-action:focus-visible {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 20px rgba(25, 71, 51, 0.22);
+      color: #2f6a4f;
+      outline: none;
+    }
+
+    .today-priority-why-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(20, 32, 27, 0.09);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: rgba(31, 47, 39, 0.72);
+      padding: 0.42rem 0.75rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .today-priority-why-button:hover,
+    .today-priority-why-button:focus-visible {
+      border-color: rgba(47, 106, 79, 0.22);
+      color: #21473b;
+      outline: none;
+    }
+
+    .today-priority-why-panel {
+      margin-top: 10px;
+      border: 1px solid rgba(47, 106, 79, 0.14);
+      border-radius: 18px;
+      background: rgba(243, 248, 244, 0.76);
+      padding: 0.8rem 0.9rem;
+      color: rgba(31, 47, 39, 0.68);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .today-priority-why-panel strong {
+      color: #1f2f27;
+    }
+
+    .today-priority-why-panel ul {
+      margin: 0.45rem 0 0;
+      padding-left: 1rem;
+    }
+
+    .today-priority-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 18px;
+      margin-top: 12px;
+    }
+
+    .today-priority-followups {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px 10px;
+      color: rgba(31, 47, 39, 0.52);
+      font-size: 0.76rem;
+      font-weight: 650;
+    }
+
+    .today-priority-followups > span {
+      color: rgba(31, 47, 39, 0.44);
+    }
+
+    .today-priority-followups button {
+      border: 0;
+      border-left: 1px solid rgba(20, 32, 27, 0.13);
+      background: transparent;
+      padding: 0 0 0 10px;
+      color: rgba(31, 47, 39, 0.66);
+      font-size: inherit;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .today-priority-followups button:hover,
+    .today-priority-followups button:focus-visible {
+      color: #21473b;
       outline: none;
     }
 
@@ -7873,10 +8436,299 @@
       line-height: 1.5;
     }
 
+    .today-priority-view-all {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      border: 0;
+      background: transparent;
+      color: #21473b;
+      padding: 2px 0;
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+
+    .today-priority-view-all:hover,
+    .today-priority-view-all:focus-visible {
+      color: #2f6a4f;
+      outline: none;
+    }
+
+    .today-priority-system-note {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 18px;
+      margin-top: 12px;
+      border-top: 1px solid rgba(20, 32, 27, 0.08);
+      padding-top: 10px;
+      color: rgba(31, 47, 39, 0.6);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .today-priority-system-note strong { color: #1f2f27; }
+
+    .today-priority-system-note button {
+      border: 0;
+      background: transparent;
+      color: #21473b;
+      padding: 0;
+      font-size: inherit;
+      font-weight: 800;
+    }
+
+    .today-priority-system-note button:hover,
+    .today-priority-system-note button:focus-visible {
+      color: #2f6a4f;
+      outline: none;
+    }
+
     @media (max-width: 900px) {
       .today-priority-panel {
         grid-template-columns: 1fr;
       }
+
+      .today-priority-facts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    /* Keep the operational canvas crisp; depth is reserved for active decisions and dialogs. */
+    .surface { box-shadow: 0 8px 20px rgba(20, 32, 27, 0.04); }
+    .panel { box-shadow: 0 6px 14px rgba(20, 32, 27, 0.03); }
+    .hero-sensor-card,
+    .decision-mini-card,
+    .action-deck-card { box-shadow: 0 6px 14px rgba(20, 32, 27, 0.035); }
+    .action-deck-card[data-slot="now"] { box-shadow: 0 9px 18px rgba(20, 32, 27, 0.05); }
+    #heroStatusPanel .uppercase,
+    #alertsManagementSection .uppercase {
+      letter-spacing: 0.14em;
+    }
+
+    #heroStatusPanel .indicator-stage {
+      padding: 1rem !important;
+    }
+
+    #heroStatusPanel .indicator-top-row {
+      gap: 0.85rem !important;
+    }
+
+    #heroStatusPanel .indicator-command-grid {
+      gap: 0.85rem !important;
+      align-items: stretch;
+    }
+
+    #heroStatusPanel .indicator-score-display {
+      min-height: 12rem !important;
+      border-radius: 26px !important;
+      padding: 1.25rem !important;
+    }
+
+    #heroStatusPanel .indicator-score-label {
+      font-size: 0.72rem !important;
+      letter-spacing: 0.18em !important;
+    }
+
+    #heroStatusPanel .indicator-score-display #indicatorScore {
+      font-size: clamp(4rem, 6.2vw, 6.1rem) !important;
+      line-height: 0.9 !important;
+    }
+
+    #heroStatusPanel .overall-state-card {
+      min-height: 12rem !important;
+      border-radius: 26px !important;
+      padding: 1.2rem !important;
+    }
+
+    #heroStatusPanel .decision-card-kicker {
+      font-size: 0.72rem !important;
+      letter-spacing: 0.18em !important;
+    }
+
+    #heroStatusPanel #overallStateTitle {
+      margin-top: 0.55rem !important;
+      font-size: clamp(1.85rem, 2.6vw, 3rem) !important;
+      line-height: 1.02 !important;
+    }
+
+    #heroStatusPanel .decision-card-headline {
+      margin-top: 0.55rem !important;
+      font-size: clamp(1.5rem, 2.05vw, 2.45rem) !important;
+      line-height: 1.08 !important;
+    }
+
+    #heroStatusPanel .decision-card #heroDescription {
+      margin-top: 0.7rem !important;
+      font-size: 0.95rem !important;
+      line-height: 1.45 !important;
+    }
+
+    .sidebar-system-status {
+      position: relative;
+      z-index: 120;
+      border-top: 1px solid rgba(20, 32, 27, 0.08);
+      padding-top: 16px;
+    }
+
+    .dashboard-sidebar {
+      position: relative;
+      z-index: 100;
+      overflow: visible;
+    }
+
+    .sidebar-system-status .header-status-card {
+      display: block;
+      border: 1px solid rgba(20, 32, 27, 0.09);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 12px;
+      box-shadow: none;
+    }
+
+    .sidebar-system-status-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.84rem;
+      font-weight: 750;
+    }
+
+    .sidebar-account-wrap {
+      position: relative;
+      z-index: 180;
+      margin-top: 11px;
+      border-top: 1px solid rgba(20, 32, 27, 0.08);
+      padding-top: 11px;
+    }
+
+    .sidebar-system-status .header-account-button {
+      display: flex;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .sidebar-system-status .header-account-button > span:nth-child(2) {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .sidebar-system-status .header-battery-dropdown {
+      right: auto;
+      left: 0;
+      z-index: 240;
+    }
+
+    .sidebar-system-status .header-account-menu {
+      z-index: 240;
+    }
+
+    .dashboard-shell {
+      padding-top: calc(44px + 0.1rem);
+    }
+
+    @media (min-width: 1280px) {
+      .dashboard-sidebar {
+        position: sticky !important;
+        top: calc(44px + 0.1rem) !important;
+        width: 14.5rem !important;
+        flex-basis: 14.5rem !important;
+        max-height: calc(100vh - 44px - 0.2rem) !important;
+        align-self: flex-start;
+        overflow: hidden;
+      }
+
+      .dashboard-sidebar .p-8 {
+        padding: 1.25rem !important;
+      }
+
+      .dashboard-sidebar h1 {
+        font-size: 1.55rem !important;
+      }
+
+      .dashboard-sidebar nav {
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+      }
+
+      .dashboard-sidebar .nav-link {
+        gap: 0.65rem;
+        border-radius: 16px !important;
+        padding: 0.72rem 0.85rem !important;
+      }
+
+      .dashboard-sidebar .nav-link span {
+        font-size: 0.88rem;
+      }
+
+      .dashboard-sidebar .nav-link i {
+        width: 1.1rem;
+      }
+    }
+
+    #dashboardHeader.global-system-bar {
+      position: fixed;
+      z-index: 300;
+      top: 0;
+      right: 0;
+      left: 0;
+      width: 100vw;
+      max-width: none;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      border-bottom: 1px solid rgba(20, 32, 27, 0.1);
+      border-radius: 0;
+      background: rgba(248, 248, 243, 0.96);
+      box-shadow: 0 3px 12px rgba(20, 32, 27, 0.035);
+    }
+
+    #dashboardHeader.global-system-bar .global-system-bar-actions {
+      display: flex;
+      width: 100%;
+      justify-content: flex-end;
+      padding: 5px clamp(1rem, 2vw, 1.8rem);
+    }
+
+    #dashboardHeader.global-system-bar .header-status-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+      color: #1f2f27;
+      font-size: 0.82rem;
+      font-weight: 750;
+    }
+
+    #dashboardHeader.global-system-bar .header-battery-indicator {
+      padding: 0.35rem 0.65rem;
+      box-shadow: none;
+    }
+
+    #dashboardHeader.global-system-bar .header-battery-dropdown,
+    #dashboardHeader.global-system-bar .header-account-menu {
+      z-index: 340;
+    }
+
+    #dashboardHeader.global-system-bar .header-account-button {
+      gap: 0.5rem;
+      padding-left: 12px;
+      border-left: 1px solid rgba(20, 32, 27, 0.1);
+    }
+
+    .dashboard-sidebar {
+      top: 1rem;
+      max-height: calc(100vh - 2rem);
     }
 
   </style>
@@ -7907,20 +8759,56 @@
   </section>
 
   <div id="dashboardShell" class="dashboard-shell flex min-h-screen" hidden>
-    <aside class="dashboard-sidebar hidden w-72 shrink-0 border-r border-black/6 bg-[#f6f0e4]/88 xl:flex xl:flex-col">
-      <div class="border-b border-black/6 px-6 py-6">
-        <div class="flex items-center gap-4">
-          <div class="flex h-14 w-14 items-center justify-center rounded-3xl bg-pine text-white shadow-lg shadow-pine/15">
-            <i class="fa-solid fa-seedling text-lg"></i>
+    <header id="dashboardHeader" class="global-system-bar">
+      <div class="global-system-bar-actions">
+        <div class="header-status-card">
+          <span class="flex items-center gap-2 text-moss">
+            <span class="h-2.5 w-2.5 rounded-full bg-moss"></span>
+            Online
+          </span>
+          <div class="header-battery-wrap">
+            <button id="headerBatteryIndicator" type="button" class="header-battery-indicator actionable" data-state="optimal" aria-label="Low battery nodes" aria-expanded="false" aria-controls="headerBatteryDropdown">
+              <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
+              <span id="headerBatteryCount" class="header-battery-count">0</span>
+            </button>
+            <div id="headerBatteryDropdown" class="header-battery-dropdown" aria-hidden="true">
+              <div class="header-battery-dropdown-header">
+                <div>
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/42">Low battery nodes</p>
+                  <p class="mt-1 text-sm text-ink/64">Nodes below configured threshold</p>
+                </div>
+                <span id="headerBatteryDropdownCount" class="control-pill rounded-full px-3 py-1.5 text-xs font-semibold text-ink/68">0 nodes</span>
+              </div>
+              <div id="headerBatteryDropdownContent"></div>
+            </div>
           </div>
-          <div>
-            <p class="text-xs uppercase tracking-[0.30em] text-pine/58">NeuroCrop</p>
-            <h1 class="font-display text-[2rem] font-bold leading-none">Control Center</h1>
+          <div class="header-account-wrap">
+            <button id="headerAccountButton" type="button" class="header-account-button" aria-expanded="false" aria-controls="headerAccountMenu">
+              <span class="flex h-7 w-7 items-center justify-center rounded-full bg-[#d8c8b4] text-[10px] font-bold text-pine">AK</span>
+              <span id="headerAccountEmail">admin@neurocrop.com</span>
+              <i class="fa-solid fa-chevron-down text-[10px] text-ink/38" aria-hidden="true"></i>
+            </button>
+            <div id="headerAccountMenu" class="header-account-menu" hidden>
+              <button id="signOutButton" type="button"><i class="fa-solid fa-arrow-right-from-bracket mr-2" aria-hidden="true"></i>Sign out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <aside class="dashboard-sidebar hidden w-72 shrink-0 border-r border-black/6 bg-[#f6f0e4]/88 xl:flex xl:flex-col">
+      <div class="border-b border-black/6 px-5 py-4">
+        <div class="flex items-start gap-3">
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-pine text-white shadow-lg shadow-pine/15">
+            <i class="fa-solid fa-seedling text-base"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-pine/58">NeuroCrop</p>
+            <h1 class="font-display text-[1.65rem] font-bold leading-[0.94] text-ink">Control Center</h1>
           </div>
         </div>
       </div>
 
-      <nav class="flex-1 px-4 py-6">
+      <nav class="flex-1 px-4 py-5">
         <div class="space-y-2">
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="overview" data-active="true" aria-current="page">
             <span class="flex items-center gap-3">
@@ -7946,13 +8834,6 @@
               <span class="text-[1.02rem]">Nodes</span>
             </span>
           </button>
-          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-disabled="true" aria-disabled="true" hidden>
-            <span class="flex items-center gap-3">
-              <i class="fa-solid fa-tower-broadcast w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Gateways</span>
-            </span>
-            <span class="nav-link-badge">Soon</span>
-          </button>
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="alerts" data-active="false">
             <span class="flex items-center gap-3">
               <i class="fa-solid fa-triangle-exclamation w-5 text-center text-amber"></i>
@@ -7962,7 +8843,7 @@
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="history" data-active="false">
             <span class="flex items-center gap-3">
               <i class="fa-solid fa-chart-line w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">History</span>
+              <span class="text-[1.02rem]">Trends</span>
             </span>
           </button>
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="settings" data-active="false">
@@ -7974,82 +8855,13 @@
         </div>
       </nav>
 
-      <div id="sidebarQuickActions" class="sticky bottom-0 px-4 pb-6">
-        <div class="panel rounded-[30px] p-5">
-          <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Quick actions</p>
-          <div class="mt-4 space-y-3 text-sm">
-            <button type="button" class="actionable flex w-full items-center justify-between rounded-2xl bg-mist px-4 py-3 font-semibold text-pine" data-dashboard-action="alerts">
-              Review alerts
-              <i class="fa-solid fa-arrow-up-right-from-square"></i>
-            </button>
-            <button type="button" class="actionable flex w-full items-center justify-between rounded-2xl bg-[#f8e7d2] px-4 py-3 font-semibold text-amber" data-dashboard-action="history">
-              Open history
-              <i class="fa-solid fa-arrow-up-right-from-square"></i>
-            </button>
-            <button type="button" class="actionable flex w-full items-center justify-between rounded-2xl bg-[#f3ece1] px-4 py-3 font-semibold text-ink/72" data-dashboard-action="zones">
-              Check sections
-              <i class="fa-solid fa-arrow-up-right-from-square"></i>
-            </button>
-          </div>
-        </div>
+      <div hidden aria-hidden="true">
+        <button id="commandPaletteButton" type="button"></button>
       </div>
     </aside>
 
     <main class="min-w-0 flex-1">
-      <header id="dashboardHeader" class="sticky top-0 z-20 border-b border-black/6 bg-[#f8f3ea]/88 backdrop-blur">
-        <div class="dashboard-header-inner px-0 py-0 md:px-0 lg:px-0">
-          <div class="flex flex-wrap items-center justify-end gap-3">
-            <div class="dashboard-header-context hidden flex-wrap items-center gap-3" aria-hidden="true">
-              <span id="siteChip" class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/72">Greenhouse No. 1</span>
-              <span id="zoneChip" class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/72">Tomato Block A • Rear</span>
-              <span class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/72">Last 24h</span>
-            </div>
-
-            <div class="dashboard-header-actions flex flex-wrap items-center gap-3">
-              <button id="commandPaletteButton" type="button" class="header-command-button control-pill command-launcher actionable rounded-full px-4 py-2 text-sm font-semibold text-ink/72" hidden aria-hidden="true">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <span>Quick jump</span>
-                <span class="command-launcher-key">Ctrl K</span>
-              </button>
-
-            <div class="header-status-card actionable flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm">
-              <span class="flex items-center gap-2 text-moss">
-                <span class="h-2.5 w-2.5 rounded-full bg-moss"></span>
-                Online
-              </span>
-              <div class="header-battery-wrap">
-                <button id="headerBatteryIndicator" type="button" class="header-battery-indicator actionable" data-state="optimal" aria-label="Low battery nodes" aria-expanded="false" aria-controls="headerBatteryDropdown">
-                  <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
-                  <span id="headerBatteryCount" class="header-battery-count">0</span>
-                </button>
-                <div id="headerBatteryDropdown" class="header-battery-dropdown" aria-hidden="true">
-                  <div class="header-battery-dropdown-header">
-                    <div>
-                      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/42">Low battery nodes</p>
-                      <p class="mt-1 text-sm text-ink/64">Nodes below configured threshold</p>
-                    </div>
-                    <span id="headerBatteryDropdownCount" class="control-pill rounded-full px-3 py-1.5 text-xs font-semibold text-ink/68">0 nodes</span>
-                  </div>
-                  <div id="headerBatteryDropdownContent"></div>
-                </div>
-              </div>
-              <div class="header-account-wrap">
-                <button id="headerAccountButton" type="button" class="header-account-button" aria-expanded="false" aria-controls="headerAccountMenu">
-                  <span class="flex h-9 w-9 items-center justify-center rounded-full bg-[#d8c8b4] text-xs font-bold text-pine">AK</span>
-                  <span id="headerAccountEmail">admin@neurocrop.com</span>
-                  <i class="fa-solid fa-chevron-down text-[10px] text-ink/38" aria-hidden="true"></i>
-                </button>
-                <div id="headerAccountMenu" class="header-account-menu" hidden>
-                  <button id="signOutButton" type="button"><i class="fa-solid fa-arrow-right-from-bracket mr-2" aria-hidden="true"></i>Sign out</button>
-                </div>
-              </div>
-            </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div class="dashboard-main-inner px-5 py-6 md:px-8 lg:px-10">
+      <div class="dashboard-main-inner px-3 py-2 md:px-4 md:py-3 lg:px-4 lg:py-3">
         <section id="experienceModeSection" class="mb-6 section-jump-target" hidden>
           <div class="surface rounded-[30px] px-5 py-4 md:px-6">
             <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -8179,63 +8991,68 @@
           <div id="todayPriorityAlerts" class="today-priority-alerts"></div>
         </section>
 
-        <section id="heroStatusPanel" data-state="optimal" class="surface hero-panel section-jump-target rounded-[40px] p-6 md:p-8 lg:p-10">
+        <section id="heroStatusPanel" data-state="optimal" class="surface hero-panel section-jump-target rounded-[40px] p-4 md:p-6 lg:p-7">
           <div class="hero-content-grid grid gap-8">
             <div class="hero-main-stack min-w-0">
               <div class="hero-top-row flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div class="w-full">
-                  <div class="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <p id="scopeHelperText" class="text-xs font-semibold uppercase tracking-[0.18em] text-ink/46">1. Select an area first. 2. Choose a section to view its growth index.</p>
-                    <div class="scope-toggle" role="tablist" aria-label="Growth index scope">
-                      <button id="zoneScopeButton" type="button" class="scope-toggle-button" data-scope="zone" data-active="true" aria-pressed="true">Section</button>
-                      <button id="siteScopeButton" type="button" class="scope-toggle-button" data-scope="site" data-active="false" aria-pressed="false">Area</button>
+                  <div class="selection-panel">
+                    <div class="selection-panel-head">
+                      <div>
+                        <p class="selection-panel-kicker">Selected growing space</p>
+                        <p id="scopeHelperText" class="selection-panel-summary">Change the area or section when you want to inspect another place.</p>
+                      </div>
+                      <div class="scope-toggle" role="tablist" aria-label="Growth index scope">
+                        <button id="zoneScopeButton" type="button" class="scope-toggle-button" data-scope="zone" data-active="true" aria-pressed="true">Section</button>
+                        <button id="siteScopeButton" type="button" class="scope-toggle-button" data-scope="site" data-active="false" aria-pressed="false">Area</button>
+                      </div>
+                    </div>
+
+                    <div class="hero-context-bar context-bar">
+                      <label class="context-card block p-4">
+                        <div class="relative z-[1] flex items-start gap-3">
+                          <div class="context-card-icon">
+                            <i class="fa-solid fa-location-dot"></i>
+                          </div>
+                          <div class="min-w-0">
+                            <div class="context-card-label">Area</div>
+                            <div id="siteContextValue" class="context-card-value">Greenhouse No. 1</div>
+                            <div id="siteContextMeta" class="context-card-meta">Select area</div>
+                          </div>
+                        </div>
+                        <i class="context-card-chevron fa-solid fa-chevron-down"></i>
+                        <button id="siteTrigger" type="button" class="context-card-trigger" aria-haspopup="listbox" aria-expanded="false"></button>
+                        <div id="siteMenu" class="context-menu" hidden></div>
+                      </label>
+                      <label id="zoneContextCard" class="context-card block p-4">
+                        <div class="relative z-[1] flex items-start gap-3">
+                          <div class="context-card-icon">
+                            <i class="fa-solid fa-vector-square"></i>
+                          </div>
+                          <div class="min-w-0">
+                            <div class="context-card-label">Section</div>
+                            <div id="zoneContextValue" class="context-card-value">Tomato Block A, Rear</div>
+                            <div id="zoneContextMeta" class="context-card-meta">Section and node count</div>
+                          </div>
+                        </div>
+                        <i class="context-card-chevron fa-solid fa-chevron-down"></i>
+                        <button id="zoneTrigger" type="button" class="context-card-trigger" aria-haspopup="listbox" aria-expanded="false"></button>
+                        <div id="zoneMenu" class="context-menu" hidden></div>
+                      </label>
+                      <label class="context-card block p-4">
+                        <div class="relative z-[1] flex items-start gap-3">
+                          <div class="context-card-icon">
+                            <i class="fa-solid fa-seedling"></i>
+                          </div>
+                          <div class="min-w-0">
+                            <div class="context-card-label">Crop profile</div>
+                            <div id="profileContextValue" class="context-card-value">Tomatoes, vegetative</div>
+                            <div id="profileContextMeta" class="context-card-meta">Inherited from section</div>
+                          </div>
+                        </div>
+                      </label>
                     </div>
                   </div>
-
-                  <div class="hero-context-bar context-bar">
-                  <label class="context-card block p-4">
-                    <div class="relative z-[1] flex items-start gap-3">
-                      <div class="context-card-icon">
-                        <i class="fa-solid fa-location-dot"></i>
-                      </div>
-                      <div class="min-w-0">
-                        <div class="context-card-label">1. Area</div>
-                        <div id="siteContextValue" class="context-card-value">Greenhouse No. 1</div>
-                        <div id="siteContextMeta" class="context-card-meta">Select area</div>
-                      </div>
-                    </div>
-                    <i class="context-card-chevron fa-solid fa-chevron-down"></i>
-                    <button id="siteTrigger" type="button" class="context-card-trigger" aria-haspopup="listbox" aria-expanded="false"></button>
-                    <div id="siteMenu" class="context-menu" hidden></div>
-                  </label>
-                  <label id="zoneContextCard" class="context-card block p-4">
-                    <div class="relative z-[1] flex items-start gap-3">
-                      <div class="context-card-icon">
-                        <i class="fa-solid fa-vector-square"></i>
-                      </div>
-                      <div class="min-w-0">
-                        <div class="context-card-label">2. Section in selected area</div>
-                        <div id="zoneContextValue" class="context-card-value">Tomato Block A, Rear</div>
-                        <div id="zoneContextMeta" class="context-card-meta">Section and node count</div>
-                      </div>
-                    </div>
-                    <i class="context-card-chevron fa-solid fa-chevron-down"></i>
-                    <button id="zoneTrigger" type="button" class="context-card-trigger" aria-haspopup="listbox" aria-expanded="false"></button>
-                    <div id="zoneMenu" class="context-menu" hidden></div>
-                  </label>
-                  <label class="context-card block p-4">
-                    <div class="relative z-[1] flex items-start gap-3">
-                      <div class="context-card-icon">
-                        <i class="fa-solid fa-seedling"></i>
-                      </div>
-                      <div class="min-w-0">
-                        <div class="context-card-label">Crop profile</div>
-                        <div id="profileContextValue" class="context-card-value">Tomatoes, vegetative</div>
-                        <div id="profileContextMeta" class="context-card-meta">Inherited from section</div>
-                      </div>
-                    </div>
-                  </label>
-                </div>
                 </div>
               </div>
 
@@ -8403,20 +9220,21 @@
                   <div class="indicator-top-row flex flex-col gap-5">
                     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div class="max-w-2xl">
-                        <p id="indicatorTitle" class="text-sm font-semibold uppercase tracking-[0.20em] text-ink/42">Section growth index</p>
+                        <p id="indicatorTitle" class="text-sm font-semibold uppercase tracking-[0.20em] text-ink/42">Growing Conditions Score</p>
                         <p id="indicatorSummary" class="mt-3 max-w-2xl text-sm leading-7 text-ink/64"></p>
                       </div>
 
                       <div class="flex items-start lg:justify-end">
-                        <span id="indicatorZoneBadge" class="state-chip state-chip-outline" data-state="optimal">Green block</span>
+                        <span id="indicatorZoneBadge" class="state-chip state-chip-outline" data-state="optimal">Green section</span>
                       </div>
                     </div>
 
                     <div class="indicator-command-grid">
                       <div class="indicator-score-column">
                         <div id="indicatorScoreWrap" class="indicator-score-display" data-state="optimal">
-                          <div id="indicatorScoreLabel" class="indicator-score-label">Selected section score</div>
+                          <div id="indicatorScoreLabel" class="indicator-score-label">Growing Conditions Score</div>
                           <div id="indicatorScore" class="text-3xl font-extrabold text-ink"></div>
+                          <div id="indicatorScoreState" class="indicator-score-state">Good</div>
                         </div>
                       </div>
 
@@ -8469,7 +9287,7 @@
                         </article>
 
                         <article class="decision-mini-card">
-                          <div class="decision-mini-label">Data trust</div>
+                          <div class="decision-mini-label">Data confidence</div>
                           <div id="decisionConfidenceValue" class="decision-mini-value">100%</div>
                           <p id="decisionConfidenceNote" class="decision-mini-note">All configured metrics are live.</p>
                         </article>
@@ -8477,7 +9295,7 @@
                     </div>
 
                     <div id="indicatorDriverGroup" class="indicator-driver-group">
-                      <div class="indicator-driver-label">Watch these first</div>
+                      <div class="indicator-driver-label">Growth limiting factors</div>
                       <div id="indicatorDrivers" class="indicator-driver-list" hidden></div>
                     </div>
 
@@ -8557,8 +9375,8 @@
           <div class="surface trend-history-shell rounded-[34px] p-6 md:p-7">
             <div class="trend-history-head">
               <div>
-                <p class="text-xs uppercase tracking-[0.30em] text-pine/56">Trend history</p>
-                <h3 id="trendHistoryTitle" class="mt-2 font-display text-2xl font-bold text-ink">Historical sensor view</h3>
+                <p class="text-xs uppercase tracking-[0.30em] text-pine/56">Trends</p>
+                <h3 id="trendHistoryTitle" class="mt-2 font-display text-2xl font-bold text-ink">24-hour plant trend view</h3>
                 <p id="trendHistorySummary" class="trend-history-summary">Compare the selected live metric against its recent history before deciding whether this is a spike, a drift, or a recovery.</p>
               </div>
               <div class="trend-history-head-side">
@@ -8567,15 +9385,25 @@
               </div>
             </div>
 
-            <div class="mt-5 grid gap-3 rounded-[24px] border border-black/7 bg-white/55 p-4 md:grid-cols-2">
-              <label class="block">
-                <span class="text-[11px] font-semibold uppercase tracking-[0.20em] text-pine/56">Area</span>
-                <select id="historyLocationSelect" class="mt-2 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm font-semibold text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></select>
-              </label>
-              <label class="block">
-                <span class="text-[11px] font-semibold uppercase tracking-[0.20em] text-pine/56">Section</span>
-                <select id="historyBlockSelect" class="mt-2 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm font-semibold text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></select>
-              </label>
+            <div class="trend-history-context">
+              <div class="trend-history-context-copy">
+                <span class="trend-history-context-kicker">Currently viewing</span>
+                <div class="trend-history-context-value">
+                  <span id="trendHistoryActiveAreaLabel">Greenhouse No. 1</span>
+                  <span class="mx-1 text-ink/32">·</span>
+                  <span id="trendHistoryActiveSectionLabel">Tomato Block A, Rear</span>
+                </div>
+              </div>
+              <div class="trend-history-context-selects">
+                <label class="block">
+                  <span>Area</span>
+                  <select id="historyLocationSelect"></select>
+                </label>
+                <label class="block">
+                  <span>Section</span>
+                  <select id="historyBlockSelect"></select>
+                </label>
+              </div>
             </div>
 
             <div class="trend-history-toolbar">
@@ -8591,6 +9419,7 @@
                     <p id="trendHistoryMetricMeta" class="trend-history-metric-meta">Section average · target band and recent trend</p>
                   </div>
                 </div>
+                <div id="trendHistoryReadout" class="trend-history-readout" aria-label="Automatic trend interpretation"></div>
                 <div id="trendHistoryChart" class="trend-history-chart">
                   <div id="trendHistoryTooltip" class="trend-history-tooltip" hidden></div>
                 </div>
@@ -8601,13 +9430,12 @@
                 </div>
               </div>
 
-              <div class="trend-history-side">
-                <div id="trendHistoryStats" class="trend-history-stats"></div>
-                <div class="trend-history-callout">
-                  <div class="trend-history-callout-title">Why this matters</div>
-                  <p id="trendHistoryCallout" class="trend-history-callout-copy">Historical curves help clients understand whether the current reading is a one-off spike or part of a longer drift.</p>
-                  <p id="trendHistoryBackendNote" class="trend-history-backend-note">This panel is ready for real database-backed sensor history once the backend connection is in place.</p>
-                </div>
+              <div id="trendHistoryStats" class="trend-history-stats"></div>
+
+              <div class="trend-history-callout">
+                <div class="trend-history-callout-title">Why this matters</div>
+                <p id="trendHistoryCallout" class="trend-history-callout-copy">Historical curves help clients understand whether the current reading is a one-off spike or part of a longer drift.</p>
+                <p id="trendHistoryBackendNote" class="trend-history-backend-note">This panel is ready for real sensor history once live readings are connected.</p>
               </div>
             </div>
           </div>
@@ -8709,9 +9537,9 @@
   <div id="managementModalOverlay" class="management-modal-overlay" hidden></div>
   <script>
     const stateConfig = {
-      optimal: { label: "Optimal", shortLabel: "Optimal", badge: "Green block", textClass: "text-moss", thumb: "#2F6A4F", uplink: "4 min ago" },
-      warning: { label: "Warning", shortLabel: "Attention", badge: "Amber block", textClass: "text-amber", thumb: "#D08A2D", uplink: "7 min ago" },
-      critical: { label: "Critical", shortLabel: "Critical", badge: "Red block", textClass: "text-ember", thumb: "#AF4D38", uplink: "11 min ago" }
+      optimal: { label: "Optimal", shortLabel: "Optimal", badge: "Green section", textClass: "text-moss", thumb: "#2F6A4F", uplink: "4 min ago" },
+      warning: { label: "Warning", shortLabel: "Attention", badge: "Amber section", textClass: "text-amber", thumb: "#D08A2D", uplink: "7 min ago" },
+      critical: { label: "Critical", shortLabel: "Critical", badge: "Red section", textClass: "text-ember", thumb: "#AF4D38", uplink: "11 min ago" }
     };
 
     const scenarioConfig = {
@@ -8918,7 +9746,7 @@
         optimal: { humidity: 58.1 }
       },
       "tomato-a-front": {
-        optimal: { vpd: 1.13 }
+        optimal: { vpd: 1.13, humidity: 56 }
       },
       "lettuce-rack-under": {
         optimal: { vpd: 0.74 }
@@ -8930,7 +9758,7 @@
         optimal: { vpd: 1.06 }
       },
       "seedling-center": {
-        optimal: { airTemp: 20.5 }
+        optimal: { airTemp: 20.5, humidity: 53 }
       }
     };
 
@@ -8989,8 +9817,6 @@
       todayPriorityPanel: document.getElementById("todayPriorityPanel"),
       todayPriorityMain: document.getElementById("todayPriorityMain"),
       todayPriorityAlerts: document.getElementById("todayPriorityAlerts"),
-      siteChip: document.getElementById("siteChip"),
-      zoneChip: document.getElementById("zoneChip"),
       commandPaletteButton: document.getElementById("commandPaletteButton"),
       headerBatteryIndicator: document.getElementById("headerBatteryIndicator"),
       headerBatteryCount: document.getElementById("headerBatteryCount"),
@@ -9042,6 +9868,7 @@
       manualOverrideResetButton: document.getElementById("manualOverrideResetButton"),
       indicatorTitle: document.getElementById("indicatorTitle"),
       indicatorScoreLabel: document.getElementById("indicatorScoreLabel"),
+      indicatorScoreState: document.getElementById("indicatorScoreState"),
       indicatorSummary: document.getElementById("indicatorSummary"),
       indicatorZoneBadge: document.getElementById("indicatorZoneBadge"),
       indicatorScoreWrap: document.getElementById("indicatorScoreWrap"),
@@ -9126,12 +9953,15 @@
       trendHistorySummary: document.getElementById("trendHistorySummary"),
       trendHistoryStateChip: document.getElementById("trendHistoryStateChip"),
       trendHistoryRangeMeta: document.getElementById("trendHistoryRangeMeta"),
+      trendHistoryActiveAreaLabel: document.getElementById("trendHistoryActiveAreaLabel"),
+      trendHistoryActiveSectionLabel: document.getElementById("trendHistoryActiveSectionLabel"),
       historyLocationSelect: document.getElementById("historyLocationSelect"),
       historyBlockSelect: document.getElementById("historyBlockSelect"),
       trendMetricBar: document.getElementById("trendMetricBar"),
       trendRangeBar: document.getElementById("trendRangeBar"),
       trendHistoryMetricLabel: document.getElementById("trendHistoryMetricLabel"),
       trendHistoryMetricMeta: document.getElementById("trendHistoryMetricMeta"),
+      trendHistoryReadout: document.getElementById("trendHistoryReadout"),
       trendHistoryChart: document.getElementById("trendHistoryChart"),
       trendHistoryTooltip: document.getElementById("trendHistoryTooltip"),
       trendHistoryStartLabel: document.getElementById("trendHistoryStartLabel"),
@@ -9268,6 +10098,7 @@
     let isHeaderAccountMenuOpen = false;
     let currentActionDeckCards = [];
     let currentTodayPriorityAction = null;
+    let currentTodayPriorityActions = [];
     let currentAlertRecords = [];
     let actionDeckShortcutMap = new Map();
     let highlightedJumpTarget = null;
@@ -9284,12 +10115,14 @@
     let commandPaletteReturnFocus = null;
     let activeWorkbenchLensKey = "focus";
     let currentWorkbenchLenses = [];
+    let dashboardRenderTimeoutId = null;
     let activeAlertRailFilterKey = "all";
     let activeSensorHealthFilterKey = "focus";
     let activeInspectionRouteFilterKey = "focus";
     let activeWorkspaceFocus = "all";
     let activeAlertsPageFilter = "active";
     let activeTrendMetricKey = "";
+    let activeTrendMetricKeys = [];
     let activeTrendRangeKey = "24h";
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
@@ -9370,9 +10203,13 @@
       renderDashboard();
 
       if (scroll) {
-        const target = document.getElementById("experienceModeSection") || document.getElementById("heroStatusPanel");
+        const target = normalizedMode === "detailed"
+          ? document.getElementById("metricsSection")
+          : document.getElementById("heroStatusPanel");
         if (target) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          requestAnimationFrame(() => {
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
         }
       }
     }
@@ -10358,6 +11195,12 @@
       };
     }
 
+    function getHealthStateLabel(state) {
+      if (state === "critical") return "Critical";
+      if (state === "warning") return "Needs attention";
+      return "Good";
+    }
+
     function buildZoneHeroDecision(profile, zone, nonOptimalResults, overallState, coverage, manualOverride) {
       const primaryResult = getPrimaryNonOptimalResult(nonOptimalResults);
       const confidence = getConfidenceModel(coverage, manualOverride, "zone");
@@ -10495,50 +11338,105 @@
       `).join("");
     }
 
-    function renderTodayPriority(action, issues) {
-      currentTodayPriorityAction = action || null;
+    function getDecisionVerb(result, definition) {
+      if (!result || !definition || result.state === "optimal") return "Monitor";
+      if (result.value < definition.optimal[0]) return "Increase";
+      if (result.value > definition.optimal[1]) return "Reduce";
+      return "Check";
+    }
+
+    function getDecisionImpactText(metricKey, label) {
+      const lowerLabel = (label || "this metric").toLowerCase();
+      const impactMap = {
+        humidity: "Expected effect: VPD moves closer to target and plant water stress risk decreases.",
+        vpd: "Expected effect: transpiration pressure moves closer to the crop profile target.",
+        co2: "Expected effect: photosynthesis conditions become more stable.",
+        airTemp: "Expected effect: climate stress decreases and VPD interpretation becomes more reliable.",
+        soilTemp: "Expected effect: root-zone activity becomes more stable.",
+        waterTemp: "Expected effect: root-zone temperature moves closer to the recommended band."
+      };
+      return impactMap[metricKey] || `Expected effect: ${lowerLabel} moves closer to the crop profile target.`;
+    }
+
+    function renderTodayPriority(actions, issues, context = {}) {
+      const action = actions[0] || null;
+      const followUpActions = actions.slice(1, 3);
+      currentTodayPriorityAction = action;
+      currentTodayPriorityActions = actions;
+      const priorityMetric = context.metric;
+      const priorityDefinition = context.definition;
+      const priorityResult = context.result;
+      const priorityTrend = context.trend;
+      const priorityDuration = context.duration;
+      const metricDetails = priorityMetric && priorityDefinition && priorityResult ? `
+        <div class="today-priority-facts">
+          <div class="today-priority-fact">
+            <span>Current</span>
+            <strong>${escapeHtml(formatValue(priorityResult.value, priorityDefinition))}</strong>
+          </div>
+          <div class="today-priority-fact">
+            <span>Target</span>
+            <strong>${escapeHtml(formatRange(priorityDefinition.optimal, priorityDefinition))}</strong>
+          </div>
+          <div class="today-priority-fact">
+            <span>Trend</span>
+            <strong data-state="${priorityResult.state}">${escapeHtml(priorityTrend)}</strong>
+          </div>
+          <div class="today-priority-fact">
+            <span>${priorityResult.state === "optimal" ? "Scope" : "Out of range"}</span>
+            <strong>${escapeHtml(priorityResult.state === "optimal" ? context.scopeLabel : priorityDuration)}</strong>
+          </div>
+        </div>
+      ` : "";
+      const whyPanel = priorityMetric && priorityDefinition && priorityResult ? `
+        <div id="todayPriorityWhyPanel" class="today-priority-why-panel" hidden>
+          <strong>Why this recommendation?</strong>
+          <ul>
+            <li>${escapeHtml(priorityMetric)} is ${escapeHtml(formatValue(priorityResult.value, priorityDefinition))}; target is ${escapeHtml(formatRange(priorityDefinition.optimal, priorityDefinition))}.</li>
+            <li>${escapeHtml(priorityResult.deviationText)}${priorityDuration ? ` and this has been visible for ${escapeHtml(priorityDuration)}.` : "."}</li>
+            <li>${escapeHtml(getDecisionImpactText(priorityResult.key, priorityMetric))}</li>
+          </ul>
+        </div>
+      ` : "";
 
       if (!action) {
         elements.todayPriorityMain.innerHTML = `
           <div class="today-priority-kicker">Today</div>
           <h2 class="today-priority-title">No priority action right now</h2>
           <p class="today-priority-copy">Current readings are steady. Keep monitoring this section and return here when the next reading arrives.</p>
+          ${metricDetails}
         `;
       } else {
         elements.todayPriorityMain.innerHTML = `
           <div class="today-priority-kicker">Today’s priority</div>
+          <div class="today-priority-context"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>${escapeHtml(context.siteName || "Selected area")}<span>›</span>${escapeHtml(context.zoneName || "Selected section")}</div>
           <h2 class="today-priority-title">${escapeHtml(action.title)}</h2>
           <p class="today-priority-copy">${escapeHtml(action.note)}</p>
-          <button type="button" class="today-priority-action" data-today-priority-action>
-            ${escapeHtml(action.cta)}
-            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-          </button>
+          ${metricDetails}
+          ${whyPanel}
+          <div class="today-priority-footer">
+            <button type="button" class="today-priority-action" data-today-priority-action>
+              ${escapeHtml(action.cta)}
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+            ${whyPanel ? `<button type="button" class="today-priority-why-button" data-today-priority-why aria-expanded="false" aria-controls="todayPriorityWhyPanel">Why? <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>` : ""}
+            ${followUpActions.length ? `<div class="today-priority-followups"><span>Next</span>${followUpActions.map((item, index) => `<button type="button" data-today-followup-index="${index + 1}">${escapeHtml(item.title)}</button>`).join("")}</div>` : ""}
+          </div>
         `;
       }
 
-      const visibleIssues = issues.slice(0, 3);
-      elements.todayPriorityAlerts.innerHTML = `
-        <div class="today-priority-alert-head">
-          <div>
-            <div class="today-priority-kicker">Needs attention</div>
-            <div class="mt-1 text-base font-bold text-ink">${issues.length ? `${issues.length} active ${issues.length === 1 ? "alert" : "alerts"}` : "No active alerts"}</div>
+      const otherIssues = issues.filter((item) => item.site.id !== context.siteId || item.zone.id !== context.zoneId);
+      elements.todayPriorityPanel.dataset.hasSecondaryAlerts = "false";
+      elements.todayPriorityAlerts.hidden = true;
+      elements.todayPriorityAlerts.innerHTML = "";
+      if (otherIssues.length) {
+        elements.todayPriorityMain.insertAdjacentHTML("beforeend", `
+          <div class="today-priority-system-note">
+            <span><strong>${otherIssues.length}</strong> other active ${otherIssues.length === 1 ? "alert" : "alerts"} elsewhere in the system.</span>
+            <button type="button" data-today-alerts-page>Review alerts <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
           </div>
-          ${issues.length ? `<span class="state-chip" data-state="${visibleIssues[0].overall.state}">${stateConfig[visibleIssues[0].overall.state].label}</span>` : `<span class="state-chip" data-state="optimal">Stable</span>`}
-        </div>
-        ${visibleIssues.length ? `
-          <div class="today-priority-alert-list">
-            ${visibleIssues.map((item) => `
-              <button type="button" class="today-priority-alert" data-today-alert-site-id="${escapeAttribute(item.site.id)}" data-today-alert-zone-id="${escapeAttribute(item.zone.id)}">
-                <span class="min-w-0">
-                  <span class="today-priority-alert-name">${escapeHtml(item.zone.name)}</span>
-                  <span class="today-priority-alert-meta">${escapeHtml(item.site.name)} · ${escapeHtml(item.summary)}</span>
-                </span>
-                <i class="fa-solid fa-arrow-right shrink-0 text-xs text-ink/44" aria-hidden="true"></i>
-              </button>
-            `).join("")}
-          </div>
-        ` : `<p class="today-priority-empty">Everything is within the current target ranges. No action is required.</p>`}
-      `;
+        `);
+      }
     }
 
     function ensureAdvancedToolsOpenForTarget(targetId) {
@@ -10807,9 +11705,9 @@
           pinned: true,
           kind: "Page",
           icon: "fa-chart-line",
-          label: "History",
-          meta: "Inspect sensor trends, target bands, and changes over time",
-          keywords: "history trends charts sensor data time series graph",
+          label: "Trends",
+          meta: "Inspect 24-hour plant trends, target bands, and changes over time",
+          keywords: "trends history charts sensor data time series graph",
           run: () => runDashboardAction("history")
         },
         {
@@ -11192,6 +12090,29 @@
       scrollToSection(action.targetId);
     }
 
+    function executeTodayPriorityAction(action) {
+      if (!action) return;
+      if (!action.siteId || !action.zoneId) {
+        executeActionDeckAction(action);
+        return;
+      }
+
+      activePrimaryPage = "overview";
+      sidebarActionOverride = null;
+      activeSiteId = action.siteId;
+      activeZoneId = action.zoneId;
+      activeProfileKey = action.profileKey || getActiveZone()?.profile || activeProfileKey;
+      activeViewScope = "zone";
+      if (action.metricKey) {
+        activeTrendMetricKey = action.metricKey;
+        activeTrendMetricKeys = [action.metricKey];
+      }
+      renderZoneOptions();
+      resetCurrentReadingsFromActiveZone();
+      renderDashboard();
+      scrollToSection(action.targetId || "metricsSection");
+    }
+
     function buildActionDeck(options) {
       const {
         isSiteView,
@@ -11494,9 +12415,9 @@
 
     function getScopeBadgeLabel(stateKey, scope) {
       if (scope === "site") {
-        if (stateKey === "optimal") return "Green location";
-        if (stateKey === "warning") return "Amber location";
-        return "Red location";
+        if (stateKey === "optimal") return "Green area";
+        if (stateKey === "warning") return "Amber area";
+        return "Red area";
       }
 
       return stateConfig[stateKey].badge;
@@ -11506,7 +12427,7 @@
       const names = [...new Set(siteSnapshots.map((snapshot) => snapshot.profile.name))];
       return {
         value: names.length === 1 ? names[0] : "Mixed profiles",
-        meta: `${siteSnapshots.length} blocks included`
+        meta: `${siteSnapshots.length} sections included`
       };
     }
 
@@ -12870,23 +13791,13 @@
     }
 
     function getActiveSite() {
-      const nextSite = dashboardData.sites.find((site) => site.id === activeSiteId) || dashboardData.sites[0] || null;
-      if (nextSite && nextSite.id !== activeSiteId) {
-        activeSiteId = nextSite.id;
-      }
-
-      return nextSite;
+      return dashboardData.sites.find((site) => site.id === activeSiteId) || dashboardData.sites[0] || null;
     }
 
     function getActiveZone(site = getActiveSite()) {
       if (!site || !Array.isArray(site.zones) || site.zones.length === 0) return null;
 
-      const nextZone = site.zones.find((zone) => zone.id === activeZoneId) || site.zones[0];
-      if (nextZone.id !== activeZoneId) {
-        activeZoneId = nextZone.id;
-      }
-
-      return nextZone;
+      return site.zones.find((zone) => zone.id === activeZoneId) || site.zones[0];
     }
 
     function resetCurrentReadingsFromActiveZone() {
@@ -12930,6 +13841,18 @@
     function closeContextMenus() {
       setMenuState(elements.siteTrigger, elements.siteMenu, false);
       setMenuState(elements.zoneTrigger, elements.zoneMenu, false);
+    }
+
+    function scheduleDashboardRender() {
+      if (dashboardRenderTimeoutId) {
+        window.clearTimeout(dashboardRenderTimeoutId);
+      }
+      window.requestAnimationFrame(() => {
+        dashboardRenderTimeoutId = window.setTimeout(() => {
+          dashboardRenderTimeoutId = null;
+          renderDashboard();
+        }, 0);
+      });
     }
 
     function renderSiteOptions() {
@@ -13365,7 +14288,7 @@
               : ""}
 
             <div class="mt-3 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
-              This step defines structure only. Sensor assignment can stay on Nodes while DB and ChirpStack sync are being connected.
+              This step defines structure only. Sensor assignment can stay on Nodes and be managed separately.
             </div>
           </div>
 
@@ -13444,7 +14367,7 @@
         : `
             <div class="panel rounded-[30px] p-6">
               <h3 class="font-display text-2xl font-bold text-ink">No nodes registered yet.</h3>
-              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">Choose a block above, enter the DevEUI from ChirpStack, and register the first sensor node.</p>
+              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">Choose a section above, enter the sensor identifier, and register the first sensor node.</p>
             </div>
           `;
 
@@ -13454,8 +14377,8 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
                 <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register node</p>
-                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">Connect a sensor to a block</h2>
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">Assign the node to its physical growing block. The generated node ID stays internal; the DevEUI is the identifier that connects this record to ChirpStack.</p>
+                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">Connect a sensor to a section</h2>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">Assign the node to its physical growing section. The generated node ID stays internal; the sensor identifier connects this record to incoming readings.</p>
               </div>
 
               <div class="flex flex-wrap gap-2.5 xl:max-w-[540px] xl:justify-end">
@@ -13569,7 +14492,7 @@
         activeZoneId = zone.id;
         resetCurrentReadingsFromActiveZone();
         resetNodeForm({ siteId: site.id, zoneId: zone.id });
-        setManagementNotice("nodes", `Node registered in ${zone.name}. It will appear here when ChirpStack begins sending uplinks.`);
+        setManagementNotice("nodes", `Node registered in ${zone.name}. It will appear here when sensor readings begin arriving.`);
         renderDashboard();
       } catch (error) {
         setManagementNotice("nodes", error instanceof Error ? error.message : "The node could not be registered.", "warning");
@@ -13756,7 +14679,7 @@
               <div class="max-w-3xl">
                 <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">System settings</p>
                 <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">Growth logic and account setup</h2>
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">Settings define the biological targets, alert thresholds, team access, and backend connections used by the rest of the dashboard.</p>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">Settings define crop targets, alert thresholds, team access, notifications, and workspace preferences used by the dashboard.</p>
               </div>
 
               <div class="flex flex-wrap gap-2.5 xl:max-w-[540px] xl:justify-end">
@@ -13771,10 +14694,6 @@
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
                   <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Alerts</div>
                   <div class="mt-0.5 text-xl font-extrabold ${activeAlertCount > 0 ? "text-amber" : "text-moss"}">${activeAlertCount}</div>
-                </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Integrations</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-amber">2</div>
                 </div>
               </div>
             </div>
@@ -13897,25 +14816,12 @@
                   <button type="submit" class="actionable mt-4 rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save preferences</button>
                 </form>
 
-                <form class="surface rounded-[26px] p-5" data-settings-form="integrations">
-                  <p class="text-[11px] uppercase tracking-[0.22em] text-pine/56">Integrations</p>
-                  <h3 class="mt-1.5 font-display text-xl font-bold text-ink">DB + ChirpStack</h3>
-                  <p class="mt-2 text-sm leading-6 text-ink/62">Connection credentials belong in the backend. This frontend keeps only the visible service status and a safe endpoint label.</p>
-                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                    ${settingsInput("ChirpStack endpoint", "integrations.chirpStackUrl", settingsState.integrations.chirpStackUrl, { placeholder: "https://chirpstack.example.com" })}
-                    ${settingsSelect("ChirpStack status", "integrations.chirpStackStatus", settingsState.integrations.chirpStackStatus, [{ value: "Not connected", label: "Not connected" }, { value: "Connected", label: "Connected" }, { value: "Needs attention", label: "Needs attention" }])}
-                    ${settingsSelect("Database status", "integrations.databaseStatus", settingsState.integrations.databaseStatus, [{ value: "Not connected", label: "Not connected" }, { value: "Connected", label: "Connected" }, { value: "Needs attention", label: "Needs attention" }])}
-                    ${settingsInput("Last successful sync", "integrations.lastSync", settingsState.integrations.lastSync, { placeholder: "2026-06-20 14:30" })}
-                  </div>
-                  <button type="submit" class="actionable mt-4 rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save integration status</button>
-                </form>
-
                 <form class="surface rounded-[26px] p-5" data-settings-form="retention">
                   <p class="text-[11px] uppercase tracking-[0.22em] text-pine/56">Data retention</p>
-                  <h3 class="mt-1.5 font-display text-xl font-bold text-ink">History storage policy</h3>
+                  <h3 class="mt-1.5 font-display text-xl font-bold text-ink">Trend storage policy</h3>
                   <div class="mt-4 grid gap-3 sm:grid-cols-2">
                     ${settingsInput("Raw readings (days)", "retention.rawDays", settingsState.retention.rawDays, { type: "number", min: "1", max: "3650" })}
-                    ${settingsInput("Aggregated history (months)", "retention.aggregateMonths", settingsState.retention.aggregateMonths, { type: "number", min: "1", max: "240" })}
+                    ${settingsInput("Aggregated trends (months)", "retention.aggregateMonths", settingsState.retention.aggregateMonths, { type: "number", min: "1", max: "240" })}
                   </div>
                   <p class="mt-3 text-xs leading-5 text-ink/54">This is a policy setting for the future database job. It does not delete browser prototype data.</p>
                   <button type="submit" class="actionable mt-4 rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save retention policy</button>
@@ -14407,8 +15313,11 @@
         climate: { key: "climate", label: "Climate", icon: "fa-cloud-sun" },
         root: { key: "root", label: "Root zone", icon: "fa-seedling" },
         feed: { key: "feed", label: "Feed line", icon: "fa-flask" },
-        infrastructure: { key: "infrastructure", label: "Infrastructure", icon: "fa-microchip" }
+        infrastructure: { key: "infrastructure", label: "Node health", icon: "fa-microchip" }
       };
+      groups.climate.label = "Current readings";
+      groups.root.label = "Plant indicators";
+      groups.feed.label = "Nutrients";
 
       return groups[groupKeyMap[key]] || { key: "other", label: "Other", icon: "fa-wave-square" };
     }
@@ -14467,7 +15376,7 @@
             data-active="${String(activeTrendMetricKey === key)}"
             aria-pressed="${String(activeTrendMetricKey === key)}"
           >
-            View history
+            View trend
             <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
           </button>
         </div>
@@ -14529,29 +15438,43 @@
         .sort((left, right) => Number(left.available === false) - Number(right.available === false));
     }
 
-    function syncActiveTrendMetric(metricOptions, fallbackKey = "") {
+    function syncActiveTrendMetrics(metricOptions, fallbackKey = "") {
       if (metricOptions.length === 0) {
         activeTrendMetricKey = "";
-        return null;
+        activeTrendMetricKeys = [];
+        return [];
       }
 
-      const activeOption = metricOptions.find((option) => option.key === activeTrendMetricKey && option.available !== false);
-      if (activeOption) return activeOption;
+      const availableOptions = metricOptions.filter((option) => option.available !== false);
+      const activeKeys = new Set([
+        ...activeTrendMetricKeys,
+        ...(activeTrendMetricKey ? [activeTrendMetricKey] : [])
+      ]);
+      const activeOptions = availableOptions.filter((option) => activeKeys.has(option.key));
+      if (activeOptions.length > 0) {
+        const nextActiveOptions = activeOptions.slice(0, 2);
+        activeTrendMetricKeys = nextActiveOptions.map((option) => option.key);
+        activeTrendMetricKey = activeOptions[0].key;
+        return nextActiveOptions;
+      }
 
-      const fallbackOption = metricOptions.find((option) => option.key === fallbackKey && option.available !== false);
+      const fallbackOption = availableOptions.find((option) => option.key === fallbackKey);
       if (fallbackOption) {
         activeTrendMetricKey = fallbackOption.key;
-        return fallbackOption;
+        activeTrendMetricKeys = [fallbackOption.key];
+        return [fallbackOption];
       }
 
-      const nonOptimalOption = metricOptions.find((option) => option.available !== false && option.state !== "optimal")
-        || metricOptions.find((option) => option.available !== false);
+      const nonOptimalOption = availableOptions.find((option) => option.state !== "optimal")
+        || availableOptions[0];
       if (!nonOptimalOption) {
         activeTrendMetricKey = "";
-        return null;
+        activeTrendMetricKeys = [];
+        return [];
       }
       activeTrendMetricKey = nonOptimalOption.key;
-      return nonOptimalOption;
+      activeTrendMetricKeys = [nonOptimalOption.key];
+      return [nonOptimalOption];
     }
 
     function getTrendToneColor(state) {
@@ -14600,20 +15523,24 @@
       };
     }
 
-    function renderTrendMetricButtons(metricOptions, activeKey) {
-      return metricOptions.map((option) => `
+    function renderTrendMetricButtons(metricOptions, activeKeys = []) {
+      const activeKeySet = new Set(activeKeys);
+      return metricOptions.map((option) => {
+        const isActive = option.available !== false && activeKeySet.has(option.key);
+        return `
         <button
           type="button"
           class="trend-history-metric-button"
           data-trend-metric="${escapeAttribute(option.key)}"
-          data-active="${String(option.available !== false && option.key === activeKey)}"
+          data-active="${String(isActive)}"
           data-tone="${escapeAttribute(option.tone || "neutral")}" 
-          aria-pressed="${String(option.available !== false && option.key === activeKey)}"
+          aria-pressed="${String(isActive)}"
           ${option.available === false ? "disabled aria-disabled=\"true\" title=\"Not installed in this block\"" : ""}
         >
           <span>${escapeHtml(option.label)}${option.available === false ? " · Not installed" : ""}</span>
         </button>
-      `).join("");
+      `;
+      }).join("");
     }
 
     function renderTrendRangeButtons(activeKey) {
@@ -14639,6 +15566,105 @@
           <p class="trend-history-stat-note">${escapeHtml(item.note)}</p>
         </article>
       `).join("");
+    }
+
+    function formatTrendDuration(totalHours) {
+      const minutes = Math.max(1, Math.round(totalHours * 60));
+      if (minutes < 60) return `${minutes} min`;
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = minutes % 60;
+      if (hours < 24) return remainingMinutes > 0 ? `${hours} h ${remainingMinutes} min` : `${hours} h`;
+      const days = Math.floor(hours / 24);
+      const remainingHours = hours % 24;
+      return remainingHours > 0 ? `${days} d ${remainingHours} h` : `${days} d`;
+    }
+
+    function getTrendDirectionText(delta) {
+      if (delta > 0) return "rising";
+      if (delta < 0) return "falling";
+      return "stable";
+    }
+
+    function buildTrendReadoutItem(item, rangeConfig) {
+      const values = item.series.values;
+      const definition = item.option.definition;
+      const optimalRange = item.option.optimalRange || definition.optimal;
+      const currentValue = values[values.length - 1];
+      const previousIndex = Math.max(0, values.length - Math.min(5, values.length));
+      const recentReference = values[previousIndex];
+      const recentDelta = currentValue - recentReference;
+      const domain = item.series.domain || definition.displayRange || definition.critical || definition.warning || definition.optimal;
+      const movementThreshold = Math.max((domain[1] - domain[0]) * 0.018, stepFromDecimals(definition.decimals) * 2);
+      const isCurrentInTarget = currentValue >= optimalRange[0] && currentValue <= optimalRange[1];
+      const direction = Math.abs(recentDelta) <= movementThreshold ? "stable" : getTrendDirectionText(recentDelta);
+      const intervalHours = rangeConfig.totalHours / Math.max(values.length - 1, 1);
+      let inTargetRunStart = values.length - 1;
+
+      while (
+        inTargetRunStart > 0
+        && values[inTargetRunStart - 1] >= optimalRange[0]
+        && values[inTargetRunStart - 1] <= optimalRange[1]
+      ) {
+        inTargetRunStart -= 1;
+      }
+
+      if (isCurrentInTarget) {
+        const wasOutsideBeforeRun = inTargetRunStart > 0;
+        const duration = formatTrendDuration((values.length - 1 - inTargetRunStart) * intervalHours);
+        return {
+          tone: "optimal",
+          label: item.option.label,
+          headline: wasOutsideBeforeRun ? `Returned to target ${duration} ago` : "Holding inside target",
+          note: `${formatValue(currentValue, definition)} now · target ${formatRange(optimalRange, definition)}.`
+        };
+      }
+
+      const isAboveTarget = currentValue > optimalRange[1];
+      const badDirection = (isAboveTarget && recentDelta > movementThreshold) || (!isAboveTarget && recentDelta < -movementThreshold);
+      const recoveryDirection = (isAboveTarget && recentDelta < -movementThreshold) || (!isAboveTarget && recentDelta > movementThreshold);
+      const distanceText = isAboveTarget ? "above target" : "below target";
+      const tone = item.option.state === "critical" ? "critical" : "warning";
+
+      if (badDirection) {
+        return {
+          tone,
+          label: item.option.label,
+          headline: `${item.option.label} still ${direction}`,
+          note: `${formatValue(currentValue, definition)} now, ${distanceText}; latest movement is away from target.`
+        };
+      }
+
+      if (recoveryDirection) {
+        return {
+          tone,
+          label: item.option.label,
+          headline: `${item.option.label} moving back toward target`,
+          note: `${formatValue(currentValue, definition)} now, still ${distanceText}, but the latest trend is improving.`
+        };
+      }
+
+      return {
+        tone,
+        label: item.option.label,
+        headline: `${item.option.label} stable outside target`,
+        note: `${formatValue(currentValue, definition)} now, ${distanceText}; watch whether it re-enters ${formatRange(optimalRange, definition)}.`
+      };
+    }
+
+    function renderTrendReadout(seriesItems, rangeConfig) {
+      return seriesItems.map((item) => {
+        const readout = buildTrendReadoutItem(item, rangeConfig);
+        return `
+          <article class="trend-history-readout-card" data-tone="${escapeAttribute(readout.tone)}">
+            <div class="trend-history-readout-kicker">
+              <span class="trend-history-readout-dot" aria-hidden="true"></span>
+              ${escapeHtml(readout.label)}
+            </div>
+            <div class="trend-history-readout-main">${escapeHtml(readout.headline)}</div>
+            <p class="trend-history-readout-note">${escapeHtml(readout.note)}</p>
+          </article>
+        `;
+      }).join("");
     }
 
     function formatTrendTickValue(value, definition) {
@@ -14669,6 +15695,7 @@
       const padding = { top: 30, right: 36, bottom: 82, left: 88 };
       const chartWidth = width - padding.left - padding.right;
       const chartHeight = height - padding.top - padding.bottom;
+      const snap = (value) => Math.round(value) + 0.5;
       const { domain, optimalRange, values, definition, metricLabel, rangeKey, rangeLabel, totalHours } = state;
       const warningRange = definition.warning || optimalRange;
       const referenceValues = definition.behavior === "higherIsBetter"
@@ -14693,8 +15720,6 @@
       }));
       const bandTop = mapY(optimalRange[1]);
       const bandBottom = mapY(optimalRange[0]);
-      const warningLowY = mapY(warningRange[0]);
-      const warningHighY = mapY(warningRange[1]);
       const yTicks = [0, 0.25, 0.5, 0.75, 1].map((step) => {
         const value = axisDomain[1] - ((axisDomain[1] - axisDomain[0]) * step);
         return {
@@ -14707,6 +15732,7 @@
       const axisColor = "rgba(24, 33, 29, 0.30)";
       const gridColor = "rgba(24, 33, 29, 0.10)";
       const tickColor = "rgba(24, 33, 29, 0.56)";
+      const metricColor = state.seriesColor || getTrendSeriesColor(0);
       const valueUnit = formatUnit(definition.unit);
       const currentValueLabel = `${formatNumber(values[values.length - 1], definition.decimals)} ${valueUnit}`;
       const stateColor = { optimal: "#356b53", warning: "#af7b2c", critical: "#a05444" };
@@ -14715,68 +15741,63 @@
       const lineSegments = points.slice(1).map((point, index) => {
         const previous = points[index];
         const segmentState = getPointState((previous.value + point.value) / 2);
-        return `<path d="M ${previous.x.toFixed(2)} ${previous.y.toFixed(2)} L ${point.x.toFixed(2)} ${point.y.toFixed(2)}" fill="none" stroke="${stateColor[segmentState] || stateColor.optimal}" stroke-width="4" stroke-linecap="round"></path>`;
+        return `<path d="M ${previous.x.toFixed(2)} ${previous.y.toFixed(2)} L ${point.x.toFixed(2)} ${point.y.toFixed(2)}" fill="none" stroke="${stateColor[segmentState] || stateColor.optimal}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>`;
       }).join("");
-      const criticalFill = "rgba(160, 84, 68, 0.065)";
-      const warningFill = "rgba(175, 123, 44, 0.11)";
-      const targetFill = "rgba(53, 107, 83, 0.12)";
-      const isHigherBetter = definition.behavior === "higherIsBetter";
+      const shortMetricLabel = metricLabel
+        .replace("Air temperature", "Temperature")
+        .replace("Relative humidity", "Humidity");
+      const optimalMaxLabelY = Math.max(padding.top + 14, Math.min(bandTop + 16, padding.top + chartHeight - 20));
+      const optimalMinLabelY = Math.max(padding.top + 14, Math.min(bandBottom + 16, padding.top + chartHeight - 8));
 
       return `
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(state.ariaLabel)}">
-          <rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" rx="18" fill="${criticalFill}"></rect>
-          ${isHigherBetter
-            ? `
-              <rect x="${padding.left}" y="${bandBottom.toFixed(2)}" width="${chartWidth}" height="${Math.max(warningLowY - bandBottom, 0).toFixed(2)}" fill="${warningFill}"></rect>
-              <rect x="${padding.left}" y="${bandTop.toFixed(2)}" width="${chartWidth}" height="${Math.max(bandBottom - bandTop, 6).toFixed(2)}" rx="14" fill="${targetFill}"></rect>
-            `
-            : `
-              <rect x="${padding.left}" y="${bandBottom.toFixed(2)}" width="${chartWidth}" height="${Math.max(warningLowY - bandBottom, 0).toFixed(2)}" fill="${warningFill}"></rect>
-              <rect x="${padding.left}" y="${warningHighY.toFixed(2)}" width="${chartWidth}" height="${Math.max(bandTop - warningHighY, 0).toFixed(2)}" fill="${warningFill}"></rect>
-              <rect x="${padding.left}" y="${bandTop.toFixed(2)}" width="${chartWidth}" height="${Math.max(bandBottom - bandTop, 6).toFixed(2)}" rx="14" fill="${targetFill}"></rect>
-            `}
-          <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${(padding.top + chartHeight).toFixed(2)}" stroke="${axisColor}" stroke-width="1.5"></line>
-          <line x1="${padding.left}" y1="${(padding.top + chartHeight).toFixed(2)}" x2="${(padding.left + chartWidth).toFixed(2)}" y2="${(padding.top + chartHeight).toFixed(2)}" stroke="${axisColor}" stroke-width="1.5"></line>
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(state.ariaLabel)}" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+          <rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" rx="18" fill="rgba(255, 255, 255, 0.62)"></rect>
+          <line x1="${snap(padding.left)}" y1="${snap(padding.top)}" x2="${snap(padding.left)}" y2="${snap(padding.top + chartHeight)}" stroke="${metricColor}" stroke-width="1.5" opacity="0.72" vector-effect="non-scaling-stroke"></line>
+          <line x1="${snap(padding.left)}" y1="${snap(padding.top + chartHeight)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(padding.top + chartHeight)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
           ${yTicks.map((tick) => `
             <line
-              x1="${padding.left}"
-              y1="${tick.y.toFixed(2)}"
-              x2="${(padding.left + chartWidth).toFixed(2)}"
-              y2="${tick.y.toFixed(2)}"
+              x1="${snap(padding.left)}"
+              y1="${snap(tick.y)}"
+              x2="${snap(padding.left + chartWidth)}"
+              y2="${snap(tick.y)}"
               stroke="${gridColor}"
               stroke-width="1"
+              vector-effect="non-scaling-stroke"
             ></line>
             <line
-              x1="${(padding.left - 8).toFixed(2)}"
-              y1="${tick.y.toFixed(2)}"
-              x2="${padding.left}"
-              y2="${tick.y.toFixed(2)}"
-              stroke="${axisColor}"
+              x1="${snap(padding.left - 8)}"
+              y1="${snap(tick.y)}"
+              x2="${snap(padding.left)}"
+              y2="${snap(tick.y)}"
+              stroke="${metricColor}"
               stroke-width="1.5"
+              opacity="0.72"
+              vector-effect="non-scaling-stroke"
             ></line>
             <text
-              x="${(padding.left - 14).toFixed(2)}"
-              y="${(tick.y + 4).toFixed(2)}"
+              x="${Math.round(padding.left - 14)}"
+              y="${Math.round(tick.y + 4)}"
               text-anchor="end"
               font-size="12"
               font-weight="700"
-              fill="${tickColor}"
+              fill="${metricColor}"
             >${escapeHtml(formatTrendTickValue(tick.value, definition))}</text>
           `).join("")}
           ${xTicks.map((tick) => {
             const x = padding.left + (chartWidth * tick.progress);
             return `
               <line
-                x1="${x.toFixed(2)}"
-                y1="${(padding.top + chartHeight).toFixed(2)}"
-                x2="${x.toFixed(2)}"
-                y2="${(padding.top + chartHeight + 8).toFixed(2)}"
+                x1="${snap(x)}"
+                y1="${snap(padding.top + chartHeight)}"
+                x2="${snap(x)}"
+                y2="${snap(padding.top + chartHeight + 8)}"
                 stroke="${axisColor}"
                 stroke-width="1.5"
+                vector-effect="non-scaling-stroke"
               ></line>
               <text
-                x="${x.toFixed(2)}"
-                y="${(padding.top + chartHeight + 24).toFixed(2)}"
+                x="${Math.round(x)}"
+                y="${Math.round(padding.top + chartHeight + 24)}"
                 text-anchor="middle"
                 font-size="12"
                 font-weight="700"
@@ -14784,20 +15805,15 @@
               >${escapeHtml(tick.label)}</text>
             `;
           }).join("")}
-          <line x1="${padding.left}" y1="${bandTop.toFixed(2)}" x2="${(padding.left + chartWidth).toFixed(2)}" y2="${bandTop.toFixed(2)}" stroke="rgba(53, 107, 83, 0.38)" stroke-width="1.5" stroke-dasharray="6 6"></line>
-          <line x1="${padding.left}" y1="${bandBottom.toFixed(2)}" x2="${(padding.left + chartWidth).toFixed(2)}" y2="${bandBottom.toFixed(2)}" stroke="rgba(53, 107, 83, 0.38)" stroke-width="1.5" stroke-dasharray="6 6"></line>
-          <text
-            x="${(padding.left + 10).toFixed(2)}"
-            y="${(bandTop - 10).toFixed(2)}"
-            font-size="12"
-            font-weight="800"
-            fill="rgba(53, 107, 83, 0.74)"
-          >Target band</text>
+          <line x1="${snap(padding.left)}" y1="${snap(bandTop)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(bandTop)}" stroke="${metricColor}" stroke-width="1.35" stroke-dasharray="7 6" opacity="0.62" vector-effect="non-scaling-stroke"></line>
+          <line x1="${snap(padding.left)}" y1="${snap(bandBottom)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(bandBottom)}" stroke="${metricColor}" stroke-width="1.35" stroke-dasharray="7 6" opacity="0.62" vector-effect="non-scaling-stroke"></line>
+          <text x="${Math.round(padding.left + 12)}" y="${Math.round(optimalMaxLabelY)}" font-size="10.5" font-weight="850" fill="${metricColor}" opacity="0.78">${escapeHtml(`${shortMetricLabel} optimal max`)}</text>
+          <text x="${Math.round(padding.left + 12)}" y="${Math.round(optimalMinLabelY)}" font-size="10.5" font-weight="850" fill="${metricColor}" opacity="0.78">${escapeHtml(`${shortMetricLabel} optimal min`)}</text>
           ${lineSegments}
-          <circle cx="${finalPoint.x.toFixed(2)}" cy="${finalPoint.y.toFixed(2)}" r="7" fill="#ffffff" stroke="${stateColor[finalState] || stateColor.optimal}" stroke-width="4"></circle>
+          <circle cx="${Math.round(finalPoint.x)}" cy="${Math.round(finalPoint.y)}" r="4.8" fill="#ffffff" stroke="${stateColor[finalState] || stateColor.optimal}" stroke-width="2" vector-effect="non-scaling-stroke"></circle>
           <rect
-            x="${Math.max(padding.left + 16, finalPoint.x - 46).toFixed(2)}"
-            y="${Math.max(padding.top + 10, finalPoint.y - 34).toFixed(2)}"
+            x="${Math.round(Math.max(padding.left + 16, finalPoint.x - 46))}"
+            y="${Math.round(Math.max(padding.top + 10, finalPoint.y - 34))}"
             width="96"
             height="24"
             rx="12"
@@ -14805,16 +15821,16 @@
             stroke="rgba(24, 33, 29, 0.10)"
           ></rect>
           <text
-            x="${Math.max(padding.left + 64, finalPoint.x + 2).toFixed(2)}"
-            y="${Math.max(padding.top + 26, finalPoint.y - 18).toFixed(2)}"
+            x="${Math.round(Math.max(padding.left + 64, finalPoint.x + 2))}"
+            y="${Math.round(Math.max(padding.top + 26, finalPoint.y - 18))}"
             text-anchor="middle"
             font-size="12"
             font-weight="800"
             fill="${stateColor[finalState] || stateColor.optimal}"
           >${escapeHtml(currentValueLabel)}</text>
           <text
-            x="${(padding.left + (chartWidth / 2)).toFixed(2)}"
-            y="${(height - 18).toFixed(2)}"
+            x="${Math.round(padding.left + (chartWidth / 2))}"
+            y="${Math.round(height - 18)}"
             text-anchor="middle"
             font-size="13"
             font-weight="800"
@@ -14822,13 +15838,132 @@
           >${escapeHtml(`Time (${rangeLabel})`)}</text>
           <text
             x="22"
-            y="${(padding.top + (chartHeight / 2)).toFixed(2)}"
+            y="${Math.round(padding.top + (chartHeight / 2))}"
             text-anchor="middle"
             font-size="13"
             font-weight="800"
-            fill="${axisColor}"
-            transform="rotate(-90 22 ${(padding.top + (chartHeight / 2)).toFixed(2)})"
+            fill="${metricColor}"
+            transform="rotate(-90 22 ${Math.round(padding.top + (chartHeight / 2))})"
           >${escapeHtml(`${metricLabel} (${valueUnit})`)}</text>
+        </svg>
+      `;
+    }
+
+    function getTrendSeriesColor(index) {
+      return ["#356b53", "#af7b2c", "#3d6f8f", "#8b5d7a", "#a05444", "#5b6f3d"][index % 6];
+    }
+
+    function getTrendAxisDomain(values, definition, optimalRange) {
+      const warningRange = definition.warning || optimalRange;
+      const displayRange = definition.displayRange || null;
+      const referenceValues = definition.behavior === "higherIsBetter"
+        ? [...values, optimalRange[0], optimalRange[1], warningRange[0]]
+        : [...values, ...optimalRange, ...warningRange];
+      const referenceMin = Math.min(...referenceValues);
+      const referenceMax = Math.max(...referenceValues);
+      const baseDomain = displayRange || definition.critical || definition.warning || definition.optimal;
+      const referenceSpan = Math.max(referenceMax - referenceMin, (baseDomain[1] - baseDomain[0]) * 0.12, 0.01);
+      const axisPadding = referenceSpan * 0.14;
+      return [
+        displayRange ? Math.max(displayRange[0], referenceMin - axisPadding) : referenceMin - axisPadding,
+        displayRange ? Math.min(displayRange[1], referenceMax + axisPadding) : referenceMax + axisPadding
+      ];
+    }
+
+    function renderDualTrendChartSvg(state) {
+      const width = 980;
+      const height = 390;
+      const padding = { top: 30, right: 88, bottom: 82, left: 88 };
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
+      const snap = (value) => Math.round(value) + 0.5;
+      const { seriesItems, rangeKey, rangeLabel, totalHours } = state;
+      const leftItem = seriesItems[0];
+      const rightItem = seriesItems[1];
+      const leftColor = getTrendSeriesColor(0);
+      const rightColor = getTrendSeriesColor(1);
+      const mapX = (index, length) => padding.left + ((chartWidth * index) / Math.max(length - 1, 1));
+      const leftOptimalRange = leftItem.option.optimalRange || leftItem.option.definition.optimal;
+      const rightOptimalRange = rightItem.option.optimalRange || rightItem.option.definition.optimal;
+      const leftAxisDomain = getTrendAxisDomain(leftItem.series.values, leftItem.option.definition, leftOptimalRange);
+      const rightAxisDomain = getTrendAxisDomain(rightItem.series.values, rightItem.option.definition, rightOptimalRange);
+      const mapLeftY = (value) => padding.top + ((leftAxisDomain[1] - value) / Math.max(leftAxisDomain[1] - leftAxisDomain[0], 0.0001)) * chartHeight;
+      const mapRightY = (value) => padding.top + ((rightAxisDomain[1] - value) / Math.max(rightAxisDomain[1] - rightAxisDomain[0], 0.0001)) * chartHeight;
+      const yTicks = [0, 0.25, 0.5, 0.75, 1].map((step) => ({
+        y: padding.top + (chartHeight * step),
+        leftValue: leftAxisDomain[1] - ((leftAxisDomain[1] - leftAxisDomain[0]) * step),
+        rightValue: rightAxisDomain[1] - ((rightAxisDomain[1] - rightAxisDomain[0]) * step)
+      }));
+      const xTicks = buildTrendTimeTicks(rangeKey, totalHours);
+      const axisColor = "rgba(24, 33, 29, 0.30)";
+      const gridColor = "rgba(24, 33, 29, 0.10)";
+      const tickColor = "rgba(24, 33, 29, 0.56)";
+      const buildTargetBand = (item, mapY, color, side) => {
+        const optimalRange = item.option.optimalRange || item.option.definition.optimal;
+        const yTop = mapY(Math.max(optimalRange[0], optimalRange[1]));
+        const yBottom = mapY(Math.min(optimalRange[0], optimalRange[1]));
+        const isLeft = side === "left";
+        const labelX = isLeft ? padding.left + 12 : padding.left + chartWidth - 12;
+        const textAnchor = isLeft ? "start" : "end";
+        const dashPattern = "7 6";
+        const shortLabel = item.option.label
+          .replace("Air temperature", "Temperature")
+          .replace("Relative humidity", "Humidity");
+        const topLabelY = Math.max(padding.top + 14, Math.min(yTop + 16, padding.top + chartHeight - 20));
+        const bottomLabelY = Math.max(padding.top + 14, Math.min(yBottom + 16, padding.top + chartHeight - 8));
+        return `
+          <line x1="${snap(padding.left)}" y1="${snap(yTop)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(yTop)}" stroke="${color}" stroke-width="1.35" stroke-dasharray="${dashPattern}" opacity="0.62" vector-effect="non-scaling-stroke"></line>
+          <line x1="${snap(padding.left)}" y1="${snap(yBottom)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(yBottom)}" stroke="${color}" stroke-width="1.35" stroke-dasharray="${dashPattern}" opacity="0.62" vector-effect="non-scaling-stroke"></line>
+          <text x="${labelX.toFixed(2)}" y="${topLabelY.toFixed(2)}" text-anchor="${textAnchor}" font-size="10.5" font-weight="850" fill="${color}" opacity="0.78">${escapeHtml(`${shortLabel} optimal max`)}</text>
+          <text x="${labelX.toFixed(2)}" y="${bottomLabelY.toFixed(2)}" text-anchor="${textAnchor}" font-size="10.5" font-weight="850" fill="${color}" opacity="0.78">${escapeHtml(`${shortLabel} optimal min`)}</text>
+        `;
+      };
+      const targetBands = `${buildTargetBand(leftItem, mapLeftY, leftColor, "left")}${buildTargetBand(rightItem, mapRightY, rightColor, "right")}`;
+      const lines = seriesItems.map((item, seriesIndex) => {
+        const color = getTrendSeriesColor(seriesIndex);
+        const mapY = seriesIndex === 0 ? mapLeftY : mapRightY;
+        const points = item.series.values.map((value, index) => ({
+          x: mapX(index, item.series.values.length),
+          y: mapY(value),
+          value
+        }));
+        const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
+        const finalPoint = points[points.length - 1];
+        return `
+          <path d="${path}" fill="none" stroke="${color}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+          <circle cx="${Math.round(finalPoint.x)}" cy="${Math.round(finalPoint.y)}" r="4.4" fill="#ffffff" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"></circle>
+        `;
+      }).join("");
+      const legend = seriesItems.map((item, index) => `
+        <g transform="translate(${padding.left + (index * 168)} ${height - 34})">
+          <circle cx="0" cy="0" r="5" fill="${getTrendSeriesColor(index)}"></circle>
+          <text x="12" y="4" font-size="12" font-weight="800" fill="rgba(24, 33, 29, 0.70)">${escapeHtml(`${item.option.label} (${index === 0 ? "left" : "right"} axis)`)}</text>
+        </g>
+      `).join("");
+      return `
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(state.ariaLabel)}" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+          <rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" rx="10" fill="rgba(255, 255, 255, 0.62)"></rect>
+          <line x1="${snap(padding.left)}" y1="${snap(padding.top)}" x2="${snap(padding.left)}" y2="${snap(padding.top + chartHeight)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
+          <line x1="${snap(padding.left + chartWidth)}" y1="${snap(padding.top)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(padding.top + chartHeight)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
+          <line x1="${snap(padding.left)}" y1="${snap(padding.top + chartHeight)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(padding.top + chartHeight)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
+          ${yTicks.map((tick) => `
+            <line x1="${snap(padding.left)}" y1="${snap(tick.y)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(tick.y)}" stroke="${gridColor}" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+            <text x="${Math.round(padding.left - 14)}" y="${Math.round(tick.y + 4)}" text-anchor="end" font-size="12" font-weight="700" fill="${leftColor}">${escapeHtml(formatTrendTickValue(tick.leftValue, leftItem.option.definition))}</text>
+            <text x="${Math.round(padding.left + chartWidth + 14)}" y="${Math.round(tick.y + 4)}" text-anchor="start" font-size="12" font-weight="700" fill="${rightColor}">${escapeHtml(formatTrendTickValue(tick.rightValue, rightItem.option.definition))}</text>
+          `).join("")}
+          ${xTicks.map((tick) => {
+            const x = padding.left + (chartWidth * tick.progress);
+            return `
+              <line x1="${snap(x)}" y1="${snap(padding.top + chartHeight)}" x2="${snap(x)}" y2="${snap(padding.top + chartHeight + 8)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
+              <text x="${Math.round(x)}" y="${Math.round(padding.top + chartHeight + 24)}" text-anchor="middle" font-size="12" font-weight="700" fill="${tickColor}">${escapeHtml(tick.label)}</text>
+            `;
+          }).join("")}
+          ${targetBands}
+          ${lines}
+          <text x="${Math.round(padding.left + (chartWidth / 2))}" y="${Math.round(height - 18)}" text-anchor="middle" font-size="13" font-weight="800" fill="${axisColor}">${escapeHtml(`Time (${rangeLabel})`)}</text>
+          <text x="22" y="${Math.round(padding.top + (chartHeight / 2))}" text-anchor="middle" font-size="13" font-weight="800" fill="${leftColor}" transform="rotate(-90 22 ${Math.round(padding.top + (chartHeight / 2))})">${escapeHtml(`${leftItem.option.label} (${formatUnit(leftItem.option.definition.unit)})`)}</text>
+          <text x="${width - 22}" y="${Math.round(padding.top + (chartHeight / 2))}" text-anchor="middle" font-size="13" font-weight="800" fill="${rightColor}" transform="rotate(90 ${width - 22} ${Math.round(padding.top + (chartHeight / 2))})">${escapeHtml(`${rightItem.option.label} (${formatUnit(rightItem.option.definition.unit)})`)}</text>
+          ${legend}
         </svg>
       `;
     }
@@ -14841,17 +15976,20 @@
         trendMetricOptions
       } = options;
       const rangeConfig = trendRangeConfig[activeTrendRangeKey] || trendRangeConfig["24h"];
-      const selectedMetric = syncActiveTrendMetric(trendMetricOptions, options.defaultMetricKey);
+      const selectedMetrics = syncActiveTrendMetrics(trendMetricOptions, options.defaultMetricKey);
+      const selectedMetric = selectedMetrics[0];
+      const isMultiMetric = selectedMetrics.length > 1;
 
       if (!selectedMetric) {
         return null;
       }
 
-      const series = buildTrendSeries(
-        selectedMetric,
-        activeTrendRangeKey,
-        isSiteView ? `${site.id}:site` : `${site.id}:${zone.id}:zone`
-      );
+      const scopeSeed = isSiteView ? `${site.id}:site` : `${site.id}:${zone.id}:zone`;
+      const seriesItems = selectedMetrics.map((metricOption) => ({
+        option: metricOption,
+        series: buildTrendSeries(metricOption, activeTrendRangeKey, scopeSeed)
+      }));
+      const series = seriesItems[0].series;
       const startValue = series.values[0];
       const currentValue = series.values[series.values.length - 1];
       const deltaValue = roundValue(currentValue - startValue, selectedMetric.definition.decimals);
@@ -14873,9 +16011,14 @@
       });
       const hoverPoints = series.values.map((value, index) => {
         const progress = series.values.length === 1 ? 1 : index / (series.values.length - 1);
+        const timestamp = tooltipDateFormat.format(new Date(rangeStart + (progress * rangeConfig.totalHours * 60 * 60 * 1000)));
         return {
           value: formatValue(value, selectedMetric.definition),
-          time: tooltipDateFormat.format(new Date(rangeStart + (progress * rangeConfig.totalHours * 60 * 60 * 1000)))
+          time: timestamp,
+          items: seriesItems.map((item) => ({
+            label: item.option.label,
+            value: formatValue(item.series.values[index], item.option.definition)
+          }))
         };
       });
 
@@ -14897,16 +16040,29 @@
           : `${selectedMetric.label} is easing downward toward target, which suggests the system may already be recovering.`;
       }
 
+      if (isMultiMetric) {
+        const labels = selectedMetrics.map((metric) => metric.label).join(" / ");
+        callout = `This comparison shows how ${labels.toLowerCase()} moved in the same time window. The first metric uses the left Y axis, the second uses the right Y axis, and each dashed band keeps that metric's own target range.`;
+      }
+
       return {
-        title: isSiteView ? `Historical trend for ${site.name}` : `Historical trend for ${zone.name}`,
+        title: isSiteView ? `24-hour trends for ${site.name}` : `24-hour trends for ${zone.name}`,
         summary: isSiteView
-          ? `Open one metric at a time to decide whether this location average is a broad trend, a short-lived disturbance, or a recovery already in progress.`
-          : `Open one metric at a time to check whether the live reading in ${zone.name} is a brief spike or part of a longer drift.`,
+          ? `Select up to two metrics to compare how growing conditions moved across ${site.name}.`
+          : `Select up to two metrics to compare how temperature, humidity, CO2, or VPD moved inside ${zone.name}.`,
         state: selectedMetric.state,
         rangeMeta: rangeConfig.meta,
-        metricLabel: selectedMetric.label,
-        metricMeta: `${selectedMetric.meta} · Target ${formatRange(optimalRange, selectedMetric.definition)}`,
-        chartSvg: renderTrendChartSvg({
+        metricLabel: isMultiMetric ? `${selectedMetrics.length} metrics selected` : selectedMetric.label,
+        metricMeta: isMultiMetric
+          ? "Dual-axis comparison · left and right Y axes use real units"
+          : `${selectedMetric.meta} · Target ${formatRange(optimalRange, selectedMetric.definition)}`,
+        chartSvg: isMultiMetric ? renderDualTrendChartSvg({
+          seriesItems,
+          rangeKey: activeTrendRangeKey,
+          rangeLabel: rangeConfig.label,
+          totalHours: rangeConfig.totalHours,
+          ariaLabel: `${selectedMetrics.map((metric) => metric.label).join(", ")} over the last ${rangeConfig.label}`
+        }) : renderTrendChartSvg({
           domain: series.domain,
           optimalRange,
           values: series.values,
@@ -14920,11 +16076,12 @@
         }),
         axisLabels: {
           start: `${rangeConfig.label} window`,
-          mid: "Target band shaded",
-          end: `Y unit: ${formatUnit(selectedMetric.definition.unit)}`
+          mid: isMultiMetric ? "Left axis + right axis" : "Optimal min + max",
+          end: isMultiMetric ? "Tooltip shows both real values" : `Y unit: ${formatUnit(selectedMetric.definition.unit)}`
         },
-        metricButtons: renderTrendMetricButtons(trendMetricOptions, selectedMetric.key),
+        metricButtons: renderTrendMetricButtons(trendMetricOptions, selectedMetrics.map((metric) => metric.key)),
         rangeButtons: renderTrendRangeButtons(activeTrendRangeKey),
+        readoutHtml: renderTrendReadout(seriesItems, rangeConfig),
         hoverPoints,
         statsHtml: renderTrendStats([
           {
@@ -14949,13 +16106,14 @@
           }
         ]),
         callout,
-        backendNote: "Ready for real database-backed sensor history once DB / ChirpStack integration is connected."
+        backendNote: "Ready for real sensor history once live readings are connected."
       };
     }
 
     function openTrendHistory(metricKey) {
       if (metricKey) {
         activeTrendMetricKey = metricKey;
+        activeTrendMetricKeys = [metricKey];
       }
       activePrimaryPage = "history";
       sidebarActionOverride = null;
@@ -15333,7 +16491,7 @@
                     ${record.updatedAt ? `<p class="mt-2 text-xs text-ink/46">${escapeHtml(record.status)} by ${escapeHtml(record.updatedBy || "team member")} · ${new Date(record.updatedAt).toLocaleString("lt-LT", { dateStyle: "medium", timeStyle: "short" })}</p>` : ""}
                   </div>
                   <div class="flex flex-wrap items-center gap-2 xl:justify-end">
-                    <button type="button" data-alert-history="${escapeAttribute(record.id)}" class="rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm font-semibold text-ink/72">View history</button>
+                    <button type="button" data-alert-history="${escapeAttribute(record.id)}" class="rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm font-semibold text-ink/72">View trend</button>
                     ${record.status === "open" ? `<button type="button" data-alert-action="acknowledged" data-alert-id="${escapeAttribute(record.id)}" class="rounded-xl border border-pine/18 bg-pine/8 px-3.5 py-2.5 text-sm font-semibold text-pine">Acknowledge</button>` : ""}
                     ${record.status !== "resolved" ? `<button type="button" data-alert-action="snoozed" data-alert-id="${escapeAttribute(record.id)}" class="rounded-xl border border-amber/18 bg-amber/8 px-3.5 py-2.5 text-sm font-semibold text-amber">Snooze</button><button type="button" data-alert-action="resolved" data-alert-id="${escapeAttribute(record.id)}" class="rounded-xl bg-pine px-3.5 py-2.5 text-sm font-semibold text-white">Resolve</button>` : ""}
                   </div>
@@ -15356,6 +16514,7 @@
       activeProfileKey = record.zone.profile;
       activeViewScope = "zone";
       activeTrendMetricKey = record.metricKey;
+      activeTrendMetricKeys = [record.metricKey];
       activePrimaryPage = "history";
       sidebarActionOverride = null;
       renderZoneOptions();
@@ -15946,20 +17105,6 @@
       renderSettingsManagementPage(globalSnapshots);
       renderAlertsManagementPage(alertRecords);
 
-      elements.siteChip.textContent = isAlertsPage ? "Operations workspace" : isManagementPage ? "Structure workspace" : site.name;
-      elements.zoneChip.textContent = isLocationsPage
-        ? "Areas"
-        : isBlocksPage
-          ? "Sections"
-          : isNodesPage
-            ? "Nodes"
-          : isHistoryPage
-            ? "History"
-          : isAlertsPage
-            ? "Alerts"
-          : isSettingsPage
-            ? "Settings"
-          : isSiteView ? "Site view" : zone.name;
       elements.experienceModeTitle.textContent = isDetailedExperienceMode ? "Detailed analysis view" : "Simple client view";
       elements.experienceModeSummary.textContent = isDetailedExperienceMode
         ? isSiteView
@@ -15975,13 +17120,13 @@
       });
       elements.scopeHelperText.textContent = isSiteView
         ? isSimpleExperienceMode
-          ? "This is the location summary across all blocks. Open one block only if something needs attention."
+          ? "Viewing the whole area. Switch to a section when you want to inspect one growing space."
           : isSiteHotspotsView
-            ? "These are the blocks that are lowering the location score most. Open one to see its live growth index."
-            : "This is the location score for all blocks together. Open a block only if something needs attention."
+            ? "These sections are lowering the area score most. Open one to see its live growth index."
+            : "Viewing the area score across all sections. Switch to a section for live readings."
         : isSimpleExperienceMode
-          ? "Choose a block to see the current situation, the main readings, and the first action."
-          : "Choose a block to see its growth score and main live readings.";
+          ? "Viewing one section. Change Area or Section to inspect another growing space."
+          : "Viewing one section with its growth score, live readings, and supporting details.";
       elements.zoneScopeButton.dataset.active = String(!isSiteView);
       elements.zoneScopeButton.setAttribute("aria-pressed", String(!isSiteView));
       elements.siteScopeButton.dataset.active = String(isSiteView);
@@ -15992,18 +17137,18 @@
       elements.siteZonesButton.dataset.active = String(activeSiteDetailView === "zones");
       elements.siteZonesButton.setAttribute("aria-pressed", String(activeSiteDetailView === "zones"));
       elements.siteContextValue.textContent = site.name;
-      elements.siteContextMeta.textContent = `${site.zones.length} blocks available`;
+      elements.siteContextMeta.textContent = `${site.zones.length} sections available`;
       elements.zoneContextCard.dataset.disabled = isSiteView ? "true" : "false";
       elements.zoneTrigger.disabled = isSiteView;
       elements.zoneTrigger.setAttribute("aria-disabled", String(isSiteView));
-      elements.zoneContextValue.textContent = isSiteView ? "All blocks" : zone.name;
+      elements.zoneContextValue.textContent = isSiteView ? "All sections" : zone.name;
       elements.zoneContextMeta.textContent = isSiteView
-        ? `${site.zones.length} blocks included in location score`
+        ? `${site.zones.length} sections included in area score`
         : unavailableCount > 0
           ? `${zone.sensorCount} nodes · ${unavailableCount} unavailable`
-          : `${zone.sensorCount} nodes in this block`;
+          : `${zone.sensorCount} nodes in this section`;
       elements.profileContextValue.textContent = isSiteView ? siteProfileSummary.value : profile.name;
-      elements.profileContextMeta.textContent = isSiteView ? siteProfileSummary.meta : "Inherited from block";
+      elements.profileContextMeta.textContent = isSiteView ? siteProfileSummary.meta : "Inherited from section";
       try {
         elements.opsDockTitle.textContent = opsDockTitle;
       elements.opsDockSummary.textContent = opsDockSummary;
@@ -16031,7 +17176,7 @@
       elements.nodesManagementSection.hidden = !isNodesPage;
       elements.settingsManagementSection.hidden = !isSettingsPage;
       elements.alertsManagementSection.hidden = !isAlertsPage;
-      elements.sidebarQuickActions.hidden = isSimpleExperienceMode || isPrimaryWorkspacePage;
+      if (elements.sidebarQuickActions) elements.sidebarQuickActions.hidden = true;
       elements.opsDockSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode;
       elements.alertsSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "alerts");
       elements.heroStatusPanel.hidden = isPrimaryWorkspacePage || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "overview");
@@ -16120,25 +17265,26 @@
       });
 
       elements.indicatorTitle.textContent = isSimpleExperienceMode
-        ? isSiteView ? "Current area status" : "Current section status"
-        : isSiteView ? "Area growth index" : "Section growth index";
+        ? isSiteView ? "Area conditions score" : "Growing Conditions Score"
+        : isSiteView ? "Area conditions index" : "Growing Conditions Index";
       elements.indicatorScoreLabel.textContent = isSimpleExperienceMode
-        ? isSiteView ? "Current area score" : "Current section score"
-        : isSiteView ? "Selected area score" : "Selected section score";
+        ? "Conditions score"
+        : isSiteView ? "Selected area conditions" : "Selected section conditions";
       elements.indicatorMetaLabel.textContent = isSiteView ? "Sections included" : "Oldest node uplink";
       elements.indicatorSummary.textContent = isSiteView
         ? buildSiteIndicatorSummary(siteSnapshots, topIndicatorDrivers)
         : buildGrowthIndicatorSummary(topIndicatorDrivers, unavailableCount);
       applyStateChip(elements.indicatorZoneBadge, displayedOverallState.state, getScopeBadgeLabel(displayedOverallState.state, activeViewScope));
       elements.indicatorScoreWrap.dataset.state = displayedOverallState.state;
-      elements.indicatorScore.textContent = `${displayedOverallState.indexScore}%`;
+      elements.indicatorScore.textContent = `${displayedOverallState.indexScore}`;
+      elements.indicatorScoreState.textContent = getHealthStateLabel(displayedOverallState.state);
       elements.heroSensorGlanceTitle.textContent = heroSensorGlanceState.title;
       elements.heroSensorGlanceSummary.textContent = heroSensorGlanceState.summary;
       elements.heroSensorGlanceGrid.innerHTML = renderHeroSensorGlanceCards(heroSensorGlanceState.items);
       elements.indicatorSupportGrid.hidden = isSimpleExperienceMode;
       elements.indicatorCountStrip.hidden = isSimpleExperienceMode;
       elements.indicatorDrivers.innerHTML = renderIndicatorDrivers(topIndicatorDrivers);
-      elements.indicatorDriverGroup.hidden = isSimpleExperienceMode || topIndicatorDrivers.length === 0;
+      elements.indicatorDriverGroup.hidden = topIndicatorDrivers.length === 0;
       elements.indicatorDrivers.hidden = topIndicatorDrivers.length === 0;
       const visibleActionDeckCards = isSimpleExperienceMode
         ? actionDeck.cards.slice(0, 1).map((card) => ({
@@ -16161,14 +17307,66 @@
       actionDeckShortcutMap = new Map(visibleActionDeckCards.map((card, index) => [String(index + 1), card]));
       elements.todayPriorityPanel.hidden = isPrimaryWorkspacePage || !isSimpleExperienceMode;
       if (isSimpleExperienceMode && !isPrimaryWorkspacePage) {
-        renderTodayPriority(actionDeck.cards[0], allSystemIssues);
+        const prioritySnapshot = allSystemIssues[0] || { site, zone, profile, results };
+        const priorityResult = prioritySnapshot?.results
+          ?.filter((result) => result.available !== false && isGrowthMetricKey(result.key))
+          .sort((left, right) => {
+            if (left.state !== "optimal" && right.state === "optimal") return -1;
+            if (left.state === "optimal" && right.state !== "optimal") return 1;
+            return right.severity - left.severity;
+          })[0] || null;
+        const priorityDefinition = priorityResult ? prioritySnapshot.profile.metrics[priorityResult.key] : null;
+        const priorityTrendOption = priorityResult && priorityDefinition ? {
+          key: priorityResult.key,
+          value: priorityResult.value,
+          state: priorityResult.state,
+          definition: priorityDefinition,
+          optimalRange: priorityDefinition.optimal
+        } : null;
+        const prioritySeries = priorityTrendOption
+          ? buildTrendSeries(priorityTrendOption, "24h", `${prioritySnapshot.site.id}:${prioritySnapshot.zone.id}:priority`)
+          : null;
+        const priorityDelta = prioritySeries
+          ? roundValue(prioritySeries.values[prioritySeries.values.length - 1] - prioritySeries.values[0], priorityDefinition.decimals)
+          : 0;
+        const priorityAlert = priorityResult
+          ? alertRecords.find((record) => record.site.id === prioritySnapshot.site.id && record.zone.id === prioritySnapshot.zone.id && record.metricKey === priorityResult.key)
+          : null;
+        const priorityTrend = !priorityDefinition
+          ? "No trend yet"
+          : priorityDelta === 0
+            ? "Stable over 24 h"
+            : `${priorityDelta > 0 ? "↑" : "↓"} ${formatValue(Math.abs(priorityDelta), priorityDefinition)} in 24 h`;
+        const globalPriorityAction = priorityResult && priorityDefinition ? {
+          state: priorityResult.state,
+          title: `${getDecisionVerb(priorityResult, priorityDefinition)} ${priorityDefinition.label.toLowerCase()}`,
+          note: `${prioritySnapshot.zone.name} in ${prioritySnapshot.site.name} is ${priorityResult.deviationText.toLowerCase()}. ${getDecisionImpactText(priorityResult.key, priorityDefinition.label)}`,
+          cta: "Open metrics",
+          targetId: "metricsSection",
+          siteId: prioritySnapshot.site.id,
+          zoneId: prioritySnapshot.zone.id,
+          profileKey: prioritySnapshot.zone.profile,
+          metricKey: priorityResult.key
+        } : actionDeck.cards[0];
+        renderTodayPriority([globalPriorityAction], allSystemIssues, {
+          metric: priorityDefinition?.label,
+          definition: priorityDefinition,
+          result: priorityResult,
+          trend: priorityTrend,
+          duration: priorityAlert ? formatAlertDuration(priorityAlert.detectedAt) : "Latest reading",
+          scopeLabel: prioritySnapshot.zone.name,
+          siteId: prioritySnapshot.site.id,
+          zoneId: prioritySnapshot.zone.id,
+          siteName: prioritySnapshot.site.name,
+          zoneName: prioritySnapshot.zone.name
+        });
       } else {
         currentTodayPriorityAction = null;
       }
       elements.indicatorUplink.textContent = isSiteView
         ? manualOverride
-          ? `${siteSnapshots.length} blocks | manual branch`
-          : `${siteSnapshots.length} blocks`
+          ? `${siteSnapshots.length} sections | manual branch`
+          : `${siteSnapshots.length} sections`
         : manualOverride ? "manual test" : stateConfig[activeScenarioKey].uplink;
 
       elements.conditionFill.style.width = `${thumbPosition}%`;
@@ -16416,6 +17614,8 @@
       elements.historySection.hidden = shouldHideTrendHistory;
 
       if (!shouldHideTrendHistory && trendHistoryState) {
+        elements.trendHistoryActiveAreaLabel.textContent = site.name;
+        elements.trendHistoryActiveSectionLabel.textContent = zone.name;
         elements.historyLocationSelect.innerHTML = dashboardData.sites.map((historySite) => `
           <option value="${escapeAttribute(historySite.id)}" ${historySite.id === site.id ? "selected" : ""}>${escapeHtml(historySite.name)}</option>
         `).join("");
@@ -16430,6 +17630,7 @@
         elements.trendRangeBar.innerHTML = trendHistoryState.rangeButtons;
         elements.trendHistoryMetricLabel.textContent = trendHistoryState.metricLabel;
         elements.trendHistoryMetricMeta.textContent = trendHistoryState.metricMeta;
+        elements.trendHistoryReadout.innerHTML = trendHistoryState.readoutHtml;
         elements.trendHistoryChart.innerHTML = `${trendHistoryState.chartSvg}<div id="trendHistoryTooltip" class="trend-history-tooltip" hidden></div>`;
         elements.trendHistoryTooltip = document.getElementById("trendHistoryTooltip");
         currentTrendHistoryPoints = trendHistoryState.hoverPoints;
@@ -16529,7 +17730,8 @@
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
       closeContextMenus();
-      renderDashboard();
+      renderSiteOptions();
+      scheduleDashboardRender();
     });
 
     elements.zoneMenu.addEventListener("click", (event) => {
@@ -16539,7 +17741,8 @@
       activeZoneId = option.dataset.zoneId;
       resetCurrentReadingsFromActiveZone();
       closeContextMenus();
-      renderDashboard();
+      renderZoneOptions();
+      scheduleDashboardRender();
     });
 
     elements.locationsManagementSection.addEventListener("input", (event) => {
@@ -17133,8 +18336,33 @@
     });
 
     elements.todayPriorityPanel.addEventListener("click", (event) => {
+      const whyButton = event.target.closest("[data-today-priority-why]");
+      if (whyButton) {
+        const whyPanel = document.getElementById("todayPriorityWhyPanel");
+        if (whyPanel) {
+          const nextHidden = !whyPanel.hidden ? true : false;
+          whyPanel.hidden = nextHidden;
+          whyButton.setAttribute("aria-expanded", String(!nextHidden));
+        }
+        return;
+      }
+
       if (event.target.closest("[data-today-priority-action]")) {
-        executeActionDeckAction(currentTodayPriorityAction);
+        executeTodayPriorityAction(currentTodayPriorityAction);
+        return;
+      }
+
+      const followUp = event.target.closest("[data-today-followup-index]");
+      if (followUp) {
+        executeTodayPriorityAction(currentTodayPriorityActions[Number(followUp.dataset.todayFollowupIndex)]);
+        return;
+      }
+
+      if (event.target.closest("[data-today-alerts-page]")) {
+        activePrimaryPage = "alerts";
+        sidebarActionOverride = null;
+        renderDashboard();
+        scrollToSection("alertsManagementSection");
         return;
       }
 
@@ -17196,8 +18424,23 @@
       if (button.disabled) return;
 
       const nextMetricKey = button.dataset.trendMetric;
-      if (!nextMetricKey || nextMetricKey === activeTrendMetricKey) return;
-      activeTrendMetricKey = nextMetricKey;
+      if (!nextMetricKey) return;
+      const activeKeys = activeTrendMetricKeys.length > 0
+        ? [...activeTrendMetricKeys]
+        : (activeTrendMetricKey ? [activeTrendMetricKey] : []);
+      const existingIndex = activeKeys.indexOf(nextMetricKey);
+
+      if (existingIndex >= 0) {
+        if (activeKeys.length === 1) return;
+        activeKeys.splice(existingIndex, 1);
+      } else if (activeKeys.length >= 2) {
+        activeKeys[1] = nextMetricKey;
+      } else {
+        activeKeys.push(nextMetricKey);
+      }
+
+      activeTrendMetricKeys = activeKeys.slice(0, 2);
+      activeTrendMetricKey = activeTrendMetricKeys[0] || nextMetricKey;
       renderDashboard();
     });
 
@@ -17219,6 +18462,7 @@
       activeZoneId = nextZone.id;
       activeViewScope = "zone";
       activeTrendMetricKey = "";
+      activeTrendMetricKeys = [];
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
       renderDashboard();
@@ -17230,6 +18474,7 @@
       activeZoneId = nextZone.id;
       activeViewScope = "zone";
       activeTrendMetricKey = "";
+      activeTrendMetricKeys = [];
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
       renderDashboard();
@@ -17258,7 +18503,9 @@
 
       const localX = Math.min(Math.max(event.clientX - chartRect.left, 82), chartRect.width - 82);
       const localY = Math.max(event.clientY - chartRect.top, 58);
-      tooltip.innerHTML = `<span class="trend-history-tooltip-value">${escapeHtml(point.value)}</span><span class="trend-history-tooltip-time">${escapeHtml(point.time)}</span>`;
+      tooltip.innerHTML = Array.isArray(point.items) && point.items.length > 1
+        ? `<span class="trend-history-tooltip-time">${escapeHtml(point.time)}</span>${point.items.map((item) => `<span class="trend-history-tooltip-value">${escapeHtml(item.label)}: ${escapeHtml(item.value)}</span>`).join("")}`
+        : `<span class="trend-history-tooltip-value">${escapeHtml(point.value)}</span><span class="trend-history-tooltip-time">${escapeHtml(point.time)}</span>`;
       tooltip.style.left = `${localX}px`;
       tooltip.style.top = `${localY}px`;
       tooltip.hidden = false;
