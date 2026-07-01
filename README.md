@@ -11,6 +11,8 @@ cd ~/neurocrop
 git pull
 pnpm install
 pnpm build
+cd dist
+zip -r ../REACT-DOMENUI.zip .
 ```
 
 ## Svarbiausia architektūros taisyklė
