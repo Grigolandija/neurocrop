@@ -37,40 +37,33 @@ export function HistoryPage({ locations, blocks }: { locations: Location[]; bloc
   const [blockId, setBlockId] = useState(blocks[0]?.id || '')
   const [metricKey, setMetricKey] = useState<MetricKey>('airTemp')
   const [range, setRange] = useState<Range>('24h')
-  const [points, setPoints] = useState<Point[]>([])
-  const [loading, setLoading] = useState(false)
+  const [remotePoints, setRemotePoints] = useState<{ key: string; points: Point[] } | null>(null)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
 
   const locationBlocks = blocks.filter((block) => block.locationId === locationId)
   const block = blocks.find((item) => item.id === blockId) || locationBlocks[0] || blocks[0]
   const available = metricDefinitions.filter((metric) => block?.installedMetrics.includes(metric.key))
   const unavailable = metricDefinitions.filter((metric) => !block?.installedMetrics.includes(metric.key))
-  const metric = metricDefinitions.find((item) => item.key === metricKey) || available[0] || metricDefinitions[0]
+  const metricKeyInUse = available.some((item) => item.key === metricKey) ? metricKey : available[0]?.key || metricKey
+  const metric = metricDefinitions.find((item) => item.key === metricKeyInUse) || available[0] || metricDefinitions[0]
   const current = block?.readings[metric.key] ?? metric.target[0]
+  const selectionKey = `${block?.id || 'none'}:${metric.key}:${range}`
+  const fallbackPoints = buildMockPoints(current, range, metric.domain)
 
   useEffect(() => {
     if (!block) return
-    const fallback = buildMockPoints(current, range, metric.domain)
     if (!api.configured) {
-      setPoints(fallback)
       return
     }
 
     let active = true
     const now = new Date()
     const from = new Date(now.getTime() - rangeConfig[range].hours * 3_600_000)
-    setLoading(true)
     api.history(block.id, metric.key, from.toISOString(), now.toISOString())
-      .then((response) => { if (active) setPoints(response.points.length ? response.points : fallback) })
-      .catch(() => { if (active) setPoints(fallback) })
-      .finally(() => { if (active) setLoading(false) })
+      .then((response) => { if (active) setRemotePoints({ key: selectionKey, points: response.points.length ? response.points : fallbackPoints }) })
+      .catch(() => { if (active) setRemotePoints({ key: selectionKey, points: fallbackPoints }) })
     return () => { active = false }
-  }, [block?.id, current, metric.domain, metric.key, range])
-
-  useEffect(() => {
-    if (available.some((item) => item.key === metricKey)) return
-    if (available[0]) setMetricKey(available[0].key)
-  }, [available, metricKey])
+  }, [block, fallbackPoints, metric.key, range, selectionKey])
 
   const width = 1040
   const height = 410
@@ -80,7 +73,7 @@ export function HistoryPage({ locations, blocks }: { locations: Location[]; bloc
   const bottom = 72
   const plotWidth = width - left - right
   const plotHeight = height - top - bottom
-  const safePoints = points.length ? points : buildMockPoints(current, range, metric.domain)
+  const safePoints = remotePoints?.key === selectionKey ? remotePoints.points : fallbackPoints
   const x = (index: number) => left + index / Math.max(safePoints.length - 1, 1) * plotWidth
   const y = (value: number) => top + (metric.domain[1] - value) / (metric.domain[1] - metric.domain[0]) * plotHeight
   const linePath = safePoints.map((point, index) => `${index ? 'L' : 'M'} ${x(index)} ${y(point.value)}`).join(' ')
@@ -135,7 +128,7 @@ export function HistoryPage({ locations, blocks }: { locations: Location[]; bloc
 
         <div className="history-react-metrics">{[...available, ...unavailable].map((item) => <button key={item.key} disabled={!block?.installedMetrics.includes(item.key)} data-active={metric.key === item.key} onClick={() => setMetricKey(item.key)}>{item.label}{!block?.installedMetrics.includes(item.key) ? ' · Not installed' : ''}</button>)}</div>
 
-        <div className="history-react-chart-head"><div><h2>{metric.label}</h2><p>Target band: {formatValue(metric.target[0], metric.unit)} to {formatValue(metric.target[1], metric.unit)}</p></div><span className="history-react-state">{loading ? 'Loading readings' : `${safePoints.length} readings`}</span></div>
+        <div className="history-react-chart-head"><div><h2>{metric.label}</h2><p>Target band: {formatValue(metric.target[0], metric.unit)} to {formatValue(metric.target[1], metric.unit)}</p></div><span className="history-react-state">{`${safePoints.length} readings`}</span></div>
 
         <div className="history-react-chart">
           {hovered && <div className="history-tooltip" style={{ left: `${Math.min(hoverIndex! / Math.max(safePoints.length - 1, 1) * 84 + 8, 77)}%`, top: `${Math.max(y(hovered.value) / height * 100 - 14, 4)}%` }}><strong>{formatValue(hovered.value, metric.unit)}</strong><span>{new Date(hovered.timestamp).toLocaleString('lt-LT')}</span></div>}

@@ -7796,8 +7796,8 @@
     .trend-history-chart {
       position: relative;
       margin-top: 0.85rem;
-      height: clamp(360px, 34vw, 440px);
-      min-height: 360px;
+      height: clamp(440px, 42vw, 560px);
+      min-height: 440px;
       border-radius: 24px;
       border: 1px solid rgba(24, 33, 29, 0.06);
       background:
@@ -7843,7 +7843,7 @@
     }
 
     @media (min-width: 1180px) {
-      .trend-history-chart { min-height: 390px; }
+      .trend-history-chart { min-height: 470px; }
     }
 
     .trend-history-axis {
@@ -10627,10 +10627,24 @@
     let activeTrendRangeKey = "24h";
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
+    let currentTrendHistoryChartState = null;
+    let activeTrendHistoryHoverSeriesIndex = -1;
     let trendHistoryChartInstance = null;
     let activeBlockFilterSiteId = "all";
     let activeSettingsProfileKey = activeProfileKey;
     let managementNotice = { page: "", tone: "optimal", text: "" };
+    const dashboardRouteMap = {
+      overview: { page: "overview", route: "/" },
+      areas: { page: "locations", route: "/areas" },
+      sites: { page: "locations", route: "/areas" },
+      sections: { page: "blocks", route: "/sections" },
+      zones: { page: "blocks", route: "/sections" },
+      nodes: { page: "nodes", route: "/nodes" },
+      history: { page: "history", route: "/history" },
+      alerts: { page: "alerts", route: "/alerts" },
+      settings: { page: "settings", route: "/settings" },
+      "crop-profiles": { page: "settings", route: "/crop-profiles" }
+    };
     const alertActionStorageKey = "neurocrop-dashboard-alert-actions-v1";
     let alertActionState = {};
 
@@ -10677,10 +10691,32 @@
       "zoneImpactSection"
     ]);
     const trendRangeConfig = {
-      "24h": { label: "24h", points: 24, totalHours: 24, meta: "24h · hourly" },
-      "7d": { label: "7d", points: 28, totalHours: 24 * 7, meta: "7d · 6h steps" },
-      "30d": { label: "30d", points: 30, totalHours: 24 * 30, meta: "30d · daily" }
+      "24h": { label: "24h", intervalMinutes: 10, totalHours: 24, meta: "24h · 10 min steps" },
+      "7d": { label: "7d", intervalMinutes: 60, totalHours: 24 * 7, meta: "7d · hourly" },
+      "30d": { label: "30d", intervalMinutes: 240, totalHours: 24 * 30, meta: "30d · 4h steps" }
     };
+
+    function resolveDashboardRoute(rawValue) {
+      const normalizedValue = String(rawValue || "").replace(/^#/, "").toLowerCase();
+      return dashboardRouteMap[normalizedValue] || dashboardRouteMap.overview;
+    }
+
+    function syncTopLevelRoute(route, options = {}) {
+      const normalizedRoute = route || "/";
+      try {
+        if (window.top && window.top !== window) {
+          if (window.top.location.pathname !== normalizedRoute) {
+            if (options.replace) {
+              window.top.location.replace(normalizedRoute);
+            } else {
+              window.top.location.assign(normalizedRoute);
+            }
+          }
+        }
+      } catch (error) {
+        // Parent routing is optional when the dashboard is opened standalone.
+      }
+    }
 
     function isDetailedExperience() {
       return activeExperienceMode === "detailed";
@@ -12009,6 +12045,7 @@
       resetCurrentReadingsFromActiveZone();
       closeContextMenus();
       renderDashboard();
+      syncTopLevelRoute("/");
       scrollToSection("heroStatusPanel");
     }
 
@@ -12027,6 +12064,7 @@
       }
       closeContextMenus();
       renderDashboard();
+      syncTopLevelRoute("/");
       scrollToSection("heroStatusPanel");
     }
 
@@ -12073,6 +12111,7 @@
           } else {
             sidebarActionOverride = null;
             updateSidebarActionState();
+            syncTopLevelRoute("/");
             scrollToSection("heroStatusPanel");
           }
           return;
@@ -12081,6 +12120,7 @@
           sidebarActionOverride = null;
           closeContextMenus();
           renderDashboard();
+          syncTopLevelRoute("/areas");
           scrollToSection("locationsManagementSection");
           return;
         case "zones":
@@ -12088,6 +12128,7 @@
           sidebarActionOverride = null;
           closeContextMenus();
           renderDashboard();
+          syncTopLevelRoute("/sections");
           scrollToSection("blocksManagementSection");
           return;
         case "nodes":
@@ -12095,6 +12136,7 @@
           sidebarActionOverride = null;
           closeContextMenus();
           renderDashboard();
+          syncTopLevelRoute("/nodes");
           scrollToSection("nodesManagementSection");
           return;
         case "history":
@@ -12104,6 +12146,7 @@
           setExperienceMode("detailed");
           closeContextMenus();
           renderDashboard();
+          syncTopLevelRoute("/history");
           scrollToSection("historySection");
           return;
         case "settings":
@@ -12111,6 +12154,7 @@
           sidebarActionOverride = null;
           closeContextMenus();
           renderDashboard();
+          syncTopLevelRoute("/settings");
           scrollToSection("settingsManagementSection");
           return;
         case "alerts":
@@ -12118,6 +12162,7 @@
           sidebarActionOverride = null;
           closeContextMenus();
           renderDashboard();
+          syncTopLevelRoute("/alerts");
           scrollToSection("alertsManagementSection");
           return;
         case "analytics":
@@ -12612,6 +12657,7 @@
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
       renderDashboard();
+      syncTopLevelRoute("/");
       scrollToSection(action.targetId || "metricsSection");
     }
 
@@ -16077,6 +16123,7 @@
 
     function buildTrendSeries(option, rangeKey, scopeSeed) {
       const rangeConfig = trendRangeConfig[rangeKey] || trendRangeConfig["24h"];
+      const pointCount = Math.max(2, Math.round((rangeConfig.totalHours * 60) / (rangeConfig.intervalMinutes || 60)) + 1);
       const domain = option.definition.displayRange || option.definition.critical;
       const optimalRange = option.optimalRange || option.definition.optimal;
       const span = Math.max(domain[1] - domain[0], 1);
@@ -16095,8 +16142,8 @@
         domain[1]
       );
 
-      const points = Array.from({ length: rangeConfig.points }, (_, index) => {
-        const progress = rangeConfig.points === 1 ? 1 : index / (rangeConfig.points - 1);
+      const points = Array.from({ length: pointCount }, (_, index) => {
+        const progress = pointCount === 1 ? 1 : index / (pointCount - 1);
         const waveA = Math.sin((progress * Math.PI * (2 + (trendSeed % 3))) + trendSeed * 0.013) * baseAmplitude;
         const waveB = Math.cos((progress * Math.PI * (1.5 + (trendSeed % 5))) + trendSeed * 0.021) * baseAmplitude * 0.45;
         const easing = 1 - Math.pow(progress, 1.35);
@@ -16160,6 +16207,7 @@
       return {
         domain,
         optimalRange,
+        pointCount,
         values: points,
         rapidChangeHints
       };
@@ -16318,6 +16366,32 @@
         ? { hour: "2-digit", minute: "2-digit" }
         : { day: "2-digit", month: "short" };
       return new Intl.DateTimeFormat("lt-LT", formatOptions).format(date);
+    }
+
+    function colorWithAlpha(color, alpha) {
+      if (!color) return `rgba(47, 106, 79, ${alpha})`;
+      if (color.startsWith("rgba(")) {
+        return color.replace(/rgba\(([^)]+),\s*[\d.]+\)/, `rgba($1, ${alpha})`);
+      }
+      if (color.startsWith("rgb(")) {
+        return color.replace(/^rgb\(([^)]+)\)$/, `rgba($1, ${alpha})`);
+      }
+      if (color.startsWith("#")) {
+        const hex = color.slice(1);
+        const expand = (value) => value.length === 1 ? value + value : value;
+        const normalized = hex.length === 3
+          ? [hex[0], hex[1], hex[2]].map(expand).join("")
+          : hex;
+        if (normalized.length === 6) {
+          const r = parseInt(normalized.slice(0, 2), 16);
+          const g = parseInt(normalized.slice(2, 4), 16);
+          const b = parseInt(normalized.slice(4, 6), 16);
+          if ([r, g, b].every(Number.isFinite)) {
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+          }
+        }
+      }
+      return color;
     }
 
     function buildTrendTimeTicks(rangeKey, totalHours) {
@@ -16635,11 +16709,14 @@
         rangeLabel,
         totalHours,
         rangeStart,
-        ariaLabel
+        ariaLabel,
+        hoveredSeriesIndex = -1
       } = state;
       const isMultiMetric = seriesItems.length > 1;
       const rangeEnd = rangeStart + (totalHours * 60 * 60 * 1000);
       const colors = seriesItems.map((_, index) => getTrendSeriesColor(index));
+      const pointCount = seriesItems[0]?.series?.pointCount || seriesItems[0]?.series?.values?.length || 2;
+      const pointIntervalMs = (totalHours * 60 * 60 * 1000) / Math.max(pointCount - 1, 1);
       const tooltipDateFormat = new Intl.DateTimeFormat("lt-LT", {
         day: "2-digit",
         month: "short",
@@ -16706,9 +16783,8 @@
         const color = colors[index];
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
-        const pointInterval = totalHours * 60 * 60 * 1000 / Math.max(item.series.values.length - 1, 1);
         const data = item.series.values.map((value, pointIndex) => [
-          rangeStart + (pointIndex * pointInterval),
+          rangeStart + (pointIndex * pointIntervalMs),
           value
         ]);
         const labelSide = index === 0 ? "insideStartTop" : "insideEndTop";
@@ -16738,8 +16814,11 @@
             interval.start === hint.start && interval.end === hint.end
           )));
         rapidChangeIntervals.push(...detectedIntervals, ...hintedIntervals);
+        const isHovered = hoveredSeriesIndex === index;
+        const targetMinLabel = `${labelPrefix} min ${formatValue(optimalRange[0], definition)}`;
+        const targetMaxLabel = `${labelPrefix} max ${formatValue(optimalRange[1], definition)}`;
 
-        return {
+        const seriesOption = {
           name: translateInterfaceText(item.option.label),
           type: "line",
           yAxisIndex: index,
@@ -16754,15 +16833,38 @@
           lineStyle: {
             width: 2,
             cap: "round",
-            join: "round"
+            join: "round",
+            opacity: isHovered || hoveredSeriesIndex === -1 ? 1 : 0.22
           },
           itemStyle: {
             borderColor: "#ffffff",
-            borderWidth: 2
+            borderWidth: 2,
+            opacity: isHovered || hoveredSeriesIndex === -1 ? 1 : 0.30
           },
           emphasis: {
             focus: "series",
-            lineStyle: { width: 2.6 }
+            lineStyle: {
+              width: 3,
+              opacity: 1
+            },
+            itemStyle: {
+              borderWidth: 2.5,
+              opacity: 1
+            },
+            areaStyle: {
+              color: colorWithAlpha(color, 0.10)
+            }
+          },
+          blur: {
+            lineStyle: {
+              opacity: 0.20
+            },
+            itemStyle: {
+              opacity: 0.20
+            }
+          },
+          areaStyle: {
+            opacity: 0
           },
           markLine: {
             silent: true,
@@ -16790,22 +16892,45 @@
             },
             data: [
               {
-                name: `${labelPrefix} optimal max`,
+                name: targetMaxLabel,
                 yAxis: optimalRange[1],
-                label: { formatter: `${labelPrefix} optimal max` }
+                label: { formatter: targetMaxLabel }
               },
               {
-                name: `${labelPrefix} optimal min`,
+                name: targetMinLabel,
                 yAxis: optimalRange[0],
-                label: { formatter: `${labelPrefix} optimal min` }
+                label: { formatter: targetMinLabel }
               }
             ]
           }
         };
+
+        if (isHovered) {
+          seriesOption.markArea = {
+            silent: true,
+            animation: false,
+            z: 0,
+            itemStyle: {
+              color: colorWithAlpha(color, 0.10),
+              borderColor: colorWithAlpha(color, 0.22),
+              borderWidth: 1
+            },
+            data: [[
+              {
+                yAxis: optimalRange[0]
+              },
+              {
+                yAxis: optimalRange[1]
+              }
+            ]]
+          };
+        }
+
+        return seriesOption;
       });
       const rapidChangeAreas = mergeRapidChangeAreas(rapidChangeIntervals);
 
-      if (chartSeries[0] && rapidChangeAreas.length > 0) {
+      if (chartSeries[0] && rapidChangeAreas.length > 0 && hoveredSeriesIndex !== 0) {
         chartSeries[0].markArea = {
           silent: true,
           animation: false,
@@ -16946,8 +17071,8 @@
               .join("");
             return `<div style="font-weight:700;color:rgba(255,255,255,.72);">${escapeHtml(timestamp)}</div>${rows}${rapidChangeRows}`;
           }
-        },
-        xAxis: {
+          },
+          xAxis: {
           type: "time",
           min: rangeStart,
           max: rangeEnd,
@@ -16955,7 +17080,7 @@
           name: `${translateInterfaceText("Time")} (${rangeLabel})`,
           nameLocation: "middle",
           nameGap: 34,
-          minInterval: Math.max((totalHours * 60 * 60 * 1000) / 12, 60 * 1000),
+          minInterval: Math.max(pointIntervalMs, 60 * 1000),
           axisLine: {
             show: true,
             lineStyle: {
@@ -17176,6 +17301,16 @@
         callout = `This comparison shows how ${labels.toLowerCase()} moved in the same time window. The first metric uses the left Y axis, the second uses the right Y axis, and each dashed band keeps that metric's own target range.`;
       }
 
+      const chartState = {
+        seriesItems,
+        rangeKey: activeTrendRangeKey,
+        rangeLabel: rangeConfig.label,
+        totalHours: rangeConfig.totalHours,
+        rangeStart,
+        ariaLabel: `${selectedMetrics.map((metric) => metric.label).join(", ")} over the last ${rangeConfig.label}`,
+        hoveredSeriesIndex: activeTrendHistoryHoverSeriesIndex
+      };
+
       return {
         title: isSiteView ? `24-hour trends for ${site.name}` : `24-hour trends for ${zone.name}`,
         summary: isSiteView
@@ -17187,14 +17322,8 @@
         metricMeta: isMultiMetric
           ? "Dual-axis comparison · left and right Y axes use real units"
           : `${selectedMetric.meta} · Target ${formatRange(optimalRange, selectedMetric.definition)}`,
-        chartOption: buildTrendEChartsOption({
-          seriesItems,
-          rangeKey: activeTrendRangeKey,
-          rangeLabel: rangeConfig.label,
-          totalHours: rangeConfig.totalHours,
-          rangeStart,
-          ariaLabel: `${selectedMetrics.map((metric) => metric.label).join(", ")} over the last ${rangeConfig.label}`
-        }),
+        chartState,
+        chartOption: buildTrendEChartsOption(chartState),
         axisLabels: {
           start: `${rangeConfig.label} window`,
           mid: isMultiMetric ? "Left axis + right axis" : "Optimal min + max",
@@ -17204,28 +17333,7 @@
         rangeButtons: renderTrendRangeButtons(activeTrendRangeKey),
         readoutHtml: renderTrendReadout(seriesItems, rangeConfig),
         hoverPoints,
-        statsHtml: renderTrendStats([
-          {
-            label: "Now",
-            value: formatValue(currentValue, selectedMetric.definition),
-            note: selectedMetric.state === "optimal" ? "Inside target band right now." : stateConfig[selectedMetric.state].label
-          },
-          {
-            label: "Change",
-            value: formatSignedValue(deltaValue, selectedMetric.definition),
-            note: `Compared with the start of the ${rangeConfig.label} window`
-          },
-          {
-            label: "Window low",
-            value: formatValue(historyLow, selectedMetric.definition),
-            note: "Lowest point in the selected history window"
-          },
-          {
-            label: "Window high",
-            value: formatValue(historyHigh, selectedMetric.definition),
-            note: "Highest point in the selected history window"
-          }
-        ]),
+        statsHtml: "",
         callout,
         backendNote: "Ready for real sensor history once live readings are connected."
       };
@@ -17256,7 +17364,26 @@
         { renderer: "svg" }
       );
       trendHistoryChartInstance.setOption(chartOption, { notMerge: true });
+      trendHistoryChartInstance.on("mouseover", (params) => {
+        if (params && Number.isInteger(params.seriesIndex)) {
+          refreshTrendHistoryHoverSeries(params.seriesIndex);
+        }
+      });
+      trendHistoryChartInstance.on("globalout", () => {
+        refreshTrendHistoryHoverSeries(-1);
+      });
       window.requestAnimationFrame(() => trendHistoryChartInstance?.resize());
+    }
+
+    function refreshTrendHistoryHoverSeries(nextSeriesIndex) {
+      const normalizedIndex = Number.isInteger(nextSeriesIndex) ? nextSeriesIndex : -1;
+      if (normalizedIndex === activeTrendHistoryHoverSeriesIndex) return;
+      activeTrendHistoryHoverSeriesIndex = normalizedIndex;
+      if (!currentTrendHistoryChartState) return;
+      renderTrendEChart(buildTrendEChartsOption({
+        ...currentTrendHistoryChartState,
+        hoveredSeriesIndex: activeTrendHistoryHoverSeriesIndex
+      }));
     }
 
     function openTrendHistory(metricKey) {
@@ -17268,6 +17395,7 @@
       sidebarActionOverride = null;
       setExperienceMode("detailed");
       renderDashboard();
+      syncTopLevelRoute("/history");
       scrollToSection("historySection");
     }
 
@@ -17669,6 +17797,7 @@
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
       renderDashboard();
+      syncTopLevelRoute("/history");
       scrollToSection("historySection");
     }
 
@@ -18812,6 +18941,8 @@
         elements.trendHistoryMetricLabel.textContent = trendHistoryState.metricLabel;
         elements.trendHistoryMetricMeta.textContent = trendHistoryState.metricMeta;
         elements.trendHistoryReadout.innerHTML = trendHistoryState.readoutHtml;
+        currentTrendHistoryChartState = trendHistoryState.chartState;
+        activeTrendHistoryHoverSeriesIndex = -1;
         renderTrendEChart(trendHistoryState.chartOption);
         elements.trendHistoryStartLabel.textContent = trendHistoryState.axisLabels.start;
         elements.trendHistoryMidLabel.textContent = trendHistoryState.axisLabels.mid;
@@ -18821,6 +18952,8 @@
         elements.trendHistoryBackendNote.textContent = trendHistoryState.backendNote;
       } else {
         currentTrendHistoryPoints = [];
+        currentTrendHistoryChartState = null;
+        activeTrendHistoryHoverSeriesIndex = -1;
         if (trendHistoryChartInstance) {
           trendHistoryChartInstance.dispose();
           trendHistoryChartInstance = null;
@@ -18982,6 +19115,7 @@
         resetBlockForm({ siteId });
         clearManagementNotice("blocks");
         renderDashboard();
+        syncTopLevelRoute("/sections");
         scrollToSection("blocksManagementSection");
       }
     });
@@ -19247,6 +19381,7 @@
         activeBlockFilterSiteId = siteId;
         resetBlockForm({ siteId });
         renderDashboard();
+        syncTopLevelRoute("/sections");
         scrollToSection("blocksManagementSection");
         return;
       }
@@ -19547,6 +19682,7 @@
         activePrimaryPage = "alerts";
         sidebarActionOverride = null;
         renderDashboard();
+        syncTopLevelRoute("/alerts");
         scrollToSection("alertsManagementSection");
         return;
       }
@@ -19901,10 +20037,9 @@
     resetLocationForm();
     resetBlockForm();
     resetNodeForm();
-    if (window.location.hash === "#nodes") {
-      activePrimaryPage = "nodes";
-    } else if (window.location.hash === "#history") {
-      activePrimaryPage = "history";
+    const initialDashboardRoute = resolveDashboardRoute(window.location.hash);
+    activePrimaryPage = initialDashboardRoute.page;
+    if (initialDashboardRoute.page === "history") {
       setExperienceMode("detailed");
     }
     renderDashboard();
