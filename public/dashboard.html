@@ -12,6 +12,7 @@
   <script src="runtime-config.js"></script>
   <script src="dashboard-store.js"></script>
   <script src="api.js"></script>
+  <script src="vendor/echarts.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -7703,13 +7704,15 @@
     .trend-history-chart {
       position: relative;
       margin-top: 0.85rem;
-      min-height: 300px;
+      height: clamp(360px, 34vw, 440px);
+      min-height: 360px;
       border-radius: 24px;
       border: 1px solid rgba(24, 33, 29, 0.06);
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 242, 234, 0.90)),
         radial-gradient(circle at top right, rgba(255, 255, 255, 0.68), transparent 34%);
-      padding: 0.75rem;
+      padding: 0.35rem;
+      overflow: hidden;
     }
 
     .trend-history-tooltip {
@@ -7742,15 +7745,13 @@
     .trend-history-chart svg {
       display: block;
       width: 100%;
-      height: auto;
+      height: 100%;
       shape-rendering: geometricPrecision;
       text-rendering: geometricPrecision;
     }
 
     @media (min-width: 1180px) {
-      .trend-history-chart {
-        min-height: 340px;
-      }
+      .trend-history-chart { min-height: 390px; }
     }
 
     .trend-history-axis {
@@ -10171,6 +10172,7 @@
     let activeTrendRangeKey = "24h";
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
+    let trendHistoryChartInstance = null;
     let activeBlockFilterSiteId = "all";
     let activeSettingsProfileKey = activeProfileKey;
     let managementNotice = { page: "", tone: "optimal", text: "" };
@@ -15915,6 +15917,289 @@
       ];
     }
 
+    function buildTrendEChartsOption(state) {
+      const {
+        seriesItems,
+        rangeKey,
+        rangeLabel,
+        totalHours,
+        rangeStart,
+        ariaLabel
+      } = state;
+      const isMultiMetric = seriesItems.length > 1;
+      const rangeEnd = rangeStart + (totalHours * 60 * 60 * 1000);
+      const colors = seriesItems.map((_, index) => getTrendSeriesColor(index));
+      const tooltipDateFormat = new Intl.DateTimeFormat("lt-LT", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+      const shortMetricLabel = (label) => label
+        .replace("Air temperature", "Temperature")
+        .replace("Relative humidity", "Humidity");
+
+      const yAxis = seriesItems.map((item, index) => {
+        const color = colors[index];
+        const definition = item.option.definition;
+        const optimalRange = item.option.optimalRange || definition.optimal;
+        const axisDomain = getTrendAxisDomain(item.series.values, definition, optimalRange);
+        return {
+          type: "value",
+          name: `${item.option.label} (${formatUnit(definition.unit)})`,
+          nameLocation: "middle",
+          nameGap: 54,
+          nameRotate: index === 0 ? 90 : -90,
+          position: index === 0 ? "left" : "right",
+          min: axisDomain[0],
+          max: axisDomain[1],
+          splitNumber: 4,
+          axisLine: {
+            show: true,
+            lineStyle: { color, width: 1.2 }
+          },
+          axisTick: {
+            show: true,
+            lineStyle: { color }
+          },
+          axisLabel: {
+            color,
+            fontSize: 12,
+            fontWeight: 700,
+            margin: 12,
+            formatter: (value) => formatTrendTickValue(value, definition)
+          },
+          nameTextStyle: {
+            color,
+            fontSize: 12,
+            fontWeight: 800
+          },
+          axisPointer: {
+            label: {
+              formatter: (params) => formatValue(params.value, definition)
+            }
+          },
+          splitLine: {
+            show: index === 0,
+            lineStyle: {
+              color: "rgba(24, 33, 29, 0.10)",
+              width: 1
+            }
+          }
+        };
+      });
+
+      const chartSeries = seriesItems.map((item, index) => {
+        const color = colors[index];
+        const definition = item.option.definition;
+        const optimalRange = item.option.optimalRange || definition.optimal;
+        const pointInterval = totalHours * 60 * 60 * 1000 / Math.max(item.series.values.length - 1, 1);
+        const data = item.series.values.map((value, pointIndex) => [
+          rangeStart + (pointIndex * pointInterval),
+          value
+        ]);
+        const labelSide = index === 0 ? "insideStartTop" : "insideEndTop";
+        const labelPrefix = shortMetricLabel(item.option.label);
+
+        return {
+          name: item.option.label,
+          type: "line",
+          yAxisIndex: index,
+          data,
+          showSymbol: false,
+          symbol: "circle",
+          symbolSize: 7,
+          smooth: false,
+          connectNulls: false,
+          animation: false,
+          lineStyle: {
+            color,
+            width: 2,
+            cap: "round",
+            join: "round"
+          },
+          itemStyle: {
+            color,
+            borderColor: "#ffffff",
+            borderWidth: 2
+          },
+          emphasis: {
+            focus: "series",
+            lineStyle: { width: 2.6 }
+          },
+          markLine: {
+            silent: true,
+            symbol: ["none", "none"],
+            animation: false,
+            precision: definition.decimals,
+            lineStyle: {
+              color,
+              width: 1.25,
+              type: "dashed",
+              opacity: 0.72
+            },
+            label: {
+              show: true,
+              position: labelSide,
+              distance: 7,
+              color,
+              fontSize: 11,
+              fontWeight: 800,
+              backgroundColor: "rgba(255, 255, 255, 0.90)",
+              borderColor: "rgba(24, 33, 29, 0.08)",
+              borderWidth: 1,
+              borderRadius: 8,
+              padding: [4, 7]
+            },
+            data: [
+              {
+                name: `${labelPrefix} optimal max`,
+                yAxis: optimalRange[1],
+                label: { formatter: `${labelPrefix} optimal max` }
+              },
+              {
+                name: `${labelPrefix} optimal min`,
+                yAxis: optimalRange[0],
+                label: { formatter: `${labelPrefix} optimal min` }
+              }
+            ]
+          }
+        };
+      });
+
+      return {
+        animation: false,
+        textStyle: {
+          fontFamily: "Manrope, sans-serif",
+          color: "#18211d"
+        },
+        aria: {
+          enabled: true,
+          label: { description: ariaLabel }
+        },
+        color: colors,
+        grid: {
+          top: 34,
+          right: isMultiMetric ? 88 : 36,
+          bottom: isMultiMetric ? 68 : 50,
+          left: 88,
+          containLabel: false
+        },
+        legend: {
+          show: isMultiMetric,
+          bottom: 8,
+          left: 88,
+          itemWidth: 18,
+          itemHeight: 3,
+          icon: "roundRect",
+          textStyle: {
+            color: "rgba(24, 33, 29, 0.72)",
+            fontSize: 12,
+            fontWeight: 700
+          },
+          data: seriesItems.map((item, index) => ({
+            name: item.option.label,
+            itemStyle: { color: colors[index] }
+          }))
+        },
+        tooltip: {
+          trigger: "axis",
+          confine: true,
+          renderMode: "html",
+          backgroundColor: "rgba(24, 33, 29, 0.96)",
+          borderColor: "rgba(255, 255, 255, 0.22)",
+          borderWidth: 1,
+          padding: [10, 12],
+          textStyle: {
+            color: "#ffffff",
+            fontFamily: "Manrope, sans-serif",
+            fontSize: 12
+          },
+          axisPointer: {
+            type: "cross",
+            snap: false,
+            lineStyle: {
+              color: "rgba(24, 33, 29, 0.38)",
+              width: 1
+            },
+            crossStyle: {
+              color: "rgba(24, 33, 29, 0.38)",
+              width: 1
+            },
+            label: {
+              backgroundColor: "#20382f",
+              color: "#ffffff"
+            }
+          },
+          formatter: (rawParams) => {
+            const params = Array.isArray(rawParams) ? rawParams : [rawParams];
+            const firstPoint = params.find((param) => Array.isArray(param.value));
+            if (!firstPoint) return "";
+            const timestamp = tooltipDateFormat.format(new Date(firstPoint.value[0]));
+            const rows = params
+              .filter((param) => Array.isArray(param.value))
+              .map((param) => {
+                const item = seriesItems[param.seriesIndex];
+                if (!item) return "";
+                return `
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:6px;">
+                    <span style="display:flex;align-items:center;gap:7px;">
+                      <span style="width:8px;height:8px;border-radius:50%;background:${colors[param.seriesIndex]};"></span>
+                      ${escapeHtml(item.option.label)}
+                    </span>
+                    <strong>${escapeHtml(formatValue(param.value[1], item.option.definition))}</strong>
+                  </div>
+                `;
+              })
+              .join("");
+            return `<div style="font-weight:700;color:rgba(255,255,255,.72);">${escapeHtml(timestamp)}</div>${rows}`;
+          }
+        },
+        xAxis: {
+          type: "time",
+          min: rangeStart,
+          max: rangeEnd,
+          boundaryGap: false,
+          name: `Time (${rangeLabel})`,
+          nameLocation: "middle",
+          nameGap: 34,
+          minInterval: Math.max((totalHours * 60 * 60 * 1000) / 12, 60 * 1000),
+          axisLine: {
+            show: true,
+            lineStyle: {
+              color: "rgba(24, 33, 29, 0.30)",
+              width: 1.2
+            }
+          },
+          axisTick: {
+            show: true,
+            lineStyle: { color: "rgba(24, 33, 29, 0.30)" }
+          },
+          axisLabel: {
+            hideOverlap: true,
+            color: "rgba(24, 33, 29, 0.58)",
+            fontSize: 12,
+            fontWeight: 700,
+            formatter: (value) => formatTrendTimeLabel(new Date(value), rangeKey)
+          },
+          axisPointer: {
+            label: {
+              formatter: (params) => tooltipDateFormat.format(new Date(params.value))
+            }
+          },
+          nameTextStyle: {
+            color: "rgba(24, 33, 29, 0.46)",
+            fontSize: 12,
+            fontWeight: 800
+          },
+          splitLine: { show: false }
+        },
+        yAxis,
+        series: chartSeries
+      };
+    }
+
     function renderDualTrendChartSvg(state) {
       const width = 980;
       const height = 390;
@@ -16101,23 +16386,13 @@
         metricMeta: isMultiMetric
           ? "Dual-axis comparison · left and right Y axes use real units"
           : `${selectedMetric.meta} · Target ${formatRange(optimalRange, selectedMetric.definition)}`,
-        chartSvg: isMultiMetric ? renderDualTrendChartSvg({
+        chartOption: buildTrendEChartsOption({
           seriesItems,
           rangeKey: activeTrendRangeKey,
           rangeLabel: rangeConfig.label,
           totalHours: rangeConfig.totalHours,
+          rangeStart,
           ariaLabel: `${selectedMetrics.map((metric) => metric.label).join(", ")} over the last ${rangeConfig.label}`
-        }) : renderTrendChartSvg({
-          domain: series.domain,
-          optimalRange,
-          values: series.values,
-          tone: selectedMetric.state,
-          definition: selectedMetric.definition,
-          metricLabel: selectedMetric.label,
-          rangeKey: activeTrendRangeKey,
-          rangeLabel: rangeConfig.label,
-          totalHours: rangeConfig.totalHours,
-          ariaLabel: `${selectedMetric.label} over the last ${rangeConfig.label}`
         }),
         axisLabels: {
           start: `${rangeConfig.label} window`,
@@ -16153,6 +16428,34 @@
         callout,
         backendNote: "Ready for real sensor history once live readings are connected."
       };
+    }
+
+    function renderTrendEChart(chartOption) {
+      if (trendHistoryChartInstance) {
+        trendHistoryChartInstance.dispose();
+        trendHistoryChartInstance = null;
+      }
+
+      elements.trendHistoryChart.innerHTML = "";
+      currentTrendHistoryPoints = [];
+      elements.trendHistoryTooltip = null;
+
+      if (!window.echarts) {
+        elements.trendHistoryChart.innerHTML = `
+          <div class="flex h-full items-center justify-center px-6 text-center text-sm font-semibold text-ink/52">
+            Trend chart engine could not be loaded.
+          </div>
+        `;
+        return;
+      }
+
+      trendHistoryChartInstance = window.echarts.init(
+        elements.trendHistoryChart,
+        null,
+        { renderer: "svg" }
+      );
+      trendHistoryChartInstance.setOption(chartOption, { notMerge: true });
+      window.requestAnimationFrame(() => trendHistoryChartInstance?.resize());
     }
 
     function openTrendHistory(metricKey) {
@@ -17676,9 +17979,7 @@
         elements.trendHistoryMetricLabel.textContent = trendHistoryState.metricLabel;
         elements.trendHistoryMetricMeta.textContent = trendHistoryState.metricMeta;
         elements.trendHistoryReadout.innerHTML = trendHistoryState.readoutHtml;
-        elements.trendHistoryChart.innerHTML = `${trendHistoryState.chartSvg}<div id="trendHistoryTooltip" class="trend-history-tooltip" hidden></div>`;
-        elements.trendHistoryTooltip = document.getElementById("trendHistoryTooltip");
-        currentTrendHistoryPoints = trendHistoryState.hoverPoints;
+        renderTrendEChart(trendHistoryState.chartOption);
         elements.trendHistoryStartLabel.textContent = trendHistoryState.axisLabels.start;
         elements.trendHistoryMidLabel.textContent = trendHistoryState.axisLabels.mid;
         elements.trendHistoryEndLabel.textContent = trendHistoryState.axisLabels.end;
@@ -17687,6 +17988,10 @@
         elements.trendHistoryBackendNote.textContent = trendHistoryState.backendNote;
       } else {
         currentTrendHistoryPoints = [];
+        if (trendHistoryChartInstance) {
+          trendHistoryChartInstance.dispose();
+          trendHistoryChartInstance = null;
+        }
       }
 
       if (!isSiteHotspotsView) {
@@ -18358,6 +18663,7 @@
     window.addEventListener("storage", refreshDashboardDataFromStore);
     window.addEventListener("focus", refreshDashboardDataFromStore);
     window.addEventListener("resize", syncStickyOffsets);
+    window.addEventListener("resize", () => trendHistoryChartInstance?.resize());
 
     elements.headerBatteryIndicator.addEventListener("click", (event) => {
       event.stopPropagation();

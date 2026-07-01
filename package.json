@@ -4,13 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "prepare-vendor": "node ./scripts/copy-vendor.mjs",
+    "predev": "pnpm prepare-vendor",
     "dev": "vite",
+    "prebuild": "pnpm prepare-vendor",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "update-site": "bash ./scripts/update-site.sh"
   },
   "dependencies": {
+    "echarts": "^6.1.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
