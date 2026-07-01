@@ -6,35 +6,12 @@ pateikimui.
 
 Šis dokumentas pirmiausia skirtas backend ir duomenų bazės programuotojui.
 
-## Greitas tinklalapio atnaujinimas
-
-Jeigu projektas jau atsisiųstas į kompiuterį arba serverį:
-
 ```bash
 cd ~/neurocrop
-pnpm update-site
+git pull
+pnpm install
+pnpm build
 ```
-
-Ši viena komanda automatiškai:
-
-1. atsisiunčia naujausius GitHub pakeitimus su saugiu `git pull --ff-only`;
-2. patikrina ir įdiegia tiksliai `pnpm-lock.yaml` nurodytas priklausomybes;
-3. sukuria naują production versiją kataloge `dist/`.
-
-Po komandos reikia įkelti **visą `dist/` katalogo turinį** į hostingo
-`public_html` katalogą.
-
-Jeigu projekto katalogas vadinasi kitaip arba yra kitoje vietoje, pirmoje
-komandoje reikia naudoti tikrą jo kelią, pvz.:
-
-```bash
-cd "/home/user/projects/neurocrop-frontend"
-pnpm update-site
-```
-
-Komanda sąmoningai pati nekopijuoja failų į `public_html`, nes skirtinguose
-hostinguose skiriasi katalogo kelias ir prieigos būdas. Taip išvengiama
-atsitiktinio ne to katalogo perrašymo.
 
 ## Svarbiausia architektūros taisyklė
 
