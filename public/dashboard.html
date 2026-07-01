@@ -3703,13 +3703,7 @@
     }
 
     .context-menu-option[data-active="true"]::after {
-      float: right;
-      color: #2f6a4f;
-      content: "Current";
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      display: none;
     }
 
     .context-menu-label {
@@ -3722,6 +3716,65 @@
       font-size: 12px;
       font-weight: 700;
       color: rgba(20, 32, 27, 0.54);
+    }
+
+    .context-menu-option-copy {
+      min-width: 0;
+    }
+
+    .context-menu-score {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 7px;
+      min-width: 58px;
+      justify-content: center;
+      padding: 7px 10px;
+      border: 1px solid rgba(20, 32, 27, 0.08);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: rgba(20, 32, 27, 0.66);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .context-menu-score strong {
+      color: #14201b;
+      font-size: 14px;
+    }
+
+    .context-score-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #8f9692;
+    }
+
+    .context-menu-score[data-state="optimal"],
+    .context-card-meta[data-state="optimal"] {
+      color: #2f6a4f;
+    }
+
+    .context-menu-score[data-state="optimal"] .context-score-dot {
+      background: #2f6a4f;
+    }
+
+    .context-menu-score[data-state="warning"],
+    .context-card-meta[data-state="warning"] {
+      color: #a86f1f;
+    }
+
+    .context-menu-score[data-state="warning"] .context-score-dot {
+      background: #c4872c;
+    }
+
+    .context-menu-score[data-state="critical"],
+    .context-card-meta[data-state="critical"] {
+      color: #a44838;
+    }
+
+    .context-menu-score[data-state="critical"] .context-score-dot {
+      background: #b13d32;
     }
 
     .global-system-card {
@@ -8711,6 +8764,45 @@
       font-weight: 750;
     }
 
+    .language-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      border: 1px solid rgba(20, 32, 27, 0.10);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 3px;
+    }
+
+    .language-switch button {
+      min-width: 32px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      padding: 5px 8px;
+      color: rgba(24, 33, 29, 0.48);
+      font-size: 0.68rem;
+      font-weight: 850;
+      line-height: 1;
+    }
+
+    .language-switch button[data-active="true"] {
+      background: #21473b;
+      color: #ffffff;
+      box-shadow: 0 4px 10px rgba(33, 71, 59, 0.16);
+    }
+
+    .login-form-panel {
+      position: relative;
+    }
+
+    .login-language-switch {
+      position: absolute;
+      top: 1.25rem;
+      right: 1.25rem;
+      z-index: 3;
+    }
+
     #dashboardHeader.global-system-bar .header-battery-indicator {
       padding: 0.35rem 0.65rem;
       box-shadow: none;
@@ -8790,6 +8882,10 @@
         <div class="relative mt-12 flex items-center gap-3 text-sm font-semibold text-white/76"><span class="h-2.5 w-2.5 rounded-full bg-[#88c69f]"></span> Workspace access</div>
       </aside>
       <div class="login-form-panel">
+        <div class="language-switch login-language-switch" role="group" aria-label="Language">
+          <button type="button" data-language-option="lt" data-active="false" aria-pressed="false">LT</button>
+          <button type="button" data-language-option="en" data-active="true" aria-pressed="true">EN</button>
+        </div>
         <p class="text-xs font-bold uppercase tracking-[0.26em] text-pine/52">Workspace access</p>
         <h2 id="loginTitle" class="mt-3 font-display text-3xl font-bold text-ink">Sign in to NeuroCrop</h2>
         <p class="mt-3 max-w-md text-sm leading-6 text-ink/60">Use the email address assigned to your farm workspace.</p>
@@ -8808,6 +8904,10 @@
     <header id="dashboardHeader" class="global-system-bar">
       <div class="global-system-bar-actions">
         <div class="header-status-card">
+          <div class="language-switch" role="group" aria-label="Language">
+            <button type="button" data-language-option="lt" data-active="false" aria-pressed="false">LT</button>
+            <button type="button" data-language-option="en" data-active="true" aria-pressed="true">EN</button>
+          </div>
           <span class="flex items-center gap-2 text-moss">
             <span class="h-2.5 w-2.5 rounded-full bg-moss"></span>
             Online
@@ -9582,6 +9682,297 @@
   </div>
   <div id="managementModalOverlay" class="management-modal-overlay" hidden></div>
   <script>
+    const interfaceLanguageStorageKey = "neurocrop-interface-language-v1";
+    const originalInterfaceText = new WeakMap();
+    let interfaceLanguage = (() => {
+      try {
+        return window.localStorage.getItem(interfaceLanguageStorageKey) === "lt" ? "lt" : "en";
+      } catch (error) {
+        return "en";
+      }
+    })();
+
+    const lithuanianInterfaceText = {
+      "Language": "Kalba",
+      "Online": "Prisijungta",
+      "Sign out": "Atsijungti",
+      "Control Center": "Valdymo centras",
+      "Overview": "Apžvalga",
+      "Areas": "Erdvės",
+      "Area": "Erdvė",
+      "Sections": "Sekcijos",
+      "Section": "Sekcija",
+      "Nodes": "Mazgai",
+      "Node": "Mazgas",
+      "Alerts": "Perspėjimai",
+      "Trends": "Tendencijos",
+      "Settings": "Nustatymai",
+      "Workspace access": "Prieiga prie sistemos",
+      "Know what your crop needs next.": "Žinokite, ko jūsų augalams reikia dabar.",
+      "A single workspace for live growing conditions, section history, alerts, and sensor health.": "Viena sistema esamoms auginimo sąlygoms, istorijai, perspėjimams ir sensorių būklei.",
+      "Sign in to NeuroCrop": "Prisijungti prie NeuroCrop",
+      "Use the email address assigned to your farm workspace.": "Naudokite jūsų ūkiui priskirtą el. pašto adresą.",
+      "Email address": "El. pašto adresas",
+      "Password": "Slaptažodis",
+      "Enter your password": "Įveskite slaptažodį",
+      "Sign in": "Prisijungti",
+      "Need access? Contact your workspace administrator.": "Reikia prieigos? Kreipkitės į sistemos administratorių.",
+      "Low battery nodes": "Mazgai su silpna baterija",
+      "Nodes below configured threshold": "Mazgai žemiau nustatytos baterijos ribos",
+      "Today’s priority": "Šiandienos prioritetas",
+      "Current": "Dabar",
+      "Target": "Tikslas",
+      "Trend": "Tendencija",
+      "Out of range": "Už ribų",
+      "Open metrics": "Atidaryti rodiklius",
+      "Why?": "Kodėl?",
+      "Review alerts": "Peržiūrėti perspėjimus",
+      "other active alerts elsewhere in the system.": "kiti aktyvūs perspėjimai kitose sistemos vietose.",
+      "Increase relative humidity": "Padidinti santykinę drėgmę",
+      "Check Relative humidity": "Patikrinti santykinę drėgmę",
+      "Relative humidity is pulling the score down. 4 metrics excluded.": "Santykinė drėgmė mažina balą. 4 rodikliai neįtraukti.",
+      "Relative humidity is the main reason this score is low.": "Santykinė drėgmė yra pagrindinė žemo balo priežastis.",
+      "Review humidification and ventilation settings. 4 metrics are excluded, so verify the change with live readings.": "Patikrinkite drėkinimo ir vėdinimo nustatymus. 4 rodikliai neįtraukti, todėl pokytį patvirtinkite dabartiniais matavimais.",
+      "These three live parameters are the fastest way to understand Tomato Block A, Rear before opening all readings.": "Šie trys dabartiniai rodikliai greičiausiai parodo sekcijos Tomato Block A, Rear būklę prieš atidarant visus matavimus.",
+      "Amber section": "Gintarinė sekcija",
+      "Green section": "Žalia sekcija",
+      "Red section": "Raudona sekcija",
+      "Crop profile": "Kultūros profilis",
+      "Inherited from section": "Paveldėta iš sekcijos",
+      "View": "Vaizdas",
+      "Simple": "Paprastas",
+      "Detailed": "Išsamus",
+      "Growing Conditions Score": "Auginimo sąlygų balas",
+      "Growing Conditions Index": "Auginimo sąlygų indeksas",
+      "Conditions score": "Sąlygų balas",
+      "Needs attention": "Reikia dėmesio",
+      "Good": "Gera",
+      "Optimal": "Optimalu",
+      "Warning": "Įspėjimas",
+      "Critical": "Kritinė",
+      "Unavailable": "Nepasiekiama",
+      "Today": "Šiandien",
+      "Sensor glance": "Sensorių apžvalga",
+      "Live sensor snapshot": "Dabartinė sensorių suvestinė",
+      "Growth limiting factors": "Augimą ribojantys veiksniai",
+      "Air temperature": "Oro temperatūra",
+      "Relative humidity": "Santykinė drėgmė",
+      "Light": "Apšvietimas",
+      "Soil temperature": "Substrato temperatūra",
+      "Soil moisture": "Substrato drėgmė",
+      "Water temperature": "Vandens temperatūra",
+      "Air pressure": "Oro slėgis",
+      "Leaf temperature": "Lapo temperatūra",
+      "Battery level": "Baterijos lygis",
+      "Currently viewing": "Šiuo metu rodoma",
+      "Not installed": "Neįdiegta",
+      "Holding inside target": "Išlieka tikslinėse ribose",
+      "Dual-axis comparison · left and right Y axes use real units": "Dviejų ašių palyginimas · kairė ir dešinė Y ašys naudoja tikrus vienetus",
+      "Now": "Dabar",
+      "Change": "Pokytis",
+      "Window low": "Laikotarpio minimumas",
+      "Window high": "Laikotarpio maksimumas",
+      "Why this matters": "Kodėl tai svarbu",
+      "Ready for real sensor history once live readings are connected.": "Paruošta realiai sensorių istorijai, kai bus prijungti duomenys.",
+      "24h window": "24 val. laikotarpis",
+      "Optimal min + max": "Optimali min. ir maks. riba",
+      "Left axis + right axis": "Kairė ir dešinė ašys",
+      "Tooltip shows both real values": "Užvedus rodomos abi tikros reikšmės",
+      "Time": "Laikas",
+      "Active": "Aktyvūs",
+      "Acknowledged": "Patvirtinti",
+      "Snoozed": "Atidėti",
+      "Resolved": "Išspręsti",
+      "Acknowledge": "Patvirtinti",
+      "Snooze": "Atidėti",
+      "Resolve": "Išspręsti",
+      "Current locations": "Esamos erdvės",
+      "Current sections": "Esamos sekcijos",
+      "Current nodes": "Esami mazgai",
+      "Current areas": "Esamos erdvės",
+      "Active alerts": "Aktyvūs perspėjimai",
+      "Low battery": "Silpna baterija",
+      "Shown sections": "Rodomos sekcijos",
+      "Register area": "Registruoti erdvę",
+      "Register section": "Registruoti sekciją",
+      "Register node": "Registruoti mazgą",
+      "Create area": "Sukurti erdvę",
+      "Edit area": "Redaguoti erdvę",
+      "Save area": "Išsaugoti erdvę",
+      "Area name": "Erdvės pavadinimas",
+      "Create section": "Sukurti sekciją",
+      "Edit section": "Redaguoti sekciją",
+      "Save section": "Išsaugoti sekciją",
+      "Section name": "Sekcijos pavadinimas",
+      "Connect a sensor to a section": "Prijungti sensorių prie sekcijos",
+      "Setup needed": "Reikia paruošti",
+      "Open": "Atidaryti",
+      "Live": "Tiesiogiai",
+      "Unassigned": "Nepriskirta",
+      "All areas": "Visos erdvės",
+      "Filtered area": "Filtruota erdvė",
+      "Ready for live monitoring.": "Paruošta tiesioginiam stebėjimui.",
+      "No live metrics": "Nėra aktyvių rodiklių",
+      "Edit": "Redaguoti",
+      "Delete": "Ištrinti",
+      "Cancel": "Atšaukti",
+      "Save changes": "Išsaugoti pakeitimus",
+      "Create": "Sukurti",
+      "Organization": "Organizacija",
+      "Crop profiles": "Kultūrų profiliai",
+      "Growth logic and account setup": "Auginimo logika ir paskyros nustatymai",
+      "Profiles used by sections": "Sekcijose naudojami profiliai",
+      "Create profile": "Sukurti profilį",
+      "Profile name": "Profilio pavadinimas",
+      "Short crop name": "Trumpas kultūros pavadinimas",
+      "Growth stage": "Augimo stadija",
+      "Copy targets from": "Kopijuoti tikslus iš",
+      "Create crop profile": "Sukurti kultūros profilį",
+      "Active profile": "Aktyvus profilis",
+      "Duplicate": "Dubliuoti",
+      "Alert rules": "Perspėjimų taisyklės",
+      "Escalation timing": "Perspėjimo aktyvavimo laikas",
+      "Save alert rules": "Išsaugoti perspėjimų taisykles",
+      "Team & access": "Komanda ir prieigos",
+      "People who can use this workspace": "Žmonės, galintys naudotis šia sistema",
+      "Add user": "Pridėti naudotoją",
+      "Remove": "Pašalinti",
+      "Notifications": "Pranešimai",
+      "Delivery and quiet hours": "Pristatymas ir ramybės valandos",
+      "Save notifications": "Išsaugoti pranešimus",
+      "Units & time": "Vienetai ir laikas",
+      "Display preferences": "Vaizdavimo nustatymai",
+      "Save preferences": "Išsaugoti nustatymus",
+      "Data retention": "Duomenų saugojimas",
+      "Trend storage policy": "Tendencijų saugojimo politika",
+      "Save retention policy": "Išsaugoti saugojimo politiką",
+      "Account": "Paskyra",
+      "Account identity": "Paskyros informacija",
+      "Save organization": "Išsaugoti organizaciją",
+      "Work the issues that need attention": "Tvarkykite svarbiausius perspėjimus",
+      "Each alert is tied to an Area, Section and live sensor reading. Actions are recorded locally until the backend is connected.": "Kiekvienas perspėjimas susietas su erdve, sekcija ir dabartiniu sensoriaus matavimu. Veiksmai saugomi lokaliai, kol bus prijungtas backend.",
+      "View trend": "Peržiūrėti tendenciją",
+      "There is nothing to action in this list right now.": "Šiuo metu šiame sąraše nėra veiksmų."
+    };
+
+    function translateInterfaceText(value) {
+      const text = String(value || "");
+      if (interfaceLanguage !== "lt" || !text.trim()) return text;
+      const leading = text.match(/^\s*/)?.[0] || "";
+      const trailing = text.match(/\s*$/)?.[0] || "";
+      const core = text.trim().replace(/\s+/g, " ");
+      if (lithuanianInterfaceText[core]) {
+        return `${leading}${lithuanianInterfaceText[core]}${trailing}`;
+      }
+
+      const optimalBoundary = core.match(/^(.+) optimal (max|min)$/i);
+      if (optimalBoundary) {
+        const metric = lithuanianInterfaceText[optimalBoundary[1]] || optimalBoundary[1];
+        const boundary = optimalBoundary[2].toLowerCase() === "max" ? "maks." : "min.";
+        return `${leading}${metric} optimali ${boundary} riba${trailing}`;
+      }
+
+      const stableOutsideTarget = core.match(/^(.+) stable outside target$/i);
+      if (stableOutsideTarget) {
+        const metric = lithuanianInterfaceText[stableOutsideTarget[1]] || stableOutsideTarget[1];
+        return `${leading}${metric} stabiliai laikosi už tikslinių ribų${trailing}`;
+      }
+
+      const returningToTarget = core.match(/^(.+) moving back toward target$/i);
+      if (returningToTarget) {
+        const metric = lithuanianInterfaceText[returningToTarget[1]] || returningToTarget[1];
+        return `${leading}${metric} grįžta į tikslines ribas${trailing}`;
+      }
+
+      const humidityPriority = core.match(/^(.+) in (.+) is below target by (.+)\. Expected effect: VPD moves closer to target and plant water stress risk decreases\.$/i);
+      if (humidityPriority) {
+        return `${leading}Sekcijoje ${humidityPriority[1]}, erdvėje ${humidityPriority[2]}, rodiklis yra žemiau tikslo per ${humidityPriority[3]}. Tikėtinas poveikis: VPD priartės prie tikslo ir sumažės augalų vandens streso rizika.${trailing}`;
+      }
+
+      const patterns = [
+        [/^Showing:\s*(.+)$/i, "Rodoma: $1"],
+        [/^Updated\s+(.+)$/i, "Atnaujinta $1"],
+        [/^(\d+)\s+sections available$/i, "$1 sekcijos"],
+        [/^(\d+)\s+sections included in area score$/i, "$1 sekcijos įtrauktos į erdvės balą"],
+        [/^(\d+)\s+nodes in this section$/i, "$1 mazgai šioje sekcijoje"],
+        [/^(\d+)\s+nodes\s+·\s+(\d+)\s+unavailable$/i, "$1 mazgai · $2 nepasiekiami"],
+        [/^(\d+)\s+nodes$/i, "$1 mazgai"],
+        [/^(\d+)\s+metrics selected$/i, "Pasirinkti $1 rodikliai"],
+        [/^(\d+)\s+registered nodes?$/i, "Užregistruoti mazgai: $1"],
+        [/^(\d+)\s+areas? connected$/i, "Prijungtos erdvės: $1"],
+        [/^(\d+)\s+sections? in this view$/i, "Šiame vaizde sekcijų: $1"],
+        [/^(\d+)\s+sections? using it$/i, "Naudoja $1 sekcijos"],
+        [/^(\d+)\s+users?$/i, "$1 naudotojai"],
+        [/^(\d+)\s+critical$/i, "$1 kritiniai"],
+        [/^(\d+)\s+warning$/i, "$1 įspėjimai"],
+        [/^(\d+)\s+resolved$/i, "$1 išspręsti"],
+        [/^Open for\s+(.+)$/i, "Aktyvus $1"],
+        [/^Target\s+(.+)$/i, "Tikslas $1"],
+        [/^Time\s*\\((.+)\\)$/i, "Laikas ($1)"],
+        [/^Y unit:\s*(.+)$/i, "Y vienetas: $1"],
+        [/^24-hour trends for\s+(.+)$/i, "24 val. tendencijos: $1"],
+        [/^Select up to two metrics to compare how temperature, humidity, CO2, or VPD moved inside\s+(.+?)\.?$/i, "Pasirinkite iki dviejų rodiklių ir palyginkite temperatūros, drėgmės, CO2 ar VPD pokyčius sekcijoje $1."],
+        [/^Select up to two metrics to compare how growing conditions moved across\s+(.+?)\.?$/i, "Pasirinkite iki dviejų rodiklių ir palyginkite auginimo sąlygų pokyčius erdvėje $1."],
+        [/^(\d+)\s+other active alerts elsewhere in the system\\.?$/i, "Dar $1 aktyvūs perspėjimai kitose sistemos vietose."],
+        [/^Inside target band$/i, "Tikslinėse ribose"],
+        [/^Below target by\s+(.+)$/i, "Žemiau tikslo per $1"],
+        [/^Above target by\s+(.+)$/i, "Virš tikslo per $1"],
+        [/^Compared with the start of the\s+(.+)\s+window$/i, "Palyginti su $1 laikotarpio pradžia"],
+        [/^Lowest point in the selected history window$/i, "Mažiausia pasirinkto laikotarpio reikšmė"],
+        [/^Highest point in the selected history window$/i, "Didžiausia pasirinkto laikotarpio reikšmė"]
+      ];
+      const matchedPattern = patterns.find(([pattern]) => pattern.test(core));
+      if (matchedPattern) {
+        return `${leading}${core.replace(matchedPattern[0], matchedPattern[1])}${trailing}`;
+      }
+      return text;
+    }
+
+    function applyInterfaceLanguage(root = document.body) {
+      document.documentElement.lang = interfaceLanguage;
+      document.querySelectorAll("[data-language-option]").forEach((button) => {
+        const isActive = button.dataset.languageOption === interfaceLanguage;
+        button.dataset.active = String(isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        const parentTag = node.parentElement?.tagName;
+        if (parentTag !== "SCRIPT" && parentTag !== "STYLE") {
+          if (!originalInterfaceText.has(node)) originalInterfaceText.set(node, node.nodeValue);
+          const englishText = originalInterfaceText.get(node);
+          node.nodeValue = interfaceLanguage === "lt" ? translateInterfaceText(englishText) : englishText;
+        }
+        node = walker.nextNode();
+      }
+
+      document.querySelectorAll("[placeholder], [title], [aria-label]").forEach((element) => {
+        ["placeholder", "title", "aria-label"].forEach((attribute) => {
+          if (!element.hasAttribute(attribute)) return;
+          const dataKey = `i18n${attribute.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())}En`;
+          if (!element.dataset[dataKey]) element.dataset[dataKey] = element.getAttribute(attribute);
+          const englishValue = element.dataset[dataKey];
+          element.setAttribute(
+            attribute,
+            interfaceLanguage === "lt" ? translateInterfaceText(englishValue).trim() : englishValue
+          );
+        });
+      });
+    }
+
+    function setInterfaceLanguage(nextLanguage) {
+      interfaceLanguage = nextLanguage === "lt" ? "lt" : "en";
+      try {
+        window.localStorage.setItem(interfaceLanguageStorageKey, interfaceLanguage);
+      } catch (error) {
+        // Language still works for the active session if storage is unavailable.
+      }
+      renderDashboard();
+      applyInterfaceLanguage();
+    }
+
     const stateConfig = {
       optimal: { label: "Optimal", shortLabel: "Optimal", badge: "Green section", textClass: "text-moss", thumb: "#2F6A4F", uplink: "4 min ago" },
       warning: { label: "Warning", shortLabel: "Attention", badge: "Amber section", textClass: "text-amber", thumb: "#D08A2D", uplink: "7 min ago" },
@@ -13902,18 +14293,58 @@
       });
     }
 
-    function renderSiteOptions() {
-      getActiveSite();
+    function getContextScoreSummary(overall) {
+      if (!overall || !Number.isFinite(overall.indexScore)) {
+        return {
+          score: "--",
+          state: "neutral",
+          label: interfaceLanguage === "lt" ? "Nėra duomenų" : "No data",
+          text: interfaceLanguage === "lt" ? "Auginimo sąlygų įvertis --" : "Growing conditions score --"
+        };
+      }
 
-      elements.siteMenu.innerHTML = dashboardData.sites.map((site) => `
-        <button type="button" class="context-menu-option" data-site-option data-site-id="${escapeAttribute(site.id)}" data-active="${site.id === activeSiteId}">
-          <div class="context-menu-label">${escapeHtml(site.name)}</div>
-          <div class="context-menu-meta">${site.zones.length} blocks</div>
-        </button>
-      `).join("");
+      const label = translateInterfaceText(getHealthStateLabel(overall.state));
+      return {
+        score: String(overall.indexScore),
+        state: overall.state,
+        label,
+        text: interfaceLanguage === "lt"
+          ? `Auginimo sąlygų įvertis ${overall.indexScore} · ${label}`
+          : `Growing conditions score ${overall.indexScore} · ${label}`
+      };
     }
 
-    function renderZoneOptions() {
+    function getContextMenuSnapshots() {
+      return dashboardData.sites.flatMap((site) =>
+        site.zones.map((zone) => evaluateZoneSnapshot(site, zone))
+      );
+    }
+
+    function renderSiteOptions(snapshots = null) {
+      getActiveSite();
+      const contextSnapshots = snapshots || getContextMenuSnapshots();
+
+      elements.siteMenu.innerHTML = dashboardData.sites.map((site) => {
+        const siteSnapshots = contextSnapshots.filter((snapshot) => snapshot.site.id === site.id);
+        const score = getContextScoreSummary(
+          siteSnapshots.length > 0 ? deriveSiteOverallState(siteSnapshots) : null
+        );
+        return `
+          <button type="button" class="context-menu-option" data-site-option data-site-id="${escapeAttribute(site.id)}" data-active="${site.id === activeSiteId}">
+            <div class="context-menu-option-copy">
+              <div class="context-menu-label">${escapeHtml(site.name)}</div>
+              <div class="context-menu-meta">${escapeHtml(interfaceLanguage === "lt" ? "Area įvertis" : "Area score")}</div>
+            </div>
+            <div class="context-menu-score" data-state="${escapeAttribute(score.state)}">
+              <span class="context-score-dot" aria-hidden="true"></span>
+              <strong>${escapeHtml(score.score)}</strong>
+            </div>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function renderZoneOptions(snapshots = null) {
       const site = getActiveSite();
       if (!site || !Array.isArray(site.zones) || site.zones.length === 0) {
         activeZoneId = "";
@@ -13925,12 +14356,25 @@
         activeZoneId = site.zones[0].id;
       }
 
-      elements.zoneMenu.innerHTML = site.zones.map((zone) => `
-        <button type="button" class="context-menu-option" data-zone-option data-zone-id="${escapeAttribute(zone.id)}" data-active="${zone.id === activeZoneId}">
-          <div class="context-menu-label">${escapeHtml(zone.name)}</div>
-          <div class="context-menu-meta">${zone.sensorCount} nodes</div>
-        </button>
-      `).join("");
+      const contextSnapshots = snapshots || getContextMenuSnapshots();
+      elements.zoneMenu.innerHTML = site.zones.map((zone) => {
+        const snapshot = contextSnapshots.find((item) =>
+          item.site.id === site.id && item.zone.id === zone.id
+        );
+        const score = getContextScoreSummary(snapshot?.overall || null);
+        return `
+          <button type="button" class="context-menu-option" data-zone-option data-zone-id="${escapeAttribute(zone.id)}" data-active="${zone.id === activeZoneId}">
+            <div class="context-menu-option-copy">
+              <div class="context-menu-label">${escapeHtml(zone.name)}</div>
+              <div class="context-menu-meta">${escapeHtml(interfaceLanguage === "lt" ? "Section įvertis" : "Section score")}</div>
+            </div>
+            <div class="context-menu-score" data-state="${escapeAttribute(score.state)}">
+              <span class="context-score-dot" aria-hidden="true"></span>
+              <strong>${escapeHtml(score.score)}</strong>
+            </div>
+          </button>
+        `;
+      }).join("");
     }
 
     function renderManagementNotice(page) {
@@ -15561,12 +16005,62 @@
           option.definition.decimals
         );
       });
+      const rapidChangeHints = [];
+
+      // Demonstrate two independent events when temperature and CO2 are compared.
+      // Live API data is evaluated directly by the rate detector below.
+      const directedDemoEvents = {
+        airTemp: { index: 8, direction: 1 },
+        co2: { index: 14, direction: -1 }
+      };
+      const isDirectedDemoScope = scopeSeed === "greenhouse-1:tomato-a-back:zone";
+      const directedEvent = rangeKey === "24h" && isDirectedDemoScope
+        ? directedDemoEvents[option.key]
+        : null;
+      if (directedEvent && points.length >= 20) {
+        const pointIntervalHours = rangeConfig.totalHours / Math.max(points.length - 1, 1);
+        const detectableMagnitude = getRapidChangeThreshold({ option }) * pointIntervalHours * 1.5;
+        const eventMagnitude = Math.max(span * 0.06, baseAmplitude, detectableMagnitude);
+        const recoveryWeights = [1, 0.82, 0.64, 0.46, 0.28, 0.1];
+        recoveryWeights.forEach((weight, offset) => {
+          const pointIndex = directedEvent.index + offset;
+          points[pointIndex] = roundValue(
+            clamp(
+              points[pointIndex] + (directedEvent.direction * eventMagnitude * weight),
+              domain[0],
+              domain[1]
+            ),
+            option.definition.decimals
+          );
+        });
+        rapidChangeHints.push({
+          startIndex: directedEvent.index - 1,
+          endIndex: directedEvent.index,
+          direction: directedEvent.direction > 0 ? "rise" : "drop"
+        });
+      } else if (rangeKey === "24h" && option.state !== "optimal" && points.length >= 12) {
+        const eventIndex = 7 + (trendSeed % 5);
+        const eventDirection = currentValue < optimalMid ? -1 : 1;
+        const pointIntervalHours = rangeConfig.totalHours / Math.max(points.length - 1, 1);
+        const detectableMagnitude = getRapidChangeThreshold({ option }) * pointIntervalHours * 1.5;
+        const eventMagnitude = Math.max(span * 0.04, baseAmplitude * 0.75, detectableMagnitude);
+        points[eventIndex] = roundValue(
+          clamp(points[eventIndex - 1] + (eventDirection * eventMagnitude), domain[0], domain[1]),
+          option.definition.decimals
+        );
+        rapidChangeHints.push({
+          startIndex: eventIndex - 1,
+          endIndex: eventIndex,
+          direction: eventDirection > 0 ? "rise" : "drop"
+        });
+      }
 
       points[points.length - 1] = currentValue;
       return {
         domain,
         optimalRange,
-        values: points
+        values: points,
+        rapidChangeHints
       };
     }
 
@@ -15917,6 +16411,123 @@
       ];
     }
 
+    const rapidChangeThresholdPerHour = {
+      airTemp: 0.9,
+      humidity: 2,
+      co2: 100,
+      lux: 3500,
+      soilTemp: 0.7,
+      vpd: 0.12,
+      soilMoisture: 3,
+      ec: 0.15,
+      ph: 0.2,
+      leafTemp: 0.8,
+      soilEc: 0.15,
+      waterTemp: 0.8,
+      airPressure: 2.5,
+      batteryLevel: 4
+    };
+
+    function getRapidChangeThreshold(item) {
+      const configuredThreshold = rapidChangeThresholdPerHour[item.option.key];
+      if (Number.isFinite(configuredThreshold)) return configuredThreshold;
+      const optimalRange = item.option.optimalRange || item.option.definition.optimal;
+      return Math.max(Math.abs(optimalRange[1] - optimalRange[0]) * 0.25, 0.01);
+    }
+
+    function detectRapidChangeIntervals(item, data, seriesIndex) {
+      const threshold = getRapidChangeThreshold(item);
+      const intervals = [];
+
+      for (let index = 1; index < data.length; index += 1) {
+        const previousPoint = data[index - 1];
+        const currentPoint = data[index];
+        const durationHours = Math.max((currentPoint[0] - previousPoint[0]) / (60 * 60 * 1000), 1 / 60);
+        const delta = currentPoint[1] - previousPoint[1];
+        const ratePerHour = delta / durationHours;
+        if (Math.abs(ratePerHour) < threshold) continue;
+
+        const direction = ratePerHour > 0 ? "rise" : "drop";
+        const previousInterval = intervals[intervals.length - 1];
+        if (
+          previousInterval
+          && previousInterval.direction === direction
+          && previousInterval.end === previousPoint[0]
+        ) {
+          previousInterval.end = currentPoint[0];
+          previousInterval.endValue = currentPoint[1];
+          previousInterval.peakRate = Math.max(previousInterval.peakRate, Math.abs(ratePerHour));
+          continue;
+        }
+
+        intervals.push({
+          seriesIndex,
+          metricKey: item.option.key,
+          metricLabel: item.option.label,
+          definition: item.option.definition,
+          direction,
+          start: previousPoint[0],
+          end: currentPoint[0],
+          startValue: previousPoint[1],
+          endValue: currentPoint[1],
+          peakRate: Math.abs(ratePerHour)
+        });
+      }
+
+      return intervals;
+    }
+
+    function getRapidChangeLabel(interval) {
+      const metricLabel = translateInterfaceText(interval.metricLabel);
+      if (interfaceLanguage === "lt") {
+        return `${interval.direction === "rise" ? "Staigus kilimas" : "Staigus kritimas"} · ${metricLabel}`;
+      }
+      return `${interval.direction === "rise" ? "Rapid rise" : "Rapid drop"} · ${metricLabel}`;
+    }
+
+    function mergeRapidChangeAreas(intervals) {
+      return [...intervals]
+        .sort((left, right) => left.start - right.start)
+        .reduce((areas, interval) => {
+          const previousArea = areas[areas.length - 1];
+          if (previousArea && interval.start <= previousArea.end) {
+            previousArea.end = Math.max(previousArea.end, interval.end);
+            previousArea.labels.add(getRapidChangeLabel(interval));
+            return areas;
+          }
+          areas.push({
+            start: interval.start,
+            end: interval.end,
+            labels: new Set([getRapidChangeLabel(interval)])
+          });
+          return areas;
+        }, []);
+    }
+
+    function buildTrendValueColorPieces(item, optimalColor) {
+      const definition = item.option.definition;
+      const optimalRange = item.option.optimalRange || definition.optimal;
+      const warningRange = definition.warning || optimalRange;
+      const warningColor = "#b47a24";
+      const criticalColor = "#b13d32";
+
+      if (definition.behavior === "higherIsBetter") {
+        return [
+          { lt: warningRange[0], color: criticalColor },
+          { gte: warningRange[0], lt: optimalRange[0], color: warningColor },
+          { gte: optimalRange[0], color: optimalColor }
+        ];
+      }
+
+      return [
+        { lt: warningRange[0], color: criticalColor },
+        { gte: warningRange[0], lt: optimalRange[0], color: warningColor },
+        { gte: optimalRange[0], lte: optimalRange[1], color: optimalColor },
+        { gt: optimalRange[1], lte: warningRange[1], color: warningColor },
+        { gt: warningRange[1], color: criticalColor }
+      ];
+    }
+
     function buildTrendEChartsOption(state) {
       const {
         seriesItems,
@@ -15936,7 +16547,7 @@
         hour: "2-digit",
         minute: "2-digit"
       });
-      const shortMetricLabel = (label) => label
+      const shortMetricLabel = (label) => translateInterfaceText(label)
         .replace("Air temperature", "Temperature")
         .replace("Relative humidity", "Humidity");
 
@@ -15947,7 +16558,7 @@
         const axisDomain = getTrendAxisDomain(item.series.values, definition, optimalRange);
         return {
           type: "value",
-          name: `${item.option.label} (${formatUnit(definition.unit)})`,
+          name: `${translateInterfaceText(item.option.label)} (${formatUnit(definition.unit)})`,
           nameLocation: "middle",
           nameGap: 54,
           nameRotate: index === 0 ? 90 : -90,
@@ -15990,6 +16601,7 @@
         };
       });
 
+      const rapidChangeIntervals = [];
       const chartSeries = seriesItems.map((item, index) => {
         const color = colors[index];
         const definition = item.option.definition;
@@ -16001,26 +16613,50 @@
         ]);
         const labelSide = index === 0 ? "insideStartTop" : "insideEndTop";
         const labelPrefix = shortMetricLabel(item.option.label);
+        const detectedIntervals = detectRapidChangeIntervals(item, data, index);
+        const hintedIntervals = (item.series.rapidChangeHints || [])
+          .map((hint) => {
+            const startPoint = data[hint.startIndex];
+            const endPoint = data[hint.endIndex];
+            if (!startPoint || !endPoint) return null;
+            const durationHours = Math.max((endPoint[0] - startPoint[0]) / (60 * 60 * 1000), 1 / 60);
+            return {
+              seriesIndex: index,
+              metricKey: item.option.key,
+              metricLabel: item.option.label,
+              definition,
+              direction: hint.direction,
+              start: startPoint[0],
+              end: endPoint[0],
+              startValue: startPoint[1],
+              endValue: endPoint[1],
+              peakRate: Math.abs(endPoint[1] - startPoint[1]) / durationHours
+            };
+          })
+          .filter(Boolean)
+          .filter((hint) => !detectedIntervals.some((interval) => (
+            interval.start === hint.start && interval.end === hint.end
+          )));
+        rapidChangeIntervals.push(...detectedIntervals, ...hintedIntervals);
 
         return {
-          name: item.option.label,
+          name: translateInterfaceText(item.option.label),
           type: "line",
           yAxisIndex: index,
           data,
           showSymbol: false,
           symbol: "circle",
           symbolSize: 7,
-          smooth: false,
+          smooth: 0.28,
+          smoothMonotone: "x",
           connectNulls: false,
           animation: false,
           lineStyle: {
-            color,
             width: 2,
             cap: "round",
             join: "round"
           },
           itemStyle: {
-            color,
             borderColor: "#ffffff",
             borderWidth: 2
           },
@@ -16067,6 +16703,70 @@
           }
         };
       });
+      const rapidChangeAreas = mergeRapidChangeAreas(rapidChangeIntervals);
+
+      if (chartSeries[0] && rapidChangeAreas.length > 0) {
+        chartSeries[0].markArea = {
+          silent: true,
+          animation: false,
+          z: 1,
+          itemStyle: {
+            color: "rgba(177, 61, 50, 0.11)",
+            borderColor: "rgba(177, 61, 50, 0.18)",
+            borderWidth: 1
+          },
+          label: {
+            show: true,
+            position: "insideTop",
+            color: "#9a4337",
+            fontSize: 10,
+            fontWeight: 800,
+            backgroundColor: "rgba(255, 248, 246, 0.94)",
+            borderColor: "rgba(177, 61, 50, 0.18)",
+            borderWidth: 1,
+            borderRadius: 7,
+            padding: [3, 6],
+            formatter: (params) => params.name
+          },
+          data: rapidChangeAreas.map((area) => [
+            {
+              name: [...area.labels].join(" / "),
+              xAxis: area.start
+            },
+            {
+              xAxis: area.end
+            }
+          ])
+        };
+      }
+
+      const rapidChangeOverlaySeries = rapidChangeIntervals.map((interval, index) => ({
+        name: `__rapid_change_${interval.seriesIndex}_${index}`,
+        type: "line",
+        yAxisIndex: interval.seriesIndex,
+        data: [
+          [interval.start, interval.startValue],
+          [interval.end, interval.endValue]
+        ],
+        showSymbol: false,
+        silent: true,
+        animation: false,
+        z: 8,
+        lineStyle: {
+          color: "#b13d32",
+          width: 3,
+          cap: "round",
+          join: "round"
+        },
+        tooltip: { show: false }
+      }));
+      const trendValueVisualMaps = seriesItems.map((item, index) => ({
+        show: false,
+        type: "piecewise",
+        seriesIndex: index,
+        dimension: 1,
+        pieces: buildTrendValueColorPieces(item, colors[index])
+      }));
 
       return {
         animation: false,
@@ -16079,6 +16779,7 @@
           label: { description: ariaLabel }
         },
         color: colors,
+        visualMap: trendValueVisualMaps,
         grid: {
           top: 34,
           right: isMultiMetric ? 88 : 36,
@@ -16099,7 +16800,7 @@
             fontWeight: 700
           },
           data: seriesItems.map((item, index) => ({
-            name: item.option.label,
+            name: translateInterfaceText(item.option.label),
             itemStyle: { color: colors[index] }
           }))
         },
@@ -16137,8 +16838,11 @@
             const firstPoint = params.find((param) => Array.isArray(param.value));
             if (!firstPoint) return "";
             const timestamp = tooltipDateFormat.format(new Date(firstPoint.value[0]));
+            const activeRapidChanges = rapidChangeIntervals.filter((interval) => (
+              firstPoint.value[0] >= interval.start && firstPoint.value[0] <= interval.end
+            ));
             const rows = params
-              .filter((param) => Array.isArray(param.value))
+              .filter((param) => Array.isArray(param.value) && param.seriesIndex < seriesItems.length)
               .map((param) => {
                 const item = seriesItems[param.seriesIndex];
                 if (!item) return "";
@@ -16146,14 +16850,21 @@
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:6px;">
                     <span style="display:flex;align-items:center;gap:7px;">
                       <span style="width:8px;height:8px;border-radius:50%;background:${colors[param.seriesIndex]};"></span>
-                      ${escapeHtml(item.option.label)}
+                      ${escapeHtml(translateInterfaceText(item.option.label))}
                     </span>
                     <strong>${escapeHtml(formatValue(param.value[1], item.option.definition))}</strong>
                   </div>
                 `;
               })
               .join("");
-            return `<div style="font-weight:700;color:rgba(255,255,255,.72);">${escapeHtml(timestamp)}</div>${rows}`;
+            const rapidChangeRows = activeRapidChanges
+              .map((interval) => `
+                <div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.14);color:#ffb5ac;font-weight:800;">
+                  ${escapeHtml(getRapidChangeLabel(interval))}
+                </div>
+              `)
+              .join("");
+            return `<div style="font-weight:700;color:rgba(255,255,255,.72);">${escapeHtml(timestamp)}</div>${rows}${rapidChangeRows}`;
           }
         },
         xAxis: {
@@ -16161,7 +16872,7 @@
           min: rangeStart,
           max: rangeEnd,
           boundaryGap: false,
-          name: `Time (${rangeLabel})`,
+          name: `${translateInterfaceText("Time")} (${rangeLabel})`,
           nameLocation: "middle",
           nameGap: 34,
           minInterval: Math.max((totalHours * 60 * 60 * 1000) / 12, 60 * 1000),
@@ -16196,7 +16907,7 @@
           splitLine: { show: false }
         },
         yAxis,
-        series: chartSeries
+        series: [...chartSeries, ...rapidChangeOverlaySeries]
       };
     }
 
@@ -16306,6 +17017,16 @@
         trendMetricOptions
       } = options;
       const rangeConfig = trendRangeConfig[activeTrendRangeKey] || trendRangeConfig["24h"];
+      if (
+        activeTrendMetricKeys.length === 0
+        && !activeTrendMetricKey
+        && !isSiteView
+        && site.id === "greenhouse-1"
+        && zone.id === "tomato-a-back"
+      ) {
+        activeTrendMetricKeys = ["airTemp", "co2"];
+        activeTrendMetricKey = "airTemp";
+      }
       const selectedMetrics = syncActiveTrendMetrics(trendMetricOptions, options.defaultMetricKey);
       const selectedMetric = selectedMetrics[0];
       const isMultiMetric = selectedMetrics.length > 1;
@@ -17047,6 +17768,8 @@
           ? { ...snapshot, profile, results, overall: overallState }
           : snapshot
       );
+      renderSiteOptions(globalSnapshots);
+      renderZoneOptions(globalSnapshots);
       const globalCritical = globalSnapshots.filter((snapshot) => snapshot.overall.state === "critical").length;
       const globalWarning = globalSnapshots.filter((snapshot) => snapshot.overall.state === "warning").length;
       const globalStable = globalSnapshots.filter((snapshot) => snapshot.overall.state === "optimal").length;
@@ -17484,17 +18207,19 @@
       elements.siteAveragesButton.setAttribute("aria-pressed", String(activeSiteDetailView === "averages"));
       elements.siteZonesButton.dataset.active = String(activeSiteDetailView === "zones");
       elements.siteZonesButton.setAttribute("aria-pressed", String(activeSiteDetailView === "zones"));
+      const selectedSiteScore = getContextScoreSummary(siteOverallState);
+      const selectedZoneScore = getContextScoreSummary(overallState);
       elements.siteContextValue.textContent = site.name;
-      elements.siteContextMeta.textContent = `${site.zones.length} sections available`;
+      elements.siteContextMeta.textContent = selectedSiteScore.text;
+      elements.siteContextMeta.dataset.state = selectedSiteScore.state;
       elements.zoneContextCard.dataset.disabled = isSiteView ? "true" : "false";
       elements.zoneTrigger.disabled = isSiteView;
       elements.zoneTrigger.setAttribute("aria-disabled", String(isSiteView));
       elements.zoneContextValue.textContent = isSiteView ? "All sections" : zone.name;
       elements.zoneContextMeta.textContent = isSiteView
-        ? `${site.zones.length} sections included in area score`
-        : unavailableCount > 0
-          ? `${zone.sensorCount} nodes · ${unavailableCount} unavailable`
-          : `${zone.sensorCount} nodes in this section`;
+        ? (interfaceLanguage === "lt" ? "Įtraukta į Area įvertį" : "Included in Area score")
+        : selectedZoneScore.text;
+      elements.zoneContextMeta.dataset.state = isSiteView ? selectedSiteScore.state : selectedZoneScore.state;
       elements.profileContextValue.textContent = isSiteView ? siteProfileSummary.value : profile.name;
       elements.profileContextMeta.textContent = isSiteView ? siteProfileSummary.meta : "Inherited from section";
       try {
@@ -18015,6 +18740,7 @@
         commandPaletteItems = buildCommandPaletteItems();
         renderCommandPalette(false);
       }
+      applyInterfaceLanguage();
     }
 
     elements.siteTrigger.addEventListener("click", (event) => {
@@ -19035,6 +19761,12 @@
       const requiresWorkbenchReflow = activeWorkbenchLensKey === "focus" || activeWorkbenchLensKey === "coverage";
       const isOutsideSelectedGroup = activeWorkbenchLensKey.startsWith("group-") && activeWorkbenchLensKey !== `group-${metricGroupKey}`;
       renderDashboard({ skipMetricsGrid: !(requiresWorkbenchReflow || isOutsideSelectedGroup) });
+    });
+
+    document.addEventListener("click", (event) => {
+      const languageButton = event.target.closest("[data-language-option]");
+      if (!languageButton) return;
+      setInterfaceLanguage(languageButton.dataset.languageOption);
     });
 
     renderSiteOptions();
