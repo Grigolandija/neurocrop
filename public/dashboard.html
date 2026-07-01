@@ -7519,11 +7519,12 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .trend-history-context-selects label {
+    .trend-history-context-field {
       display: block;
+      min-width: 0;
     }
 
-    .trend-history-context-selects span {
+    .trend-history-context-field-label {
       display: block;
       font-size: 0.63rem;
       font-weight: 800;
@@ -7532,22 +7533,60 @@
       color: rgba(24, 33, 29, 0.42);
     }
 
-    .trend-history-context-selects select {
+    .trend-history-score-select {
+      position: relative;
       margin-top: 0.35rem;
+    }
+
+    .trend-history-score-trigger {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
       width: 100%;
       border-radius: 14px;
       border: 1px solid rgba(24, 33, 29, 0.10);
       background: rgba(255, 255, 255, 0.94);
-      padding: 0.55rem 0.75rem;
+      padding: 0.4rem 0.5rem 0.4rem 0.75rem;
       font-size: 0.82rem;
       font-weight: 700;
       color: var(--designer-text);
       outline: none;
+      text-align: left;
     }
 
-    .trend-history-context-selects select:focus {
+    .trend-history-score-trigger:hover,
+    .trend-history-score-trigger:focus-visible {
       border-color: rgba(47, 106, 79, 0.22);
       box-shadow: 0 0 0 2px rgba(47, 106, 79, 0.10);
+    }
+
+    .trend-history-score-value {
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .trend-history-score-trigger .context-menu-score {
+      min-width: 52px;
+      padding: 5px 8px;
+    }
+
+    .trend-history-score-chevron {
+      flex: 0 0 auto;
+      color: rgba(24, 33, 29, 0.38);
+      font-size: 0.68rem;
+      transition: transform 0.16s ease;
+    }
+
+    .trend-history-score-trigger[aria-expanded="true"] .trend-history-score-chevron {
+      transform: rotate(180deg);
+    }
+
+    .trend-history-score-select .context-menu {
+      z-index: 260;
+      min-width: 100%;
     }
 
     .trend-history-toolbar {
@@ -9541,14 +9580,34 @@
                 </div>
               </div>
               <div class="trend-history-context-selects">
-                <label class="block">
-                  <span>Area</span>
-                  <select id="historyLocationSelect"></select>
-                </label>
-                <label class="block">
-                  <span>Section</span>
-                  <select id="historyBlockSelect"></select>
-                </label>
+                <div class="trend-history-context-field">
+                  <span class="trend-history-context-field-label">Area</span>
+                  <div class="trend-history-score-select">
+                    <button id="historyLocationTrigger" type="button" class="trend-history-score-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="historyLocationMenu">
+                      <span id="historyLocationValue" class="trend-history-score-value">Greenhouse No. 1</span>
+                      <span id="historyLocationScore" class="context-menu-score" data-state="warning">
+                        <span class="context-score-dot" aria-hidden="true"></span>
+                        <strong>--</strong>
+                      </span>
+                      <i class="trend-history-score-chevron fa-solid fa-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    <div id="historyLocationMenu" class="context-menu" role="listbox" hidden></div>
+                  </div>
+                </div>
+                <div class="trend-history-context-field">
+                  <span class="trend-history-context-field-label">Section</span>
+                  <div class="trend-history-score-select">
+                    <button id="historyBlockTrigger" type="button" class="trend-history-score-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="historyBlockMenu">
+                      <span id="historyBlockValue" class="trend-history-score-value">Tomato Block A, Rear</span>
+                      <span id="historyBlockScore" class="context-menu-score" data-state="warning">
+                        <span class="context-score-dot" aria-hidden="true"></span>
+                        <strong>--</strong>
+                      </span>
+                      <i class="trend-history-score-chevron fa-solid fa-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    <div id="historyBlockMenu" class="context-menu" role="listbox" hidden></div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -10391,8 +10450,14 @@
       trendHistoryRangeMeta: document.getElementById("trendHistoryRangeMeta"),
       trendHistoryActiveAreaLabel: document.getElementById("trendHistoryActiveAreaLabel"),
       trendHistoryActiveSectionLabel: document.getElementById("trendHistoryActiveSectionLabel"),
-      historyLocationSelect: document.getElementById("historyLocationSelect"),
-      historyBlockSelect: document.getElementById("historyBlockSelect"),
+      historyLocationTrigger: document.getElementById("historyLocationTrigger"),
+      historyLocationValue: document.getElementById("historyLocationValue"),
+      historyLocationScore: document.getElementById("historyLocationScore"),
+      historyLocationMenu: document.getElementById("historyLocationMenu"),
+      historyBlockTrigger: document.getElementById("historyBlockTrigger"),
+      historyBlockValue: document.getElementById("historyBlockValue"),
+      historyBlockScore: document.getElementById("historyBlockScore"),
+      historyBlockMenu: document.getElementById("historyBlockMenu"),
       trendMetricBar: document.getElementById("trendMetricBar"),
       trendRangeBar: document.getElementById("trendRangeBar"),
       trendHistoryMetricLabel: document.getElementById("trendHistoryMetricLabel"),
@@ -14278,6 +14343,8 @@
     function closeContextMenus() {
       setMenuState(elements.siteTrigger, elements.siteMenu, false);
       setMenuState(elements.zoneTrigger, elements.zoneMenu, false);
+      setMenuState(elements.historyLocationTrigger, elements.historyLocationMenu, false);
+      setMenuState(elements.historyBlockTrigger, elements.historyBlockMenu, false);
     }
 
     function scheduleDashboardRender() {
@@ -14374,6 +14441,41 @@
           </button>
         `;
       }).join("");
+    }
+
+    function renderHistoryScoreOption(options) {
+      const {
+        id,
+        name,
+        score,
+        isActive,
+        type
+      } = options;
+      return `
+        <button
+          type="button"
+          class="context-menu-option"
+          role="option"
+          data-history-${escapeAttribute(type)}-option
+          data-history-option-id="${escapeAttribute(id)}"
+          data-active="${String(isActive)}"
+          aria-selected="${String(isActive)}"
+        >
+          <div class="context-menu-option-copy">
+            <div class="context-menu-label">${escapeHtml(name)}</div>
+          </div>
+          <div class="context-menu-score" data-state="${escapeAttribute(score.state)}">
+            <span class="context-score-dot" aria-hidden="true"></span>
+            <strong>${escapeHtml(score.score)}</strong>
+          </div>
+        </button>
+      `;
+    }
+
+    function applyHistorySelectedScore(element, score) {
+      element.dataset.state = score.state;
+      const value = element.querySelector("strong");
+      if (value) value.textContent = score.score;
     }
 
     function renderManagementNotice(page) {
@@ -18667,12 +18769,40 @@
       if (!shouldHideTrendHistory && trendHistoryState) {
         elements.trendHistoryActiveAreaLabel.textContent = site.name;
         elements.trendHistoryActiveSectionLabel.textContent = zone.name;
-        elements.historyLocationSelect.innerHTML = dashboardData.sites.map((historySite) => `
-          <option value="${escapeAttribute(historySite.id)}" ${historySite.id === site.id ? "selected" : ""}>${escapeHtml(historySite.name)}</option>
-        `).join("");
-        elements.historyBlockSelect.innerHTML = (site.zones || []).map((historyZone) => `
-          <option value="${escapeAttribute(historyZone.id)}" ${historyZone.id === zone.id ? "selected" : ""}>${escapeHtml(historyZone.name)}</option>
-        `).join("");
+        const historySiteScores = new Map(dashboardData.sites.map((historySite) => {
+          const snapshots = globalSnapshots.filter((snapshot) => snapshot.site.id === historySite.id);
+          return [
+            historySite.id,
+            getContextScoreSummary(snapshots.length > 0 ? deriveSiteOverallState(snapshots) : null)
+          ];
+        }));
+        const selectedHistorySiteScore = historySiteScores.get(site.id) || getContextScoreSummary(null);
+        const selectedHistoryZoneScore = getContextScoreSummary(overallState);
+        elements.historyLocationValue.textContent = site.name;
+        elements.historyBlockValue.textContent = zone.name;
+        applyHistorySelectedScore(elements.historyLocationScore, selectedHistorySiteScore);
+        applyHistorySelectedScore(elements.historyBlockScore, selectedHistoryZoneScore);
+        elements.historyLocationMenu.innerHTML = dashboardData.sites.map((historySite) =>
+          renderHistoryScoreOption({
+            id: historySite.id,
+            name: historySite.name,
+            score: historySiteScores.get(historySite.id) || getContextScoreSummary(null),
+            isActive: historySite.id === site.id,
+            type: "site"
+          })
+        ).join("");
+        elements.historyBlockMenu.innerHTML = (site.zones || []).map((historyZone) => {
+          const snapshot = globalSnapshots.find((item) =>
+            item.site.id === site.id && item.zone.id === historyZone.id
+          );
+          return renderHistoryScoreOption({
+            id: historyZone.id,
+            name: historyZone.name,
+            score: getContextScoreSummary(snapshot?.overall || null),
+            isActive: historyZone.id === zone.id,
+            type: "zone"
+          });
+        }).join("");
         elements.trendHistoryTitle.textContent = trendHistoryState.title;
         elements.trendHistorySummary.textContent = trendHistoryState.summary;
         applyStateChip(elements.trendHistoryStateChip, trendHistoryState.state, stateConfig[trendHistoryState.state].label);
@@ -19509,8 +19639,24 @@
       renderDashboard();
     });
 
-    elements.historyLocationSelect.addEventListener("change", (event) => {
-      const nextSite = dashboardData.sites.find((item) => item.id === event.target.value);
+    elements.historyLocationTrigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const shouldOpen = elements.historyLocationTrigger.getAttribute("aria-expanded") !== "true";
+      closeContextMenus();
+      setMenuState(elements.historyLocationTrigger, elements.historyLocationMenu, shouldOpen);
+    });
+
+    elements.historyBlockTrigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const shouldOpen = elements.historyBlockTrigger.getAttribute("aria-expanded") !== "true";
+      closeContextMenus();
+      setMenuState(elements.historyBlockTrigger, elements.historyBlockMenu, shouldOpen);
+    });
+
+    elements.historyLocationMenu.addEventListener("click", (event) => {
+      const option = event.target.closest("[data-history-site-option]");
+      if (!option) return;
+      const nextSite = dashboardData.sites.find((item) => item.id === option.dataset.historyOptionId);
       const nextZone = nextSite?.zones?.[0];
       if (!nextSite || !nextZone) return;
       activeSiteId = nextSite.id;
@@ -19523,8 +19669,10 @@
       renderDashboard();
     });
 
-    elements.historyBlockSelect.addEventListener("change", (event) => {
-      const nextZone = getActiveSite()?.zones?.find((item) => item.id === event.target.value);
+    elements.historyBlockMenu.addEventListener("click", (event) => {
+      const option = event.target.closest("[data-history-zone-option]");
+      if (!option) return;
+      const nextZone = getActiveSite()?.zones?.find((item) => item.id === option.dataset.historyOptionId);
       if (!nextZone) return;
       activeZoneId = nextZone.id;
       activeViewScope = "zone";
