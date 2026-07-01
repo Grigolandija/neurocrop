@@ -1,10 +1,6 @@
 # NeuroCrop Control Center
 
-Šiame repozitorijoje yra NeuroCrop MVP frontend dalis. Sistema skirta šiltnamio
-mikroklimato stebėjimui, duomenų interpretavimui ir aiškių veiksmų augintojui
-pateikimui.
-
-Šis dokumentas pirmiausia skirtas backend ir duomenų bazės programuotojui.
+Šitos komandos Andriui:
 
 ```bash
 cd ~/neurocrop
@@ -15,7 +11,7 @@ cd dist
 zip -r ../REACT-DOMENUI.zip .
 ```
 
-## Svarbiausia architektūros taisyklė
+Čia Dainiui:
 
 Frontend **neturi tiesiogiai jungtis nei prie MySQL, nei prie ChirpStack**.
 
