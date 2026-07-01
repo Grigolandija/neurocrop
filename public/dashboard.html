@@ -8731,6 +8731,51 @@
       max-height: calc(100vh - 2rem);
     }
 
+    /* Keep scrolling smooth on integrated GPUs: translucent colors preserve the
+       visual hierarchy without recompositing live blur layers on every frame. */
+    .designer-app::before,
+    .designer-app::after {
+      display: none;
+    }
+
+    .dashboard-sidebar,
+    #dashboardHeader,
+    .surface,
+    .panel,
+    .global-system-card,
+    .ops-dock-panel,
+    .advanced-tools-shell,
+    .scenario-manual-card,
+    .impact-board-shell,
+    .decision-brief-shell,
+    .command-palette-shell,
+    .context-menu,
+    .workbench-empty-card,
+    .power-node-card,
+    .inspection-route-card,
+    .alert-rail-item,
+    .metric-card,
+    .zone-card,
+    .site-zone-driver-card,
+    .impact-score-card,
+    .hero-sensor-card,
+    .action-deck-card,
+    .decision-mini-card,
+    .ops-dock-card,
+    .context-card,
+    .control-pill,
+    .command-palette-search,
+    .header-battery-dropdown,
+    .header-account-menu {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+
+    #dashboardHeader.global-system-bar,
+    .dashboard-sidebar {
+      transform: translateZ(0);
+    }
+
   </style>
 </head>
 <body class="designer-app" data-dashboard-state="optimal" data-workspace-focus="all">
