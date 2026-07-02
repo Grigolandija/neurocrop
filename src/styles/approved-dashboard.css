@@ -1,5 +1,5 @@
     html {
-      scroll-behavior: smooth;
+      scroll-behavior: auto;
     }
 
     body {
@@ -8831,4 +8831,15 @@
     #dashboardHeader.global-system-bar,
     .dashboard-sidebar {
       transform: translateZ(0);
+    }
+
+    /* Keep the primary Overview workspace fully static on lower-power GPUs. */
+    #heroStatusPanel,
+    #heroStatusPanel *,
+    #heroStatusPanel::before,
+    #heroStatusPanel::after,
+    #heroStatusPanel *::before,
+    #heroStatusPanel *::after {
+      animation: none !important;
+      transition: none !important;
     }
