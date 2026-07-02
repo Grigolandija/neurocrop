@@ -12,7 +12,7 @@ declare global {
 
 declare const __BUILD_VERSION__: string
 
-const supportedRoutes = new Set(['/', '/areas', '/sections', '/nodes', '/alerts', '/history', '/settings', '/crop-profiles'])
+const supportedRoutes = new Set(['/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/history', '/settings', '/crop-profiles'])
 
 function ApprovedDashboard() {
   const navigate = useNavigate()
@@ -48,6 +48,7 @@ function ApprovedDashboard() {
         sites: '/areas',
         zones: '/sections',
         nodes: '/nodes',
+        readings: '/readings',
         alerts: '/alerts',
         history: '/history',
         analytics: '/history',

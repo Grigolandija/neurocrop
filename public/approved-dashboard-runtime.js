@@ -462,6 +462,7 @@
       "Trend": "Tendencija",
       "Out of range": "Už ribų",
       "Open metrics": "Atidaryti rodiklius",
+      "Live readings": "Dabartiniai rodmenys",
       "Why?": "Kodėl?",
       "Review alerts": "Peržiūrėti perspėjimus",
       "other active alerts elsewhere in the system.": "kiti aktyvūs perspėjimai kitose sistemos vietose.",
@@ -1353,6 +1354,7 @@
       sections: { page: "blocks", route: "/sections" },
       zones: { page: "blocks", route: "/sections" },
       nodes: { page: "nodes", route: "/nodes" },
+      readings: { page: "readings", route: "/readings" },
       history: { page: "history", route: "/history" },
       alerts: { page: "alerts", route: "/alerts" },
       settings: { page: "settings", route: "/settings" },
@@ -1447,8 +1449,9 @@
       sidebarActionOverride = null;
       closeContextMenus();
 
-      if (activePrimaryPage === "history") {
+      if (activePrimaryPage === "history" || activePrimaryPage === "readings") {
         activeWorkspaceFocus = "all";
+        if (activePrimaryPage === "readings") activeWorkbenchLensKey = "all";
         setExperienceMode("detailed");
       }
 
@@ -1459,6 +1462,7 @@
         locations: "locationsManagementSection",
         blocks: "blocksManagementSection",
         nodes: "nodesManagementSection",
+        readings: "metricsSection",
         history: "historySection",
         alerts: "alertsManagementSection",
         settings: "settingsManagementSection"
@@ -2838,6 +2842,8 @@
         activeAction = "zones";
       } else if (activePrimaryPage === "nodes") {
         activeAction = "nodes";
+      } else if (activePrimaryPage === "readings") {
+        activeAction = "readings";
       } else if (activePrimaryPage === "history") {
         activeAction = "history";
       } else if (activePrimaryPage === "alerts") {
@@ -2899,6 +2905,17 @@
           renderDashboard();
           syncTopLevelRoute("/nodes");
           scrollToSection("nodesManagementSection", { behavior: "auto", highlight: false });
+          return;
+        case "readings":
+          activePrimaryPage = "readings";
+          sidebarActionOverride = null;
+          activeWorkspaceFocus = "all";
+          activeWorkbenchLensKey = "all";
+          setExperienceMode("detailed", { render: false });
+          closeContextMenus();
+          renderDashboard();
+          syncTopLevelRoute("/readings");
+          scrollToSection("metricsSection", { behavior: "auto", highlight: false });
           return;
         case "history":
           activePrimaryPage = "history";
@@ -7986,6 +8003,78 @@
       scrollToSection("historySection");
     }
 
+    function renderLiveReadingRow(key, definition, result, scopeSeed) {
+      const category = getMetricCategory(key);
+      const isAvailable = result.available !== false;
+      const visual = isAvailable ? getDiagnosticDeviationVisual(result, definition) : null;
+      const trend = isAvailable ? getDiagnosticTrend(result, definition, scopeSeed) : null;
+      const statusLabel = !isAvailable
+        ? diagnosticText("Unavailable", "Neprieinama")
+        : result.state === "optimal"
+          ? diagnosticText("In target", "Normoje")
+          : result.state === "critical"
+            ? diagnosticText("Critical", "Kritinė")
+            : diagnosticText("Warning", "Dėmesio");
+      const deviation = isAvailable && result.state !== "optimal"
+        ? getDiagnosticDeviationText(result)
+        : diagnosticText("Inside target range", "Tiksliniame intervale");
+
+      return `
+        <article class="live-reading-row" data-state="${escapeAttribute(isAvailable ? result.state : "unavailable")}" data-metric-card="${escapeAttribute(key)}">
+          <div class="live-reading-identity">
+            <span class="live-reading-icon"><i class="fa-solid ${escapeAttribute(category.icon)}" aria-hidden="true"></i></span>
+            <span><strong>${escapeHtml(getDiagnosticMetricLabel(definition.label))}</strong><small>${escapeHtml(definition.aggregation || "Block avg")}</small></span>
+          </div>
+          <div class="live-reading-value">
+            <strong>${isAvailable ? escapeHtml(formatValue(result.value, definition)) : "—"}</strong>
+            <small>${escapeHtml(deviation)}</small>
+          </div>
+          <div class="live-reading-target">
+            <span>${diagnosticText("Target", "Tikslas")}</span>
+            <strong>${escapeHtml(formatRange(definition.optimal, definition))}</strong>
+          </div>
+          <div class="live-reading-position">
+            ${visual ? `
+              <span class="live-reading-track" aria-label="${diagnosticText("Current value position against target", "Dabartinio rodmens padėtis tikslinio intervalo atžvilgiu")}">
+                <i class="live-reading-optimal" style="left:${visual.optimalStart.toFixed(2)}%;width:${Math.max(visual.optimalEnd - visual.optimalStart, 2).toFixed(2)}%"></i>
+                <i class="live-reading-marker" style="left:${visual.marker.toFixed(2)}%"></i>
+              </span>
+            ` : `<span class="live-reading-no-data">${diagnosticText("No sensor data", "Nėra sensoriaus duomenų")}</span>`}
+          </div>
+          <div class="live-reading-trend">
+            <span>${diagnosticText("24h", "24 val.")}</span>
+            <strong>${trend ? escapeHtml(trend.direction) : "—"}</strong>
+            <small>${trend ? escapeHtml(formatSignedValue(trend.delta, definition)) : ""}</small>
+          </div>
+          <span class="live-reading-status" data-state="${escapeAttribute(isAvailable ? result.state : "unavailable")}">${escapeHtml(statusLabel)}</span>
+          <button type="button" class="live-reading-trend-button" data-history-metric="${escapeAttribute(key)}" ${isAvailable ? "" : "disabled"}>
+            ${diagnosticText("Trend", "Grafikas")}
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        </article>
+      `;
+    }
+
+    function renderLiveReadingsBoard(results, profile, site, zone) {
+      return `
+        <div class="live-readings-table-head" aria-hidden="true">
+          <span>${diagnosticText("Parameter", "Parametras")}</span>
+          <span>${diagnosticText("Current", "Dabar")}</span>
+          <span>${diagnosticText("Target", "Tikslas")}</span>
+          <span>${diagnosticText("Position", "Padėtis")}</span>
+          <span>${diagnosticText("Direction", "Kryptis")}</span>
+          <span>${diagnosticText("Status", "Būsena")}</span>
+          <span></span>
+        </div>
+        ${results.map((result) => renderLiveReadingRow(
+          result.key,
+          profile.metrics[result.key],
+          result,
+          `${site.id}:${zone.id}:live-readings`
+        )).join("")}
+      `;
+    }
+
     function renderMetricCard(key, definition, result) {
       const category = getMetricCategory(key);
       const sliderScale = key === "batteryLevel" ? "descending" : "ascending";
@@ -8844,6 +8933,20 @@
       return `${getDiagnosticDecisionVerb(result, definition)} ${accusativeLabels[result.key] || String(label).toLowerCase()}`;
     }
 
+    function getDiagnosticDeviationVisual(result, definition) {
+      const scale = definition.critical || definition.warning || definition.optimal;
+      const scaleMin = Math.min(scale[0], definition.optimal[0], result.value);
+      const scaleMax = Math.max(scale[1], definition.optimal[1], result.value);
+      const span = Math.max(scaleMax - scaleMin, 0.001);
+      const toPercent = (value) => clamp(((value - scaleMin) / span) * 100, 2, 98);
+
+      return {
+        marker: toPercent(result.value),
+        optimalStart: toPercent(definition.optimal[0]),
+        optimalEnd: toPercent(definition.optimal[1])
+      };
+    }
+
     function getSnapshotPrimaryIssue(snapshot) {
       return snapshot.results
         .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
@@ -8929,6 +9032,7 @@
           current: formatValue(item.result.value, item.definition),
           target: formatRange(item.definition.optimal, item.definition),
           state: item.result.state,
+          visual: getDiagnosticDeviationVisual(item.result, item.definition),
           impact: getDiagnosticImpact(item.result),
           trend: item.trend.direction,
           duration: item.result.key === primaryResult?.key && primaryAlert
@@ -8942,6 +9046,7 @@
           current: `${coverage.available}/${coverage.total}`,
           target: `${coverage.total}/${coverage.total}`,
           state: coverage.unavailable > 0 ? "warning" : "optimal",
+          visual: null,
           impact: coverage.unavailable > 0 ? "Trust only" : "None",
           trend: diagnosticText("Stable", "Stabili"),
           duration: diagnosticText(`${coverage.unavailable} missing`, `Trūksta: ${coverage.unavailable}`)
@@ -8958,6 +9063,7 @@
           state: selectedLowBatteryNodes.some((node) => node.state === "critical")
             ? "critical"
             : selectedLowBatteryNodes.length > 0 ? "warning" : "optimal",
+          visual: null,
           impact: selectedLowBatteryNodes.length > 0 ? "Trust only" : "None",
           trend: selectedLowBatteryNodes.length > 0
             ? diagnosticText("Watch", "Stebėti")
@@ -9015,10 +9121,10 @@
 
       elements.detailedDiagnosticsSection.dataset.state = displayedOverallState.state;
       elements.detailedDiagnosticsSection.innerHTML = `
-        <section class="diagnostic-card diagnostic-narrative" data-state="${escapeAttribute(primaryResult?.state || "optimal")}">
+        <section class="diagnostic-card diagnostic-narrative diagnostic-situation-board" data-state="${escapeAttribute(primaryResult?.state || "optimal")}">
           <div class="diagnostic-section-head">
             <div>
-              <span class="diagnostic-eyebrow">${diagnosticText("Rule Engine diagnosis", "Taisyklių variklio diagnozė")}</span>
+              <span class="diagnostic-eyebrow">${diagnosticText("Situation board", "Situacijos suvestinė")}</span>
               <h2>${escapeHtml(diagnosisTitle)}</h2>
             </div>
             <div class="diagnostic-head-status">
@@ -9026,30 +9132,79 @@
               <span class="diagnostic-status" data-state="${escapeAttribute(primaryResult?.state || "optimal")}">${escapeHtml(narrativeSeverity)}</span>
             </div>
           </div>
-          <div class="diagnostic-narrative-grid">
-            <div class="diagnostic-lead">
-              <p><strong>${diagnosticText("Observe.", "Būsena.")}</strong> ${escapeHtml(diagnosticText(
-                `${primaryLabel} is ${primaryValue}; target is ${primaryTarget}.`,
-                `Rodiklis „${primaryLabel}“ yra ${primaryValue}; tikslas – ${primaryTarget}.`
-              ))}</p>
-              <p><strong>${diagnosticText("Explain.", "Poveikis.")}</strong> ${escapeHtml(primaryResult ? getDiagnosticImpactText(primaryResult.key, primaryLabel) : diagnosticText("Installed growth metrics are currently inside target.", "Įdiegti auginimo rodikliai šiuo metu yra tiksliniuose intervaluose."))}</p>
-              <p><strong>${diagnosticText("Scope.", "Apimtis.")}</strong> ${escapeHtml(issuePatternText)}</p>
+          <div class="diagnostic-command-grid">
+            <div class="diagnostic-command-score" data-state="${escapeAttribute(displayedOverallState.state)}">
+              <span>${diagnosticText("Growing score", "Auginimo sąlygų įvertis")}</span>
+              <strong>${displayedOverallState.indexScore}</strong>
+              <small>${escapeHtml(healthLabel)}</small>
             </div>
-            <dl class="diagnostic-fact-list">
-              <div><dt>${diagnosticText("Score", "Įvertis")}</dt><dd>${displayedOverallState.indexScore} · ${escapeHtml(healthLabel)}</dd></div>
-              <div><dt>${diagnosticText("Trend", "Tendencija")}</dt><dd>${primaryTrend ? `${primaryTrend.direction} · ${formatSignedValue(primaryTrend.delta, primaryDefinition)} ${diagnosticText("in 24h", "per 24 val.")}` : diagnosticText("Stable", "Stabili")}</dd></div>
-              <div><dt>${diagnosticText("Duration", "Trukmė")}</dt><dd>${primaryAlert ? escapeHtml(getDiagnosticDurationText(formatAlertDuration(primaryAlert.detectedAt))) : diagnosticText("Latest reading", "Naujausias matavimas")}</dd></div>
-              <div><dt>${diagnosticText("Data coverage", "Duomenų aprėptis")}</dt><dd>${coverage.available}/${coverage.total} · ${escapeHtml(confidenceLabel)}</dd></div>
-            </dl>
+            <div class="diagnostic-command-fact">
+              <span>${escapeHtml(primaryLabel)}</span>
+              <strong>${escapeHtml(primaryValue)}</strong>
+              <small>${diagnosticText("Target", "Tikslas")}: ${escapeHtml(primaryTarget)}</small>
+            </div>
+            <div class="diagnostic-command-fact">
+              <span>${diagnosticText("24h direction", "24 val. kryptis")}</span>
+              <strong>${primaryTrend ? escapeHtml(primaryTrend.direction) : diagnosticText("Stable", "Stabili")}</strong>
+              <small>${primaryTrend ? `${formatSignedValue(primaryTrend.delta, primaryDefinition)} · ${primaryAlert ? escapeHtml(getDiagnosticDurationText(formatAlertDuration(primaryAlert.detectedAt))) : diagnosticText("latest reading", "naujausias matavimas")}` : diagnosticText("No active deviation", "Aktyvaus nuokrypio nėra")}</small>
+            </div>
+            <div class="diagnostic-command-fact">
+              <span>${diagnosticText("Data coverage", "Duomenų aprėptis")}</span>
+              <strong>${coverage.available}/${coverage.total}</strong>
+              <small>${escapeHtml(confidenceLabel)} · ${selectedLowBatteryNodes.length} ${diagnosticText("battery flags", "baterijų perspėjimai")}</small>
+            </div>
           </div>
-          <div class="diagnostic-hypothesis">
-            <span>${diagnosticText("What to verify first", "Ką patikrinti pirmiausia")}</span>
-            <strong>${escapeHtml(likelyCauseText)}</strong>
+          <div class="diagnostic-command-action">
+            <span><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>${escapeHtml(getDiagnosticActionTitle(primaryResult, primaryDefinition, primaryLabel))}</span>
+            <div>
+              <button type="button" class="diagnostic-secondary-button" data-diagnostic-evidence-open aria-controls="diagnosticEvidenceDrawer" aria-expanded="false">${diagnosticText("Why?", "Kodėl?")}</button>
+              <button type="button" class="diagnostic-primary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(primaryResult?.key || "humidity")}">${diagnosticText("Verify in Trends", "Patikrinti grafike")}</button>
+            </div>
           </div>
         </section>
 
+        <button type="button" class="diagnostic-drawer-backdrop" data-diagnostic-evidence-close aria-label="${diagnosticText("Close explanation", "Uždaryti paaiškinimą")}" hidden></button>
+        <aside id="diagnosticEvidenceDrawer" class="diagnostic-evidence-drawer" aria-label="${diagnosticText("Diagnostic evidence", "Diagnostikos įrodymai")}" aria-hidden="true" hidden>
+          <div class="diagnostic-drawer-head">
+            <div>
+              <span class="diagnostic-eyebrow">${diagnosticText("Rule Engine evidence", "Taisyklių variklio pagrindimas")}</span>
+              <h3>${diagnosticText("Why this recommendation?", "Kodėl pateikta ši rekomendacija?")}</h3>
+            </div>
+            <button type="button" class="diagnostic-drawer-close" data-diagnostic-evidence-close aria-label="${diagnosticText("Close", "Uždaryti")}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+          </div>
+          <div class="diagnostic-drawer-body">
+            <div class="diagnostic-evidence-step">
+              <span>01</span>
+              <div><strong>${diagnosticText("Observe", "Būsena")}</strong><p>${escapeHtml(diagnosticText(
+                `${primaryLabel} is ${primaryValue}; target is ${primaryTarget}.`,
+                `Rodiklis „${primaryLabel}“ yra ${primaryValue}; tikslas – ${primaryTarget}.`
+              ))}</p></div>
+            </div>
+            <div class="diagnostic-evidence-step">
+              <span>02</span>
+              <div><strong>${diagnosticText("Explain", "Poveikis")}</strong><p>${escapeHtml(primaryResult ? getDiagnosticImpactText(primaryResult.key, primaryLabel) : diagnosticText("Installed growth metrics are currently inside target.", "Įdiegti auginimo rodikliai šiuo metu yra tiksliniuose intervaluose."))}</p></div>
+            </div>
+            <div class="diagnostic-evidence-step">
+              <span>03</span>
+              <div><strong>${diagnosticText("Scope", "Apimtis")}</strong><p>${escapeHtml(issuePatternText)}</p></div>
+            </div>
+            <div class="diagnostic-drawer-hypothesis">
+              <span>${diagnosticText("What to verify first", "Ką patikrinti pirmiausia")}</span>
+              <strong>${escapeHtml(likelyCauseText)}</strong>
+            </div>
+            <div class="diagnostic-drawer-checks">
+              <span>${diagnosticText("Physical checks", "Ką patikrinti vietoje")}</span>
+              <ul>${verification.checks.map((check) => `<li>${escapeHtml(check)}</li>`).join("")}</ul>
+            </div>
+            <p class="diagnostic-model-note">${diagnosticText(
+              "Missing readings and battery condition are shown as data-trust risks. They do not directly reduce the growing conditions score.",
+              "Trūkstami matavimai ir baterijų būklė rodomi kaip duomenų patikimumo rizikos. Jie tiesiogiai nemažina auginimo sąlygų įverčio."
+            )}</p>
+          </div>
+        </aside>
+
         <div class="diagnostic-two-column">
-          <section class="diagnostic-card diagnostic-score-breakdown">
+          <section class="diagnostic-card diagnostic-score-breakdown" hidden>
             <div class="diagnostic-section-head">
               <div><span class="diagnostic-eyebrow">${diagnosticText("Causal score breakdown", "Įverčio sudėtis")}</span><h3>${diagnosticText(`Why the score is ${displayedOverallState.indexScore}`, `Kodėl įvertis yra ${displayedOverallState.indexScore}`)}</h3></div>
               <span class="diagnostic-impact" data-impact="${escapeAttribute(scoreImpact.toLowerCase())}">${escapeHtml(scoreImpactLabel)} ${diagnosticText("impact", "poveikis")}</span>
@@ -9071,13 +9226,9 @@
                 </div>
               </div>
             </div>
-            <p class="diagnostic-model-note">${diagnosticText(
-              "Missing readings and battery condition are shown as data-trust risks. They do not directly reduce the growing conditions score.",
-              "Trūkstami matavimai ir baterijų būklė rodomi kaip duomenų patikimumo rizikos. Jie tiesiogiai nemažina auginimo sąlygų įverčio."
-            )}</p>
           </section>
 
-          <section class="diagnostic-card diagnostic-trust">
+          <section class="diagnostic-card diagnostic-trust diagnostic-trust-wide">
             <div class="diagnostic-section-head">
               <div><span class="diagnostic-eyebrow">${diagnosticText("Sensor trust", "Sensorių patikimumas")}</span><h3>${diagnosticText("Can this diagnosis be trusted?", "Ar šia diagnoze galima pasitikėti?")}</h3></div>
             </div>
@@ -9107,14 +9258,23 @@
           </div>
           <div class="diagnostic-table-wrap">
             <table class="diagnostic-table">
-              <thead><tr><th>#</th><th>${diagnosticText("Factor", "Rodiklis")}</th><th>${diagnosticText("Current", "Dabar")}</th><th>${diagnosticText("Target", "Tikslas")}</th><th>${diagnosticText("Status", "Būsena")}</th><th>${diagnosticText("Impact", "Poveikis")}</th><th>${diagnosticText("24h direction", "24 val. kryptis")}</th><th>${diagnosticText("Duration", "Trukmė")}</th></tr></thead>
+              <thead><tr><th>#</th><th>${diagnosticText("Factor", "Rodiklis")}</th><th>${diagnosticText("Reading vs target", "Rodmuo ir tikslas")}</th><th>${diagnosticText("Status", "Būsena")}</th><th>${diagnosticText("Impact", "Poveikis")}</th><th>${diagnosticText("24h direction", "24 val. kryptis")}</th><th>${diagnosticText("Duration", "Trukmė")}</th></tr></thead>
               <tbody>
                 ${factors.map((factor, index) => `
                   <tr data-state="${escapeAttribute(factor.state)}">
                     <td>${index + 1}</td>
                     <td><strong>${escapeHtml(factor.label)}</strong></td>
-                    <td>${escapeHtml(factor.current)}</td>
-                    <td>${escapeHtml(factor.target)}</td>
+                    <td>
+                      <div class="diagnostic-reading-cell">
+                        <span><strong>${escapeHtml(factor.current)}</strong><small>${escapeHtml(factor.target)}</small></span>
+                        ${factor.visual ? `
+                          <span class="diagnostic-deviation-bar" data-state="${escapeAttribute(factor.state)}" aria-label="${diagnosticText("Current value position against target", "Dabartinio rodmens padėtis tikslinio intervalo atžvilgiu")}">
+                            <i class="diagnostic-deviation-optimal" style="left:${factor.visual.optimalStart.toFixed(2)}%;width:${Math.max(factor.visual.optimalEnd - factor.visual.optimalStart, 2).toFixed(2)}%"></i>
+                            <i class="diagnostic-deviation-marker" style="left:${factor.visual.marker.toFixed(2)}%"></i>
+                          </span>
+                        ` : `<span class="diagnostic-deviation-summary">${escapeHtml(factor.target)}</span>`}
+                      </div>
+                    </td>
                     <td><span class="diagnostic-table-state" data-state="${escapeAttribute(factor.state)}">${escapeHtml(factor.state === "optimal" ? diagnosticText("OK", "Gerai") : factor.state === "critical" ? diagnosticText("Critical", "Kritinė") : diagnosticText("Warning", "Dėmesio"))}</span></td>
                     <td>${escapeHtml(getDiagnosticImpactLabel(factor.impact))}</td>
                     <td>${escapeHtml(factor.trend)}</td>
@@ -9141,7 +9301,6 @@
                 </div>
               `).join("")}
             </div>
-            <p class="diagnostic-interpretation">${escapeHtml(issuePatternText)}</p>
           </section>
 
           <section class="diagnostic-card">
@@ -9153,13 +9312,6 @@
               <div><span>${diagnosticText("Growing score", "Auginimo sąlygų įvertis")}</span><strong>${previousScore} → ${displayedOverallState.indexScore}</strong><small>${displayedOverallState.indexScore < previousScore ? diagnosticText("Worsening", "Blogėja") : diagnosticText("Stable", "Stabili")}</small></div>
               ${trendRows.slice(0, 3).map((item) => `<div><span>${escapeHtml(getDiagnosticMetricLabel(item.definition.label))}</span><strong>${escapeHtml(formatValue(item.trend.start, item.definition))} → ${escapeHtml(formatValue(item.trend.end, item.definition))}</strong><small>${escapeHtml(item.trend.direction)}</small></div>`).join("")}
             </div>
-            <p class="diagnostic-interpretation">${escapeHtml(
-              primaryTrend?.direction === diagnosticText("Worsening", "Blogėja")
-                ? diagnosticText("The dominant issue is moving farther from target. Action is recommended today.", "Pagrindinis nuokrypis tolsta nuo tikslo. Rekomenduojama imtis veiksmų šiandien.")
-                : primaryTrend?.direction === diagnosticText("Improving", "Gerėja")
-                  ? diagnosticText("The dominant issue is moving toward target. Verify that recovery continues.", "Pagrindinis nuokrypis artėja prie tikslo. Patikrinkite, ar gerėjimas tęsiasi.")
-                  : diagnosticText("The dominant issue is stable. Continue monitoring and verify the operating controls.", "Pagrindinis nuokrypis stabilus. Toliau stebėkite ir patikrinkite valdymo įrangą.")
-            )}</p>
           </section>
         </div>
 
@@ -9173,10 +9325,6 @@
               <span class="diagnostic-step-label">${diagnosticText("Recommended action", "Rekomenduojamas veiksmas")}</span>
               <p>${escapeHtml(suggestedAction)}</p>
               <small>${escapeHtml(primaryResult ? getDiagnosticImpactText(primaryResult.key, primaryLabel) : diagnosticText("No intervention is required.", "Veiksmų imtis nereikia."))}</small>
-            </div>
-            <div>
-              <span class="diagnostic-step-label">${diagnosticText("Physical checks", "Ką patikrinti vietoje")}</span>
-              <ul>${verification.checks.map((check) => `<li>${escapeHtml(check)}</li>`).join("")}</ul>
             </div>
             <div>
               <span class="diagnostic-step-label">${diagnosticText("Success condition", "Sėkmės kriterijus")}</span>
@@ -9197,16 +9345,17 @@
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
       const isNodesPage = activePrimaryPage === "nodes";
+      const isReadingsPage = activePrimaryPage === "readings";
       const isHistoryPage = activePrimaryPage === "history";
       const isSettingsPage = activePrimaryPage === "settings";
       const isAlertsPage = activePrimaryPage === "alerts";
       const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isSettingsPage || isAlertsPage;
-      const isPrimaryWorkspacePage = isManagementPage || isHistoryPage;
+      const isPrimaryWorkspacePage = isManagementPage || isHistoryPage || isReadingsPage;
       const site = getActiveSite();
       const zone = getActiveZone(site);
       if (!site || !zone) return;
       const profile = cropProfiles[activeProfileKey];
-      const isDetailedExperienceMode = isDetailedExperience();
+      const isDetailedExperienceMode = isReadingsPage || isHistoryPage || isDetailedExperience();
       const isSimpleExperienceMode = !isDetailedExperienceMode;
       const isDetailedOverview = !isPrimaryWorkspacePage && isDetailedExperienceMode;
 
@@ -9458,7 +9607,12 @@
         siteSnapshots,
         siteAverageSummaries
       });
-      currentWorkbenchLenses = workbenchConfig.lenses;
+      currentWorkbenchLenses = isReadingsPage
+        ? workbenchConfig.lenses.filter((lens) => lens.key !== "focus")
+        : workbenchConfig.lenses;
+      if (isReadingsPage && activeWorkbenchLensKey === "focus") {
+        activeWorkbenchLensKey = "all";
+      }
       if (isSimpleExperienceMode && currentWorkbenchLenses.some((lens) => lens.key === "focus")) {
         activeWorkbenchLensKey = "focus";
       }
@@ -9716,11 +9870,16 @@
         : isSiteView
           ? `Simple view keeps only the current location situation, the main average readings, and the next step for ${site.name}.`
           : `Simple view keeps only the current score, the main readings behind it, and the next step for ${zone.name}.`;
+      const isExperienceModeAvailable = activePrimaryPage === "overview";
       [...elements.experienceModeControl.querySelectorAll("[data-experience-mode]")].forEach((button) => {
         const isActive = button.dataset.experienceMode === (isDetailedExperienceMode ? "detailed" : "simple");
         button.dataset.active = String(isActive);
         button.setAttribute("aria-pressed", String(isActive));
+        button.disabled = !isExperienceModeAvailable;
+        button.setAttribute("aria-disabled", String(!isExperienceModeAvailable));
       });
+      elements.experienceModeControl.hidden = false;
+      elements.experienceModeControl.dataset.disabled = String(!isExperienceModeAvailable);
       elements.scopeHelperText.textContent = isSiteView
         ? isSimpleExperienceMode
           ? "Viewing the whole area. Switch to a section when you want to inspect one growing space."
@@ -9787,7 +9946,8 @@
       elements.opsDockSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || isDetailedOverview;
       elements.alertsSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || isDetailedOverview || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "alerts");
       elements.heroStatusPanel.hidden = isPrimaryWorkspacePage || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "overview");
-      elements.metricsSection.hidden = isPrimaryWorkspacePage || isSimpleExperienceMode || isDetailedOverview || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "metrics");
+      elements.metricsSection.hidden = !isReadingsPage
+        && (isPrimaryWorkspacePage || isSimpleExperienceMode || isDetailedOverview || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "metrics"));
       elements.sensorHealthSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || isDetailedOverview || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "power");
       elements.impactBoardPanel.dataset.state = impactBoardState.state;
       elements.impactBoardTitle.textContent = impactBoardState.title;
@@ -10068,7 +10228,9 @@
         }
       }
 
-      elements.metricsSectionKicker.textContent = isSiteView
+      elements.metricsSectionKicker.textContent = isReadingsPage
+        ? diagnosticText("Live readings", "Dabartiniai rodmenys")
+        : isSiteView
         ? isSimpleExperienceMode
           ? "Location summary"
           : activeSiteDetailView === "zones"
@@ -10077,7 +10239,12 @@
         : isSimpleExperienceMode
           ? "Key readings"
           : "Metrics";
-      elements.metricsSectionTitle.textContent = isSiteView
+      elements.metricsSectionTitle.textContent = isReadingsPage
+        ? diagnosticText(
+            `All live parameters in ${isSiteView ? site.name : zone.name}`,
+            `Visi dabartiniai rodmenys: ${isSiteView ? site.name : zone.name}`
+          )
+        : isSiteView
         ? isSimpleExperienceMode
           ? "The readings behind this location score"
           : activeSiteDetailView === "zones"
@@ -10088,7 +10255,12 @@
           : "What drives the index most";
       elements.workbenchToolbar.hidden = isSimpleExperienceMode;
       elements.workbenchLensBar.innerHTML = renderWorkbenchLenses(currentWorkbenchLenses, activeWorkbenchLens?.key);
-      elements.workbenchLensSummary.textContent = isSimpleExperienceMode
+      elements.workbenchLensSummary.textContent = isReadingsPage
+        ? diagnosticText(
+            "Choose a metric group or open its trend for the full history.",
+            "Pasirinkite rodiklių grupę arba atidarykite grafiką išsamiai istorijai."
+          )
+        : isSimpleExperienceMode
         ? "Only the most relevant live readings are shown here."
         : activeWorkbenchLens?.description || "Focus the workbench on the slice that matters most right now.";
       elements.zoneImpactSection.hidden = isManagementPage || !isDetailedExperienceMode || isDetailedOverview || isSiteHotspotsView || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "route");
@@ -10129,6 +10301,7 @@
       currentTrendMetricOptions = trendMetricOptions;
 
       if (!skipMetricsGrid) {
+        elements.metricsGrid.dataset.display = isReadingsPage && !isSiteView ? "readings-board" : "cards";
         if (isSiteView) {
           if (isSiteHotspotsView) {
             const filteredHotspots = filterSiteHotspotsByWorkbenchLens(siteSnapshots, activeWorkbenchLens);
@@ -10160,7 +10333,17 @@
           const filteredAvailableMetrics = filteredZoneResults.filter((result) => result.available !== false);
           const filteredUnavailableMetrics = filteredZoneResults.filter((result) => result.available === false);
 
-          if (activeWorkbenchLens?.key === "coverage") {
+          if (isReadingsPage) {
+            elements.metricsGrid.innerHTML = filteredZoneResults.length > 0
+              ? renderLiveReadingsBoard(filteredZoneResults, profile, site, zone)
+              : renderWorkbenchEmptyState(
+                  diagnosticText("No parameters match this filter.", "Šio filtro neatitinka nė vienas rodiklis."),
+                  diagnosticText("Choose another parameter group.", "Pasirinkite kitą rodiklių grupę."),
+                  "all"
+                );
+            elements.unavailableMetricsPanel.hidden = true;
+            elements.unavailableMetricsGrid.innerHTML = "";
+          } else if (activeWorkbenchLens?.key === "coverage") {
             elements.metricsGrid.innerHTML = filteredUnavailableMetrics.length > 0
               ? filteredUnavailableMetrics.map((result) => renderMetricCard(result.key, profile.metrics[result.key], result)).join("")
               : renderWorkbenchEmptyState(
@@ -10358,7 +10541,7 @@
 
     elements.experienceModeControl.addEventListener("click", (event) => {
       const button = event.target.closest("[data-experience-mode]");
-      if (!button) return;
+      if (!button || button.disabled) return;
       const nextMode = button.dataset.experienceMode;
       if (!nextMode || nextMode === activeExperienceMode) return;
       setExperienceMode(nextMode, { scroll: true });
@@ -11004,6 +11187,24 @@
     });
 
     elements.detailedDiagnosticsSection.addEventListener("click", (event) => {
+      const evidenceOpenButton = event.target.closest("[data-diagnostic-evidence-open]");
+      const evidenceCloseButton = event.target.closest("[data-diagnostic-evidence-close]");
+      if (evidenceOpenButton || evidenceCloseButton) {
+        const drawer = elements.detailedDiagnosticsSection.querySelector("#diagnosticEvidenceDrawer");
+        const backdrop = elements.detailedDiagnosticsSection.querySelector(".diagnostic-drawer-backdrop");
+        const shouldOpen = Boolean(evidenceOpenButton);
+
+        if (drawer && backdrop) {
+          drawer.hidden = !shouldOpen;
+          backdrop.hidden = !shouldOpen;
+          drawer.setAttribute("aria-hidden", String(!shouldOpen));
+          elements.detailedDiagnosticsSection
+            .querySelector("[data-diagnostic-evidence-open]")
+            ?.setAttribute("aria-expanded", String(shouldOpen));
+        }
+        return;
+      }
+
       const actionButton = event.target.closest("[data-triage-action]");
       if (!actionButton) return;
 

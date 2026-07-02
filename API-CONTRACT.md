@@ -146,6 +146,46 @@ Backend automatiškai žymi sąlygą `recovered`, kai rodiklis stabiliai grįžt
 profilio ribas. Vartotojo `resolve` yra darbo proceso įrašas, ne sensoriaus
 reikšmės pakeitimas.
 
+## Interventions
+
+Frontend neturi saugoti atliktų veiksmų tik `localStorage`. Veiksmas ir jo
+rezultatas turi būti organizacijos audit trail dalis:
+
+```text
+GET   /interventions?sectionId=...&from=...&to=...
+POST  /interventions
+PATCH /interventions/:interventionId/outcome
+```
+
+Veiksmo registravimas:
+
+```json
+{
+  "sectionId": "tomato-rear",
+  "alertId": "alert-42",
+  "metric": "humidity",
+  "actionType": "CHECK_HUMIDIFIER",
+  "note": "Humidifier output increased by one step",
+  "performedAt": "2026-07-02T14:20:00Z"
+}
+```
+
+Rezultato registravimas:
+
+```json
+{
+  "status": "successful",
+  "observedAt": "2026-07-02T14:55:00Z",
+  "beforeValue": 58.0,
+  "afterValue": 63.2,
+  "note": "RH returned to the crop profile range"
+}
+```
+
+Leistinos rezultato būsenos: `successful`, `no_change`, `made_worse`,
+`not_relevant`. Backend turi įrašyti veiksmą atlikusį vartotoją ir serverio
+laiką, net jeigu frontend siunčia `performedAt`.
+
 ## Error format
 
 ```json
