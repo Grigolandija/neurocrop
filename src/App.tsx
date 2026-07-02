@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import approvedMarkup from './approved-dashboard-markup.html?raw'
 import './App.css'
 import './styles/approved-dashboard.css'
@@ -30,7 +30,30 @@ function ApprovedDashboard() {
       if (route !== window.location.pathname) navigate(route, { replace: Boolean(payload.replace) })
     }
 
+    function handleNavigationClick(event: MouseEvent) {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const action = target.closest<HTMLElement>('[data-sidebar-action]')?.dataset.sidebarAction
+      if (!action) return
+
+      const routeByAction: Record<string, string> = {
+        overview: '/',
+        sites: '/areas',
+        zones: '/sections',
+        nodes: '/nodes',
+        alerts: '/alerts',
+        history: '/history',
+        analytics: '/history',
+        settings: '/settings',
+      }
+      const route = routeByAction[action]
+      if (!route || route === window.location.pathname) return
+      window.history.pushState({}, '', route)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+
     window.addEventListener('message', handleMessage)
+    document.addEventListener('click', handleNavigationClick, true)
 
     const loadRuntime = () => {
       if (document.querySelector('script[data-neurocrop-runtime]')) return
@@ -56,6 +79,7 @@ function ApprovedDashboard() {
 
     return () => {
       window.removeEventListener('message', handleMessage)
+      document.removeEventListener('click', handleNavigationClick, true)
       document.body.classList.remove('designer-app')
     }
   }, [navigate])
@@ -69,17 +93,7 @@ function ApprovedDashboard() {
 }
 
 function App() {
-  return <BrowserRouter><Routes>
-    <Route path="/" element={<ApprovedDashboard />} />
-    <Route path="/areas" element={<ApprovedDashboard />} />
-    <Route path="/sections" element={<ApprovedDashboard />} />
-    <Route path="/nodes" element={<ApprovedDashboard />} />
-    <Route path="/alerts" element={<ApprovedDashboard />} />
-    <Route path="/history" element={<ApprovedDashboard />} />
-    <Route path="/settings" element={<ApprovedDashboard />} />
-    <Route path="/crop-profiles" element={<ApprovedDashboard />} />
-    <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes></BrowserRouter>
+  return <BrowserRouter><Routes><Route path="*" element={<ApprovedDashboard />} /></Routes></BrowserRouter>
 }
 
 export default App
