@@ -8205,6 +8205,10 @@
       margin-bottom: 24px;
     }
 
+    .today-priority-panel[hidden] {
+      display: none !important;
+    }
+
     .today-priority-panel[data-has-secondary-alerts="false"] {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -8828,4 +8832,3 @@
     .dashboard-sidebar {
       transform: translateZ(0);
     }
-
