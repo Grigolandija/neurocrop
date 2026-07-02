@@ -1387,6 +1387,13 @@
             route: normalizedRoute,
             replace: Boolean(options.replace)
           }, window.location.origin);
+          return;
+        }
+
+        if (window.location.pathname !== normalizedRoute) {
+          const historyMethod = options.replace ? "replaceState" : "pushState";
+          window.history[historyMethod]({}, "", normalizedRoute);
+          window.dispatchEvent(new PopStateEvent("popstate"));
         }
       } catch (error) {
         // Parent routing is optional when the dashboard is opened standalone.
