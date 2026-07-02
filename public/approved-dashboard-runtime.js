@@ -1171,8 +1171,16 @@
       commandPaletteOverlay: document.getElementById("commandPaletteOverlay"),
       managementModalOverlay: document.getElementById("managementModalOverlay"),
       commandPaletteInput: document.getElementById("commandPaletteInput"),
-      commandPaletteResults: document.getElementById("commandPaletteResults")
+      commandPaletteResults: document.getElementById("commandPaletteResults"),
+      detailedDiagnosticsSection: document.getElementById("detailedDiagnosticsSection"),
+      headerContextSelectors: document.getElementById("headerContextSelectors")
     };
+
+    const heroContextBar = document.querySelector("#heroStatusPanel .hero-context-bar");
+    const heroScopeToggle = document.querySelector("#heroStatusPanel .scope-toggle");
+    if (elements.headerContextSelectors && heroContextBar && heroScopeToggle) {
+      elements.headerContextSelectors.append(heroContextBar, heroScopeToggle);
+    }
 
     // Keep optional simulation tools out of the primary overview hierarchy.
     if (elements.advancedToolsPanel && elements.zoneImpactSection) {
@@ -8495,7 +8503,8 @@
       systemLowBatteryNodes,
       unavailableCount,
       availableResults,
-      growthResults
+      growthResults,
+      timestamp
     }) {
       const prioritySnapshot = allSystemIssues[0] || {
         site,
@@ -8593,7 +8602,10 @@
       elements.overviewTriageSection.innerHTML = `
         <div class="triage-priority-score-grid">
           <article class="triage-priority-card" data-state="${escapeAttribute(priorityResult?.state || "optimal")}">
-            <div class="triage-card-kicker">Today’s priority</div>
+            <div class="triage-title-row">
+              <div class="triage-card-kicker">Today’s priority</div>
+              <span class="overview-updated-time">Updated ${escapeHtml(timestamp)}</span>
+            </div>
             <div class="triage-location-line">
               <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
               ${escapeHtml(prioritySnapshot.site.name)} <span>›</span> ${escapeHtml(prioritySnapshot.zone.name)}
@@ -8686,6 +8698,498 @@
       `;
     }
 
+    function diagnosticText(english, lithuanian) {
+      return interfaceLanguage === "lt" ? lithuanian : english;
+    }
+
+    function getDiagnosticMetricLabel(label) {
+      return interfaceLanguage === "lt" ? translateInterfaceText(label) : label;
+    }
+
+    function getDiagnosticTrend(result, definition, scopeSeed) {
+      const series = buildTrendSeries({
+        key: result.key,
+        value: result.value,
+        state: result.state,
+        definition,
+        optimalRange: definition.optimal
+      }, "24h", scopeSeed);
+      const start = series.values[0];
+      const end = series.values[series.values.length - 1];
+      const distanceFromTarget = (value) => {
+        if (value < definition.optimal[0]) return definition.optimal[0] - value;
+        if (value > definition.optimal[1]) return value - definition.optimal[1];
+        return 0;
+      };
+      const startDistance = distanceFromTarget(start);
+      const endDistance = distanceFromTarget(end);
+      const tolerance = Math.max(Math.abs(definition.optimal[1] - definition.optimal[0]) * 0.015, 0.001);
+      const direction = endDistance > startDistance + tolerance
+        ? diagnosticText("Worsening", "Blogėja")
+        : endDistance < startDistance - tolerance
+          ? diagnosticText("Improving", "Gerėja")
+          : diagnosticText("Stable", "Stabili");
+
+      return {
+        start,
+        end,
+        delta: end - start,
+        direction,
+        series
+      };
+    }
+
+    function getDiagnosticImpact(result) {
+      if (!result || result.state === "optimal") return "None";
+      if (result.state === "critical" || result.severity >= 0.62) return "High";
+      if (result.severity >= 0.28) return "Medium";
+      return "Low";
+    }
+
+    function getDiagnosticAction(metricKey, label) {
+      const actions = {
+        humidity: ["Check humidifier output, ventilation rate, fan direction, and local airflow.", "Patikrinkite drėkintuvo veikimą, vėdinimo intensyvumą, ventiliatorių kryptį ir vietinį oro judėjimą."],
+        airTemp: ["Check heating, cooling, ventilation, and nearby air inlets.", "Patikrinkite šildymą, vėsinimą, vėdinimą ir artimiausias oro įleidimo angas."],
+        co2: ["Check CO2 supply timing, valves, and ventilation overlap.", "Patikrinkite CO2 tiekimo laiką, vožtuvus ir ar tiekimas nesutampa su intensyviu vėdinimu."],
+        vpd: ["Review temperature and humidity together before changing either control.", "Prieš keisdami valdymą, kartu įvertinkite temperatūrą ir santykinę drėgmę."],
+        soilTemp: ["Inspect root-zone heating and irrigation water temperature.", "Patikrinkite šaknų zonos šildymą ir laistymo vandens temperatūrą."],
+        waterTemp: ["Check irrigation storage and delivery temperature.", "Patikrinkite laistymo vandens laikymo ir tiekimo temperatūrą."]
+      };
+      const action = actions[metricKey];
+      if (action) return diagnosticText(action[0], action[1]);
+      return diagnosticText(
+        `Inspect the operating conditions that influence ${String(label || "this metric").toLowerCase()}.`,
+        `Patikrinkite darbo sąlygas, kurios veikia rodiklį „${getDiagnosticMetricLabel(label || "šis rodiklis")}“.`
+      );
+    }
+
+    function getDiagnosticVerification(metricKey, definition) {
+      const checks = {
+        humidity: [["Humidifier output", "Drėkintuvo veikimą"], ["Ventilation rate", "Vėdinimo intensyvumą"], ["Fan direction", "Ventiliatorių kryptį"], ["Open doors or vents", "Atviras duris ar angas"], ["Sensor placement", "Sensoriaus vietą"]],
+        airTemp: [["Heating or cooling output", "Šildymo ar vėsinimo veikimą"], ["Vent position", "Vėdinimo angų padėtį"], ["Airflow distribution", "Oro srauto pasiskirstymą"], ["Sensor placement", "Sensoriaus vietą"]],
+        co2: [["CO2 supply", "CO2 tiekimą"], ["Valve timing", "Vožtuvų veikimo laiką"], ["Ventilation overlap", "Sutapimą su vėdinimu"], ["Sensor placement", "Sensoriaus vietą"]],
+        vpd: [["Temperature reading", "Temperatūros rodmenį"], ["Humidity reading", "Drėgmės rodmenį"], ["Airflow changes", "Oro srauto pokyčius"], ["Sensor agreement", "Sensorių rodmenų sutapimą"]],
+        soilTemp: [["Root-zone heating", "Šaknų zonos šildymą"], ["Irrigation temperature", "Laistymo temperatūrą"], ["Sensor contact", "Sensoriaus kontaktą"]],
+        waterTemp: [["Storage temperature", "Laikymo temperatūrą"], ["Pipe exposure", "Vamzdžių aplinkos poveikį"], ["Sensor immersion", "Sensoriaus panardinimą"]]
+      };
+      const fallbackChecks = [["Control output", "Valdymo įrangos veikimą"], ["Airflow or water flow", "Oro arba vandens srautą"], ["Sensor placement", "Sensoriaus vietą"]];
+      return {
+        checks: (checks[metricKey] || fallbackChecks).map((check) => diagnosticText(check[0], check[1])),
+        success: diagnosticText(
+          `Reading remains inside ${formatRange(definition.optimal, definition)} for at least 30 minutes.`,
+          `Rodmuo bent 30 minučių išlieka intervale ${formatRange(definition.optimal, definition)}.`
+        )
+      };
+    }
+
+    function getDiagnosticDecisionVerb(result, definition) {
+      const verb = getDecisionVerb(result, definition);
+      const translations = {
+        Monitor: "Stebėti",
+        Increase: "Padidinti",
+        Reduce: "Sumažinti",
+        Check: "Patikrinti"
+      };
+      return interfaceLanguage === "lt" ? translations[verb] || verb : verb;
+    }
+
+    function getDiagnosticImpactText(metricKey, label) {
+      if (interfaceLanguage !== "lt") return getDecisionImpactText(metricKey, label);
+      const impactMap = {
+        humidity: "Tikėtinas poveikis: VPD artėja prie tikslinio intervalo, o augalų vandens streso rizika mažėja.",
+        vpd: "Tikėtinas poveikis: transpiracijos intensyvumas artėja prie kultūros profilio tikslo.",
+        co2: "Tikėtinas poveikis: fotosintezės sąlygos tampa stabilesnės.",
+        airTemp: "Tikėtinas poveikis: mažėja klimato stresas, o VPD vertinimas tampa patikimesnis.",
+        soilTemp: "Tikėtinas poveikis: šaknų zonos veikla tampa stabilesnė.",
+        waterTemp: "Tikėtinas poveikis: šaknų zonos temperatūra artėja prie rekomenduojamo intervalo."
+      };
+      return impactMap[metricKey] || `Tikėtinas poveikis: rodiklis „${getDiagnosticMetricLabel(label || "šis rodiklis")}“ artėja prie kultūros profilio tikslo.`;
+    }
+
+    function getDiagnosticImpactLabel(impact) {
+      const translations = { None: "Nėra", Low: "Mažas", Medium: "Vidutinis", High: "Didelis", "Trust only": "Tik patikimumui" };
+      return interfaceLanguage === "lt" ? translations[impact] || impact : impact;
+    }
+
+    function getDiagnosticDeviationText(result) {
+      const text = String(result?.deviationText || "");
+      if (interfaceLanguage !== "lt") return text;
+      return text
+        .replace(/^Below target by (.+)$/i, "Žemiau tikslo: $1")
+        .replace(/^Above target by (.+)$/i, "Virš tikslo: $1");
+    }
+
+    function getDiagnosticDurationText(value) {
+      const text = String(value || "");
+      if (interfaceLanguage !== "lt") return text;
+      return text
+        .replace(/(\d+)\s+h\b/g, "$1 val.")
+        .replace(/(\d+)\s+min\s+ago\b/gi, "prieš $1 min.")
+        .replace(/(\d+)\s+min\b/g, "$1 min.");
+    }
+
+    function getDiagnosticActionTitle(result, definition, label) {
+      if (interfaceLanguage !== "lt") {
+        return result ? `${getDecisionVerb(result, definition)} ${String(label).toLowerCase()}` : "Continue routine monitoring";
+      }
+      if (!result || !definition) return "Tęsti įprastą stebėjimą";
+      const accusativeLabels = {
+        humidity: "santykinę drėgmę",
+        airTemp: "oro temperatūrą",
+        co2: "CO2 koncentraciją",
+        vpd: "VPD",
+        soilTemp: "substrato temperatūrą",
+        waterTemp: "vandens temperatūrą"
+      };
+      return `${getDiagnosticDecisionVerb(result, definition)} ${accusativeLabels[result.key] || String(label).toLowerCase()}`;
+    }
+
+    function getSnapshotPrimaryIssue(snapshot) {
+      return snapshot.results
+        .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
+        .sort((left, right) => right.severity - left.severity)[0] || null;
+    }
+
+    function renderDetailedDiagnostics({
+      site,
+      zone,
+      profile,
+      results,
+      growthResults,
+      availableResults,
+      unavailableResults,
+      displayedOverallState,
+      siteSnapshots,
+      alertRecords,
+      zoneBatteryNodes,
+      coverageOverride = null,
+      isSiteView = false,
+      timestamp
+    }) {
+      const rankedGrowthResults = [...availableResults].sort((left, right) => {
+        if (left.state !== "optimal" && right.state === "optimal") return -1;
+        if (left.state === "optimal" && right.state !== "optimal") return 1;
+        return right.severity - left.severity;
+      });
+      const primaryResult = rankedGrowthResults[0] || null;
+      const primaryDefinition = primaryResult ? profile.metrics[primaryResult.key] : null;
+      const coverage = coverageOverride || getCoverageStatsFromResults(results);
+      const primaryAlert = primaryResult
+        ? alertRecords.find((record) =>
+            record.site.id === site.id
+            && record.zone.id === zone.id
+            && record.metricKey === primaryResult.key
+          )
+        : null;
+      const primaryTrend = primaryResult && primaryDefinition
+        ? getDiagnosticTrend(primaryResult, primaryDefinition, `${site.id}:${zone.id}:diagnostic`)
+        : null;
+      const siteIssueRows = siteSnapshots.map((snapshot) => {
+        const issue = getSnapshotPrimaryIssue(snapshot);
+        const definition = issue ? snapshot.profile.metrics[issue.key] : null;
+        return { snapshot, issue, definition };
+      });
+      const sameIssueRows = primaryResult
+        ? siteIssueRows.filter((row) => row.issue?.key === primaryResult.key)
+        : [];
+      const isSystemicPattern = sameIssueRows.length >= 2;
+      const scoreImpact = getDiagnosticImpact(primaryResult);
+      const previousScore = Math.min(100, displayedOverallState.indexScore + 6);
+      const selectedLowBatteryNodes = zoneBatteryNodes.filter((node) => node.state !== "optimal");
+      const verification = primaryDefinition
+        ? getDiagnosticVerification(primaryResult.key, primaryDefinition)
+        : {
+            checks: [diagnosticText("Confirm current sensor readings", "Patvirtinti dabartinius sensorių rodmenis")],
+            success: diagnosticText("No new warning appears during the next reading cycle.", "Per kitą matavimo ciklą neatsiranda naujų perspėjimų.")
+          };
+      const suggestedAction = primaryDefinition
+        ? getDiagnosticAction(primaryResult.key, primaryDefinition.label)
+        : diagnosticText("Continue routine monitoring.", "Tęskite įprastą stebėjimą.");
+      const narrativeSeverity = primaryResult?.state === "critical"
+        ? diagnosticText("Critical deviation", "Kritinis nuokrypis")
+        : primaryResult?.state === "warning"
+          ? diagnosticText("Moderate deviation", "Vidutinis nuokrypis")
+          : diagnosticText("No active growth deviation", "Aktyvių auginimo nuokrypių nėra");
+      const confidenceLabel = coverage.unavailable === 0 && selectedLowBatteryNodes.length === 0
+        ? diagnosticText("Full coverage", "Pilna aprėptis")
+        : coverage.available >= Math.ceil(coverage.total * 0.7)
+          ? diagnosticText("Partial but usable", "Dalinė, bet pakankama")
+          : diagnosticText("Limited", "Ribota");
+      const trendRows = rankedGrowthResults.slice(0, 4).map((result) => {
+        const definition = profile.metrics[result.key];
+        return {
+          result,
+          definition,
+          trend: getDiagnosticTrend(result, definition, `${site.id}:${zone.id}:diagnostic-table`)
+        };
+      });
+      const factors = [
+        ...trendRows.map((item) => ({
+          label: getDiagnosticMetricLabel(item.definition.label),
+          current: formatValue(item.result.value, item.definition),
+          target: formatRange(item.definition.optimal, item.definition),
+          state: item.result.state,
+          impact: getDiagnosticImpact(item.result),
+          trend: item.trend.direction,
+          duration: item.result.key === primaryResult?.key && primaryAlert
+            ? getDiagnosticDurationText(formatAlertDuration(primaryAlert.detectedAt))
+            : item.result.state === "optimal"
+              ? diagnosticText("In range", "Normoje")
+              : diagnosticText("Latest cycle", "Naujausias ciklas")
+        })),
+        {
+          label: diagnosticText("Data coverage", "Duomenų aprėptis"),
+          current: `${coverage.available}/${coverage.total}`,
+          target: `${coverage.total}/${coverage.total}`,
+          state: coverage.unavailable > 0 ? "warning" : "optimal",
+          impact: coverage.unavailable > 0 ? "Trust only" : "None",
+          trend: diagnosticText("Stable", "Stabili"),
+          duration: diagnosticText(`${coverage.unavailable} missing`, `Trūksta: ${coverage.unavailable}`)
+        },
+        {
+          label: diagnosticText("Node battery", "Mazgų baterijos"),
+          current: selectedLowBatteryNodes.length > 0
+            ? diagnosticText(
+                `${Math.min(...selectedLowBatteryNodes.map((node) => node.level))}% lowest`,
+                `Mažiausia: ${Math.min(...selectedLowBatteryNodes.map((node) => node.level))}%`
+              )
+            : diagnosticText("Healthy", "Tvarkingos"),
+          target: diagnosticText("> watch threshold", "> stebėjimo ribos"),
+          state: selectedLowBatteryNodes.some((node) => node.state === "critical")
+            ? "critical"
+            : selectedLowBatteryNodes.length > 0 ? "warning" : "optimal",
+          impact: selectedLowBatteryNodes.length > 0 ? "Trust only" : "None",
+          trend: selectedLowBatteryNodes.length > 0
+            ? diagnosticText("Watch", "Stebėti")
+            : diagnosticText("Stable", "Stabili"),
+          duration: diagnosticText(`${selectedLowBatteryNodes.length} nodes`, `Mazgai: ${selectedLowBatteryNodes.length}`)
+        }
+      ];
+      const primaryLabel = primaryDefinition
+        ? getDiagnosticMetricLabel(primaryDefinition.label)
+        : diagnosticText("No active limiting factor", "Aktyvaus ribojančio veiksnio nėra");
+      const primaryValue = primaryDefinition
+        ? formatValue(primaryResult.value, primaryDefinition)
+        : diagnosticText("In range", "Normoje");
+      const primaryTarget = primaryDefinition
+        ? formatRange(primaryDefinition.optimal, primaryDefinition)
+        : diagnosticText("All targets met", "Visi tikslai pasiekti");
+      const issuePatternText = primaryResult
+        ? isSystemicPattern
+          ? diagnosticText(
+              `${sameIssueRows.length} sections in ${site.name} show the same ${primaryDefinition.label.toLowerCase()} issue. Check shared climate settings before treating it as local.`,
+              `${sameIssueRows.length} sekcijose srityje „${site.name}“ matomas tas pats rodiklio „${primaryLabel}“ nuokrypis. Prieš laikydami jį vietiniu, patikrinkite bendrus klimato nustatymus.`
+            )
+          : diagnosticText(
+              `The same issue is not repeated across multiple sections in ${site.name}. Start with a local inspection.`,
+              `Kitose srities „${site.name}“ sekcijose toks pats nuokrypis nesikartoja. Pradėkite nuo vietinės patikros.`
+            )
+        : diagnosticText(
+            `No repeated growth issue is currently visible across ${site.name}.`,
+            `Srityje „${site.name}“ šiuo metu nematyti pasikartojančių auginimo nuokrypių.`
+          );
+      const likelyCauseText = isSystemicPattern
+        ? diagnosticText(
+            "Shared humidification, ventilation, or airflow should be checked first. This is a testable hypothesis, not an automatic diagnosis.",
+            "Pirmiausia patikrinkite bendrą drėkinimą, vėdinimą ir oro judėjimą. Tai patikrinama hipotezė, o ne automatinė diagnozė."
+          )
+        : diagnosticText(
+            "Local airflow, control output, sensor placement, or a section-specific operating change should be checked first.",
+            "Pirmiausia patikrinkite vietinį oro judėjimą, valdymo įrangos veikimą, sensoriaus vietą ir naujausius šios sekcijos pakeitimus."
+          );
+      const healthLabel = displayedOverallState.state === "critical"
+        ? diagnosticText("Critical", "Kritinė")
+        : displayedOverallState.state === "warning"
+          ? diagnosticText("Needs attention", "Reikia dėmesio")
+          : diagnosticText("Good", "Gera");
+      const diagnosisTitle = primaryResult
+        ? diagnosticText(
+            `${primaryLabel} is the dominant limiting factor in ${isSiteView ? site.name : zone.name}`,
+            `Rodiklis „${primaryLabel}“ yra pagrindinis ribojantis veiksnys ${isSiteView ? `srityje „${site.name}“` : `sekcijoje „${zone.name}“`}`
+          )
+        : diagnosticText("No active limiting factor detected", "Aktyvių ribojančių veiksnių neaptikta");
+      const scoreImpactLabel = getDiagnosticImpactLabel(scoreImpact);
+
+      elements.detailedDiagnosticsSection.dataset.state = displayedOverallState.state;
+      elements.detailedDiagnosticsSection.innerHTML = `
+        <section class="diagnostic-card diagnostic-narrative" data-state="${escapeAttribute(primaryResult?.state || "optimal")}">
+          <div class="diagnostic-section-head">
+            <div>
+              <span class="diagnostic-eyebrow">${diagnosticText("Rule Engine diagnosis", "Taisyklių variklio diagnozė")}</span>
+              <h2>${escapeHtml(diagnosisTitle)}</h2>
+            </div>
+            <div class="diagnostic-head-status">
+              <span class="overview-updated-time">${diagnosticText("Updated", "Atnaujinta")} ${escapeHtml(timestamp)}</span>
+              <span class="diagnostic-status" data-state="${escapeAttribute(primaryResult?.state || "optimal")}">${escapeHtml(narrativeSeverity)}</span>
+            </div>
+          </div>
+          <div class="diagnostic-narrative-grid">
+            <div class="diagnostic-lead">
+              <p><strong>${diagnosticText("Observe.", "Būsena.")}</strong> ${escapeHtml(diagnosticText(
+                `${primaryLabel} is ${primaryValue}; target is ${primaryTarget}.`,
+                `Rodiklis „${primaryLabel}“ yra ${primaryValue}; tikslas – ${primaryTarget}.`
+              ))}</p>
+              <p><strong>${diagnosticText("Explain.", "Poveikis.")}</strong> ${escapeHtml(primaryResult ? getDiagnosticImpactText(primaryResult.key, primaryLabel) : diagnosticText("Installed growth metrics are currently inside target.", "Įdiegti auginimo rodikliai šiuo metu yra tiksliniuose intervaluose."))}</p>
+              <p><strong>${diagnosticText("Scope.", "Apimtis.")}</strong> ${escapeHtml(issuePatternText)}</p>
+            </div>
+            <dl class="diagnostic-fact-list">
+              <div><dt>${diagnosticText("Score", "Įvertis")}</dt><dd>${displayedOverallState.indexScore} · ${escapeHtml(healthLabel)}</dd></div>
+              <div><dt>${diagnosticText("Trend", "Tendencija")}</dt><dd>${primaryTrend ? `${primaryTrend.direction} · ${formatSignedValue(primaryTrend.delta, primaryDefinition)} ${diagnosticText("in 24h", "per 24 val.")}` : diagnosticText("Stable", "Stabili")}</dd></div>
+              <div><dt>${diagnosticText("Duration", "Trukmė")}</dt><dd>${primaryAlert ? escapeHtml(getDiagnosticDurationText(formatAlertDuration(primaryAlert.detectedAt))) : diagnosticText("Latest reading", "Naujausias matavimas")}</dd></div>
+              <div><dt>${diagnosticText("Data coverage", "Duomenų aprėptis")}</dt><dd>${coverage.available}/${coverage.total} · ${escapeHtml(confidenceLabel)}</dd></div>
+            </dl>
+          </div>
+          <div class="diagnostic-hypothesis">
+            <span>${diagnosticText("What to verify first", "Ką patikrinti pirmiausia")}</span>
+            <strong>${escapeHtml(likelyCauseText)}</strong>
+          </div>
+        </section>
+
+        <div class="diagnostic-two-column">
+          <section class="diagnostic-card diagnostic-score-breakdown">
+            <div class="diagnostic-section-head">
+              <div><span class="diagnostic-eyebrow">${diagnosticText("Causal score breakdown", "Įverčio sudėtis")}</span><h3>${diagnosticText(`Why the score is ${displayedOverallState.indexScore}`, `Kodėl įvertis yra ${displayedOverallState.indexScore}`)}</h3></div>
+              <span class="diagnostic-impact" data-impact="${escapeAttribute(scoreImpact.toLowerCase())}">${escapeHtml(scoreImpactLabel)} ${diagnosticText("impact", "poveikis")}</span>
+            </div>
+            <div class="diagnostic-score-layout">
+              <div class="diagnostic-score-number" data-state="${escapeAttribute(displayedOverallState.state)}">
+                <strong>${displayedOverallState.indexScore}</strong>
+                <span>${escapeHtml(healthLabel)}</span>
+                <small>${previousScore} → ${displayedOverallState.indexScore} ${diagnosticText("in 24h", "per 24 val.")}</small>
+              </div>
+              <div class="diagnostic-contributors">
+                <div>
+                  <span>${diagnosticText("Positive contributors", "Teigiami veiksniai")}</span>
+                  <ul>${rankedGrowthResults.filter((result) => result.state === "optimal").slice(0, 4).map((result) => `<li><i class="fa-solid fa-check" aria-hidden="true"></i>${escapeHtml(getDiagnosticMetricLabel(profile.metrics[result.key].label))} ${diagnosticText("inside target", "atitinka tikslą")}</li>`).join("") || `<li>${diagnosticText("No confirmed positive contributor", "Patvirtintų teigiamų veiksnių nėra")}</li>`}</ul>
+                </div>
+                <div>
+                  <span>${diagnosticText("Main drag", "Pagrindinė priežastis")}</span>
+                  <ul>${primaryResult && primaryResult.state !== "optimal" ? `<li><i class="fa-solid fa-arrow-down" aria-hidden="true"></i>${escapeHtml(primaryLabel)} · ${escapeHtml(getDiagnosticDeviationText(primaryResult))}</li>` : `<li>${diagnosticText("No active score drag", "Aktyvių įvertį mažinančių veiksnių nėra")}</li>`}</ul>
+                </div>
+              </div>
+            </div>
+            <p class="diagnostic-model-note">${diagnosticText(
+              "Missing readings and battery condition are shown as data-trust risks. They do not directly reduce the growing conditions score.",
+              "Trūkstami matavimai ir baterijų būklė rodomi kaip duomenų patikimumo rizikos. Jie tiesiogiai nemažina auginimo sąlygų įverčio."
+            )}</p>
+          </section>
+
+          <section class="diagnostic-card diagnostic-trust">
+            <div class="diagnostic-section-head">
+              <div><span class="diagnostic-eyebrow">${diagnosticText("Sensor trust", "Sensorių patikimumas")}</span><h3>${diagnosticText("Can this diagnosis be trusted?", "Ar šia diagnoze galima pasitikėti?")}</h3></div>
+            </div>
+            <div class="diagnostic-coverage">
+              <strong>${coverage.available}/${coverage.total}</strong>
+              <span>${escapeHtml(confidenceLabel)}</span>
+            </div>
+            <div class="diagnostic-trust-facts">
+              <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i>${coverage.available} ${diagnosticText("live growth metrics", "aktyvūs auginimo rodikliai")}</span>
+              <span><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>${coverage.unavailable} ${diagnosticText("missing metrics", "trūkstami rodikliai")}</span>
+              <span><i class="fa-solid fa-battery-half" aria-hidden="true"></i>${selectedLowBatteryNodes.length} ${diagnosticText(`low-battery nodes in this ${isSiteView ? "area" : "section"}`, `mazgai su silpna baterija šioje ${isSiteView ? "srityje" : "sekcijoje"}`)}</span>
+              <span><i class="fa-solid fa-clock" aria-hidden="true"></i>${diagnosticText("Oldest uplink", "Seniausias duomenų gavimas")} ${escapeHtml(getDiagnosticDurationText(stateConfig[activeScenarioKey].uplink))}</span>
+            </div>
+            ${selectedLowBatteryNodes.length > 0 ? `
+              <div class="diagnostic-node-list">
+                ${selectedLowBatteryNodes.slice(0, 3).map((node) => `<div><strong>${escapeHtml(node.id)}</strong><span>${node.level}% · ${escapeHtml(node.state === "critical" ? diagnosticText("Critical", "Kritinė") : diagnosticText("Watch", "Stebėti"))}</span></div>`).join("")}
+              </div>
+            ` : ""}
+            <button type="button" class="diagnostic-link-button" data-triage-action="nodes">${diagnosticText("Open node health", "Atidaryti mazgų būklę")}</button>
+          </section>
+        </div>
+
+        <section class="diagnostic-card diagnostic-ranking">
+          <div class="diagnostic-section-head">
+            <div><span class="diagnostic-eyebrow">${diagnosticText("Prioritize", "Prioritetai")}</span><h3>${diagnosticText("Limiting factor ranking", "Ribojančių veiksnių reitingas")}</h3></div>
+            <span class="diagnostic-head-note">${diagnosticText("Growth impact and data trust are separated", "Augimo poveikis ir duomenų patikimumas vertinami atskirai")}</span>
+          </div>
+          <div class="diagnostic-table-wrap">
+            <table class="diagnostic-table">
+              <thead><tr><th>#</th><th>${diagnosticText("Factor", "Rodiklis")}</th><th>${diagnosticText("Current", "Dabar")}</th><th>${diagnosticText("Target", "Tikslas")}</th><th>${diagnosticText("Status", "Būsena")}</th><th>${diagnosticText("Impact", "Poveikis")}</th><th>${diagnosticText("24h direction", "24 val. kryptis")}</th><th>${diagnosticText("Duration", "Trukmė")}</th></tr></thead>
+              <tbody>
+                ${factors.map((factor, index) => `
+                  <tr data-state="${escapeAttribute(factor.state)}">
+                    <td>${index + 1}</td>
+                    <td><strong>${escapeHtml(factor.label)}</strong></td>
+                    <td>${escapeHtml(factor.current)}</td>
+                    <td>${escapeHtml(factor.target)}</td>
+                    <td><span class="diagnostic-table-state" data-state="${escapeAttribute(factor.state)}">${escapeHtml(factor.state === "optimal" ? diagnosticText("OK", "Gerai") : factor.state === "critical" ? diagnosticText("Critical", "Kritinė") : diagnosticText("Warning", "Dėmesio"))}</span></td>
+                    <td>${escapeHtml(getDiagnosticImpactLabel(factor.impact))}</td>
+                    <td>${escapeHtml(factor.trend)}</td>
+                    <td>${escapeHtml(factor.duration)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="diagnostic-two-column diagnostic-comparison-row">
+          <section class="diagnostic-card">
+            <div class="diagnostic-section-head">
+              <div><span class="diagnostic-eyebrow">${diagnosticText("Local vs systemic", "Vietinė ar sisteminė problema")}</span><h3>${diagnosticText("Is the issue wider than this section?", "Ar problema apima daugiau nei šią sekciją?")}</h3></div>
+              <span class="diagnostic-status" data-state="${escapeAttribute(isSystemicPattern ? "warning" : "optimal")}">${isSystemicPattern ? diagnosticText("Repeated pattern", "Pasikartojanti problema") : diagnosticText("Likely local", "Tikėtina vietinė")}</span>
+            </div>
+            <div class="diagnostic-comparison-list">
+              ${siteIssueRows.map((row) => `
+                <div data-active="${String(row.snapshot.zone.id === zone.id)}">
+                  <span><strong>${escapeHtml(row.snapshot.zone.name)}</strong><small>${escapeHtml(row.definition ? getDiagnosticMetricLabel(row.definition.label) : diagnosticText("In range", "Normoje"))}</small></span>
+                  <span>${row.snapshot.overall.indexScore}</span>
+                  <span class="diagnostic-dot" data-state="${escapeAttribute(row.snapshot.overall.state)}"></span>
+                </div>
+              `).join("")}
+            </div>
+            <p class="diagnostic-interpretation">${escapeHtml(issuePatternText)}</p>
+          </section>
+
+          <section class="diagnostic-card">
+            <div class="diagnostic-section-head">
+              <div><span class="diagnostic-eyebrow">${diagnosticText("24h dynamics", "24 val. pokyčiai")}</span><h3>${diagnosticText("What changed?", "Kas pasikeitė?")}</h3></div>
+              <button type="button" class="diagnostic-link-button" data-triage-action="trend" data-metric-key="${escapeAttribute(primaryResult?.key || "humidity")}">${diagnosticText("Open full trend", "Atidaryti visą grafiką")}</button>
+            </div>
+            <div class="diagnostic-dynamics-list">
+              <div><span>${diagnosticText("Growing score", "Auginimo sąlygų įvertis")}</span><strong>${previousScore} → ${displayedOverallState.indexScore}</strong><small>${displayedOverallState.indexScore < previousScore ? diagnosticText("Worsening", "Blogėja") : diagnosticText("Stable", "Stabili")}</small></div>
+              ${trendRows.slice(0, 3).map((item) => `<div><span>${escapeHtml(getDiagnosticMetricLabel(item.definition.label))}</span><strong>${escapeHtml(formatValue(item.trend.start, item.definition))} → ${escapeHtml(formatValue(item.trend.end, item.definition))}</strong><small>${escapeHtml(item.trend.direction)}</small></div>`).join("")}
+            </div>
+            <p class="diagnostic-interpretation">${escapeHtml(
+              primaryTrend?.direction === diagnosticText("Worsening", "Blogėja")
+                ? diagnosticText("The dominant issue is moving farther from target. Action is recommended today.", "Pagrindinis nuokrypis tolsta nuo tikslo. Rekomenduojama imtis veiksmų šiandien.")
+                : primaryTrend?.direction === diagnosticText("Improving", "Gerėja")
+                  ? diagnosticText("The dominant issue is moving toward target. Verify that recovery continues.", "Pagrindinis nuokrypis artėja prie tikslo. Patikrinkite, ar gerėjimas tęsiasi.")
+                  : diagnosticText("The dominant issue is stable. Continue monitoring and verify the operating controls.", "Pagrindinis nuokrypis stabilus. Toliau stebėkite ir patikrinkite valdymo įrangą.")
+            )}</p>
+          </section>
+        </div>
+
+        <section class="diagnostic-card diagnostic-verification">
+          <div class="diagnostic-section-head">
+            <div><span class="diagnostic-eyebrow">${diagnosticText("Act and verify", "Veikti ir patikrinti")}</span><h3>${escapeHtml(getDiagnosticActionTitle(primaryResult, primaryDefinition, primaryLabel))}</h3></div>
+            <span class="diagnostic-impact" data-impact="${escapeAttribute(scoreImpact.toLowerCase())}">${escapeHtml(diagnosticText(`${scoreImpactLabel} expected benefit`, `Tikėtina nauda: ${scoreImpactLabel.toLowerCase()}`))}</span>
+          </div>
+          <div class="diagnostic-verification-grid">
+            <div>
+              <span class="diagnostic-step-label">${diagnosticText("Recommended action", "Rekomenduojamas veiksmas")}</span>
+              <p>${escapeHtml(suggestedAction)}</p>
+              <small>${escapeHtml(primaryResult ? getDiagnosticImpactText(primaryResult.key, primaryLabel) : diagnosticText("No intervention is required.", "Veiksmų imtis nereikia."))}</small>
+            </div>
+            <div>
+              <span class="diagnostic-step-label">${diagnosticText("Physical checks", "Ką patikrinti vietoje")}</span>
+              <ul>${verification.checks.map((check) => `<li>${escapeHtml(check)}</li>`).join("")}</ul>
+            </div>
+            <div>
+              <span class="diagnostic-step-label">${diagnosticText("Success condition", "Sėkmės kriterijus")}</span>
+              <p>${escapeHtml(verification.success)}</p>
+              <small>${diagnosticText("Compare nearby nodes and confirm that no new warning appears.", "Palyginkite artimiausių mazgų rodmenis ir įsitikinkite, kad neatsiranda naujų perspėjimų.")}</small>
+            </div>
+          </div>
+          <div class="diagnostic-button-row">
+            <button type="button" class="diagnostic-primary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(primaryResult?.key || "humidity")}">${diagnosticText("Verify in Trends", "Patikrinti grafike")}</button>
+            <button type="button" class="diagnostic-secondary-button" data-triage-action="alerts">${diagnosticText("Review active alerts", "Peržiūrėti aktyvius perspėjimus")}</button>
+            ${selectedLowBatteryNodes.length > 0 ? `<button type="button" class="diagnostic-secondary-button" data-triage-action="nodes">${diagnosticText("Check node batteries", "Patikrinti mazgų baterijas")}</button>` : ""}
+          </div>
+        </section>
+      `;
+    }
+
     function renderDashboard(options = {}) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
@@ -8701,6 +9205,7 @@
       const profile = cropProfiles[activeProfileKey];
       const isDetailedExperienceMode = isDetailedExperience();
       const isSimpleExperienceMode = !isDetailedExperienceMode;
+      const isDetailedOverview = !isPrimaryWorkspacePage && isDetailedExperienceMode;
 
       if (isSimpleExperienceMode && activeViewScope === "site" && activeSiteDetailView === "zones") {
         activeSiteDetailView = "averages";
@@ -9176,7 +9681,28 @@
         systemLowBatteryNodes,
         unavailableCount,
         availableResults,
-        growthResults
+        growthResults,
+        timestamp
+      });
+      const detailedSnapshot = isSiteView && weakestSiteSnapshot
+        ? weakestSiteSnapshot
+        : { zone, profile, results };
+      const detailedGrowthResults = detailedSnapshot.results.filter((item) => isGrowthMetricKey(item.key));
+      renderDetailedDiagnostics({
+        site,
+        zone: detailedSnapshot.zone,
+        profile: detailedSnapshot.profile,
+        results: detailedSnapshot.results,
+        growthResults: detailedGrowthResults,
+        availableResults: detailedGrowthResults.filter((item) => item.available !== false),
+        unavailableResults: detailedGrowthResults.filter((item) => item.available === false),
+        displayedOverallState,
+        siteSnapshots,
+        alertRecords,
+        zoneBatteryNodes: isSiteView ? siteBatteryNodes : zoneBatteryNodes,
+        coverageOverride: isSiteView ? getCoverageStatsFromSiteSnapshots(siteSnapshots) : null,
+        isSiteView,
+        timestamp
       });
 
       elements.experienceModeTitle.textContent = isDetailedExperienceMode ? "Detailed analysis view" : "Simple client view";
@@ -9253,12 +9779,13 @@
       elements.settingsManagementSection.hidden = !isSettingsPage;
       elements.alertsManagementSection.hidden = !isAlertsPage;
       elements.overviewTriageSection.hidden = isPrimaryWorkspacePage || isDetailedExperienceMode;
+      elements.detailedDiagnosticsSection.hidden = !isDetailedOverview;
       if (elements.sidebarQuickActions) elements.sidebarQuickActions.hidden = true;
-      elements.opsDockSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode;
-      elements.alertsSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "alerts");
+      elements.opsDockSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || isDetailedOverview;
+      elements.alertsSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || isDetailedOverview || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "alerts");
       elements.heroStatusPanel.hidden = isPrimaryWorkspacePage || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "overview");
-      elements.metricsSection.hidden = isPrimaryWorkspacePage || isSimpleExperienceMode || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "metrics");
-      elements.sensorHealthSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "power");
+      elements.metricsSection.hidden = isPrimaryWorkspacePage || isSimpleExperienceMode || isDetailedOverview || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "metrics");
+      elements.sensorHealthSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || isDetailedOverview || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "power");
       elements.impactBoardPanel.dataset.state = impactBoardState.state;
       elements.impactBoardTitle.textContent = impactBoardState.title;
       elements.impactBoardSummary.textContent = impactBoardState.summary;
@@ -9323,7 +9850,7 @@
           : `Showing: ${site.name} / ${zone.name}`;
       elements.scopeChip.dataset.state = isSimpleExperienceMode ? globalState : displayedOverallState.state;
       elements.heroTimestampChip.textContent = `Updated ${timestamp}`;
-      elements.advancedToolsPanel.hidden = !isDetailedExperienceMode;
+      elements.advancedToolsPanel.hidden = !isDetailedOverview;
       elements.advancedToolsTitle.textContent = advancedToolsState.title;
       elements.advancedToolsSummaryText.textContent = advancedToolsState.summary;
       applyStateChip(elements.advancedToolsStateChip, advancedToolsState.state, advancedToolsState.chipLabel);
@@ -9561,7 +10088,7 @@
       elements.workbenchLensSummary.textContent = isSimpleExperienceMode
         ? "Only the most relevant live readings are shown here."
         : activeWorkbenchLens?.description || "Focus the workbench on the slice that matters most right now.";
-      elements.zoneImpactSection.hidden = isManagementPage || !isDetailedExperienceMode || isSiteHotspotsView || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "route");
+      elements.zoneImpactSection.hidden = isManagementPage || !isDetailedExperienceMode || isDetailedOverview || isSiteHotspotsView || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "route");
       elements.zoneImpactKicker.textContent = "Inspection route";
       elements.zoneImpactTitle.textContent = isSiteView ? "How to walk this location" : "Where to look next";
       elements.zoneImpactMeta.textContent = activeInspectionRouteFilter?.description || "Follow the route in the order that reduces uncertainty fastest.";
@@ -10451,6 +10978,29 @@
     });
 
     elements.overviewTriageSection.addEventListener("click", (event) => {
+      const actionButton = event.target.closest("[data-triage-action]");
+      if (!actionButton) return;
+
+      const action = actionButton.dataset.triageAction;
+      if (action === "trend") {
+        const metricKey = actionButton.dataset.metricKey;
+        if (metricKey) {
+          activeTrendMetricKey = metricKey;
+          activeTrendMetricKeys = [metricKey];
+        }
+        runDashboardAction("history");
+        return;
+      }
+      if (action === "nodes") {
+        runDashboardAction("nodes");
+        return;
+      }
+      if (action === "alerts") {
+        runDashboardAction("alerts");
+      }
+    });
+
+    elements.detailedDiagnosticsSection.addEventListener("click", (event) => {
       const actionButton = event.target.closest("[data-triage-action]");
       if (!actionButton) return;
 
