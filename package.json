@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "prepare-vendor": "node ./scripts/prepare-vendor.mjs",
+    "predev": "pnpm prepare-vendor",
     "dev": "vite",
+    "prebuild": "pnpm prepare-vendor",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
