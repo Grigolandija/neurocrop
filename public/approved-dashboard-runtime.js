@@ -1174,6 +1174,12 @@
       commandPaletteResults: document.getElementById("commandPaletteResults")
     };
 
+    // Keep optional simulation tools out of the primary overview hierarchy.
+    if (elements.advancedToolsPanel && elements.zoneImpactSection) {
+      elements.zoneImpactSection.insertAdjacentElement("afterend", elements.advancedToolsPanel);
+      elements.advancedToolsPanel.classList.add("standalone-advanced-tools");
+    }
+
     const loginSessionKey = "neurocrop-dashboard-session-v1";
 
     function getLoginSession() {
@@ -5192,7 +5198,6 @@
           <button type="button" class="context-menu-option" data-site-option data-site-id="${escapeAttribute(site.id)}" data-active="${site.id === activeSiteId}">
             <div class="context-menu-option-copy">
               <div class="context-menu-label">${escapeHtml(site.name)}</div>
-              <div class="context-menu-meta">${escapeHtml(interfaceLanguage === "lt" ? "Area įvertis" : "Area score")}</div>
             </div>
             <div class="context-menu-score" data-state="${escapeAttribute(score.state)}">
               <span class="context-score-dot" aria-hidden="true"></span>
@@ -5225,7 +5230,6 @@
           <button type="button" class="context-menu-option" data-zone-option data-zone-id="${escapeAttribute(zone.id)}" data-active="${zone.id === activeZoneId}">
             <div class="context-menu-option-copy">
               <div class="context-menu-label">${escapeHtml(zone.name)}</div>
-              <div class="context-menu-meta">${escapeHtml(interfaceLanguage === "lt" ? "Section įvertis" : "Section score")}</div>
             </div>
             <div class="context-menu-score" data-state="${escapeAttribute(score.state)}">
               <span class="context-score-dot" aria-hidden="true"></span>
@@ -8487,15 +8491,11 @@
       results,
       displayedOverallState,
       globalState,
-      globalCritical,
-      globalWarning,
-      globalStable,
       allSystemIssues,
       systemLowBatteryNodes,
       unavailableCount,
       availableResults,
-      growthResults,
-      timestamp
+      growthResults
     }) {
       const prioritySnapshot = allSystemIssues[0] || {
         site,
@@ -8550,15 +8550,6 @@
           return preferredMetricOrder.indexOf(left.key) - preferredMetricOrder.indexOf(right.key);
         })
         .slice(0, 3);
-      const coveragePercent = growthResults.length > 0
-        ? Math.round((availableResults.length / growthResults.length) * 100)
-        : 0;
-      const globalLabel = globalState === "critical"
-        ? "Critical attention required"
-        : globalState === "warning"
-          ? "Needs attention"
-          : "System healthy";
-      const globalStatusText = `${globalCritical} critical · ${globalWarning} warning · ${globalStable} OK`;
       const metricKey = priorityResult?.key || readingItems[0]?.key || "humidity";
 
       const actionQueue = [
@@ -8600,21 +8591,6 @@
 
       elements.overviewTriageSection.dataset.state = displayedOverallState.state;
       elements.overviewTriageSection.innerHTML = `
-        <div class="triage-system-bar" data-state="${escapeAttribute(globalState)}">
-          <div class="triage-system-primary">
-            <span class="triage-status-dot" aria-hidden="true"></span>
-            <div>
-              <span class="triage-eyebrow">System status</span>
-              <strong>${escapeHtml(globalLabel)}</strong>
-            </div>
-          </div>
-          <div class="triage-system-facts">
-            <span>${escapeHtml(globalStatusText)}</span>
-            <span>Updated ${escapeHtml(timestamp)}</span>
-            <span>Data coverage ${coveragePercent}%</span>
-          </div>
-        </div>
-
         <div class="triage-priority-score-grid">
           <article class="triage-priority-card" data-state="${escapeAttribute(priorityResult?.state || "optimal")}">
             <div class="triage-card-kicker">Today’s priority</div>
@@ -8658,18 +8634,6 @@
 
         <section class="triage-section">
           <div class="triage-section-heading">
-            <div><span class="triage-eyebrow">Since last check</span><h3>What changed in 24 hours</h3></div>
-            <strong class="triage-score-change" data-tone="${scoreDelta < 0 ? "warning" : "optimal"}">${previousScore} → ${currentScore}</strong>
-          </div>
-          <div class="triage-change-strip">
-            <span><strong>Score</strong> ${scoreDelta < 0 ? `down ${Math.abs(scoreDelta)}` : scoreDelta > 0 ? `up ${scoreDelta}` : "stable"}</span>
-            <span><strong>${escapeHtml(selectedPrimaryDefinition?.label || "Conditions")}</strong> ${selectedPrimaryResult?.state === "optimal" ? "stable" : "needs attention"}</span>
-            <span><strong>Battery</strong> ${systemLowBatteryNodes.length > 0 ? `${systemLowBatteryNodes.length} nodes need a check` : "stable"}</span>
-          </div>
-        </section>
-
-        <section class="triage-section">
-          <div class="triage-section-heading">
             <div><span class="triage-eyebrow">Live readings</span><h3>Current section snapshot</h3></div>
             <span>${escapeHtml(site.name)} · ${escapeHtml(zone.name)}</span>
           </div>
@@ -8707,7 +8671,7 @@
             <div class="triage-section-heading">
               <div><span class="triage-eyebrow">Data and hardware</span><h3>Can I trust the data?</h3></div>
             </div>
-            <div class="triage-reliability-score"><strong>${coveragePercent}%</strong><span>data coverage</span></div>
+            <div class="triage-reliability-score"><strong>${availableResults.length}/${growthResults.length}</strong><span>metrics available</span></div>
             <div class="triage-reliability-facts">
               <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i>${availableResults.length} live metrics</span>
               <span><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>${unavailableCount} missing metrics</span>
@@ -9208,15 +9172,11 @@
         results,
         displayedOverallState,
         globalState,
-        globalCritical,
-        globalWarning,
-        globalStable,
         allSystemIssues,
         systemLowBatteryNodes,
         unavailableCount,
         availableResults,
-        growthResults,
-        timestamp
+        growthResults
       });
 
       elements.experienceModeTitle.textContent = isDetailedExperienceMode ? "Detailed analysis view" : "Simple client view";
@@ -9352,12 +9312,16 @@
       document.body.dataset.workspaceFocus = activeWorkspaceFocus;
       document.body.dataset.viewScope = activeViewScope;
       document.body.dataset.experienceMode = activeExperienceMode;
+      document.body.dataset.primaryPage = activePrimaryPage;
       elements.heroStatusPanel.dataset.state = displayedOverallState.state;
       elements.heroHeadline.textContent = heroDecision.headline;
       elements.heroDescription.textContent = heroDecision.description;
-      elements.scopeChip.textContent = isSiteView
-        ? `Showing: ${site.name}`
-        : `Showing: ${site.name} / ${zone.name}`;
+      elements.scopeChip.textContent = isSimpleExperienceMode
+        ? `System: ${globalCritical} critical · ${globalWarning} warning · ${globalStable} OK`
+        : isSiteView
+          ? `Showing: ${site.name}`
+          : `Showing: ${site.name} / ${zone.name}`;
+      elements.scopeChip.dataset.state = isSimpleExperienceMode ? globalState : displayedOverallState.state;
       elements.heroTimestampChip.textContent = `Updated ${timestamp}`;
       elements.advancedToolsPanel.hidden = !isDetailedExperienceMode;
       elements.advancedToolsTitle.textContent = advancedToolsState.title;

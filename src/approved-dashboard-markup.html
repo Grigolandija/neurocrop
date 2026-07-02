@@ -29,6 +29,15 @@
   <div id="dashboardShell" class="dashboard-shell flex min-h-screen" hidden>
     <header id="dashboardHeader" class="global-system-bar">
       <div class="global-system-bar-actions">
+        <div class="header-context-tools">
+          <div id="experienceModeControl" class="header-view-control" role="group" aria-label="Dashboard view">
+            <span class="header-view-label">View</span>
+            <button type="button" class="header-view-choice" data-experience-mode="simple">Simple</button>
+            <button type="button" class="header-view-choice" data-experience-mode="detailed">Detailed</button>
+          </div>
+          <span id="scopeChip" class="control-pill header-context-pill"></span>
+          <span id="heroTimestampChip" class="control-pill header-context-pill"></span>
+        </div>
         <div class="header-status-card">
           <div class="language-switch" role="group" aria-label="Language">
             <button type="button" data-language-option="lt" data-active="false" aria-pressed="false">LT</button>
@@ -271,7 +280,7 @@
                   <div class="selection-panel">
                     <div class="selection-panel-head">
                       <div>
-                        <p class="selection-panel-kicker">Selected growing space</p>
+                        <p class="selection-panel-kicker">Currently viewing</p>
                         <p id="scopeHelperText" class="selection-panel-summary">Change the area or section when you want to inspect another place.</p>
                       </div>
                       <div class="scope-toggle" role="tablist" aria-label="Growth index scope">
@@ -326,16 +335,6 @@
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <div class="hero-control-strip mt-6 flex flex-wrap gap-3">
-                <div id="experienceModeControl" class="header-view-control" role="group" aria-label="Dashboard view">
-                  <span class="header-view-label">View</span>
-                  <button type="button" class="header-view-choice" data-experience-mode="simple">Simple</button>
-                  <button type="button" class="header-view-choice" data-experience-mode="detailed">Detailed</button>
-                </div>
-                <span id="scopeChip" class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68"></span>
-                <span id="heroTimestampChip" class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68"></span>
               </div>
 
               <details id="advancedToolsPanel" class="advanced-tools-shell section-jump-target">
