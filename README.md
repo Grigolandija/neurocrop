@@ -523,12 +523,11 @@ Integracija laikoma baigta, kai:
 ## Svarbūs failai
 
 ```text
-src/App.tsx                 React Router URL apvalkalas
-legacy/dashboard.html       dabartinis pilnas dashboard UI
-legacy/dashboard-store.js   lokalūs demonstraciniai duomenys ir CRUD
-legacy/api.js               dabartinio dashboard API klientas
-src/pages/                  būsimos palaipsnės React migracijos komponentai
-scripts/prepare-legacy.mjs  paruošia legacy asset’us dev/build metu
+src/App.tsx                         React Router ir patvirtinto UI modulio lifecycle
+src/approved-dashboard-markup.html patvirtinta UI DOM struktūra
+src/styles/approved-dashboard.css  patvirtintas UI stilių sluoksnis
+public/approved-dashboard-runtime.js patvirtinta sąveikų, grafikų ir API logika
+public/vendor/echarts.min.js        lokalus ECharts variklis
 public/runtime-config.js    API URL konfigūracija
 public/.htaccess            SPA route fallback Apache hostingui
 API-CONTRACT.md             endpointų ir JSON formatų sutartis

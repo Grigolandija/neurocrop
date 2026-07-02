@@ -26,7 +26,7 @@ export const mockDashboardData: DashboardData = {
         { id: 'NS-000004', battery: 49, active: true },
       ],
       installedMetrics: allMetrics,
-      readings: { airTemp: 23.4, humidity: 63, co2: 890, lux: 24400, vpd: 1.08, soilMoisture: 49 },
+      readings: { airTemp: 24, humidity: 58, co2: 1000, lux: 24400, vpd: 1.08, soilMoisture: 49 },
     },
     {
       id: 'lettuce-rack', locationId: 'greenhouse-1', name: 'Lettuce Rack, Under Shelf', cropProfile: 'Lettuce, leaf growth',

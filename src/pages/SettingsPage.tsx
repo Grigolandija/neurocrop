@@ -9,7 +9,7 @@ export function SettingsPage() {
   }
 
   return <>
-    <header className="page-head"><div><p className="eyebrow">Workspace settings</p><h1>Settings</h1><p>Manage agronomic rules, people, notifications and organization preferences.</p></div><Link className="primary-link" to="/crop-profiles">Manage crop profiles</Link></header>
+    <header className="surface rounded-[30px] p-5 md:p-6 flex items-end justify-between gap-4"><div><p className="text-[11px] uppercase tracking-[0.28em] text-pine/56">Workspace settings</p><h1 className="mt-1.5 font-display text-[1.65rem] font-bold text-ink">Settings</h1><p className="mt-2 text-sm leading-6 text-ink/66">Manage agronomic rules, people, notifications and organization preferences.</p></div><Link className="primary-link" to="/crop-profiles">Manage crop profiles</Link></header>
     {notice && <div className="success-notice">{notice}</div>}
     <form className="settings-grid" onSubmit={save}>
       <section className="settings-card"><p className="eyebrow">Crop profiles</p><h2>Targets by crop and stage</h2><p>Profiles control scores, alert thresholds and Trends target ranges.</p><Link to="/crop-profiles">Open crop profiles →</Link></section>

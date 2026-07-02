@@ -1,7 +1,13 @@
-import * as echarts from 'echarts'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
+import { init, use as registerEChartsModules, type EChartsCoreOption } from 'echarts/core'
+import { SVGRenderer } from 'echarts/renderers'
 import { useEffect, useRef, useState } from 'react'
 import { metricDefinitions } from '../data/mock'
+import { areaScore, sectionScore } from '../lib/score'
 import type { Block, Location, MetricDefinition, MetricKey } from '../types'
+
+registerEChartsModules([LineChart, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, TooltipComponent, VisualMapComponent, SVGRenderer])
 
 type Range = '24h' | '7d' | '30d'
 type SeriesPoint = [number, number]
@@ -47,7 +53,7 @@ function valueLabel(value: number, metric: MetricDefinition) {
   return `${value.toLocaleString('lt-LT', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} ${metric.unit}`
 }
 
-function makeChartOption(block: Block, keys: MetricKey[], range: Range): echarts.EChartsOption {
+function makeChartOption(block: Block, keys: MetricKey[], range: Range): EChartsCoreOption {
   const metrics = keys.map((key) => metricDefinitions.find((metric) => metric.key === key)!).filter(Boolean)
   const allPoints = metrics.map((metric) => buildPoints(block, metric, range))
   const domains = metrics.map((metric, index) => {
@@ -82,7 +88,7 @@ function makeChartOption(block: Block, keys: MetricKey[], range: Range): echarts
       borderWidth: 0,
       textStyle: { color: '#fff' },
       axisPointer: { type: 'cross', lineStyle: { color: 'rgba(24,33,29,.3)' } },
-      formatter: (raw) => {
+      formatter: (raw: unknown) => {
         const params = (Array.isArray(raw) ? raw : [raw]) as unknown as Array<{ seriesIndex: number; value: SeriesPoint; marker: string }>
         const first = params[0]
         if (!first || !Array.isArray(first.value)) return ''
@@ -188,10 +194,11 @@ export function HistoryPage({ locations, blocks }: { locations: Location[]; bloc
   const unavailable = metricDefinitions.filter((metric) => !block?.installedMetrics.includes(metric.key))
   const [metricKeys, setMetricKeys] = useState<MetricKey[]>(available.slice(0, 2).map((metric) => metric.key))
   const [range, setRange] = useState<Range>('24h')
+  const selectedMetrics = metricKeys.map((key) => metricDefinitions.find((metric) => metric.key === key)!).filter(Boolean)
 
   useEffect(() => {
     if (!chartRef.current || !block || metricKeys.length === 0) return
-    const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' })
+    const chart = init(chartRef.current, undefined, { renderer: 'svg' })
     chart.setOption(makeChartOption(block, metricKeys, range), { notMerge: true })
     const resize = () => chart.resize()
     window.addEventListener('resize', resize)
@@ -218,21 +225,21 @@ export function HistoryPage({ locations, blocks }: { locations: Location[]; bloc
       : [...current.slice(-1), key])
   }
 
-  return <>
-    <header className="page-head"><div><p className="eyebrow">Trends</p><h1>Sensor history</h1><p>Compare up to two measurements and their optimal ranges.</p></div><span className="count-chip">{range} · {rangeConfig[range].label}</span></header>
-    <section className="trend-context">
-      <div><span>Area</span><select value={locationId} onChange={(event) => chooseLocation(event.target.value)}>{locations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-      <div><span>Section</span><select value={block?.id || ''} onChange={(event) => chooseBlock(event.target.value)}>{locationBlocks.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-      <div><span>Crop profile</span><strong>{block?.cropProfile}</strong></div>
-    </section>
-    <section className="trend-panel">
-      <div className="trend-toolbar">
-        <div>{[...available, ...unavailable].map((metric) => <button key={metric.key} disabled={!block?.installedMetrics.includes(metric.key)} data-active={metricKeys.includes(metric.key)} onClick={() => toggleMetric(metric.key)}>{metric.label}{!block?.installedMetrics.includes(metric.key) ? ' · Not installed' : ''}</button>)}</div>
-        <div>{(['24h', '7d', '30d'] as Range[]).map((item) => <button key={item} data-active={range === item} onClick={() => setRange(item)}>{item}</button>)}</div>
+  return <section className="surface trend-history-shell rounded-[34px] p-6 md:p-7">
+    <div className="trend-history-head"><div><p className="text-xs uppercase tracking-[0.24em] text-pine/56">Trends</p><h2 className="mt-2 font-display text-2xl font-bold text-ink">Sensor history</h2><p className="trend-history-summary">Compare up to two measurements and their optimal ranges before deciding whether this is a spike, drift, or recovery.</p></div><div className="trend-history-head-side"><span className="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68">{range} · {rangeConfig[range].label}</span></div></div>
+    <div className="trend-history-context"><div className="trend-history-context-copy"><span className="trend-history-context-kicker">Currently viewing</span><div className="trend-history-context-value">{locations.find((item) => item.id === locationId)?.name} / {block?.name}</div></div><div className="trend-history-context-selects"><label className="trend-history-context-field"><span className="trend-history-context-field-label">Area</span><select className="trend-history-score-trigger" value={locationId} onChange={(event) => chooseLocation(event.target.value)}>{locations.map((item) => <option key={item.id} value={item.id}>{item.name} · {areaScore(blocks.filter((block) => block.locationId === item.id)) ?? '—'}</option>)}</select></label><label className="trend-history-context-field"><span className="trend-history-context-field-label">Section</span><select className="trend-history-score-trigger" value={block?.id || ''} onChange={(event) => chooseBlock(event.target.value)}>{locationBlocks.map((item) => <option key={item.id} value={item.id}>{item.name} · {sectionScore(item)}</option>)}</select></label></div></div>
+    <div className="trend-history-toolbar"><div className="trend-history-metric-strip">{[...available, ...unavailable].map((metric) => <button className="trend-history-metric-button" key={metric.key} disabled={!block?.installedMetrics.includes(metric.key)} data-active={metricKeys.includes(metric.key)} onClick={() => toggleMetric(metric.key)}>{metric.label}{!block?.installedMetrics.includes(metric.key) ? ' · Not installed' : ''}</button>)}</div><div className="trend-history-range-strip">{(['24h', '7d', '30d'] as Range[]).map((item) => <button className="trend-history-range-button" key={item} data-active={range === item} onClick={() => setRange(item)}>{item}</button>)}</div></div>
+    <div className="trend-history-layout">
+      <div className="trend-history-chart-shell">
+        <div className="trend-history-chart-head"><div><div className="trend-history-metric-label">{metricKeys.length} {metricKeys.length === 1 ? 'metric' : 'metrics'} selected</div><p className="trend-history-metric-meta">{metricKeys.length > 1 ? 'Left and right Y axes use real units.' : 'The Y axis uses the selected metric unit.'}</p></div></div>
+        <div className="trend-history-readout">{selectedMetrics.map((metric) => {
+        const value = block?.readings[metric.key]
+        const inside = value !== undefined && value >= metric.target[0] && value <= metric.target[1]
+        return <article className="trend-history-readout-card" key={metric.key} data-tone={inside ? 'optimal' : 'warning'}><div className="trend-history-readout-kicker"><span className="trend-history-readout-dot" />{metric.label}</div><div className="trend-history-readout-main">{inside ? 'Holding inside target' : value !== undefined && value < metric.target[0] ? 'Below target' : 'Above target'}</div><p className="trend-history-readout-note">{valueLabel(value ?? 0, metric)} now · target {valueLabel(metric.target[0], metric)}–{valueLabel(metric.target[1], metric)}</p></article>
+      })}</div>
+        <div ref={chartRef} className="trend-history-chart echarts-trend" />
       </div>
-      <div className="trend-summary"><strong>{metricKeys.length} {metricKeys.length === 1 ? 'metric' : 'metrics'} selected</strong><span>{metricKeys.length > 1 ? 'Left and right Y axes use real units.' : 'The Y axis uses the selected metric unit.'}</span></div>
-      <div ref={chartRef} className="echarts-trend" />
-      <div className="trend-explanation"><span>Why this matters</span><p>Use the curve, target range and exact tooltip values to decide whether the condition is stable, drifting or returning to normal.</p></div>
-    </section>
-  </>
+      <aside className="trend-history-callout"><div className="trend-history-callout-title">Why this matters</div><p className="trend-history-callout-copy">Use the curve, target range and exact tooltip values to decide whether the condition is stable, drifting or returning to normal.</p><p className="trend-history-backend-note">Ready for real sensor history through the NeuroCrop API.</p></aside>
+    </div>
+  </section>
 }

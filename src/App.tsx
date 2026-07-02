@@ -1,110 +1,85 @@
 import { useEffect, useRef } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import approvedMarkup from './approved-dashboard-markup.html?raw'
 import './App.css'
+import './styles/approved-dashboard.css'
 
-type DashboardRoute = '/' | '/areas' | '/sections' | '/nodes' | '/history' | '/alerts' | '/settings' | '/crop-profiles'
-
-const routeToHash: Record<DashboardRoute, string> = {
-  '/': '#overview',
-  '/areas': '#areas',
-  '/sections': '#sections',
-  '/nodes': '#nodes',
-  '/history': '#history',
-  '/alerts': '#alerts',
-  '/settings': '#settings',
-  '/crop-profiles': '#crop-profiles',
-}
-
-function normalizeRoute(pathname: string): DashboardRoute {
-  switch (pathname) {
-    case '/':
-    case '/areas':
-    case '/sections':
-    case '/nodes':
-    case '/history':
-    case '/alerts':
-    case '/settings':
-    case '/crop-profiles':
-      return pathname
-    default:
-      return '/'
+declare global {
+  interface Window {
+    echarts?: unknown
   }
 }
 
-function buildDashboardSrc(route: DashboardRoute) {
-  const url = new URL('/dashboard.html', window.location.origin)
-  url.hash = routeToHash[route]
-  return url.toString()
-}
+const supportedRoutes = new Set(['/', '/areas', '/sections', '/nodes', '/alerts', '/history', '/settings', '/crop-profiles'])
 
-function DashboardFrame() {
+function ApprovedDashboard() {
   const location = useLocation()
   const navigate = useNavigate()
-  const route = normalizeRoute(location.pathname)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  const initialDashboardSrc = useRef(buildDashboardSrc(route))
-
-  function syncDashboardRoute() {
-    iframeRef.current?.contentWindow?.postMessage({
-      type: 'neurocrop:route',
-      route,
-    }, window.location.origin)
-  }
+  const runtimeReady = useRef(false)
 
   useEffect(() => {
+    document.body.classList.add('designer-app')
+    document.body.dataset.dashboardState = 'optimal'
+    document.body.dataset.workspaceFocus = 'all'
+
     function handleMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) return
       const payload = event.data
       if (!payload || payload.type !== 'neurocrop:navigate') return
-
-      const nextRoute = normalizeRoute(typeof payload.route === 'string' ? payload.route : '/')
-      if (nextRoute === route) return
-      navigate(nextRoute, { replace: Boolean(payload.replace) })
+      const route = supportedRoutes.has(payload.route) ? payload.route : '/'
+      if (route !== window.location.pathname) navigate(route, { replace: Boolean(payload.replace) })
     }
 
     window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
-  }, [navigate, route])
+
+    const loadRuntime = () => {
+      if (document.querySelector('script[data-neurocrop-runtime]')) return
+      const runtime = document.createElement('script')
+      runtime.src = '/approved-dashboard-runtime.js'
+      runtime.dataset.neurocropRuntime = 'true'
+      runtime.onload = () => {
+        runtimeReady.current = true
+        window.postMessage({ type: 'neurocrop:route', route: window.location.pathname }, window.location.origin)
+      }
+      document.body.appendChild(runtime)
+    }
+
+    if (window.echarts) {
+      loadRuntime()
+    } else {
+      const vendor = document.createElement('script')
+      vendor.src = '/vendor/echarts.min.js'
+      vendor.dataset.neurocropVendor = 'true'
+      vendor.onload = loadRuntime
+      document.body.appendChild(vendor)
+    }
+
+    return () => {
+      window.removeEventListener('message', handleMessage)
+      document.body.classList.remove('designer-app')
+    }
+  }, [navigate])
 
   useEffect(() => {
-    syncDashboardRoute()
-  }, [route])
+    if (!runtimeReady.current) return
+    window.postMessage({ type: 'neurocrop:route', route: location.pathname }, window.location.origin)
+  }, [location.pathname])
 
-  return (
-    <main className="app-shell">
-      <iframe
-        ref={iframeRef}
-        className="dashboard-frame"
-        title="NeuroCrop Control Center"
-        src={initialDashboardSrc.current}
-        onLoad={syncDashboardRoute}
-      />
-    </main>
-  )
-}
-
-function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<DashboardFrame />} />
-      <Route path="/areas" element={<DashboardFrame />} />
-      <Route path="/sections" element={<DashboardFrame />} />
-      <Route path="/nodes" element={<DashboardFrame />} />
-      <Route path="/history" element={<DashboardFrame />} />
-      <Route path="/alerts" element={<DashboardFrame />} />
-      <Route path="/settings" element={<DashboardFrame />} />
-      <Route path="/crop-profiles" element={<DashboardFrame />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  )
+  return <div dangerouslySetInnerHTML={{ __html: approvedMarkup }} />
 }
 
 function App() {
-  return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
-  )
+  return <BrowserRouter><Routes>
+    <Route path="/" element={<ApprovedDashboard />} />
+    <Route path="/areas" element={<ApprovedDashboard />} />
+    <Route path="/sections" element={<ApprovedDashboard />} />
+    <Route path="/nodes" element={<ApprovedDashboard />} />
+    <Route path="/alerts" element={<ApprovedDashboard />} />
+    <Route path="/history" element={<ApprovedDashboard />} />
+    <Route path="/settings" element={<ApprovedDashboard />} />
+    <Route path="/crop-profiles" element={<ApprovedDashboard />} />
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes></BrowserRouter>
 }
 
 export default App

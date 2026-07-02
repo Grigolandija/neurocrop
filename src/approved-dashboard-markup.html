@@ -1,0 +1,827 @@
+  <section id="loginScreen" class="login-screen" aria-labelledby="loginTitle">
+    <div class="login-layout">
+      <aside class="login-aside">
+        <div class="flex h-14 w-14 items-center justify-center rounded-3xl bg-white/12 text-xl text-[#f5c26b] ring-1 ring-white/16"><i class="fa-solid fa-seedling" aria-hidden="true"></i></div>
+        <p class="mt-10 text-xs font-bold uppercase tracking-[0.30em] text-white/58">NeuroCrop</p>
+        <h1 class="mt-3 max-w-sm font-display text-4xl font-bold leading-tight">Know what your crop needs next.</h1>
+        <p class="mt-5 max-w-sm text-sm leading-7 text-white/70">A single workspace for live growing conditions, section history, alerts, and sensor health.</p>
+        <div class="relative mt-12 flex items-center gap-3 text-sm font-semibold text-white/76"><span class="h-2.5 w-2.5 rounded-full bg-[#88c69f]"></span> Workspace access</div>
+      </aside>
+      <div class="login-form-panel">
+        <div class="language-switch login-language-switch" role="group" aria-label="Language">
+          <button type="button" data-language-option="lt" data-active="false" aria-pressed="false">LT</button>
+          <button type="button" data-language-option="en" data-active="true" aria-pressed="true">EN</button>
+        </div>
+        <p class="text-xs font-bold uppercase tracking-[0.26em] text-pine/52">Workspace access</p>
+        <h2 id="loginTitle" class="mt-3 font-display text-3xl font-bold text-ink">Sign in to NeuroCrop</h2>
+        <p class="mt-3 max-w-md text-sm leading-6 text-ink/60">Use the email address assigned to your farm workspace.</p>
+        <form id="loginForm" class="mt-8 space-y-5" novalidate>
+          <label class="block"><span class="text-sm font-bold text-ink/76">Email address</span><input id="loginEmail" class="login-field mt-2" type="email" autocomplete="email" placeholder="you@farm.com" required></label>
+          <label class="block"><span class="text-sm font-bold text-ink/76">Password</span><input id="loginPassword" class="login-field mt-2" type="password" autocomplete="current-password" placeholder="Enter your password" required></label>
+          <p id="loginError" class="hidden rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-ember" role="alert"></p>
+          <button type="submit" class="login-submit">Sign in <i class="fa-solid fa-arrow-right ml-2" aria-hidden="true"></i></button>
+        </form>
+        <p class="mt-7 text-xs leading-5 text-ink/46">Need access? Contact your workspace administrator.</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="dashboardShell" class="dashboard-shell flex min-h-screen" hidden>
+    <header id="dashboardHeader" class="global-system-bar">
+      <div class="global-system-bar-actions">
+        <div class="header-status-card">
+          <div class="language-switch" role="group" aria-label="Language">
+            <button type="button" data-language-option="lt" data-active="false" aria-pressed="false">LT</button>
+            <button type="button" data-language-option="en" data-active="true" aria-pressed="true">EN</button>
+          </div>
+          <span class="flex items-center gap-2 text-moss">
+            <span class="h-2.5 w-2.5 rounded-full bg-moss"></span>
+            Online
+          </span>
+          <div class="header-battery-wrap">
+            <button id="headerBatteryIndicator" type="button" class="header-battery-indicator actionable" data-state="optimal" aria-label="Low battery nodes" aria-expanded="false" aria-controls="headerBatteryDropdown">
+              <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
+              <span id="headerBatteryCount" class="header-battery-count">0</span>
+            </button>
+            <div id="headerBatteryDropdown" class="header-battery-dropdown" aria-hidden="true">
+              <div class="header-battery-dropdown-header">
+                <div>
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/42">Low battery nodes</p>
+                  <p class="mt-1 text-sm text-ink/64">Nodes below configured threshold</p>
+                </div>
+                <span id="headerBatteryDropdownCount" class="control-pill rounded-full px-3 py-1.5 text-xs font-semibold text-ink/68">0 nodes</span>
+              </div>
+              <div id="headerBatteryDropdownContent"></div>
+            </div>
+          </div>
+          <div class="header-account-wrap">
+            <button id="headerAccountButton" type="button" class="header-account-button" aria-expanded="false" aria-controls="headerAccountMenu">
+              <span class="flex h-7 w-7 items-center justify-center rounded-full bg-[#d8c8b4] text-[10px] font-bold text-pine">AK</span>
+              <span id="headerAccountEmail">admin@neurocrop.com</span>
+              <i class="fa-solid fa-chevron-down text-[10px] text-ink/38" aria-hidden="true"></i>
+            </button>
+            <div id="headerAccountMenu" class="header-account-menu" hidden>
+              <button id="signOutButton" type="button"><i class="fa-solid fa-arrow-right-from-bracket mr-2" aria-hidden="true"></i>Sign out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <aside class="dashboard-sidebar hidden w-72 shrink-0 border-r border-black/6 bg-[#f6f0e4]/88 xl:flex xl:flex-col">
+      <div class="border-b border-black/6 px-5 py-4">
+        <div class="flex items-start gap-3">
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-pine text-white shadow-lg shadow-pine/15">
+            <i class="fa-solid fa-seedling text-base"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-pine/58">NeuroCrop</p>
+            <h1 class="font-display text-[1.65rem] font-bold leading-[0.94] text-ink">Control Center</h1>
+          </div>
+        </div>
+      </div>
+
+      <nav class="flex-1 px-4 py-5">
+        <div class="space-y-2">
+          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="overview" data-active="true" aria-current="page">
+            <span class="flex items-center gap-3">
+              <i class="fa-solid fa-house w-5 text-center text-amber"></i>
+              <span class="text-[1.02rem] font-semibold">Overview</span>
+            </span>
+          </button>
+          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="sites" data-active="false">
+            <span class="flex items-center gap-3">
+              <i class="fa-solid fa-location-dot w-5 text-center text-amber"></i>
+              <span class="text-[1.02rem]">Areas</span>
+            </span>
+          </button>
+          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="zones" data-active="false">
+            <span class="flex items-center gap-3">
+              <i class="fa-solid fa-vector-square w-5 text-center text-amber"></i>
+              <span class="text-[1.02rem]">Sections</span>
+            </span>
+          </button>
+          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="nodes" data-active="false">
+            <span class="flex items-center gap-3">
+              <i class="fa-solid fa-microchip w-5 text-center text-amber"></i>
+              <span class="text-[1.02rem]">Nodes</span>
+            </span>
+          </button>
+          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="alerts" data-active="false">
+            <span class="flex items-center gap-3">
+              <i class="fa-solid fa-triangle-exclamation w-5 text-center text-amber"></i>
+              <span class="text-[1.02rem]">Alerts</span>
+            </span>
+          </button>
+          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="history" data-active="false">
+            <span class="flex items-center gap-3">
+              <i class="fa-solid fa-chart-line w-5 text-center text-amber"></i>
+              <span class="text-[1.02rem]">Trends</span>
+            </span>
+          </button>
+          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="settings" data-active="false">
+            <span class="flex items-center gap-3">
+              <i class="fa-solid fa-sliders w-5 text-center text-amber"></i>
+              <span class="text-[1.02rem]">Settings</span>
+            </span>
+          </button>
+        </div>
+      </nav>
+
+      <div hidden aria-hidden="true">
+        <button id="commandPaletteButton" type="button"></button>
+      </div>
+    </aside>
+
+    <main class="min-w-0 flex-1">
+      <div class="dashboard-main-inner px-3 py-2 md:px-4 md:py-3 lg:px-4 lg:py-3">
+        <section id="experienceModeSection" class="mb-6 section-jump-target" hidden>
+          <div class="surface rounded-[30px] px-5 py-4 md:px-6">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div class="min-w-0">
+                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">View</p>
+                <h2 id="experienceModeTitle" class="mt-1 font-display text-xl font-bold text-ink">Simple client view</h2>
+                <p id="experienceModeSummary" class="mt-1 text-sm leading-6 text-ink/66">Show only the current situation, the main readings behind it, and the next step.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="locationsManagementSection" class="mb-6 section-jump-target" hidden>
+          <div id="locationsManagementShell"></div>
+        </section>
+
+        <section id="blocksManagementSection" class="mb-6 section-jump-target" hidden>
+          <div id="blocksManagementShell"></div>
+        </section>
+
+        <section id="nodesManagementSection" class="mb-6 section-jump-target" hidden>
+          <div id="nodesManagementShell"></div>
+        </section>
+
+        <section id="settingsManagementSection" class="mb-6 section-jump-target" hidden>
+          <div id="settingsManagementShell"></div>
+        </section>
+
+        <section id="alertsManagementSection" class="mb-6 section-jump-target" hidden>
+          <div id="alertsManagementShell"></div>
+        </section>
+
+        <section id="opsDockSection" class="ops-dock-shell section-jump-target">
+          <div class="ops-dock-panel">
+            <div class="ops-dock-top">
+              <div class="min-w-0">
+                <div class="ops-dock-kicker">Ops dock</div>
+                <div class="ops-dock-title-row">
+                  <h2 id="opsDockTitle" class="ops-dock-title">Block operations cockpit</h2>
+                  <span id="opsDockStateChip" class="state-chip state-chip-outline" data-state="optimal">Optimal</span>
+                </div>
+                <p id="opsDockSummary" class="ops-dock-summary">Keep the live scenario, route, analytics, alerts, and power triage context visible while you move through the dashboard.</p>
+              </div>
+
+              <div class="ops-dock-actions">
+                <button id="opsDockResetButton" type="button" class="ops-dock-action-button">
+                  <i class="fa-solid fa-compass-drafting" aria-hidden="true"></i>
+                  Reset view
+                </button>
+                <button id="opsDockSecondaryButton" type="button" class="ops-dock-action-button" data-tone="critical" hidden>
+                  <i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i>
+                  Reset test
+                </button>
+              </div>
+            </div>
+
+            <div class="focus-rail-shell">
+              <div class="focus-rail-head">
+                <div>
+                  <div class="focus-rail-kicker">Focus mode</div>
+                  <p id="workspaceFocusSummary" class="focus-rail-summary">Full dashboard is visible. Isolate a single workflow surface without losing the live context in Ops dock.</p>
+                </div>
+                <div class="focus-rail-hint">Esc exits focus</div>
+              </div>
+
+              <div id="workspaceFocusBar" class="focus-rail-buttons" role="toolbar" aria-label="Workspace focus mode">
+                <button type="button" class="focus-rail-button" data-workspace-focus="all" data-active="true" aria-pressed="true">Full canvas</button>
+                <button type="button" class="focus-rail-button" data-workspace-focus="overview" data-active="false" aria-pressed="false">Overview</button>
+                <button type="button" class="focus-rail-button" data-workspace-focus="alerts" data-active="false" aria-pressed="false">Alerts</button>
+                <button type="button" class="focus-rail-button" data-workspace-focus="metrics" data-active="false" aria-pressed="false">Metrics</button>
+                <button type="button" class="focus-rail-button" data-workspace-focus="power" data-active="false" aria-pressed="false">Power</button>
+                <button type="button" class="focus-rail-button" data-workspace-focus="route" data-active="false" aria-pressed="false">Route</button>
+              </div>
+            </div>
+
+            <div id="opsDockCards" class="ops-dock-grid"></div>
+          </div>
+        </section>
+
+        <section id="alertsSection" class="mb-6">
+          <div id="globalSystemCard" data-state="optimal" data-collapsed="true" class="global-system-card section-jump-target p-5 md:p-6">
+            <i class="global-system-toggle fa-solid fa-chevron-down"></i>
+            <div class="flex items-center justify-between gap-4" data-global-system-toggle>
+              <div class="min-w-0">
+                <p class="text-xs uppercase tracking-[0.30em] text-pine/56">System-wide status</p>
+                <h3 id="globalSystemTitle" class="mt-1 font-display text-xl font-bold text-ink">All areas are stable</h3>
+                <p id="globalSystemSummary" class="mt-1 text-sm leading-6 text-ink/64"></p>
+              </div>
+              <span id="globalSystemChip" class="state-chip shrink-0" data-state="optimal">Optimal</span>
+            </div>
+
+            <div id="globalSystemExpanded" class="global-system-expanded mt-5" hidden>
+              <p id="globalSystemText" class="text-sm leading-7 text-ink/64"></p>
+
+              <div class="mt-5 grid gap-3 md:grid-cols-3">
+                <div class="panel rounded-[24px] p-4">
+                  <div class="text-sm text-ink/52">Stable sections</div>
+                  <div id="globalStableCount" class="mt-2 text-3xl font-extrabold text-moss">0</div>
+                </div>
+                <div class="panel rounded-[24px] p-4">
+                  <div class="text-sm text-ink/52">Warning sections</div>
+                  <div id="globalWarningCount" class="mt-2 text-3xl font-extrabold text-amber">0</div>
+                </div>
+                <div class="panel rounded-[24px] p-4">
+                  <div class="text-sm text-ink/52">Critical sections</div>
+                  <div id="globalCriticalCount" class="mt-2 text-3xl font-extrabold text-ember">0</div>
+                </div>
+              </div>
+
+              <div class="alert-rail-shell">
+                <div class="alert-rail-toolbar">
+                  <div>
+                    <p class="text-xs uppercase tracking-[0.24em] text-ink/42">Alert rail</p>
+                    <p id="alertRailMeta" class="alert-rail-meta">Showing the most urgent sections across the full system.</p>
+                  </div>
+                  <div id="alertRailFilters" class="alert-filter-strip" role="toolbar" aria-label="Alert rail filters"></div>
+                </div>
+
+                <div id="globalSystemList" class="alert-rail-list"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="todayPriorityPanel" class="today-priority-panel section-jump-target" hidden>
+          <div id="todayPriorityMain" class="today-priority-main"></div>
+          <div id="todayPriorityAlerts" class="today-priority-alerts"></div>
+        </section>
+
+        <section id="heroStatusPanel" data-state="optimal" class="surface hero-panel section-jump-target rounded-[40px] p-4 md:p-6 lg:p-7">
+          <div class="hero-content-grid grid gap-8">
+            <div class="hero-main-stack min-w-0">
+              <div class="hero-top-row flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div class="w-full">
+                  <div class="selection-panel">
+                    <div class="selection-panel-head">
+                      <div>
+                        <p class="selection-panel-kicker">Selected growing space</p>
+                        <p id="scopeHelperText" class="selection-panel-summary">Change the area or section when you want to inspect another place.</p>
+                      </div>
+                      <div class="scope-toggle" role="tablist" aria-label="Growth index scope">
+                        <button id="zoneScopeButton" type="button" class="scope-toggle-button" data-scope="zone" data-active="true" aria-pressed="true">Section</button>
+                        <button id="siteScopeButton" type="button" class="scope-toggle-button" data-scope="site" data-active="false" aria-pressed="false">Area</button>
+                      </div>
+                    </div>
+
+                    <div class="hero-context-bar context-bar">
+                      <label class="context-card block p-4">
+                        <div class="relative z-[1] flex items-start gap-3">
+                          <div class="context-card-icon">
+                            <i class="fa-solid fa-location-dot"></i>
+                          </div>
+                          <div class="min-w-0">
+                            <div class="context-card-label">Area</div>
+                            <div id="siteContextValue" class="context-card-value">Greenhouse No. 1</div>
+                            <div id="siteContextMeta" class="context-card-meta">Select area</div>
+                          </div>
+                        </div>
+                        <i class="context-card-chevron fa-solid fa-chevron-down"></i>
+                        <button id="siteTrigger" type="button" class="context-card-trigger" aria-haspopup="listbox" aria-expanded="false"></button>
+                        <div id="siteMenu" class="context-menu" hidden></div>
+                      </label>
+                      <label id="zoneContextCard" class="context-card block p-4">
+                        <div class="relative z-[1] flex items-start gap-3">
+                          <div class="context-card-icon">
+                            <i class="fa-solid fa-vector-square"></i>
+                          </div>
+                          <div class="min-w-0">
+                            <div class="context-card-label">Section</div>
+                            <div id="zoneContextValue" class="context-card-value">Tomato Block A, Rear</div>
+                            <div id="zoneContextMeta" class="context-card-meta">Section and node count</div>
+                          </div>
+                        </div>
+                        <i class="context-card-chevron fa-solid fa-chevron-down"></i>
+                        <button id="zoneTrigger" type="button" class="context-card-trigger" aria-haspopup="listbox" aria-expanded="false"></button>
+                        <div id="zoneMenu" class="context-menu" hidden></div>
+                      </label>
+                      <label class="context-card block p-4">
+                        <div class="relative z-[1] flex items-start gap-3">
+                          <div class="context-card-icon">
+                            <i class="fa-solid fa-seedling"></i>
+                          </div>
+                          <div class="min-w-0">
+                            <div class="context-card-label">Crop profile</div>
+                            <div id="profileContextValue" class="context-card-value">Tomatoes, vegetative</div>
+                            <div id="profileContextMeta" class="context-card-meta">Inherited from section</div>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hero-control-strip mt-6 flex flex-wrap gap-3">
+                <div id="experienceModeControl" class="header-view-control" role="group" aria-label="Dashboard view">
+                  <span class="header-view-label">View</span>
+                  <button type="button" class="header-view-choice" data-experience-mode="simple">Simple</button>
+                  <button type="button" class="header-view-choice" data-experience-mode="detailed">Detailed</button>
+                </div>
+                <span id="scopeChip" class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68"></span>
+                <span id="heroTimestampChip" class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68"></span>
+              </div>
+
+              <details id="advancedToolsPanel" class="advanced-tools-shell section-jump-target">
+                <summary class="advanced-tools-summary-row">
+                  <div>
+                    <div class="indicator-driver-label">Advanced tools</div>
+                    <h3 id="advancedToolsTitle" class="advanced-tools-title">Scenario tests and handoff tools</h3>
+                    <p id="advancedToolsSummaryText" class="advanced-tools-summary-text">Optional tools for simulations, impact comparison, and sharing. Safe to ignore if you only want the live growth score and the next action.</p>
+                  </div>
+                  <div class="advanced-tools-summary-side">
+                    <span id="advancedToolsStateChip" class="state-chip state-chip-outline" data-state="optimal">Optional</span>
+                    <span class="advanced-tools-chevron">
+                      <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                    </span>
+                  </div>
+                </summary>
+
+                <div class="advanced-tools-content">
+                  <div id="scenarioLabPanel" class="scenario-lab-shell section-jump-target" data-state="optimal">
+                    <div class="scenario-lab-head">
+                      <div>
+                        <div class="indicator-driver-label">Scenario lab</div>
+                        <h3 id="scenarioLabTitle" class="scenario-lab-title">Live baseline is active</h3>
+                        <p id="scenarioLabSummary" class="scenario-lab-summary">Pressure-test the selected location or block with one click, then branch into a block-only manual test with the sliders below.</p>
+                      </div>
+                      <div class="scenario-lab-chip-row">
+                        <span id="scenarioLabScopeChip" class="scenario-lab-chip control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68">Block lab</span>
+                        <span id="scenarioLabModeChip" class="scenario-lab-chip control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68">Live baseline</span>
+                      </div>
+                    </div>
+
+                    <div class="scenario-lab-grid">
+                      <div class="scenario-preset-stack">
+                        <div class="scenario-preset-group" role="group" aria-label="Scenario presets">
+                          <button type="button" class="scenario-button scenario-preset-card" data-scenario-preset="optimal" data-state="optimal" data-active="true" aria-pressed="true">
+                            <span class="scenario-button-top">
+                              <span class="scenario-button-icon">
+                                <i class="fa-solid fa-seedling" aria-hidden="true"></i>
+                              </span>
+                              <span class="scenario-button-kicker">Live</span>
+                            </span>
+                            <span class="scenario-button-title">Baseline</span>
+                            <span class="scenario-button-note">Balanced readings that represent the current modeled operating band.</span>
+                          </button>
+                          <button type="button" class="scenario-button scenario-preset-card" data-scenario-preset="warning" data-state="warning" data-active="false" aria-pressed="false">
+                            <span class="scenario-button-top">
+                              <span class="scenario-button-icon">
+                                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                              </span>
+                              <span class="scenario-button-kicker">Drill</span>
+                            </span>
+                            <span class="scenario-button-title">Warning</span>
+                            <span class="scenario-button-note">Introduce recoverable drift and see which areas ask for attention first.</span>
+                          </button>
+                          <button type="button" class="scenario-button scenario-preset-card" data-scenario-preset="critical" data-state="critical" data-active="false" aria-pressed="false">
+                            <span class="scenario-button-top">
+                              <span class="scenario-button-icon">
+                                <i class="fa-solid fa-bolt" aria-hidden="true"></i>
+                              </span>
+                              <span class="scenario-button-kicker">Stress</span>
+                            </span>
+                            <span class="scenario-button-title">Critical</span>
+                            <span class="scenario-button-note">Push the model into high-risk territory to rehearse recovery before crop loss risk.</span>
+                          </button>
+                        </div>
+
+                        <p class="scenario-lab-footnote">
+                          Presets reshape generated readings. Move a slider for a block-only branch test.
+                          <kbd>R</kbd>
+                          resets the active manual test.
+                        </p>
+                      </div>
+
+                      <div id="manualOverridePanel" class="scenario-manual-card" data-active="false" data-state="optimal">
+                        <div class="scenario-manual-top">
+                          <div class="scenario-manual-kicker">Manual test</div>
+                          <span id="manualOverrideState" class="scenario-manual-state">Preset locked</span>
+                        </div>
+                        <div id="manualOverrideTitle" class="scenario-manual-title">Block sandbox is ready</div>
+                        <p id="manualOverrideSummary" class="scenario-manual-summary">Move any metric slider below to create a one-block what-if test without leaving the dashboard.</p>
+                        <div class="scenario-manual-footer">
+                          <span id="manualOverrideMeta" class="scenario-manual-meta">The active preset stays visible while you branch into a manual test.</span>
+                          <button id="manualOverrideResetButton" type="button" class="scenario-reset-button">
+                            <i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i>
+                            Reset test
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="impactBoardPanel" class="impact-board-shell section-jump-target" data-state="optimal">
+                    <div class="impact-board-head">
+                      <div>
+                        <div class="indicator-driver-label">Impact board</div>
+                        <h3 id="impactBoardTitle" class="impact-board-title">Live baseline is unchanged</h3>
+                        <p id="impactBoardSummary" class="impact-board-summary">Compare the current scope against the live baseline and see where the active test is bending the dashboard.</p>
+                      </div>
+
+                      <div class="impact-score-rail">
+                        <div class="impact-score-card">
+                          <span class="impact-score-label">Live baseline</span>
+                          <strong id="impactBaselineScore" class="impact-score-value">82%</strong>
+                        </div>
+                        <div class="impact-score-arrow">
+                          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                        </div>
+                        <div class="impact-score-card" data-role="current">
+                          <span class="impact-score-label">Current mode</span>
+                          <strong id="impactCurrentScore" class="impact-score-value">82%</strong>
+                        </div>
+                        <span id="impactScoreDeltaChip" class="state-chip state-chip-outline" data-state="optimal">No shift</span>
+                      </div>
+                    </div>
+
+                    <div class="impact-board-toolbar">
+                      <p id="impactBoardMeta" class="impact-board-meta">Use this board to measure the active scenario or manual branch against the live baseline before you commit to the next action.</p>
+                      <button id="impactBoardActionButton" type="button" class="actionable rounded-full border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-ink/72">
+                        Open analytics
+                      </button>
+                    </div>
+
+                    <div id="impactBoardCards" class="impact-board-grid"></div>
+                  </div>
+
+                  <div id="decisionBriefPanel" class="decision-brief-shell section-jump-target">
+                    <div class="decision-brief-head">
+                      <div>
+                        <div class="indicator-driver-label">Decision brief</div>
+                        <h3 id="decisionBriefTitle" class="decision-brief-title">Ready to share current state</h3>
+                        <p id="decisionBriefSummary" class="decision-brief-summary">Copy a live handoff note with score, scenario, impact, queue, alerts, route, and power trust in one move.</p>
+                      </div>
+                      <div class="decision-brief-actions">
+                        <span id="decisionBriefStatus" class="decision-brief-status" data-tone="neutral" aria-live="polite">Ready to share</span>
+                        <button id="decisionBriefCopyShortButton" type="button" class="decision-brief-copy-button">
+                          <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                          Copy short
+                        </button>
+                        <button id="decisionBriefCopyButton" type="button" class="decision-brief-copy-button" data-primary="true">
+                          <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
+                          Copy brief
+                        </button>
+                      </div>
+                    </div>
+
+                    <div id="decisionBriefPreview" class="decision-brief-preview">Scope: loading…</div>
+                    <div id="decisionBriefChips" class="decision-brief-chip-row"></div>
+                  </div>
+                </div>
+              </details>
+
+              <div class="indicator-stage mt-8 p-5 md:p-7">
+                <div class="relative z-[1]">
+                  <div class="indicator-top-row flex flex-col gap-5">
+                    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div class="max-w-2xl">
+                        <p id="indicatorTitle" class="text-sm font-semibold uppercase tracking-[0.20em] text-ink/42">Growing Conditions Score</p>
+                        <p id="indicatorSummary" class="mt-3 max-w-2xl text-sm leading-7 text-ink/64"></p>
+                      </div>
+
+                      <div class="flex items-start lg:justify-end">
+                        <span id="indicatorZoneBadge" class="state-chip state-chip-outline" data-state="optimal">Green section</span>
+                      </div>
+                    </div>
+
+                    <div class="indicator-command-grid">
+                      <div class="indicator-score-column">
+                        <div id="indicatorScoreWrap" class="indicator-score-display" data-state="optimal">
+                          <div id="indicatorScoreLabel" class="indicator-score-label">Growing Conditions Score</div>
+                          <div id="indicatorScore" class="text-3xl font-extrabold text-ink"></div>
+                          <div id="indicatorScoreState" class="indicator-score-state">Good</div>
+                        </div>
+                      </div>
+
+                        <div id="overallStateCard" data-state="optimal" class="overall-state-card decision-card rounded-[32px] p-6">
+                          <p class="decision-card-kicker">Today</p>
+                          <div id="overallStateTitle" class="mt-2 font-display text-4xl font-bold"></div>
+                          <h3 id="heroHeadline" class="decision-card-headline"></h3>
+                          <p id="heroDescription"></p>
+                        </div>
+                      </div>
+
+                      <div id="heroSensorGlanceShell" class="hero-sensor-glance-shell">
+                        <div class="hero-sensor-glance-head">
+                          <div>
+                            <div class="indicator-driver-label">Sensor glance</div>
+                            <h3 id="heroSensorGlanceTitle" class="hero-sensor-glance-title">Live sensor snapshot</h3>
+                            <p id="heroSensorGlanceSummary" class="hero-sensor-glance-summary">See the three most important live parameters before opening the full metrics workbench.</p>
+                          </div>
+                        </div>
+                        <div id="heroSensorGlanceGrid" class="hero-sensor-glance-grid"></div>
+                      </div>
+
+                      <div id="indicatorSupportGrid" class="indicator-support-grid">
+                        <div id="indicatorCountStrip" class="indicator-count-strip">
+                          <span class="priority-count-chip" data-tone="stable">
+                            <span>OK</span>
+                          <strong id="stableCount">0</strong>
+                        </span>
+                        <span class="priority-count-chip" data-tone="warning">
+                          <span>Watch</span>
+                          <strong id="warningCount">0</strong>
+                        </span>
+                        <span class="priority-count-chip" data-tone="critical">
+                          <span>Fix now</span>
+                          <strong id="criticalCount">0</strong>
+                        </span>
+                      </div>
+
+                      <div class="decision-mini-grid">
+                        <article class="decision-mini-card">
+                          <div class="decision-mini-label">Main issue</div>
+                          <div id="decisionFocusValue" class="decision-mini-value">In range</div>
+                          <p id="decisionFocusNote" class="decision-mini-note">No dominant risk driver is visible.</p>
+                        </article>
+
+                        <article class="decision-mini-card">
+                          <div class="decision-mini-label">Act by</div>
+                          <div id="decisionUrgencyValue" class="decision-mini-value">Monitor</div>
+                          <p id="decisionUrgencyNote" class="decision-mini-note">No immediate intervention is needed.</p>
+                        </article>
+
+                        <article class="decision-mini-card">
+                          <div class="decision-mini-label">Data confidence</div>
+                          <div id="decisionConfidenceValue" class="decision-mini-value">100%</div>
+                          <p id="decisionConfidenceNote" class="decision-mini-note">All configured metrics are live.</p>
+                        </article>
+                      </div>
+                    </div>
+
+                    <div id="indicatorDriverGroup" class="indicator-driver-group">
+                      <div class="indicator-driver-label">Growth limiting factors</div>
+                      <div id="indicatorDrivers" class="indicator-driver-list" hidden></div>
+                    </div>
+
+                    <div id="actionDeckShell" class="action-deck-shell">
+                      <div class="action-deck-head">
+                        <div>
+                          <div id="actionDeckLabel" class="indicator-driver-label">Execution queue</div>
+                          <p id="actionDeckSummary" class="action-deck-summary">Use the deck to jump straight to the most relevant next step for this selection.</p>
+                        </div>
+                        <div id="actionDeckShortcuts" class="action-deck-shortcuts">Now / Next / Later · Keys 1 / 2 / 3</div>
+                      </div>
+                      <div id="actionDeck" class="action-deck-grid"></div>
+                    </div>
+
+                    <div id="conditionTrackShell" class="condition-track-shell">
+                      <div class="condition-track">
+                        <div class="condition-gloss"></div>
+                        <div id="conditionFill" class="condition-fill"></div>
+                        <div id="conditionThumb" class="condition-thumb">
+                          <div id="conditionThumbLabel" class="condition-thumb-label">59%</div>
+                        </div>
+                      </div>
+
+                      <div class="indicator-track-scale">
+                        <span><strong>0%</strong> Critical</span>
+                        <span><strong>100%</strong> Optimal</span>
+                      </div>
+                    </div>
+
+                    <div id="indicatorStageFooter" class="indicator-stage-footer">
+                      <span><strong id="indicatorMetaLabel">Oldest node uplink</strong>: <span id="indicatorUplink"></span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="metricsSection" class="section-jump-target">
+          <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p id="metricsSectionKicker" class="text-xs uppercase tracking-[0.30em] text-pine/56">Metrics</p>
+              <h3 id="metricsSectionTitle" class="mt-2 font-display text-2xl font-bold text-ink">What drives the index most</h3>
+            </div>
+          <div id="siteMetricsViewToggle" class="scope-toggle" hidden>
+              <button id="siteAveragesButton" type="button" class="scope-toggle-button" data-view="averages" data-active="true" aria-pressed="true">Averages</button>
+              <button id="siteZonesButton" type="button" class="scope-toggle-button" data-view="zones" data-active="false" aria-pressed="false">Hotspots</button>
+            </div>
+          </div>
+
+          <div id="workbenchToolbar" class="workbench-toolbar">
+            <div id="workbenchLensBar" class="workbench-lens-strip" role="toolbar" aria-label="Metrics workbench lenses"></div>
+            <p id="workbenchLensSummary" class="workbench-lens-summary">Focus the workbench on the slice that matters most right now.</p>
+          </div>
+
+          <div id="metricsGrid" class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4"></div>
+
+          <details id="unavailableMetricsPanel" class="unavailable-metrics-panel mt-4 rounded-[28px] p-4" hidden>
+            <summary class="flex cursor-pointer items-center justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-[0.24em] text-ink/42">Additional metrics</p>
+                <h4 id="unavailableMetricsTitle" class="mt-2 text-lg font-bold text-ink">Not installed</h4>
+              </div>
+              <div class="flex items-center gap-3">
+                <span id="unavailableMetricsCount" class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68">0 metrics</span>
+                <i class="unavailable-chevron fa-solid fa-chevron-down text-sm text-ink/42"></i>
+              </div>
+            </summary>
+            <div class="mt-4 border-t border-black/6 pt-4">
+              <div id="unavailableMetricsGrid" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4"></div>
+            </div>
+          </details>
+        </section>
+
+        <section id="historySection" class="section-jump-target mt-6">
+          <div class="surface trend-history-shell rounded-[34px] p-6 md:p-7">
+            <div class="trend-history-head">
+              <div>
+                <p class="text-xs uppercase tracking-[0.30em] text-pine/56">Trends</p>
+                <h3 id="trendHistoryTitle" class="mt-2 font-display text-2xl font-bold text-ink">24-hour plant trend view</h3>
+                <p id="trendHistorySummary" class="trend-history-summary">Compare the selected live metric against its recent history before deciding whether this is a spike, a drift, or a recovery.</p>
+              </div>
+              <div class="trend-history-head-side">
+                <span id="trendHistoryStateChip" class="state-chip" data-state="optimal">Optimal</span>
+                <span id="trendHistoryRangeMeta" class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68">24h · hourly</span>
+              </div>
+            </div>
+
+            <div class="trend-history-context">
+              <div class="trend-history-context-copy">
+                <span class="trend-history-context-kicker">Currently viewing</span>
+                <div class="trend-history-context-value">
+                  <span id="trendHistoryActiveAreaLabel">Greenhouse No. 1</span>
+                  <span class="mx-1 text-ink/32">·</span>
+                  <span id="trendHistoryActiveSectionLabel">Tomato Block A, Rear</span>
+                </div>
+              </div>
+              <div class="trend-history-context-selects">
+                <div class="trend-history-context-field">
+                  <span class="trend-history-context-field-label">Area</span>
+                  <div class="trend-history-score-select">
+                    <button id="historyLocationTrigger" type="button" class="trend-history-score-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="historyLocationMenu">
+                      <span id="historyLocationValue" class="trend-history-score-value">Greenhouse No. 1</span>
+                      <span id="historyLocationScore" class="context-menu-score" data-state="warning">
+                        <span class="context-score-dot" aria-hidden="true"></span>
+                        <strong>--</strong>
+                      </span>
+                      <i class="trend-history-score-chevron fa-solid fa-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    <div id="historyLocationMenu" class="context-menu" role="listbox" hidden></div>
+                  </div>
+                </div>
+                <div class="trend-history-context-field">
+                  <span class="trend-history-context-field-label">Section</span>
+                  <div class="trend-history-score-select">
+                    <button id="historyBlockTrigger" type="button" class="trend-history-score-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="historyBlockMenu">
+                      <span id="historyBlockValue" class="trend-history-score-value">Tomato Block A, Rear</span>
+                      <span id="historyBlockScore" class="context-menu-score" data-state="warning">
+                        <span class="context-score-dot" aria-hidden="true"></span>
+                        <strong>--</strong>
+                      </span>
+                      <i class="trend-history-score-chevron fa-solid fa-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    <div id="historyBlockMenu" class="context-menu" role="listbox" hidden></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="trend-history-toolbar">
+              <div id="trendMetricBar" class="trend-history-metric-strip" role="toolbar" aria-label="Trend history metric selector"></div>
+              <div id="trendRangeBar" class="trend-history-range-strip" role="toolbar" aria-label="Trend history range selector"></div>
+            </div>
+
+            <div class="trend-history-layout">
+              <div class="trend-history-chart-shell">
+                <div class="trend-history-chart-head">
+                  <div>
+                    <div id="trendHistoryMetricLabel" class="trend-history-metric-label">Relative humidity</div>
+                    <p id="trendHistoryMetricMeta" class="trend-history-metric-meta">Section average · target band and recent trend</p>
+                  </div>
+                </div>
+                <div id="trendHistoryReadout" class="trend-history-readout" aria-label="Automatic trend interpretation"></div>
+                <div id="trendHistoryChart" class="trend-history-chart">
+                  <div id="trendHistoryTooltip" class="trend-history-tooltip" hidden></div>
+                </div>
+                <div class="trend-history-axis">
+                  <span id="trendHistoryStartLabel">24h ago</span>
+                  <span id="trendHistoryMidLabel">Midpoint</span>
+                  <span id="trendHistoryEndLabel">Now</span>
+                </div>
+              </div>
+
+              <div class="trend-history-callout">
+                <div class="trend-history-callout-title">Why this matters</div>
+                <p id="trendHistoryCallout" class="trend-history-callout-copy">Historical curves help clients understand whether the current reading is a one-off spike or part of a longer drift.</p>
+                <p id="trendHistoryBackendNote" class="trend-history-backend-note">This panel is ready for real sensor history once live readings are connected.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="sensorHealthSection" class="section-jump-target mt-6">
+          <div class="surface rounded-[34px] p-5 md:p-6">
+            <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.30em] text-pine/56">Sensor health</p>
+                <h3 id="sensorHealthTitle" class="mt-1.5 font-display text-2xl font-bold text-ink">Battery status by section</h3>
+              </div>
+              <div class="flex flex-wrap items-center gap-3">
+                <button id="sensorHealthActionButton" type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-ink/72">
+                  Open nodes page
+                </button>
+                <span id="sensorHealthChip" class="state-chip" data-state="optimal">Optimal</span>
+              </div>
+            </div>
+
+            <div class="power-rail-shell">
+              <div class="power-rail-toolbar">
+                <div>
+                  <p id="sensorHealthSummary" class="text-sm leading-6 text-ink/66"></p>
+                  <p id="sensorHealthMeta" class="power-rail-meta">Focus the power triage board on the nodes that need action first.</p>
+                </div>
+                <div id="sensorHealthFilters" class="power-filter-strip" role="toolbar" aria-label="Sensor health filters"></div>
+              </div>
+
+              <div id="sensorHealthList" class="power-rail-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="zoneImpactSection" class="section-jump-target mt-6">
+          <div class="surface rounded-[34px] p-6 md:p-7">
+            <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p id="zoneImpactKicker" class="text-xs uppercase tracking-[0.30em] text-pine/56">Sections</p>
+                <h3 id="zoneImpactTitle" class="mt-2 font-display text-2xl font-bold text-ink">Where to check first</h3>
+              </div>
+              <button id="zoneImpactActionButton" type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-ink/72">
+                Open sections
+              </button>
+            </div>
+
+            <div class="inspection-route-toolbar">
+              <div>
+                <p id="zoneImpactMeta" class="inspection-route-meta">Follow the route in the order that reduces uncertainty fastest.</p>
+              </div>
+              <div id="zoneImpactFilters" class="inspection-filter-strip" role="toolbar" aria-label="Inspection route filters"></div>
+            </div>
+
+            <div id="zoneImpactGrid" class="inspection-route-grid"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <nav class="mobile-dock xl:hidden" aria-label="Primary navigation">
+    <button type="button" class="mobile-dock-button" data-sidebar-action="overview" data-active="true" aria-current="page">
+      <i class="fa-solid fa-house" aria-hidden="true"></i>
+      <span>Overview</span>
+    </button>
+    <button type="button" class="mobile-dock-button" data-sidebar-action="alerts" data-active="false">
+      <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+      <span>Alerts</span>
+    </button>
+    <button type="button" class="mobile-dock-button mobile-dock-command" data-mobile-command="palette" aria-label="Open quick jump">
+      <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+      <span>Jump</span>
+    </button>
+    <button type="button" class="mobile-dock-button" data-sidebar-action="analytics" data-active="false">
+      <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+      <span>Metrics</span>
+    </button>
+    <button type="button" class="mobile-dock-button" data-sidebar-action="zones" data-active="false">
+      <i class="fa-solid fa-vector-square" aria-hidden="true"></i>
+      <span>Sections</span>
+    </button>
+  </nav>
+  <div id="commandPaletteOverlay" class="command-palette-overlay" hidden>
+    <div class="command-palette-backdrop" data-command-dismiss></div>
+    <div class="command-palette-shell" role="dialog" aria-modal="true" aria-labelledby="commandPaletteTitle">
+      <div class="command-palette-header">
+        <div class="command-palette-search">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input id="commandPaletteInput" class="command-palette-input" type="text" placeholder="Jump to an area, section, alert, analytics lens..." autocomplete="off" spellcheck="false">
+          <button type="button" class="command-palette-dismiss" data-command-dismiss>Esc</button>
+        </div>
+        <div class="command-palette-hint">
+          <p id="commandPaletteTitle" class="font-semibold text-ink">Search actions, areas, sections, or pages</p>
+          <span>Use arrows to move, Enter to open</span>
+        </div>
+      </div>
+      <div id="commandPaletteResults" class="command-palette-results"></div>
+    </div>
+  </div>
+  <div id="managementModalOverlay" class="management-modal-overlay" hidden></div>
