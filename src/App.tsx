@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import approvedMarkup from './approved-dashboard-markup.html?raw'
+import './App.css'
 import './styles/approved-dashboard.css'
 
 declare global {
