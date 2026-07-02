@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import approvedMarkup from './approved-dashboard-markup.html?raw'
-import './App.css'
 import './styles/approved-dashboard.css'
 
 declare global {
@@ -14,6 +13,7 @@ const supportedRoutes = new Set(['/', '/areas', '/sections', '/nodes', '/alerts'
 
 function ApprovedDashboard() {
   const navigate = useNavigate()
+  const location = useLocation()
   const hostRef = useRef<HTMLDivElement>(null)
   const runtimeReady = useRef(false)
 
@@ -52,17 +52,10 @@ function ApprovedDashboard() {
       }
       const route = routeByAction[action]
       if (!route || route === window.location.pathname) return
-      window.history.pushState({}, '', route)
-      window.dispatchEvent(new PopStateEvent('popstate'))
-    }
-
-    function handlePopState() {
-      if (!runtimeReady.current) return
-      window.postMessage({ type: 'neurocrop:route', route: window.location.pathname }, window.location.origin)
+      navigate(route)
     }
 
     window.addEventListener('message', handleMessage)
-    window.addEventListener('popstate', handlePopState)
     document.addEventListener('click', handleNavigationClick, true)
 
     const loadRuntime = () => {
@@ -89,17 +82,32 @@ function ApprovedDashboard() {
 
     return () => {
       window.removeEventListener('message', handleMessage)
-      window.removeEventListener('popstate', handlePopState)
       document.removeEventListener('click', handleNavigationClick, true)
       document.body.classList.remove('designer-app')
     }
   }, [navigate])
 
+  useEffect(() => {
+    if (!runtimeReady.current) return
+    window.postMessage({ type: 'neurocrop:route', route: location.pathname }, window.location.origin)
+  }, [location.pathname])
+
   return <div ref={hostRef} />
 }
 
+function RoutedDashboard() {
+  const location = useLocation()
+  return supportedRoutes.has(location.pathname) ? <ApprovedDashboard /> : <Navigate to="/" replace />
+}
+
 function App() {
-  return <BrowserRouter><Routes><Route path="*" element={<ApprovedDashboard />} /></Routes></BrowserRouter>
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="*" element={<RoutedDashboard />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
 export default App

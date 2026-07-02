@@ -13,7 +13,7 @@ git push origin main
 ```bash
 cd ~/neurocrop
 git pull --ff-only origin main
-pnpm install
+pnpm install --frozen-lockfile
 pnpm build
 rm -f REACT-DOMENUI.zip
 cd dist

@@ -410,12 +410,14 @@
       method: "POST",
       body: JSON.stringify({ email, password })
     }),
+    logout: () => request("/auth/logout", { method: "POST" }),
+    getCurrentUser: () => request("/auth/me"),
     getDashboard: () => request("/dashboard"),
-    getLatestReadings: (blockId) => request(`/readings/latest${queryString({ blockId })}`),
+    getLatestReadings: (sectionId) => request(`/readings/latest${queryString({ sectionId })}`),
     getHistory: (params) => request(`/history${queryString(params)}`),
-    getLocations: () => request("/locations"),
-    getBlocks: (locationId) => request(`/blocks${queryString({ locationId })}`),
-    getNodes: (blockId) => request(`/nodes${queryString({ blockId })}`)
+    getAreas: () => request("/areas"),
+    getSections: (areaId) => request(`/sections${queryString({ areaId })}`),
+    getNodes: (sectionId) => request(`/nodes${queryString({ sectionId })}`)
   };
 })();
     const interfaceLanguageStorageKey = "neurocrop-interface-language-v1";
@@ -1211,7 +1213,23 @@
       }
     }
 
-    function initializeLoginGate() {
+    async function initializeLoginGate() {
+      if (window.NeuroCropApi?.isConnected()) {
+        try {
+          const response = await window.NeuroCropApi.getCurrentUser();
+          const session = { email: response?.user?.email || "" };
+          if (!session.email) throw new Error("Authenticated user email is missing.");
+          window.sessionStorage.setItem(loginSessionKey, JSON.stringify(session));
+          setLoginState(session);
+          return;
+        } catch (error) {
+          window.sessionStorage.removeItem(loginSessionKey);
+          setLoginState(null);
+          elements.loginEmail.focus();
+          return;
+        }
+      }
+
       const session = getLoginSession();
       setLoginState(session);
       if (!session) elements.loginEmail.focus();
@@ -1223,13 +1241,19 @@
       elements.headerAccountButton.setAttribute("aria-expanded", String(isHeaderAccountMenuOpen));
     }
 
-    function signOut() {
-      window.sessionStorage.removeItem(loginSessionKey);
-      setHeaderAccountMenuOpen(false);
-      setLoginState(null);
-      elements.loginPassword.value = "";
-      elements.loginError.hidden = true;
-      elements.loginEmail.focus();
+    async function signOut() {
+      try {
+        if (window.NeuroCropApi?.isConnected()) await window.NeuroCropApi.logout();
+      } catch (error) {
+        console.warn("NeuroCrop API logout failed; clearing the local session.", error);
+      } finally {
+        window.sessionStorage.removeItem(loginSessionKey);
+        setHeaderAccountMenuOpen(false);
+        setLoginState(null);
+        elements.loginPassword.value = "";
+        elements.loginError.hidden = true;
+        elements.loginEmail.focus();
+      }
     }
 
     elements.loginForm.addEventListener("submit", async (event) => {
@@ -10575,7 +10599,7 @@
     resetLocationForm();
     resetBlockForm();
     resetNodeForm();
-    const initialDashboardRoute = resolveDashboardRoute(window.location.hash);
+    const initialDashboardRoute = resolveDashboardRoute(window.location.pathname);
     activePrimaryPage = initialDashboardRoute.page;
     if (initialDashboardRoute.page === "history") {
       setExperienceMode("detailed");
