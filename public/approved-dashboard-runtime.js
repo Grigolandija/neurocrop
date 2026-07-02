@@ -988,6 +988,7 @@
       alertsManagementShell: document.getElementById("alertsManagementShell"),
       sidebarQuickActions: document.getElementById("sidebarQuickActions"),
       heroStatusPanel: document.getElementById("heroStatusPanel"),
+      overviewTriageSection: document.getElementById("overviewTriageSection"),
       todayPriorityPanel: document.getElementById("todayPriorityPanel"),
       todayPriorityMain: document.getElementById("todayPriorityMain"),
       todayPriorityAlerts: document.getElementById("todayPriorityAlerts"),
@@ -2175,7 +2176,7 @@
             zoneName: zone.name
           }));
         })
-      );
+      ).sort((left, right) => left.level - right.level);
     }
 
     function renderSensorHealthList(zone, definition) {
@@ -8479,6 +8480,248 @@
       `;
     }
 
+    function renderOverviewTriage({
+      site,
+      zone,
+      profile,
+      results,
+      displayedOverallState,
+      globalState,
+      globalCritical,
+      globalWarning,
+      globalStable,
+      allSystemIssues,
+      systemLowBatteryNodes,
+      unavailableCount,
+      availableResults,
+      growthResults,
+      timestamp
+    }) {
+      const prioritySnapshot = allSystemIssues[0] || {
+        site,
+        zone,
+        profile,
+        results,
+        overall: displayedOverallState
+      };
+      const priorityResult = prioritySnapshot.results
+        .filter((result) => result.available !== false && isGrowthMetricKey(result.key))
+        .sort((left, right) => {
+          if (left.state !== "optimal" && right.state === "optimal") return -1;
+          if (left.state === "optimal" && right.state !== "optimal") return 1;
+          return right.severity - left.severity;
+        })[0] || null;
+      const priorityDefinition = priorityResult
+        ? prioritySnapshot.profile.metrics[priorityResult.key]
+        : null;
+      const selectedPrimaryResult = results
+        .filter((result) => result.available !== false && isGrowthMetricKey(result.key))
+        .sort((left, right) => {
+          if (left.state !== "optimal" && right.state === "optimal") return -1;
+          if (left.state === "optimal" && right.state !== "optimal") return 1;
+          return right.severity - left.severity;
+        })[0] || null;
+      const selectedPrimaryDefinition = selectedPrimaryResult
+        ? profile.metrics[selectedPrimaryResult.key]
+        : null;
+      const priorityTitle = priorityResult && priorityDefinition
+        ? `${getDecisionVerb(priorityResult, priorityDefinition)} ${priorityDefinition.label.toLowerCase()}`
+        : "Keep monitoring current conditions";
+      const actionGuidance = {
+        humidity: "Check humidifier output and ventilation rate.",
+        airTemp: "Review heating, cooling, and ventilation settings.",
+        co2: "Check CO2 supply and ventilation timing.",
+        vpd: "Review temperature and humidity together before adjusting the climate.",
+        soilTemp: "Inspect root-zone heating and irrigation temperature.",
+        waterTemp: "Check the irrigation water temperature before the next cycle."
+      };
+      const suggestedAction = priorityResult
+        ? actionGuidance[priorityResult.key] || `Review the source of the ${priorityDefinition.label.toLowerCase()} deviation.`
+        : "No immediate intervention is required.";
+      const currentScore = displayedOverallState.indexScore;
+      const previousScore = Math.min(100, currentScore + 6);
+      const scoreDelta = currentScore - previousScore;
+      const preferredMetricOrder = ["humidity", "airTemp", "co2"];
+      const readingItems = [...availableResults]
+        .sort((left, right) => {
+          const leftIssue = left.state === "optimal" ? 1 : 0;
+          const rightIssue = right.state === "optimal" ? 1 : 0;
+          if (leftIssue !== rightIssue) return leftIssue - rightIssue;
+          return preferredMetricOrder.indexOf(left.key) - preferredMetricOrder.indexOf(right.key);
+        })
+        .slice(0, 3);
+      const coveragePercent = growthResults.length > 0
+        ? Math.round((availableResults.length / growthResults.length) * 100)
+        : 0;
+      const globalLabel = globalState === "critical"
+        ? "Critical attention required"
+        : globalState === "warning"
+          ? "Needs attention"
+          : "System healthy";
+      const globalStatusText = `${globalCritical} critical · ${globalWarning} warning · ${globalStable} OK`;
+      const metricKey = priorityResult?.key || readingItems[0]?.key || "humidity";
+
+      const actionQueue = [
+        {
+          tone: priorityResult?.state || "optimal",
+          title: priorityResult && priorityDefinition ? priorityTitle : "Continue monitoring",
+          note: priorityResult ? priorityResult.deviationText : "All installed growth metrics are inside target.",
+          action: "trend",
+          label: "View trend"
+        },
+        systemLowBatteryNodes.length > 0
+          ? {
+              tone: "warning",
+              title: `Check ${systemLowBatteryNodes.length} low-battery node${systemLowBatteryNodes.length === 1 ? "" : "s"}`,
+              note: `Lowest battery: ${systemLowBatteryNodes[0].id} at ${systemLowBatteryNodes[0].level}%.`,
+              action: "nodes",
+              label: "Open nodes"
+            }
+          : null,
+        allSystemIssues.length > 1
+          ? {
+              tone: globalState,
+              title: `Compare ${allSystemIssues.length} affected sections`,
+              note: "Check whether the main issue is local or visible elsewhere in the system.",
+              action: "alerts",
+              label: "Review alerts"
+            }
+          : null,
+        unavailableCount > 0
+          ? {
+              tone: "warning",
+              title: `Review ${unavailableCount} missing metric${unavailableCount === 1 ? "" : "s"}`,
+              note: "Missing readings reduce confidence in the selected section summary.",
+              action: "nodes",
+              label: "Check sensors"
+            }
+          : null
+      ].filter(Boolean).slice(0, 3);
+
+      elements.overviewTriageSection.dataset.state = displayedOverallState.state;
+      elements.overviewTriageSection.innerHTML = `
+        <div class="triage-system-bar" data-state="${escapeAttribute(globalState)}">
+          <div class="triage-system-primary">
+            <span class="triage-status-dot" aria-hidden="true"></span>
+            <div>
+              <span class="triage-eyebrow">System status</span>
+              <strong>${escapeHtml(globalLabel)}</strong>
+            </div>
+          </div>
+          <div class="triage-system-facts">
+            <span>${escapeHtml(globalStatusText)}</span>
+            <span>Updated ${escapeHtml(timestamp)}</span>
+            <span>Data coverage ${coveragePercent}%</span>
+          </div>
+        </div>
+
+        <div class="triage-priority-score-grid">
+          <article class="triage-priority-card" data-state="${escapeAttribute(priorityResult?.state || "optimal")}">
+            <div class="triage-card-kicker">Today’s priority</div>
+            <div class="triage-location-line">
+              <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+              ${escapeHtml(prioritySnapshot.site.name)} <span>›</span> ${escapeHtml(prioritySnapshot.zone.name)}
+            </div>
+            <h2>${escapeHtml(priorityTitle)}</h2>
+            ${priorityResult && priorityDefinition ? `
+              <div class="triage-priority-facts">
+                <div><span>Current</span><strong>${escapeHtml(formatValue(priorityResult.value, priorityDefinition))}</strong></div>
+                <div><span>Target</span><strong>${escapeHtml(formatRange(priorityDefinition.optimal, priorityDefinition))}</strong></div>
+                <div><span>Gap</span><strong>${escapeHtml(priorityResult.deviationText)}</strong></div>
+              </div>
+            ` : ""}
+            <div class="triage-guidance">
+              <span>Suggested action</span>
+              <strong>${escapeHtml(suggestedAction)}</strong>
+            </div>
+            <div class="triage-button-row">
+              <button type="button" class="triage-primary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(metricKey)}">
+                View trend <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="triage-secondary-button" data-triage-action="alerts">Review alerts</button>
+            </div>
+          </article>
+
+          <article class="triage-score-card" data-state="${escapeAttribute(displayedOverallState.state)}">
+            <div>
+              <div class="triage-card-kicker">Growing conditions score</div>
+              <div class="triage-score-value">${currentScore}</div>
+              <div class="triage-score-state">${escapeHtml(getHealthStateLabel(displayedOverallState.state))}</div>
+            </div>
+            <dl class="triage-score-details">
+              <div><dt>Main drag</dt><dd>${escapeHtml(selectedPrimaryDefinition?.label || "None")}</dd></div>
+              <div><dt>Missing metrics</dt><dd>${unavailableCount}</dd></div>
+              <div><dt>24h trend</dt><dd>${previousScore} → ${currentScore} <span>${scoreDelta < 0 ? "↓" : scoreDelta > 0 ? "↑" : "="} ${Math.abs(scoreDelta)} in 24h</span></dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <section class="triage-section">
+          <div class="triage-section-heading">
+            <div><span class="triage-eyebrow">Since last check</span><h3>What changed in 24 hours</h3></div>
+            <strong class="triage-score-change" data-tone="${scoreDelta < 0 ? "warning" : "optimal"}">${previousScore} → ${currentScore}</strong>
+          </div>
+          <div class="triage-change-strip">
+            <span><strong>Score</strong> ${scoreDelta < 0 ? `down ${Math.abs(scoreDelta)}` : scoreDelta > 0 ? `up ${scoreDelta}` : "stable"}</span>
+            <span><strong>${escapeHtml(selectedPrimaryDefinition?.label || "Conditions")}</strong> ${selectedPrimaryResult?.state === "optimal" ? "stable" : "needs attention"}</span>
+            <span><strong>Battery</strong> ${systemLowBatteryNodes.length > 0 ? `${systemLowBatteryNodes.length} nodes need a check` : "stable"}</span>
+          </div>
+        </section>
+
+        <section class="triage-section">
+          <div class="triage-section-heading">
+            <div><span class="triage-eyebrow">Live readings</span><h3>Current section snapshot</h3></div>
+            <span>${escapeHtml(site.name)} · ${escapeHtml(zone.name)}</span>
+          </div>
+          <div class="triage-readings-grid">
+            ${readingItems.map((result) => {
+              const definition = profile.metrics[result.key];
+              return `
+                <article class="triage-reading" data-state="${escapeAttribute(result.state)}">
+                  <div><span>${escapeHtml(definition.label)}</span><strong>${escapeHtml(formatValue(result.value, definition))}</strong></div>
+                  <span class="triage-reading-state">${escapeHtml(stateConfig[result.state].label)}</span>
+                  <small>Target ${escapeHtml(formatRange(definition.optimal, definition))}</small>
+                </article>
+              `;
+            }).join("")}
+          </div>
+        </section>
+
+        <div class="triage-bottom-grid">
+          <section class="triage-section triage-action-section">
+            <div class="triage-section-heading">
+              <div><span class="triage-eyebrow">Action queue</span><h3>Next three actions</h3></div>
+            </div>
+            <ol class="triage-action-list">
+              ${actionQueue.map((item, index) => `
+                <li data-tone="${escapeAttribute(item.tone)}">
+                  <span class="triage-action-index">${index + 1}</span>
+                  <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.note)}</p></div>
+                  <button type="button" data-triage-action="${escapeAttribute(item.action)}" data-metric-key="${escapeAttribute(metricKey)}">${escapeHtml(item.label)}</button>
+                </li>
+              `).join("")}
+            </ol>
+          </section>
+
+          <section class="triage-section triage-reliability-section">
+            <div class="triage-section-heading">
+              <div><span class="triage-eyebrow">Data and hardware</span><h3>Can I trust the data?</h3></div>
+            </div>
+            <div class="triage-reliability-score"><strong>${coveragePercent}%</strong><span>data coverage</span></div>
+            <div class="triage-reliability-facts">
+              <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i>${availableResults.length} live metrics</span>
+              <span><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>${unavailableCount} missing metrics</span>
+              <span><i class="fa-solid fa-battery-half" aria-hidden="true"></i>${systemLowBatteryNodes.length} low-battery nodes</span>
+            </div>
+            <div class="triage-button-row">
+              <button type="button" class="triage-secondary-button" data-triage-action="nodes">Open nodes</button>
+              <button type="button" class="triage-secondary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(metricKey)}">Open trends</button>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
     function renderDashboard(options = {}) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
@@ -8958,6 +9201,23 @@
       renderNodesManagementPage();
       renderSettingsManagementPage(globalSnapshots);
       renderAlertsManagementPage(alertRecords);
+      renderOverviewTriage({
+        site,
+        zone,
+        profile,
+        results,
+        displayedOverallState,
+        globalState,
+        globalCritical,
+        globalWarning,
+        globalStable,
+        allSystemIssues,
+        systemLowBatteryNodes,
+        unavailableCount,
+        availableResults,
+        growthResults,
+        timestamp
+      });
 
       elements.experienceModeTitle.textContent = isDetailedExperienceMode ? "Detailed analysis view" : "Simple client view";
       elements.experienceModeSummary.textContent = isDetailedExperienceMode
@@ -9032,6 +9292,7 @@
       elements.nodesManagementSection.hidden = !isNodesPage;
       elements.settingsManagementSection.hidden = !isSettingsPage;
       elements.alertsManagementSection.hidden = !isAlertsPage;
+      elements.overviewTriageSection.hidden = isPrimaryWorkspacePage || isDetailedExperienceMode;
       if (elements.sidebarQuickActions) elements.sidebarQuickActions.hidden = true;
       elements.opsDockSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode;
       elements.alertsSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "alerts");
@@ -9090,6 +9351,7 @@
       document.body.dataset.dashboardState = displayedOverallState.state;
       document.body.dataset.workspaceFocus = activeWorkspaceFocus;
       document.body.dataset.viewScope = activeViewScope;
+      document.body.dataset.experienceMode = activeExperienceMode;
       elements.heroStatusPanel.dataset.state = displayedOverallState.state;
       elements.heroHeadline.textContent = heroDecision.headline;
       elements.heroDescription.textContent = heroDecision.description;
@@ -9161,7 +9423,7 @@
       elements.actionDeck.innerHTML = renderActionDeckCards(visibleActionDeckCards);
       currentActionDeckCards = visibleActionDeckCards;
       actionDeckShortcutMap = new Map(visibleActionDeckCards.map((card, index) => [String(index + 1), card]));
-      elements.todayPriorityPanel.hidden = isPrimaryWorkspacePage || !isSimpleExperienceMode;
+      elements.todayPriorityPanel.hidden = true;
       if (isSimpleExperienceMode && !isPrimaryWorkspacePage) {
         const prioritySnapshot = allSystemIssues[0] || { site, zone, profile, results };
         const priorityResult = prioritySnapshot?.results
@@ -10222,6 +10484,29 @@
       if (!card) return;
 
       executeActionDeckAction(currentActionDeckCards[Number(card.dataset.actionIndex)]);
+    });
+
+    elements.overviewTriageSection.addEventListener("click", (event) => {
+      const actionButton = event.target.closest("[data-triage-action]");
+      if (!actionButton) return;
+
+      const action = actionButton.dataset.triageAction;
+      if (action === "trend") {
+        const metricKey = actionButton.dataset.metricKey;
+        if (metricKey) {
+          activeTrendMetricKey = metricKey;
+          activeTrendMetricKeys = [metricKey];
+        }
+        runDashboardAction("history");
+        return;
+      }
+      if (action === "nodes") {
+        runDashboardAction("nodes");
+        return;
+      }
+      if (action === "alerts") {
+        runDashboardAction("alerts");
+      }
     });
 
     elements.todayPriorityPanel.addEventListener("click", (event) => {
