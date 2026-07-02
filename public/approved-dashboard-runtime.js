@@ -2950,7 +2950,7 @@
           {
             pinned: true,
             kind: "Hotspots",
-            icon: "fa-vector-square",
+            icon: "fa-border-all",
             label: `Block hotspots: ${activeSite.name}`,
             meta: "Rank blocks by the drag they put on the location score",
             keywords: `zone hotspots site ${activeSite.name}`,
@@ -2981,7 +2981,7 @@
         {
           pinned: true,
           kind: "Page",
-          icon: "fa-vector-square",
+          icon: "fa-border-all",
           label: "Blocks",
           meta: "Create and manage the smaller monitored growing areas",
           keywords: "blocks zones structure create manage sections",
@@ -3241,7 +3241,7 @@
           items.push({
             pinned: false,
             kind: "Block",
-            icon: "fa-vector-square",
+            icon: "fa-border-all",
             label: zone.name,
             meta: `${site.name} • ${profile ? profile.name : zone.profile}`,
             keywords: `zone ${zone.name} ${site.name} ${profile ? profile.name : zone.profile}`,
@@ -5334,7 +5334,7 @@
                   </button>
                 `}
               <button type="button" class="inline-action actionable" data-location-manage-blocks="${escapeAttribute(site.id)}">
-                <i class="fa-solid fa-vector-square" aria-hidden="true"></i>
+                <i class="fa-solid fa-border-all" aria-hidden="true"></i>
                 Blocks
               </button>
               <button type="button" class="inline-action actionable" data-location-edit="${escapeAttribute(site.id)}">
