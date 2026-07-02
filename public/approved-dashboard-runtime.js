@@ -1448,7 +1448,10 @@
         alerts: "alertsManagementSection",
         settings: "settingsManagementSection"
       };
-      scrollToSection(targetByPage[activePrimaryPage] || "heroStatusPanel");
+      scrollToSection(targetByPage[activePrimaryPage] || "heroStatusPanel", {
+        behavior: "auto",
+        highlight: false
+      });
     }
 
     window.addEventListener("message", (event) => {
@@ -1462,7 +1465,7 @@
     }
 
     function setExperienceMode(nextMode, options = {}) {
-      const { scroll = false, force = false } = options;
+      const { scroll = false, force = false, render = true } = options;
       const normalizedMode = nextMode === "detailed" ? "detailed" : "simple";
       if (normalizedMode === activeExperienceMode && !force) return;
 
@@ -1477,7 +1480,7 @@
         }
       }
 
-      renderDashboard();
+      if (render) renderDashboard();
 
       if (scroll) {
         const target = normalizedMode === "detailed"
@@ -2724,8 +2727,10 @@
       }
     }
 
-    function scrollToSection(targetId) {
+    function scrollToSection(targetId, options = {}) {
       if (!targetId) return;
+      const behavior = options.behavior === "auto" ? "auto" : "smooth";
+      const shouldHighlight = options.highlight !== false;
 
       ensureDetailedExperienceForTarget(targetId);
       ensureWorkspaceFocusForTarget(targetId);
@@ -2740,7 +2745,9 @@
       const target = document.getElementById(targetId);
       if (!target) return;
 
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.scrollIntoView({ behavior, block: "start" });
+
+      if (!shouldHighlight) return;
 
       if (highlightedJumpTarget && highlightedJumpTarget !== target) {
         highlightedJumpTarget.classList.remove("is-highlighted");
@@ -2774,7 +2781,7 @@
       renderDashboard();
     }
 
-    function openZoneDetail(siteId, zoneId) {
+    function openZoneDetail(siteId, zoneId, scrollOptions = {}) {
       activePrimaryPage = "overview";
       sidebarActionOverride = null;
       activeSiteId = siteId;
@@ -2785,7 +2792,7 @@
       closeContextMenus();
       renderDashboard();
       syncTopLevelRoute("/");
-      scrollToSection("heroStatusPanel");
+      scrollToSection("heroStatusPanel", scrollOptions);
     }
 
     function openSiteView(siteId, detailView = activeSiteDetailView || "averages") {
@@ -2844,14 +2851,14 @@
       switch (action) {
         case "overview":
           activePrimaryPage = "overview";
-          setExperienceMode("simple");
+          setExperienceMode("simple", { render: false });
           if (site && zone) {
-            openZoneDetail(site.id, zone.id);
+            openZoneDetail(site.id, zone.id, { behavior: "auto", highlight: false });
           } else {
             sidebarActionOverride = null;
             updateSidebarActionState();
             syncTopLevelRoute("/");
-            scrollToSection("heroStatusPanel");
+            scrollToSection("heroStatusPanel", { behavior: "auto", highlight: false });
           }
           return;
         case "sites":
@@ -2860,7 +2867,7 @@
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/areas");
-          scrollToSection("locationsManagementSection");
+          scrollToSection("locationsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "zones":
           activePrimaryPage = "blocks";
@@ -2868,7 +2875,7 @@
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/sections");
-          scrollToSection("blocksManagementSection");
+          scrollToSection("blocksManagementSection", { behavior: "auto", highlight: false });
           return;
         case "nodes":
           activePrimaryPage = "nodes";
@@ -2876,7 +2883,7 @@
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/nodes");
-          scrollToSection("nodesManagementSection");
+          scrollToSection("nodesManagementSection", { behavior: "auto", highlight: false });
           return;
         case "history":
           activePrimaryPage = "history";
@@ -2886,7 +2893,7 @@
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/history");
-          scrollToSection("historySection");
+          scrollToSection("historySection", { behavior: "auto", highlight: false });
           return;
         case "settings":
           activePrimaryPage = "settings";
@@ -2894,7 +2901,7 @@
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/settings");
-          scrollToSection("settingsManagementSection");
+          scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "alerts":
           activePrimaryPage = "alerts";
@@ -2902,7 +2909,7 @@
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/alerts");
-          scrollToSection("alertsManagementSection");
+          scrollToSection("alertsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "analytics":
           runDashboardAction("history");
