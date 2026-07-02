@@ -8825,7 +8825,7 @@
       return text
         .replace(/(\d+)\s+h\b/g, "$1 val.")
         .replace(/(\d+)\s+min\s+ago\b/gi, "prieš $1 min.")
-        .replace(/(\d+)\s+min\b/g, "$1 min.");
+        .replace(/(\d+)\s+min\b(?!\.)/g, "$1 min.");
     }
 
     function getDiagnosticActionTitle(result, definition, label) {
@@ -9009,6 +9009,9 @@
           )
         : diagnosticText("No active limiting factor detected", "Aktyvių ribojančių veiksnių neaptikta");
       const scoreImpactLabel = getDiagnosticImpactLabel(scoreImpact);
+      const benefitImpactLabel = interfaceLanguage === "lt"
+        ? ({ None: "nėra", Low: "maža", Medium: "vidutinė", High: "didelė" }[scoreImpact] || scoreImpactLabel.toLowerCase())
+        : scoreImpactLabel;
 
       elements.detailedDiagnosticsSection.dataset.state = displayedOverallState.state;
       elements.detailedDiagnosticsSection.innerHTML = `
@@ -9163,7 +9166,7 @@
         <section class="diagnostic-card diagnostic-verification">
           <div class="diagnostic-section-head">
             <div><span class="diagnostic-eyebrow">${diagnosticText("Act and verify", "Veikti ir patikrinti")}</span><h3>${escapeHtml(getDiagnosticActionTitle(primaryResult, primaryDefinition, primaryLabel))}</h3></div>
-            <span class="diagnostic-impact" data-impact="${escapeAttribute(scoreImpact.toLowerCase())}">${escapeHtml(diagnosticText(`${scoreImpactLabel} expected benefit`, `Tikėtina nauda: ${scoreImpactLabel.toLowerCase()}`))}</span>
+            <span class="diagnostic-impact" data-impact="${escapeAttribute(scoreImpact.toLowerCase())}">${escapeHtml(diagnosticText(`${scoreImpactLabel} expected benefit`, `Tikėtina nauda: ${benefitImpactLabel}`))}</span>
           </div>
           <div class="diagnostic-verification-grid">
             <div>
