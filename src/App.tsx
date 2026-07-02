@@ -10,6 +10,8 @@ declare global {
   }
 }
 
+declare const __BUILD_VERSION__: string
+
 const supportedRoutes = new Set(['/', '/areas', '/sections', '/nodes', '/alerts', '/history', '/settings', '/crop-profiles'])
 
 function ApprovedDashboard() {
@@ -62,7 +64,7 @@ function ApprovedDashboard() {
     const loadRuntime = () => {
       if (document.querySelector('script[data-neurocrop-runtime]')) return
       const runtime = document.createElement('script')
-      runtime.src = '/approved-dashboard-runtime.js'
+      runtime.src = `/approved-dashboard-runtime.js?v=${__BUILD_VERSION__}`
       runtime.dataset.neurocropRuntime = 'true'
       runtime.onload = () => {
         runtimeReady.current = true
