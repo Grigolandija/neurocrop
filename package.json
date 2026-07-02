@@ -10,8 +10,7 @@
     "prebuild": "pnpm prepare-vendor",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "update-site": "bash ./scripts/update-site.sh"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.0",
