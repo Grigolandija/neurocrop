@@ -9584,6 +9584,18 @@
       opacity: 0.45;
     }
 
+    .node-list-filters {
+      width: min(100%, 1040px);
+      max-width: 1040px;
+      flex: 0 1 1040px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .node-list-filters label,
+    .node-list-filters select {
+      min-width: 0;
+    }
+
     .standalone-advanced-tools {
       width: 100%;
       order: 7;

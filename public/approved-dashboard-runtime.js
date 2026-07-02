@@ -527,6 +527,13 @@
       "Current locations": "Esamos erdvės",
       "Current sections": "Esamos sekcijos",
       "Current nodes": "Esami mazgai",
+      "Filter by Area": "Filtruoti pagal erdvę",
+      "Filter by Section": "Filtruoti pagal sekciją",
+      "All Areas": "Visos erdvės",
+      "All Sections": "Visos sekcijos",
+      "No low-battery nodes in this view": "Šiame vaizde nėra mazgų su silpna baterija",
+      "No nodes match these filters.": "Nė vienas mazgas neatitinka pasirinktų filtrų.",
+      "Choose another Area or Section to see its nodes.": "Pasirinkite kitą erdvę arba sekciją, kad pamatytumėte jos mazgus.",
       "Current areas": "Esamos erdvės",
       "Active alerts": "Aktyvūs perspėjimai",
       "Low battery": "Silpna baterija",
@@ -1345,6 +1352,8 @@
     let currentTrendHistoryPoints = [];
     let trendHistoryChartInstance = null;
     let activeBlockFilterSiteId = "all";
+    let activeNodeFilterSiteId = "all";
+    let activeNodeFilterZoneId = "all";
     let activeSettingsProfileKey = activeProfileKey;
     let managementNotice = { page: "", tone: "optimal", text: "" };
     const dashboardRouteMap = {
@@ -5740,10 +5749,29 @@
           (zone.batteryNodes || []).map((node) => ({ node, site, zone }))
         ))
         .sort((left, right) => left.node.id.localeCompare(right.node.id));
+      const filterLocations = dashboardData.sites.filter((site) => (site.zones || []).length > 0);
+      if (activeNodeFilterSiteId !== "all" && !filterLocations.some((site) => site.id === activeNodeFilterSiteId)) {
+        activeNodeFilterSiteId = "all";
+        activeNodeFilterZoneId = "all";
+      }
+      const filterZones = filterLocations
+        .filter((site) => activeNodeFilterSiteId === "all" || site.id === activeNodeFilterSiteId)
+        .flatMap((site) => (site.zones || []).map((zone) => ({ site, zone })));
+      if (activeNodeFilterZoneId !== "all" && !filterZones.some(({ zone }) => zone.id === activeNodeFilterZoneId)) {
+        activeNodeFilterZoneId = "all";
+      }
+      const filteredNodes = nodes.filter(({ site, zone }) =>
+        (activeNodeFilterSiteId === "all" || site.id === activeNodeFilterSiteId)
+        && (activeNodeFilterZoneId === "all" || zone.id === activeNodeFilterZoneId)
+      );
       const lowBatteryNodes = getSystemLowBatteryNodes();
       const activeNodes = nodes.filter(({ node }) => node.active !== false).length;
-      const nodeRows = nodes.length > 0
-        ? nodes.map(({ node, site, zone }) => {
+      const filteredLowBatteryCount = filteredNodes.filter(({ node, zone }) => {
+        const definition = cropProfiles[zone.profile]?.metrics?.batteryLevel;
+        return definition && getBatteryNodeState(node.level, definition) !== "optimal";
+      }).length;
+      const nodeRows = filteredNodes.length > 0
+        ? filteredNodes.map(({ node, site, zone }) => {
             const definition = cropProfiles[zone.profile]?.metrics?.batteryLevel;
             const state = definition ? getBatteryNodeState(node.level, definition) : "neutral";
             const stateLabel = state === "neutral" ? "Unknown" : stateConfig[state].label;
@@ -5780,8 +5808,8 @@
           }).join("")
         : `
             <div class="panel rounded-[30px] p-6">
-              <h3 class="font-display text-2xl font-bold text-ink">No nodes registered yet.</h3>
-              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">Choose a section above, enter the sensor identifier, and register the first sensor node.</p>
+              <h3 class="font-display text-2xl font-bold text-ink">${nodes.length > 0 ? "No nodes match these filters." : "No nodes registered yet."}</h3>
+              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">${nodes.length > 0 ? "Choose another Area or Section to see its nodes." : "Choose a section above, enter the sensor identifier, and register the first sensor node."}</p>
             </div>
           `;
 
@@ -5845,14 +5873,30 @@
           </div>
 
           <div class="surface rounded-[34px] p-6 md:p-7">
-            <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current nodes</p>
-                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${nodes.length} registered node${nodes.length === 1 ? "" : "s"}</h3>
+                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${filteredNodes.length}${filteredNodes.length !== nodes.length ? ` of ${nodes.length}` : ""} node${filteredNodes.length === 1 ? "" : "s"}</h3>
+                <div class="mt-1 text-sm leading-6 text-ink/58">${filteredLowBatteryCount > 0 ? `${filteredLowBatteryCount} need battery attention in this view` : "No low-battery nodes in this view"}</div>
               </div>
-              <div class="text-sm leading-6 text-ink/58">${lowBatteryNodes.length > 0 ? `${lowBatteryNodes.length} need battery attention` : "All nodes are above their battery watch threshold"}</div>
+              <div class="node-list-filters grid gap-2 sm:grid-cols-2">
+                <label class="block">
+                  <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Filter by Area</span>
+                  <select name="nodeFilterSiteId" class="mt-1 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                    <option value="all" ${activeNodeFilterSiteId === "all" ? "selected" : ""}>All Areas</option>
+                    ${filterLocations.map((site) => `<option value="${escapeAttribute(site.id)}" ${activeNodeFilterSiteId === site.id ? "selected" : ""}>${escapeHtml(site.name)}</option>`).join("")}
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Filter by Section</span>
+                  <select name="nodeFilterZoneId" class="mt-1 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                    <option value="all" ${activeNodeFilterZoneId === "all" ? "selected" : ""}>All Sections</option>
+                    ${filterZones.map(({ site, zone }) => `<option value="${escapeAttribute(zone.id)}" ${activeNodeFilterZoneId === zone.id ? "selected" : ""}>${escapeHtml(activeNodeFilterSiteId === "all" ? `${site.name} — ${zone.name}` : zone.name)}</option>`).join("")}
+                  </select>
+                </label>
+              </div>
             </div>
-            ${nodes.length > 0 ? `<article class="management-list-shell mt-5">${nodeRows}</article>` : `<div class="mt-5">${nodeRows}</div>`}
+            ${filteredNodes.length > 0 ? `<article class="management-list-shell mt-5">${nodeRows}</article>` : `<div class="mt-5">${nodeRows}</div>`}
           </div>
         </div>
       `;
@@ -10727,6 +10771,19 @@
     });
 
     elements.nodesManagementSection.addEventListener("change", (event) => {
+      if (event.target instanceof HTMLSelectElement && event.target.name === "nodeFilterSiteId") {
+        activeNodeFilterSiteId = event.target.value || "all";
+        activeNodeFilterZoneId = "all";
+        renderDashboard();
+        return;
+      }
+
+      if (event.target instanceof HTMLSelectElement && event.target.name === "nodeFilterZoneId") {
+        activeNodeFilterZoneId = event.target.value || "all";
+        renderDashboard();
+        return;
+      }
+
       syncNodeFormField(event.target);
       if (event.target instanceof HTMLSelectElement && event.target.name === "nodeSiteId") {
         clearManagementNotice("nodes");
