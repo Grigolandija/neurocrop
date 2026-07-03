@@ -1806,6 +1806,7 @@
 
       select.disabled = checkbox.checked;
       select.closest("label")?.classList.toggle("opacity-45", checkbox.checked);
+      syncEnhancedSelect(select);
     }
 
     function openLocationManagementModal(siteId) {
@@ -1871,6 +1872,7 @@
         </section>
       `;
       elements.managementModalOverlay.hidden = false;
+      enhanceDashboardSelects(elements.managementModalOverlay);
       syncLocationUnassignedChoice();
     }
 
@@ -1914,6 +1916,7 @@
         </section>
       `;
       elements.managementModalOverlay.hidden = false;
+      enhanceDashboardSelects(elements.managementModalOverlay);
     }
 
     function saveLocationFromModal() {
@@ -2068,6 +2071,7 @@
         </section>
       `;
       elements.managementModalOverlay.hidden = false;
+      enhanceDashboardSelects(elements.managementModalOverlay);
     }
 
     function saveNodeFromModal() {
@@ -5217,6 +5221,168 @@
       return dashboardData.sites.flatMap((site) =>
         site.zones.map((zone) => evaluateZoneSnapshot(site, zone))
       );
+    }
+
+    let enhancedSelectId = 0;
+
+    function getEnhancedSelectOptionScore(select, value, snapshots) {
+      if (!value || value === "all") return null;
+
+      const areaSelectNames = new Set([
+        "blockSiteId",
+        "nodeSiteId",
+        "nodeFilterSiteId",
+        "modalLocationMoveTarget",
+        "modalBlockSiteId"
+      ]);
+      const sectionSelectNames = new Set([
+        "nodeZoneId",
+        "nodeFilterZoneId"
+      ]);
+      const isAreaSelect = areaSelectNames.has(select.name) || select.hasAttribute("data-block-filter-select");
+
+      if (isAreaSelect) {
+        const site = dashboardData.sites.find((item) => item.id === value);
+        if (!site) return null;
+        const siteSnapshots = snapshots.filter((snapshot) => snapshot.site.id === site.id);
+        return getContextScoreSummary(
+          siteSnapshots.length > 0 ? deriveSiteOverallState(siteSnapshots) : null
+        );
+      }
+
+      let zoneId = value;
+      let siteId = "";
+      if (select.name === "modalNodeAssignment") {
+        [siteId, zoneId] = value.split("|");
+      } else if (!sectionSelectNames.has(select.name)) {
+        return null;
+      }
+
+      const snapshot = snapshots.find((item) =>
+        item.zone.id === zoneId && (!siteId || item.site.id === siteId)
+      );
+      return getContextScoreSummary(snapshot?.overall || null);
+    }
+
+    function renderEnhancedSelectScore(score) {
+      if (!score) return "";
+      return `
+        <span class="context-menu-score" data-state="${escapeAttribute(score.state)}">
+          <span class="context-score-dot" aria-hidden="true"></span>
+          <strong>${escapeHtml(score.score)}</strong>
+        </span>
+      `;
+    }
+
+    function closeEnhancedSelectMenus(except = null) {
+      document.querySelectorAll(".nc-select[data-open='true']").forEach((wrapper) => {
+        if (wrapper === except) return;
+        wrapper.dataset.open = "false";
+        const trigger = wrapper.querySelector("[data-nc-select-trigger]");
+        const menu = wrapper.querySelector("[data-nc-select-menu]");
+        if (trigger) trigger.setAttribute("aria-expanded", "false");
+        if (menu) menu.hidden = true;
+      });
+    }
+
+    function syncEnhancedSelect(select, snapshots = null) {
+      const wrapper = select?.closest(".nc-select");
+      if (!wrapper) return;
+
+      const selectedOption = select.options[select.selectedIndex];
+      const selectedValue = selectedOption?.value || "";
+      const contextSnapshots = snapshots || getContextMenuSnapshots();
+      const selectedScore = getEnhancedSelectOptionScore(select, selectedValue, contextSnapshots);
+      const triggerLabel = wrapper.querySelector("[data-nc-select-label]");
+      const triggerScore = wrapper.querySelector("[data-nc-select-trigger-score]");
+
+      if (triggerLabel) triggerLabel.textContent = selectedOption?.textContent?.trim() || "";
+      if (triggerScore) triggerScore.innerHTML = renderEnhancedSelectScore(selectedScore);
+
+      wrapper.querySelectorAll("[data-nc-select-option]").forEach((optionButton) => {
+        const isActive = optionButton.dataset.value === selectedValue;
+        optionButton.dataset.active = String(isActive);
+        optionButton.setAttribute("aria-selected", String(isActive));
+      });
+
+      const trigger = wrapper.querySelector("[data-nc-select-trigger]");
+      if (trigger) trigger.disabled = select.disabled;
+      wrapper.dataset.disabled = String(select.disabled);
+    }
+
+    function enhanceDashboardSelects(root = document) {
+      const snapshots = getContextMenuSnapshots();
+      root.querySelectorAll("select:not([data-nc-select-enhanced])").forEach((select) => {
+        if (!(select instanceof HTMLSelectElement)) return;
+
+        enhancedSelectId += 1;
+        const selectId = `nc-select-${enhancedSelectId}`;
+        const wrapper = document.createElement("span");
+        wrapper.className = "nc-select";
+        wrapper.dataset.open = "false";
+        if (select.classList.contains("mt-1") || select.classList.contains("mt-1.5")) {
+          wrapper.classList.add("nc-select-spaced");
+        }
+
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(select);
+        select.dataset.ncSelectEnhanced = selectId;
+        select.classList.add("nc-select-native");
+
+        const selectedOption = select.options[select.selectedIndex];
+        const selectedScore = getEnhancedSelectOptionScore(select, selectedOption?.value || "", snapshots);
+        const menuOptions = Array.from(select.options).map((option) => {
+          const score = getEnhancedSelectOptionScore(select, option.value, snapshots);
+          const groupLabel = option.parentElement instanceof HTMLOptGroupElement
+            ? option.parentElement.label
+            : "";
+          const optionLabel = option.textContent?.trim() || "";
+          return `
+            <button
+              type="button"
+              class="context-menu-option"
+              role="option"
+              data-nc-select-option
+              data-select-id="${escapeAttribute(selectId)}"
+              data-value="${escapeAttribute(option.value)}"
+              data-active="${String(option.selected)}"
+              aria-selected="${String(option.selected)}"
+              ${option.disabled ? "disabled" : ""}
+            >
+              <span class="context-menu-option-copy">
+                <span class="context-menu-label">${escapeHtml(optionLabel)}</span>
+                ${groupLabel ? `<span class="context-menu-meta">${escapeHtml(groupLabel)}</span>` : ""}
+              </span>
+              ${renderEnhancedSelectScore(score)}
+            </button>
+          `;
+        }).join("");
+
+        wrapper.insertAdjacentHTML("beforeend", `
+          <button
+            type="button"
+            class="nc-select-trigger"
+            data-nc-select-trigger
+            data-select-id="${escapeAttribute(selectId)}"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            ${select.disabled ? "disabled" : ""}
+          >
+            <span class="nc-select-trigger-label" data-nc-select-label>${escapeHtml(selectedOption?.textContent?.trim() || "")}</span>
+            <span class="nc-select-trigger-end">
+              <span data-nc-select-trigger-score>${renderEnhancedSelectScore(selectedScore)}</span>
+              <i class="fa-solid fa-chevron-down nc-select-chevron" aria-hidden="true"></i>
+            </span>
+          </button>
+          <span class="context-menu nc-select-menu" data-nc-select-menu role="listbox" hidden>
+            ${menuOptions}
+          </span>
+        `);
+      });
+
+      root.querySelectorAll("select[data-nc-select-enhanced]").forEach((select) => {
+        if (select instanceof HTMLSelectElement) syncEnhancedSelect(select, snapshots);
+      });
     }
 
     function renderSiteOptions(snapshots = null) {
@@ -10534,6 +10700,7 @@
         renderCommandPalette(false);
       }
       applyInterfaceLanguage();
+      enhanceDashboardSelects(document);
     }
 
     elements.siteTrigger.addEventListener("click", (event) => {
@@ -11174,6 +11341,38 @@
     });
 
     document.addEventListener("click", (event) => {
+      const enhancedSelectOption = event.target.closest?.("[data-nc-select-option]");
+      if (enhancedSelectOption) {
+        const select = document.querySelector(
+          `select[data-nc-select-enhanced="${CSS.escape(enhancedSelectOption.dataset.selectId || "")}"]`
+        );
+        if (select instanceof HTMLSelectElement && !enhancedSelectOption.disabled) {
+          select.value = enhancedSelectOption.dataset.value || "";
+          syncEnhancedSelect(select);
+          closeEnhancedSelectMenus();
+          select.dispatchEvent(new Event("input", { bubbles: true }));
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        return;
+      }
+
+      const enhancedSelectTrigger = event.target.closest?.("[data-nc-select-trigger]");
+      if (enhancedSelectTrigger) {
+        const wrapper = enhancedSelectTrigger.closest(".nc-select");
+        if (!wrapper || enhancedSelectTrigger.disabled) return;
+        const shouldOpen = wrapper.dataset.open !== "true";
+        closeEnhancedSelectMenus(wrapper);
+        wrapper.dataset.open = String(shouldOpen);
+        enhancedSelectTrigger.setAttribute("aria-expanded", String(shouldOpen));
+        const menu = wrapper.querySelector("[data-nc-select-menu]");
+        if (menu) menu.hidden = !shouldOpen;
+        return;
+      }
+
+      if (!event.target.closest?.(".nc-select")) {
+        closeEnhancedSelectMenus();
+      }
+
       if (
         isHeaderBatteryDropdownOpen &&
         !event.target.closest("#headerBatteryDropdown") &&
