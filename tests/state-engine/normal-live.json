@@ -1,0 +1,19 @@
+{
+  "name": "normal-live",
+  "now": "2026-07-03T10:00:00.000Z",
+  "node": {
+    "id": "NS-000001",
+    "lastReceivedAt": "2026-07-03T09:55:00.000Z",
+    "expectedUplinkIntervalSec": 600,
+    "observations": {
+      "temperature": {
+        "lastObservedAt": "2026-07-03T09:50:00.000Z",
+        "expectedIntervalSec": 600
+      }
+    }
+  },
+  "expected": {
+    "transportStatus": "live",
+    "observationStatus": "live"
+  }
+}

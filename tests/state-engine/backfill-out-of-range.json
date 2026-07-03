@@ -1,0 +1,25 @@
+{
+  "name": "backfill-out-of-range",
+  "now": "2026-07-03T10:00:00.000Z",
+  "readings": [
+    {
+      "metricId": "humidity",
+      "value": 48,
+      "observedAt": "2026-07-03T09:20:00.000Z",
+      "receivedAt": "2026-07-03T10:00:00.000Z",
+      "expectedIntervalSec": 600
+    }
+  ],
+  "profile": {
+    "humidity": {
+      "optimal": [60, 70],
+      "warning": [55, 75],
+      "critical": [45, 85]
+    }
+  },
+  "expected": {
+    "status": "unknown",
+    "lateEventCount": 1,
+    "activeReasonCount": 0
+  }
+}

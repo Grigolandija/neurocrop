@@ -553,6 +553,22 @@
       "Setup needed": "Reikia paruošti",
       "Open": "Atidaryti",
       "Live": "Tiesiogiai",
+      "Delayed": "Vėluoja",
+      "Stale": "Pasenę",
+      "Offline": "Neprisijungęs",
+      "Reporting now": "Dabar siunčia",
+      "metrics live now": "rodikliai dabar aktyvūs",
+      "Restore sensor data": "Atkurkite sensorių duomenis",
+      "Current reading unavailable": "Dabartinis rodmuo nepasiekiamas",
+      "Connection lost": "Ryšys nutrūko",
+      "On schedule": "Pagal grafiką",
+      "Last known": "Paskutinė žinoma",
+      "Reading failed": "Matavimas nepavyko",
+      "Disconnected": "Atsijungęs",
+      "Node offline": "Mazgas nepasiekiamas",
+      "New measurement": "Naujas matavimas",
+      "Showing the last known value": "Rodoma paskutinė žinoma reikšmė",
+      "Expected sensor was not detected": "Numatytas sensorius neaptiktas",
       "Unassigned": "Nepriskirta",
       "All areas": "Visos erdvės",
       "Filtered area": "Filtruota erdvė",
@@ -1006,6 +1022,8 @@
       headerBatteryDropdown: document.getElementById("headerBatteryDropdown"),
       headerBatteryDropdownCount: document.getElementById("headerBatteryDropdownCount"),
       headerBatteryDropdownContent: document.getElementById("headerBatteryDropdownContent"),
+      headerConnectionStatus: document.getElementById("headerConnectionStatus"),
+      headerConnectionLabel: document.getElementById("headerConnectionLabel"),
       headerAccountEmail: document.getElementById("headerAccountEmail"),
       headerAccountButton: document.getElementById("headerAccountButton"),
       headerAccountMenu: document.getElementById("headerAccountMenu"),
@@ -1349,6 +1367,7 @@
     let activeTrendMetricKey = "";
     let activeTrendMetricKeys = [];
     let activeTrendRangeKey = "24h";
+    let expandedLiveMetricKey = "";
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
     let trendHistoryChartInstance = null;
@@ -2166,6 +2185,367 @@
         return `Below the ${threshold}% watch threshold. Add this node to the next replacement round.`;
       }
       return `Above the ${threshold}% watch threshold. This node still has comfortable runway.`;
+    }
+
+    const nodeFreshnessStateCache = new Map();
+    const scopeFarmStateCache = new Map();
+    let latestRenderedFarmState = null;
+
+    function getDemoFreshnessOffsetSec(node) {
+      if (node?.active === false) return 7200;
+      const nodeNumber = Number(String(node?.id || "").match(/(\d+)$/)?.[1] || 0);
+      if (nodeNumber === 16) return 7200;
+      if (nodeNumber === 12 || nodeNumber === 22) return 2400;
+      if (nodeNumber === 3 || nodeNumber === 6) return 1200;
+      return 240;
+    }
+
+    function getNodeFreshnessInput(node, zone, now = Date.now()) {
+      const expectedUplinkIntervalSec = Math.max(30, Number(node?.expectedUplinkIntervalSec) || 600);
+      const fallbackReceivedAt = new Date(now - getDemoFreshnessOffsetSec(node) * 1000).toISOString();
+      const lastReceivedAt = node?.lastReceivedAt || fallbackReceivedAt;
+      const observations = node?.observations && typeof node.observations === "object"
+        ? node.observations
+        : Object.fromEntries((zone?.availableMetrics || []).map((metricId) => [
+            metricId,
+            {
+              lastObservedAt: lastReceivedAt,
+              expectedIntervalSec: metricId === "batteryLevel" ? 21600 : 600
+            }
+          ]));
+
+      return {
+        ...node,
+        lastReceivedAt,
+        expectedUplinkIntervalSec,
+        observations
+      };
+    }
+
+    function getNodeFreshness(node, zone, now = Date.now()) {
+      const engine = window.NeuroCropStateEngine;
+      if (!engine?.computeNodeFreshness) {
+        return {
+          nodeId: node?.id || "",
+          transportStatus: node?.active === false ? "offline" : "live",
+          status: node?.active === false ? "offline" : "live",
+          ageSec: null,
+          observations: {},
+          reasons: []
+        };
+      }
+
+      const input = getNodeFreshnessInput(node, zone, now);
+      const sourceVersion = node?.lastReceivedAt
+        ? `${node.lastReceivedAt}:${Object.values(node.observations || {}).map((observation) => observation.lastObservedAt || "").join("|")}`
+        : `demo:${getDemoFreshnessOffsetSec(node)}`;
+      const cached = nodeFreshnessStateCache.get(node.id);
+      if (cached?.sourceVersion === sourceVersion) return cached.result;
+
+      const result = engine.computeNodeFreshness(
+        input,
+        now,
+        cached?.result,
+        { graceSec: 15, recoverySamples: 2 }
+      );
+      nodeFreshnessStateCache.set(node.id, { sourceVersion, result });
+      return result;
+    }
+
+    function getFreshnessLabel(status) {
+      return {
+        live: diagnosticText("Live", "Tiesiogiai"),
+        delayed: diagnosticText("Delayed", "Vėluoja"),
+        stale: diagnosticText("Stale", "Pasenę"),
+        offline: diagnosticText("Offline", "Neprisijungęs")
+      }[status] || diagnosticText("Unknown", "Nežinoma");
+    }
+
+    function formatFreshnessAge(ageSec) {
+      if (!Number.isFinite(ageSec)) return diagnosticText("time unknown", "laikas nežinomas");
+      if (ageSec < 60) return diagnosticText(`${Math.max(1, Math.round(ageSec))} sec ago`, `prieš ${Math.max(1, Math.round(ageSec))} sek.`);
+      const minutes = Math.round(ageSec / 60);
+      if (minutes < 60) return diagnosticText(`${minutes} min ago`, `prieš ${minutes} min.`);
+      const hours = Math.round(minutes / 60);
+      return diagnosticText(`${hours} h ago`, `prieš ${hours} val.`);
+    }
+
+    function getZoneMetricFreshness(zone, metricKey, now = Date.now()) {
+      const nodeStates = (zone?.batteryNodes || []).map((node) => getNodeFreshness(node, zone, now));
+      const observations = nodeStates
+        .map((state) => state.observations?.[metricKey])
+        .filter(Boolean);
+      if (observations.some((observation) => observation.status === "live")) return "live";
+      if (observations.some((observation) => observation.status === "delayed")) return "delayed";
+      if (observations.some((observation) => observation.status === "stale")) return "stale";
+      return nodeStates.some((state) => state.transportStatus !== "offline") ? "stale" : "offline";
+    }
+
+    function getDemoObservationState(zone, metricKey) {
+      if (zone?.id === "tomato-a-back" && metricKey === "co2") {
+        return { state: "not_due", ageMinutes: 18, nextDueMinutes: 12 };
+      }
+      if (zone?.id === "tomato-a-front" && metricKey === "soilTemp") {
+        return { state: "failed", ageMinutes: 22 };
+      }
+      if (zone?.id === "strawberry-west" && metricKey === "soilTemp") {
+        return { state: "missing", ageMinutes: null };
+      }
+      return null;
+    }
+
+    function getObservationPresentation(zone, metricKey, result, freshnessStatus = "live") {
+      if (result?.available === false) {
+        return {
+          state: "not-installed",
+          label: diagnosticText("Not installed", "Neįdiegta"),
+          detail: diagnosticText("No sensor is configured", "Sensorius nesukonfigūruotas"),
+          hasCurrentValue: false
+        };
+      }
+
+      const source = zone?.observationStates?.[metricKey] || getDemoObservationState(zone, metricKey);
+      const state = source?.state
+        || (freshnessStatus === "offline"
+          ? "offline"
+          : freshnessStatus === "stale"
+            ? "cached"
+            : freshnessStatus === "delayed"
+              ? "delayed"
+              : "fresh");
+      const ageMinutes = Number.isFinite(source?.ageMinutes) ? source.ageMinutes : null;
+      const nextDueMinutes = Number.isFinite(source?.nextDueMinutes) ? source.nextDueMinutes : null;
+
+      const presentations = {
+        fresh: {
+          label: diagnosticText("Live", "Tiesiogiai"),
+          detail: diagnosticText("New measurement", "Naujas matavimas"),
+          hasCurrentValue: true
+        },
+        not_due: {
+          label: diagnosticText("On schedule", "Pagal grafiką"),
+          detail: ageMinutes !== null && nextDueMinutes !== null
+            ? diagnosticText(
+                `Measured ${ageMinutes} min ago · next in ${nextDueMinutes} min`,
+                `Matuota prieš ${ageMinutes} min. · kitas po ${nextDueMinutes} min.`
+              )
+            : diagnosticText("Waiting for the scheduled measurement", "Laukiama suplanuoto matavimo"),
+          hasCurrentValue: true
+        },
+        cached: {
+          label: diagnosticText("Last known", "Paskutinė žinoma"),
+          detail: ageMinutes !== null
+            ? diagnosticText(`Last measured ${ageMinutes} min ago`, `Paskutinį kartą matuota prieš ${ageMinutes} min.`)
+            : diagnosticText("Waiting for a fresh measurement", "Laukiama naujo matavimo"),
+          hasCurrentValue: true
+        },
+        failed: {
+          label: diagnosticText("Reading failed", "Matavimas nepavyko"),
+          detail: diagnosticText("Showing the last known value", "Rodoma paskutinė žinoma reikšmė"),
+          hasCurrentValue: true
+        },
+        missing: {
+          label: diagnosticText("Disconnected", "Atsijungęs"),
+          detail: diagnosticText("Expected sensor was not detected", "Numatytas sensorius neaptiktas"),
+          hasCurrentValue: false
+        },
+        delayed: {
+          label: diagnosticText("Delayed", "Vėluoja"),
+          detail: diagnosticText("A new measurement is later than expected", "Naujas matavimas vėluoja"),
+          hasCurrentValue: true
+        },
+        offline: {
+          label: diagnosticText("Node offline", "Mazgas nepasiekiamas"),
+          detail: diagnosticText("Current reading unavailable", "Dabartinis rodmuo nepasiekiamas"),
+          hasCurrentValue: false
+        }
+      };
+
+      return { state, ...(presentations[state] || presentations.cached) };
+    }
+
+    function getMetricSensorSource(metricKey) {
+      const sources = {
+        airTemp: "SHT45 · air",
+        humidity: "SHT45 · air",
+        vpd: "Derived · SHT45",
+        co2: "I²C · SCD41",
+        lux: "I²C · light",
+        soilTemp: "DS18B20 · substrate",
+        waterTemp: "DS18B20 · water",
+        soilMoisture: "I²C · substrate",
+        airPressure: "I²C · air",
+        batteryLevel: "Node battery"
+      };
+      return sources[metricKey] || "External sensor";
+    }
+
+    function getMetricInstalledNodeCount(metricKey, nodeCount) {
+      if (["airTemp", "humidity", "vpd", "batteryLevel"].includes(metricKey)) return nodeCount;
+      if (metricKey === "co2") return Math.max(1, Math.ceil(nodeCount * 0.6));
+      if (metricKey === "soilTemp") return Math.max(1, nodeCount - 1);
+      if (metricKey === "lux" || metricKey === "soilMoisture") return Math.max(1, Math.ceil(nodeCount * 0.4));
+      return Math.min(nodeCount, 1);
+    }
+
+    function getNodePositionLabel(index, count) {
+      const labels = count >= 5
+        ? ["Front left", "Front right", "Centre", "Rear left", "Rear right"]
+        : count === 4
+          ? ["Front left", "Front right", "Rear left", "Rear right"]
+          : count === 3
+            ? ["Front", "Centre", "Rear"]
+            : count === 2
+              ? ["Front", "Rear"]
+              : ["Section centre"];
+      return labels[index] || `Point ${index + 1}`;
+    }
+
+    function median(values) {
+      if (!values.length) return null;
+      const sorted = [...values].sort((left, right) => left - right);
+      const middle = Math.floor(sorted.length / 2);
+      return sorted.length % 2
+        ? sorted[middle]
+        : (sorted[middle - 1] + sorted[middle]) / 2;
+    }
+
+    function getNodeMetricSummary(zone, metricKey, definition, result) {
+      const nodes = zone?.batteryNodes || [];
+      const installedCount = Math.min(
+        nodes.length,
+        getMetricInstalledNodeCount(metricKey, nodes.length)
+      );
+      const installedNodes = nodes.slice(0, installedCount);
+      const optimalSpan = Math.abs((definition.optimal?.[1] || 1) - (definition.optimal?.[0] || 0));
+      const baseStep = Math.max(
+        optimalSpan * 0.055,
+        definition.decimals === 0 ? 1 : 1 / (10 ** definition.decimals)
+      );
+      const centre = (installedNodes.length - 1) / 2;
+      const readings = installedNodes.map((node, index) => {
+        const freshness = getNodeFreshness(node, zone);
+        const freshnessStatus = freshness.observations?.[metricKey]?.status || freshness.transportStatus;
+        const observation = getObservationPresentation(zone, metricKey, result, freshnessStatus);
+        let value = Number(result.value) + (index - centre) * baseStep;
+
+        // Demonstrates why a normal Section median must not hide a local hot spot.
+        if (zone.id === "tomato-a-back" && metricKey === "airTemp" && index === installedNodes.length - 1) {
+          value = 29.2;
+        }
+
+        value = roundValue(value, definition.decimals);
+        const metricResult = evaluateMetric(definition, value);
+        return {
+          node,
+          position: getNodePositionLabel(index, installedNodes.length),
+          source: getMetricSensorSource(metricKey),
+          value,
+          metricResult,
+          observation
+        };
+      });
+      const reportingReadings = readings.filter((reading) => reading.observation.hasCurrentValue);
+      const values = reportingReadings.map((reading) => reading.value);
+      const medianValue = median(values);
+      const medianResult = medianValue === null
+        ? { value: null, state: "unavailable", severity: 0 }
+        : evaluateMetric(definition, roundValue(medianValue, definition.decimals));
+      const outsideReadings = reportingReadings.filter((reading) => reading.metricResult.state !== "optimal");
+      const localOutliers = medianResult.state === "optimal" ? outsideReadings : [];
+
+      return {
+        installedCount,
+        reportingCount: reportingReadings.length,
+        readings,
+        medianValue: medianResult.value,
+        medianResult,
+        min: values.length ? Math.min(...values) : null,
+        max: values.length ? Math.max(...values) : null,
+        outsideCount: outsideReadings.length,
+        localOutliers
+      };
+    }
+
+    function getConditionStatusFromResults(results) {
+      const available = (results || []).filter((result) => result.available !== false && isGrowthMetricKey(result.key));
+      if (available.length === 0) return "unknown";
+      if (available.some((result) => result.state === "critical")) return "critical";
+      if (available.some((result) => result.state === "warning")) return "warning";
+      return "optimal";
+    }
+
+    function getZoneFarmState(site, zone, results, now = Date.now()) {
+      const engine = window.NeuroCropStateEngine;
+      const growthResults = (results || []).filter((result) => isGrowthMetricKey(result.key));
+      const availableResults = growthResults.filter((result) => result.available !== false);
+      const conditionStatus = getConditionStatusFromResults(results);
+      const nodeInputs = (zone?.batteryNodes || []).map((node) => ({
+        ...getNodeFreshnessInput(node, zone, now),
+        freshness: getNodeFreshness(node, zone, now)
+      }));
+      const fallback = {
+        scope: { type: "section", id: zone?.id || "", name: zone?.name || "" },
+        conditionStatus,
+        dataStatus: nodeInputs.length ? "live" : "offline",
+        coverage: {
+          liveMetrics: availableResults.length,
+          expectedMetrics: growthResults.length,
+          reportingNodes: nodeInputs.length,
+          registeredNodes: nodeInputs.length
+        },
+        nodeSummary: { live: nodeInputs.length, delayed: 0, stale: 0, offline: 0 },
+        lastKnownCondition: conditionStatus === "unknown" ? null : {
+          status: conditionStatus,
+          asOf: new Date(now).toISOString(),
+          reasons: []
+        },
+        reasons: []
+      };
+      if (!engine?.deriveFarmState) return fallback;
+
+      const previousState = scopeFarmStateCache.get(zone.id);
+      const state = engine.deriveFarmState({
+        scope: { type: "section", id: zone.id, name: zone.name },
+        nodes: nodeInputs,
+        condition: {
+          status: conditionStatus,
+          reasons: availableResults
+            .filter((result) => result.state !== "optimal")
+            .map((result) => ({ code: `CONDITION_${result.state.toUpperCase()}`, metricId: result.key, value: result.value }))
+        },
+        conditionAsOf: now,
+        previousState,
+        coverage: {
+          liveMetrics: availableResults.filter((result) => getZoneMetricFreshness(zone, result.key, now) === "live").length,
+          expectedMetrics: growthResults.length
+        },
+        stateTtlSec: 120
+      }, now);
+      scopeFarmStateCache.set(zone.id, state);
+      return state;
+    }
+
+    function updateClientConnectionStatus() {
+      if (!elements.headerConnectionStatus || !elements.headerConnectionLabel) return;
+      const engine = window.NeuroCropStateEngine;
+      const apiConnected = Boolean(window.NeuroCropApi?.isConnected?.());
+      const lease = engine?.getClientLeaseStatus && latestRenderedFarmState
+        ? engine.getClientLeaseStatus(latestRenderedFarmState, Date.now())
+        : { connected: true, computedAt: null };
+      const connected = navigator.onLine && (!apiConnected || lease.connected);
+      elements.headerConnectionStatus.dataset.connection = connected ? "online" : "lost";
+      elements.headerConnectionLabel.textContent = connected
+        ? "Online"
+        : diagnosticText("Connection lost", "Ryšys nutrūko");
+      elements.headerConnectionStatus.title = connected
+        ? diagnosticText("Dashboard connection is active.", "Sistemos ryšys aktyvus.")
+        : lease.computedAt
+          ? diagnosticText(
+              `Showing state computed at ${new Date(lease.computedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`,
+              `Rodoma būsena, apskaičiuota ${new Date(lease.computedAt).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit" })}.`
+            )
+          : diagnosticText("The browser is offline.", "Naršyklė neprisijungusi.");
     }
 
     function getLowBatteryNodes(zone, definition) {
@@ -5144,6 +5524,7 @@
     function resetCurrentReadingsFromActiveZone() {
       syncProfileFromZone();
       const zone = getActiveZone();
+      expandedLiveMetricKey = "";
       currentReadings = zone
         ? { ...getZoneReadings(cropProfiles[activeProfileKey], zone, activeScenarioKey) }
         : {};
@@ -5917,6 +6298,10 @@
           (zone.batteryNodes || []).map((node) => ({ node, site, zone }))
         ))
         .sort((left, right) => left.node.id.localeCompare(right.node.id));
+      const freshnessByNodeId = new Map(nodes.map(({ node, zone }) => [
+        node.id,
+        getNodeFreshness(node, zone)
+      ]));
       const filterLocations = dashboardData.sites.filter((site) => (site.zones || []).length > 0);
       if (activeNodeFilterSiteId !== "all" && !filterLocations.some((site) => site.id === activeNodeFilterSiteId)) {
         activeNodeFilterSiteId = "all";
@@ -5934,6 +6319,9 @@
       );
       const lowBatteryNodes = getSystemLowBatteryNodes();
       const activeNodes = nodes.filter(({ node }) => node.active !== false).length;
+      const reportingNodes = nodes.filter(({ node }) =>
+        freshnessByNodeId.get(node.id)?.transportStatus === "live"
+      ).length;
       const filteredLowBatteryCount = filteredNodes.filter(({ node, zone }) => {
         const definition = cropProfiles[zone.profile]?.metrics?.batteryLevel;
         return definition && getBatteryNodeState(node.level, definition) !== "optimal";
@@ -5945,22 +6333,29 @@
             const stateLabel = state === "neutral" ? "Unknown" : stateConfig[state].label;
             const nodeName = node.name && node.name !== node.id ? node.name : node.id;
             const devEuiNote = node.devEui ? `DevEUI ${node.devEui}` : "DevEUI not assigned";
+            const freshness = freshnessByNodeId.get(node.id) || { transportStatus: "offline", ageSec: null };
+            const freshnessLabel = getFreshnessLabel(freshness.transportStatus);
+            const freshnessAge = formatFreshnessAge(freshness.ageSec);
 
             return `
-              <div class="management-list-row" data-state="${state === "neutral" ? "optimal" : state}">
+              <div class="management-list-row" data-state="${state === "neutral" ? "optimal" : state}" data-freshness="${escapeAttribute(freshness.transportStatus)}">
                 <div class="management-list-main">
                   <div class="management-list-title">${escapeHtml(nodeName)}</div>
                   <div class="management-list-meta">${escapeHtml(node.id)} · ${escapeHtml(site.name)} · ${escapeHtml(zone.name)}</div>
-                  <div class="management-list-note">${escapeHtml(devEuiNote)}</div>
+                  <div class="management-list-note">${escapeHtml(devEuiNote)} · ${escapeHtml(freshnessLabel)} · ${escapeHtml(freshnessAge)}</div>
                 </div>
 
                 <div class="management-list-actions">
+                  <span class="management-chip node-freshness-chip" data-freshness="${escapeAttribute(freshness.transportStatus)}">
+                    <i class="fa-solid ${freshness.transportStatus === "live" ? "fa-signal" : freshness.transportStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
+                    ${escapeHtml(freshnessLabel)}
+                  </span>
                   <span class="management-chip" data-tone="${state === "neutral" ? "neutral" : state}">
                     ${escapeHtml(stateLabel)}
                   </span>
                   <span class="management-chip" data-tone="${state === "critical" ? "critical" : state === "warning" ? "warning" : "optimal"}">
                     <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
-                    ${escapeHtml(node.level)}%
+                    ${freshness.transportStatus === "offline" ? `Last ${escapeHtml(node.level)}%` : `${escapeHtml(node.level)}%`}
                   </span>
                   <button type="button" class="inline-action actionable" data-tone="primary" data-node-open-block-site-id="${escapeAttribute(site.id)}" data-node-open-block-zone-id="${escapeAttribute(zone.id)}">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
@@ -6001,8 +6396,8 @@
                   <div class="mt-0.5 text-xl font-extrabold text-ink">${dashboardData.sites.reduce((sum, site) => sum + (site.zones || []).length, 0)}</div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Active nodes</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${activeNodes}</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Reporting now</div>
+                  <div class="mt-0.5 text-xl font-extrabold text-ink">${reportingNodes}<span class="text-sm text-ink/42">/${activeNodes}</span></div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
                   <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Low battery</div>
@@ -8467,59 +8862,129 @@
       scrollToSection("historySection");
     }
 
-    function renderLiveReadingRow(key, definition, result, scopeSeed) {
+    function renderLiveReadingRow(key, definition, result, scopeSeed, zone, freshnessStatus = "live") {
       const category = getMetricCategory(key);
       const isAvailable = result.available !== false;
-      const visual = isAvailable ? getDiagnosticDeviationVisual(result, definition) : null;
+      const observation = getObservationPresentation(zone, key, result, freshnessStatus);
+      const summary = isAvailable
+        ? getNodeMetricSummary(zone, key, definition, result)
+        : {
+            installedCount: 0,
+            reportingCount: 0,
+            readings: [],
+            medianValue: null,
+            medianResult: { value: null, state: "unavailable", severity: 0 },
+            min: null,
+            max: null,
+            outsideCount: 0,
+            localOutliers: []
+          };
+      const typicalResult = summary.medianResult;
+      const hasCurrentValue = isAvailable && summary.reportingCount > 0;
+      const visual = hasCurrentValue ? getDiagnosticDeviationVisual(typicalResult, definition) : null;
       const trend = isAvailable ? getDiagnosticTrend(result, definition, scopeSeed) : null;
       const statusLabel = !isAvailable
         ? diagnosticText("Unavailable", "Neprieinama")
-        : result.state === "optimal"
+        : typicalResult.state === "optimal"
           ? diagnosticText("In target", "Normoje")
-          : result.state === "critical"
+          : typicalResult.state === "critical"
             ? diagnosticText("Critical", "Kritinė")
             : diagnosticText("Warning", "Dėmesio");
-      const deviation = isAvailable && result.state !== "optimal"
-        ? getDiagnosticDeviationText(result)
+      const deviation = hasCurrentValue && typicalResult.state !== "optimal"
+        ? getDiagnosticDeviationText(typicalResult)
         : diagnosticText("Inside target range", "Tiksliniame intervale");
+      const rangeText = summary.min === null || summary.max === null
+        ? diagnosticText("No current range", "Nėra dabartinio diapazono")
+        : `${formatValue(summary.min, definition)}–${formatValue(summary.max, definition)}`;
+      const reportingText = isAvailable
+        ? diagnosticText(
+            `${summary.reportingCount}/${summary.installedCount} sensors reporting · range ${rangeText}`,
+            `${summary.reportingCount}/${summary.installedCount} sensorių siunčia · diapazonas ${rangeText}`
+          )
+        : observation.detail;
+      const exceptionLabel = summary.localOutliers.length > 0
+        ? diagnosticText(
+            `${summary.localOutliers.length} local exception${summary.localOutliers.length === 1 ? "" : "s"}`,
+            `${summary.localOutliers.length} ${summary.localOutliers.length === 1 ? "lokali išimtis" : "lokalios išimtys"}`
+          )
+        : summary.outsideCount > 0
+          ? diagnosticText(
+              `${summary.outsideCount} outside target`,
+              `${summary.outsideCount} už tikslinių ribų`
+            )
+          : "";
+      const isExpanded = expandedLiveMetricKey === key;
+      const nodeRows = summary.readings.map((reading) => `
+        <div class="live-node-reading-row" data-state="${escapeAttribute(reading.metricResult.state)}" data-observation="${escapeAttribute(reading.observation.state)}">
+          <div>
+            <strong>${escapeHtml(reading.node.name || reading.node.id)}</strong>
+            <small>${escapeHtml(reading.node.id)} · ${escapeHtml(reading.position)}</small>
+          </div>
+          <span>${escapeHtml(reading.source)}</span>
+          <strong>${reading.observation.hasCurrentValue ? escapeHtml(formatValue(reading.value, definition)) : "—"}</strong>
+          <span class="reading-freshness-label" data-observation="${escapeAttribute(reading.observation.state)}" title="${escapeAttribute(reading.observation.detail)}">${escapeHtml(reading.observation.label)}</span>
+          <span class="live-node-condition" data-state="${escapeAttribute(reading.metricResult.state)}">${escapeHtml(stateConfig[reading.metricResult.state]?.label || "Unavailable")}</span>
+        </div>
+      `).join("");
 
       return `
-        <article class="live-reading-row" data-state="${escapeAttribute(isAvailable ? result.state : "unavailable")}" data-metric-card="${escapeAttribute(key)}">
-          <div class="live-reading-identity">
-            <span class="live-reading-icon"><i class="fa-solid ${escapeAttribute(category.icon)}" aria-hidden="true"></i></span>
-            <span><strong>${escapeHtml(getDiagnosticMetricLabel(definition.label))}</strong><small>${escapeHtml(definition.aggregation || "Block avg")}</small></span>
+        <section class="live-reading-group" data-expanded="${String(isExpanded)}">
+          <article class="live-reading-row" data-state="${escapeAttribute(isAvailable ? typicalResult.state : "unavailable")}" data-observation="${escapeAttribute(observation.state)}" data-metric-card="${escapeAttribute(key)}">
+            <button type="button" class="live-reading-identity live-reading-expand-control" data-live-reading-expand="${escapeAttribute(key)}" aria-expanded="${String(isExpanded)}" ${isAvailable ? "" : "disabled"}>
+              <span class="live-reading-icon"><i class="fa-solid ${escapeAttribute(category.icon)}" aria-hidden="true"></i></span>
+              <span><strong>${escapeHtml(getDiagnosticMetricLabel(definition.label))}</strong></span>
+              <i class="fa-solid fa-chevron-down live-reading-expand-icon" aria-hidden="true"></i>
+            </button>
+            <div class="live-reading-value">
+              <strong>${hasCurrentValue ? escapeHtml(formatValue(summary.medianValue, definition)) : "—"}</strong>
+              <small>${exceptionLabel ? `<b class="live-reading-exception">${escapeHtml(exceptionLabel)}</b>` : escapeHtml(deviation)}</small>
+            </div>
+            <div class="live-reading-target">
+              <span>${diagnosticText("Target", "Tikslas")}</span>
+              <strong>${escapeHtml(formatRange(definition.optimal, definition))}</strong>
+            </div>
+            <div class="live-reading-position">
+              ${visual ? `
+                <span class="live-reading-track" aria-label="${diagnosticText("Section median position against target", "Sekcijos medianos padėtis tikslinio intervalo atžvilgiu")}">
+                  <i class="live-reading-optimal" style="left:${visual.optimalStart.toFixed(2)}%;width:${Math.max(visual.optimalEnd - visual.optimalStart, 2).toFixed(2)}%"></i>
+                  <i class="live-reading-marker" style="left:${visual.marker.toFixed(2)}%"></i>
+                </span>
+              ` : `<span class="live-reading-no-data">${diagnosticText("No sensor data", "Nėra sensoriaus duomenų")}</span>`}
+            </div>
+            <div class="live-reading-trend">
+              <span>${diagnosticText("24h", "24 val.")}</span>
+              <strong>${trend ? escapeHtml(trend.direction) : "—"}</strong>
+              <small>${trend ? escapeHtml(formatSignedValue(trend.delta, definition)) : ""}</small>
+            </div>
+            <span class="live-reading-status" data-state="${escapeAttribute(isAvailable ? typicalResult.state : "unavailable")}">${escapeHtml(["offline", "missing", "not-installed"].includes(observation.state) ? observation.label : statusLabel)}</span>
+            <button type="button" class="live-reading-trend-button" data-history-metric="${escapeAttribute(key)}" ${isAvailable ? "" : "disabled"}>
+              ${diagnosticText("Trend", "Grafikas")}
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+          </article>
+          <div class="live-reading-node-detail" ${isExpanded ? "" : "hidden"}>
+            <div class="live-reading-node-detail-head">
+              <div>
+                <strong>${escapeHtml(getDiagnosticMetricLabel(definition.label))} · ${diagnosticText("by node", "pagal mazgą")}</strong>
+                <span>${escapeHtml(reportingText)}</span>
+              </div>
+              <button type="button" data-triage-action="nodes">${diagnosticText("Open Nodes", "Atidaryti mazgus")}</button>
+            </div>
+            <div class="live-node-reading-head" aria-hidden="true">
+              <span>${diagnosticText("Node and position", "Mazgas ir vieta")}</span>
+              <span>${diagnosticText("Sensor role", "Sensoriaus paskirtis")}</span>
+              <span>${diagnosticText("Value", "Reikšmė")}</span>
+              <span>${diagnosticText("Data", "Duomenys")}</span>
+              <span>${diagnosticText("Condition", "Būsena")}</span>
+            </div>
+            ${nodeRows || `<div class="live-reading-node-empty">${diagnosticText("No sensors are assigned to this metric.", "Šiam parametrui nepriskirta sensorių.")}</div>`}
           </div>
-          <div class="live-reading-value">
-            <strong>${isAvailable ? escapeHtml(formatValue(result.value, definition)) : "—"}</strong>
-            <small>${escapeHtml(deviation)}</small>
-          </div>
-          <div class="live-reading-target">
-            <span>${diagnosticText("Target", "Tikslas")}</span>
-            <strong>${escapeHtml(formatRange(definition.optimal, definition))}</strong>
-          </div>
-          <div class="live-reading-position">
-            ${visual ? `
-              <span class="live-reading-track" aria-label="${diagnosticText("Current value position against target", "Dabartinio rodmens padėtis tikslinio intervalo atžvilgiu")}">
-                <i class="live-reading-optimal" style="left:${visual.optimalStart.toFixed(2)}%;width:${Math.max(visual.optimalEnd - visual.optimalStart, 2).toFixed(2)}%"></i>
-                <i class="live-reading-marker" style="left:${visual.marker.toFixed(2)}%"></i>
-              </span>
-            ` : `<span class="live-reading-no-data">${diagnosticText("No sensor data", "Nėra sensoriaus duomenų")}</span>`}
-          </div>
-          <div class="live-reading-trend">
-            <span>${diagnosticText("24h", "24 val.")}</span>
-            <strong>${trend ? escapeHtml(trend.direction) : "—"}</strong>
-            <small>${trend ? escapeHtml(formatSignedValue(trend.delta, definition)) : ""}</small>
-          </div>
-          <span class="live-reading-status" data-state="${escapeAttribute(isAvailable ? result.state : "unavailable")}">${escapeHtml(statusLabel)}</span>
-          <button type="button" class="live-reading-trend-button" data-history-metric="${escapeAttribute(key)}" ${isAvailable ? "" : "disabled"}>
-            ${diagnosticText("Trend", "Grafikas")}
-            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-          </button>
-        </article>
+        </section>
       `;
     }
 
     function renderLiveReadingsBoard(results, profile, site, zone) {
+      const installedResults = results.filter((result) => result.available !== false);
       return `
         <div class="live-readings-table-head" aria-hidden="true">
           <span>${diagnosticText("Parameter", "Parametras")}</span>
@@ -8530,11 +8995,13 @@
           <span>${diagnosticText("Status", "Būsena")}</span>
           <span></span>
         </div>
-        ${results.map((result) => renderLiveReadingRow(
+        ${installedResults.map((result) => renderLiveReadingRow(
           result.key,
           profile.metrics[result.key],
           result,
-          `${site.id}:${zone.id}:live-readings`
+          `${site.id}:${zone.id}:live-readings`,
+          zone,
+          getZoneMetricFreshness(zone, result.key)
         )).join("")}
       `;
     }
@@ -9113,15 +9580,46 @@
         })
         .slice(0, 3);
       const metricKey = priorityResult?.key || readingItems[0]?.key || "humidity";
+      const farmState = getZoneFarmState(site, zone, results);
+      latestRenderedFarmState = farmState;
+      updateClientConnectionStatus();
+      const nodeSummary = farmState.nodeSummary || { live: 0, delayed: 0, stale: 0, offline: 0 };
+      const dataStatusLabel = getFreshnessLabel(farmState.dataStatus);
+      const hasUsableCurrentData = farmState.coverage.reportingNodes > 0
+        && farmState.coverage.liveMetrics > 0;
+      const effectivePriorityTitle = hasUsableCurrentData
+        ? priorityTitle
+        : diagnosticText("Restore sensor data", "Atkurkite sensorių duomenis");
+      const effectiveSuggestedAction = hasUsableCurrentData
+        ? suggestedAction
+        : diagnosticText(
+            "Check node power, gateway coverage, and the latest uplink.",
+            "Patikrinkite mazgų maitinimą, ryšio aprėptį ir paskutinį duomenų siuntimą."
+          );
 
       const actionQueue = [
         {
-          tone: priorityResult?.state || "optimal",
-          title: priorityResult && priorityDefinition ? priorityTitle : "Continue monitoring",
-          note: priorityResult ? priorityResult.deviationText : "All installed growth metrics are inside target.",
-          action: "trend",
-          label: "View trend"
+          tone: hasUsableCurrentData ? priorityResult?.state || "optimal" : "warning",
+          title: hasUsableCurrentData
+            ? priorityResult && priorityDefinition ? priorityTitle : "Continue monitoring"
+            : effectivePriorityTitle,
+          note: hasUsableCurrentData
+            ? priorityResult ? priorityResult.deviationText : "All installed growth metrics are inside target."
+            : farmState.lastKnownCondition
+              ? `Last known condition: ${farmState.lastKnownCondition.status}.`
+              : "Current growing conditions cannot be verified.",
+          action: hasUsableCurrentData ? "trend" : "nodes",
+          label: hasUsableCurrentData ? "View trend" : "Open nodes"
         },
+        farmState.dataStatus !== "live"
+          ? {
+              tone: "warning",
+              title: `${dataStatusLabel} sensor delivery`,
+              note: `${nodeSummary.live} of ${farmState.coverage.registeredNodes} nodes report on time. ${nodeSummary.delayed} delayed, ${nodeSummary.stale} stale, ${nodeSummary.offline} offline.`,
+              action: "nodes",
+              label: "Check nodes"
+            }
+          : null,
         systemLowBatteryNodes.length > 0
           ? {
               tone: "warning",
@@ -9157,14 +9655,17 @@
           <article class="triage-priority-card" data-state="${escapeAttribute(priorityResult?.state || "optimal")}">
             <div class="triage-title-row">
               <div class="triage-card-kicker">Today’s priority</div>
-              <span class="overview-updated-time">Updated ${escapeHtml(timestamp)}</span>
+              <span class="overview-data-status" data-freshness="${escapeAttribute(farmState.dataStatus)}">
+                <i class="fa-solid ${farmState.dataStatus === "live" ? "fa-signal" : farmState.dataStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
+                ${escapeHtml(dataStatusLabel)} · ${nodeSummary.live}/${farmState.coverage.registeredNodes} nodes
+              </span>
             </div>
             <div class="triage-location-line">
               <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
               ${escapeHtml(prioritySnapshot.site.name)} <span>›</span> ${escapeHtml(prioritySnapshot.zone.name)}
             </div>
-            <h2>${escapeHtml(priorityTitle)}</h2>
-            ${priorityResult && priorityDefinition ? `
+            <h2>${escapeHtml(effectivePriorityTitle)}</h2>
+            ${hasUsableCurrentData && priorityResult && priorityDefinition ? `
               <div class="triage-priority-facts">
                 <div><span>Current</span><strong>${escapeHtml(formatValue(priorityResult.value, priorityDefinition))}</strong></div>
                 <div><span>Target</span><strong>${escapeHtml(formatRange(priorityDefinition.optimal, priorityDefinition))}</strong></div>
@@ -9173,7 +9674,7 @@
             ` : ""}
             <div class="triage-guidance">
               <span>Suggested action</span>
-              <strong>${escapeHtml(suggestedAction)}</strong>
+              <strong>${escapeHtml(effectiveSuggestedAction)}</strong>
             </div>
             <div class="triage-button-row">
               <button type="button" class="triage-primary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(metricKey)}">
@@ -9205,11 +9706,27 @@
           <div class="triage-readings-grid">
             ${readingItems.map((result) => {
               const definition = profile.metrics[result.key];
+              const readingFreshness = getZoneMetricFreshness(zone, result.key);
+              const observation = getObservationPresentation(zone, result.key, result, readingFreshness);
+              const metricSummary = getNodeMetricSummary(zone, result.key, definition, result);
+              const range = metricSummary.min === null || metricSummary.max === null
+                ? "—"
+                : `${formatValue(metricSummary.min, definition)}–${formatValue(metricSummary.max, definition)}`;
+              const exceptionLabel = metricSummary.localOutliers.length > 0
+                ? diagnosticText(
+                    `${metricSummary.localOutliers.length} local exception${metricSummary.localOutliers.length === 1 ? "" : "s"}`,
+                    `${metricSummary.localOutliers.length} ${metricSummary.localOutliers.length === 1 ? "lokali išimtis" : "lokalios išimtys"}`
+                  )
+                : "";
+              const reportingSummary = diagnosticText(
+                `${metricSummary.reportingCount}/${metricSummary.installedCount} reporting`,
+                `${metricSummary.reportingCount}/${metricSummary.installedCount} siunčia`
+              );
               return `
-                <article class="triage-reading" data-state="${escapeAttribute(result.state)}">
-                  <div><span>${escapeHtml(definition.label)}</span><strong>${escapeHtml(formatValue(result.value, definition))}</strong></div>
-                  <span class="triage-reading-state">${escapeHtml(stateConfig[result.state].label)}</span>
-                  <small>Target ${escapeHtml(formatRange(definition.optimal, definition))}</small>
+                <article class="triage-reading" data-state="${escapeAttribute(metricSummary.medianResult.state)}" data-observation="${escapeAttribute(observation.state)}">
+                  <div><span>${escapeHtml(definition.label)}</span><strong>${metricSummary.medianValue !== null ? escapeHtml(formatValue(metricSummary.medianValue, definition)) : "—"}</strong></div>
+                  <span class="triage-reading-state">${escapeHtml(exceptionLabel || (["offline", "missing", "not-installed"].includes(observation.state) ? observation.label : stateConfig[metricSummary.medianResult.state]?.label || "Unavailable"))}</span>
+                  <small>${escapeHtml(reportingSummary)} · ${escapeHtml(range)} · <b class="reading-freshness-label" data-observation="${escapeAttribute(observation.state)}" title="${escapeAttribute(observation.detail)}">${escapeHtml(observation.label)}</b></small>
                 </article>
               `;
             }).join("")}
@@ -9234,12 +9751,12 @@
 
           <section class="triage-section triage-reliability-section">
             <div class="triage-section-heading">
-              <div><span class="triage-eyebrow">Data and hardware</span><h3>Can I trust the data?</h3></div>
+              <div><span class="triage-eyebrow">Data and hardware</span><h3>${escapeHtml(dataStatusLabel)} data</h3></div>
             </div>
-            <div class="triage-reliability-score"><strong>${availableResults.length}/${growthResults.length}</strong><span>metrics available</span></div>
+            <div class="triage-reliability-score" data-freshness="${escapeAttribute(farmState.dataStatus)}"><strong>${farmState.coverage.liveMetrics}/${farmState.coverage.expectedMetrics}</strong><span>metrics live now</span></div>
             <div class="triage-reliability-facts">
-              <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i>${availableResults.length} live metrics</span>
-              <span><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>${unavailableCount} missing metrics</span>
+              <span><i class="fa-solid fa-signal" aria-hidden="true"></i>${nodeSummary.live} live · ${nodeSummary.delayed} delayed</span>
+              <span><i class="fa-solid fa-clock" aria-hidden="true"></i>${nodeSummary.stale} stale · ${nodeSummary.offline} offline</span>
               <span><i class="fa-solid fa-battery-half" aria-hidden="true"></i>${systemLowBatteryNodes.length} low-battery nodes</span>
             </div>
             <div class="triage-button-row">
@@ -11813,6 +12330,20 @@
     });
 
     elements.metricsGrid.addEventListener("click", (event) => {
+      const expandButton = event.target.closest("[data-live-reading-expand]");
+      if (expandButton) {
+        const metricKey = expandButton.dataset.liveReadingExpand;
+        expandedLiveMetricKey = expandedLiveMetricKey === metricKey ? "" : metricKey;
+        renderDashboard();
+        return;
+      }
+
+      const nodeButton = event.target.closest('[data-triage-action="nodes"]');
+      if (nodeButton) {
+        runDashboardAction("nodes");
+        return;
+      }
+
       const historyButton = event.target.closest("[data-history-metric]");
       if (historyButton) {
         event.preventDefault();
@@ -12120,6 +12651,11 @@
       if (!languageButton) return;
       setInterfaceLanguage(languageButton.dataset.languageOption);
     });
+
+    window.addEventListener("online", updateClientConnectionStatus);
+    window.addEventListener("offline", updateClientConnectionStatus);
+    document.addEventListener("visibilitychange", updateClientConnectionStatus);
+    window.setInterval(updateClientConnectionStatus, 15000);
 
     renderSiteOptions();
     renderZoneOptions();

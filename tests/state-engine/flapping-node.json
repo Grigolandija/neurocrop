@@ -1,0 +1,24 @@
+{
+  "name": "flapping-node",
+  "now": "2026-07-03T10:00:00.000Z",
+  "node": {
+    "id": "NS-000006",
+    "lastReceivedAt": "2026-07-03T09:58:00.000Z",
+    "expectedUplinkIntervalSec": 600,
+    "observations": {}
+  },
+  "previousFreshness": {
+    "status": "delayed",
+    "rawStatus": "delayed",
+    "recoveryStreak": 0,
+    "rawTransitionCount": 4,
+    "observations": {}
+  },
+  "expected": {
+    "rawStatus": "live",
+    "stableStatus": "delayed",
+    "recoveryStreak": 1,
+    "rawTransitionCount": 5,
+    "hasFlappingReason": true
+  }
+}

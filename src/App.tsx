@@ -7,6 +7,7 @@ import './styles/approved-dashboard.css'
 declare global {
   interface Window {
     echarts?: unknown
+    NeuroCropStateEngine?: unknown
   }
 }
 
@@ -64,14 +65,27 @@ function ApprovedDashboard() {
 
     const loadRuntime = () => {
       if (document.querySelector('script[data-neurocrop-runtime]')) return
-      const runtime = document.createElement('script')
-      runtime.src = `/approved-dashboard-runtime.js?v=${__BUILD_VERSION__}`
-      runtime.dataset.neurocropRuntime = 'true'
-      runtime.onload = () => {
-        runtimeReady.current = true
-        window.postMessage({ type: 'neurocrop:route', route: window.location.pathname }, window.location.origin)
+      const attachRuntime = () => {
+        const runtime = document.createElement('script')
+        runtime.src = `/approved-dashboard-runtime.js?v=${__BUILD_VERSION__}`
+        runtime.dataset.neurocropRuntime = 'true'
+        runtime.onload = () => {
+          runtimeReady.current = true
+          window.postMessage({ type: 'neurocrop:route', route: window.location.pathname }, window.location.origin)
+        }
+        document.body.appendChild(runtime)
       }
-      document.body.appendChild(runtime)
+
+      if (window.NeuroCropStateEngine) {
+        attachRuntime()
+        return
+      }
+
+      const stateEngine = document.createElement('script')
+      stateEngine.src = `/neurocrop-state-engine.js?v=${__BUILD_VERSION__}`
+      stateEngine.dataset.neurocropStateEngine = 'true'
+      stateEngine.onload = attachRuntime
+      document.body.appendChild(stateEngine)
     }
 
     if (window.echarts) {

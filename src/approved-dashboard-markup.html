@@ -44,9 +44,9 @@
             <button type="button" data-language-option="lt" data-active="false" aria-pressed="false">LT</button>
             <button type="button" data-language-option="en" data-active="true" aria-pressed="true">EN</button>
           </div>
-          <span class="flex items-center gap-2 text-moss">
-            <span class="h-2.5 w-2.5 rounded-full bg-moss"></span>
-            Online
+          <span id="headerConnectionStatus" class="header-connection-status" data-connection="online">
+            <span class="header-connection-dot"></span>
+            <span id="headerConnectionLabel">Online</span>
           </span>
           <div class="header-battery-wrap">
             <button id="headerBatteryIndicator" type="button" class="header-battery-indicator actionable" data-state="optimal" aria-label="Low battery nodes" aria-expanded="false" aria-controls="headerBatteryDropdown">

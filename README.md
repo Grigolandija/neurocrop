@@ -234,9 +234,10 @@ Minimalus Node modelis:
   "name": "Rear climate node",
   "devEui": "0011223344556677",
   "sectionId": "section-1",
-  "status": "online",
+  "transportStatus": "live",
   "batteryPercent": 63,
-  "lastSeenAt": "2026-07-01T09:15:00Z",
+  "lastReceivedAt": "2026-07-01T09:15:00Z",
+  "expectedUplinkIntervalSec": 600,
   "installedMetrics": [
     "airTemp",
     "humidity",
@@ -250,9 +251,15 @@ Reikalavimai:
 
 - `devEui` unikalus;
 - Node gali neturėti Section;
-- `online/offline` nustato backend pagal `lastSeenAt`;
+- ryšio būsena yra `live`, `delayed`, `stale` arba `offline`;
+- ryšio būsena skaičiuojama pagal `lastReceivedAt` ir tikėtiną uplink intervalą;
+- konkrečios metrikos šviežumas vertinamas atskirai nuo Node ryšio;
 - frontend negauna ChirpStack vidinių ID ar raktų;
-- neįdiegtas sensorius grąžinamas kaip neprieinamas.
+- `not installed`, `disconnected`, `reading failed` ir `last known` yra
+  skirtingos būsenos.
+
+Pilnos šviežumo, histerezės ir paskutinės žinomos būsenos taisyklės aprašytos
+`API-CONTRACT.md`.
 
 ### Crop profiles
 
@@ -294,7 +301,11 @@ Pavyzdys:
       "measuredAt": "2026-07-01T09:14:42Z",
       "status": "optimal",
       "aggregation": "median",
-      "sampleCount": 3
+      "installedSensorCount": 5,
+      "reportingSensorCount": 5,
+      "min": 23.6,
+      "max": 24.8,
+      "localExceptions": []
     },
     "humidity": {
       "value": 58.2,
@@ -302,14 +313,30 @@ Pavyzdys:
       "measuredAt": "2026-07-01T09:14:42Z",
       "status": "warning",
       "aggregation": "median",
-      "sampleCount": 3
+      "installedSensorCount": 5,
+      "reportingSensorCount": 4,
+      "min": 56.9,
+      "max": 68.1,
+      "localExceptions": [
+        {
+          "nodeId": "node-5",
+          "value": 56.9,
+          "status": "warning"
+        }
+      ]
     }
   }
 }
 ```
 
 Vienoje Section gali būti keli Nodes su tais pačiais sensoriais. Backend turi
-agreguoti jų reikšmes ir grąžinti `aggregation` bei `sampleCount`.
+grąžinti Section medianą, min–max diapazoną, įdiegtų ir siunčiančių sensorių
+skaičių bei lokalias išimtis. Live readings pagrindiniame lygyje rodo vieną
+eilutę parametrui, o išskleidus – konkrečių Nodes rodmenis.
+
+Skirtingų paskirčių temperatūros negali būti agreguojamos kartu. Pavyzdžiui,
+DS18B20 substrato temperatūra, vandens temperatūra ir vamzdžio temperatūra yra
+atskiros metrikos, net jeigu jų matavimo vienetas tas pats.
 
 ### Trends
 
@@ -535,10 +562,12 @@ src/App.tsx                         React Router ir patvirtinto UI modulio lifec
 src/approved-dashboard-markup.html patvirtinta UI DOM struktūra
 src/styles/approved-dashboard.css  patvirtintas UI stilių sluoksnis
 public/approved-dashboard-runtime.js patvirtinta sąveikų, grafikų ir API logika
+public/neurocrop-state-engine.js  duomenų šviežumo ir scope būsenos logika
 public/vendor/echarts.min.js        lokalus ECharts variklis
 public/runtime-config.js    API URL konfigūracija
 public/.htaccess            SPA route fallback Apache hostingui
 API-CONTRACT.md             endpointų ir JSON formatų sutartis
+tests/state-engine/         freshness golden-vector testai
 ```
 
 Backend technologija nėra pririšta prie frontendo. Galima naudoti Node.js,

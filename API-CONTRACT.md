@@ -77,6 +77,117 @@ Minimalus dabartinio dashboard naudojamas pereinamasis atsakymas:
 naujuose endpointuose naudoti `areas/sections`; formatas bus pakeistas kartu
 su kiekvieno puslapio 1:1 React migracija.
 
+## Būsenos ir duomenų šviežumas
+
+Frontend neturi laikyti kiekvieno įdiegto rodiklio automatiškai aktyviu.
+Backend turi grąžinti serverio gavimo laiką atskirai nuo sensoriaus matavimo
+laiko:
+
+```json
+{
+  "id": "NS-000001",
+  "lastReceivedAt": "2026-07-03T09:55:00Z",
+  "expectedUplinkIntervalSec": 600,
+  "observations": {
+    "airTemp": {
+      "lastObservedAt": "2026-07-03T09:50:00Z",
+      "expectedIntervalSec": 600
+    },
+    "batteryLevel": {
+      "lastObservedAt": "2026-07-03T06:00:00Z",
+      "expectedIntervalSec": 21600
+    }
+  }
+}
+```
+
+- `lastReceivedAt` yra backend serverio laikas, kada gautas uplink.
+- `lastObservedAt` yra konkretaus matavimo laikas.
+- Šviežumas skaičiuojamas kiekvienai metrikai atskirai.
+- Transporto būsena gali būti `live`, nors konkretus rodmuo jau `stale`.
+- Būsenų atsistatymui taikoma histerezė. Blogėjimas registruojamas iškart,
+  o grįžimas į `live` patvirtinamas keliais nuosekliais paketais.
+
+Kanoninė scope būsena:
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "scope": {
+    "type": "section",
+    "id": "tomato-a-back",
+    "name": "Tomato Block A, Rear"
+  },
+  "conditionStatus": "warning",
+  "dataStatus": "delayed",
+  "lastKnownCondition": {
+    "status": "warning",
+    "asOf": "2026-07-03T09:50:00Z",
+    "reasons": [
+      {
+        "code": "CONDITION_WARNING",
+        "metricId": "humidity",
+        "value": 58
+      }
+    ]
+  },
+  "coverage": {
+    "liveMetrics": 9,
+    "expectedMetrics": 13,
+    "reportingNodes": 3,
+    "registeredNodes": 4
+  },
+  "nodeSummary": {
+    "live": 3,
+    "delayed": 1,
+    "stale": 0,
+    "offline": 0
+  },
+  "extent": {
+    "affected": 1,
+    "total": 4,
+    "ids": ["tomato-a-back"]
+  },
+  "reasons": [
+    {
+      "code": "TRANSPORT_DELAYED",
+      "nodeId": "NS-000003",
+      "ageSec": 1200
+    }
+  ],
+  "computedAt": "2026-07-03T10:00:00Z",
+  "validUntil": "2026-07-03T10:02:00Z"
+}
+```
+
+`conditionStatus` ir `dataStatus` yra atskiros ašys. Dingus duomenims
+`conditionStatus` tampa `unknown`, tačiau `lastKnownCondition` išsaugo
+paskutinę warning ar critical būseną.
+
+`validUntil` yra būsenos nuomos pabaiga. Net jeigu paskutinis atsakymas sakė
+`live`, klientas po šio laiko turi rodyti prarastą ryšį ir paskutinio
+apskaičiavimo laiką.
+
+### Vėlyvi matavimai
+
+```text
+latenessSec = receivedAt - observedAt
+```
+
+Matavimas, viršijantis backend nustatytą `allowedLatenessSec`, laikomas
+backfill:
+
+- nekuria naujo aktyvaus alerto;
+- gali papildyti jau buvusio incidento trukmę;
+- gali sukurti uždarytą istorinį įvykį su `detectedLate: true`;
+- nekeičia dabartinio priority action;
+- grafike įrašomas pagal `observedAt`, o atsakymo `revision` leidžia
+  frontend suprasti, kad istorija buvo papildyta.
+
+Golden-vector fixture'ai yra `tests/state-engine/`. Frontend ir būsimas
+backend freshness engine turi grąžinti tokį pat rezultatą tiems patiems
+įvesties failams.
+
 ## CRUD
 
 ```text
@@ -124,14 +235,26 @@ GET /history?sectionId=...&metric=humidity&from=...&to=...
   "metric": "humidity",
   "unit": "%",
   "points": [
-    { "timestamp": "2026-07-01T09:00:00Z", "value": 68.4 },
-    { "timestamp": "2026-07-01T09:10:00Z", "value": 67.9 }
-  ]
+    {
+      "observedAt": "2026-07-01T09:00:00Z",
+      "receivedAt": "2026-07-01T09:00:12Z",
+      "value": 68.4,
+      "detectedLate": false
+    },
+    {
+      "observedAt": "2026-07-01T09:10:00Z",
+      "receivedAt": "2026-07-01T09:42:00Z",
+      "value": 67.9,
+      "detectedLate": true
+    }
+  ],
+  "revision": "history-r17"
 }
 ```
 
 Taškai neprivalo būti gauti tą pačią sekundę. Backend turi grąžinti tikrus
-timestamp; grafikas juos braižo laiko ašyje.
+`observedAt`; grafikas juos braižo laiko ašyje. `receivedAt` naudojamas
+duomenų pristatymo diagnostikai, o ne X ašies pozicijai.
 
 ## Alerts
 

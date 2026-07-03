@@ -10,6 +10,7 @@
     "prebuild": "pnpm prepare-vendor",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:state": "node ./scripts/test-state-engine.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

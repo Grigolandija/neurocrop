@@ -1,0 +1,22 @@
+{
+  "name": "critical-then-silent",
+  "now": "2026-07-03T10:00:00.000Z",
+  "node": {
+    "id": "NS-000003",
+    "lastReceivedAt": "2026-07-03T08:00:00.000Z",
+    "expectedUplinkIntervalSec": 600,
+    "observations": {}
+  },
+  "previousState": {
+    "lastKnownCondition": {
+      "status": "critical",
+      "asOf": "2026-07-03T07:58:00.000Z",
+      "reasons": [{ "code": "CONDITION_CRITICAL", "metricId": "humidity" }]
+    }
+  },
+  "expected": {
+    "transportStatus": "offline",
+    "conditionStatus": "unknown",
+    "lastKnownStatus": "critical"
+  }
+}
