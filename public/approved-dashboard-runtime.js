@@ -1355,6 +1355,7 @@
     let activeNodeFilterSiteId = "all";
     let activeNodeFilterZoneId = "all";
     let activeSettingsProfileKey = activeProfileKey;
+    let activeSettingsPanelKey = "profiles";
     let managementNotice = { page: "", tone: "optimal", text: "" };
     const dashboardRouteMap = {
       overview: { page: "overview", route: "/" },
@@ -6281,7 +6282,7 @@
       settingsState[group][key] = value;
     }
 
-    function renderSettingsManagementPage(globalSnapshots) {
+    function renderSettingsManagementPageLegacy(globalSnapshots) {
       const profileEntries = Object.entries(cropProfiles);
       if (!cropProfiles[activeSettingsProfileKey]) {
         activeSettingsProfileKey = profileEntries[0]?.[0] || activeProfileKey;
@@ -6468,6 +6469,257 @@
                 </form>
               </div>
             </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSettingsManagementPage(globalSnapshots) {
+      const profileEntries = Object.entries(cropProfiles);
+      if (!cropProfiles[activeSettingsProfileKey]) {
+        activeSettingsProfileKey = profileEntries[0]?.[0] || activeProfileKey;
+      }
+
+      const validPanels = new Set(["profiles", "alerts", "team", "workspace", "data"]);
+      if (!validPanels.has(activeSettingsPanelKey)) activeSettingsPanelKey = "profiles";
+
+      const activeSettingsProfile = cropProfiles[activeSettingsProfileKey] || cropProfiles[activeProfileKey];
+      const profileUsageCounts = getProfileUsageCounts();
+      const totalSections = dashboardData.sites.reduce((sum, site) => sum + (site.zones || []).length, 0);
+      const activeAlertCount = globalSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal").length;
+      const metricCount = activeSettingsProfile ? Object.keys(activeSettingsProfile.metrics || {}).length : 0;
+      const sourceProfileOptions = profileEntries.map(([profileKey, profile]) => `
+        <option value="${escapeAttribute(profileKey)}" ${settingsProfileFormState.sourceProfile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>
+      `).join("");
+      const settingsPanels = [
+        { key: "profiles", icon: "fa-seedling", label: "Crop profiles", note: "Targets and growth stages", count: profileEntries.length },
+        { key: "alerts", icon: "fa-bell", label: "Alerts & notifications", note: "Escalation and delivery", count: activeAlertCount },
+        { key: "team", icon: "fa-users", label: "Team & access", note: "Workspace permissions", count: settingsState.team.length },
+        { key: "workspace", icon: "fa-building", label: "Workspace", note: "Identity, units and time", count: "" },
+        { key: "data", icon: "fa-database", label: "Data policy", note: "Retention and aggregation", count: "" }
+      ];
+
+      const profilePanel = `
+        <section class="settings-content-panel" aria-labelledby="settingsProfilesTitle">
+          <header class="settings-panel-head">
+            <div>
+              <span class="settings-panel-kicker">Growth logic</span>
+              <h2 id="settingsProfilesTitle">Crop profiles</h2>
+              <p>Define what is optimal for each crop and growth stage. These ranges drive scores, alerts and chart targets.</p>
+            </div>
+            <span class="settings-summary-pill">${profileEntries.length} profiles · ${totalSections} sections</span>
+          </header>
+
+          <div class="settings-profile-workspace">
+            <aside class="settings-profile-list" aria-label="Crop profiles">
+              ${profileEntries.map(([profileKey, profile]) => `
+                <button type="button" class="settings-profile-option" data-settings-profile-key="${escapeAttribute(profileKey)}" data-active="${String(activeSettingsProfileKey === profileKey)}">
+                  <span class="settings-profile-option-copy">
+                    <strong>${escapeHtml(profile.name)}</strong>
+                    <small>${escapeHtml(profile.stage || profile.heroName || "Growth profile")}</small>
+                  </span>
+                  <span class="settings-profile-usage">${profileUsageCounts[profileKey] || 0}</span>
+                </button>
+              `).join("")}
+
+              <details class="settings-create-profile" ${settingsProfileFormState.name ? "open" : ""}>
+                <summary><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Create profile</span></summary>
+                <form data-management-form="settings-profile">
+                  <label><span>Profile name</span><input name="settingsProfileName" value="${escapeAttribute(settingsProfileFormState.name)}" placeholder="Cucumbers, fruiting" autocomplete="off"></label>
+                  <label><span>Crop name</span><input name="settingsProfileHeroName" value="${escapeAttribute(settingsProfileFormState.heroName)}" placeholder="Cucumber" autocomplete="off"></label>
+                  <label><span>Growth stage</span><input name="settingsProfileStage" value="${escapeAttribute(settingsProfileFormState.stage)}" placeholder="Fruiting" autocomplete="off"></label>
+                  <label><span>Copy targets from</span><select name="settingsProfileSource">${sourceProfileOptions}</select></label>
+                  <button type="submit" class="settings-primary-button">Create profile</button>
+                </form>
+              </details>
+            </aside>
+
+            <article class="settings-active-profile">
+              <div class="settings-active-profile-head">
+                <div>
+                  <span class="settings-panel-kicker">Selected profile</span>
+                  <h3>${escapeHtml(activeSettingsProfile?.name || "No profile selected")}</h3>
+                  <p>${escapeHtml(activeSettingsProfile?.hint || "Create a crop profile to define target ranges.")}</p>
+                </div>
+                <div class="settings-head-actions">
+                  <span class="settings-summary-pill">${metricCount} metrics</span>
+                  <span class="settings-summary-pill">${profileUsageCounts[activeSettingsProfileKey] || 0} sections</span>
+                  <button type="button" class="settings-secondary-button" data-settings-profile-duplicate="${escapeAttribute(activeSettingsProfileKey)}">
+                    <i class="fa-regular fa-copy" aria-hidden="true"></i> Duplicate
+                  </button>
+                </div>
+              </div>
+              <div class="settings-metric-summary">
+                ${activeSettingsProfile ? getSettingsMetricRows(activeSettingsProfile) : ""}
+              </div>
+              ${activeSettingsProfile ? renderCropProfileEditor(activeSettingsProfileKey, activeSettingsProfile) : ""}
+            </article>
+          </div>
+        </section>
+      `;
+
+      const alertsPanel = `
+        <section class="settings-content-panel" aria-labelledby="settingsAlertsTitle">
+          <header class="settings-panel-head">
+            <div>
+              <span class="settings-panel-kicker">Operational rules</span>
+              <h2 id="settingsAlertsTitle">Alerts & notifications</h2>
+              <p>Choose when a deviation becomes actionable and how the team should be contacted.</p>
+            </div>
+            <span class="settings-summary-pill" data-tone="${activeAlertCount > 0 ? "warning" : "optimal"}">${activeAlertCount} active alerts</span>
+          </header>
+          <div class="settings-two-column">
+            <form class="settings-form-card" data-settings-form="alerts">
+              <div class="settings-form-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><div><h3>Escalation timing</h3><p>Alert only after a deviation persists.</p></div></div>
+              <div class="settings-form-grid">
+                ${settingsInput("Warning after (min)", "alerts.warningAfterMinutes", settingsState.alerts.warningAfterMinutes, { type: "number", min: "1", max: "1440" })}
+                ${settingsInput("Critical after (min)", "alerts.criticalAfterMinutes", settingsState.alerts.criticalAfterMinutes, { type: "number", min: "1", max: "1440" })}
+              </div>
+              ${settingsInput("Alert recipients", "alerts.recipients", settingsState.alerts.recipients, { type: "text", placeholder: "grower@example.com, manager@example.com" })}
+              <button type="submit" class="settings-primary-button">Save alert rules</button>
+            </form>
+
+            <form class="settings-form-card" data-settings-form="notifications">
+              <div class="settings-form-title"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i><div><h3>Delivery</h3><p>Channels and quiet-hour behavior.</p></div></div>
+              <div class="settings-toggle-list">
+                ${settingsToggle("Email alerts", "notifications.emailEnabled", settingsState.notifications.emailEnabled, "Send active alerts to the listed recipients.")}
+                ${settingsToggle("SMS alerts", "notifications.smsEnabled", settingsState.notifications.smsEnabled, "Available when an SMS provider is connected.")}
+                ${settingsToggle("Critical bypass", "notifications.criticalOverride", settingsState.notifications.criticalOverride, "Critical conditions ignore quiet hours.")}
+              </div>
+              <div class="settings-form-grid">
+                ${settingsInput("Quiet hours start", "notifications.quietStart", settingsState.notifications.quietStart, { type: "time" })}
+                ${settingsInput("Quiet hours end", "notifications.quietEnd", settingsState.notifications.quietEnd, { type: "time" })}
+              </div>
+              <button type="submit" class="settings-primary-button">Save notifications</button>
+            </form>
+          </div>
+        </section>
+      `;
+
+      const teamPanel = `
+        <section class="settings-content-panel" aria-labelledby="settingsTeamTitle">
+          <header class="settings-panel-head">
+            <div>
+              <span class="settings-panel-kicker">Access control</span>
+              <h2 id="settingsTeamTitle">Team & access</h2>
+              <p>Manage who can view or change this farm workspace.</p>
+            </div>
+            <span class="settings-summary-pill">${settingsState.team.length} users</span>
+          </header>
+          <div class="settings-team-list">
+            ${settingsState.team.map((member) => `
+              <div class="settings-team-row">
+                <span class="settings-member-avatar">${escapeHtml(member.name.slice(0, 2).toUpperCase())}</span>
+                <span class="settings-member-copy"><strong>${escapeHtml(member.name)}</strong><small>${escapeHtml(member.email)}</small></span>
+                <span class="settings-role-pill">${escapeHtml(member.role)}</span>
+                <button type="button" class="settings-text-button" data-team-remove="${escapeAttribute(member.id)}" ${settingsState.team.length <= 1 ? "disabled" : ""}>Remove</button>
+              </div>
+            `).join("")}
+          </div>
+          <form class="settings-add-member" data-settings-form="team">
+            <div class="settings-form-title"><i class="fa-solid fa-user-plus" aria-hidden="true"></i><div><h3>Add team member</h3><p>Invite a person and assign their workspace role.</p></div></div>
+            <div class="settings-add-member-fields">
+              <input name="teamName" placeholder="Name">
+              <input name="teamEmail" type="email" placeholder="Email address">
+              <select name="teamRole"><option>Grower</option><option>Technician</option><option>Admin</option><option>Viewer</option></select>
+              <button type="submit" class="settings-primary-button">Add user</button>
+            </div>
+          </form>
+        </section>
+      `;
+
+      const workspacePanel = `
+        <section class="settings-content-panel" aria-labelledby="settingsWorkspaceTitle">
+          <header class="settings-panel-head">
+            <div>
+              <span class="settings-panel-kicker">Workspace</span>
+              <h2 id="settingsWorkspaceTitle">Identity & display</h2>
+              <p>Set the customer-facing farm identity and the units used across the dashboard.</p>
+            </div>
+          </header>
+          <div class="settings-two-column">
+            <form class="settings-form-card" data-settings-form="organization">
+              <div class="settings-form-title"><i class="fa-solid fa-building" aria-hidden="true"></i><div><h3>Organization</h3><p>Visible workspace identity.</p></div></div>
+              ${settingsInput("Farm or organization name", "organization.name", settingsState.organization.name)}
+              ${settingsInput("Primary contact email", "organization.contactEmail", settingsState.organization.contactEmail, { type: "email" })}
+              <button type="submit" class="settings-primary-button">Save organization</button>
+            </form>
+            <form class="settings-form-card" data-settings-form="preferences">
+              <div class="settings-form-title"><i class="fa-solid fa-sliders" aria-hidden="true"></i><div><h3>Units & time</h3><p>Formatting used throughout NeuroCrop.</p></div></div>
+              <div class="settings-form-grid">
+                ${settingsSelect("Temperature", "preferences.temperatureUnit", settingsState.preferences.temperatureUnit, [{ value: "C", label: "Celsius (°C)" }, { value: "F", label: "Fahrenheit (°F)" }])}
+                ${settingsSelect("Clock", "preferences.timeFormat", settingsState.preferences.timeFormat, [{ value: "24h", label: "24-hour" }, { value: "12h", label: "12-hour" }])}
+                ${settingsSelect("Time zone", "preferences.timezone", settingsState.preferences.timezone, [{ value: "Europe/Vilnius", label: "Europe/Vilnius" }, { value: "Europe/Riga", label: "Europe/Riga" }, { value: "Europe/Warsaw", label: "Europe/Warsaw" }])}
+                ${settingsSelect("Language / dates", "preferences.locale", settingsState.preferences.locale, [{ value: "lt-LT", label: "Lithuanian" }, { value: "en-GB", label: "English (UK)" }, { value: "en-US", label: "English (US)" }])}
+              </div>
+              <button type="submit" class="settings-primary-button">Save preferences</button>
+            </form>
+          </div>
+        </section>
+      `;
+
+      const dataPanel = `
+        <section class="settings-content-panel" aria-labelledby="settingsDataTitle">
+          <header class="settings-panel-head">
+            <div>
+              <span class="settings-panel-kicker">Data policy</span>
+              <h2 id="settingsDataTitle">Retention & aggregation</h2>
+              <p>Control how long detailed measurements and long-term trend summaries should be available.</p>
+            </div>
+          </header>
+          <div class="settings-data-layout">
+            <form class="settings-form-card" data-settings-form="retention">
+              <div class="settings-form-title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><div><h3>Storage windows</h3><p>Policy applied by the future backend retention job.</p></div></div>
+              <div class="settings-form-grid">
+                ${settingsInput("Raw readings (days)", "retention.rawDays", settingsState.retention.rawDays, { type: "number", min: "1", max: "3650" })}
+                ${settingsInput("Aggregated trends (months)", "retention.aggregateMonths", settingsState.retention.aggregateMonths, { type: "number", min: "1", max: "240" })}
+              </div>
+              <button type="submit" class="settings-primary-button">Save data policy</button>
+            </form>
+            <aside class="settings-policy-note">
+              <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+              <div><strong>Backend-owned policy</strong><p>This setting describes retention behavior. It does not delete local prototype data and must be enforced by the database aggregation job.</p></div>
+            </aside>
+          </div>
+        </section>
+      `;
+
+      const activePanelMarkup = {
+        profiles: profilePanel,
+        alerts: alertsPanel,
+        team: teamPanel,
+        workspace: workspacePanel,
+        data: dataPanel
+      }[activeSettingsPanelKey];
+
+      elements.settingsManagementShell.innerHTML = `
+        <div class="settings-page-shell">
+          <section class="settings-page-head">
+            <div>
+              <span class="settings-panel-kicker">Settings</span>
+              <h1>Workspace configuration</h1>
+              <p>Manage growth logic, operational alerts, people and account preferences.</p>
+            </div>
+            <div class="settings-head-summary">
+              <span><strong>${profileEntries.length}</strong> profiles</span>
+              <span><strong>${settingsState.team.length}</strong> users</span>
+              <span><strong>${activeAlertCount}</strong> active alerts</span>
+            </div>
+          </section>
+          ${renderManagementNotice("settings")}
+          <div class="settings-page-layout">
+            <nav class="settings-section-nav" aria-label="Settings categories">
+              ${settingsPanels.map((panel) => `
+                <button type="button" data-settings-panel-key="${escapeAttribute(panel.key)}" data-active="${String(panel.key === activeSettingsPanelKey)}">
+                  <i class="fa-solid ${escapeAttribute(panel.icon)}" aria-hidden="true"></i>
+                  <span><strong>${escapeHtml(panel.label)}</strong><small>${escapeHtml(panel.note)}</small></span>
+                  ${panel.count !== "" ? `<b>${escapeHtml(panel.count)}</b>` : `<i class="fa-solid fa-chevron-right settings-nav-chevron" aria-hidden="true"></i>`}
+                </button>
+              `).join("")}
+            </nav>
+            <main class="settings-page-content">
+              ${activePanelMarkup}
+            </main>
           </div>
         </div>
       `;
@@ -7184,8 +7436,10 @@
 
     function renderTrendMetricButtons(metricOptions, activeKeys = []) {
       const activeKeySet = new Set(activeKeys);
-      return metricOptions.map((option) => {
-        const isActive = option.available !== false && activeKeySet.has(option.key);
+      return metricOptions
+        .filter((option) => option.available !== false)
+        .map((option) => {
+        const isActive = activeKeySet.has(option.key);
         return `
         <button
           type="button"
@@ -7194,12 +7448,11 @@
           data-active="${String(isActive)}"
           data-tone="${escapeAttribute(option.tone || "neutral")}" 
           aria-pressed="${String(isActive)}"
-          ${option.available === false ? "disabled aria-disabled=\"true\" title=\"Not installed in this block\"" : ""}
         >
-          <span>${escapeHtml(option.label)}${option.available === false ? " · Not installed" : ""}</span>
+          <span>${escapeHtml(option.label)}</span>
         </button>
       `;
-      }).join("");
+        }).join("");
     }
 
     function renderTrendRangeButtons(activeKey) {
@@ -7686,7 +7939,7 @@
           showSymbol: false,
           symbol: "circle",
           symbolSize: 7,
-          smooth: 0.28,
+          smooth: 0.08,
           smoothMonotone: "x",
           connectNulls: false,
           animation: false,
@@ -11037,6 +11290,14 @@
     });
 
     elements.settingsManagementSection.addEventListener("click", (event) => {
+      const settingsPanelButton = event.target.closest("[data-settings-panel-key]");
+      if (settingsPanelButton) {
+        activeSettingsPanelKey = settingsPanelButton.dataset.settingsPanelKey || "profiles";
+        clearManagementNotice("settings");
+        renderDashboard();
+        return;
+      }
+
       const removeMemberButton = event.target.closest("[data-team-remove]");
       if (removeMemberButton) {
         const memberId = removeMemberButton.dataset.teamRemove;
