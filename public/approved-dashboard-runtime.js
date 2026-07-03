@@ -855,6 +855,62 @@
     const cropProfilesStorageKey = "neurocrop-dashboard-crop-profiles-v1";
     const cropProfileOverridesStorageKey = "neurocrop-dashboard-crop-profile-overrides-v1";
     const builtInCropProfileKeys = new Set(Object.keys(cropProfiles));
+    const cropProfileTemplateLibrary = [
+      {
+        key: "tomato-vegetative",
+        crop: "Tomato",
+        stage: "Vegetative",
+        name: "Tomatoes, vegetative",
+        sourceProfile: "tomato",
+        status: "available",
+        note: "NeuroCrop starting point"
+      },
+      {
+        key: "lettuce-intensive",
+        crop: "Lettuce",
+        stage: "Intensive growth",
+        name: "Lettuce, intensive growth",
+        sourceProfile: "lettuce",
+        status: "available",
+        note: "NeuroCrop starting point"
+      },
+      {
+        key: "strawberry-fruiting",
+        crop: "Strawberry",
+        stage: "Fruiting",
+        name: "Strawberries, fruiting",
+        sourceProfile: "strawberry",
+        status: "available",
+        note: "NeuroCrop starting point"
+      },
+      {
+        key: "cucumber",
+        crop: "Cucumber",
+        stage: "",
+        name: "Cucumber program",
+        sourceProfile: "",
+        status: "manual",
+        note: "Set targets manually"
+      },
+      {
+        key: "pepper",
+        crop: "Pepper",
+        stage: "",
+        name: "Pepper program",
+        sourceProfile: "",
+        status: "manual",
+        note: "Set targets manually"
+      },
+      {
+        key: "herbs",
+        crop: "Herbs",
+        stage: "",
+        name: "Herbs program",
+        sourceProfile: "",
+        status: "manual",
+        note: "Set targets manually"
+      }
+    ];
 
     function loadCustomCropProfiles() {
       try {
@@ -1376,6 +1432,7 @@
     let activeNodeFilterZoneId = "all";
     let activeSettingsProfileKey = activeProfileKey;
     let activeSettingsPanelKey = "profiles";
+    let activeCropProfileView = "mine";
     let managementNotice = { page: "", tone: "optimal", text: "" };
     const dashboardRouteMap = {
       overview: { page: "overview", route: "/" },
@@ -1404,7 +1461,7 @@
     let locationFormState = { mode: "create", siteId: "", name: "" };
     let blockFormState = { mode: "create", siteId: activeSiteId, zoneId: "", name: "", profile: activeProfileKey, sensorCount: "4" };
     let nodeFormState = { siteId: activeSiteId, zoneId: activeZoneId, devEui: "" };
-    let settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: activeProfileKey };
+    let settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: activeProfileKey, mode: "template" };
     let managementModalState = null;
     const settingsStorageKey = "neurocrop-dashboard-settings-v1";
     const defaultSettingsState = {
@@ -6887,6 +6944,7 @@
       const sourceProfileOptions = profileEntries.map(([profileKey, profile]) => `
         <option value="${escapeAttribute(profileKey)}" ${settingsProfileFormState.sourceProfile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>
       `).join("");
+      const isTemplateCreateMode = settingsProfileFormState.mode !== "blank";
       const settingsPanels = [
         { key: "profiles", icon: "fa-seedling", label: "Crop profiles", note: "Targets and growth stages", count: profileEntries.length },
         { key: "alerts", icon: "fa-bell", label: "Alerts & notifications", note: "Escalation and delivery", count: activeAlertCount },
@@ -6906,8 +6964,49 @@
             <span class="settings-summary-pill">${profileEntries.length} profiles · ${totalSections} sections</span>
           </header>
 
+          <div class="settings-profile-tabs" role="tablist" aria-label="Crop profile source">
+            <button type="button" role="tab" data-settings-profile-view="mine" data-active="${String(activeCropProfileView === "mine")}">
+              <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
+              <span><strong>My programs</strong><small>${profileEntries.length} in this workspace</small></span>
+            </button>
+            <button type="button" role="tab" data-settings-profile-view="library" data-active="${String(activeCropProfileView === "library")}">
+              <i class="fa-solid fa-book-open" aria-hidden="true"></i>
+              <span><strong>Template library</strong><small>NeuroCrop starting points</small></span>
+            </button>
+          </div>
+
+          ${activeCropProfileView === "library" ? `
+            <div class="settings-template-library">
+              <div class="settings-template-intro">
+                <div>
+                  <strong>Choose a starting point</strong>
+                  <p>Templates are copied into your workspace. Your changes never modify the original template.</p>
+                </div>
+                <span class="settings-summary-pill">Read-only library</span>
+              </div>
+              <div class="settings-template-grid">
+                ${cropProfileTemplateLibrary.map((template) => `
+                  <article class="settings-template-card" data-status="${escapeAttribute(template.status)}">
+                    <div class="settings-template-card-icon"><i class="fa-solid fa-seedling" aria-hidden="true"></i></div>
+                    <div class="settings-template-card-copy">
+                      <span>${escapeHtml(template.crop)}</span>
+                      <h3>${escapeHtml(template.stage || "Custom growth stages")}</h3>
+                      <p>${escapeHtml(template.note)}</p>
+                    </div>
+                    <button type="button" class="${template.status === "available" ? "settings-primary-button" : "settings-secondary-button"}" data-settings-template-key="${escapeAttribute(template.key)}">
+                      ${template.status === "available" ? "Use template" : "Set up manually"}
+                    </button>
+                  </article>
+                `).join("")}
+              </div>
+            </div>
+          ` : `
           <div class="settings-profile-workspace">
             <aside class="settings-profile-list" aria-label="Crop profiles">
+              <div class="settings-profile-list-title">
+                <span>Workspace programs</span>
+                <small>Editable</small>
+              </div>
               ${profileEntries.map(([profileKey, profile]) => `
                 <button type="button" class="settings-profile-option" data-settings-profile-key="${escapeAttribute(profileKey)}" data-active="${String(activeSettingsProfileKey === profileKey)}">
                   <span class="settings-profile-option-copy">
@@ -6919,13 +7018,22 @@
               `).join("")}
 
               <details class="settings-create-profile" ${settingsProfileFormState.name ? "open" : ""}>
-                <summary><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Create profile</span></summary>
+                <summary><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Create program</span></summary>
                 <form data-management-form="settings-profile">
+                  <div class="settings-create-mode" role="group" aria-label="Program starting point">
+                    <button type="button" data-settings-create-mode="template" data-active="${String(isTemplateCreateMode)}">Use template</button>
+                    <button type="button" data-settings-create-mode="blank" data-active="${String(!isTemplateCreateMode)}">Start blank</button>
+                  </div>
                   <label><span>Profile name</span><input name="settingsProfileName" value="${escapeAttribute(settingsProfileFormState.name)}" placeholder="Cucumbers, fruiting" autocomplete="off"></label>
                   <label><span>Crop name</span><input name="settingsProfileHeroName" value="${escapeAttribute(settingsProfileFormState.heroName)}" placeholder="Cucumber" autocomplete="off"></label>
                   <label><span>Growth stage</span><input name="settingsProfileStage" value="${escapeAttribute(settingsProfileFormState.stage)}" placeholder="Fruiting" autocomplete="off"></label>
-                  <label><span>Copy targets from</span><select name="settingsProfileSource">${sourceProfileOptions}</select></label>
-                  <button type="submit" class="settings-primary-button">Create profile</button>
+                  ${isTemplateCreateMode ? `<label><span>Copy targets from</span><select name="settingsProfileSource">${sourceProfileOptions}</select></label>` : `
+                    <div class="settings-manual-profile-note">
+                      <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                      <span>Creates an unassigned starter program. Review every target before assigning it to a Section.</span>
+                    </div>
+                  `}
+                  <button type="submit" class="settings-primary-button">Create program</button>
                 </form>
               </details>
             </aside>
@@ -6938,6 +7046,7 @@
                   <p>${escapeHtml(activeSettingsProfile?.hint || "Create a crop profile to define target ranges.")}</p>
                 </div>
                 <div class="settings-head-actions">
+                  ${activeSettingsProfile?.requiresReview ? '<span class="settings-summary-pill" data-tone="warning">Targets need review</span>' : ""}
                   <span class="settings-summary-pill">${metricCount} metrics</span>
                   <span class="settings-summary-pill">${profileUsageCounts[activeSettingsProfileKey] || 0} sections</span>
                   <button type="button" class="settings-secondary-button" data-settings-profile-duplicate="${escapeAttribute(activeSettingsProfileKey)}">
@@ -6951,6 +7060,7 @@
               ${activeSettingsProfile ? renderCropProfileEditor(activeSettingsProfileKey, activeSettingsProfile) : ""}
             </article>
           </div>
+          `}
         </section>
       `;
 
@@ -7146,6 +7256,7 @@
 
     function submitSettingsProfileForm() {
       const nextName = settingsProfileFormState.name.trim();
+      const isBlankProgram = settingsProfileFormState.mode === "blank";
       const sourceProfileKey = cropProfiles[settingsProfileFormState.sourceProfile]
         ? settingsProfileFormState.sourceProfile
         : activeSettingsProfileKey;
@@ -7161,13 +7272,21 @@
       sourceProfile.name = nextName;
       sourceProfile.heroName = settingsProfileFormState.heroName.trim() || nextName.split(",")[0].trim() || nextName;
       sourceProfile.stage = settingsProfileFormState.stage.trim();
-      sourceProfile.hint = `Custom profile copied from ${cropProfiles[sourceProfileKey].name}.`;
+      sourceProfile.hint = isBlankProgram
+        ? "Manual program. Review every target before assigning it to a Section."
+        : `Workspace copy of ${cropProfiles[sourceProfileKey].name}.`;
+      sourceProfile.requiresReview = isBlankProgram;
       cropProfiles[nextProfileKey] = sourceProfile;
       persistCustomCropProfiles();
       persistCropProfileOverrides();
       activeSettingsProfileKey = nextProfileKey;
-      settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: nextProfileKey };
-      setManagementNotice("settings", `${nextName} created. It is now available in the Sections crop profile dropdown.`);
+      settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: nextProfileKey, mode: "template" };
+      setManagementNotice(
+        "settings",
+        isBlankProgram
+          ? `${nextName} created as a manual program. Review its targets before assigning it to a Section.`
+          : `${nextName} created. It is now available in the Sections crop profile dropdown.`
+      );
       renderDashboard();
     }
 
@@ -11808,6 +11927,38 @@
     });
 
     elements.settingsManagementSection.addEventListener("click", (event) => {
+      const profileViewButton = event.target.closest("[data-settings-profile-view]");
+      if (profileViewButton) {
+        activeCropProfileView = profileViewButton.dataset.settingsProfileView === "library" ? "library" : "mine";
+        clearManagementNotice("settings");
+        renderDashboard();
+        return;
+      }
+
+      const createModeButton = event.target.closest("[data-settings-create-mode]");
+      if (createModeButton) {
+        settingsProfileFormState.mode = createModeButton.dataset.settingsCreateMode === "blank" ? "blank" : "template";
+        renderDashboard();
+        return;
+      }
+
+      const templateButton = event.target.closest("[data-settings-template-key]");
+      if (templateButton) {
+        const template = cropProfileTemplateLibrary.find((item) => item.key === templateButton.dataset.settingsTemplateKey);
+        if (!template) return;
+        settingsProfileFormState = {
+          name: template.name,
+          heroName: template.crop,
+          stage: template.stage,
+          sourceProfile: template.sourceProfile || activeSettingsProfileKey,
+          mode: template.status === "available" ? "template" : "blank"
+        };
+        activeCropProfileView = "mine";
+        clearManagementNotice("settings");
+        renderDashboard();
+        return;
+      }
+
       const settingsPanelButton = event.target.closest("[data-settings-panel-key]");
       if (settingsPanelButton) {
         activeSettingsPanelKey = settingsPanelButton.dataset.settingsPanelKey || "profiles";
@@ -11834,7 +11985,8 @@
           name: `${sourceProfile.name} copy`,
           heroName: sourceProfile.heroName,
           stage: sourceProfile.stage || "",
-          sourceProfile: sourceProfileKey
+          sourceProfile: sourceProfileKey,
+          mode: "template"
         };
         renderDashboard();
         return;

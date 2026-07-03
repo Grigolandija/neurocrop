@@ -11701,6 +11701,67 @@
       line-height: 1.55;
     }
 
+    .settings-profile-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 240px));
+      gap: 6px;
+      margin-top: 14px;
+      padding: 4px;
+      border: 1px solid rgba(20, 32, 27, 0.07);
+      border-radius: 16px;
+      background: #f7f3ec;
+      width: fit-content;
+    }
+
+    .settings-profile-tabs button {
+      display: grid;
+      align-items: center;
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 9px;
+      min-height: 44px;
+      padding: 6px 11px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: transparent;
+      color: rgba(20, 32, 27, 0.58);
+      text-align: left;
+    }
+
+    .settings-profile-tabs button[data-active="true"] {
+      border-color: rgba(47, 106, 79, 0.13);
+      background: #fff;
+      color: #214f40;
+      box-shadow: 0 5px 14px rgba(20, 32, 27, 0.05);
+    }
+
+    .settings-profile-tabs button > i {
+      display: inline-grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border-radius: 9px;
+      background: rgba(47, 106, 79, 0.08);
+      color: #2f6a4f;
+      font-size: 11px;
+    }
+
+    .settings-profile-tabs strong,
+    .settings-profile-tabs small {
+      display: block;
+    }
+
+    .settings-profile-tabs strong {
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .settings-profile-tabs small {
+      margin-top: 1px;
+      color: rgba(20, 32, 27, 0.42);
+      font-size: 8px;
+      font-weight: 650;
+    }
+
     .settings-profile-workspace {
       display: grid;
       align-items: start;
@@ -11713,6 +11774,26 @@
       display: grid;
       gap: 6px;
       min-width: 0;
+    }
+
+    .settings-profile-list-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 3px 3px;
+      color: rgba(20, 32, 27, 0.58);
+    }
+
+    .settings-profile-list-title span {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .settings-profile-list-title small {
+      font-size: 9px;
+      font-weight: 650;
     }
 
     .settings-profile-option {
@@ -11809,6 +11890,50 @@
       padding: 0 11px 11px;
     }
 
+    .settings-create-mode {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+      padding: 3px;
+      border-radius: 11px;
+      background: #eee9df;
+    }
+
+    .settings-create-mode button {
+      min-height: 31px;
+      padding: 5px 7px;
+      border-radius: 9px;
+      background: transparent;
+      color: rgba(20, 32, 27, 0.50);
+      font-size: 9px;
+      font-weight: 750;
+    }
+
+    .settings-create-mode button[data-active="true"] {
+      background: #fff;
+      color: #214f40;
+      box-shadow: 0 3px 8px rgba(20, 32, 27, 0.05);
+    }
+
+    .settings-manual-profile-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      padding: 9px;
+      border: 1px solid rgba(177, 122, 40, 0.15);
+      border-radius: 11px;
+      background: #fbf2e3;
+      color: rgba(20, 32, 27, 0.60);
+      font-size: 9px;
+      font-weight: 650;
+      line-height: 1.45;
+    }
+
+    .settings-manual-profile-note i {
+      margin-top: 2px;
+      color: #b17a28;
+    }
+
     .settings-create-profile label span {
       display: block;
       margin-bottom: 4px;
@@ -11836,6 +11961,95 @@
       border: 1px solid rgba(20, 32, 27, 0.07);
       border-radius: 20px;
       background: #fbfaf7;
+    }
+
+    .settings-template-library {
+      margin-top: 16px;
+    }
+
+    .settings-template-intro {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 11px;
+    }
+
+    .settings-template-intro strong {
+      color: #14201b;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .settings-template-intro p {
+      margin-top: 3px;
+      color: rgba(20, 32, 27, 0.50);
+      font-size: 10px;
+    }
+
+    .settings-template-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .settings-template-card {
+      display: grid;
+      align-items: center;
+      grid-template-columns: 38px minmax(0, 1fr) auto;
+      gap: 11px;
+      min-height: 82px;
+      padding: 12px;
+      border: 1px solid rgba(20, 32, 27, 0.08);
+      border-radius: 17px;
+      background: #fbfaf7;
+    }
+
+    .settings-template-card[data-status="manual"] {
+      background: #f8f6f1;
+    }
+
+    .settings-template-card-icon {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 12px;
+      background: #e6f0e9;
+      color: #2f6a4f;
+    }
+
+    .settings-template-card[data-status="manual"] .settings-template-card-icon {
+      background: #f1eadf;
+      color: #b17a28;
+    }
+
+    .settings-template-card-copy {
+      min-width: 0;
+    }
+
+    .settings-template-card-copy > span {
+      color: rgba(20, 32, 27, 0.45);
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .settings-template-card-copy h3 {
+      overflow: hidden;
+      margin-top: 2px;
+      color: #14201b;
+      font-size: 12px;
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-template-card-copy p {
+      margin-top: 3px;
+      color: rgba(20, 32, 27, 0.46);
+      font-size: 9px;
     }
 
     .settings-active-profile-head {
@@ -12127,6 +12341,10 @@
       .settings-nav-chevron {
         display: none;
       }
+
+      .settings-template-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 820px) {
@@ -12151,6 +12369,17 @@
       .settings-metric-summary,
       .settings-add-member-fields {
         grid-template-columns: 1fr;
+      }
+
+      .settings-profile-tabs,
+      .settings-template-grid {
+        width: 100%;
+        grid-template-columns: 1fr;
+      }
+
+      .settings-template-intro {
+        align-items: flex-start;
+        flex-direction: column;
       }
     }
 
