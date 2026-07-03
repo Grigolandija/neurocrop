@@ -12185,3 +12185,15 @@
         border-left: 0;
       }
     }
+
+    /* Keep the first workspace cards visibly separated from the fixed header. */
+    .dashboard-shell {
+      padding-top: calc(var(--dashboard-header-height, 44px) + 10px) !important;
+    }
+
+    @media (min-width: 1280px) {
+      .dashboard-sidebar {
+        top: calc(var(--dashboard-header-height, 44px) + 10px) !important;
+        max-height: calc(100vh - var(--dashboard-header-height, 44px) - 14px) !important;
+      }
+    }

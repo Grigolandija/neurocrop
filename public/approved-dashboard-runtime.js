@@ -1212,6 +1212,7 @@
       elements.dashboardShell.hidden = !signedIn;
       if (signedIn) {
         elements.headerAccountEmail.textContent = session.email;
+        window.requestAnimationFrame(syncStickyOffsets);
         hydrateDashboardFromApi();
       }
     }
