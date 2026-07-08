@@ -422,6 +422,32 @@
     getAreas: () => request("/areas"),
     getSections: (areaId) => request(`/sections${queryString({ areaId })}`),
     getNodes: (sectionId) => request(`/nodes${queryString({ sectionId })}`),
+    createArea: (payload) => request("/areas", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+    updateArea: (areaId, payload) => request(`/areas/${encodeURIComponent(areaId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+    deleteArea: (areaId) => request(`/areas/${encodeURIComponent(areaId)}`, {
+      method: "DELETE"
+    }),
+    createSection: (payload) => request("/sections", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+    updateSection: (sectionId, payload) => request(`/sections/${encodeURIComponent(sectionId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+    deleteSection: (sectionId) => request(`/sections/${encodeURIComponent(sectionId)}`, {
+      method: "DELETE"
+    }),
+    updateNode: (devEui, payload) => request(`/nodes/${encodeURIComponent(devEui)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
     registerNode: (payload) => request("/nodes/register", {
       method: "POST",
       body: JSON.stringify(payload)
@@ -2007,11 +2033,25 @@
       enhanceDashboardSelects(elements.managementModalOverlay);
     }
 
-    function saveLocationFromModal() {
+    async function saveLocationFromModal() {
       const siteId = managementModalState?.siteId;
       const input = elements.managementModalOverlay.querySelector('[name="modalLocationName"]');
       const nextName = String(input?.value || "").trim();
       if (!siteId || !nextName) return setManagementModalError("Location name is required before saving.");
+
+      if (isApiDataMode()) {
+        if (!window.NeuroCropApi?.updateArea) return setManagementModalError("Area update API is not available yet.");
+        try {
+          await window.NeuroCropApi.updateArea(siteId, { name: nextName });
+          await hydrateDashboardFromApi();
+          closeManagementModal();
+          setManagementNotice("locations", `${nextName} updated.`);
+          renderDashboard();
+        } catch (error) {
+          setManagementModalError(error instanceof Error ? error.message : "The area could not be saved.");
+        }
+        return;
+      }
 
       const nextData = cloneDashboardValue(dashboardData);
       const site = nextData.sites.find((item) => item.id === siteId);
@@ -2023,9 +2063,26 @@
       renderDashboard();
     }
 
-    function deleteLocationFromModal(siteId) {
+    async function deleteLocationFromModal(siteId) {
       const confirmation = elements.managementModalOverlay.querySelector('[name="modalLocationDeleteConfirm"]');
       if (!confirmation?.checked) return setManagementModalError("Confirm that you want to delete this location.");
+
+      if (isApiDataMode()) {
+        if (!window.NeuroCropApi?.deleteArea) return setManagementModalError("Area deletion API is not available yet.");
+        try {
+          await window.NeuroCropApi.deleteArea(siteId);
+          await hydrateDashboardFromApi();
+          closeManagementModal();
+          resetLocationForm();
+          resetBlockForm();
+          resetNodeForm();
+          setManagementNotice("locations", "Area deleted.");
+          renderDashboard();
+        } catch (error) {
+          setManagementModalError(error instanceof Error ? error.message : "The area could not be deleted.");
+        }
+        return;
+      }
 
       const nextData = cloneDashboardValue(dashboardData);
       const sourceSite = nextData.sites.find((item) => item.id === siteId);
@@ -2053,7 +2110,7 @@
       renderDashboard();
     }
 
-    function saveBlockFromModal() {
+    async function saveBlockFromModal() {
       const { siteId, zoneId } = managementModalState || {};
       const form = elements.managementModalOverlay.querySelector('[data-management-modal-form="block"]');
       const formData = new FormData(form);
@@ -2062,6 +2119,25 @@
       const nextProfile = String(formData.get("modalBlockProfile") || "");
       if (!nextName) return setManagementModalError("Block name is required before saving.");
       if (!cropProfiles[nextProfile]) return setManagementModalError("Choose a valid crop profile.");
+
+      if (isApiDataMode()) {
+        if (!window.NeuroCropApi?.updateSection) return setManagementModalError("Section update API is not available yet.");
+        try {
+          await window.NeuroCropApi.updateSection(zoneId, {
+            areaId: targetSiteId,
+            name: nextName,
+            cropProfile: nextProfile
+          });
+          await hydrateDashboardFromApi();
+          activeBlockFilterSiteId = targetSiteId;
+          closeManagementModal();
+          setManagementNotice("blocks", `${nextName} updated.`);
+          renderDashboard();
+        } catch (error) {
+          setManagementModalError(error instanceof Error ? error.message : "The section could not be saved.");
+        }
+        return;
+      }
 
       const nextData = cloneDashboardValue(dashboardData);
       const sourceSite = nextData.sites.find((item) => item.id === siteId);
@@ -2085,9 +2161,26 @@
       renderDashboard();
     }
 
-    function deleteBlockFromModal(siteId, zoneId) {
+    async function deleteBlockFromModal(siteId, zoneId) {
       const confirmation = elements.managementModalOverlay.querySelector('[name="modalBlockDeleteConfirm"]');
       if (!confirmation?.checked) return setManagementModalError("Confirm that you want to delete this block.");
+
+      if (isApiDataMode()) {
+        if (!window.NeuroCropApi?.deleteSection) return setManagementModalError("Section deletion API is not available yet.");
+        try {
+          await window.NeuroCropApi.deleteSection(zoneId);
+          await hydrateDashboardFromApi();
+          activeBlockFilterSiteId = siteId;
+          closeManagementModal();
+          resetBlockForm({ siteId });
+          resetNodeForm();
+          setManagementNotice("blocks", "Section deleted.");
+          renderDashboard();
+        } catch (error) {
+          setManagementModalError(error instanceof Error ? error.message : "The section could not be deleted.");
+        }
+        return;
+      }
 
       const nextData = cloneDashboardValue(dashboardData);
       const site = nextData.sites.find((item) => item.id === siteId);
@@ -2162,7 +2255,7 @@
       enhanceDashboardSelects(elements.managementModalOverlay);
     }
 
-    function saveNodeFromModal() {
+    async function saveNodeFromModal() {
       const { nodeId } = managementModalState || {};
       const form = elements.managementModalOverlay.querySelector('[data-management-modal-form="node"]');
       const formData = new FormData(form);
@@ -2172,7 +2265,33 @@
       const devEui = String(formData.get("modalNodeDevEui") || "").trim().toUpperCase();
       if (!nodeId || !targetSiteId || !targetZoneId) return setManagementModalError("Choose the block that should own this node.");
       if (devEui && !/^[0-9A-F]{16}$/.test(devEui)) return setManagementModalError("DevEUI must be 16 hexadecimal characters.");
-      if (isApiDataMode()) return setManagementModalError("Node editing is API-only now. Backend PATCH /nodes/:devEui is required before saving changes.");
+      if (isApiDataMode()) {
+        const record = findNodeRecordById(nodeId);
+        const currentDevEui = record?.node?.devEui || nodeId;
+        if (!window.NeuroCropApi?.updateNode) return setManagementModalError("Node update API is not available yet.");
+        if (devEui && normalizeDevEuiForCompare(devEui) !== normalizeDevEuiForCompare(currentDevEui)) {
+          return setManagementModalError("DevEUI is the physical device identity. Remove and register the node again to change it.");
+        }
+        try {
+          await window.NeuroCropApi.updateNode(currentDevEui, {
+            name: nodeName || nodeId,
+            sectionId: targetZoneId
+          });
+          await hydrateDashboardFromApi();
+          activeSiteId = targetSiteId;
+          activeZoneId = targetZoneId;
+          resetCurrentReadingsFromActiveZone();
+          resetNodeForm({ siteId: targetSiteId, zoneId: targetZoneId });
+          const targetSite = dashboardData.sites.find((item) => item.id === targetSiteId);
+          const targetZone = (targetSite?.zones || []).find((item) => item.id === targetZoneId);
+          closeManagementModal();
+          setManagementNotice("nodes", `${nodeName || nodeId} saved${targetZone ? ` and assigned to ${targetZone.name}` : ""}.`);
+          renderDashboard();
+        } catch (error) {
+          setManagementModalError(error instanceof Error ? error.message : "The node could not be saved.");
+        }
+        return;
+      }
       if (!window.NeuroCropStore?.updateNode) return setManagementModalError("Node editing is not available in this browser context.");
 
       try {
@@ -2209,6 +2328,10 @@
         }
       }
       return null;
+    }
+
+    function normalizeDevEuiForCompare(devEui) {
+      return String(devEui || "").trim().toLowerCase().replace(/[^0-9a-f]/g, "");
     }
 
     async function deleteNodeFromModal(nodeId) {
@@ -7504,11 +7627,39 @@
       renderDashboard();
     }
 
-    function submitLocationForm() {
+    async function submitLocationForm() {
       const nextName = locationFormState.name.trim();
       if (!nextName) {
         setManagementNotice("locations", "Location name is required before saving.", "warning");
         renderDashboard();
+        return;
+      }
+
+      if (isApiDataMode()) {
+        try {
+          if (locationFormState.mode === "edit") {
+            if (!window.NeuroCropApi?.updateArea) throw new Error("Area update API is not available yet.");
+            await window.NeuroCropApi.updateArea(locationFormState.siteId, { name: nextName });
+            await hydrateDashboardFromApi();
+            resetLocationForm();
+            setManagementNotice("locations", `${nextName} updated.`);
+            renderDashboard();
+            return;
+          }
+
+          if (!window.NeuroCropApi?.createArea) throw new Error("Area creation API is not available yet.");
+          const response = await window.NeuroCropApi.createArea({ name: nextName });
+          await hydrateDashboardFromApi();
+          const createdAreaId = response?.area?.id || "";
+          if (createdAreaId) activeBlockFilterSiteId = createdAreaId;
+          resetLocationForm();
+          resetBlockForm({ siteId: createdAreaId });
+          setManagementNotice("locations", `${nextName} created. Next step: add the first section inside it.`);
+          renderDashboard();
+        } catch (error) {
+          setManagementNotice("locations", error instanceof Error ? error.message : "The area could not be saved.", "warning");
+          renderDashboard();
+        }
         return;
       }
 
@@ -7545,7 +7696,7 @@
       renderDashboard();
     }
 
-    function submitBlockForm() {
+    async function submitBlockForm() {
       const nextName = blockFormState.name.trim();
       const nextSiteId = blockFormState.siteId;
       const nextProfile = blockFormState.profile;
@@ -7565,6 +7716,41 @@
       if (!cropProfiles[nextProfile]) {
         setManagementNotice("blocks", "Choose a valid crop profile for this block.", "warning");
         renderDashboard();
+        return;
+      }
+
+      if (isApiDataMode()) {
+        try {
+          if (blockFormState.mode === "edit") {
+            if (!window.NeuroCropApi?.updateSection) throw new Error("Section update API is not available yet.");
+            await window.NeuroCropApi.updateSection(blockFormState.zoneId, {
+              areaId: nextSiteId,
+              name: nextName,
+              cropProfile: nextProfile
+            });
+            await hydrateDashboardFromApi();
+            activeBlockFilterSiteId = nextSiteId;
+            resetBlockForm({ siteId: nextSiteId, profile: nextProfile });
+            setManagementNotice("blocks", `${nextName} updated.`);
+            renderDashboard();
+            return;
+          }
+
+          if (!window.NeuroCropApi?.createSection) throw new Error("Section creation API is not available yet.");
+          await window.NeuroCropApi.createSection({
+            areaId: nextSiteId,
+            name: nextName,
+            cropProfile: nextProfile
+          });
+          await hydrateDashboardFromApi();
+          activeBlockFilterSiteId = nextSiteId;
+          resetBlockForm({ siteId: nextSiteId, profile: nextProfile });
+          setManagementNotice("blocks", `${nextName} created.`);
+          renderDashboard();
+        } catch (error) {
+          setManagementNotice("blocks", error instanceof Error ? error.message : "The section could not be saved.", "warning");
+          renderDashboard();
+        }
         return;
       }
 
