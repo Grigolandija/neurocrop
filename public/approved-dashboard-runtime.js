@@ -417,7 +417,11 @@
     getHistory: (params) => request(`/history${queryString(params)}`),
     getAreas: () => request("/areas"),
     getSections: (areaId) => request(`/sections${queryString({ areaId })}`),
-    getNodes: (sectionId) => request(`/nodes${queryString({ sectionId })}`)
+    getNodes: (sectionId) => request(`/nodes${queryString({ sectionId })}`),
+    registerNode: (payload) => request("/nodes/register", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    })
   };
 })();
     const interfaceLanguageStorageKey = "neurocrop-interface-language-v1";
@@ -1295,8 +1299,13 @@
       if (!window.NeuroCropApi?.isConnected()) return;
       try {
         const nextDashboardData = await window.NeuroCropApi.getDashboard();
-        if (!nextDashboardData || !Array.isArray(nextDashboardData.sites) || nextDashboardData.sites.length === 0) return;
-        dashboardData = cloneDashboardValue(nextDashboardData);
+        if (!nextDashboardData || !Array.isArray(nextDashboardData.sites) || nextDashboardData.sites.length === 0) {
+          dashboardData = { sites: [], note: "API returned no dashboard structure." };
+          currentReadings = {};
+          renderDashboard();
+          return;
+        }
+        dashboardData = normalizeApiDashboardData(nextDashboardData);
         const nextSite = getActiveSite() || dashboardData.sites[0];
         const nextZone = getActiveZone(nextSite) || nextSite.zones?.[0];
         if (!nextSite || !nextZone) return;
@@ -1307,7 +1316,10 @@
         resetCurrentReadingsFromActiveZone();
         renderDashboard();
       } catch (error) {
-        console.warn("NeuroCrop API dashboard load failed; using local mock data.", error);
+        console.warn("NeuroCrop API dashboard load failed.", error);
+        dashboardData = { sites: [], note: "API dashboard load failed." };
+        currentReadings = {};
+        renderDashboard();
       }
     }
 
@@ -1427,6 +1439,9 @@
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
     let trendHistoryChartInstance = null;
+    let latestReadingsRequestId = 0;
+    let latestReadingsBySectionId = {};
+    let latestReadingsStatusBySectionId = {};
     let activeBlockFilterSiteId = "all";
     let activeNodeFilterSiteId = "all";
     let activeNodeFilterZoneId = "all";
@@ -2629,6 +2644,99 @@
         if (batteryReading !== null) readings.batteryLevel = batteryReading;
       }
       return readings;
+    }
+
+    function isApiDataMode() {
+      return Boolean(window.NeuroCropApi?.isConnected?.());
+    }
+
+    function normalizeApiDashboardData(data) {
+      const nextData = cloneDashboardValue(data || {});
+      nextData.sites = Array.isArray(nextData.sites) ? nextData.sites : [];
+      nextData.sites = nextData.sites.map((site) => ({
+        ...site,
+        zones: (Array.isArray(site.zones) ? site.zones : []).map((zone) => {
+          const batteryNodes = (Array.isArray(zone.batteryNodes) ? zone.batteryNodes : []).map((node) => {
+            const id = String(node.id || node.name || node.devEui || "").trim();
+            return {
+              ...node,
+              id,
+              name: String(node.name || id || node.devEui || "").trim(),
+              devEui: String(node.devEui || "").trim(),
+              level: Math.max(0, Math.min(Number(node.level ?? node.batteryPercent ?? 0) || 0, 100)),
+              active: node.active !== false
+            };
+          });
+          const availableMetrics = Array.isArray(zone.availableMetrics) ? zone.availableMetrics.slice() : [];
+          if (batteryNodes.length > 0 && !availableMetrics.includes("batteryLevel")) {
+            availableMetrics.push("batteryLevel");
+          }
+          return {
+            ...zone,
+            profile: cropProfiles[zone.profile] ? zone.profile : activeProfileKey,
+            batteryNodes,
+            sensorCount: Number(zone.sensorCount) || batteryNodes.length,
+            availableMetrics
+          };
+        })
+      }));
+      return nextData;
+    }
+
+    function readingsFromApiObservations(response) {
+      const observations = response?.observations && typeof response.observations === "object"
+        ? response.observations
+        : {};
+      return Object.fromEntries(Object.entries(observations)
+        .filter(([, observation]) => observation && Number.isFinite(Number(observation.value)))
+        .map(([metricKey, observation]) => [metricKey, Number(observation.value)]));
+    }
+
+    function getUnavailableMetricEvaluation(definition, reason = "No live data") {
+      return {
+        value: null,
+        state: "unavailable",
+        severity: 0,
+        scalePosition: 0,
+        deviationText: reason,
+        narrative: definition?.label ? `${definition.label} is not available from the API.` : reason
+      };
+    }
+
+    function evaluateMetricForReadings(definition, metricKey, availableMetrics, readings) {
+      const isConfigured = availableMetrics.has(metricKey);
+      const rawValue = readings?.[metricKey];
+      if (!isConfigured) return getUnavailableMetricEvaluation(definition, "Sensor not installed.");
+      if (!Number.isFinite(Number(rawValue))) return getUnavailableMetricEvaluation(definition, "No live data");
+      return evaluateMetric(definition, Number(rawValue));
+    }
+
+    async function fetchLatestReadingsForZone(zoneId, options = {}) {
+      if (!isApiDataMode() || !zoneId) return;
+      const requestId = ++latestReadingsRequestId;
+      latestReadingsStatusBySectionId[zoneId] = { status: "loading", error: "" };
+
+      try {
+        const response = await window.NeuroCropApi.getLatestReadings(zoneId);
+        if (requestId !== latestReadingsRequestId && options.onlyActive !== false) return;
+        latestReadingsBySectionId[zoneId] = response;
+        latestReadingsStatusBySectionId[zoneId] = { status: "ready", error: "" };
+        if (zoneId === getActiveZone()?.id) {
+          currentReadings = readingsFromApiObservations(response);
+          manualOverride = false;
+          renderDashboard();
+        }
+      } catch (error) {
+        latestReadingsStatusBySectionId[zoneId] = {
+          status: "error",
+          error: error instanceof Error ? error.message : "Latest readings could not be loaded."
+        };
+        if (zoneId === getActiveZone()?.id) {
+          currentReadings = {};
+          manualOverride = false;
+          renderDashboard();
+        }
+      }
     }
 
     function getSystemLowBatteryNodes() {
@@ -5582,9 +5690,15 @@
       syncProfileFromZone();
       const zone = getActiveZone();
       expandedLiveMetricKey = "";
-      currentReadings = zone
-        ? { ...getZoneReadings(cropProfiles[activeProfileKey], zone, activeScenarioKey) }
-        : {};
+      if (zone && isApiDataMode()) {
+        const cachedResponse = latestReadingsBySectionId[zone.id];
+        currentReadings = cachedResponse ? readingsFromApiObservations(cachedResponse) : {};
+        fetchLatestReadingsForZone(zone.id);
+      } else {
+        currentReadings = zone
+          ? { ...getZoneReadings(cropProfiles[activeProfileKey], zone, activeScenarioKey) }
+          : {};
+      }
       manualOverride = false;
       return zone;
     }
@@ -6543,7 +6657,7 @@
       }
     }
 
-    function submitNodeForm() {
+    async function submitNodeForm() {
       const site = dashboardData.sites.find((item) => item.id === nodeFormState.siteId);
       const zone = (site?.zones || []).find((item) => item.id === nodeFormState.zoneId);
       if (!site || !zone) {
@@ -6552,20 +6666,32 @@
         return;
       }
 
-      if (!window.NeuroCropStore?.registerNode) {
+      if (!isApiDataMode() && !window.NeuroCropStore?.registerNode) {
         setManagementNotice("nodes", "Node registration is unavailable until the data store is connected.", "warning");
         renderDashboard();
         return;
       }
 
       try {
-        window.NeuroCropStore.registerNode({
-          siteId: site.id,
-          zoneId: zone.id,
-          batteryLevel: 100,
-          devEui: nodeFormState.devEui
-        });
-        dashboardData = window.NeuroCropStore.getDashboardData();
+        if (isApiDataMode()) {
+          if (!window.NeuroCropApi?.registerNode) {
+            throw new Error("Node registration API is not available yet.");
+          }
+          await window.NeuroCropApi.registerNode({
+            devEui: nodeFormState.devEui,
+            sectionId: zone.id,
+            name: nodeFormState.devEui
+          });
+          await hydrateDashboardFromApi();
+        } else {
+          window.NeuroCropStore.registerNode({
+            siteId: site.id,
+            zoneId: zone.id,
+            batteryLevel: 100,
+            devEui: nodeFormState.devEui
+          });
+          dashboardData = window.NeuroCropStore.getDashboardData();
+        }
         activeSiteId = site.id;
         activeZoneId = zone.id;
         resetCurrentReadingsFromActiveZone();
@@ -9299,15 +9425,19 @@
 
     function evaluateZoneSnapshot(site, zone, readingsOverride = null) {
       const profile = cropProfiles[zone.profile];
-      const readings = readingsOverride || getZoneReadings(profile, zone, activeScenarioKey);
+      const readings = readingsOverride || (isApiDataMode() ? readingsFromApiObservations(latestReadingsBySectionId[zone.id]) : getZoneReadings(profile, zone, activeScenarioKey));
       const availableMetrics = new Set(zone.availableMetrics || []);
-      const results = Object.entries(profile.metrics).map(([key, definition]) => ({
-        key,
-        available: availableMetrics.has(key),
-        ...(availableMetrics.has(key)
-          ? evaluateMetric(definition, readings[key])
-          : { value: null, state: "unavailable", severity: 0, scalePosition: 0, deviationText: "Unavailable", narrative: "Sensor not installed." })
-      })).sort((left, right) => {
+      const results = Object.entries(profile.metrics).map(([key, definition]) => {
+        const isConfigured = availableMetrics.has(key);
+        const hasLiveValue = Number.isFinite(Number(readings?.[key]));
+        return {
+          key,
+          available: isConfigured && (!isApiDataMode() || hasLiveValue),
+          ...(isConfigured
+            ? evaluateMetricForReadings(definition, key, availableMetrics, readings)
+            : { value: null, state: "unavailable", severity: 0, scalePosition: 0, deviationText: "Unavailable", narrative: "Sensor not installed." })
+        };
+      }).sort((left, right) => {
         if (left.available === right.available) return 0;
         return left.available === false ? 1 : -1;
       });
@@ -10470,19 +10600,27 @@
       const availableMetrics = new Set(zone.availableMetrics || []);
       const { skipMetricsGrid = false } = options;
       const hasReadings = Object.keys(currentReadings).length > 0;
-      const readings = hasReadings ? currentReadings : getZoneReadings(profile, zone, activeScenarioKey);
+      const readings = hasReadings
+        ? currentReadings
+        : isApiDataMode()
+          ? {}
+          : getZoneReadings(profile, zone, activeScenarioKey);
 
-      if (!hasReadings) {
+      if (!hasReadings && !isApiDataMode()) {
         currentReadings = { ...readings };
       }
 
-      const results = Object.entries(profile.metrics).map(([key, definition]) => ({
-        key,
-        available: availableMetrics.has(key),
-        ...(availableMetrics.has(key)
-          ? evaluateMetric(definition, readings[key])
-          : { value: null, state: "unavailable", severity: 0, scalePosition: 0, deviationText: "Unavailable", narrative: "Sensor not installed." })
-      }));
+      const results = Object.entries(profile.metrics).map(([key, definition]) => {
+        const isConfigured = availableMetrics.has(key);
+        const hasLiveValue = Number.isFinite(Number(readings?.[key]));
+        return {
+          key,
+          available: isConfigured && (!isApiDataMode() || hasLiveValue),
+          ...(isConfigured
+            ? evaluateMetricForReadings(definition, key, availableMetrics, readings)
+            : { value: null, state: "unavailable", severity: 0, scalePosition: 0, deviationText: "Unavailable", narrative: "Sensor not installed." })
+        };
+      });
 
       const overallState = deriveOverallState(results);
       const growthResults = results.filter((item) => isGrowthMetricKey(item.key));
