@@ -1324,6 +1324,7 @@
         activeZoneId = nextZone.id;
         renderSiteOptions();
         renderZoneOptions();
+        await fetchLatestReadingsForZone(nextZone.id, { onlyActive: false, renderOnComplete: false });
         resetCurrentReadingsFromActiveZone();
         renderDashboard();
       } catch (error) {
@@ -2872,8 +2873,9 @@
         if (zoneId === getActiveZone()?.id) {
           currentReadings = readingsFromApiObservations(response);
           manualOverride = false;
-          renderDashboard();
+          if (options.renderOnComplete !== false) renderDashboard();
         }
+        return response;
       } catch (error) {
         latestReadingsStatusBySectionId[zoneId] = {
           status: "error",
@@ -2882,8 +2884,9 @@
         if (zoneId === getActiveZone()?.id) {
           currentReadings = {};
           manualOverride = false;
-          renderDashboard();
+          if (options.renderOnComplete !== false) renderDashboard();
         }
+        return null;
       }
     }
 
@@ -4635,8 +4638,16 @@
     }
 
     function renderInspectionRouteCards(items, options = {}) {
-      const { emptyTitle, emptyNote } = options;
+      const { emptyTitle, emptyNote, isLoading = false } = options;
       if (items.length === 0) {
+        if (isLoading) {
+          return `
+            <div class="workbench-empty-card">
+              <div class="workbench-empty-title">Loading live readings…</div>
+              <p class="workbench-empty-note">Waiting for the latest measurements before deciding whether this section needs attention.</p>
+            </div>
+          `;
+        }
         return `
           <div class="workbench-empty-card">
             <div class="workbench-empty-title">${escapeHtml(emptyTitle || "No route items match this filter.")}</div>
@@ -10904,6 +10915,8 @@
       const availableMetrics = new Set(zone.availableMetrics || []);
       const { skipMetricsGrid = false } = options;
       const hasReadings = Object.keys(currentReadings).length > 0;
+      const activeReadingsStatus = latestReadingsStatusBySectionId[zone.id]?.status || "";
+      const isActiveReadingsLoading = isApiDataMode() && !hasReadings && activeReadingsStatus === "loading";
       const readings = hasReadings
         ? currentReadings
         : isApiDataMode()
@@ -12012,6 +12025,7 @@
 
       if (!isSiteHotspotsView) {
         elements.zoneImpactGrid.innerHTML = renderInspectionRouteCards(filteredInspectionRouteItems, {
+          isLoading: isActiveReadingsLoading,
           emptyTitle: activeInspectionRouteFilter?.key === "focus"
             ? isSiteView
               ? `No urgent route stops in ${site.name}.`
