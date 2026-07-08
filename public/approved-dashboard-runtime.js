@@ -386,7 +386,11 @@
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
-      throw new Error(detail || `API request failed with ${response.status}.`);
+      const htmlPreMatch = detail.match(/<pre>([\s\S]*?)<\/pre>/i);
+      const readableDetail = htmlPreMatch
+        ? htmlPreMatch[1].replace(/<[^>]+>/g, "").trim()
+        : detail.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      throw new Error(readableDetail || `API request failed with ${response.status}.`);
     }
 
     if (response.status === 204) return null;
@@ -6699,7 +6703,11 @@
         setManagementNotice("nodes", `Node registered in ${zone.name}. It will appear here when sensor readings begin arriving.`);
         renderDashboard();
       } catch (error) {
-        setManagementNotice("nodes", error instanceof Error ? error.message : "The node could not be registered.", "warning");
+        const message = error instanceof Error ? error.message : "The node could not be registered.";
+        const friendlyMessage = /Cannot POST \/nodes\/register/i.test(message)
+          ? "Node registration API is not deployed yet. Backend needs POST /nodes/register before this can save to the database."
+          : message;
+        setManagementNotice("nodes", friendlyMessage, "warning");
         renderDashboard();
       }
     }
