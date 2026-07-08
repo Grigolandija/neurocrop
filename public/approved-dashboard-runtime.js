@@ -2860,6 +2860,10 @@
       return evaluateMetric(definition, Number(rawValue));
     }
 
+    function isMetricConfiguredForReadings(metricKey, availableMetrics, readings) {
+      return availableMetrics.has(metricKey) || Number.isFinite(Number(readings?.[metricKey]));
+    }
+
     async function fetchLatestReadingsForZone(zoneId, options = {}) {
       if (!isApiDataMode() || !zoneId) return;
       const requestId = ++latestReadingsRequestId;
@@ -9543,8 +9547,14 @@
       `;
     }
 
-    function renderLiveReadingsBoard(results, profile, site, zone) {
+    function renderLiveReadingsBoard(results, profile, site, zone, options = {}) {
       const installedResults = results.filter((result) => result.available !== false);
+      const loadingHtml = options.isLoading ? `
+        <div class="workbench-empty-card">
+          <div class="workbench-empty-title">Loading live readings…</div>
+          <p class="workbench-empty-note">Waiting for the latest measurements from this section.</p>
+        </div>
+      ` : "";
       return `
         <div class="live-readings-table-head" aria-hidden="true">
           <span>${diagnosticText("Parameter", "Parametras")}</span>
@@ -9555,6 +9565,7 @@
           <span>${diagnosticText("Status", "Būsena")}</span>
           <span></span>
         </div>
+        ${loadingHtml}
         ${installedResults.map((result) => renderLiveReadingRow(
           result.key,
           profile.metrics[result.key],
@@ -9743,13 +9754,16 @@
       const readings = readingsOverride || (isApiDataMode() ? readingsFromApiObservations(latestReadingsBySectionId[zone.id]) : getZoneReadings(profile, zone, activeScenarioKey));
       const availableMetrics = new Set(zone.availableMetrics || []);
       const results = Object.entries(profile.metrics).map(([key, definition]) => {
-        const isConfigured = availableMetrics.has(key);
+        const isConfigured = isMetricConfiguredForReadings(key, availableMetrics, readings);
         const hasLiveValue = Number.isFinite(Number(readings?.[key]));
+        const metricAvailableSet = isConfigured && !availableMetrics.has(key)
+          ? new Set([...availableMetrics, key])
+          : availableMetrics;
         return {
           key,
           available: isConfigured && (!isApiDataMode() || hasLiveValue),
           ...(isConfigured
-            ? evaluateMetricForReadings(definition, key, availableMetrics, readings)
+            ? evaluateMetricForReadings(definition, key, metricAvailableSet, readings)
             : { value: null, state: "unavailable", severity: 0, scalePosition: 0, deviationText: "Unavailable", narrative: "Sensor not installed." })
         };
       }).sort((left, right) => {
@@ -10928,13 +10942,16 @@
       }
 
       const results = Object.entries(profile.metrics).map(([key, definition]) => {
-        const isConfigured = availableMetrics.has(key);
+        const isConfigured = isMetricConfiguredForReadings(key, availableMetrics, readings);
         const hasLiveValue = Number.isFinite(Number(readings?.[key]));
+        const metricAvailableSet = isConfigured && !availableMetrics.has(key)
+          ? new Set([...availableMetrics, key])
+          : availableMetrics;
         return {
           key,
           available: isConfigured && (!isApiDataMode() || hasLiveValue),
           ...(isConfigured
-            ? evaluateMetricForReadings(definition, key, availableMetrics, readings)
+            ? evaluateMetricForReadings(definition, key, metricAvailableSet, readings)
             : { value: null, state: "unavailable", severity: 0, scalePosition: 0, deviationText: "Unavailable", narrative: "Sensor not installed." })
         };
       });
@@ -11890,7 +11907,7 @@
 
           if (isReadingsPage) {
             elements.metricsGrid.innerHTML = filteredZoneResults.length > 0
-              ? renderLiveReadingsBoard(filteredZoneResults, profile, site, zone)
+              ? renderLiveReadingsBoard(filteredZoneResults, profile, site, zone, { isLoading: isActiveReadingsLoading })
               : renderWorkbenchEmptyState(
                   diagnosticText("No parameters match this filter.", "Šio filtro neatitinka nė vienas rodiklis."),
                   diagnosticText("Choose another parameter group.", "Pasirinkite kitą rodiklių grupę."),
