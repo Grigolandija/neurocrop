@@ -11962,22 +11962,24 @@
         elements.unavailableMetricsGrid.innerHTML = "";
       }
 
-      const defaultTrendMetricKey = isSiteView
-        ? topIndicatorDrivers[0]?.key || trendMetricOptions[0]?.key || ""
-        : getPrimaryNonOptimalResult(nonOptimalResults)?.key || trendMetricOptions[0]?.key || "";
-      const trendHistoryState = buildTrendHistoryState({
-        isSiteView,
-        site,
-        zone,
-        trendMetricOptions,
-        defaultMetricKey: defaultTrendMetricKey
-      });
-      const shouldHideTrendHistory = !isHistoryPage
+      const shouldHideTrendHistoryBase = !isHistoryPage
         || isManagementPage
         || isSiteHotspotsView
         || !isDetailedExperienceMode
-        || !trendHistoryState
         || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "metrics");
+      const defaultTrendMetricKey = isSiteView
+        ? topIndicatorDrivers[0]?.key || trendMetricOptions[0]?.key || ""
+        : getPrimaryNonOptimalResult(nonOptimalResults)?.key || trendMetricOptions[0]?.key || "";
+      const trendHistoryState = shouldHideTrendHistoryBase
+        ? null
+        : buildTrendHistoryState({
+            isSiteView,
+            site,
+            zone,
+            trendMetricOptions,
+            defaultMetricKey: defaultTrendMetricKey
+          });
+      const shouldHideTrendHistory = shouldHideTrendHistoryBase || !trendHistoryState;
       elements.historySection.hidden = shouldHideTrendHistory;
 
       if (!shouldHideTrendHistory && trendHistoryState) {
