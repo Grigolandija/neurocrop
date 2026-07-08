@@ -1569,7 +1569,7 @@
       if (activePrimaryPage === "history" || activePrimaryPage === "readings") {
         activeWorkspaceFocus = "all";
         if (activePrimaryPage === "readings") activeWorkbenchLensKey = "all";
-        setExperienceMode("detailed");
+        setExperienceMode("detailed", { render: false, force: true });
       }
 
       renderDashboard();
@@ -3677,7 +3677,7 @@
           activePrimaryPage = "history";
           sidebarActionOverride = null;
           activeWorkspaceFocus = "all";
-          setExperienceMode("detailed");
+          setExperienceMode("detailed", { render: false, force: true });
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/history");
