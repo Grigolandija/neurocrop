@@ -9133,10 +9133,16 @@
       border-radius: 0 !important;
       background: transparent !important;
       box-shadow: none !important;
+      overflow: hidden !important;
+      pointer-events: none !important;
     }
 
     body[data-primary-page="overview"] #heroStatusPanel .hero-top-row {
       display: none !important;
+    }
+
+    body[data-primary-page="overview"] #heroStatusPanel * {
+      pointer-events: none !important;
     }
 
     body[data-primary-page="overview"] .overview-triage,

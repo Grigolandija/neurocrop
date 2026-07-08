@@ -1317,8 +1317,15 @@
           return;
         }
         dashboardData = normalizeApiDashboardData(nextDashboardData);
-        const nextSite = getActiveSite() || dashboardData.sites[0];
-        const nextZone = getActiveZone(nextSite) || nextSite.zones?.[0];
+        let nextSite = getActiveSite() || dashboardData.sites[0];
+        let nextZone = getActiveZone(nextSite) || nextSite.zones?.[0];
+        if (!zoneHasLiveApiData(nextZone)) {
+          const firstLiveScope = findFirstLiveApiScope(dashboardData);
+          if (firstLiveScope) {
+            nextSite = firstLiveScope.site;
+            nextZone = firstLiveScope.zone;
+          }
+        }
         if (!nextSite || !nextZone) return;
         activeSiteId = nextSite.id;
         activeZoneId = nextZone.id;
@@ -2830,6 +2837,21 @@
         })
       }));
       return nextData;
+    }
+
+    function zoneHasLiveApiData(zone) {
+      if (!zone) return false;
+      const metrics = Array.isArray(zone.availableMetrics) ? zone.availableMetrics : [];
+      const nodes = Array.isArray(zone.batteryNodes) ? zone.batteryNodes : [];
+      return metrics.length > 0 || nodes.some((node) => node.active !== false && node.lastSeen);
+    }
+
+    function findFirstLiveApiScope(data) {
+      for (const site of data?.sites || []) {
+        const zone = (site.zones || []).find(zoneHasLiveApiData);
+        if (zone) return { site, zone };
+      }
+      return null;
     }
 
     function readingsFromApiObservations(response) {
