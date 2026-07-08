@@ -1450,6 +1450,9 @@
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
     let trendHistoryChartInstance = null;
+    let trendHistoryRequestId = 0;
+    let trendHistoryByKey = {};
+    let trendHistoryStatusByKey = {};
     let latestReadingsRequestId = 0;
     let latestReadingsBySectionId = {};
     let latestReadingsStatusBySectionId = {};
@@ -2881,6 +2884,47 @@
           manualOverride = false;
           renderDashboard();
         }
+      }
+    }
+
+    function getTrendHistoryCacheKey(sectionId, metricKey, rangeKey) {
+      return `${sectionId || "none"}:${metricKey || "none"}:${rangeKey || "24h"}`;
+    }
+
+    function getTrendHistoryWindow(rangeConfig) {
+      const to = new Date();
+      const from = new Date(to.getTime() - ((rangeConfig?.totalHours || 24) * 60 * 60 * 1000));
+      return { from, to };
+    }
+
+    async function fetchTrendHistoryForMetric(sectionId, metricKey, rangeKey) {
+      if (!isApiDataMode() || !sectionId || !metricKey) return;
+      const rangeConfig = trendRangeConfig[rangeKey] || trendRangeConfig["24h"];
+      const cacheKey = getTrendHistoryCacheKey(sectionId, metricKey, rangeKey);
+      if (trendHistoryStatusByKey[cacheKey]?.status === "loading" || trendHistoryByKey[cacheKey]) return;
+
+      const { from, to } = getTrendHistoryWindow(rangeConfig);
+      const requestId = ++trendHistoryRequestId;
+      trendHistoryStatusByKey[cacheKey] = { status: "loading", error: "" };
+
+      try {
+        const response = await window.NeuroCropApi.getHistory({
+          sectionId,
+          metric: metricKey,
+          from: from.toISOString(),
+          to: to.toISOString()
+        });
+        trendHistoryByKey[cacheKey] = response;
+        trendHistoryStatusByKey[cacheKey] = { status: "ready", error: "" };
+        if (requestId >= trendHistoryRequestId - 2 && activePrimaryPage === "history") {
+          renderDashboard();
+        }
+      } catch (error) {
+        trendHistoryStatusByKey[cacheKey] = {
+          status: "error",
+          error: error instanceof Error ? error.message : "History could not be loaded."
+        };
+        if (activePrimaryPage === "history") renderDashboard();
       }
     }
 
@@ -8217,13 +8261,47 @@
       return "#356b53";
     }
 
-    function buildTrendSeries(option, rangeKey, scopeSeed) {
+    function buildTrendSeries(option, rangeKey, scopeSeed, historyResponse = null) {
       const rangeConfig = trendRangeConfig[rangeKey] || trendRangeConfig["24h"];
       const pointCount = Math.max(2, Math.round((rangeConfig.totalHours * 60) / (rangeConfig.intervalMinutes || 60)) + 1);
       const domain = option.definition.displayRange || option.definition.critical;
       const optimalRange = option.optimalRange || option.definition.optimal;
       const span = Math.max(domain[1] - domain[0], 1);
       const currentValue = clamp(option.value, domain[0], domain[1]);
+      const historyPoints = Array.isArray(historyResponse?.points)
+        ? historyResponse.points
+            .map((point) => ({
+              timestamp: new Date(point.observedAt || point.receivedAt).getTime(),
+              value: Number(point.value)
+            }))
+            .filter((point) => Number.isFinite(point.timestamp) && Number.isFinite(point.value))
+            .sort((left, right) => left.timestamp - right.timestamp)
+        : [];
+
+      if (historyPoints.length > 0) {
+        const values = historyPoints.map((point) => roundValue(point.value, option.definition.decimals));
+        return {
+          domain,
+          optimalRange,
+          pointCount: values.length,
+          values,
+          timestamps: historyPoints.map((point) => point.timestamp),
+          source: "api"
+        };
+      }
+
+      if (isApiDataMode()) {
+        const now = Date.now();
+        return {
+          domain,
+          optimalRange,
+          pointCount: 1,
+          values: [roundValue(currentValue, option.definition.decimals)],
+          timestamps: [now],
+          source: "latest"
+        };
+      }
+
       const optimalMid = midpoint(optimalRange);
       const trendSeed = hashString(`${scopeSeed}:${option.key}:${rangeKey}`);
       const chartPrecision = Math.max(option.definition.decimals + 2, 3);
@@ -8288,7 +8366,9 @@
         domain,
         optimalRange,
         pointCount,
-        values: points
+        values: points,
+        timestamps: points.map((_, index) => Date.now() - ((pointCount - 1 - index) * rangeConfig.intervalMinutes * 60 * 1000)),
+        source: "demo"
       };
     }
 
@@ -8691,8 +8771,6 @@
       const isMultiMetric = seriesItems.length > 1;
       const rangeEnd = rangeStart + (totalHours * 60 * 60 * 1000);
       const colors = seriesItems.map((_, index) => getTrendSeriesColor(index));
-      const pointCount = seriesItems[0]?.series?.pointCount || seriesItems[0]?.series?.values?.length || 2;
-      const pointIntervalMs = (totalHours * 60 * 60 * 1000) / Math.max(pointCount - 1, 1);
       const tooltipDateFormat = new Intl.DateTimeFormat("lt-LT", {
         day: "2-digit",
         month: "short",
@@ -8775,7 +8853,7 @@
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
         const data = item.series.values.map((value, pointIndex) => [
-          rangeStart + (pointIndex * pointIntervalMs),
+          item.series.timestamps?.[pointIndex] ?? rangeStart,
           value
         ]);
         const labelSide = index === 0 ? "insideStartTop" : "insideEndTop";
@@ -8797,8 +8875,7 @@
           showSymbol: false,
           symbol: "circle",
           symbolSize: 7,
-          smooth: 0.08,
-          smoothMonotone: "x",
+          smooth: false,
           connectNulls: false,
           animation: false,
           lineStyle: {
@@ -9187,9 +9264,19 @@
       }
 
       const scopeSeed = isSiteView ? `${site.id}:site` : `${site.id}:${zone.id}:zone`;
+      if (isApiDataMode() && !isSiteView) {
+        selectedMetrics.forEach((metricOption) => {
+          fetchTrendHistoryForMetric(zone.id, metricOption.key, activeTrendRangeKey);
+        });
+      }
       const seriesItems = selectedMetrics.map((metricOption) => ({
         option: metricOption,
-        series: buildTrendSeries(metricOption, activeTrendRangeKey, scopeSeed)
+        series: buildTrendSeries(
+          metricOption,
+          activeTrendRangeKey,
+          scopeSeed,
+          !isSiteView ? trendHistoryByKey[getTrendHistoryCacheKey(zone.id, metricOption.key, activeTrendRangeKey)] : null
+        )
       }));
       const series = seriesItems[0].series;
       const startValue = series.values[0];
