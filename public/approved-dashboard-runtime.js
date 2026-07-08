@@ -10958,6 +10958,18 @@
     }
 
     function renderDashboard(options = {}) {
+      try {
+        return renderDashboardUnsafe(options);
+      } catch (error) {
+        console.error("Dashboard render failed.", error);
+        document.body.dataset.renderError = "true";
+        updateSidebarActionState();
+        syncStickyOffsets();
+        return null;
+      }
+    }
+
+    function renderDashboardUnsafe(options = {}) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
       const isNodesPage = activePrimaryPage === "nodes";
