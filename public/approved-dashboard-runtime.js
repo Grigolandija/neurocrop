@@ -1024,31 +1024,9 @@
       }
     };
 
-    let dashboardData = {
-      sites: [
-        {
-          id: "greenhouse-1",
-          name: "Greenhouse No. 1",
-          zones: [
-            { id: "tomato-a-back", name: "Tomato Block A, Rear", profile: "tomato", sensorCount: 4, batteryNodes: [{ id: "NS-000001", level: 63 }, { id: "NS-000002", level: 58 }, { id: "NS-000003", level: 52 }, { id: "NS-000004", level: 49 }], availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"] },
-            { id: "tomato-a-front", name: "Tomato Block A, Front", profile: "tomato", sensorCount: 3, batteryNodes: [{ id: "NS-000005", level: 61 }, { id: "NS-000006", level: 44 }, { id: "NS-000007", level: 38 }], availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"] },
-            { id: "lettuce-rack-under", name: "Lettuce Rack, Under Shelf", profile: "lettuce", sensorCount: 5, batteryNodes: [{ id: "NS-000008", level: 84 }, { id: "NS-000009", level: 79 }, { id: "NS-000010", level: 77 }, { id: "NS-000011", level: 74 }, { id: "NS-000012", level: 69 }], availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"] }
-          ]
-        },
-        {
-          id: "greenhouse-2",
-          name: "Greenhouse No. 2",
-          zones: [
-            { id: "strawberry-west", name: "Strawberry Block, West Side", profile: "strawberry", sensorCount: 4, batteryNodes: [{ id: "NS-000013", level: 58 }, { id: "NS-000014", level: 41 }, { id: "NS-000015", level: 33 }, { id: "NS-000016", level: 29 }], availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"] },
-            { id: "strawberry-east", name: "Strawberry Block, East Side", profile: "strawberry", sensorCount: 4, batteryNodes: [{ id: "NS-000017", level: 72 }, { id: "NS-000018", level: 68 }, { id: "NS-000019", level: 65 }, { id: "NS-000020", level: 60 }], availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"] },
-            { id: "seedling-center", name: "Nursery, Central Block", profile: "lettuce", sensorCount: 2, batteryNodes: [{ id: "NS-000021", level: 57 }, { id: "NS-000022", level: 46 }], availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"] }
-          ]
-        }
-      ],
-      note: "Only the selected block is shown."
-    };
+    let dashboardData = { sites: [], note: "Waiting for API dashboard data." };
 
-    if (window.NeuroCropStore) {
+    if (!window.NeuroCropApi?.isConnected?.() && window.NeuroCropStore) {
       dashboardData = window.NeuroCropStore.getDashboardData();
     }
 
@@ -1716,7 +1694,7 @@
     }
 
     function getNextNodeIdFromData(data) {
-      if (window.NeuroCropStore?.getNextNodeId) {
+      if (!isApiDataMode() && window.NeuroCropStore?.getNextNodeId) {
         return window.NeuroCropStore.getNextNodeId(data);
       }
 
@@ -1754,6 +1732,16 @@
     }
 
     function persistDashboardData(nextData, options = {}) {
+      if (isApiDataMode()) {
+        const noticePage = activePrimaryPage === "locations"
+          ? "locations"
+          : activePrimaryPage === "blocks"
+            ? "blocks"
+            : "settings";
+        setManagementNotice(noticePage, "Structure editing is API-only now. Backend CRUD endpoints are required before saving changes.", "warning");
+        return dashboardData;
+      }
+
       const { preferredSiteId = "", preferredZoneId = "" } = options;
       dashboardData = window.NeuroCropStore?.saveDashboardData
         ? window.NeuroCropStore.saveDashboardData(nextData)
@@ -2181,6 +2169,7 @@
       const devEui = String(formData.get("modalNodeDevEui") || "").trim().toUpperCase();
       if (!nodeId || !targetSiteId || !targetZoneId) return setManagementModalError("Choose the block that should own this node.");
       if (devEui && !/^[0-9A-F]{16}$/.test(devEui)) return setManagementModalError("DevEUI must be 16 hexadecimal characters.");
+      if (isApiDataMode()) return setManagementModalError("Node editing is API-only now. Backend PATCH /nodes/:devEui is required before saving changes.");
       if (!window.NeuroCropStore?.updateNode) return setManagementModalError("Node editing is not available in this browser context.");
 
       try {
@@ -2212,6 +2201,7 @@
     function deleteNodeFromModal(nodeId) {
       const confirmation = elements.managementModalOverlay.querySelector('[name="modalNodeDeleteConfirm"]');
       if (!confirmation?.checked) return setManagementModalError("Confirm that you want to remove this node.");
+      if (isApiDataMode()) return setManagementModalError("Node deletion is API-only now. Backend DELETE /nodes/:devEui is required before removing nodes.");
       if (!window.NeuroCropStore?.deleteNode) return setManagementModalError("Node deletion is not available in this browser context.");
 
       try {
@@ -5714,6 +5704,11 @@
     }
 
     function refreshDashboardDataFromStore() {
+      if (isApiDataMode()) {
+        hydrateDashboardFromApi();
+        return;
+      }
+
       if (!window.NeuroCropStore) return;
 
       dashboardData = window.NeuroCropStore.getDashboardData();
