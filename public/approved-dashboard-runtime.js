@@ -9293,6 +9293,43 @@
           !isSiteView ? trendHistoryByKey[getTrendHistoryCacheKey(zone.id, metricOption.key, activeTrendRangeKey)] : null
         )
       }));
+
+      const hasRenderableSeries = seriesItems.every((item) =>
+        Array.isArray(item.series.values)
+        && item.series.values.length > 0
+        && item.series.values.every((value) => Number.isFinite(Number(value)))
+      );
+
+      if (!hasRenderableSeries) {
+        return {
+          title: isSiteView ? `24-hour trends for ${site.name}` : `24-hour trends for ${zone.name}`,
+          summary: isSiteView
+            ? `Select up to two metrics to compare how growing conditions moved across ${site.name}.`
+            : `Select up to two metrics to compare how temperature, humidity, CO2, or VPD moved inside ${zone.name}.`,
+          state: selectedMetric.state,
+          rangeMeta: rangeConfig.meta,
+          metricLabel: selectedMetrics.length > 1 ? `${selectedMetrics.length} metrics selected` : selectedMetric.label,
+          metricMeta: isApiDataMode()
+            ? "Waiting for sensor history from the API"
+            : `${selectedMetric.meta} · Target ${formatRange(selectedMetric.optimalRange || selectedMetric.definition.optimal, selectedMetric.definition)}`,
+          chartState: null,
+          chartOption: null,
+          axisLabels: {
+            start: `${rangeConfig.label} window`,
+            mid: "Real measurements",
+            end: `Y unit: ${formatUnit(selectedMetric.definition.unit)}`
+          },
+          metricButtons: renderTrendMetricButtons(trendMetricOptions, selectedMetrics.map((metric) => metric.key)),
+          rangeButtons: renderTrendRangeButtons(activeTrendRangeKey),
+          readoutHtml: "",
+          hoverPoints: [],
+          callout: isApiDataMode()
+            ? "Waiting for enough real history points to draw this trend."
+            : "No trend points are available for this selection yet.",
+          backendNote: "Only real sensor history is shown here."
+        };
+      }
+
       const series = seriesItems[0].series;
       const startValue = series.values[0];
       const currentValue = series.values[series.values.length - 1];
@@ -9395,6 +9432,15 @@
       currentTrendHistoryPoints = [];
       elements.trendHistoryTooltip = null;
 
+      if (!chartOption) {
+        elements.trendHistoryChart.innerHTML = `
+          <div class="flex h-full items-center justify-center px-6 text-center text-sm font-semibold text-ink/52">
+            Waiting for real sensor history.
+          </div>
+        `;
+        return;
+      }
+
       if (!window.echarts) {
         elements.trendHistoryChart.innerHTML = `
           <div class="flex h-full items-center justify-center px-6 text-center text-sm font-semibold text-ink/52">
@@ -9409,8 +9455,19 @@
         null,
         { renderer: "svg" }
       );
-      trendHistoryChartInstance.setOption(chartOption, { notMerge: true });
-      window.requestAnimationFrame(() => trendHistoryChartInstance?.resize());
+      try {
+        trendHistoryChartInstance.setOption(chartOption, { notMerge: true });
+        window.requestAnimationFrame(() => trendHistoryChartInstance?.resize());
+      } catch (error) {
+        console.warn("Trend chart render failed.", error);
+        trendHistoryChartInstance.dispose();
+        trendHistoryChartInstance = null;
+        elements.trendHistoryChart.innerHTML = `
+          <div class="flex h-full items-center justify-center px-6 text-center text-sm font-semibold text-ink/52">
+            Trend chart could not be rendered.
+          </div>
+        `;
+      }
     }
 
     function openTrendHistory(metricKey) {
