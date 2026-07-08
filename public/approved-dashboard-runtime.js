@@ -425,6 +425,9 @@
     registerNode: (payload) => request("/nodes/register", {
       method: "POST",
       body: JSON.stringify(payload)
+    }),
+    deleteNode: (devEui) => request(`/nodes/${encodeURIComponent(devEui)}`, {
+      method: "DELETE"
     })
   };
 })();
@@ -2198,10 +2201,35 @@
       }
     }
 
-    function deleteNodeFromModal(nodeId) {
+    function findNodeRecordById(nodeId) {
+      for (const site of dashboardData.sites || []) {
+        for (const zone of site.zones || []) {
+          const node = (zone.batteryNodes || []).find((item) => item.id === nodeId);
+          if (node) return { site, zone, node };
+        }
+      }
+      return null;
+    }
+
+    async function deleteNodeFromModal(nodeId) {
       const confirmation = elements.managementModalOverlay.querySelector('[name="modalNodeDeleteConfirm"]');
       if (!confirmation?.checked) return setManagementModalError("Confirm that you want to remove this node.");
-      if (isApiDataMode()) return setManagementModalError("Node deletion is API-only now. Backend DELETE /nodes/:devEui is required before removing nodes.");
+      if (isApiDataMode()) {
+        const record = findNodeRecordById(nodeId);
+        const devEui = record?.node?.devEui || nodeId;
+        if (!window.NeuroCropApi?.deleteNode) return setManagementModalError("Node deletion API is not available yet.");
+        try {
+          await window.NeuroCropApi.deleteNode(devEui);
+          await hydrateDashboardFromApi();
+          resetNodeForm();
+          closeManagementModal();
+          setManagementNotice("nodes", `${nodeId} removed from the workspace.`);
+          renderDashboard();
+        } catch (error) {
+          setManagementModalError(error instanceof Error ? error.message : "The node could not be removed.");
+        }
+        return;
+      }
       if (!window.NeuroCropStore?.deleteNode) return setManagementModalError("Node deletion is not available in this browser context.");
 
       try {
