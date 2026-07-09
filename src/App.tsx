@@ -38,30 +38,7 @@ function ApprovedDashboard() {
       if (route !== window.location.pathname) navigate(route, { replace: Boolean(payload.replace) })
     }
 
-    function handleNavigationClick(event: MouseEvent) {
-      const target = event.target
-      if (!(target instanceof Element)) return
-      const action = target.closest<HTMLElement>('[data-sidebar-action]')?.dataset.sidebarAction
-      if (!action) return
-
-      const routeByAction: Record<string, string> = {
-        overview: '/',
-        sites: '/areas',
-        zones: '/sections',
-        nodes: '/nodes',
-        readings: '/readings',
-        alerts: '/alerts',
-        history: '/history',
-        analytics: '/history',
-        settings: '/settings',
-      }
-      const route = routeByAction[action]
-      if (!route || route === window.location.pathname) return
-      navigate(route)
-    }
-
     window.addEventListener('message', handleMessage)
-    document.addEventListener('click', handleNavigationClick, true)
 
     const loadRuntime = () => {
       if (document.querySelector('script[data-neurocrop-runtime]')) return
@@ -100,7 +77,6 @@ function ApprovedDashboard() {
 
     return () => {
       window.removeEventListener('message', handleMessage)
-      document.removeEventListener('click', handleNavigationClick, true)
       document.body.classList.remove('designer-app')
     }
   }, [navigate])
