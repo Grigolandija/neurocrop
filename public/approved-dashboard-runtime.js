@@ -5989,6 +5989,12 @@
       );
     }
 
+    function snapshotHasLiveGrowthData(snapshot) {
+      return Boolean(snapshot?.results?.some((result) =>
+        result.available !== false && isGrowthMetricKey(result.key)
+      ));
+    }
+
     let enhancedSelectId = 0;
 
     function getEnhancedSelectOptionScore(select, value, snapshots) {
@@ -6011,8 +6017,9 @@
         const site = dashboardData.sites.find((item) => item.id === value);
         if (!site) return null;
         const siteSnapshots = snapshots.filter((snapshot) => snapshot.site.id === site.id);
+        const liveSiteSnapshots = siteSnapshots.filter(snapshotHasLiveGrowthData);
         return getContextScoreSummary(
-          siteSnapshots.length > 0 ? deriveSiteOverallState(siteSnapshots) : null
+          liveSiteSnapshots.length > 0 ? deriveSiteOverallState(liveSiteSnapshots) : null
         );
       }
 
@@ -6027,7 +6034,7 @@
       const snapshot = snapshots.find((item) =>
         item.zone.id === zoneId && (!siteId || item.site.id === siteId)
       );
-      return getContextScoreSummary(snapshot?.overall || null);
+      return getContextScoreSummary(snapshotHasLiveGrowthData(snapshot) ? snapshot?.overall : null);
     }
 
     function renderEnhancedSelectScore(score) {
@@ -6157,8 +6164,9 @@
 
       elements.siteMenu.innerHTML = dashboardData.sites.map((site) => {
         const siteSnapshots = contextSnapshots.filter((snapshot) => snapshot.site.id === site.id);
+        const liveSiteSnapshots = siteSnapshots.filter(snapshotHasLiveGrowthData);
         const score = getContextScoreSummary(
-          siteSnapshots.length > 0 ? deriveSiteOverallState(siteSnapshots) : null
+          liveSiteSnapshots.length > 0 ? deriveSiteOverallState(liveSiteSnapshots) : null
         );
         return `
           <button type="button" class="context-menu-option" data-site-option data-site-id="${escapeAttribute(site.id)}" data-active="${site.id === activeSiteId}">
@@ -6191,7 +6199,7 @@
         const snapshot = contextSnapshots.find((item) =>
           item.site.id === site.id && item.zone.id === zone.id
         );
-        const score = getContextScoreSummary(snapshot?.overall || null);
+        const score = getContextScoreSummary(snapshotHasLiveGrowthData(snapshot) ? snapshot?.overall : null);
         return `
           <button type="button" class="context-menu-option" data-zone-option data-zone-id="${escapeAttribute(zone.id)}" data-active="${zone.id === activeZoneId}">
             <div class="context-menu-option-copy">
@@ -11569,8 +11577,13 @@
       elements.siteAveragesButton.setAttribute("aria-pressed", String(activeSiteDetailView === "averages"));
       elements.siteZonesButton.dataset.active = String(activeSiteDetailView === "zones");
       elements.siteZonesButton.setAttribute("aria-pressed", String(activeSiteDetailView === "zones"));
-      const selectedSiteScore = getContextScoreSummary(siteOverallState);
-      const selectedZoneScore = getContextScoreSummary(overallState);
+      const selectedSiteLiveSnapshots = siteSnapshots.filter(snapshotHasLiveGrowthData);
+      const selectedSiteScore = getContextScoreSummary(
+        selectedSiteLiveSnapshots.length > 0 ? deriveSiteOverallState(selectedSiteLiveSnapshots) : null
+      );
+      const selectedZoneScore = getContextScoreSummary(
+        availableResults.length > 0 ? overallState : null
+      );
       elements.siteContextValue.textContent = site.name;
       elements.siteContextMeta.textContent = selectedSiteScore.text;
       elements.siteContextMeta.dataset.state = selectedSiteScore.state;
@@ -12086,13 +12099,16 @@
         elements.trendHistoryActiveSectionLabel.textContent = zone.name;
         const historySiteScores = new Map(dashboardData.sites.map((historySite) => {
           const snapshots = globalSnapshots.filter((snapshot) => snapshot.site.id === historySite.id);
+          const liveSnapshots = snapshots.filter(snapshotHasLiveGrowthData);
           return [
             historySite.id,
-            getContextScoreSummary(snapshots.length > 0 ? deriveSiteOverallState(snapshots) : null)
+            getContextScoreSummary(liveSnapshots.length > 0 ? deriveSiteOverallState(liveSnapshots) : null)
           ];
         }));
         const selectedHistorySiteScore = historySiteScores.get(site.id) || getContextScoreSummary(null);
-        const selectedHistoryZoneScore = getContextScoreSummary(overallState);
+        const selectedHistoryZoneScore = getContextScoreSummary(
+          availableResults.length > 0 ? overallState : null
+        );
         elements.historyLocationValue.textContent = site.name;
         elements.historyBlockValue.textContent = zone.name;
         applyHistorySelectedScore(elements.historyLocationScore, selectedHistorySiteScore);
@@ -12113,7 +12129,7 @@
           return renderHistoryScoreOption({
             id: historyZone.id,
             name: historyZone.name,
-            score: getContextScoreSummary(snapshot?.overall || null),
+            score: getContextScoreSummary(snapshotHasLiveGrowthData(snapshot) ? snapshot?.overall : null),
             isActive: historyZone.id === zone.id,
             type: "zone"
           });
