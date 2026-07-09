@@ -7157,10 +7157,9 @@
           `;
 
           return `
-          <div class="grid grid-cols-[minmax(190px,1fr)_repeat(6,82px)] items-center gap-2 border-b border-black/6 px-3 py-1.5 last:border-b-0" data-profile-metric-row="${escapeAttribute(metricKey)}">
-            <div class="min-w-0">
-              <strong class="block truncate text-[13px] leading-none text-ink">${escapeHtml(metric.label)}</strong>
-              <span class="mt-1 block text-[10px] font-semibold leading-none text-ink/45">${escapeHtml(formatUnit(metric.unit))}</span>
+          <div class="grid grid-cols-[minmax(190px,1fr)_repeat(6,82px)] items-center gap-2 border-b border-black/6 px-3 py-1 last:border-b-0" data-profile-metric-row="${escapeAttribute(metricKey)}">
+            <div class="min-w-0 whitespace-nowrap">
+              <strong class="truncate text-[13px] leading-none text-ink">${escapeHtml(metric.label)}</strong><span class="ml-1 text-[11px] font-semibold text-ink/45">${escapeHtml(formatUnit(metric.unit))}</span>
             </div>
             ${thresholdInput("Critical low", rangeValues.criticalLow, "critical", 0, "bg-[#fffafa] focus:bg-white")}
             ${thresholdInput("Warning low", rangeValues.warningLow, "warning", 0, "bg-[#fffdf8] focus:bg-white")}
