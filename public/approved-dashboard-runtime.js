@@ -1432,11 +1432,19 @@
           return;
         }
         dashboardData = normalizeApiDashboardData(nextDashboardData);
-        const nextSite = getActiveSite() || dashboardData.sites[0];
-        const nextZone = getActiveZone(nextSite) || nextSite.zones?.[0];
+        const siteWithSavedZone = dashboardData.sites.find((site) =>
+          (site.zones || []).some((zone) => zone.id === activeZoneId)
+        );
+        const nextSite = siteWithSavedZone
+          || dashboardData.sites.find((site) => site.id === activeSiteId)
+          || dashboardData.sites.find((site) => (site.zones || []).length > 0)
+          || dashboardData.sites[0];
+        const nextZone = (nextSite?.zones || []).find((zone) => zone.id === activeZoneId)
+          || nextSite?.zones?.[0];
         if (!nextSite || !nextZone) return;
         activeSiteId = nextSite.id;
         activeZoneId = nextZone.id;
+        persistActiveContext();
         renderSiteOptions();
         renderZoneOptions();
         await fetchLatestReadingsForAllZones({ renderOnComplete: false });
@@ -1532,8 +1540,34 @@
       syncStickyOffsets();
     });
 
-    let activeSiteId = "greenhouse-1";
-    let activeZoneId = "tomato-a-back";
+    const activeContextStorageKey = "neurocrop-active-context-v1";
+
+    function loadActiveContext() {
+      try {
+        const stored = JSON.parse(window.localStorage.getItem(activeContextStorageKey) || "null");
+        return {
+          siteId: typeof stored?.siteId === "string" ? stored.siteId : "",
+          zoneId: typeof stored?.zoneId === "string" ? stored.zoneId : ""
+        };
+      } catch {
+        return { siteId: "", zoneId: "" };
+      }
+    }
+
+    function persistActiveContext() {
+      try {
+        window.localStorage.setItem(activeContextStorageKey, JSON.stringify({
+          siteId: activeSiteId,
+          zoneId: activeZoneId
+        }));
+      } catch {
+        // Context persistence is optional when browser storage is unavailable.
+      }
+    }
+
+    const savedActiveContext = loadActiveContext();
+    let activeSiteId = savedActiveContext.siteId || "greenhouse-1";
+    let activeZoneId = savedActiveContext.zoneId || "tomato-a-back";
     let activeProfileKey = "tomato";
     let activeScenarioKey = "optimal";
     let activeViewScope = "zone";
@@ -3306,18 +3340,39 @@
     }
 
     function deriveSiteOverallState(siteSnapshots) {
-      const zoneSeverities = siteSnapshots.map((snapshot) => 1 - (snapshot.overall.indexScore / 100));
-      const averageSeverity = zoneSeverities.reduce((sum, severity) => sum + severity, 0) / Math.max(zoneSeverities.length, 1);
-      const worstSeverity = zoneSeverities.length > 0 ? Math.max(...zoneSeverities) : 0;
-      const riskScore = Math.round((averageSeverity * 0.65 + worstSeverity * 0.35) * 100);
-      const riskIndex = Math.round(Math.max(riskScore, worstSeverity * 100));
-      const indexScore = Math.max(0, 100 - riskIndex);
+      // An Area score describes the typical condition across reporting Sections.
+      // Its status stays conservative: one critical Section makes the Area critical.
+      const reportingSnapshots = siteSnapshots.filter(snapshotHasLiveGrowthData);
+      if (reportingSnapshots.length === 0) {
+        return {
+          state: "unknown",
+          stableCount: 0,
+          warningCount: 0,
+          criticalCount: 0,
+          unknownCount: siteSnapshots.length,
+          indexScore: null
+        };
+      }
+
+      const indexScore = Math.round(
+        reportingSnapshots.reduce((sum, snapshot) => sum + snapshot.overall.indexScore, 0)
+        / reportingSnapshots.length
+      );
+      const criticalCount = reportingSnapshots.filter((snapshot) => snapshot.overall.state === "critical").length;
+      const warningCount = reportingSnapshots.filter((snapshot) => snapshot.overall.state === "warning").length;
+      const stableCount = reportingSnapshots.filter((snapshot) => snapshot.overall.state === "optimal").length;
+      const state = criticalCount > 0
+        ? "critical"
+        : warningCount > 0
+          ? "warning"
+          : "optimal";
 
       return {
-        state: deriveStateFromIndexScore(indexScore),
-        stableCount: siteSnapshots.filter((snapshot) => snapshot.overall.state === "optimal").length,
-        warningCount: siteSnapshots.filter((snapshot) => snapshot.overall.state === "warning").length,
-        criticalCount: siteSnapshots.filter((snapshot) => snapshot.overall.state === "critical").length,
+        state,
+        stableCount,
+        warningCount,
+        criticalCount,
+        unknownCount: siteSnapshots.length - reportingSnapshots.length,
         indexScore
       };
     }
@@ -3359,6 +3414,7 @@
 
     function getWeakestSiteSnapshot(siteSnapshots) {
       return [...siteSnapshots]
+        .filter(snapshotHasLiveGrowthData)
         .sort((left, right) => left.overall.indexScore - right.overall.indexScore)[0] || null;
     }
 
@@ -12637,6 +12693,7 @@
       }
       applyInterfaceLanguage();
       enhanceDashboardSelects(document);
+      persistActiveContext();
     }
 
     function renderDashboard(options = {}) {
