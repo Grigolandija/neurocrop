@@ -8649,23 +8649,38 @@
 
     function deriveOverallState(results) {
       const activeResults = results.filter((item) => item.available !== false && isGrowthMetricKey(item.key));
-      const warningCount = activeResults.filter((item) => item.state === "warning").length;
-      const criticalCount = activeResults.filter((item) => item.state === "critical").length;
-      const averageSeverity = activeResults.reduce((sum, item) => sum + item.severity, 0) / Math.max(activeResults.length, 1);
-      const worstSeverity = activeResults.length > 0 ? Math.max(...activeResults.map((item) => item.severity)) : 0;
-      const riskScore = Math.round((averageSeverity * 0.65 + worstSeverity * 0.35) * 100);
-      const riskIndex = Math.round(Math.max(riskScore, worstSeverity * 100));
-      const indexScore = Math.max(0, 100 - riskIndex);
+      const evaluationByMetric = new Map(activeResults.map((item) => [item.key, item]));
+      const scoreGroups = [
+        ["climate", ["airTemp", "humidity", "vpd"]],
+        ["co2", ["co2"]],
+        ["root_temperature", ["soilTemp"]]
+      ].map(([id, metricKeys]) => {
+        const members = metricKeys.map((key) => evaluationByMetric.get(key)).filter(Boolean);
+        if (!members.length) return null;
+        const driver = [...members].sort((left, right) => right.severity - left.severity)[0];
+        return { id, severity: driver.severity, state: driver.state, mainDriver: driver.key, metrics: members };
+      }).filter(Boolean);
 
-      const state = deriveStateFromIndexScore(indexScore);
+      if (!scoreGroups.length) {
+        return { state: "unknown", warningCount: 0, criticalCount: 0, stableCount: 0, riskScore: 0, indexScore: null };
+      }
+
+      const averageSeverity = scoreGroups.reduce((sum, group) => sum + group.severity, 0) / scoreGroups.length;
+      const worstGroup = [...scoreGroups].sort((left, right) => right.severity - left.severity)[0];
+      const riskScore = Math.round((averageSeverity * 0.65 + worstGroup.severity * 0.35) * 100);
+      const indexScore = Math.max(0, 100 - riskScore);
+      const criticalCount = scoreGroups.filter((group) => group.state === "critical").length;
+      const warningCount = scoreGroups.filter((group) => group.state === "warning").length;
+      const state = criticalCount > 0 ? "critical" : warningCount > 0 ? "warning" : "optimal";
 
       return {
         state,
         warningCount,
         criticalCount,
-        stableCount: activeResults.length - warningCount - criticalCount,
+        stableCount: scoreGroups.length - warningCount - criticalCount,
         riskScore,
-        indexScore
+        indexScore,
+        mainDriver: worstGroup.mainDriver
       };
     }
 
@@ -11784,7 +11799,7 @@
         };
       });
 
-      const overallState = deriveOverallState(results);
+      const overallState = getBackendOverallState(zone) || deriveOverallState(results);
       const growthResults = results.filter((item) => isGrowthMetricKey(item.key));
       const nonOptimalResults = growthResults.filter((item) => item.available !== false && item.state !== "optimal");
       const availableResults = growthResults.filter((item) => item.available !== false);
