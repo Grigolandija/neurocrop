@@ -7145,36 +7145,39 @@
       const profileUsageCount = getProfileUsageCounts()[profileKey] || 0;
       const metricRows = Object.entries(profile.metrics)
         .filter(([metricKey]) => isGrowthMetricKey(metricKey))
-        .map(([metricKey, metric]) => `
+        .map(([metricKey, metric]) => {
+          const metricDraft = draftMetrics[metricKey];
+          const rangeValues = getProfileEditorRangeValues(metricDraft || metric);
+          const step = metric.decimals === 0 ? "1" : "0.01";
+          const rangeInput = (label, value, rangeKey, bound, toneClass) => `
+            <label class="rounded-[15px] ${toneClass} p-3">
+              <span class="block text-[10px] font-bold uppercase tracking-[0.13em]">${escapeHtml(label)}</span>
+              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="mt-2 w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+            </label>
+          `;
+
+          return `
           <div class="rounded-[20px] border border-black/8 bg-white p-4" data-profile-metric-row="${escapeAttribute(metricKey)}">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
               <strong class="text-sm text-ink">${escapeHtml(metric.label)}</strong>
               <span class="text-xs font-semibold text-ink/52">${escapeHtml(formatUnit(metric.unit))}</span>
             </div>
-            <div class="mt-3 grid gap-3 xl:grid-cols-3">
-              ${[
-                ["Optimal", "optimal", "bg-[#eef4ec] text-moss"],
-                ["Warning", "warning", "bg-[#f8ead5] text-amber"],
-                ["Critical", "critical", "bg-[#f8dfda] text-ember"]
-              ].map(([label, rangeKey, toneClass]) => `
-                ${(() => {
-                  const metricDraft = draftMetrics[metricKey];
-                  const draftRange = Array.isArray(metricDraft?.[rangeKey]) ? metricDraft[rangeKey] : null;
-                  const rangeValues = draftRange && draftRange.length === 2 ? draftRange : metric[rangeKey];
-                  return `
-                <div class="rounded-[15px] ${toneClass} p-3">
-                  <div class="text-[10px] font-bold uppercase tracking-[0.13em]">${label}</div>
-                  <div class="mt-2 grid grid-cols-2 gap-2">
-                    <input type="number" step="${metric.decimals === 0 ? "1" : "0.01"}" value="${escapeAttribute(rangeValues[0])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="0" aria-label="${escapeAttribute(`${metric.label} ${label} minimum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                    <input type="number" step="${metric.decimals === 0 ? "1" : "0.01"}" value="${escapeAttribute(rangeValues[1])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="1" aria-label="${escapeAttribute(`${metric.label} ${label} maximum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                  </div>
+            <div class="mt-3 grid gap-2 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
+              ${rangeInput("Critical low", rangeValues.criticalLow, "critical", 0, "bg-[#f8dfda] text-ember")}
+              ${rangeInput("Warning low", rangeValues.warningLow, "warning", 0, "bg-[#f8ead5] text-amber")}
+              <div class="rounded-[15px] bg-[#eef4ec] p-3 text-moss">
+                <div class="text-[10px] font-bold uppercase tracking-[0.13em]">Optimal</div>
+                <div class="mt-2 grid grid-cols-2 gap-2">
+                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMin)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="0" aria-label="${escapeAttribute(`${metric.label} optimal minimum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMax)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="1" aria-label="${escapeAttribute(`${metric.label} optimal maximum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
                 </div>
-              `;
-                })()}
-              `).join("")}
+              </div>
+              ${rangeInput("Warning high", rangeValues.warningHigh, "warning", 1, "bg-[#f8ead5] text-amber")}
+              ${rangeInput("Critical high", rangeValues.criticalHigh, "critical", 1, "bg-[#f8dfda] text-ember")}
             </div>
           </div>
-        `).join("");
+        `;
+        }).join("");
 
       return `
         <section class="mt-5 rounded-[24px] border border-black/8 bg-[#f8f3ea] p-4">
@@ -7191,7 +7194,7 @@
               <label class="block"><span class="text-sm font-semibold text-ink/72">Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
               <label class="block"><span class="text-sm font-semibold text-ink/72">Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
             </div>
-            <p class="mt-4 text-xs leading-5 text-ink/54">Each pair is minimum / maximum. Warning must sit outside optimal, and critical must sit outside warning.</p>
+            <p class="mt-4 text-xs leading-5 text-ink/54">Set ranges from left to right: critical low, warning low, optimal min/max, warning high, critical high.</p>
             <div class="mt-4 grid gap-3">${metricRows}</div>
             <div class="mt-5 flex flex-wrap items-center gap-3">
               <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save profile targets</button>
@@ -7793,6 +7796,37 @@
       return Number(normalized);
     }
 
+    function getProfileEditorRangeValues(metric) {
+      const optimal = Array.isArray(metric?.optimal) ? metric.optimal : [0, 0];
+      const warning = Array.isArray(metric?.warning) ? metric.warning : optimal;
+      const critical = Array.isArray(metric?.critical) ? metric.critical : warning;
+      const optimalMin = Number(optimal[0]);
+      const optimalMax = Number(optimal[1]);
+      let warningMin = Number(warning[0]);
+      let warningMax = Number(warning[1]);
+      let criticalMin = Number(critical[0]);
+      let criticalMax = Number(critical[1]);
+
+      if (Number.isFinite(warningMin) && Number.isFinite(warningMax) && Number.isFinite(optimalMin) && Number.isFinite(optimalMax)) {
+        const looksLikeHighOnlyWarning = warningMin > optimalMin && warningMin > optimalMax;
+        if (looksLikeHighOnlyWarning) warningMin = optimalMin;
+      }
+
+      if (Number.isFinite(criticalMin) && Number.isFinite(criticalMax) && Number.isFinite(warningMin) && Number.isFinite(warningMax)) {
+        const looksLikeHighOnlyCritical = criticalMin > warningMin && criticalMin > warningMax;
+        if (looksLikeHighOnlyCritical) criticalMin = warningMin;
+      }
+
+      return {
+        criticalLow: Number.isFinite(criticalMin) ? criticalMin : "",
+        warningLow: Number.isFinite(warningMin) ? warningMin : "",
+        optimalMin: Number.isFinite(optimalMin) ? optimalMin : "",
+        optimalMax: Number.isFinite(optimalMax) ? optimalMax : "",
+        warningHigh: Number.isFinite(warningMax) ? warningMax : "",
+        criticalHigh: Number.isFinite(criticalMax) ? criticalMax : ""
+      };
+    }
+
     function ensureSettingsProfileEditorDraft(profileKey, profile) {
       if (!settingsProfileEditorDrafts[profileKey]) {
         settingsProfileEditorDrafts[profileKey] = {
@@ -7878,9 +7912,14 @@
         const [optimalMin, optimalMax] = nextRanges.optimal;
         const [warningMin, warningMax] = nextRanges.warning;
         const [criticalMin, criticalMax] = nextRanges.critical;
-        const hasValidPairs = optimalMin <= optimalMax && warningMin <= warningMax && criticalMin <= criticalMax;
-        if (!hasValidPairs) {
-          setManagementNotice("settings", `${metric.label}: minimum value must be lower than maximum value.`, "warning");
+        const hasValidRangeOrder =
+          criticalMin <= warningMin &&
+          warningMin <= optimalMin &&
+          optimalMin <= optimalMax &&
+          optimalMax <= warningMax &&
+          warningMax <= criticalMax;
+        if (!hasValidRangeOrder) {
+          setManagementNotice("settings", `${metric.label}: ranges must go critical low → warning low → optimal → warning high → critical high.`, "warning");
           renderDashboard();
           return;
         }
