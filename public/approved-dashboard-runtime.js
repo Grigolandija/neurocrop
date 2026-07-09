@@ -7844,6 +7844,76 @@
       return settingsProfileEditorDrafts[profileKey];
     }
 
+    function formatProfileRangeInput(value, decimals) {
+      if (!Number.isFinite(value)) return "";
+      const precision = Number.isFinite(Number(decimals)) ? Math.min(Math.max(Number(decimals), 0), 3) : 2;
+      return precision === 0 ? String(Math.round(value)) : String(Number(value.toFixed(precision)));
+    }
+
+    function captureOptimalRangeBaseline(target) {
+      if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-profile-range")) return;
+      if (target.dataset.rangeKey !== "optimal") return;
+      const row = target.closest("[data-profile-metric-row]");
+      if (!row) return;
+      const inputs = [...row.querySelectorAll("[data-profile-range]")];
+      const values = {};
+      for (const input of inputs) {
+        const key = `${input.dataset.rangeKey}:${input.dataset.bound}`;
+        values[key] = parseProfileRangeInputValue(input.value);
+      }
+      target.dataset.optimalRangeBaseline = JSON.stringify(values);
+    }
+
+    function rebalanceOptimalRangeBounds(target) {
+      if (!(target instanceof HTMLInputElement) || target.dataset.rangeKey !== "optimal") return;
+      const baselineRaw = target.dataset.optimalRangeBaseline;
+      if (!baselineRaw) return;
+
+      let baseline;
+      try { baseline = JSON.parse(baselineRaw); } catch { return; }
+      const nextOptimal = parseProfileRangeInputValue(target.value);
+      const oldOptimal = Number(baseline[`optimal:${target.dataset.bound}`]);
+      if (!Number.isFinite(nextOptimal) || !Number.isFinite(oldOptimal) || nextOptimal === oldOptimal) return;
+
+      const form = target.closest('[data-settings-form="crop-profile-editor"]');
+      const row = target.closest("[data-profile-metric-row]");
+      const profileKey = form?.dataset.profileKey;
+      const metricKey = target.dataset.metricKey;
+      const profile = profileKey ? cropProfiles[profileKey] : null;
+      if (!form || !row || !profileKey || !metricKey || !profile) return;
+
+      const draft = ensureSettingsProfileEditorDraft(profileKey, profile);
+      const completeMetrics = getCompleteCropProfileMetrics(profile.metrics || {});
+      const metric = draft.metrics[metricKey] || cloneDashboardValue(completeMetrics[metricKey] || {});
+      draft.metrics[metricKey] = metric;
+      const decimals = metric.decimals;
+      const bound = Number(target.dataset.bound);
+      const updates = [];
+
+      if (bound === 0) {
+        const warningGap = oldOptimal - Number(baseline["warning:0"]);
+        const criticalGap = oldOptimal - Number(baseline["critical:0"]);
+        if (Number.isFinite(warningGap)) updates.push({ rangeKey: "warning", bound: 0, value: nextOptimal - Math.max(warningGap, 0) });
+        if (Number.isFinite(criticalGap)) updates.push({ rangeKey: "critical", bound: 0, value: nextOptimal - Math.max(criticalGap, 0) });
+      } else {
+        const warningGap = Number(baseline["warning:1"]) - oldOptimal;
+        const criticalGap = Number(baseline["critical:1"]) - oldOptimal;
+        if (Number.isFinite(warningGap)) updates.push({ rangeKey: "warning", bound: 1, value: nextOptimal + Math.max(warningGap, 0) });
+        if (Number.isFinite(criticalGap)) updates.push({ rangeKey: "critical", bound: 1, value: nextOptimal + Math.max(criticalGap, 0) });
+      }
+
+      for (const update of updates) {
+        const value = formatProfileRangeInput(update.value, decimals);
+        const input = row.querySelector(`[data-profile-range][data-range-key="${update.rangeKey}"][data-bound="${update.bound}"]`);
+        if (input instanceof HTMLInputElement) input.value = value;
+        if (!Array.isArray(metric[update.rangeKey])) metric[update.rangeKey] = [];
+        metric[update.rangeKey][update.bound] = value;
+      }
+      if (!Array.isArray(metric.optimal)) metric.optimal = [];
+      metric.optimal[bound] = target.value;
+      delete target.dataset.optimalRangeBaseline;
+    }
+
     function syncCropProfileEditorDraft(target) {
       if (!(target instanceof HTMLElement)) return;
       const form = target.closest('[data-settings-form="crop-profile-editor"]');
@@ -12814,6 +12884,10 @@
       updateSettingsField(event.target);
     });
 
+    elements.settingsManagementSection.addEventListener("focusin", (event) => {
+      captureOptimalRangeBaseline(event.target);
+    });
+
     elements.settingsManagementSection.addEventListener("change", (event) => {
       if (event.target instanceof HTMLSelectElement && event.target.hasAttribute("data-profile-editor-select")) {
         activeSettingsProfileKey = event.target.value;
@@ -12825,6 +12899,7 @@
       }
       syncSettingsProfileFormField(event.target);
       syncCropProfileEditorDraft(event.target);
+      rebalanceOptimalRangeBounds(event.target);
       updateSettingsField(event.target);
     });
 
