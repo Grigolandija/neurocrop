@@ -10072,12 +10072,9 @@
       const site = getActiveSite();
       const zone = getActiveZone(site);
       const rangeConfig = trendRangeConfig[activeTrendRangeKey] || trendRangeConfig["24h"];
-      const metricKeys = activeTrendMetricKeys.length > 0
-        ? activeTrendMetricKeys
-        : (activeTrendMetricKey ? [activeTrendMetricKey] : []);
       const button = elements.trendHistoryExportButton;
 
-      if (!isApiDataMode() || activeViewScope === "site" || !zone?.id || metricKeys.length === 0) return;
+      if (!isApiDataMode() || activeViewScope === "site" || !zone?.id) return;
 
       button.disabled = true;
       button.dataset.busy = "true";
@@ -10089,7 +10086,6 @@
         const from = new Date(to.getTime() - (rangeConfig.totalHours * 60 * 60 * 1000));
         await window.NeuroCropApi.downloadMeasurementsCsv({
           sectionId: zone.id,
-          metrics: metricKeys.join(","),
           from: from.toISOString(),
           to: to.toISOString()
         });
@@ -12723,9 +12719,8 @@
         elements.trendHistorySummary.textContent = trendHistoryState.summary;
         applyStateChip(elements.trendHistoryStateChip, trendHistoryState.state, stateConfig[trendHistoryState.state].label);
         elements.trendHistoryRangeMeta.textContent = trendHistoryState.rangeMeta;
-        const hasExportableMetrics = activeTrendMetricKeys.length > 0 || Boolean(activeTrendMetricKey);
-        elements.trendHistoryExportButton.hidden = !isApiDataMode() || isSiteView || !hasExportableMetrics;
-        elements.trendHistoryExportButton.disabled = !hasExportableMetrics;
+        elements.trendHistoryExportButton.hidden = !isApiDataMode() || isSiteView;
+        elements.trendHistoryExportButton.disabled = false;
         elements.trendMetricBar.innerHTML = trendHistoryState.metricButtons;
         elements.trendRangeBar.innerHTML = trendHistoryState.rangeButtons;
         elements.trendHistoryMetricLabel.textContent = trendHistoryState.metricLabel;
