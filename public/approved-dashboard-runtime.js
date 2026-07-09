@@ -385,6 +385,10 @@
     });
 
     if (!response.ok) {
+      if (response.status === 401 && path !== "/auth/login") {
+        window.dispatchEvent(new CustomEvent("neurocrop:unauthorized"));
+        throw new Error("Your session has ended. Please sign in again.");
+      }
       const detail = await response.text().catch(() => "");
       const htmlPreMatch = detail.match(/<pre>([\s\S]*?)<\/pre>/i);
       const readableDetail = htmlPreMatch
@@ -1414,8 +1418,10 @@
       }
     }
 
-    async function hydrateDashboardFromApi() {
-      if (!window.NeuroCropApi?.isConnected()) return;
+    async function hydrateDashboardFromApi(options = {}) {
+      const { preserveCurrentOnError = false } = options;
+      if (!window.NeuroCropApi?.isConnected() || dashboardHydrationInFlight) return;
+      dashboardHydrationInFlight = true;
       try {
         await hydrateCropProfilesFromApi();
         const nextDashboardData = await window.NeuroCropApi.getDashboard();
@@ -1438,10 +1444,21 @@
         renderDashboard();
       } catch (error) {
         console.warn("NeuroCrop API dashboard load failed.", error);
-        dashboardData = { sites: [], note: "API dashboard load failed." };
-        currentReadings = {};
-        renderDashboard();
+        if (!preserveCurrentOnError) {
+          dashboardData = { sites: [], note: "API dashboard load failed." };
+          currentReadings = {};
+          renderDashboard();
+        }
+      } finally {
+        dashboardHydrationInFlight = false;
       }
+    }
+
+    function refreshLiveDashboardData() {
+      const livePage = ["overview", "readings", "history", "alerts"].includes(activePrimaryPage);
+      const signedIn = Boolean(getLoginSession()?.email);
+      if (document.hidden || !signedIn || !livePage || !isApiDataMode()) return;
+      hydrateDashboardFromApi({ preserveCurrentOnError: true });
     }
 
     async function initializeLoginGate() {
@@ -1563,9 +1580,12 @@
     let trendHistoryRequestId = 0;
     let trendHistoryByKey = {};
     let trendHistoryStatusByKey = {};
+    const trendHistoryCacheTtlMs = 60 * 1000;
+    const trendHistoryRetryDelayMs = 10 * 1000;
     let latestReadingsRequestId = 0;
     let latestReadingsBySectionId = {};
     let latestReadingsStatusBySectionId = {};
+    let dashboardHydrationInFlight = false;
     let activeBlockFilterSiteId = "all";
     let activeNodeFilterSiteId = "all";
     let activeNodeFilterZoneId = "all";
@@ -3043,7 +3063,10 @@
       const rangeConfig = trendRangeConfig[rangeKey] || trendRangeConfig["24h"];
       const cacheKey = getTrendHistoryCacheKey(sectionId, metricKey, rangeKey);
       const existingStatus = trendHistoryStatusByKey[cacheKey];
-      if (existingStatus?.status === "loading" || existingStatus?.status === "error" || trendHistoryByKey[cacheKey]) return;
+      const now = Date.now();
+      if (existingStatus?.status === "loading") return;
+      if (existingStatus?.status === "ready" && now - (existingStatus.fetchedAt || 0) < trendHistoryCacheTtlMs) return;
+      if (existingStatus?.status === "error" && now - (existingStatus.failedAt || 0) < trendHistoryRetryDelayMs) return;
 
       const { from, to } = getTrendHistoryWindow(rangeConfig);
       const requestId = ++trendHistoryRequestId;
@@ -3057,14 +3080,15 @@
           to: to.toISOString()
         });
         trendHistoryByKey[cacheKey] = response;
-        trendHistoryStatusByKey[cacheKey] = { status: "ready", error: "" };
+        trendHistoryStatusByKey[cacheKey] = { status: "ready", error: "", fetchedAt: Date.now() };
         if (requestId >= trendHistoryRequestId - 2 && activePrimaryPage === "history") {
           renderDashboard();
         }
       } catch (error) {
         trendHistoryStatusByKey[cacheKey] = {
           status: "error",
-          error: error instanceof Error ? error.message : "History could not be loaded."
+          error: error instanceof Error ? error.message : "History could not be loaded.",
+          failedAt: Date.now()
         };
         if (activePrimaryPage === "history") renderDashboard();
       }
@@ -9812,8 +9836,12 @@
         minute: "2-digit"
       });
       const hoverPoints = series.values.map((value, index) => {
-        const progress = series.values.length === 1 ? 1 : index / (series.values.length - 1);
-        const timestamp = tooltipDateFormat.format(new Date(rangeStart + (progress * rangeConfig.totalHours * 60 * 60 * 1000)));
+        const observedAt = series.timestamps?.[index];
+        const timestamp = tooltipDateFormat.format(new Date(
+          Number.isFinite(observedAt)
+            ? observedAt
+            : rangeStart + ((series.values.length === 1 ? 1 : index / (series.values.length - 1)) * rangeConfig.totalHours * 60 * 60 * 1000)
+        ));
         return {
           value: formatValue(value, selectedMetric.definition),
           time: timestamp,
@@ -10334,6 +10362,9 @@
     }
 
     function formatAlertDuration(timestamp) {
+      if (!timestamp || !Number.isFinite(new Date(timestamp).getTime())) {
+        return diagnosticText("Time unavailable", "Laikas dar nežinomas");
+      }
       const minutes = Math.max(1, Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000));
       if (minutes < 60) return `${minutes} min`;
       const hours = Math.floor(minutes / 60);
@@ -10352,10 +10383,10 @@
         const definition = issue.profile.metrics[primaryResult.key];
         const id = `${issue.site.id}:${issue.zone.id}:${primaryResult.key}`;
         if (!alertActionState[id]) {
-          // The actual start time will come from the backend; this keeps the prototype actionable today.
           alertActionState[id] = {
             status: "open",
-            detectedAt: new Date(Date.now() - Math.round(18 + primaryResult.severity * 110) * 60000).toISOString(),
+            // API alert events will provide the real detectedAt timestamp.
+            detectedAt: null,
             updatedAt: null,
             updatedBy: null,
             snapshot: {
@@ -10686,10 +10717,8 @@
       const scoreCardLabel = hasUsableCurrentData
         ? getHealthStateLabel(displayedOverallState.state)
         : diagnosticText("No data", "Nėra duomenų");
-      const previousScore = hasUsableCurrentData ? Math.min(100, displayedOverallState.indexScore + 6) : null;
-      const scoreDelta = hasUsableCurrentData ? displayedOverallState.indexScore - previousScore : 0;
       const scoreTrendText = hasUsableCurrentData
-        ? `${previousScore} → ${displayedOverallState.indexScore} <span>${scoreDelta < 0 ? "↓" : scoreDelta > 0 ? "↑" : "="} ${Math.abs(scoreDelta)} in 24h</span>`
+        ? diagnosticText("Score history is not available yet", "Score istorija dar nepasiekiama")
         : diagnosticText("Waiting for live data", "Laukiama gyvų duomenų");
       const effectivePriorityTitle = hasUsableCurrentData
         ? priorityTitle
@@ -11082,7 +11111,6 @@
         : [];
       const isSystemicPattern = sameIssueRows.length >= 2;
       const scoreImpact = getDiagnosticImpact(primaryResult);
-      const previousScore = Math.min(100, displayedOverallState.indexScore + 6);
       const selectedLowBatteryNodes = zoneBatteryNodes.filter((node) => node.state !== "optimal");
       const verification = primaryDefinition
         ? getDiagnosticVerification(primaryResult.key, primaryDefinition)
@@ -11298,7 +11326,7 @@
               <div class="diagnostic-score-number" data-state="${escapeAttribute(displayedOverallState.state)}">
                 <strong>${displayedOverallState.indexScore}</strong>
                 <span>${escapeHtml(healthLabel)}</span>
-                <small>${previousScore} → ${displayedOverallState.indexScore} ${diagnosticText("in 24h", "per 24 val.")}</small>
+                <small>${diagnosticText("Score history is not available yet", "Score istorija dar nepasiekiama")}</small>
               </div>
               <div class="diagnostic-contributors">
                 <div>
@@ -11394,7 +11422,7 @@
               <button type="button" class="diagnostic-link-button" data-triage-action="trend" data-metric-key="${escapeAttribute(primaryResult?.key || "humidity")}">${diagnosticText("Open full trend", "Atidaryti visą grafiką")}</button>
             </div>
             <div class="diagnostic-dynamics-list">
-              <div><span>${diagnosticText("Growing score", "Auginimo sąlygų įvertis")}</span><strong>${previousScore} → ${displayedOverallState.indexScore}</strong><small>${displayedOverallState.indexScore < previousScore ? diagnosticText("Worsening", "Blogėja") : diagnosticText("Stable", "Stabili")}</small></div>
+              <div><span>${diagnosticText("Growing score", "Auginimo sąlygų įvertis")}</span><strong>—</strong><small>${diagnosticText("Score history is not available yet", "Score istorija dar nepasiekiama")}</small></div>
               ${trendRows.slice(0, 3).map((item) => `<div><span>${escapeHtml(getDiagnosticMetricLabel(item.definition.label))}</span><strong>${escapeHtml(formatValue(item.trend.start, item.definition))} → ${escapeHtml(formatValue(item.trend.end, item.definition))}</strong><small>${escapeHtml(item.trend.direction)}</small></div>`).join("")}
             </div>
           </section>
@@ -11426,7 +11454,7 @@
       `;
     }
 
-    function renderDashboard(options = {}) {
+    function renderDashboardUnsafe(options = {}) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
       const isNodesPage = activePrimaryPage === "nodes";
@@ -12609,6 +12637,26 @@
       }
       applyInterfaceLanguage();
       enhanceDashboardSelects(document);
+    }
+
+    function renderDashboard(options = {}) {
+      try {
+        renderDashboardUnsafe(options);
+        document.body.dataset.dashboardError = "false";
+        document.querySelector('[data-runtime-render-error]')?.remove();
+      } catch (error) {
+        console.error("Dashboard render failed", error);
+        document.body.dataset.dashboardError = "true";
+        let banner = document.querySelector('[data-runtime-render-error]');
+        if (!banner) {
+          banner = document.createElement("div");
+          banner.dataset.runtimeRenderError = "true";
+          banner.setAttribute("role", "alert");
+          banner.className = "fixed inset-x-4 top-3 z-[200] mx-auto max-w-2xl rounded-xl border border-ember/25 bg-[#fff7f4] px-4 py-3 text-sm font-semibold text-ember shadow-lg";
+          elements.dashboardShell.prepend(banner);
+        }
+        banner.textContent = "This view could not refresh. Your last visible data is still available.";
+      }
     }
 
     elements.siteTrigger.addEventListener("click", (event) => {
@@ -13862,10 +13910,24 @@
       setInterfaceLanguage(languageButton.dataset.languageOption);
     });
 
+    window.addEventListener("neurocrop:unauthorized", () => {
+      window.sessionStorage.removeItem(loginSessionKey);
+      setHeaderAccountMenuOpen(false);
+      setLoginState(null);
+      elements.loginPassword.value = "";
+      elements.loginError.textContent = "Your session has ended. Please sign in again.";
+      elements.loginError.hidden = false;
+      elements.loginEmail.focus();
+    });
+
     window.addEventListener("online", updateClientConnectionStatus);
     window.addEventListener("offline", updateClientConnectionStatus);
-    document.addEventListener("visibilitychange", updateClientConnectionStatus);
+    document.addEventListener("visibilitychange", () => {
+      updateClientConnectionStatus();
+      if (!document.hidden) refreshLiveDashboardData();
+    });
     window.setInterval(updateClientConnectionStatus, 15000);
+    window.setInterval(refreshLiveDashboardData, 30000);
 
       renderSiteOptions();
       renderZoneOptions();

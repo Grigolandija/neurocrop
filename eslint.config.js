@@ -19,4 +19,18 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // The approved runtime is served as a public asset, so Vite and TypeScript
+    // do not analyse it. Keep a focused JS safety net for runtime regressions.
+    files: ['public/approved-dashboard-runtime.js'],
+    languageOptions: {
+      globals: globals.browser,
+    },
+    rules: {
+      'no-undef': 'error',
+      'no-redeclare': 'error',
+      'no-dupe-keys': 'error',
+      'no-unused-vars': 'off',
+    },
+  },
 ])
