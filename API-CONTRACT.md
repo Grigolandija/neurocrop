@@ -240,6 +240,123 @@ POST   /crop-profiles/:profileId/duplicate
 DELETE /crop-profiles/:profileId
 ```
 
+Crop profiles endpoint'ai turi aptarnauti tą patį modelį, kurį šiandien naudoja
+Settings puslapis. Frontend'as dirba su profile `id` kaip su kanoniniu raktu,
+todėl `sections.crop_profile` turi laikyti būtent šį `id`.
+
+```text
+GET /crop-profiles
+```
+
+```json
+{
+  "profiles": [
+    {
+      "id": "tomato",
+      "name": "Tomatoes, vegetative",
+      "heroName": "Tomato",
+      "stage": "Vegetative",
+      "hint": "Profile focused on active vegetative growth with stable CO2 and light conditions.",
+      "requiresReview": false,
+      "metrics": {
+        "airTemp": {
+          "label": "Air temperature",
+          "unit": "degC",
+          "decimals": 1,
+          "aggregation": "Block avg",
+          "optimal": [22, 26],
+          "warning": [20, 28],
+          "critical": [18, 32],
+          "zone": "Greenhouse No. 1 / central climate zone",
+          "action": "Check ventilation and heating balance."
+        },
+        "humidity": {
+          "label": "Relative humidity",
+          "unit": "%",
+          "decimals": 0,
+          "aggregation": "Block avg",
+          "optimal": [60, 70],
+          "warning": [55, 75],
+          "critical": [45, 85],
+          "zone": "Greenhouse No. 1 / microclimate zone",
+          "action": "Review humidification and ventilation settings."
+        }
+      }
+    }
+  ]
+}
+```
+
+```text
+POST /crop-profiles
+```
+
+Frontend kuriant naują profilį siunčia vieną iš dviejų režimų:
+
+1. `mode: "template"`: sukurti workspace kopiją pagal `sourceProfileId`
+2. `mode: "blank"`: sukurti rankinį profilį su tuščia / peržiūros reikalaujančia
+   pradine konfigūracija
+
+```json
+{
+  "name": "Cucumbers, fruiting",
+  "heroName": "Cucumber",
+  "stage": "Fruiting",
+  "sourceProfileId": "tomato",
+  "mode": "template"
+}
+```
+
+Atsakymas:
+
+```json
+{
+  "profile": {
+    "id": "crop-profile-cucumbers-fruiting",
+    "name": "Cucumbers, fruiting",
+    "heroName": "Cucumber",
+    "stage": "Fruiting",
+    "hint": "Workspace copy of Tomatoes, vegetative.",
+    "requiresReview": false,
+    "metrics": {}
+  }
+}
+```
+
+```text
+PATCH /crop-profiles/:profileId
+```
+
+Frontend redaguodamas profilį siunčia visą išsaugotiną būseną:
+
+```json
+{
+  "name": "Tomatoes, vegetative",
+  "heroName": "Tomato",
+  "stage": "Vegetative",
+  "hint": "Profile focused on active vegetative growth with stable CO2 and light conditions.",
+  "requiresReview": false,
+  "metrics": {
+    "airTemp": {
+      "label": "Air temperature",
+      "unit": "degC",
+      "decimals": 1,
+      "aggregation": "Block avg",
+      "optimal": [22, 26],
+      "warning": [20, 28],
+      "critical": [18, 32],
+      "zone": "Greenhouse No. 1 / central climate zone",
+      "action": "Check ventilation and heating balance."
+    }
+  }
+}
+```
+
+Backend turi saugoti ne tik ribas (`optimal`, `warning`, `critical`), bet ir
+naudotojui rodomą metric metadata (`label`, `unit`, `decimals`, `aggregation`,
+`zone`, `action`). Tą patį objektą frontend'as naudoja Settings, Overview,
+Live readings ir Trends paaiškinimams.
+
 Area trynimo body:
 
 ```json

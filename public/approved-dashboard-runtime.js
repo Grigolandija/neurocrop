@@ -417,6 +417,7 @@
     logout: () => request("/auth/logout", { method: "POST" }),
     getCurrentUser: () => request("/auth/me"),
     getDashboard: () => request("/dashboard"),
+    getCropProfiles: () => request("/crop-profiles"),
     getLatestReadings: (sectionId) => request(`/readings/latest${queryString({ sectionId })}`),
     getHistory: (params) => request(`/history${queryString(params)}`),
     getAreas: () => request("/areas"),
@@ -447,6 +448,21 @@
     updateNode: (devEui, payload) => request(`/nodes/${encodeURIComponent(devEui)}`, {
       method: "PATCH",
       body: JSON.stringify(payload)
+    }),
+    createCropProfile: (payload) => request("/crop-profiles", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+    updateCropProfile: (profileId, payload) => request(`/crop-profiles/${encodeURIComponent(profileId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+    duplicateCropProfile: (profileId, payload) => request(`/crop-profiles/${encodeURIComponent(profileId)}/duplicate`, {
+      method: "POST",
+      body: JSON.stringify(payload || {})
+    }),
+    deleteCropProfile: (profileId) => request(`/crop-profiles/${encodeURIComponent(profileId)}`, {
+      method: "DELETE"
     }),
     registerNode: (payload) => request("/nodes/register", {
       method: "POST",
@@ -886,6 +902,11 @@
         }
       }
     };
+    const cropProfileKeyAliases = {
+      "tomatoes-vegetative": "tomato",
+      "lettuce-intensive": "lettuce",
+      "strawberries-fruiting": "strawberry"
+    };
 
     // Custom profiles are kept separately from the built-in templates so they
     // survive reloads now and can later map cleanly to backend profile records.
@@ -949,7 +970,45 @@
       }
     ];
 
+    function normalizeCropProfileKey(profileKey) {
+      const normalized = String(profileKey || "").trim();
+      return cropProfileKeyAliases[normalized] || normalized;
+    }
+
+    function applyApiCropProfiles(payload) {
+      const apiProfiles = Array.isArray(payload?.profiles) ? payload.profiles : [];
+      Object.keys(cropProfiles).forEach((profileKey) => {
+        if (!builtInCropProfileKeys.has(profileKey)) delete cropProfiles[profileKey];
+      });
+
+      apiProfiles.forEach((profile) => {
+        const profileId = normalizeCropProfileKey(profile?.id || profile?.key || profile?.slug);
+        if (!profileId || !profile?.metrics || typeof profile.metrics !== "object") return;
+        cropProfiles[profileId] = {
+          ...cloneDashboardValue(cropProfiles[profileId] || {}),
+          id: profileId,
+          name: String(profile.name || cropProfiles[profileId]?.name || profileId),
+          heroName: String(profile.heroName || profile.hero_name || cropProfiles[profileId]?.heroName || profile.name || profileId),
+          stage: String(profile.stage || profile.growthStage || profile.growth_stage || cropProfiles[profileId]?.stage || ""),
+          hint: String(profile.hint || cropProfiles[profileId]?.hint || ""),
+          requiresReview: Boolean(profile.requiresReview ?? profile.requires_review ?? false),
+          metrics: cloneDashboardValue(profile.metrics)
+        };
+      });
+    }
+
+    async function hydrateCropProfilesFromApi() {
+      if (!window.NeuroCropApi?.isConnected?.() || !window.NeuroCropApi?.getCropProfiles) return;
+      try {
+        const response = await window.NeuroCropApi.getCropProfiles();
+        applyApiCropProfiles(response);
+      } catch (error) {
+        console.warn("NeuroCrop API crop profiles load failed.", error);
+      }
+    }
+
     function loadCustomCropProfiles() {
+      if (window.NeuroCropApi?.isConnected?.()) return;
       try {
         const savedProfiles = JSON.parse(window.localStorage.getItem(cropProfilesStorageKey) || "{}");
         if (!savedProfiles || typeof savedProfiles !== "object" || Array.isArray(savedProfiles)) return;
@@ -971,6 +1030,7 @@
     }
 
     function persistCustomCropProfiles() {
+      if (window.NeuroCropApi?.isConnected?.()) return;
       const customProfiles = Object.fromEntries(
         Object.entries(cropProfiles).filter(([profileKey]) => !builtInCropProfileKeys.has(profileKey))
       );
@@ -983,6 +1043,7 @@
     }
 
     function loadCropProfileOverrides() {
+      if (window.NeuroCropApi?.isConnected?.()) return;
       try {
         const savedProfiles = JSON.parse(window.localStorage.getItem(cropProfileOverridesStorageKey) || "{}");
         if (!savedProfiles || typeof savedProfiles !== "object" || Array.isArray(savedProfiles)) return;
@@ -1008,6 +1069,7 @@
     }
 
     function persistCropProfileOverrides() {
+      if (window.NeuroCropApi?.isConnected?.()) return;
       const savedProfiles = Object.fromEntries(Object.entries(cropProfiles).map(([profileKey, profile]) => [profileKey, {
         name: profile.name,
         heroName: profile.heroName,
@@ -1309,6 +1371,7 @@
     async function hydrateDashboardFromApi() {
       if (!window.NeuroCropApi?.isConnected()) return;
       try {
+        await hydrateCropProfilesFromApi();
         const nextDashboardData = await window.NeuroCropApi.getDashboard();
         if (!nextDashboardData || !Array.isArray(nextDashboardData.sites) || nextDashboardData.sites.length === 0) {
           dashboardData = { sites: [], note: "API returned no dashboard structure." };
@@ -2823,9 +2886,10 @@
             availableMetrics.push("batteryLevel");
           }
           const backendState = zone.state || zone.farmState || zone.scopeState || zone.summary || null;
+          const normalizedProfileKey = normalizeCropProfileKey(zone.profile);
           return {
             ...zone,
-            profile: cropProfiles[zone.profile] ? zone.profile : activeProfileKey,
+            profile: cropProfiles[normalizedProfileKey] ? normalizedProfileKey : activeProfileKey,
             batteryNodes,
             sensorCount: Number(zone.sensorCount) || batteryNodes.length,
             availableMetrics,
@@ -7027,6 +7091,7 @@
     }
 
     function renderCropProfileEditor(profileKey, profile) {
+      const profileUsageCount = getProfileUsageCounts()[profileKey] || 0;
       const metricRows = Object.entries(profile.metrics)
         .filter(([metricKey]) => isGrowthMetricKey(metricKey))
         .map(([metricKey, metric]) => `
@@ -7068,7 +7133,11 @@
             </div>
             <p class="mt-4 text-xs leading-5 text-ink/54">Each pair is minimum / maximum. Warning must sit outside optimal, and critical must sit outside warning.</p>
             <div class="mt-4 grid gap-3">${metricRows}</div>
-            <div class="mt-5 flex flex-wrap items-center gap-3"><button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save profile targets</button><span class="text-xs text-ink/54">Changes update scores, alerts, and history target bands.</span></div>
+            <div class="mt-5 flex flex-wrap items-center gap-3">
+              <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save profile targets</button>
+              <button type="button" class="actionable rounded-2xl border border-ember/20 bg-white px-4 py-2.5 text-sm font-semibold text-ember disabled:cursor-not-allowed disabled:opacity-50" data-settings-profile-delete="${escapeAttribute(profileKey)}" ${profileUsageCount > 0 ? "disabled" : ""}>Delete profile</button>
+              <span class="text-xs text-ink/54">${profileUsageCount > 0 ? `Used by ${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"} and cannot be deleted yet.` : "Changes update scores, alerts, and history target bands."}</span>
+            </div>
           </form>
         </details>
       `;
@@ -7631,6 +7700,13 @@
       const sourceProfileKey = cropProfiles[settingsProfileFormState.sourceProfile]
         ? settingsProfileFormState.sourceProfile
         : activeSettingsProfileKey;
+      const sourceProfile = cloneDashboardValue(cropProfiles[sourceProfileKey] || cropProfiles.tomato || Object.values(cropProfiles)[0] || {});
+      const nextProfileId = createUniqueId(nextName, new Set(Object.keys(cropProfiles)), "crop-profile");
+      const nextHeroName = settingsProfileFormState.heroName.trim() || nextName.split(",")[0].trim() || nextName;
+      const nextStage = settingsProfileFormState.stage.trim();
+      const nextHint = isBlankProgram
+        ? "Manual program. Review every target before assigning it to a Section."
+        : `Workspace copy of ${cropProfiles[sourceProfileKey]?.name || sourceProfile.name || "the selected profile"}.`;
 
       if (!nextName) {
         setManagementNotice("settings", "Crop profile name is required before saving.", "warning");
@@ -7638,14 +7714,46 @@
         return;
       }
 
-      const nextProfileKey = createUniqueId(nextName, new Set(Object.keys(cropProfiles)), "crop-profile");
-      const sourceProfile = cloneDashboardValue(cropProfiles[sourceProfileKey]);
+      if (isApiDataMode() && ((isBlankProgram && window.NeuroCropApi?.createCropProfile) || (!isBlankProgram && window.NeuroCropApi?.duplicateCropProfile))) {
+        (async () => {
+          try {
+            const response = isBlankProgram
+              ? await window.NeuroCropApi.createCropProfile({
+                id: nextProfileId,
+                name: nextName,
+                heroName: nextHeroName,
+                stage: nextStage,
+                hint: nextHint,
+                requiresReview: true,
+                metrics: cloneDashboardValue(sourceProfile.metrics || {})
+              })
+              : await window.NeuroCropApi.duplicateCropProfile(sourceProfileKey, {
+                id: nextProfileId,
+                name: nextName
+              });
+            await hydrateCropProfilesFromApi();
+            activeSettingsProfileKey = normalizeCropProfileKey(response?.profile?.id || response?.profile?.key || nextProfileId);
+            settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: activeSettingsProfileKey, mode: "template" };
+            setManagementNotice(
+              "settings",
+              isBlankProgram
+                ? `${nextName} created as a manual program. Review its targets before assigning it to a Section.`
+                : `${nextName} created. It is now available in the Sections crop profile dropdown.`
+            );
+            renderDashboard();
+          } catch (error) {
+            setManagementNotice("settings", error instanceof Error ? error.message : "Crop profile could not be created.", "warning");
+            renderDashboard();
+          }
+        })();
+        return;
+      }
+
+      const nextProfileKey = nextProfileId;
       sourceProfile.name = nextName;
-      sourceProfile.heroName = settingsProfileFormState.heroName.trim() || nextName.split(",")[0].trim() || nextName;
-      sourceProfile.stage = settingsProfileFormState.stage.trim();
-      sourceProfile.hint = isBlankProgram
-        ? "Manual program. Review every target before assigning it to a Section."
-        : `Workspace copy of ${cropProfiles[sourceProfileKey].name}.`;
+      sourceProfile.heroName = nextHeroName;
+      sourceProfile.stage = nextStage;
+      sourceProfile.hint = nextHint;
       sourceProfile.requiresReview = isBlankProgram;
       cropProfiles[nextProfileKey] = sourceProfile;
       persistCustomCropProfiles();
@@ -7712,6 +7820,29 @@
       profile.heroName = heroName;
       profile.stage = stage;
       profile.metrics = nextMetrics;
+
+      if (isApiDataMode() && window.NeuroCropApi?.updateCropProfile) {
+        (async () => {
+          try {
+            await window.NeuroCropApi.updateCropProfile(profileKey, {
+              name,
+              heroName,
+              stage,
+              hint: profile.hint || "",
+              requiresReview: Boolean(profile.requiresReview),
+              metrics: nextMetrics
+            });
+            await hydrateCropProfilesFromApi();
+            setManagementNotice("settings", `${name} targets saved. Scores, alerts, and history now use these ranges.`);
+            renderDashboard();
+          } catch (error) {
+            setManagementNotice("settings", error instanceof Error ? error.message : "Crop profile could not be saved.", "warning");
+            renderDashboard();
+          }
+        })();
+        return;
+      }
+
       persistCustomCropProfiles();
       persistCropProfileOverrides();
       setManagementNotice("settings", `${name} targets saved. Scores, alerts, and history now use these ranges.`);
@@ -12644,6 +12775,39 @@
           sourceProfile: sourceProfileKey,
           mode: "template"
         };
+        renderDashboard();
+        return;
+      }
+
+      const deleteProfileButton = event.target.closest("[data-settings-profile-delete]");
+      if (deleteProfileButton) {
+        const profileKey = deleteProfileButton.dataset.settingsProfileDelete;
+        const profile = cropProfiles[profileKey];
+        if (!profile || deleteProfileButton.hasAttribute("disabled")) return;
+
+        if (isApiDataMode() && window.NeuroCropApi?.deleteCropProfile) {
+          (async () => {
+            try {
+              await window.NeuroCropApi.deleteCropProfile(profileKey);
+              await hydrateCropProfilesFromApi();
+              activeSettingsProfileKey = Object.keys(cropProfiles)[0] || activeProfileKey;
+              settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
+              setManagementNotice("settings", `${profile.name} deleted.`);
+              renderDashboard();
+            } catch (error) {
+              setManagementNotice("settings", error instanceof Error ? error.message : "Crop profile could not be deleted.", "warning");
+              renderDashboard();
+            }
+          })();
+          return;
+        }
+
+        delete cropProfiles[profileKey];
+        persistCustomCropProfiles();
+        persistCropProfileOverrides();
+        activeSettingsProfileKey = Object.keys(cropProfiles)[0] || activeProfileKey;
+        settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
+        setManagementNotice("settings", `${profile.name} deleted.`);
         renderDashboard();
         return;
       }
