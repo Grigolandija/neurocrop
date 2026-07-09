@@ -7149,24 +7149,24 @@
           const metricDraft = draftMetrics[metricKey];
           const rangeValues = getProfileEditorRangeValues(metricDraft || metric);
           const step = metric.decimals === 0 ? "1" : "0.01";
-          const thresholdInput = (label, value, rangeKey, bound, toneClass) => `
+          const optimalInput = (label, value, bound) => `
             <label class="block min-w-0">
               <span class="sr-only">${escapeHtml(`${metric.label} ${label}`)}</span>
-              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="h-7 w-[58px] justify-self-center rounded-md border border-black/10 ${toneClass} px-1 text-center text-[11px] font-bold tabular-nums text-ink outline-none transition focus:border-pine/45 focus:ring-2 focus:ring-pine/12">
+              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="h-7 w-[62px] justify-self-center rounded-md border border-black/10 bg-[#f7fbf6] px-1 text-center text-[11px] font-bold tabular-nums text-ink outline-none transition focus:border-pine/45 focus:ring-2 focus:ring-pine/12">
             </label>
           `;
 
           return `
-          <div class="grid grid-cols-[minmax(190px,1fr)_repeat(6,82px)] items-center gap-2 border-b border-black/6 px-3 py-1 last:border-b-0" data-profile-metric-row="${escapeAttribute(metricKey)}">
+          <div class="grid grid-cols-[minmax(190px,1fr)_92px_92px_minmax(220px,.72fr)] items-center gap-2 border-b border-black/6 px-3 py-1 last:border-b-0" data-profile-metric-row="${escapeAttribute(metricKey)}">
             <div class="min-w-0 whitespace-nowrap">
               <strong class="truncate text-[13px] leading-none text-ink">${escapeHtml(metric.label)}</strong><span class="ml-1 text-[11px] font-semibold text-ink/45">${escapeHtml(formatUnit(metric.unit))}</span>
             </div>
-            ${thresholdInput("Critical low", rangeValues.criticalLow, "critical", 0, "bg-[#fffafa] focus:bg-white")}
-            ${thresholdInput("Warning low", rangeValues.warningLow, "warning", 0, "bg-[#fffdf8] focus:bg-white")}
-            ${thresholdInput("Optimal minimum", rangeValues.optimalMin, "optimal", 0, "bg-[#f7fbf6] focus:bg-white")}
-            ${thresholdInput("Optimal maximum", rangeValues.optimalMax, "optimal", 1, "bg-[#f7fbf6] focus:bg-white")}
-            ${thresholdInput("Warning high", rangeValues.warningHigh, "warning", 1, "bg-[#fffdf8] focus:bg-white")}
-            ${thresholdInput("Critical high", rangeValues.criticalHigh, "critical", 1, "bg-[#fffafa] focus:bg-white")}
+            ${optimalInput("Optimal minimum", rangeValues.optimalMin, 0)}
+            ${optimalInput("Optimal maximum", rangeValues.optimalMax, 1)}
+            <div class="flex flex-wrap justify-end gap-1.5 text-[10px] font-semibold">
+              <span class="rounded-full bg-[#fff4df] px-2 py-1 text-amber" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}">Warning ${escapeHtml(formatRange([rangeValues.warningLow, rangeValues.warningHigh], metric))}</span>
+              <span class="rounded-full bg-[#fff0ec] px-2 py-1 text-ember" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}">Critical ${escapeHtml(formatRange([rangeValues.criticalLow, rangeValues.criticalHigh], metric))}</span>
+            </div>
           </div>
         `;
         }).join("");
@@ -7186,17 +7186,14 @@
               <label class="block"><span class="text-[11px] font-semibold text-ink/64">Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
               <label class="block"><span class="text-[11px] font-semibold text-ink/64">Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative" class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
             </div>
-            <p class="mt-2 text-[11px] leading-4 text-ink/54">Limits are read from left to right. Each value marks the boundary where the status changes.</p>
+            <p class="mt-2 text-[11px] leading-4 text-ink/54">Set the optimal interval. Warning and critical limits update automatically from it.</p>
             <div class="mt-2.5 overflow-x-auto rounded-[16px] border border-black/8 bg-white">
-              <div class="min-w-[730px]">
-                <div class="grid grid-cols-[minmax(190px,1fr)_repeat(6,82px)] gap-2 rounded-t-[15px] bg-[#f3f1eb] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-ink/46">
+              <div class="min-w-[610px]">
+                <div class="grid grid-cols-[minmax(190px,1fr)_92px_92px_minmax(220px,.72fr)] gap-2 rounded-t-[15px] bg-[#f3f1eb] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-ink/46">
                   <span>Parameter</span>
-                  <span class="text-center text-ember">Critical low</span>
-                  <span class="text-center text-amber">Warning low</span>
                   <span class="text-center text-moss">Optimal min</span>
                   <span class="text-center text-moss">Optimal max</span>
-                  <span class="text-center text-amber">Warning high</span>
-                  <span class="text-center text-ember">Critical high</span>
+                  <span class="text-right">System alert limits</span>
                 </div>
                 <div>${metricRows}</div>
               </div>
@@ -7853,15 +7850,22 @@
     function captureOptimalRangeBaseline(target) {
       if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-profile-range")) return;
       if (target.dataset.rangeKey !== "optimal") return;
-      const row = target.closest("[data-profile-metric-row]");
-      if (!row) return;
-      const inputs = [...row.querySelectorAll("[data-profile-range]")];
-      const values = {};
-      for (const input of inputs) {
-        const key = `${input.dataset.rangeKey}:${input.dataset.bound}`;
-        values[key] = parseProfileRangeInputValue(input.value);
-      }
-      target.dataset.optimalRangeBaseline = JSON.stringify(values);
+      const form = target.closest('[data-settings-form="crop-profile-editor"]');
+      const profileKey = form?.dataset.profileKey;
+      const metricKey = target.dataset.metricKey;
+      const profile = profileKey ? cropProfiles[profileKey] : null;
+      if (!profileKey || !metricKey || !profile) return;
+      const draft = ensureSettingsProfileEditorDraft(profileKey, profile);
+      const metric = draft.metrics[metricKey] || profile.metrics?.[metricKey];
+      const values = getProfileEditorRangeValues(metric);
+      target.dataset.optimalRangeBaseline = JSON.stringify({
+        "critical:0": values.criticalLow,
+        "warning:0": values.warningLow,
+        "optimal:0": values.optimalMin,
+        "optimal:1": values.optimalMax,
+        "warning:1": values.warningHigh,
+        "critical:1": values.criticalHigh
+      });
     }
 
     function rebalanceOptimalRangeBounds(target) {
@@ -7904,13 +7908,16 @@
 
       for (const update of updates) {
         const value = formatProfileRangeInput(update.value, decimals);
-        const input = row.querySelector(`[data-profile-range][data-range-key="${update.rangeKey}"][data-bound="${update.bound}"]`);
-        if (input instanceof HTMLInputElement) input.value = value;
         if (!Array.isArray(metric[update.rangeKey])) metric[update.rangeKey] = [];
         metric[update.rangeKey][update.bound] = value;
       }
       if (!Array.isArray(metric.optimal)) metric.optimal = [];
       metric.optimal[bound] = target.value;
+      const ranges = getProfileEditorRangeValues(metric);
+      const warningLabel = row.querySelector('[data-profile-alert-limit="warning"]');
+      const criticalLabel = row.querySelector('[data-profile-alert-limit="critical"]');
+      if (warningLabel) warningLabel.textContent = `Warning ${formatRange([ranges.warningLow, ranges.warningHigh], metric)}`;
+      if (criticalLabel) criticalLabel.textContent = `Critical ${formatRange([ranges.criticalLow, ranges.criticalHigh], metric)}`;
       delete target.dataset.optimalRangeBaseline;
     }
 
@@ -7971,7 +7978,13 @@
         const metricKey = row.dataset.profileMetricRow;
         const metric = nextMetrics[metricKey];
         if (!metric) continue;
-        const nextRanges = { optimal: [], warning: [], critical: [] };
+        const draftMetric = draft.metrics?.[metricKey] || metric;
+        const draftRanges = getProfileEditorRangeValues(draftMetric);
+        const nextRanges = {
+          optimal: [draftRanges.optimalMin, draftRanges.optimalMax],
+          warning: [draftRanges.warningLow, draftRanges.warningHigh],
+          critical: [draftRanges.criticalLow, draftRanges.criticalHigh]
+        };
         const inputs = [...row.querySelectorAll("[data-profile-range]")];
         for (const input of inputs) {
           const rangeKey = input.dataset.rangeKey;
