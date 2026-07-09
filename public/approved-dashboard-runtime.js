@@ -2910,7 +2910,8 @@
       if (!isApiDataMode() || !sectionId || !metricKey) return;
       const rangeConfig = trendRangeConfig[rangeKey] || trendRangeConfig["24h"];
       const cacheKey = getTrendHistoryCacheKey(sectionId, metricKey, rangeKey);
-      if (trendHistoryStatusByKey[cacheKey]?.status === "loading" || trendHistoryByKey[cacheKey]) return;
+      const existingStatus = trendHistoryStatusByKey[cacheKey];
+      if (existingStatus?.status === "loading" || existingStatus?.status === "error" || trendHistoryByKey[cacheKey]) return;
 
       const { from, to } = getTrendHistoryWindow(rangeConfig);
       const requestId = ++trendHistoryRequestId;
@@ -9307,6 +9308,12 @@
       }
 
       const scopeSeed = isSiteView ? `${site.id}:site` : `${site.id}:${zone.id}:zone`;
+      const historyStatuses = selectedMetrics.map((metricOption) => {
+        if (isSiteView) return null;
+        const cacheKey = getTrendHistoryCacheKey(zone.id, metricOption.key, activeTrendRangeKey);
+        return trendHistoryStatusByKey[cacheKey] || null;
+      }).filter(Boolean);
+      const historyError = historyStatuses.find((status) => status.status === "error");
       if (isApiDataMode() && !isSiteView) {
         selectedMetrics.forEach((metricOption) => {
           fetchTrendHistoryForMetric(zone.id, metricOption.key, activeTrendRangeKey);
@@ -9334,11 +9341,13 @@
           summary: isSiteView
             ? `Select up to two metrics to compare how growing conditions moved across ${site.name}.`
             : `Select up to two metrics to compare how temperature, humidity, CO2, or VPD moved inside ${zone.name}.`,
-          state: selectedMetric.state,
+          state: historyError ? "warning" : selectedMetric.state,
           rangeMeta: rangeConfig.meta,
           metricLabel: selectedMetrics.length > 1 ? `${selectedMetrics.length} metrics selected` : selectedMetric.label,
           metricMeta: isApiDataMode()
-            ? "Waiting for sensor history from the API"
+            ? historyError
+              ? "History API request failed"
+              : "Waiting for sensor history from the API"
             : `${selectedMetric.meta} · Target ${formatRange(selectedMetric.optimalRange || selectedMetric.definition.optimal, selectedMetric.definition)}`,
           chartState: null,
           chartOption: null,
@@ -9352,7 +9361,9 @@
           readoutHtml: "",
           hoverPoints: [],
           callout: isApiDataMode()
-            ? "Waiting for enough real history points to draw this trend."
+            ? historyError
+              ? historyError.error || "History could not be loaded."
+              : "Waiting for enough real history points to draw this trend."
             : "No trend points are available for this selection yet.",
           backendNote: "Only real sensor history is shown here."
         };
