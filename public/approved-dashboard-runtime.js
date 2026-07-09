@@ -7150,26 +7150,26 @@
           const rangeValues = getProfileEditorRangeValues(metricDraft || metric);
           const step = metric.decimals === 0 ? "1" : "0.01";
           const rangeInput = (label, value, rangeKey, bound, toneClass) => `
-            <label class="rounded-[15px] ${toneClass} p-3">
-              <span class="block text-[10px] font-bold uppercase tracking-[0.13em]">${escapeHtml(label)}</span>
-              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="mt-2 w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+            <label class="rounded-[10px] ${toneClass} px-2 py-1.5">
+              <span class="block text-[8px] font-bold uppercase leading-none tracking-[0.1em]">${escapeHtml(label)}</span>
+              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="mt-1 w-full rounded-[9px] border border-black/10 bg-white px-2 py-1 text-xs font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
             </label>
           `;
 
           return `
-          <div class="rounded-[20px] border border-black/8 bg-white p-4" data-profile-metric-row="${escapeAttribute(metricKey)}">
+          <div class="rounded-[14px] border border-black/8 bg-white px-3 py-2" data-profile-metric-row="${escapeAttribute(metricKey)}">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <strong class="text-sm text-ink">${escapeHtml(metric.label)}</strong>
-              <span class="text-xs font-semibold text-ink/52">${escapeHtml(formatUnit(metric.unit))}</span>
+              <strong class="text-[13px] leading-none text-ink">${escapeHtml(metric.label)}</strong>
+              <span class="text-[11px] font-semibold leading-none text-ink/52">${escapeHtml(formatUnit(metric.unit))}</span>
             </div>
-            <div class="mt-3 grid gap-2 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
+            <div class="mt-1.5 grid gap-1.5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
               ${rangeInput("Critical low", rangeValues.criticalLow, "critical", 0, "bg-[#f8dfda] text-ember")}
               ${rangeInput("Warning low", rangeValues.warningLow, "warning", 0, "bg-[#f8ead5] text-amber")}
-              <div class="rounded-[15px] bg-[#eef4ec] p-3 text-moss">
-                <div class="text-[10px] font-bold uppercase tracking-[0.13em]">Optimal</div>
-                <div class="mt-2 grid grid-cols-2 gap-2">
-                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMin)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="0" aria-label="${escapeAttribute(`${metric.label} optimal minimum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMax)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="1" aria-label="${escapeAttribute(`${metric.label} optimal maximum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+              <div class="rounded-[10px] bg-[#eef4ec] px-2 py-1.5 text-moss">
+                <div class="text-[8px] font-bold uppercase leading-none tracking-[0.1em]">Optimal</div>
+                <div class="mt-1 grid grid-cols-2 gap-1.5">
+                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMin)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="0" aria-label="${escapeAttribute(`${metric.label} optimal minimum`)}" class="w-full rounded-[9px] border border-black/10 bg-white px-2 py-1 text-xs font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMax)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="1" aria-label="${escapeAttribute(`${metric.label} optimal maximum`)}" class="w-full rounded-[9px] border border-black/10 bg-white px-2 py-1 text-xs font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
                 </div>
               </div>
               ${rangeInput("Warning high", rangeValues.warningHigh, "warning", 1, "bg-[#f8ead5] text-amber")}
@@ -7180,25 +7180,25 @@
         }).join("");
 
       return `
-        <section class="mt-5 rounded-[24px] border border-black/8 bg-[#f8f3ea] p-4">
+        <section class="mt-4 rounded-[20px] border border-black/8 bg-[#f8f3ea] p-3">
           <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
-              <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-pine/56">Edit target ranges</p>
-              <h4 class="mt-1 text-lg font-extrabold text-ink">${escapeHtml(profile.name)}</h4>
+              <p class="text-[9px] font-bold uppercase tracking-[0.16em] text-pine/56">Edit target ranges</p>
+              <h4 class="mt-0.5 text-base font-extrabold text-ink">${escapeHtml(profile.name)}</h4>
             </div>
-            <span class="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-ink/58">${Object.keys(profile.metrics).filter(isGrowthMetricKey).length} growth metrics</span>
+            <span class="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-ink/58">${Object.keys(profile.metrics).filter(isGrowthMetricKey).length} growth metrics</span>
           </div>
-          <form class="mt-5" data-settings-form="crop-profile-editor" data-profile-key="${escapeAttribute(profileKey)}">
-            <div class="grid gap-3 md:grid-cols-3">
-              <label class="block"><span class="text-sm font-semibold text-ink/72">Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
-              <label class="block"><span class="text-sm font-semibold text-ink/72">Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
-              <label class="block"><span class="text-sm font-semibold text-ink/72">Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
+          <form class="mt-3" data-settings-form="crop-profile-editor" data-profile-key="${escapeAttribute(profileKey)}">
+            <div class="grid gap-2 md:grid-cols-3">
+              <label class="block"><span class="text-xs font-semibold text-ink/72">Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}" class="mt-1 w-full rounded-[14px] border border-black/10 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
+              <label class="block"><span class="text-xs font-semibold text-ink/72">Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" class="mt-1 w-full rounded-[14px] border border-black/10 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
+              <label class="block"><span class="text-xs font-semibold text-ink/72">Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative" class="mt-1 w-full rounded-[14px] border border-black/10 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
             </div>
-            <p class="mt-4 text-xs leading-5 text-ink/54">Set ranges from left to right: critical low, warning low, optimal min/max, warning high, critical high.</p>
-            <div class="mt-4 grid gap-3">${metricRows}</div>
-            <div class="mt-5 flex flex-wrap items-center gap-3">
-              <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save profile targets</button>
-              <button type="button" class="actionable rounded-2xl border border-ember/20 bg-white px-4 py-2.5 text-sm font-semibold text-ember disabled:cursor-not-allowed disabled:opacity-50" data-settings-profile-delete="${escapeAttribute(profileKey)}" ${profileUsageCount > 0 || profileKey === "default" ? "disabled" : ""}>Delete profile</button>
+            <p class="mt-2 text-[11px] leading-4 text-ink/54">Set ranges from left to right: critical low, warning low, optimal min/max, warning high, critical high.</p>
+            <div class="mt-2.5 grid gap-1.5">${metricRows}</div>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <button type="submit" class="actionable rounded-xl bg-pine px-3.5 py-2 text-xs font-semibold text-white">Save profile targets</button>
+              <button type="button" class="actionable rounded-xl border border-ember/20 bg-white px-3.5 py-2 text-xs font-semibold text-ember disabled:cursor-not-allowed disabled:opacity-50" data-settings-profile-delete="${escapeAttribute(profileKey)}" ${profileUsageCount > 0 || profileKey === "default" ? "disabled" : ""}>Delete profile</button>
               <span class="text-xs text-ink/54">${profileKey === "default" ? "Default profile stays available as the safe starter program." : profileUsageCount > 0 ? `Used by ${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"} and cannot be deleted yet.` : "Changes update scores, alerts, and history target bands."}</span>
             </div>
           </form>
