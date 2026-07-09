@@ -9277,7 +9277,33 @@
       const isMultiMetric = selectedMetrics.length > 1;
 
       if (!selectedMetric) {
-        return null;
+        return {
+          title: isSiteView ? `24-hour trends for ${site.name}` : `24-hour trends for ${zone.name}`,
+          summary: isSiteView
+            ? `Waiting for live metrics from ${site.name}.`
+            : `Waiting for live metrics from ${zone.name}.`,
+          state: "optimal",
+          rangeMeta: rangeConfig.meta,
+          metricLabel: "No live metrics yet",
+          metricMeta: isApiDataMode()
+            ? "Waiting for the API to return configured sensor readings"
+            : "No metric is selected",
+          chartState: null,
+          chartOption: null,
+          axisLabels: {
+            start: `${rangeConfig.label} window`,
+            mid: "Real measurements",
+            end: "Waiting for data"
+          },
+          metricButtons: renderTrendMetricButtons(trendMetricOptions, []),
+          rangeButtons: renderTrendRangeButtons(activeTrendRangeKey),
+          readoutHtml: "",
+          hoverPoints: [],
+          callout: isApiDataMode()
+            ? "This section has no live metric available yet. It will update when the latest readings arrive."
+            : "No metric is available for this selection.",
+          backendNote: "Only real sensor history is shown here."
+        };
       }
 
       const scopeSeed = isSiteView ? `${site.id}:site` : `${site.id}:${zone.id}:zone`;
@@ -13344,16 +13370,22 @@
     document.addEventListener("visibilitychange", updateClientConnectionStatus);
     window.setInterval(updateClientConnectionStatus, 15000);
 
-    renderSiteOptions();
-    renderZoneOptions();
-    resetCurrentReadingsFromActiveZone();
-    resetLocationForm();
-    resetBlockForm();
-    resetNodeForm();
-    const initialDashboardRoute = resolveDashboardRoute(window.location.pathname);
-    activePrimaryPage = initialDashboardRoute.page;
-    if (initialDashboardRoute.page === "history") {
-      setExperienceMode("detailed");
-    }
-    renderDashboard();
-    initializeLoginGate();
+      renderSiteOptions();
+      renderZoneOptions();
+      resetCurrentReadingsFromActiveZone();
+      resetLocationForm();
+      resetBlockForm();
+      resetNodeForm();
+      const initialDashboardRoute = resolveDashboardRoute(window.location.pathname);
+      activePrimaryPage = initialDashboardRoute.page;
+      if (initialDashboardRoute.page === "history") {
+        activeWorkspaceFocus = "all";
+        setExperienceMode("detailed");
+      }
+      if (initialDashboardRoute.page === "readings") {
+        activeWorkspaceFocus = "all";
+        activeWorkbenchLensKey = "all";
+        setExperienceMode("detailed");
+      }
+      renderDashboard();
+      initializeLoginGate();
