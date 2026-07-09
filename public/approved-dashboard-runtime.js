@@ -10252,9 +10252,6 @@
       const suggestedAction = priorityResult
         ? actionGuidance[priorityResult.key] || `Review the source of the ${priorityDefinition.label.toLowerCase()} deviation.`
         : "No immediate intervention is required.";
-      const currentScore = displayedOverallState.indexScore;
-      const previousScore = Math.min(100, currentScore + 6);
-      const scoreDelta = currentScore - previousScore;
       const preferredMetricOrder = ["humidity", "airTemp", "co2"];
       const readingItems = [...availableResults]
         .sort((left, right) => {
@@ -10272,6 +10269,16 @@
       const dataStatusLabel = getFreshnessLabel(farmState.dataStatus);
       const hasUsableCurrentData = farmState.coverage.reportingNodes > 0
         && farmState.coverage.liveMetrics > 0;
+      const scoreCardState = hasUsableCurrentData ? displayedOverallState.state : "critical";
+      const scoreCardValue = hasUsableCurrentData ? `${displayedOverallState.indexScore}` : "--";
+      const scoreCardLabel = hasUsableCurrentData
+        ? getHealthStateLabel(displayedOverallState.state)
+        : diagnosticText("No data", "Nėra duomenų");
+      const previousScore = hasUsableCurrentData ? Math.min(100, displayedOverallState.indexScore + 6) : null;
+      const scoreDelta = hasUsableCurrentData ? displayedOverallState.indexScore - previousScore : 0;
+      const scoreTrendText = hasUsableCurrentData
+        ? `${previousScore} → ${displayedOverallState.indexScore} <span>${scoreDelta < 0 ? "↓" : scoreDelta > 0 ? "↑" : "="} ${Math.abs(scoreDelta)} in 24h</span>`
+        : diagnosticText("Waiting for live data", "Laukiama gyvų duomenų");
       const effectivePriorityTitle = hasUsableCurrentData
         ? priorityTitle
         : diagnosticText("Restore sensor data", "Atkurkite sensorių duomenis");
@@ -10334,10 +10341,10 @@
           : null
       ].filter(Boolean).slice(0, 3);
 
-      elements.overviewTriageSection.dataset.state = displayedOverallState.state;
+      elements.overviewTriageSection.dataset.state = scoreCardState;
       elements.overviewTriageSection.innerHTML = `
         <div class="triage-priority-score-grid">
-          <article class="triage-priority-card" data-state="${escapeAttribute(priorityResult?.state || "optimal")}">
+          <article class="triage-priority-card" data-state="${escapeAttribute(hasUsableCurrentData ? priorityResult?.state || "optimal" : scoreCardState)}">
             <div class="triage-title-row">
               <div class="triage-card-kicker">Today’s priority</div>
               <span class="overview-data-status" data-freshness="${escapeAttribute(farmState.dataStatus)}">
@@ -10369,16 +10376,16 @@
             </div>
           </article>
 
-          <article class="triage-score-card" data-state="${escapeAttribute(displayedOverallState.state)}">
+          <article class="triage-score-card" data-state="${escapeAttribute(scoreCardState)}">
             <div>
               <div class="triage-card-kicker">Growing conditions score</div>
-              <div class="triage-score-value">${currentScore}</div>
-              <div class="triage-score-state">${escapeHtml(getHealthStateLabel(displayedOverallState.state))}</div>
+              <div class="triage-score-value">${escapeHtml(scoreCardValue)}</div>
+              <div class="triage-score-state">${escapeHtml(scoreCardLabel)}</div>
             </div>
             <dl class="triage-score-details">
-              <div><dt>Main drag</dt><dd>${escapeHtml(selectedPrimaryDefinition?.label || "None")}</dd></div>
+              <div><dt>Main drag</dt><dd>${escapeHtml(hasUsableCurrentData ? selectedPrimaryDefinition?.label || "None" : diagnosticText("Data unavailable", "Duomenų nėra"))}</dd></div>
               <div><dt>Missing metrics</dt><dd>${unavailableCount}</dd></div>
-              <div><dt>24h trend</dt><dd>${previousScore} → ${currentScore} <span>${scoreDelta < 0 ? "↓" : scoreDelta > 0 ? "↑" : "="} ${Math.abs(scoreDelta)} in 24h</span></dd></div>
+              <div><dt>24h trend</dt><dd>${scoreTrendText}</dd></div>
             </dl>
           </article>
         </div>
@@ -11129,8 +11136,18 @@
       const siteAverageSummaries = isSiteView ? buildSiteAverageSummaries(siteSnapshots) : [];
       const sensorHealthNodes = isSiteView ? siteBatteryNodes : zoneBatteryNodes;
       const displayedOverallState = isSiteView ? siteOverallState : overallState;
+      const selectedSiteLiveSnapshots = siteSnapshots.filter(snapshotHasLiveGrowthData);
+      const hasDisplayedLiveGrowthData = isSiteView ? selectedSiteLiveSnapshots.length > 0 : availableResults.length > 0;
+      const displayedScoreState = hasDisplayedLiveGrowthData ? displayedOverallState.state : "critical";
+      const displayedScoreValue = hasDisplayedLiveGrowthData ? `${displayedOverallState.indexScore}` : "--";
+      const displayedScoreLabel = hasDisplayedLiveGrowthData
+        ? getHealthStateLabel(displayedOverallState.state)
+        : diagnosticText("No data", "Nėra duomenų");
+      const displayedScoreBadgeLabel = hasDisplayedLiveGrowthData
+        ? getScopeBadgeLabel(displayedOverallState.state, activeViewScope)
+        : diagnosticText("No data", "Nėra duomenų");
       const timestamp = new Date().toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit" });
-      const thumbPosition = clamp(displayedOverallState.indexScore, 8, 92);
+      const thumbPosition = hasDisplayedLiveGrowthData ? clamp(displayedOverallState.indexScore, 8, 92) : 8;
       const unavailableCount = unavailableResults.length;
       const siteProfileSummary = getSiteProfileSummary(siteSnapshots);
       const topIndicatorDrivers = isSiteView
@@ -11577,7 +11594,6 @@
       elements.siteAveragesButton.setAttribute("aria-pressed", String(activeSiteDetailView === "averages"));
       elements.siteZonesButton.dataset.active = String(activeSiteDetailView === "zones");
       elements.siteZonesButton.setAttribute("aria-pressed", String(activeSiteDetailView === "zones"));
-      const selectedSiteLiveSnapshots = siteSnapshots.filter(snapshotHasLiveGrowthData);
       const selectedSiteScore = getContextScoreSummary(
         selectedSiteLiveSnapshots.length > 0 ? deriveSiteOverallState(selectedSiteLiveSnapshots) : null
       );
@@ -11682,12 +11698,12 @@
       } catch (error) {
         console.error("Non-critical dashboard section failed to render", error);
       }
-      document.body.dataset.dashboardState = displayedOverallState.state;
+      document.body.dataset.dashboardState = displayedScoreState;
       document.body.dataset.workspaceFocus = activeWorkspaceFocus;
       document.body.dataset.viewScope = activeViewScope;
       document.body.dataset.experienceMode = activeExperienceMode;
       document.body.dataset.primaryPage = activePrimaryPage;
-      elements.heroStatusPanel.dataset.state = displayedOverallState.state;
+      elements.heroStatusPanel.dataset.state = displayedScoreState;
       elements.heroHeadline.textContent = heroDecision.headline;
       elements.heroDescription.textContent = heroDecision.description;
       elements.scopeChip.textContent = isSimpleExperienceMode
@@ -11695,7 +11711,7 @@
         : isSiteView
           ? `Showing: ${site.name}`
           : `Showing: ${site.name} / ${zone.name}`;
-      elements.scopeChip.dataset.state = isSimpleExperienceMode ? globalState : displayedOverallState.state;
+      elements.scopeChip.dataset.state = isSimpleExperienceMode ? globalState : displayedScoreState;
       elements.heroTimestampChip.textContent = `Updated ${timestamp}`;
       elements.advancedToolsPanel.hidden = !isDetailedOverview;
       elements.advancedToolsTitle.textContent = advancedToolsState.title;
@@ -11730,10 +11746,10 @@
       elements.indicatorSummary.textContent = isSiteView
         ? buildSiteIndicatorSummary(siteSnapshots, topIndicatorDrivers)
         : buildGrowthIndicatorSummary(topIndicatorDrivers, unavailableCount);
-      applyStateChip(elements.indicatorZoneBadge, displayedOverallState.state, getScopeBadgeLabel(displayedOverallState.state, activeViewScope));
-      elements.indicatorScoreWrap.dataset.state = displayedOverallState.state;
-      elements.indicatorScore.textContent = `${displayedOverallState.indexScore}`;
-      elements.indicatorScoreState.textContent = getHealthStateLabel(displayedOverallState.state);
+      applyStateChip(elements.indicatorZoneBadge, displayedScoreState, displayedScoreBadgeLabel);
+      elements.indicatorScoreWrap.dataset.state = displayedScoreState;
+      elements.indicatorScore.textContent = displayedScoreValue;
+      elements.indicatorScoreState.textContent = displayedScoreLabel;
       elements.heroSensorGlanceTitle.textContent = heroSensorGlanceState.title;
       elements.heroSensorGlanceSummary.textContent = heroSensorGlanceState.summary;
       elements.heroSensorGlanceGrid.innerHTML = renderHeroSensorGlanceCards(heroSensorGlanceState.items);
@@ -11827,12 +11843,12 @@
 
       elements.conditionFill.style.width = `${thumbPosition}%`;
       elements.conditionThumb.style.left = `${thumbPosition}%`;
-      elements.conditionThumb.style.setProperty("--thumb-color", stateConfig[displayedOverallState.state].thumb);
-      elements.conditionThumbLabel.textContent = `${displayedOverallState.indexScore}%`;
+      elements.conditionThumb.style.setProperty("--thumb-color", stateConfig[displayedScoreState].thumb);
+      elements.conditionThumbLabel.textContent = hasDisplayedLiveGrowthData ? `${displayedOverallState.indexScore}%` : "--";
       elements.conditionTrackShell.hidden = isSimpleExperienceMode;
       elements.indicatorStageFooter.hidden = isSimpleExperienceMode;
 
-      elements.overallStateCard.dataset.state = displayedOverallState.state;
+      elements.overallStateCard.dataset.state = displayedScoreState;
       elements.overallStateCard.hidden = false;
       elements.overallStateTitle.textContent = heroDecision.title;
       elements.stableCount.textContent = displayedOverallState.stableCount;
