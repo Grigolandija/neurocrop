@@ -2936,6 +2936,48 @@
 
     function getNodeMetricSummary(zone, metricKey, definition, result) {
       const nodes = zone?.batteryNodes || [];
+      const apiObservation = isApiDataMode()
+        ? latestReadingsBySectionId[zone?.id]?.observations?.[metricKey]
+        : null;
+
+      if (apiObservation && Array.isArray(apiObservation.nodes)) {
+        const readings = apiObservation.nodes.map((source, index) => {
+          const node = nodes.find((item) => normalizeDevEuiForCompare(item.devEui) === normalizeDevEuiForCompare(source.devEui)) || {
+            id: source.devEui,
+            name: source.nodeName || source.devEui,
+            devEui: source.devEui,
+            active: true
+          };
+          const freshness = getNodeFreshness(node, zone);
+          const freshnessStatus = freshness.observations?.[metricKey]?.status || freshness.transportStatus;
+          return {
+            node,
+            position: getNodePositionLabel(index, apiObservation.nodes.length),
+            source: getMetricSensorSource(metricKey),
+            value: Number(source.value),
+            metricResult: evaluateMetric(definition, Number(source.value)),
+            observation: getObservationPresentation(zone, metricKey, result, freshnessStatus)
+          };
+        });
+        const values = readings.map((reading) => reading.value).filter(Number.isFinite);
+        const medianResult = Number.isFinite(Number(apiObservation.value))
+          ? evaluateMetric(definition, Number(apiObservation.value))
+          : { value: null, state: "unavailable", severity: 0 };
+        const outsideReadings = readings.filter((reading) => reading.metricResult.state !== "optimal");
+
+        return {
+          installedCount: Number(apiObservation.reportingSensors) || readings.length,
+          reportingCount: readings.length,
+          readings,
+          medianValue: Number(apiObservation.value),
+          medianResult,
+          min: Number.isFinite(Number(apiObservation.range?.min)) ? Number(apiObservation.range.min) : Math.min(...values),
+          max: Number.isFinite(Number(apiObservation.range?.max)) ? Number(apiObservation.range.max) : Math.max(...values),
+          outsideCount: outsideReadings.length,
+          localOutliers: medianResult.state === "optimal" ? outsideReadings : []
+        };
+      }
+
       const installedCount = Math.min(
         nodes.length,
         getMetricInstalledNodeCount(metricKey, nodes.length)
