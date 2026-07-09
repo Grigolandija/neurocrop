@@ -7143,7 +7143,6 @@
       const draft = settingsProfileEditorDrafts[profileKey] || null;
       const draftMetrics = draft?.metrics || {};
       const profileUsageCount = getProfileUsageCounts()[profileKey] || 0;
-      const shouldOpenEditor = Boolean(profile.requiresReview) || !builtInCropProfileKeys.has(profileKey);
       const metricRows = Object.entries(profile.metrics)
         .filter(([metricKey]) => isGrowthMetricKey(metricKey))
         .map(([metricKey, metric]) => `
@@ -7178,13 +7177,15 @@
         `).join("");
 
       return `
-        <details class="mt-5 rounded-[24px] border border-black/8 bg-[#f8f3ea] p-4" ${shouldOpenEditor ? "open" : ""}>
-          <summary class="flex cursor-pointer items-center justify-between gap-4 text-sm font-bold text-ink">
-            <span>Edit profile and target ranges</span>
-            <span class="text-xs font-semibold text-ink/52">${Object.keys(profile.metrics).filter(isGrowthMetricKey).length} growth metrics</span>
-          </summary>
+        <section class="mt-5 rounded-[24px] border border-black/8 bg-[#f8f3ea] p-4">
+          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-pine/56">Edit target ranges</p>
+              <h4 class="mt-1 text-lg font-extrabold text-ink">${escapeHtml(profile.name)}</h4>
+            </div>
+            <span class="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-ink/58">${Object.keys(profile.metrics).filter(isGrowthMetricKey).length} growth metrics</span>
+          </div>
           <form class="mt-5" data-settings-form="crop-profile-editor" data-profile-key="${escapeAttribute(profileKey)}">
-            <label class="block max-w-md"><span class="text-sm font-semibold text-ink/72">Editing profile</span><select data-profile-editor-select class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm font-semibold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">${Object.entries(cropProfiles).map(([key, item]) => `<option value="${escapeAttribute(key)}" ${key === profileKey ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>
             <div class="grid gap-3 md:grid-cols-3">
               <label class="block"><span class="text-sm font-semibold text-ink/72">Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
               <label class="block"><span class="text-sm font-semibold text-ink/72">Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
@@ -7198,7 +7199,7 @@
               <span class="text-xs text-ink/54">${profileKey === "default" ? "Default profile stays available as the safe starter program." : profileUsageCount > 0 ? `Used by ${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"} and cannot be deleted yet.` : "Changes update scores, alerts, and history target bands."}</span>
             </div>
           </form>
-        </details>
+        </section>
       `;
     }
 
@@ -7248,6 +7249,9 @@
       const sourceProfileOptions = profileEntries.map(([profileKey, profile]) => `
         <option value="${escapeAttribute(profileKey)}" ${settingsProfileFormState.sourceProfile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>
       `).join("");
+      if (!isVisibleSettingsCropProfile(settingsProfileFormState.sourceProfile)) {
+        settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
+      }
 
       elements.settingsManagementShell.innerHTML = `
         <div class="space-y-6">
@@ -7435,11 +7439,16 @@
       const validPanels = new Set(["profiles", "alerts", "team", "workspace", "data"]);
       if (!validPanels.has(activeSettingsPanelKey)) activeSettingsPanelKey = "profiles";
 
-      const activeSettingsProfile = cropProfiles[activeSettingsProfileKey] || cropProfiles[activeProfileKey];
+      const activeSettingsProfile = cropProfiles[activeSettingsProfileKey]
+        ? getCompleteCropProfile(cropProfiles[activeSettingsProfileKey])
+        : getCompleteCropProfile(cropProfiles[activeProfileKey]);
       const profileUsageCounts = getProfileUsageCounts();
       const totalSections = dashboardData.sites.reduce((sum, site) => sum + (site.zones || []).length, 0);
       const activeAlertCount = globalSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal").length;
-      const metricCount = activeSettingsProfile ? Object.keys(activeSettingsProfile.metrics || {}).length : 0;
+      const metricCount = activeSettingsProfile ? Object.keys(activeSettingsProfile.metrics || {}).filter(isGrowthMetricKey).length : 0;
+      if (!isVisibleSettingsCropProfile(settingsProfileFormState.sourceProfile)) {
+        settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
+      }
       const sourceProfileOptions = profileEntries.map(([profileKey, profile]) => `
         <option value="${escapeAttribute(profileKey)}" ${settingsProfileFormState.sourceProfile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>
       `).join("");
@@ -7455,9 +7464,9 @@
         <section class="settings-content-panel" aria-labelledby="settingsProfilesTitle">
           <header class="settings-panel-head">
             <div>
-              <span class="settings-panel-kicker">Growth logic</span>
+              <span class="settings-panel-kicker">API crop programs</span>
               <h2 id="settingsProfilesTitle">Crop profiles</h2>
-              <p>Define what is optimal for each crop and growth stage. These ranges drive scores, alerts and chart targets.</p>
+              <p>Create, edit and delete crop programs. These target ranges are stored through the backend API and drive scores, alerts and trend target bands.</p>
             </div>
             <span class="settings-summary-pill">${profileEntries.length} profiles · ${totalSections} sections</span>
           </header>
@@ -7472,7 +7481,7 @@
                 <button type="button" class="settings-profile-option" data-settings-profile-key="${escapeAttribute(profileKey)}" data-active="${String(activeSettingsProfileKey === profileKey)}">
                   <span class="settings-profile-option-copy">
                     <strong>${escapeHtml(profile.name)}</strong>
-                    <small>${escapeHtml(profile.stage || profile.heroName || "Growth profile")}</small>
+                    <small>${escapeHtml(profile.stage || profile.heroName || "Growth profile")} · ${Object.keys(getCompleteCropProfile(profile).metrics || {}).filter(isGrowthMetricKey).length} metrics</small>
                   </span>
                   <span class="settings-profile-usage">${profileUsageCounts[profileKey] || 0}</span>
                 </button>
@@ -7497,11 +7506,12 @@
             <article class="settings-active-profile">
               <div class="settings-active-profile-head">
                 <div>
-                  <span class="settings-panel-kicker">Selected profile</span>
+                  <span class="settings-panel-kicker">Selected crop profile</span>
                   <h3>${escapeHtml(activeSettingsProfile?.name || "No profile selected")}</h3>
                   <p>${escapeHtml(activeSettingsProfile?.hint || "Create a crop profile to define target ranges.")}</p>
                 </div>
                 <div class="settings-head-actions">
+                  ${activeSettingsProfileKey === "default" ? '<span class="settings-summary-pill">Default</span>' : ""}
                   ${activeSettingsProfile?.requiresReview ? '<span class="settings-summary-pill" data-tone="warning">Targets need review</span>' : ""}
                   <span class="settings-summary-pill">${metricCount} metrics</span>
                   <span class="settings-summary-pill">${profileUsageCounts[activeSettingsProfileKey] || 0} sections</span>
@@ -7509,9 +7519,6 @@
                     <i class="fa-regular fa-copy" aria-hidden="true"></i> Duplicate
                   </button>
                 </div>
-              </div>
-              <div class="settings-metric-summary">
-                ${activeSettingsProfile ? getSettingsMetricRows(activeSettingsProfile) : ""}
               </div>
               ${activeSettingsProfile ? renderCropProfileEditor(activeSettingsProfileKey, activeSettingsProfile) : ""}
             </article>
@@ -7712,7 +7719,7 @@
     function submitSettingsProfileForm() {
       const nextName = settingsProfileFormState.name.trim();
       const isBlankProgram = settingsProfileFormState.mode === "blank";
-      const sourceProfileKey = cropProfiles[settingsProfileFormState.sourceProfile]
+      const sourceProfileKey = cropProfiles[settingsProfileFormState.sourceProfile] && isVisibleSettingsCropProfile(settingsProfileFormState.sourceProfile)
         ? settingsProfileFormState.sourceProfile
         : activeSettingsProfileKey;
       const sourceProfile = getCompleteCropProfile(cropProfiles[sourceProfileKey] || getDefaultCropProfileTemplate());
@@ -7890,14 +7897,15 @@
       if (isApiDataMode() && window.NeuroCropApi?.updateCropProfile) {
         (async () => {
           try {
-            const response = await window.NeuroCropApi.updateCropProfile(profileKey, {
+            const payload = {
               name,
               heroName,
               stage,
               hint: profile.hint || "",
               requiresReview: Boolean(profile.requiresReview),
               metrics: nextMetrics
-            });
+            };
+            const response = await window.NeuroCropApi.updateCropProfile(profileKey, payload);
             if (response?.profile) {
               applyApiCropProfiles({ profiles: [response.profile] });
               activeSettingsProfileKey = normalizeCropProfileKey(response.profile.id || profileKey);
@@ -7907,6 +7915,30 @@
             setManagementNotice("settings", `${name} targets saved. Scores, alerts, and history now use these ranges.`);
             renderDashboard();
           } catch (error) {
+            if (profileKey === "default" && window.NeuroCropApi?.createCropProfile) {
+              try {
+                const response = await window.NeuroCropApi.createCropProfile({
+                  id: "default",
+                  name,
+                  heroName,
+                  stage,
+                  hint: profile.hint || "",
+                  requiresReview: Boolean(profile.requiresReview),
+                  metrics: nextMetrics
+                });
+                if (response?.profile) applyApiCropProfiles({ profiles: [response.profile] });
+                activeSettingsProfileKey = "default";
+                delete settingsProfileEditorDrafts[profileKey];
+                await hydrateCropProfilesFromApi();
+                setManagementNotice("settings", `${name} created in the backend and targets saved.`);
+                renderDashboard();
+                return;
+              } catch (createError) {
+                setManagementNotice("settings", createError instanceof Error ? createError.message : "Default crop profile could not be saved.", "warning");
+                renderDashboard();
+                return;
+              }
+            }
             setManagementNotice("settings", error instanceof Error ? error.message : "Crop profile could not be saved.", "warning");
             renderDashboard();
           }
