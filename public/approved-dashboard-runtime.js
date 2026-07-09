@@ -998,12 +998,14 @@
     }
 
     async function hydrateCropProfilesFromApi() {
-      if (!window.NeuroCropApi?.isConnected?.() || !window.NeuroCropApi?.getCropProfiles) return;
+      if (!window.NeuroCropApi?.isConnected?.() || !window.NeuroCropApi?.getCropProfiles) return null;
       try {
         const response = await window.NeuroCropApi.getCropProfiles();
         applyApiCropProfiles(response);
+        return response;
       } catch (error) {
         console.warn("NeuroCrop API crop profiles load failed.", error);
+        return null;
       }
     }
 
@@ -7110,8 +7112,8 @@
                 <div class="rounded-[15px] ${toneClass} p-3">
                   <div class="text-[10px] font-bold uppercase tracking-[0.13em]">${label}</div>
                   <div class="mt-2 grid grid-cols-2 gap-2">
-                    <input type="number" step="${metric.decimals === 0 ? "1" : "0.01"}" value="${escapeAttribute(metric[rangeKey][0])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="0" aria-label="${escapeAttribute(`${metric.label} ${label} minimum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                    <input type="number" step="${metric.decimals === 0 ? "1" : "0.01"}" value="${escapeAttribute(metric[rangeKey][1])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="1" aria-label="${escapeAttribute(`${metric.label} ${label} maximum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                    <input type="text" inputmode="decimal" value="${escapeAttribute(metric[rangeKey][0])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="0" aria-label="${escapeAttribute(`${metric.label} ${label} minimum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                    <input type="text" inputmode="decimal" value="${escapeAttribute(metric[rangeKey][1])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="1" aria-label="${escapeAttribute(`${metric.label} ${label} maximum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
                   </div>
                 </div>
               `).join("")}
@@ -7770,6 +7772,12 @@
       renderDashboard();
     }
 
+    function parseProfileRangeInputValue(rawValue) {
+      const normalized = String(rawValue || "").trim().replace(",", ".");
+      if (!normalized) return NaN;
+      return Number(normalized);
+    }
+
     function submitCropProfileEditor(form) {
       const profileKey = form.dataset.profileKey;
       const profile = cropProfiles[profileKey];
@@ -7795,7 +7803,7 @@
         for (const input of inputs) {
           const rangeKey = input.dataset.rangeKey;
           const bound = Number(input.dataset.bound);
-          const value = Number(input.value);
+          const value = parseProfileRangeInputValue(input.value);
           if (!Number.isFinite(value)) {
             setManagementNotice("settings", `Enter a valid value for ${metric.label}.`, "warning");
             renderDashboard();
@@ -7825,7 +7833,7 @@
       if (isApiDataMode() && window.NeuroCropApi?.updateCropProfile) {
         (async () => {
           try {
-            await window.NeuroCropApi.updateCropProfile(profileKey, {
+            const response = await window.NeuroCropApi.updateCropProfile(profileKey, {
               name,
               heroName,
               stage,
@@ -7833,6 +7841,10 @@
               requiresReview: Boolean(profile.requiresReview),
               metrics: nextMetrics
             });
+            if (response?.profile) {
+              applyApiCropProfiles({ profiles: [response.profile] });
+              activeSettingsProfileKey = normalizeCropProfileKey(response.profile.id || profileKey);
+            }
             await hydrateCropProfilesFromApi();
             setManagementNotice("settings", `${name} targets saved. Scores, alerts, and history now use these ranges.`);
             renderDashboard();
