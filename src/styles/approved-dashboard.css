@@ -167,6 +167,138 @@
       color: #ffffff;
     }
 
+    .node-sensor-panel {
+      margin-top: 1.15rem;
+      padding: 1rem;
+      border: 1px solid rgba(20, 32, 27, 0.09);
+      border-radius: 20px;
+      background: #f8f5ee;
+    }
+
+    .node-sensor-panel-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .node-sensor-panel-heading p,
+    .node-sensor-port {
+      margin: 0;
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      line-height: 1.2;
+      text-transform: uppercase;
+      color: rgba(33, 71, 59, 0.6);
+    }
+
+    .node-sensor-panel-heading h3 {
+      margin: 0.25rem 0 0;
+      font-size: 0.92rem;
+      font-weight: 750;
+      color: #14201b;
+    }
+
+    .node-sensor-panel-heading > span {
+      font-size: 0.72rem;
+      color: rgba(20, 32, 27, 0.5);
+      white-space: nowrap;
+    }
+
+    .node-sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.65rem;
+      margin-top: 0.8rem;
+    }
+
+    .node-sensor-card {
+      min-width: 0;
+      padding: 0.8rem;
+      border: 1px solid rgba(20, 32, 27, 0.08);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.88);
+    }
+
+    .node-sensor-card[data-detected="false"] { opacity: 0.68; }
+
+    .node-sensor-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .node-sensor-card h4 {
+      margin: 0.22rem 0 0;
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: #14201b;
+    }
+
+    .node-sensor-status {
+      flex: 0 0 auto;
+      padding: 0.28rem 0.46rem;
+      border-radius: 999px;
+      background: #edf3eb;
+      color: #2f6a4f;
+      font-size: 0.65rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .node-sensor-status[data-detected="false"] {
+      background: #f3efe7;
+      color: rgba(20, 32, 27, 0.58);
+    }
+
+    .node-sensor-details {
+      min-height: 1.25rem;
+      margin: 0.55rem 0 0;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      color: rgba(20, 32, 27, 0.62);
+    }
+
+    .node-sensor-config {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 0.48rem;
+      margin-top: 0.65rem;
+    }
+
+    .node-sensor-config label span {
+      display: block;
+      margin-bottom: 0.2rem;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(20, 32, 27, 0.52);
+    }
+
+    .node-sensor-config select,
+    .node-sensor-config input {
+      width: 100%;
+      min-width: 0;
+      height: 2rem;
+      border: 1px solid rgba(20, 32, 27, 0.12);
+      border-radius: 10px;
+      background: #fff;
+      padding: 0 0.55rem;
+      font: inherit;
+      font-size: 0.72rem;
+      color: #14201b;
+    }
+
+    .node-sensor-config .inline-action {
+      grid-column: 1 / -1;
+      justify-self: start;
+      padding: 0.45rem 0.65rem;
+      font-size: 0.72rem;
+    }
+
     @media (max-width: 1180px) {
       .management-list-row {
         align-items: flex-start;
@@ -177,6 +309,8 @@
         width: 100%;
         justify-content: flex-start;
       }
+
+      .node-sensor-grid { grid-template-columns: 1fr; }
     }
 
     .nav-link,

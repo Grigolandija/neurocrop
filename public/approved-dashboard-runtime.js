@@ -488,6 +488,11 @@
       method: "PATCH",
       body: JSON.stringify(payload)
     }),
+    getNodeSensors: (devEui) => request(`/nodes/${encodeURIComponent(devEui)}/sensors`),
+    updateNodeSensor: (devEui, port, payload) => request(`/nodes/${encodeURIComponent(devEui)}/sensors/${encodeURIComponent(port)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
     createCropProfile: (payload) => request("/crop-profiles", {
       method: "POST",
       body: JSON.stringify(payload)
@@ -2441,6 +2446,10 @@
               <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Status</div><div class="mt-1 text-sm font-extrabold ${node.active === false ? "text-amber" : "text-moss"}">${node.active === false ? "Inactive" : "Active"}</div></div>
             </div>
 
+            <section class="node-sensor-panel" data-node-sensors-panel>
+              <div class="node-sensor-panel-heading"><div><p>Detected sensors</p><h3>Checking the latest node packet...</h3></div></div>
+            </section>
+
             <form class="mt-5" data-management-modal-form="node">
               <div class="grid gap-4 sm:grid-cols-2">
                 <label class="block"><span class="text-sm font-semibold text-ink/72">Node display name</span><input name="modalNodeName" value="${escapeAttribute(nodeName)}" placeholder="Climate sensor, north side" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
@@ -2460,6 +2469,83 @@
       `;
       elements.managementModalOverlay.hidden = false;
       enhanceDashboardSelects(elements.managementModalOverlay);
+      if (isApiDataMode() && node.devEui && window.NeuroCropApi?.getNodeSensors) {
+        loadNodeSensorsIntoModal(node.devEui);
+      } else {
+        renderNodeSensorPanel(null, "Sensor detection is available when the node is connected to the NeuroCrop API.");
+      }
+    }
+
+    function getNodeSensorRoleLabel(role) {
+      return {
+        unassigned_temperature: "Choose purpose",
+        substrate_temperature: "Substrate temperature",
+        water_temperature: "Water temperature",
+        pipe_temperature: "Pipe temperature",
+        custom_temperature: "Other temperature"
+      }[role] || "Choose purpose";
+    }
+
+    function renderNodeSensorPanel(payload, errorMessage = "") {
+      const panel = elements.managementModalOverlay.querySelector("[data-node-sensors-panel]");
+      if (!panel) return;
+      if (!payload) {
+        panel.innerHTML = `<div class="node-sensor-panel-heading"><div><p>Detected sensors</p><h3>${escapeHtml(errorMessage || "Sensor information is unavailable.")}</h3></div></div>`;
+        return;
+      }
+
+      const sensorCards = (payload.sensors || []).map((sensor) => {
+        const isProbe = sensor.port === "onewire";
+        const detectedLabel = sensor.detected ? "Detected" : "Not connected";
+        const model = sensor.sensorModel || (sensor.port === "i2c" ? "No I2C sensor" : "DS18B20 probe");
+        const details = sensor.metrics?.length
+          ? sensor.metrics.map((metric) => ({ airTemp: "Air temperature", humidity: "Humidity", vpd: "VPD", co2: "CO2", lux: "Light", temperature: "Temperature" }[metric] || metric)).join(" · ")
+          : "No readings available";
+        return `<article class="node-sensor-card" data-detected="${sensor.detected ? "true" : "false"}">
+          <div class="node-sensor-card-top">
+            <div><p class="node-sensor-port">${sensor.port === "internal" ? "Built in" : sensor.port === "i2c" ? "4-pin I2C" : "3-pin probe"}</p><h4>${escapeHtml(model)}</h4></div>
+            <span class="node-sensor-status" data-detected="${sensor.detected ? "true" : "false"}">${escapeHtml(detectedLabel)}</span>
+          </div>
+          <p class="node-sensor-details">${escapeHtml(details)}</p>
+          ${isProbe ? `<div class="node-sensor-config">
+            <label><span>Purpose</span><select name="nodeSensorRole" data-node-sensor-role>
+              ${["unassigned_temperature", "substrate_temperature", "water_temperature", "pipe_temperature", "custom_temperature"].map((role) => `<option value="${role}" ${sensor.role === role ? "selected" : ""}>${getNodeSensorRoleLabel(role)}</option>`).join("")}
+            </select></label>
+            <label><span>Label</span><input name="nodeSensorLabel" value="${escapeAttribute(sensor.label || "Temperature probe")}" maxlength="80" placeholder="e.g. Tank return"></label>
+            <button type="button" class="inline-action" data-node-sensor-save data-dev-eui="${escapeAttribute(payload.node.devEui)}">Save purpose</button>
+          </div>` : ""}
+        </article>`;
+      }).join("");
+
+      panel.innerHTML = `<div class="node-sensor-panel-heading"><div><p>Detected sensors</p><h3>Hardware reported by the latest uplink</h3></div>${payload.lastReceivedAt ? `<span>Latest uplink</span>` : ""}</div><div class="node-sensor-grid">${sensorCards}</div>`;
+    }
+
+    async function loadNodeSensorsIntoModal(devEui) {
+      try {
+        const payload = await window.NeuroCropApi.getNodeSensors(devEui);
+        renderNodeSensorPanel(payload);
+      } catch (error) {
+        renderNodeSensorPanel(null, error instanceof Error ? error.message : "Sensor information could not be loaded.");
+      }
+    }
+
+    async function saveNodeSensorPurpose(button) {
+      const card = button.closest(".node-sensor-card");
+      const devEui = button.dataset.devEui;
+      const role = card?.querySelector('[data-node-sensor-role]')?.value || "unassigned_temperature";
+      const label = card?.querySelector('[name="nodeSensorLabel"]')?.value?.trim() || "Temperature probe";
+      if (!devEui || !window.NeuroCropApi?.updateNodeSensor) return;
+
+      button.disabled = true;
+      button.textContent = "Saving...";
+      try {
+        const payload = await window.NeuroCropApi.updateNodeSensor(devEui, "onewire", { role, label });
+        renderNodeSensorPanel(payload);
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = "Save purpose";
+        setManagementModalError(error instanceof Error ? error.message : "Sensor purpose could not be saved.");
+      }
     }
 
     async function saveNodeFromModal() {
@@ -13316,6 +13402,12 @@
       const deleteNodeButton = event.target.closest("[data-modal-node-delete]");
       if (deleteNodeButton) {
         deleteNodeFromModal(deleteNodeButton.dataset.modalNodeDelete);
+        return;
+      }
+
+      const saveNodeSensorButton = event.target.closest("[data-node-sensor-save]");
+      if (saveNodeSensorButton) {
+        saveNodeSensorPurpose(saveNodeSensorButton);
       }
     });
 
