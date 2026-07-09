@@ -8788,6 +8788,8 @@
       } = state;
       const isMultiMetric = seriesItems.length > 1;
       const rangeEnd = rangeStart + (totalHours * 60 * 60 * 1000);
+      const pointCount = seriesItems[0]?.series?.pointCount || seriesItems[0]?.series?.values?.length || 2;
+      const pointIntervalMs = (totalHours * 60 * 60 * 1000) / Math.max(pointCount - 1, 1);
       const colors = seriesItems.map((_, index) => getTrendSeriesColor(index));
       const tooltipDateFormat = new Intl.DateTimeFormat("lt-LT", {
         day: "2-digit",
