@@ -794,7 +794,8 @@
     const stateConfig = {
       optimal: { label: "Optimal", shortLabel: "Optimal", badge: "Green section", textClass: "text-moss", thumb: "#2F6A4F", uplink: "4 min ago" },
       warning: { label: "Warning", shortLabel: "Attention", badge: "Amber section", textClass: "text-amber", thumb: "#D08A2D", uplink: "7 min ago" },
-      critical: { label: "Critical", shortLabel: "Critical", badge: "Red section", textClass: "text-ember", thumb: "#AF4D38", uplink: "11 min ago" }
+      critical: { label: "Critical", shortLabel: "Critical", badge: "Red section", textClass: "text-ember", thumb: "#AF4D38", uplink: "11 min ago" },
+      unknown: { label: "No data", shortLabel: "No data", badge: "No data", textClass: "text-ink/55", thumb: "#A0A59F", uplink: "Unavailable" }
     };
 
     const scenarioConfig = {
@@ -3468,6 +3469,7 @@
     function getHealthStateLabel(state) {
       if (state === "critical") return "Critical";
       if (state === "warning") return "Needs attention";
+      if (state === "unknown") return "No data";
       return "Good";
     }
 
@@ -4714,6 +4716,7 @@
       if (scope === "site") {
         if (stateKey === "optimal") return "Green area";
         if (stateKey === "warning") return "Amber area";
+        if (stateKey === "unknown") return "No data";
         return "Red area";
       }
 
