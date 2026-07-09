@@ -7469,6 +7469,34 @@
       gap: 0.75rem;
     }
 
+    .trend-history-export-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      min-height: 36px;
+      border: 1px solid rgba(24, 80, 60, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--designer-accent);
+      padding: 0.5rem 0.8rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .trend-history-export-button:hover:not(:disabled),
+    .trend-history-export-button:focus-visible:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: rgba(24, 80, 60, 0.35);
+      background: #ffffff;
+      outline: none;
+    }
+
+    .trend-history-export-button:disabled {
+      cursor: wait;
+      opacity: 0.6;
+    }
+
     .trend-history-summary {
       margin-top: 0.5rem;
       max-width: 52rem;
@@ -12424,7 +12452,8 @@
     }
 
     body[data-primary-page="history"] .trend-history-head-side .state-chip,
-    body[data-primary-page="history"] .trend-history-head-side .control-pill {
+    body[data-primary-page="history"] .trend-history-head-side .control-pill,
+    body[data-primary-page="history"] .trend-history-export-button {
       min-height: 30px;
       padding: 5px 10px;
       font-size: 10px;

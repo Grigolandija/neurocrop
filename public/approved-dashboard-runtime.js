@@ -401,6 +401,37 @@
     return response.json();
   }
 
+  async function downloadFile(path, fallbackFilename) {
+    if (!apiBaseUrl) {
+      throw new Error("API base URL is not configured.");
+    }
+
+    const response = await fetch(`${apiBaseUrl}${path}`, {
+      credentials: "include",
+      headers: { Accept: "text/csv" }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        window.dispatchEvent(new CustomEvent("neurocrop:unauthorized"));
+        throw new Error("Your session has ended. Please sign in again.");
+      }
+      const detail = await response.text().catch(() => "");
+      throw new Error(detail.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || `Export failed with ${response.status}.`);
+    }
+
+    const header = response.headers.get("content-disposition") || "";
+    const filename = header.match(/filename="?([^";]+)"?/i)?.[1] || fallbackFilename;
+    const url = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function queryString(params) {
     const query = new URLSearchParams();
     Object.entries(params || {}).forEach(([key, value]) => {
@@ -424,6 +455,10 @@
     getCropProfiles: () => request("/crop-profiles"),
     getLatestReadings: (sectionId) => request(`/readings/latest${queryString({ sectionId })}`),
     getHistory: (params) => request(`/history${queryString(params)}`),
+    downloadMeasurementsCsv: (params) => downloadFile(
+      `/exports/measurements.csv${queryString(params)}`,
+      "neurocrop-measurements.csv"
+    ),
     getAreas: () => request("/areas"),
     getSections: (areaId) => request(`/sections${queryString({ areaId })}`),
     getNodes: (sectionId) => request(`/nodes${queryString({ sectionId })}`),
@@ -1338,6 +1373,7 @@
       trendHistorySummary: document.getElementById("trendHistorySummary"),
       trendHistoryStateChip: document.getElementById("trendHistoryStateChip"),
       trendHistoryRangeMeta: document.getElementById("trendHistoryRangeMeta"),
+      trendHistoryExportButton: document.getElementById("trendHistoryExportButton"),
       trendHistoryActiveAreaLabel: document.getElementById("trendHistoryActiveAreaLabel"),
       trendHistoryActiveSectionLabel: document.getElementById("trendHistoryActiveSectionLabel"),
       historyLocationTrigger: document.getElementById("historyLocationTrigger"),
@@ -10032,6 +10068,40 @@
       scrollToSection("historySection");
     }
 
+    async function downloadActiveTrendCsv() {
+      const site = getActiveSite();
+      const zone = getActiveZone(site);
+      const rangeConfig = trendRangeConfig[activeTrendRangeKey] || trendRangeConfig["24h"];
+      const metricKeys = activeTrendMetricKeys.length > 0
+        ? activeTrendMetricKeys
+        : (activeTrendMetricKey ? [activeTrendMetricKey] : []);
+      const button = elements.trendHistoryExportButton;
+
+      if (!isApiDataMode() || activeViewScope === "site" || !zone?.id || metricKeys.length === 0) return;
+
+      button.disabled = true;
+      button.dataset.busy = "true";
+      const label = button.querySelector("span");
+      if (label) label.textContent = "Preparing CSV";
+
+      try {
+        const to = new Date();
+        const from = new Date(to.getTime() - (rangeConfig.totalHours * 60 * 60 * 1000));
+        await window.NeuroCropApi.downloadMeasurementsCsv({
+          sectionId: zone.id,
+          metrics: metricKeys.join(","),
+          from: from.toISOString(),
+          to: to.toISOString()
+        });
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : "CSV export could not be generated.");
+      } finally {
+        button.disabled = false;
+        button.dataset.busy = "false";
+        if (label) label.textContent = "Download CSV";
+      }
+    }
+
     function renderLiveReadingRow(key, definition, result, scopeSeed, zone, freshnessStatus = "live") {
       const category = getMetricCategory(key);
       const isAvailable = result.available !== false;
@@ -12653,6 +12723,9 @@
         elements.trendHistorySummary.textContent = trendHistoryState.summary;
         applyStateChip(elements.trendHistoryStateChip, trendHistoryState.state, stateConfig[trendHistoryState.state].label);
         elements.trendHistoryRangeMeta.textContent = trendHistoryState.rangeMeta;
+        const hasExportableMetrics = activeTrendMetricKeys.length > 0 || Boolean(activeTrendMetricKey);
+        elements.trendHistoryExportButton.hidden = !isApiDataMode() || isSiteView || !hasExportableMetrics;
+        elements.trendHistoryExportButton.disabled = !hasExportableMetrics;
         elements.trendMetricBar.innerHTML = trendHistoryState.metricButtons;
         elements.trendRangeBar.innerHTML = trendHistoryState.rangeButtons;
         elements.trendHistoryMetricLabel.textContent = trendHistoryState.metricLabel;
@@ -13713,6 +13786,8 @@
       activeTrendRangeKey = nextRangeKey;
       renderDashboard();
     });
+
+    elements.trendHistoryExportButton.addEventListener("click", downloadActiveTrendCsv);
 
     elements.historyLocationTrigger.addEventListener("click", (event) => {
       event.stopPropagation();

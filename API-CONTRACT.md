@@ -400,6 +400,24 @@ Taškai neprivalo būti gauti tą pačią sekundę. Backend turi grąžinti tikr
 `observedAt`; grafikas juos braižo laiko ašyje. `receivedAt` naudojamas
 duomenų pristatymo diagnostikai, o ne X ašies pozicijai.
 
+## Measurement export
+
+```text
+GET /exports/measurements.csv?sectionId=...&metrics=airTemp,humidity&from=...&to=...
+```
+
+Eksportas yra autentifikuotas ir apribotas aktyvia vartotojo organizacija.
+Jis grąžina ne Section vidurkį, o kiekvieno node neapdorotus matavimus CSV
+formatu. CSV stulpeliai:
+
+```text
+section_id,section_name,observed_at,node_dev_eui,node_name,metric,unit,value
+```
+
+`metrics` yra kableliais atskirtas palaikomų metric raktų sąrašas. MVP riboja
+vieną eksportą iki 31 dienos; didesniems laikotarpiams vėliau bus naudojami
+agreguoti arba asinchroniškai sugeneruoti eksportai.
+
 ## Alerts
 
 ```text

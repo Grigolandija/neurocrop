@@ -662,6 +662,10 @@
                 <p id="trendHistorySummary" class="trend-history-summary">Compare the selected live metric against its recent history before deciding whether this is a spike, a drift, or a recovery.</p>
               </div>
               <div class="trend-history-head-side">
+                <button id="trendHistoryExportButton" type="button" class="trend-history-export-button" hidden>
+                  <i class="fa-solid fa-download" aria-hidden="true"></i>
+                  <span>Download CSV</span>
+                </button>
                 <span id="trendHistoryStateChip" class="state-chip" data-state="optimal">Optimal</span>
                 <span id="trendHistoryRangeMeta" class="control-pill rounded-full px-4 py-2 text-sm font-semibold text-ink/68">24h · hourly</span>
               </div>
