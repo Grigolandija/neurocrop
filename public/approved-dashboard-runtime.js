@@ -7878,9 +7878,9 @@
         const [optimalMin, optimalMax] = nextRanges.optimal;
         const [warningMin, warningMax] = nextRanges.warning;
         const [criticalMin, criticalMax] = nextRanges.critical;
-        const isOrdered = criticalMin <= warningMin && warningMin <= optimalMin && optimalMin <= optimalMax && optimalMax <= warningMax && warningMax <= criticalMax;
-        if (!isOrdered) {
-          setManagementNotice("settings", `${metric.label}: set critical outside warning, and warning outside optimal.`, "warning");
+        const hasValidPairs = optimalMin <= optimalMax && warningMin <= warningMax && criticalMin <= criticalMax;
+        if (!hasValidPairs) {
+          setManagementNotice("settings", `${metric.label}: minimum value must be lower than maximum value.`, "warning");
           renderDashboard();
           return;
         }
