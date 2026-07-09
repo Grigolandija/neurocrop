@@ -7150,26 +7150,26 @@
           const rangeValues = getProfileEditorRangeValues(metricDraft || metric);
           const step = metric.decimals === 0 ? "1" : "0.01";
           const rangeInput = (label, value, rangeKey, bound, toneClass) => `
-            <label class="rounded-[10px] ${toneClass} px-2 py-1.5">
-              <span class="block text-[8px] font-bold uppercase leading-none tracking-[0.1em]">${escapeHtml(label)}</span>
-              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="mt-1 w-full rounded-[9px] border border-black/10 bg-white px-2 py-1 text-xs font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+            <label class="flex min-w-[118px] items-center justify-between gap-2 rounded-[10px] ${toneClass} px-2 py-1">
+              <span class="text-[8px] font-bold uppercase leading-none tracking-[0.08em]">${escapeHtml(label)}</span>
+              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="h-7 w-16 rounded-[8px] border border-black/10 bg-white px-1.5 text-right text-xs font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
             </label>
           `;
 
           return `
-          <div class="rounded-[14px] border border-black/8 bg-white px-3 py-2" data-profile-metric-row="${escapeAttribute(metricKey)}">
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <strong class="text-[13px] leading-none text-ink">${escapeHtml(metric.label)}</strong>
-              <span class="text-[11px] font-semibold leading-none text-ink/52">${escapeHtml(formatUnit(metric.unit))}</span>
+          <div class="flex flex-wrap items-center gap-2 rounded-[14px] border border-black/8 bg-white px-3 py-2" data-profile-metric-row="${escapeAttribute(metricKey)}">
+            <div class="mr-auto min-w-[155px]">
+              <strong class="block text-[13px] leading-none text-ink">${escapeHtml(metric.label)}</strong>
+              <span class="mt-0.5 block text-[10px] font-semibold leading-none text-ink/45">${escapeHtml(formatUnit(metric.unit))}</span>
             </div>
-            <div class="mt-1.5 grid gap-1.5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
+            <div class="flex flex-wrap items-center gap-1.5">
               ${rangeInput("Critical low", rangeValues.criticalLow, "critical", 0, "bg-[#f8dfda] text-ember")}
               ${rangeInput("Warning low", rangeValues.warningLow, "warning", 0, "bg-[#f8ead5] text-amber")}
-              <div class="rounded-[10px] bg-[#eef4ec] px-2 py-1.5 text-moss">
-                <div class="text-[8px] font-bold uppercase leading-none tracking-[0.1em]">Optimal</div>
-                <div class="mt-1 grid grid-cols-2 gap-1.5">
-                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMin)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="0" aria-label="${escapeAttribute(`${metric.label} optimal minimum`)}" class="w-full rounded-[9px] border border-black/10 bg-white px-2 py-1 text-xs font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMax)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="1" aria-label="${escapeAttribute(`${metric.label} optimal maximum`)}" class="w-full rounded-[9px] border border-black/10 bg-white px-2 py-1 text-xs font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+              <div class="flex min-w-[154px] items-center justify-between gap-2 rounded-[10px] bg-[#eef4ec] px-2 py-1 text-moss">
+                <div class="text-[8px] font-bold uppercase leading-none tracking-[0.08em]">Optimal</div>
+                <div class="flex items-center gap-1">
+                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMin)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="0" aria-label="${escapeAttribute(`${metric.label} optimal minimum`)}" class="h-7 w-14 rounded-[8px] border border-black/10 bg-white px-1.5 text-right text-xs font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                  <input type="number" step="${step}" value="${escapeAttribute(rangeValues.optimalMax)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="1" aria-label="${escapeAttribute(`${metric.label} optimal maximum`)}" class="h-7 w-14 rounded-[8px] border border-black/10 bg-white px-1.5 text-right text-xs font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
                 </div>
               </div>
               ${rangeInput("Warning high", rangeValues.warningHigh, "warning", 1, "bg-[#f8ead5] text-amber")}
