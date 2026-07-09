@@ -10351,6 +10351,24 @@
 
     function renderLiveReadingsBoard(results, profile, site, zone, options = {}) {
       const installedResults = results.filter((result) => result.available !== false);
+      const apiResponse = isApiDataMode() ? latestReadingsBySectionId[zone?.id] : null;
+      const derived = apiResponse?.derived || {};
+      const airTemp = Number(apiResponse?.observations?.airTemp?.value);
+      const dewPoint = Number(derived.dew_point);
+      const absoluteHumidity = Number(derived.absolute_humidity);
+      const dewPointSpread = Number.isFinite(airTemp) && Number.isFinite(dewPoint) ? airTemp - dewPoint : null;
+      const formatDiagnosticNumber = (value, decimals = 1) => Number(value).toLocaleString(
+        interfaceLanguage === "lt" ? "lt-LT" : "en-GB",
+        { minimumFractionDigits: decimals, maximumFractionDigits: decimals }
+      );
+      const climateDiagnostics = Number.isFinite(dewPoint) || Number.isFinite(absoluteHumidity)
+        ? `<aside class="climate-diagnostics" aria-label="Climate diagnostics">
+            <span class="climate-diagnostics-label">${diagnosticText("Climate diagnostics", "Klimato diagnostika")}</span>
+            ${Number.isFinite(dewPoint) ? `<span><b>${diagnosticText("Dew point", "Rasos taškas")}</b> ${formatDiagnosticNumber(dewPoint)} °C</span>` : ""}
+            ${Number.isFinite(absoluteHumidity) ? `<span><b>${diagnosticText("Absolute humidity", "Absoliuti drėgmė")}</b> ${formatDiagnosticNumber(absoluteHumidity, 2)} g/m³</span>` : ""}
+            ${Number.isFinite(dewPointSpread) ? `<span><b>${diagnosticText("Dew-point spread", "Temperatūros skirtumas iki rasos taško")}</b> ${formatDiagnosticNumber(dewPointSpread)} °C</span>` : ""}
+          </aside>`
+        : "";
       const loadingHtml = options.isLoading ? `
         <div class="workbench-empty-card">
           <div class="workbench-empty-title">Loading live readings…</div>
@@ -10376,6 +10394,7 @@
           zone,
           getZoneMetricFreshness(zone, result.key)
         )).join("")}
+        ${climateDiagnostics}
       `;
     }
 
