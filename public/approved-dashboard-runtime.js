@@ -7326,7 +7326,7 @@
           const metric = completeProfile.metrics[metricKey];
           const alertMeta = metricKey === "batteryLevel"
             ? `Alert below ${getBatteryAlertThreshold(metric)}%`
-            : `${formatRange(metric.warning, metric)} warning`;
+            : getWarningStartLabel(metric);
 
           return `
             <div class="border-b border-black/6 px-1 py-3.5 last:border-b-0">
@@ -7413,8 +7413,8 @@
             ${optimalInput("Optimal minimum", rangeValues.optimalMin, 0)}
             ${optimalInput("Optimal maximum", rangeValues.optimalMax, 1)}
             <div class="flex flex-wrap justify-end gap-1.5 text-[10px] font-semibold">
-              <span class="rounded-full bg-[#fff4df] px-2 py-1 text-amber" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}">Warning ${escapeHtml(formatRange([rangeValues.warningLow, rangeValues.warningHigh], metric))}</span>
-              <span class="rounded-full bg-[#fff0ec] px-2 py-1 text-ember" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}">Critical ${escapeHtml(formatRange([rangeValues.criticalLow, rangeValues.criticalHigh], metric))}</span>
+              <span class="rounded-full bg-[#fff4df] px-2 py-1 text-amber" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}">${escapeHtml(getWarningStartLabel({ ...metric, optimal: [rangeValues.optimalMin, rangeValues.optimalMax] }))}</span>
+              <span class="rounded-full bg-[#fff0ec] px-2 py-1 text-ember" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}">${escapeHtml(getCriticalBoundaryLabel({ ...metric, critical: [rangeValues.criticalLow, rangeValues.criticalHigh] }))}</span>
             </div>
           </div>
         `;
@@ -7442,7 +7442,7 @@
                   <span>Parameter</span>
                   <span class="text-center text-moss">Optimal min</span>
                   <span class="text-center text-moss">Optimal max</span>
-                  <span class="text-right">System alert limits</span>
+                  <span class="text-right">Automatic alert boundaries</span>
                 </div>
                 <div>${metricRows}</div>
               </div>
@@ -8096,6 +8096,14 @@
       return precision === 0 ? String(Math.round(value)) : String(Number(value.toFixed(precision)));
     }
 
+    function getWarningStartLabel(metric) {
+      return `Warning below ${formatValue(metric.optimal?.[0], metric)} or above ${formatValue(metric.optimal?.[1], metric)}`;
+    }
+
+    function getCriticalBoundaryLabel(metric) {
+      return `Critical below ${formatValue(metric.critical?.[0], metric)} or above ${formatValue(metric.critical?.[1], metric)}`;
+    }
+
     function captureOptimalRangeBaseline(target) {
       if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-profile-range")) return;
       if (target.dataset.rangeKey !== "optimal") return;
@@ -8165,8 +8173,8 @@
       const ranges = getProfileEditorRangeValues(metric);
       const warningLabel = row.querySelector('[data-profile-alert-limit="warning"]');
       const criticalLabel = row.querySelector('[data-profile-alert-limit="critical"]');
-      if (warningLabel) warningLabel.textContent = `Warning ${formatRange([ranges.warningLow, ranges.warningHigh], metric)}`;
-      if (criticalLabel) criticalLabel.textContent = `Critical ${formatRange([ranges.criticalLow, ranges.criticalHigh], metric)}`;
+      if (warningLabel) warningLabel.textContent = getWarningStartLabel({ ...metric, optimal: [ranges.optimalMin, ranges.optimalMax] });
+      if (criticalLabel) criticalLabel.textContent = getCriticalBoundaryLabel({ ...metric, critical: [ranges.criticalLow, ranges.criticalHigh] });
       delete target.dataset.optimalRangeBaseline;
     }
 
@@ -8590,35 +8598,39 @@
       }
 
       let state = "optimal";
-      if (value < definition.optimal[0] || value > definition.optimal[1]) state = "warning";
-      if (value < definition.warning[0] || value > definition.warning[1]) state = "critical";
-
       let direction = "optimal";
-      if (value < definition.optimal[0]) direction = "low";
-      if (value > definition.optimal[1]) direction = "high";
-
       let severity = 0;
-      if (state === "optimal") {
+      if (value < definition.critical[0]) {
+        state = "critical";
+        direction = "low";
+        severity = 1;
+      } else if (value > definition.critical[1]) {
+        state = "critical";
+        direction = "high";
+        severity = 1;
+      } else if (value < definition.warning[0]) {
+        state = "warning";
+        direction = "low";
+        const span = Math.max(definition.warning[0] - definition.critical[0], 0.0001);
+        severity = 0.68 + ((definition.warning[0] - value) / span) * 0.32;
+      } else if (value > definition.warning[1]) {
+        state = "warning";
+        direction = "high";
+        const span = Math.max(definition.critical[1] - definition.warning[1], 0.0001);
+        severity = 0.68 + ((value - definition.warning[1]) / span) * 0.32;
+      } else if (value < definition.optimal[0]) {
+        state = "warning";
+        direction = "low";
+        const span = Math.max(definition.optimal[0] - definition.warning[0], 0.0001);
+        severity = 0.34 + ((definition.optimal[0] - value) / span) * 0.33;
+      } else if (value > definition.optimal[1]) {
+        state = "warning";
+        direction = "high";
+        const span = Math.max(definition.warning[1] - definition.optimal[1], 0.0001);
+        severity = 0.34 + ((value - definition.optimal[1]) / span) * 0.33;
+      } else {
         const radius = Math.max((definition.optimal[1] - definition.optimal[0]) / 2, 0.0001);
         severity = (Math.abs(value - midpoint(definition.optimal)) / radius) * 0.15;
-      } else if (state === "warning") {
-        if (direction === "low") {
-          const span = Math.max(definition.optimal[0] - definition.warning[0], 0.0001);
-          const progress = (definition.optimal[0] - value) / span;
-          severity = 0.15 + progress * 0.53;
-        } else {
-          const span = Math.max(definition.warning[1] - definition.optimal[1], 0.0001);
-          const progress = (value - definition.optimal[1]) / span;
-          severity = 0.15 + progress * 0.53;
-        }
-      } else if (direction === "low") {
-        const span = Math.max(definition.warning[0] - definition.critical[0], 0.0001);
-        const progress = (definition.warning[0] - value) / span;
-        severity = 0.68 + progress * 0.32;
-      } else {
-        const span = Math.max(definition.critical[1] - definition.warning[1], 0.0001);
-        const progress = (value - definition.warning[1]) / span;
-        severity = 0.68 + progress * 0.32;
       }
 
       severity = clamp(severity, 0, 1);
