@@ -7152,12 +7152,12 @@
           const thresholdInput = (label, value, rangeKey, bound, toneClass) => `
             <label class="block min-w-0">
               <span class="sr-only">${escapeHtml(`${metric.label} ${label}`)}</span>
-              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="h-9 w-full rounded-lg border border-black/10 ${toneClass} px-2 text-center text-xs font-bold tabular-nums text-ink outline-none transition focus:border-pine/45 focus:ring-2 focus:ring-pine/12">
+              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="h-7 w-[58px] justify-self-center rounded-md border border-black/10 ${toneClass} px-1 text-center text-[11px] font-bold tabular-nums text-ink outline-none transition focus:border-pine/45 focus:ring-2 focus:ring-pine/12">
             </label>
           `;
 
           return `
-          <div class="grid grid-cols-[minmax(190px,1.5fr)_repeat(6,minmax(74px,.72fr))] items-center gap-2 border-b border-black/6 px-3 py-2.5 last:border-b-0" data-profile-metric-row="${escapeAttribute(metricKey)}">
+          <div class="grid grid-cols-[minmax(190px,1fr)_repeat(6,82px)] items-center gap-2 border-b border-black/6 px-3 py-1.5 last:border-b-0" data-profile-metric-row="${escapeAttribute(metricKey)}">
             <div class="min-w-0">
               <strong class="block truncate text-[13px] leading-none text-ink">${escapeHtml(metric.label)}</strong>
               <span class="mt-1 block text-[10px] font-semibold leading-none text-ink/45">${escapeHtml(formatUnit(metric.unit))}</span>
@@ -7189,15 +7189,15 @@
             </div>
             <p class="mt-2 text-[11px] leading-4 text-ink/54">Limits are read from left to right. Each value marks the boundary where the status changes.</p>
             <div class="mt-2.5 overflow-x-auto rounded-[16px] border border-black/8 bg-white">
-              <div class="min-w-[760px]">
-                <div class="grid grid-cols-[minmax(190px,1.5fr)_repeat(6,minmax(74px,.72fr))] gap-2 rounded-t-[15px] bg-[#f3f1eb] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-ink/46">
+              <div class="min-w-[730px]">
+                <div class="grid grid-cols-[minmax(190px,1fr)_repeat(6,82px)] gap-2 rounded-t-[15px] bg-[#f3f1eb] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-ink/46">
                   <span>Parameter</span>
-                  <span class="text-ember">Critical low</span>
-                  <span class="text-amber">Warning low</span>
-                  <span class="text-moss">Optimal min</span>
-                  <span class="text-moss">Optimal max</span>
-                  <span class="text-amber">Warning high</span>
-                  <span class="text-ember">Critical high</span>
+                  <span class="text-center text-ember">Critical low</span>
+                  <span class="text-center text-amber">Warning low</span>
+                  <span class="text-center text-moss">Optimal min</span>
+                  <span class="text-center text-moss">Optimal max</span>
+                  <span class="text-center text-amber">Warning high</span>
+                  <span class="text-center text-ember">Critical high</span>
                 </div>
                 <div>${metricRows}</div>
               </div>
