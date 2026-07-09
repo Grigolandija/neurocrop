@@ -10958,18 +10958,6 @@
     }
 
     function renderDashboard(options = {}) {
-      try {
-        return renderDashboardUnsafe(options);
-      } catch (error) {
-        console.error("Dashboard render failed.", error);
-        document.body.dataset.renderError = "true";
-        updateSidebarActionState();
-        syncStickyOffsets();
-        return null;
-      }
-    }
-
-    function renderDashboardUnsafe(options = {}) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
       const isNodesPage = activePrimaryPage === "nodes";
@@ -11904,7 +11892,7 @@
         : isSimpleExperienceMode
         ? "Only the most relevant live readings are shown here."
         : activeWorkbenchLens?.description || "Focus the workbench on the slice that matters most right now.";
-      elements.zoneImpactSection.hidden = isManagementPage || !isDetailedExperienceMode || isDetailedOverview || isSiteHotspotsView || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "route");
+      elements.zoneImpactSection.hidden = isPrimaryWorkspacePage || !isDetailedExperienceMode || isDetailedOverview || isSiteHotspotsView || (activeWorkspaceFocus !== "all" && activeWorkspaceFocus !== "route");
       elements.zoneImpactKicker.textContent = "Inspection route";
       elements.zoneImpactTitle.textContent = isSiteView ? "How to walk this location" : "Where to look next";
       elements.zoneImpactMeta.textContent = activeInspectionRouteFilter?.description || "Follow the route in the order that reduces uncertainty fastest.";
