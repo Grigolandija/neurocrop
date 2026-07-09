@@ -1324,7 +1324,7 @@
         activeZoneId = nextZone.id;
         renderSiteOptions();
         renderZoneOptions();
-        await fetchLatestReadingsForZone(nextZone.id, { onlyActive: false, renderOnComplete: false });
+        await fetchLatestReadingsForAllZones({ renderOnComplete: false });
         resetCurrentReadingsFromActiveZone();
         renderDashboard();
       } catch (error) {
@@ -2894,6 +2894,19 @@
         }
         return null;
       }
+    }
+
+    async function fetchLatestReadingsForAllZones(options = {}) {
+      if (!isApiDataMode()) return;
+      const zoneIds = dashboardData.sites
+        .flatMap((site) => site.zones || [])
+        .map((zone) => zone.id)
+        .filter(Boolean);
+      const uniqueZoneIds = [...new Set(zoneIds)];
+      await Promise.allSettled(uniqueZoneIds.map((zoneId) =>
+        fetchLatestReadingsForZone(zoneId, { onlyActive: false, renderOnComplete: false })
+      ));
+      if (options.renderOnComplete !== false) renderDashboard();
     }
 
     function getTrendHistoryCacheKey(sectionId, metricKey, rangeKey) {
