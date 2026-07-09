@@ -2822,12 +2822,20 @@
           if (batteryNodes.length > 0 && !availableMetrics.includes("batteryLevel")) {
             availableMetrics.push("batteryLevel");
           }
+          const backendState = zone.state || zone.farmState || zone.scopeState || zone.summary || null;
           return {
             ...zone,
             profile: cropProfiles[zone.profile] ? zone.profile : activeProfileKey,
             batteryNodes,
             sensorCount: Number(zone.sensorCount) || batteryNodes.length,
-            availableMetrics
+            availableMetrics,
+            backendState,
+            backendScore: zone.score ?? zone.indexScore ?? backendState?.score ?? backendState?.indexScore ?? null,
+            backendConditionStatus: zone.conditionStatus ?? backendState?.conditionStatus ?? backendState?.status ?? null,
+            backendMainDriver: zone.mainDriver ?? backendState?.mainDriver ?? null,
+            backendCoverage: zone.coverage ?? backendState?.coverage ?? null,
+            backendNodeSummary: zone.nodeSummary ?? backendState?.nodeSummary ?? null,
+            backendComputedAt: zone.computedAt ?? backendState?.computedAt ?? null
           };
         })
       }));
@@ -8050,6 +8058,35 @@
       };
     }
 
+    function normalizeBackendConditionStatus(status) {
+      const normalized = String(status || "").trim().toLowerCase().replace(/[_\s-]+/g, "-");
+      if (["optimal", "good", "ok", "green", "in-target"].includes(normalized)) return "optimal";
+      if (["warning", "watch", "attention", "needs-attention", "amber"].includes(normalized)) return "warning";
+      if (["critical", "danger", "alarm", "red"].includes(normalized)) return "critical";
+      return null;
+    }
+
+    function getBackendOverallState(zone) {
+      const score = Number(zone?.backendScore);
+      const state = normalizeBackendConditionStatus(zone?.backendConditionStatus);
+      if (!Number.isFinite(score) || !state) return null;
+
+      const indexScore = Math.round(clamp(score, 0, 100));
+      return {
+        state,
+        warningCount: state === "warning" ? 1 : 0,
+        criticalCount: state === "critical" ? 1 : 0,
+        stableCount: state === "optimal" ? 1 : 0,
+        riskScore: 100 - indexScore,
+        indexScore,
+        source: "backend",
+        mainDriver: zone?.backendMainDriver || null,
+        coverage: zone?.backendCoverage || null,
+        nodeSummary: zone?.backendNodeSummary || null,
+        computedAt: zone?.backendComputedAt || null
+      };
+    }
+
     function buildCopy(profile, nonOptimalResults, overallStateKey) {
       const labels = nonOptimalResults.map((item) => profile.metrics[item.key].label.toLowerCase());
 
@@ -9891,7 +9928,7 @@
         return left.available === false ? 1 : -1;
       });
 
-      const overall = deriveOverallState(results);
+      const overall = getBackendOverallState(zone) || deriveOverallState(results);
       return { site, zone, profile, results, overall };
     }
 

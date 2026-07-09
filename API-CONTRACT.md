@@ -56,6 +56,22 @@ Minimalus dabartinio dashboard naudojamas pereinamasis atsakymas:
           "id": "tomato-a-back",
           "name": "Tomato Block A, Rear",
           "profile": "tomato",
+          "score": 65,
+          "conditionStatus": "warning",
+          "mainDriver": "humidity",
+          "computedAt": "2026-07-03T10:00:00Z",
+          "coverage": {
+            "liveMetrics": 9,
+            "expectedMetrics": 13,
+            "reportingNodes": 3,
+            "registeredNodes": 4
+          },
+          "nodeSummary": {
+            "live": 3,
+            "delayed": 0,
+            "stale": 0,
+            "offline": 1
+          },
           "sensorCount": 1,
           "batteryNodes": [
             {
@@ -72,6 +88,17 @@ Minimalus dabartinio dashboard naudojamas pereinamasis atsakymas:
   ]
 }
 ```
+
+`score`, `conditionStatus`, `mainDriver`, `coverage`, `nodeSummary` ir
+`computedAt` yra kanoniniai backend laukai. Jeigu jie pateikiami, frontend juos
+naudoja kaip pagrindinį Growing Conditions Score ir būsenos šaltinį. Jeigu šių
+laukų nėra, frontend laikinai perskaičiuoja būseną pats iš naujausių rodmenų.
+
+`conditionStatus` turi būti skaičiuojamas pagal paskutines galiojančias
+sekcijos reikšmes: backend paima naujausius gyvus kiekvienos metrikos rodmenis,
+pagal crop profile ribas apskaičiuoja `optimal`, `warning` arba `critical`, o
+jeigu nėra nė vienos patikimos gyvos augimo metrikos, grąžina `unknown` /
+`dataStatus: offline`, bet ne `score: 100`.
 
 `sites/zones` yra laikinas esamo UI wire formatas. Backend domeno modelyje ir
 naujuose endpointuose naudoti `areas/sections`; formatas bus pakeistas kartu
