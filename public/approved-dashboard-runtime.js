@@ -1560,7 +1560,7 @@
 
     function applyDashboardRoute(rawRoute) {
       const nextRoute = resolveDashboardRoute(rawRoute);
-      if (nextRoute.page === activePrimaryPage) return;
+      const pageAlreadyActive = nextRoute.page === activePrimaryPage;
 
       activePrimaryPage = nextRoute.page;
       sidebarActionOverride = null;
@@ -1571,6 +1571,8 @@
         if (activePrimaryPage === "readings") activeWorkbenchLensKey = "all";
         setExperienceMode("detailed", { render: false, force: true });
       }
+
+      if (pageAlreadyActive && activePrimaryPage !== "history" && activePrimaryPage !== "readings") return;
 
       renderDashboard();
 
@@ -9477,6 +9479,7 @@
       }
       activePrimaryPage = "history";
       sidebarActionOverride = null;
+      activeWorkspaceFocus = "all";
       setExperienceMode("detailed");
       renderDashboard();
       syncTopLevelRoute("/history");
