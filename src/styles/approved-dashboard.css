@@ -169,10 +169,12 @@
 
     .node-sensor-panel {
       margin-top: 1.15rem;
-      padding: 1rem;
+      padding: 0.55rem 0.7rem;
       border: 1px solid rgba(20, 32, 27, 0.09);
-      border-radius: 20px;
+      border-radius: 16px;
       background: #f8f5ee;
+      color: rgba(20, 32, 27, 0.58);
+      font-size: 0.78rem;
     }
 
     .node-sensor-panel-heading {
@@ -297,6 +299,54 @@
       justify-self: start;
       padding: 0.45rem 0.65rem;
       font-size: 0.72rem;
+    }
+
+    .node-sensor-list {
+      display: grid;
+      gap: 0.32rem;
+    }
+
+    .node-sensor-row {
+      padding: 0.48rem 0.55rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .node-sensor-row-main {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 0;
+    }
+
+    .node-sensor-detected-dot {
+      width: 0.48rem;
+      height: 0.48rem;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: #2f6a4f;
+      box-shadow: 0 0 0 3px rgba(47, 106, 79, 0.1);
+    }
+
+    .node-sensor-row-label {
+      min-width: 0;
+      flex: 1 1 auto;
+      color: #14201b;
+      font-size: 0.82rem;
+      font-weight: 750;
+    }
+
+    .node-sensor-row .node-sensor-status {
+      font-size: 0.62rem;
+    }
+
+    .node-sensor-row .node-sensor-config {
+      margin: 0.6rem 0 0;
+    }
+
+    .node-sensor-empty {
+      display: block;
+      padding: 0.18rem 0.1rem;
     }
 
     @media (max-width: 1180px) {

@@ -2446,9 +2446,7 @@
               <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Status</div><div class="mt-1 text-sm font-extrabold ${node.active === false ? "text-amber" : "text-moss"}">${node.active === false ? "Inactive" : "Active"}</div></div>
             </div>
 
-            <section class="node-sensor-panel" data-node-sensors-panel>
-              <div class="node-sensor-panel-heading"><div><p>Detected sensors</p><h3>Checking the latest node packet...</h3></div></div>
-            </section>
+            <section class="node-sensor-panel" data-node-sensors-panel>Checking detected sensors...</section>
 
             <form class="mt-5" data-management-modal-form="node">
               <div class="grid gap-4 sm:grid-cols-2">
@@ -2490,24 +2488,38 @@
       const panel = elements.managementModalOverlay.querySelector("[data-node-sensors-panel]");
       if (!panel) return;
       if (!payload) {
-        panel.innerHTML = `<div class="node-sensor-panel-heading"><div><p>Detected sensors</p><h3>${escapeHtml(errorMessage || "Sensor information is unavailable.")}</h3></div></div>`;
+        panel.textContent = errorMessage || "Sensor information is unavailable.";
         return;
       }
 
-      const sensorCards = (payload.sensors || []).map((sensor) => {
-        const isProbe = sensor.port === "onewire";
-        const detectedLabel = sensor.detected ? "Detected" : "Not connected";
-        const model = sensor.sensorModel || (sensor.port === "i2c" ? "No I2C sensor" : "DS18B20 probe");
-        const details = sensor.metrics?.length
-          ? sensor.metrics.map((metric) => ({ airTemp: "Air temperature", humidity: "Humidity", vpd: "VPD", co2: "CO2", lux: "Light", temperature: "Temperature" }[metric] || metric)).join(" · ")
-          : "No readings available";
-        return `<article class="node-sensor-card" data-detected="${sensor.detected ? "true" : "false"}">
-          <div class="node-sensor-card-top">
-            <div><p class="node-sensor-port">${sensor.port === "internal" ? "Built in" : sensor.port === "i2c" ? "4-pin I2C" : "3-pin probe"}</p><h4>${escapeHtml(model)}</h4></div>
-            <span class="node-sensor-status" data-detected="${sensor.detected ? "true" : "false"}">${escapeHtml(detectedLabel)}</span>
+      const detectedSensors = (payload.sensors || []).flatMap((sensor) => {
+        if (!sensor.detected) return [];
+        if (sensor.port === "internal") {
+          return [
+            { label: "Temperature sensor" },
+            { label: "Humidity sensor" }
+          ];
+        }
+        if (sensor.port === "i2c") {
+          return (sensor.metrics || []).map((metric) => ({
+            label: metric === "co2" ? "CO2 sensor" : metric === "lux" ? "Light sensor" : "I2C sensor"
+          }));
+        }
+        if (sensor.port === "onewire") {
+          return [{ label: sensor.label || "Temperature probe", configurable: true, sensor }];
+        }
+        return [];
+      });
+
+      const sensorRows = detectedSensors.map((item) => {
+        const sensor = item.sensor;
+        return `<article class="node-sensor-row"${item.configurable ? " data-configurable" : ""}>
+          <div class="node-sensor-row-main">
+            <span class="node-sensor-detected-dot" aria-hidden="true"></span>
+            <span class="node-sensor-row-label">${escapeHtml(item.label)}</span>
+            <span class="node-sensor-status" data-detected="true">Detected</span>
           </div>
-          <p class="node-sensor-details">${escapeHtml(details)}</p>
-          ${isProbe ? `<div class="node-sensor-config">
+          ${item.configurable ? `<div class="node-sensor-config">
             <label><span>Purpose</span><select name="nodeSensorRole" data-node-sensor-role>
               ${["unassigned_temperature", "substrate_temperature", "water_temperature", "pipe_temperature", "custom_temperature"].map((role) => `<option value="${role}" ${sensor.role === role ? "selected" : ""}>${getNodeSensorRoleLabel(role)}</option>`).join("")}
             </select></label>
@@ -2517,7 +2529,9 @@
         </article>`;
       }).join("");
 
-      panel.innerHTML = `<div class="node-sensor-panel-heading"><div><p>Detected sensors</p><h3>Hardware reported by the latest uplink</h3></div>${payload.lastReceivedAt ? `<span>Latest uplink</span>` : ""}</div><div class="node-sensor-grid">${sensorCards}</div>`;
+      panel.innerHTML = sensorRows
+        ? `<div class="node-sensor-list">${sensorRows}</div>`
+        : `<span class="node-sensor-empty">No sensors detected in the latest uplink.</span>`;
     }
 
     async function loadNodeSensorsIntoModal(devEui) {
@@ -6128,7 +6142,6 @@
       }
 
       const focusCount = availableResults.filter((item) => item.state !== "optimal").length;
-      const coverageCount = unavailableResults.length;
 
       lenses.push(
         {
@@ -6151,20 +6164,9 @@
         }
       );
 
-      if (coverageCount > 0) {
-        lenses.push({
-          key: "coverage",
-          label: "Coverage gaps",
-          icon: "fa-wave-square",
-          tone: "warning",
-          count: coverageCount,
-          description: `${coverageCount} growth metrics are missing sensors in ${zone.name}.`
-        });
-      }
-
       groupKeys.forEach((groupKey) => {
         const group = getMetricWorkbenchGroup(groupKey === "climate" ? "airTemp" : groupKey === "root" ? "soilTemp" : "ec");
-        const count = growthResults.filter((item) => getMetricWorkbenchGroup(item.key).key === groupKey).length;
+        const count = availableResults.filter((item) => getMetricWorkbenchGroup(item.key).key === groupKey).length;
         if (count === 0) return;
 
         lenses.push({
