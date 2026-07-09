@@ -925,6 +925,7 @@
     const cropProfilesStorageKey = "neurocrop-dashboard-crop-profiles-v1";
     const cropProfileOverridesStorageKey = "neurocrop-dashboard-crop-profile-overrides-v1";
     const builtInCropProfileKeys = new Set(Object.keys(cropProfiles));
+    const legacyStarterCropProfileKeys = new Set(["tomato", "lettuce", "strawberry"]);
     const cropProfileTemplateLibrary = [
       {
         key: "tomato-vegetative",
@@ -1012,6 +1013,10 @@
         ...cloneDashboardValue(profile),
         metrics: getCompleteCropProfileMetrics(profile.metrics || {})
       };
+    }
+
+    function isVisibleSettingsCropProfile(profileKey) {
+      return !(isApiDataMode() && legacyStarterCropProfileKeys.has(profileKey));
     }
 
     function applyApiCropProfiles(payload) {
@@ -7422,8 +7427,8 @@
     }
 
     function renderSettingsManagementPage(globalSnapshots) {
-      const profileEntries = Object.entries(cropProfiles);
-      if (!cropProfiles[activeSettingsProfileKey]) {
+      const profileEntries = Object.entries(cropProfiles).filter(([profileKey]) => isVisibleSettingsCropProfile(profileKey));
+      if (!cropProfiles[activeSettingsProfileKey] || !isVisibleSettingsCropProfile(activeSettingsProfileKey)) {
         activeSettingsProfileKey = profileEntries[0]?.[0] || activeProfileKey;
       }
 
