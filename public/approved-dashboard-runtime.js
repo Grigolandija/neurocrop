@@ -1528,6 +1528,7 @@
     let activeSettingsProfileKey = activeProfileKey;
     let activeSettingsPanelKey = "profiles";
     let activeCropProfileView = "mine";
+    let settingsProfileEditorDrafts = {};
     let managementNotice = { page: "", tone: "optimal", text: "" };
     const dashboardRouteMap = {
       overview: { page: "overview", route: "/" },
@@ -7093,6 +7094,8 @@
     }
 
     function renderCropProfileEditor(profileKey, profile) {
+      const draft = settingsProfileEditorDrafts[profileKey] || null;
+      const draftMetrics = draft?.metrics || {};
       const profileUsageCount = getProfileUsageCounts()[profileKey] || 0;
       const shouldOpenEditor = Boolean(profile.requiresReview) || !builtInCropProfileKeys.has(profileKey);
       const metricRows = Object.entries(profile.metrics)
@@ -7109,13 +7112,20 @@
                 ["Warning", "warning", "bg-[#f8ead5] text-amber"],
                 ["Critical", "critical", "bg-[#f8dfda] text-ember"]
               ].map(([label, rangeKey, toneClass]) => `
+                ${(() => {
+                  const metricDraft = draftMetrics[metricKey];
+                  const draftRange = Array.isArray(metricDraft?.[rangeKey]) ? metricDraft[rangeKey] : null;
+                  const rangeValues = draftRange && draftRange.length === 2 ? draftRange : metric[rangeKey];
+                  return `
                 <div class="rounded-[15px] ${toneClass} p-3">
                   <div class="text-[10px] font-bold uppercase tracking-[0.13em]">${label}</div>
                   <div class="mt-2 grid grid-cols-2 gap-2">
-                    <input type="text" inputmode="decimal" value="${escapeAttribute(metric[rangeKey][0])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="0" aria-label="${escapeAttribute(`${metric.label} ${label} minimum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                    <input type="text" inputmode="decimal" value="${escapeAttribute(metric[rangeKey][1])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="1" aria-label="${escapeAttribute(`${metric.label} ${label} maximum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                    <input type="number" step="${metric.decimals === 0 ? "1" : "0.01"}" value="${escapeAttribute(rangeValues[0])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="0" aria-label="${escapeAttribute(`${metric.label} ${label} minimum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                    <input type="number" step="${metric.decimals === 0 ? "1" : "0.01"}" value="${escapeAttribute(rangeValues[1])}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="${rangeKey}" data-bound="1" aria-label="${escapeAttribute(`${metric.label} ${label} maximum`)}" class="w-full rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-bold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
                   </div>
                 </div>
+              `;
+                })()}
               `).join("")}
             </div>
           </div>
@@ -7130,9 +7140,9 @@
           <form class="mt-5" data-settings-form="crop-profile-editor" data-profile-key="${escapeAttribute(profileKey)}">
             <label class="block max-w-md"><span class="text-sm font-semibold text-ink/72">Editing profile</span><select data-profile-editor-select class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm font-semibold text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12">${Object.entries(cropProfiles).map(([key, item]) => `<option value="${escapeAttribute(key)}" ${key === profileKey ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>
             <div class="grid gap-3 md:grid-cols-3">
-              <label class="block"><span class="text-sm font-semibold text-ink/72">Profile name</span><input name="profileEditorName" value="${escapeAttribute(profile.name)}" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
-              <label class="block"><span class="text-sm font-semibold text-ink/72">Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(profile.heroName)}" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
-              <label class="block"><span class="text-sm font-semibold text-ink/72">Growth stage</span><input name="profileEditorStage" value="${escapeAttribute(profile.stage || "")}" placeholder="Vegetative" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
+              <label class="block"><span class="text-sm font-semibold text-ink/72">Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
+              <label class="block"><span class="text-sm font-semibold text-ink/72">Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
+              <label class="block"><span class="text-sm font-semibold text-ink/72">Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative" class="mt-1.5 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
             </div>
             <p class="mt-4 text-xs leading-5 text-ink/54">Each pair is minimum / maximum. Warning must sit outside optimal, and critical must sit outside warning.</p>
             <div class="mt-4 grid gap-3">${metricRows}</div>
@@ -7778,14 +7788,62 @@
       return Number(normalized);
     }
 
+    function ensureSettingsProfileEditorDraft(profileKey, profile) {
+      if (!settingsProfileEditorDrafts[profileKey]) {
+        settingsProfileEditorDrafts[profileKey] = {
+          name: profile.name,
+          heroName: profile.heroName,
+          stage: profile.stage || "",
+          metrics: cloneDashboardValue(profile.metrics || {})
+        };
+      }
+      return settingsProfileEditorDrafts[profileKey];
+    }
+
+    function syncCropProfileEditorDraft(target) {
+      if (!(target instanceof HTMLElement)) return;
+      const form = target.closest('[data-settings-form="crop-profile-editor"]');
+      if (!form) return;
+      const profileKey = form.dataset.profileKey;
+      const profile = cropProfiles[profileKey];
+      if (!profile) return;
+      const draft = ensureSettingsProfileEditorDraft(profileKey, profile);
+
+      if (target instanceof HTMLInputElement && target.name === "profileEditorName") {
+        draft.name = target.value;
+        return;
+      }
+
+      if (target instanceof HTMLInputElement && target.name === "profileEditorHeroName") {
+        draft.heroName = target.value;
+        return;
+      }
+
+      if (target instanceof HTMLInputElement && target.name === "profileEditorStage") {
+        draft.stage = target.value;
+        return;
+      }
+
+      if (target instanceof HTMLInputElement && target.hasAttribute("data-profile-range")) {
+        const metricKey = target.dataset.metricKey;
+        const rangeKey = target.dataset.rangeKey;
+        const bound = Number(target.dataset.bound);
+        if (!metricKey || !rangeKey || !Number.isFinite(bound)) return;
+        if (!draft.metrics[metricKey]) draft.metrics[metricKey] = cloneDashboardValue(profile.metrics[metricKey] || {});
+        if (!Array.isArray(draft.metrics[metricKey][rangeKey])) draft.metrics[metricKey][rangeKey] = cloneDashboardValue(profile.metrics[metricKey]?.[rangeKey] || []);
+        draft.metrics[metricKey][rangeKey][bound] = target.value;
+      }
+    }
+
     function submitCropProfileEditor(form) {
       const profileKey = form.dataset.profileKey;
       const profile = cropProfiles[profileKey];
       if (!profile) return;
+      const draft = ensureSettingsProfileEditorDraft(profileKey, profile);
 
-      const name = String(form.querySelector('[name="profileEditorName"]')?.value || "").trim();
-      const heroName = String(form.querySelector('[name="profileEditorHeroName"]')?.value || "").trim();
-      const stage = String(form.querySelector('[name="profileEditorStage"]')?.value || "").trim();
+      const name = String(form.querySelector('[name="profileEditorName"]')?.value || draft.name || "").trim();
+      const heroName = String(form.querySelector('[name="profileEditorHeroName"]')?.value || draft.heroName || "").trim();
+      const stage = String(form.querySelector('[name="profileEditorStage"]')?.value || draft.stage || "").trim();
       if (!name || !heroName) {
         setManagementNotice("settings", "Profile and crop name are required before saving.", "warning");
         renderDashboard();
@@ -7845,6 +7903,7 @@
               applyApiCropProfiles({ profiles: [response.profile] });
               activeSettingsProfileKey = normalizeCropProfileKey(response.profile.id || profileKey);
             }
+            delete settingsProfileEditorDrafts[profileKey];
             await hydrateCropProfilesFromApi();
             setManagementNotice("settings", `${name} targets saved. Scores, alerts, and history now use these ranges.`);
             renderDashboard();
@@ -7858,6 +7917,7 @@
 
       persistCustomCropProfiles();
       persistCropProfileOverrides();
+      delete settingsProfileEditorDrafts[profileKey];
       setManagementNotice("settings", `${name} targets saved. Scores, alerts, and history now use these ranges.`);
       renderDashboard();
     }
@@ -12675,6 +12735,7 @@
 
     elements.settingsManagementSection.addEventListener("input", (event) => {
       syncSettingsProfileFormField(event.target);
+      syncCropProfileEditorDraft(event.target);
       updateSettingsField(event.target);
     });
 
@@ -12688,6 +12749,7 @@
         return;
       }
       syncSettingsProfileFormField(event.target);
+      syncCropProfileEditorDraft(event.target);
       updateSettingsField(event.target);
     });
 
