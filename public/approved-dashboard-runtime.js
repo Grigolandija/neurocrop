@@ -7092,6 +7092,7 @@
 
     function renderCropProfileEditor(profileKey, profile) {
       const profileUsageCount = getProfileUsageCounts()[profileKey] || 0;
+      const shouldOpenEditor = Boolean(profile.requiresReview) || !builtInCropProfileKeys.has(profileKey);
       const metricRows = Object.entries(profile.metrics)
         .filter(([metricKey]) => isGrowthMetricKey(metricKey))
         .map(([metricKey, metric]) => `
@@ -7119,7 +7120,7 @@
         `).join("");
 
       return `
-        <details class="mt-5 rounded-[24px] border border-black/8 bg-[#f8f3ea] p-4">
+        <details class="mt-5 rounded-[24px] border border-black/8 bg-[#f8f3ea] p-4" ${shouldOpenEditor ? "open" : ""}>
           <summary class="flex cursor-pointer items-center justify-between gap-4 text-sm font-bold text-ink">
             <span>Edit profile and target ranges</span>
             <span class="text-xs font-semibold text-ink/52">${Object.keys(profile.metrics).filter(isGrowthMetricKey).length} growth metrics</span>
