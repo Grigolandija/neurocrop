@@ -483,6 +483,11 @@
     revokeInvitation: (invitationId) => request(`/invitations/${encodeURIComponent(invitationId)}`, {
       method: "DELETE"
     }),
+    getPlatformOrganizations: () => request("/platform/organizations"),
+    createPlatformOrganization: (payload) => request("/platform/organizations", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
     getDashboard: () => request("/dashboard"),
     getCropProfiles: () => request("/crop-profiles"),
     getLatestReadings: (sectionId) => request(`/readings/latest${queryString({ sectionId })}`),
@@ -1565,6 +1570,8 @@
           return;
         } catch (error) {
           window.sessionStorage.removeItem(loginSessionKey);
+          resetTeamAccessState();
+          resetPlatformOrganizationState();
           setLoginState(null);
           elements.loginEmail.focus();
           return;
@@ -1590,6 +1597,7 @@
       } finally {
         window.sessionStorage.removeItem(loginSessionKey);
         resetTeamAccessState();
+        resetPlatformOrganizationState();
         setHeaderAccountMenuOpen(false);
         setLoginState(null);
         elements.loginPassword.value = "";
@@ -1622,6 +1630,7 @@
 
       window.sessionStorage.setItem(loginSessionKey, JSON.stringify(session));
       resetTeamAccessState();
+      resetPlatformOrganizationState();
       elements.loginError.hidden = true;
       setLoginState(session);
       syncStickyOffsets();
@@ -1767,6 +1776,13 @@
       error: "",
       latestInviteUrl: ""
     };
+    let platformOrganizationState = {
+      organizations: [],
+      status: "idle",
+      error: "",
+      latestInviteUrl: "",
+      latestOrganizationName: ""
+    };
 
     function resetTeamAccessState() {
       teamAccessState = {
@@ -1778,22 +1794,53 @@
       };
     }
 
+    function resetPlatformOrganizationState() {
+      platformOrganizationState = {
+        organizations: [],
+        status: "idle",
+        error: "",
+        latestInviteUrl: "",
+        latestOrganizationName: ""
+      };
+    }
+
     async function hydrateTeamAccess() {
       if (!window.NeuroCropApi?.isConnected() || teamAccessState.status === "loading") return;
       teamAccessState.status = "loading";
       teamAccessState.error = "";
       renderDashboard();
       try {
-        const [teamResponse, invitationResponse] = await Promise.all([
-          window.NeuroCropApi.getTeam(),
-          window.NeuroCropApi.getInvitations()
-        ]);
+        const teamResponse = await window.NeuroCropApi.getTeam();
+        let invitationResponse = { invitations: [] };
+        try {
+          invitationResponse = await window.NeuroCropApi.getInvitations();
+        } catch (error) {
+          invitationResponse = { invitations: [] };
+        }
         teamAccessState.members = Array.isArray(teamResponse?.members) ? teamResponse.members : [];
         teamAccessState.invitations = Array.isArray(invitationResponse?.invitations) ? invitationResponse.invitations : [];
         teamAccessState.status = "ready";
       } catch (error) {
         teamAccessState.status = "error";
         teamAccessState.error = error?.message || "Team access could not be loaded.";
+      }
+      renderDashboard();
+    }
+
+    async function hydratePlatformOrganizations() {
+      if (!window.NeuroCropApi?.isConnected() || platformOrganizationState.status === "loading") return;
+      const session = getLoginSession();
+      if (!session?.isPlatformAdmin) return;
+      platformOrganizationState.status = "loading";
+      platformOrganizationState.error = "";
+      renderDashboard();
+      try {
+        const response = await window.NeuroCropApi.getPlatformOrganizations();
+        platformOrganizationState.organizations = Array.isArray(response?.organizations) ? response.organizations : [];
+        platformOrganizationState.status = "ready";
+      } catch (error) {
+        platformOrganizationState.status = "error";
+        platformOrganizationState.error = error?.message || "Customer organizations could not be loaded.";
       }
       renderDashboard();
     }
@@ -7913,19 +7960,25 @@
     }
 
     function renderSettingsManagementPage(globalSnapshots) {
+      const currentSession = getLoginSession();
+      const isPlatformAdmin = Boolean(currentSession?.isPlatformAdmin);
       const profileEntries = Object.entries(cropProfiles).filter(([profileKey]) => isVisibleSettingsCropProfile(profileKey));
       if (!cropProfiles[activeSettingsProfileKey] || !isVisibleSettingsCropProfile(activeSettingsProfileKey)) {
         activeSettingsProfileKey = profileEntries[0]?.[0] || activeProfileKey;
       }
 
-      const validPanels = new Set(["profiles", "alerts", "team", "workspace", "data"]);
+      const validPanels = new Set(["profiles", "alerts", "team", "workspace", "data", ...(isPlatformAdmin ? ["platform"] : [])]);
       if (!validPanels.has(activeSettingsPanelKey)) activeSettingsPanelKey = "profiles";
       const apiBackedTeam = Boolean(window.NeuroCropApi?.isConnected());
       if (activeSettingsPanelKey === "team" && apiBackedTeam && teamAccessState.status === "idle") {
         window.setTimeout(hydrateTeamAccess, 0);
       }
+      if (activeSettingsPanelKey === "platform" && isPlatformAdmin && platformOrganizationState.status === "idle") {
+        window.setTimeout(hydratePlatformOrganizations, 0);
+      }
       const teamMembers = apiBackedTeam ? teamAccessState.members : settingsState.team;
       const teamMemberCount = teamMembers.length;
+      const canManageTeam = Boolean(["owner", "admin"].includes(currentSession?.role));
 
       const activeSettingsProfile = cropProfiles[activeSettingsProfileKey]
         ? getCompleteCropProfile(cropProfiles[activeSettingsProfileKey])
@@ -7942,6 +7995,7 @@
       `).join("");
       const settingsPanels = [
         { key: "profiles", icon: "fa-seedling", label: "Crop profiles", note: "Targets and growth stages", count: profileEntries.length },
+        ...(isPlatformAdmin ? [{ key: "platform", icon: "fa-briefcase", label: "Customers", note: "Client workspaces", count: platformOrganizationState.organizations.length }] : []),
         { key: "alerts", icon: "fa-bell", label: "Alerts & notifications", note: "Local browser preferences", count: activeAlertCount },
         { key: "team", icon: "fa-users", label: "Team & access", note: apiBackedTeam ? "API-backed access" : "Local browser list", count: teamMemberCount },
         { key: "workspace", icon: "fa-building", label: "Workspace", note: "Local display preferences", count: "" },
@@ -8048,7 +8102,7 @@
                   </div>
                 `).join("") || `<div class="settings-policy-note"><div><strong>No members found</strong><p>This workspace has no active members yet.</p></div></div>`}
               </div>
-              ${teamAccessState.invitations.length ? `
+              ${canManageTeam && teamAccessState.invitations.length ? `
                 <div class="mt-6">
                   <div class="settings-form-title"><i class="fa-solid fa-clock" aria-hidden="true"></i><div><h3>Pending invitations</h3><p>These links expire automatically after seven days.</p></div></div>
                   <div class="settings-team-list mt-3">
@@ -8063,19 +8117,54 @@
                   </div>
                 </div>
               ` : ""}
-              <form class="settings-add-member" data-settings-form="team">
+              ${canManageTeam ? `<form class="settings-add-member" data-settings-form="team">
                 <div class="settings-form-title"><i class="fa-solid fa-user-plus" aria-hidden="true"></i><div><h3>Invite a team member</h3><p>They will set their own password from a secure invitation link.</p></div></div>
                 <div class="settings-add-member-fields">
                   <input name="teamEmail" type="email" placeholder="Email address" required>
                   <select name="teamRole"><option value="grower">Grower</option><option value="technician">Technician</option><option value="viewer">Viewer</option><option value="admin">Admin</option></select>
                   <button type="submit" class="settings-primary-button">Create invitation</button>
                 </div>
-              </form>
+              </form>` : `<div class="settings-policy-note mt-4"><i class="fa-solid fa-lock" aria-hidden="true"></i><div><strong>Read-only access</strong><p>Only workspace owners and admins can create or revoke invitations.</p></div></div>`}
               ${teamAccessState.latestInviteUrl ? `<div class="settings-policy-note mt-4"><i class="fa-solid fa-link" aria-hidden="true"></i><div><strong>Invitation link created</strong><p class="break-all">${escapeHtml(teamAccessState.latestInviteUrl)}</p><button type="button" class="settings-text-button mt-2" data-copy-invitation="${escapeAttribute(teamAccessState.latestInviteUrl)}">Copy invitation link</button></div></div>` : ""}
             ` : ""}
           ` : `
             <div class="settings-policy-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><div><strong>Connect the API to manage access</strong><p>Team access is available only when NeuroCrop is connected to its backend.</p></div></div>
           `}
+        </section>
+      `;
+
+      const platformPanel = `
+        <section class="settings-content-panel" aria-labelledby="settingsPlatformTitle">
+          <header class="settings-panel-head">
+            <div>
+              <span class="settings-panel-kicker">Platform</span>
+              <h2 id="settingsPlatformTitle">Customer organizations</h2>
+              <p>Create a customer workspace and generate the first owner invitation link.</p>
+            </div>
+            <span class="settings-summary-pill">${platformOrganizationState.organizations.length} organizations</span>
+          </header>
+          ${platformOrganizationState.status === "loading" ? `<div class="settings-policy-note"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i><div><strong>Loading organizations</strong><p>Retrieving customer workspaces.</p></div></div>` : ""}
+          ${platformOrganizationState.status === "error" ? `<div class="settings-policy-note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><div><strong>Organizations could not be loaded</strong><p>${escapeHtml(platformOrganizationState.error)}</p><button type="button" class="settings-text-button mt-2" data-platform-refresh>Retry</button></div></div>` : ""}
+          ${platformOrganizationState.status === "ready" ? `
+            <form class="settings-form-card" data-settings-form="platform-organization">
+              <div class="settings-form-title"><i class="fa-solid fa-building-circle-check" aria-hidden="true"></i><div><h3>New customer</h3><p>The customer receives an owner invitation and sets their own password.</p></div></div>
+              <div class="settings-add-member-fields">
+                <input name="customerOrganizationName" placeholder="Customer organization name" required>
+                <input name="customerOwnerEmail" type="email" placeholder="Owner email" required>
+                <button type="submit" class="settings-primary-button">Create customer</button>
+              </div>
+            </form>
+            ${platformOrganizationState.latestInviteUrl ? `<div class="settings-policy-note mt-4"><i class="fa-solid fa-link" aria-hidden="true"></i><div><strong>${escapeHtml(platformOrganizationState.latestOrganizationName)} owner invitation</strong><p class="break-all">${escapeHtml(platformOrganizationState.latestInviteUrl)}</p><button type="button" class="settings-text-button mt-2" data-copy-invitation="${escapeAttribute(platformOrganizationState.latestInviteUrl)}">Copy owner invite link</button></div></div>` : ""}
+            <div class="settings-team-list mt-6">
+              ${platformOrganizationState.organizations.map((organization) => `
+                <div class="settings-team-row">
+                  <span class="settings-member-avatar"><i class="fa-solid fa-building" aria-hidden="true"></i></span>
+                  <span class="settings-member-copy"><strong>${escapeHtml(organization.name)}</strong><small>${escapeHtml(organization.id)} · ${Number(organization.areaCount || 0)} areas · ${Number(organization.nodeCount || 0)} nodes</small></span>
+                  <span class="settings-role-pill">${Number(organization.memberCount || 0)} users</span>
+                </div>
+              `).join("") || `<div class="settings-policy-note"><div><strong>No customer organizations yet</strong><p>Create the first customer workspace above.</p></div></div>`}
+            </div>
+          ` : ""}
         </section>
       `;
 
@@ -8137,6 +8226,7 @@
 
       const activePanelMarkup = {
         profiles: profilePanel,
+        platform: platformPanel,
         alerts: alertsPanel,
         team: teamPanel,
         workspace: workspacePanel,
@@ -13773,6 +13863,27 @@
           renderDashboard();
         }
         return;
+      } else if (formKey === "platform-organization") {
+        const formData = new FormData(settingsForm);
+        const organizationName = String(formData.get("customerOrganizationName") || "").trim();
+        const ownerEmail = String(formData.get("customerOwnerEmail") || "").trim();
+        if (!organizationName || !ownerEmail) {
+          setManagementNotice("settings", "Enter the customer organization name and owner email.", "warning");
+          renderDashboard();
+          return;
+        }
+        try {
+          const response = await window.NeuroCropApi.createPlatformOrganization({ organizationName, ownerEmail });
+          platformOrganizationState.latestInviteUrl = response?.invitation?.inviteUrl || "";
+          platformOrganizationState.latestOrganizationName = response?.organization?.name || organizationName;
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `Customer organization created for ${ownerEmail}.`, "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "Customer organization could not be created.", "warning");
+          renderDashboard();
+        }
+        return;
       } else {
         persistSettingsState(`${formKey.charAt(0).toUpperCase() + formKey.slice(1)} settings saved.`);
       }
@@ -13832,6 +13943,13 @@
       if (refreshTeamButton) {
         teamAccessState.status = "idle";
         await hydrateTeamAccess();
+        return;
+      }
+
+      const refreshPlatformButton = event.target.closest("[data-platform-refresh]");
+      if (refreshPlatformButton) {
+        platformOrganizationState.status = "idle";
+        await hydratePlatformOrganizations();
         return;
       }
 
@@ -14782,6 +14900,8 @@
 
     window.addEventListener("neurocrop:unauthorized", () => {
       window.sessionStorage.removeItem(loginSessionKey);
+      resetTeamAccessState();
+      resetPlatformOrganizationState();
       setHeaderAccountMenuOpen(false);
       setLoginState(null);
       elements.loginPassword.value = "";
