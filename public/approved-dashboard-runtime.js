@@ -1774,13 +1774,16 @@
       invitations: [],
       status: "idle",
       error: "",
-      latestInviteUrl: ""
+      latestInviteUrl: "",
+      latestInviteEmailSent: false
     };
     let platformOrganizationState = {
       organizations: [],
       status: "idle",
       error: "",
       latestInviteUrl: "",
+      latestInviteEmailSent: false,
+      latestInviteEmail: "",
       latestOrganizationName: ""
     };
 
@@ -1790,7 +1793,8 @@
         invitations: [],
         status: "idle",
         error: "",
-        latestInviteUrl: ""
+        latestInviteUrl: "",
+        latestInviteEmailSent: false
       };
     }
 
@@ -1800,6 +1804,8 @@
         status: "idle",
         error: "",
         latestInviteUrl: "",
+        latestInviteEmailSent: false,
+        latestInviteEmail: "",
         latestOrganizationName: ""
       };
     }
@@ -8125,7 +8131,7 @@
                   <button type="submit" class="settings-primary-button">Create invitation</button>
                 </div>
               </form>` : `<div class="settings-policy-note mt-4"><i class="fa-solid fa-lock" aria-hidden="true"></i><div><strong>Read-only access</strong><p>Only workspace owners and admins can create or revoke invitations.</p></div></div>`}
-              ${teamAccessState.latestInviteUrl ? `<div class="settings-policy-note mt-4"><i class="fa-solid fa-link" aria-hidden="true"></i><div><strong>Invitation link created</strong><p class="break-all">${escapeHtml(teamAccessState.latestInviteUrl)}</p><button type="button" class="settings-text-button mt-2" data-copy-invitation="${escapeAttribute(teamAccessState.latestInviteUrl)}">Copy invitation link</button></div></div>` : ""}
+              ${teamAccessState.latestInviteUrl ? `<div class="settings-policy-note mt-4"><i class="fa-solid ${teamAccessState.latestInviteEmailSent ? "fa-paper-plane" : "fa-link"}" aria-hidden="true"></i><div><strong>${teamAccessState.latestInviteEmailSent ? "Invitation email sent" : "Invitation link created"}</strong><p>${teamAccessState.latestInviteEmailSent ? "The person can open the email to accept access. The link below is kept as a backup." : "Email delivery was not confirmed, so use this backup link."}</p><p class="break-all">${escapeHtml(teamAccessState.latestInviteUrl)}</p><button type="button" class="settings-text-button mt-2" data-copy-invitation="${escapeAttribute(teamAccessState.latestInviteUrl)}">Copy backup link</button></div></div>` : ""}
             ` : ""}
           ` : `
             <div class="settings-policy-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><div><strong>Connect the API to manage access</strong><p>Team access is available only when NeuroCrop is connected to its backend.</p></div></div>
@@ -8139,7 +8145,7 @@
             <div>
               <span class="settings-panel-kicker">Platform</span>
               <h2 id="settingsPlatformTitle">Customer organizations</h2>
-              <p>Create a customer workspace and generate the first owner invitation link.</p>
+              <p>Create a customer workspace and send the first owner invitation.</p>
             </div>
             <span class="settings-summary-pill">${platformOrganizationState.organizations.length} organizations</span>
           </header>
@@ -8147,14 +8153,14 @@
           ${platformOrganizationState.status === "error" ? `<div class="settings-policy-note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><div><strong>Organizations could not be loaded</strong><p>${escapeHtml(platformOrganizationState.error)}</p><button type="button" class="settings-text-button mt-2" data-platform-refresh>Retry</button></div></div>` : ""}
           ${platformOrganizationState.status === "ready" ? `
             <form class="settings-form-card" data-settings-form="platform-organization">
-              <div class="settings-form-title"><i class="fa-solid fa-building-circle-check" aria-hidden="true"></i><div><h3>New customer</h3><p>The customer receives an owner invitation and sets their own password.</p></div></div>
+              <div class="settings-form-title"><i class="fa-solid fa-building-circle-check" aria-hidden="true"></i><div><h3>New customer</h3><p>The owner receives an email invitation and sets their own password.</p></div></div>
               <div class="settings-add-member-fields">
                 <input name="customerOrganizationName" placeholder="Customer organization name" required>
                 <input name="customerOwnerEmail" type="email" placeholder="Owner email" required>
                 <button type="submit" class="settings-primary-button">Create customer</button>
               </div>
             </form>
-            ${platformOrganizationState.latestInviteUrl ? `<div class="settings-policy-note mt-4"><i class="fa-solid fa-link" aria-hidden="true"></i><div><strong>${escapeHtml(platformOrganizationState.latestOrganizationName)} owner invitation</strong><p class="break-all">${escapeHtml(platformOrganizationState.latestInviteUrl)}</p><button type="button" class="settings-text-button mt-2" data-copy-invitation="${escapeAttribute(platformOrganizationState.latestInviteUrl)}">Copy owner invite link</button></div></div>` : ""}
+            ${platformOrganizationState.latestInviteUrl ? `<div class="settings-policy-note mt-4"><i class="fa-solid ${platformOrganizationState.latestInviteEmailSent ? "fa-paper-plane" : "fa-link"}" aria-hidden="true"></i><div><strong>${platformOrganizationState.latestInviteEmailSent ? "Owner invitation email sent" : "Owner invitation link created"}</strong><p>${platformOrganizationState.latestInviteEmailSent ? `${escapeHtml(platformOrganizationState.latestInviteEmail)} can accept the ${escapeHtml(platformOrganizationState.latestOrganizationName)} workspace invitation from their inbox. The link below is kept as a backup.` : `Email delivery was not confirmed for ${escapeHtml(platformOrganizationState.latestOrganizationName)}, so use this backup link.`}</p><p class="break-all">${escapeHtml(platformOrganizationState.latestInviteUrl)}</p><button type="button" class="settings-text-button mt-2" data-copy-invitation="${escapeAttribute(platformOrganizationState.latestInviteUrl)}">Copy backup link</button></div></div>` : ""}
             <div class="settings-team-list mt-6">
               ${platformOrganizationState.organizations.map((organization) => `
                 <div class="settings-team-row">
@@ -13855,8 +13861,9 @@
         try {
           const response = await window.NeuroCropApi.inviteMember({ email, role });
           teamAccessState.latestInviteUrl = response?.invitation?.inviteUrl || "";
+          teamAccessState.latestInviteEmailSent = Boolean(response?.invitation?.emailDelivery?.sent);
           teamAccessState.status = "idle";
-          setManagementNotice("settings", `Invitation created for ${email}.`, "optimal");
+          setManagementNotice("settings", teamAccessState.latestInviteEmailSent ? `Invitation email sent to ${email}.` : `Invitation created for ${email}; use the backup link.`, teamAccessState.latestInviteEmailSent ? "optimal" : "warning");
           await hydrateTeamAccess();
         } catch (error) {
           setManagementNotice("settings", error?.message || "The invitation could not be created.", "warning");
@@ -13875,9 +13882,11 @@
         try {
           const response = await window.NeuroCropApi.createPlatformOrganization({ organizationName, ownerEmail });
           platformOrganizationState.latestInviteUrl = response?.invitation?.inviteUrl || "";
+          platformOrganizationState.latestInviteEmailSent = Boolean(response?.invitation?.emailDelivery?.sent);
+          platformOrganizationState.latestInviteEmail = response?.invitation?.email || ownerEmail;
           platformOrganizationState.latestOrganizationName = response?.organization?.name || organizationName;
           platformOrganizationState.status = "idle";
-          setManagementNotice("settings", `Customer organization created for ${ownerEmail}.`, "optimal");
+          setManagementNotice("settings", platformOrganizationState.latestInviteEmailSent ? `Customer created and owner invitation sent to ${ownerEmail}.` : `Customer created, but email delivery was not confirmed; use the backup link.`, platformOrganizationState.latestInviteEmailSent ? "optimal" : "warning");
           await hydratePlatformOrganizations();
         } catch (error) {
           setManagementNotice("settings", error?.message || "Customer organization could not be created.", "warning");
