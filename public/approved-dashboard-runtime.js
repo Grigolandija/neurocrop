@@ -6444,6 +6444,11 @@
     }
 
     function snapshotHasLiveGrowthData(snapshot) {
+      // The dashboard endpoint already provides the canonical score for every
+      // Section, even when only the active Section has fetched live readings.
+      if (snapshot?.overall?.source === "backend" && Number.isFinite(snapshot.overall.indexScore)) {
+        return true;
+      }
       return Boolean(snapshot?.results?.some((result) =>
         result.available !== false && isGrowthMetricKey(result.key)
       ));
