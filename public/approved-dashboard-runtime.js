@@ -2745,17 +2745,21 @@
 
     function getNodeFreshnessInput(node, zone, now = Date.now()) {
       const expectedUplinkIntervalSec = Math.max(30, Number(node?.expectedUplinkIntervalSec) || 600);
-      const fallbackReceivedAt = new Date(now - getDemoFreshnessOffsetSec(node) * 1000).toISOString();
-      const lastReceivedAt = node?.lastReceivedAt || fallbackReceivedAt;
+      const fallbackReceivedAt = isApiDataMode()
+        ? null
+        : new Date(now - getDemoFreshnessOffsetSec(node) * 1000).toISOString();
+      const lastReceivedAt = node?.lastReceivedAt || node?.lastSeen || fallbackReceivedAt;
       const observations = node?.observations && typeof node.observations === "object"
         ? node.observations
-        : Object.fromEntries((zone?.availableMetrics || []).map((metricId) => [
-            metricId,
-            {
-              lastObservedAt: lastReceivedAt,
-              expectedIntervalSec: metricId === "batteryLevel" ? 21600 : 600
-            }
-          ]));
+        : lastReceivedAt
+          ? Object.fromEntries((zone?.availableMetrics || []).map((metricId) => [
+              metricId,
+              {
+                lastObservedAt: lastReceivedAt,
+                expectedIntervalSec: metricId === "batteryLevel" ? 21600 : 600
+              }
+            ]))
+          : {};
 
       return {
         ...node,
@@ -2779,9 +2783,10 @@
       }
 
       const input = getNodeFreshnessInput(node, zone, now);
-      const sourceVersion = node?.lastReceivedAt
-        ? `${node.lastReceivedAt}:${Object.values(node.observations || {}).map((observation) => observation.lastObservedAt || "").join("|")}`
-        : `demo:${getDemoFreshnessOffsetSec(node)}`;
+      const nodeReceivedAt = node?.lastReceivedAt || node?.lastSeen;
+      const sourceVersion = nodeReceivedAt
+        ? `${nodeReceivedAt}:${Object.values(node.observations || {}).map((observation) => observation.lastObservedAt || "").join("|")}`
+        : isApiDataMode() ? "no-uplink-yet" : `demo:${getDemoFreshnessOffsetSec(node)}`;
       const cached = nodeFreshnessStateCache.get(node.id);
       if (cached?.sourceVersion === sourceVersion) return cached.result;
 
@@ -3136,7 +3141,7 @@
     function getLowBatteryNodes(zone, definition) {
       const threshold = getBatteryAlertThreshold(definition);
       return (zone?.batteryNodes || [])
-        .filter((node) => node.level < threshold)
+        .filter((node) => Number.isFinite(node.level) && node.level < threshold)
         .sort((left, right) => left.level - right.level);
     }
 
@@ -11070,7 +11075,9 @@
       const hasUsableCurrentData = farmState.coverage.reportingNodes > 0
         && farmState.coverage.liveMetrics > 0;
       const hasNoRegisteredNodes = Number(farmState.coverage.registeredNodes || 0) === 0;
-      const scoreCardState = hasUsableCurrentData ? displayedOverallState.state : hasNoRegisteredNodes ? "neutral" : "critical";
+      const registeredSectionNodes = Array.isArray(zone?.batteryNodes) ? zone.batteryNodes : [];
+      const awaitingFirstUplink = hasNoRegisteredNodes || registeredSectionNodes.every((node) => !node.lastSeen && !node.lastReceivedAt);
+      const scoreCardState = hasUsableCurrentData ? displayedOverallState.state : awaitingFirstUplink ? "neutral" : "critical";
       const scoreCardValue = hasUsableCurrentData ? `${displayedOverallState.indexScore}` : "--";
       const scoreCardLabel = hasUsableCurrentData
         ? getHealthStateLabel(displayedOverallState.state)
@@ -11080,13 +11087,17 @@
         : diagnosticText("Waiting for live data", "Laukiama gyvų duomenų");
       const effectivePriorityTitle = hasUsableCurrentData
         ? priorityTitle
-        : hasNoRegisteredNodes
-          ? diagnosticText("Add the first sensor node", "Pridėkite pirmą sensoriaus mazgą")
+        : awaitingFirstUplink
+          ? hasNoRegisteredNodes
+            ? diagnosticText("Add the first sensor node", "Pridėkite pirmą sensoriaus mazgą")
+            : diagnosticText("Waiting for first sensor data", "Laukiama pirmų sensorių duomenų")
           : diagnosticText("Restore sensor data", "Atkurkite sensorių duomenis");
       const effectiveSuggestedAction = hasUsableCurrentData
         ? suggestedAction
-        : hasNoRegisteredNodes
-          ? diagnosticText("Register a node before assessing growing conditions.", "Prieš vertinant auginimo sąlygas, užregistruokite mazgą.")
+        : awaitingFirstUplink
+          ? hasNoRegisteredNodes
+            ? diagnosticText("Register a node before assessing growing conditions.", "Prieš vertinant auginimo sąlygas, užregistruokite mazgą.")
+            : diagnosticText("The node is registered. Waiting for its first sensor reading.", "Mazgas užregistruotas. Laukiama pirmo jo sensorių rodmens.")
           : diagnosticText(
               "Check node power, gateway coverage, and the latest uplink.",
               "Patikrinkite mazgų maitinimą, ryšio aprėptį ir paskutinį duomenų siuntimą."
@@ -11094,7 +11105,7 @@
 
       const actionQueue = [
         {
-          tone: hasUsableCurrentData ? priorityResult?.state || "optimal" : hasNoRegisteredNodes ? "neutral" : "warning",
+          tone: hasUsableCurrentData ? priorityResult?.state || "optimal" : awaitingFirstUplink ? "neutral" : "warning",
           title: hasUsableCurrentData
             ? priorityResult && priorityDefinition ? priorityTitle : "Continue monitoring"
             : effectivePriorityTitle,
@@ -11106,7 +11117,7 @@
           action: hasUsableCurrentData ? "trend" : "nodes",
           label: hasUsableCurrentData ? "View trend" : hasNoRegisteredNodes ? "Register node" : "Open nodes"
         },
-        !hasNoRegisteredNodes && farmState.dataStatus !== "live"
+        !awaitingFirstUplink && farmState.dataStatus !== "live"
           ? {
               tone: "warning",
               title: `${dataStatusLabel} sensor delivery`,
@@ -11133,7 +11144,7 @@
               label: "Review alerts"
             }
           : null,
-        !hasNoRegisteredNodes && unavailableCount > 0
+        !awaitingFirstUplink && unavailableCount > 0
           ? {
               tone: "warning",
               title: `Review ${unavailableCount} missing metric${unavailableCount === 1 ? "" : "s"}`,
@@ -11940,8 +11951,9 @@
       const displayedOverallState = isSiteView ? siteOverallState : overallState;
       const selectedSiteLiveSnapshots = siteSnapshots.filter(snapshotHasLiveGrowthData);
       const hasDisplayedLiveGrowthData = isSiteView ? selectedSiteLiveSnapshots.length > 0 : availableResults.length > 0;
-      const displayedNoNodes = sensorHealthNodes.length === 0;
-      const displayedScoreState = hasDisplayedLiveGrowthData ? displayedOverallState.state : displayedNoNodes ? "neutral" : "critical";
+      const displayedAwaitingFirstUplink = sensorHealthNodes.length === 0
+        || sensorHealthNodes.every((node) => !node.lastSeen && !node.lastReceivedAt);
+      const displayedScoreState = hasDisplayedLiveGrowthData ? displayedOverallState.state : displayedAwaitingFirstUplink ? "neutral" : "critical";
       const displayedScoreValue = hasDisplayedLiveGrowthData ? `${displayedOverallState.indexScore}` : "--";
       const displayedScoreLabel = hasDisplayedLiveGrowthData
         ? getHealthStateLabel(displayedOverallState.state)
