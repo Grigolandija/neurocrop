@@ -1694,6 +1694,8 @@
     let activeBlockFilterSiteId = "all";
     let activeNodeFilterSiteId = "all";
     let activeNodeFilterZoneId = "all";
+    let expandedNodeListId = null;
+    let expandedCropProfileMetricId = null;
     let activeSettingsProfileKey = activeProfileKey;
     let activeSettingsPanelKey = "profiles";
     let activeCropProfileView = "mine";
@@ -7194,7 +7196,6 @@
             const definition = cropProfiles[zone.profile]?.metrics?.batteryLevel;
             const state = Number.isFinite(node.level) && definition ? getBatteryNodeState(node.level, definition) : "neutral";
             const nodeName = node.name && node.name !== node.id ? node.name : node.id;
-            const devEuiNote = node.devEui ? `DevEUI ${node.devEui}` : "DevEUI not assigned";
             const freshness = freshnessByNodeId.get(node.id) || { transportStatus: "offline", ageSec: null };
             const freshnessLabel = getFreshnessLabel(freshness.transportStatus);
             const freshnessAge = formatFreshnessAge(freshness.ageSec);
@@ -7205,21 +7206,17 @@
               : "Battery unknown";
             const batteryDetail = Number.isFinite(node.batteryMv) ? `${(node.batteryMv / 1000).toFixed(2)} V` : "";
             const firmwareDetail = node.firmwareVersion ? `Firmware ${node.firmwareVersion}` : "Firmware unknown";
-            const modeDetail = node.profile ? `${node.profile.replace(/_/g, " ")} reporting` : "Reporting mode unknown";
+            const compactIdentity = [site.name, zone.name, node.devEui ? `DevEUI ${node.devEui}` : "No DevEUI"];
+            const compactTelemetry = [formatNodeSignal(node), sensors.length ? sensors.join(", ") : "No sensors detected"];
+            const nodeListId = node.devEui || node.id;
+            const isExpanded = expandedNodeListId === nodeListId;
 
             return `
-              <div class="management-list-row" data-state="${state === "neutral" ? "optimal" : state}" data-freshness="${escapeAttribute(freshness.transportStatus)}">
-                <div class="management-list-main">
-                  <div class="management-list-title">${escapeHtml(nodeName)}</div>
-                  <div class="management-list-meta">${escapeHtml(node.id)} · ${escapeHtml(site.name)} · ${escapeHtml(zone.name)}</div>
-                  <div class="management-list-note">${escapeHtml(devEuiNote)} · ${escapeHtml(firmwareDetail)} · ${escapeHtml(modeDetail)}</div>
-                  <div class="node-health-summary" aria-label="Node health details">
-                    <span><i class="fa-solid fa-signal" aria-hidden="true"></i>${escapeHtml(formatNodeSignal(node))}</span>
-                    <span><i class="fa-solid fa-microchip" aria-hidden="true"></i>${escapeHtml(sensors.length ? sensors.join(", ") : "No sensors detected")}</span>
-                  </div>
-                </div>
-
-                <div class="management-list-actions">
+              <article class="node-table-row" data-state="${state === "neutral" ? "optimal" : state}" data-expanded="${String(isExpanded)}">
+                <button type="button" class="node-table-summary" data-node-expand-id="${escapeAttribute(nodeListId)}" aria-expanded="${String(isExpanded)}" aria-controls="node-detail-${escapeAttribute(nodeListId)}">
+                  <span class="node-table-identity"><strong>${escapeHtml(nodeName)}</strong><small>${escapeHtml(site.name)} · ${escapeHtml(zone.name)}</small></span>
+                  <span class="node-table-signal"><i class="fa-solid fa-signal" aria-hidden="true"></i>${escapeHtml(freshnessLabel)} · ${escapeHtml(formatNodeSignal(node))}</span>
+                  <span class="node-table-sensors">${escapeHtml(sensors.length ? sensors.join(", ") : "No sensors detected")}</span>
                   <span class="management-chip node-freshness-chip" data-freshness="${escapeAttribute(freshness.transportStatus)}">
                     <i class="fa-solid ${freshness.transportStatus === "live" ? "fa-signal" : freshness.transportStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
                     ${escapeHtml(freshnessLabel)}
@@ -7231,6 +7228,14 @@
                     <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
                     ${escapeHtml(batteryText)}${batteryDetail ? ` · ${escapeHtml(batteryDetail)}` : ""}
                   </span>
+                  <i class="fa-solid fa-chevron-down node-table-chevron" aria-hidden="true"></i>
+                </button>
+                <div id="node-detail-${escapeAttribute(nodeListId)}" class="node-table-detail" ${isExpanded ? "" : "hidden"}>
+                  <div><span>Device</span><strong>${escapeHtml(compactIdentity.join(" · "))}</strong></div>
+                  <div><span>Reporting</span><strong>${escapeHtml(node.profile ? `${node.profile.replace(/_/g, " ")} · ${firmwareDetail}` : firmwareDetail)}</strong></div>
+                  <div><span>Sensors</span><strong>${escapeHtml(compactTelemetry[1])}</strong></div>
+                  <div><span>Connection</span><strong>${escapeHtml(compactTelemetry[0])}</strong></div>
+                  <div class="node-table-detail-actions">
                   <button type="button" class="inline-action actionable" data-tone="primary" data-node-open-block-site-id="${escapeAttribute(site.id)}" data-node-open-block-zone-id="${escapeAttribute(zone.id)}">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
                     Open section
@@ -7240,7 +7245,8 @@
                     Edit
                   </button>
                 </div>
-              </div>
+                </div>
+              </article>
             `;
           }).join("")
         : `
@@ -7535,23 +7541,16 @@
               <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="profile-target-input">
             </label>
           `;
-
           return `
           <div class="crop-profile-metric-row" data-profile-metric-row="${escapeAttribute(metricKey)}">
-            <div class="crop-profile-metric-name">
-              <strong>${escapeHtml(metric.label)}</strong><span>${escapeHtml(formatUnit(metric.unit))}</span>
-            </div>
+            <div class="crop-profile-metric-name"><strong>${escapeHtml(metric.label)}</strong><span>${escapeHtml(formatUnit(metric.unit))}</span></div>
             <div class="crop-profile-optimal-inputs">
               ${optimalInput("Optimal minimum", rangeValues.optimalMin, 0)}
               <span>to</span>
               ${optimalInput("Optimal maximum", rangeValues.optimalMax, 1)}
             </div>
-            <div class="crop-profile-range-visual" aria-hidden="true"><span></span><i></i><b></b></div>
-            <div class="crop-profile-boundaries">
-              <span><b>Optimal</b> ${escapeHtml(formatRange([rangeValues.optimalMin, rangeValues.optimalMax], metric))}</span>
-              <span data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}"><b>Warning</b> ${escapeHtml(formatRange(metric.warning, metric))}</span>
-              <span data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}"><b>Critical</b> ${escapeHtml(formatRange(metric.critical, metric))}</span>
-            </div>
+            <div class="crop-profile-metric-boundary crop-profile-metric-warning" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}"><b>Warning</b>${escapeHtml(formatRange(metric.warning, metric))}</div>
+            <div class="crop-profile-metric-boundary crop-profile-metric-critical" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}"><b>Critical</b>${escapeHtml(formatRange(metric.critical, metric))}</div>
           </div>
         `;
         }).join("");
@@ -7561,7 +7560,7 @@
         if (!rows) return "";
         return `<section class="crop-profile-metric-group" aria-labelledby="profileGroup-${group.id}">
           <header><div><h4 id="profileGroup-${group.id}">${group.label}</h4><p>${group.note}</p></div><span>${group.metrics.filter((key) => profile.metrics[key]).length} metrics</span></header>
-          <div class="crop-profile-metric-heading"><span>Parameter</span><span>Optimal target</span><span>Range</span><span>Automatic boundaries</span></div>
+          <div class="crop-profile-metric-heading"><span>Parameter</span><span>Set target</span><span>Warning limits</span><span>Critical limits</span></div>
           ${rows}
         </section>`;
       }).join("");
@@ -13570,6 +13569,14 @@
     });
 
     elements.nodesManagementSection.addEventListener("click", (event) => {
+      const expandNodeButton = event.target.closest("[data-node-expand-id]");
+      if (expandNodeButton) {
+        const nodeId = expandNodeButton.dataset.nodeExpandId;
+        expandedNodeListId = expandedNodeListId === nodeId ? null : nodeId;
+        renderDashboard();
+        return;
+      }
+
       const openBlockButton = event.target.closest("[data-node-open-block-site-id]");
       if (openBlockButton) {
         openZoneDetail(openBlockButton.dataset.nodeOpenBlockSiteId, openBlockButton.dataset.nodeOpenBlockZoneId);
@@ -13647,6 +13654,14 @@
     });
 
     elements.settingsManagementSection.addEventListener("click", (event) => {
+      const expandMetricButton = event.target.closest("[data-profile-metric-expand]");
+      if (expandMetricButton) {
+        const metricId = expandMetricButton.dataset.profileMetricExpand;
+        expandedCropProfileMetricId = expandedCropProfileMetricId === metricId ? null : metricId;
+        renderDashboard();
+        return;
+      }
+
       const profileViewButton = event.target.closest("[data-settings-profile-view]");
       if (profileViewButton) {
         activeCropProfileView = profileViewButton.dataset.settingsProfileView === "library" ? "library" : "mine";
