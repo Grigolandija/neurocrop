@@ -469,6 +469,20 @@
     }),
     logout: () => request("/auth/logout", { method: "POST" }),
     getCurrentUser: () => request("/auth/me"),
+    getOrganizations: () => request("/auth/organizations"),
+    switchOrganization: (organizationId) => request("/auth/switch-organization", {
+      method: "POST",
+      body: JSON.stringify({ organizationId })
+    }),
+    getTeam: () => request("/team"),
+    getInvitations: () => request("/invitations"),
+    inviteMember: (payload) => request("/invitations", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+    revokeInvitation: (invitationId) => request(`/invitations/${encodeURIComponent(invitationId)}`, {
+      method: "DELETE"
+    }),
     getDashboard: () => request("/dashboard"),
     getCropProfiles: () => request("/crop-profiles"),
     getLatestReadings: (sectionId) => request(`/readings/latest${queryString({ sectionId })}`),
@@ -1544,7 +1558,7 @@
       if (window.NeuroCropApi?.isConnected()) {
         try {
           const response = await window.NeuroCropApi.getCurrentUser();
-          const session = { email: response?.user?.email || "" };
+          const session = response?.user || { email: "" };
           if (!session.email) throw new Error("Authenticated user email is missing.");
           window.sessionStorage.setItem(loginSessionKey, JSON.stringify(session));
           setLoginState(session);
@@ -1575,6 +1589,7 @@
         console.warn("NeuroCrop API logout failed; clearing the local session.", error);
       } finally {
         window.sessionStorage.removeItem(loginSessionKey);
+        resetTeamAccessState();
         setHeaderAccountMenuOpen(false);
         setLoginState(null);
         elements.loginPassword.value = "";
@@ -1597,7 +1612,7 @@
       if (window.NeuroCropApi?.isConnected()) {
         try {
           const response = await window.NeuroCropApi.login(email, password);
-          session = { email: response?.user?.email || email };
+          session = response?.user || { email };
         } catch (error) {
           elements.loginError.textContent = "We could not sign you in. Check your email and password, then try again.";
           elements.loginError.hidden = false;
@@ -1606,6 +1621,7 @@
       }
 
       window.sessionStorage.setItem(loginSessionKey, JSON.stringify(session));
+      resetTeamAccessState();
       elements.loginError.hidden = true;
       setLoginState(session);
       syncStickyOffsets();
@@ -1744,6 +1760,43 @@
       ]
     };
     let settingsState = loadSettingsState();
+    let teamAccessState = {
+      members: [],
+      invitations: [],
+      status: "idle",
+      error: "",
+      latestInviteUrl: ""
+    };
+
+    function resetTeamAccessState() {
+      teamAccessState = {
+        members: [],
+        invitations: [],
+        status: "idle",
+        error: "",
+        latestInviteUrl: ""
+      };
+    }
+
+    async function hydrateTeamAccess() {
+      if (!window.NeuroCropApi?.isConnected() || teamAccessState.status === "loading") return;
+      teamAccessState.status = "loading";
+      teamAccessState.error = "";
+      renderDashboard();
+      try {
+        const [teamResponse, invitationResponse] = await Promise.all([
+          window.NeuroCropApi.getTeam(),
+          window.NeuroCropApi.getInvitations()
+        ]);
+        teamAccessState.members = Array.isArray(teamResponse?.members) ? teamResponse.members : [];
+        teamAccessState.invitations = Array.isArray(invitationResponse?.invitations) ? invitationResponse.invitations : [];
+        teamAccessState.status = "ready";
+      } catch (error) {
+        teamAccessState.status = "error";
+        teamAccessState.error = error?.message || "Team access could not be loaded.";
+      }
+      renderDashboard();
+    }
     const scenarioPresetButtons = [...document.querySelectorAll("[data-scenario-preset]")];
     const sidebarActionButtons = [...document.querySelectorAll("[data-sidebar-action]")];
     const dashboardActionButtons = [...document.querySelectorAll("[data-dashboard-action]")];
@@ -7867,6 +7920,12 @@
 
       const validPanels = new Set(["profiles", "alerts", "team", "workspace", "data"]);
       if (!validPanels.has(activeSettingsPanelKey)) activeSettingsPanelKey = "profiles";
+      const apiBackedTeam = Boolean(window.NeuroCropApi?.isConnected());
+      if (activeSettingsPanelKey === "team" && apiBackedTeam && teamAccessState.status === "idle") {
+        window.setTimeout(hydrateTeamAccess, 0);
+      }
+      const teamMembers = apiBackedTeam ? teamAccessState.members : settingsState.team;
+      const teamMemberCount = teamMembers.length;
 
       const activeSettingsProfile = cropProfiles[activeSettingsProfileKey]
         ? getCompleteCropProfile(cropProfiles[activeSettingsProfileKey])
@@ -7884,7 +7943,7 @@
       const settingsPanels = [
         { key: "profiles", icon: "fa-seedling", label: "Crop profiles", note: "Targets and growth stages", count: profileEntries.length },
         { key: "alerts", icon: "fa-bell", label: "Alerts & notifications", note: "Local browser preferences", count: activeAlertCount },
-        { key: "team", icon: "fa-users", label: "Team & access", note: "Local browser list", count: settingsState.team.length },
+        { key: "team", icon: "fa-users", label: "Team & access", note: apiBackedTeam ? "API-backed access" : "Local browser list", count: teamMemberCount },
         { key: "workspace", icon: "fa-building", label: "Workspace", note: "Local display preferences", count: "" },
         { key: "data", icon: "fa-database", label: "Data policy", note: "Backend policy reference", count: "" }
       ];
@@ -7972,29 +8031,51 @@
             <div>
               <span class="settings-panel-kicker">Access control</span>
               <h2 id="settingsTeamTitle">Team & access</h2>
-              <p>Manage who can view or change this farm workspace.</p>
+              <p>Invite people to this workspace and give each person an appropriate role.</p>
             </div>
-            <span class="settings-summary-pill">${settingsState.team.length} users</span>
+            <span class="settings-summary-pill">${teamMemberCount} users</span>
           </header>
-          <div class="settings-team-list">
-            ${settingsState.team.map((member) => `
-              <div class="settings-team-row">
-                <span class="settings-member-avatar">${escapeHtml(member.name.slice(0, 2).toUpperCase())}</span>
-                <span class="settings-member-copy"><strong>${escapeHtml(member.name)}</strong><small>${escapeHtml(member.email)}</small></span>
-                <span class="settings-role-pill">${escapeHtml(member.role)}</span>
-                <button type="button" class="settings-text-button" data-team-remove="${escapeAttribute(member.id)}" ${settingsState.team.length <= 1 ? "disabled" : ""}>Remove</button>
+          ${apiBackedTeam ? `
+            ${teamAccessState.status === "loading" ? `<div class="settings-policy-note"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i><div><strong>Loading team access</strong><p>Retrieving members and pending invitations.</p></div></div>` : ""}
+            ${teamAccessState.status === "error" ? `<div class="settings-policy-note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><div><strong>Team access could not be loaded</strong><p>${escapeHtml(teamAccessState.error)}</p><button type="button" class="settings-text-button mt-2" data-team-refresh>Retry</button></div></div>` : ""}
+            ${teamAccessState.status === "ready" ? `
+              <div class="settings-team-list">
+                ${teamMembers.map((member) => `
+                  <div class="settings-team-row">
+                    <span class="settings-member-avatar">${escapeHtml(String(member.name || member.email || "?").slice(0, 2).toUpperCase())}</span>
+                    <span class="settings-member-copy"><strong>${escapeHtml(member.name || "Unnamed user")}</strong><small>${escapeHtml(member.email || "")}</small></span>
+                    <span class="settings-role-pill">${escapeHtml(member.role)}</span>
+                  </div>
+                `).join("") || `<div class="settings-policy-note"><div><strong>No members found</strong><p>This workspace has no active members yet.</p></div></div>`}
               </div>
-            `).join("")}
-          </div>
-          <form class="settings-add-member" data-settings-form="team">
-            <div class="settings-form-title"><i class="fa-solid fa-user-plus" aria-hidden="true"></i><div><h3>Add team member</h3><p>Invite a person and assign their workspace role.</p></div></div>
-            <div class="settings-add-member-fields">
-              <input name="teamName" placeholder="Name">
-              <input name="teamEmail" type="email" placeholder="Email address">
-              <select name="teamRole"><option>Grower</option><option>Technician</option><option>Admin</option><option>Viewer</option></select>
-              <button type="submit" class="settings-primary-button">Add user</button>
-            </div>
-          </form>
+              ${teamAccessState.invitations.length ? `
+                <div class="mt-6">
+                  <div class="settings-form-title"><i class="fa-solid fa-clock" aria-hidden="true"></i><div><h3>Pending invitations</h3><p>These links expire automatically after seven days.</p></div></div>
+                  <div class="settings-team-list mt-3">
+                    ${teamAccessState.invitations.map((invitation) => `
+                      <div class="settings-team-row">
+                        <span class="settings-member-avatar"><i class="fa-solid fa-envelope" aria-hidden="true"></i></span>
+                        <span class="settings-member-copy"><strong>${escapeHtml(invitation.email)}</strong><small>Expires ${escapeHtml(new Date(invitation.expiresAt).toLocaleDateString("en-GB"))}</small></span>
+                        <span class="settings-role-pill">${escapeHtml(invitation.role)}</span>
+                        <button type="button" class="settings-text-button" data-invitation-revoke="${escapeAttribute(invitation.id)}">Revoke</button>
+                      </div>
+                    `).join("")}
+                  </div>
+                </div>
+              ` : ""}
+              <form class="settings-add-member" data-settings-form="team">
+                <div class="settings-form-title"><i class="fa-solid fa-user-plus" aria-hidden="true"></i><div><h3>Invite a team member</h3><p>They will set their own password from a secure invitation link.</p></div></div>
+                <div class="settings-add-member-fields">
+                  <input name="teamEmail" type="email" placeholder="Email address" required>
+                  <select name="teamRole"><option value="grower">Grower</option><option value="technician">Technician</option><option value="viewer">Viewer</option><option value="admin">Admin</option></select>
+                  <button type="submit" class="settings-primary-button">Create invitation</button>
+                </div>
+              </form>
+              ${teamAccessState.latestInviteUrl ? `<div class="settings-policy-note mt-4"><i class="fa-solid fa-link" aria-hidden="true"></i><div><strong>Invitation link created</strong><p class="break-all">${escapeHtml(teamAccessState.latestInviteUrl)}</p><button type="button" class="settings-text-button mt-2" data-copy-invitation="${escapeAttribute(teamAccessState.latestInviteUrl)}">Copy invitation link</button></div></div>` : ""}
+            ` : ""}
+          ` : `
+            <div class="settings-policy-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><div><strong>Connect the API to manage access</strong><p>Team access is available only when NeuroCrop is connected to its backend.</p></div></div>
+          `}
         </section>
       `;
 
@@ -8072,12 +8153,12 @@
             </div>
             <div class="settings-head-summary">
               <span><strong>${profileEntries.length}</strong> profiles</span>
-              <span><strong>${settingsState.team.length}</strong> users</span>
+              <span><strong>${teamMemberCount}</strong> users</span>
               <span><strong>${activeAlertCount}</strong> active alerts</span>
             </div>
           </section>
           ${renderManagementNotice("settings")}
-          ${activeSettingsPanelKey !== "profiles" ? `
+          ${activeSettingsPanelKey !== "profiles" && activeSettingsPanelKey !== "team" ? `
             <div class="settings-local-notice" role="status">
               <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
               <span>These settings are currently stored in this browser. Crop profiles are saved through the NeuroCrop API.</span>
@@ -13650,7 +13731,7 @@
       updateSettingsField(event.target);
     });
 
-    elements.settingsManagementSection.addEventListener("submit", (event) => {
+    elements.settingsManagementSection.addEventListener("submit", async (event) => {
       event.preventDefault();
       const profileForm = event.target.closest('[data-management-form="settings-profile"]');
       if (profileForm) {
@@ -13669,23 +13750,36 @@
       const formKey = settingsForm.dataset.settingsForm;
       if (formKey === "team") {
         const formData = new FormData(settingsForm);
-        const name = String(formData.get("teamName") || "").trim();
         const email = String(formData.get("teamEmail") || "").trim();
-        const role = String(formData.get("teamRole") || "Grower");
-        if (!name || !email) {
-          setManagementNotice("settings", "A team member needs both a name and an email address.", "warning");
+        const role = String(formData.get("teamRole") || "grower").toLowerCase();
+        if (!email) {
+          setManagementNotice("settings", "Enter the email address for the person you want to invite.", "warning");
           renderDashboard();
           return;
         }
-        settingsState.team.push({ id: `team-${Date.now()}`, name, email, role });
-        persistSettingsState(`${name} was added to the workspace.`);
+        if (!window.NeuroCropApi?.isConnected()) {
+          setManagementNotice("settings", "Team invitations require a NeuroCrop API connection.", "warning");
+          renderDashboard();
+          return;
+        }
+        try {
+          const response = await window.NeuroCropApi.inviteMember({ email, role });
+          teamAccessState.latestInviteUrl = response?.invitation?.inviteUrl || "";
+          teamAccessState.status = "idle";
+          setManagementNotice("settings", `Invitation created for ${email}.`, "optimal");
+          await hydrateTeamAccess();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "The invitation could not be created.", "warning");
+          renderDashboard();
+        }
+        return;
       } else {
         persistSettingsState(`${formKey.charAt(0).toUpperCase() + formKey.slice(1)} settings saved.`);
       }
       renderDashboard();
     });
 
-    elements.settingsManagementSection.addEventListener("click", (event) => {
+    elements.settingsManagementSection.addEventListener("click", async (event) => {
       const expandMetricButton = event.target.closest("[data-profile-metric-expand]");
       if (expandMetricButton) {
         const metricId = expandMetricButton.dataset.profileMetricExpand;
@@ -13734,11 +13828,37 @@
         return;
       }
 
-      const removeMemberButton = event.target.closest("[data-team-remove]");
-      if (removeMemberButton) {
-        const memberId = removeMemberButton.dataset.teamRemove;
-        settingsState.team = settingsState.team.filter((member) => member.id !== memberId);
-        persistSettingsState("Team member removed from the workspace.");
+      const refreshTeamButton = event.target.closest("[data-team-refresh]");
+      if (refreshTeamButton) {
+        teamAccessState.status = "idle";
+        await hydrateTeamAccess();
+        return;
+      }
+
+      const revokeInvitationButton = event.target.closest("[data-invitation-revoke]");
+      if (revokeInvitationButton) {
+        try {
+          await window.NeuroCropApi.revokeInvitation(revokeInvitationButton.dataset.invitationRevoke);
+          teamAccessState.status = "idle";
+          teamAccessState.latestInviteUrl = "";
+          setManagementNotice("settings", "Invitation revoked.", "optimal");
+          await hydrateTeamAccess();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "The invitation could not be revoked.", "warning");
+          renderDashboard();
+        }
+        return;
+      }
+
+      const copyInvitationButton = event.target.closest("[data-copy-invitation]");
+      if (copyInvitationButton) {
+        const inviteUrl = copyInvitationButton.dataset.copyInvitation || "";
+        try {
+          await navigator.clipboard.writeText(inviteUrl);
+          setManagementNotice("settings", "Invitation link copied.", "optimal");
+        } catch (error) {
+          window.prompt("Copy this invitation link", inviteUrl);
+        }
         renderDashboard();
         return;
       }
