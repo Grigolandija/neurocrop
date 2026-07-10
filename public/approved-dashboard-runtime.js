@@ -1788,6 +1788,7 @@
       const pageAlreadyActive = nextRoute.page === activePrimaryPage;
 
       activePrimaryPage = nextRoute.page;
+      if (activePrimaryPage === "blocks") syncBlocksManagementContext();
       sidebarActionOverride = null;
       closeContextMenus();
 
@@ -2096,6 +2097,15 @@
         profile: options.profile || getDefaultProfileKey(),
         sensorCount: String(options.sensorCount ?? 0)
       };
+    }
+
+    // The Sections workspace follows the Area selected in the global header.
+    // Keeping a separate stale filter here made the page show another area's data.
+    function syncBlocksManagementContext() {
+      const site = getActiveSite();
+      if (!site) return;
+      activeBlockFilterSiteId = site.id;
+      if (blockFormState.mode === "create") blockFormState.siteId = site.id;
     }
 
     function resetNodeForm(options = {}) {
@@ -4075,6 +4085,7 @@
           return;
         case "zones":
           activePrimaryPage = "blocks";
+          syncBlocksManagementContext();
           sidebarActionOverride = null;
           closeContextMenus();
           renderDashboard();
@@ -13170,6 +13181,7 @@
       if (!option) return;
       sidebarActionOverride = null;
       activeSiteId = option.dataset.siteId;
+      if (activePrimaryPage === "blocks") syncBlocksManagementContext();
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
       closeContextMenus();
@@ -13182,6 +13194,7 @@
       if (!option) return;
       sidebarActionOverride = null;
       activeZoneId = option.dataset.zoneId;
+      if (activePrimaryPage === "blocks") syncBlocksManagementContext();
       resetCurrentReadingsFromActiveZone();
       closeContextMenus();
       renderZoneOptions();
@@ -14413,6 +14426,7 @@
       resetNodeForm();
       const initialDashboardRoute = resolveDashboardRoute(window.location.pathname);
       activePrimaryPage = initialDashboardRoute.page;
+      if (activePrimaryPage === "blocks") syncBlocksManagementContext();
       if (initialDashboardRoute.page === "history") {
         activeWorkspaceFocus = "all";
         setExperienceMode("detailed");
