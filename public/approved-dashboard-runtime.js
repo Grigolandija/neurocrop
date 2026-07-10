@@ -2447,6 +2447,15 @@
       renderDashboard();
     }
 
+    function getNodeSectionOptions(siteId, selectedZoneId = "") {
+      const site = dashboardData.sites.find((item) => item.id === siteId);
+      const zones = Array.isArray(site?.zones) ? site.zones : [];
+      if (!zones.length) return `<option value="">No sections in this area</option>`;
+      return zones.map((block) => `
+        <option value="${escapeAttribute(block.id)}" ${block.id === selectedZoneId ? "selected" : ""}>${escapeHtml(block.name)}</option>
+      `).join("");
+    }
+
     function openNodeManagementModal(siteId, zoneId, nodeId) {
       const site = dashboardData.sites.find((item) => item.id === siteId);
       const zone = (site?.zones || []).find((item) => item.id === zoneId);
@@ -2454,17 +2463,10 @@
       if (!site || !zone || !node) return;
 
       managementModalState = { type: "node", siteId, zoneId, nodeId };
-      const assignmentOptions = dashboardData.sites
-        .filter((item) => (item.zones || []).length > 0)
-        .map((location) => `
-          <optgroup label="${escapeAttribute(location.name)}">
-            ${(location.zones || []).map((block) => {
-              const assignmentId = `${location.id}|${block.id}`;
-              const selected = location.id === site.id && block.id === zone.id;
-              return `<option value="${escapeAttribute(assignmentId)}" ${selected ? "selected" : ""}>${escapeHtml(block.name)}</option>`;
-            }).join("")}
-          </optgroup>
-        `).join("");
+      const areaOptions = dashboardData.sites.map((location) => `
+        <option value="${escapeAttribute(location.id)}" ${location.id === site.id ? "selected" : ""}>${escapeHtml(location.name)}</option>
+      `).join("");
+      const sectionOptions = getNodeSectionOptions(site.id, zone.id);
       const nodeName = node.name && node.name !== node.id ? node.name : "";
 
       elements.managementModalOverlay.innerHTML = `
@@ -2474,7 +2476,7 @@
             <div>
               <p class="text-[11px] font-bold uppercase tracking-[0.24em] text-pine/56">Node settings</p>
               <h2 id="nodeManagementTitle" class="mt-1.5 font-display text-2xl font-bold text-ink">Manage ${escapeHtml(node.name || node.id)}</h2>
-              <p class="mt-2 text-sm leading-6 text-ink/60">The Node ID stays stable. Use the assignment control to place the sensor in the correct monitored block.</p>
+              <p class="mt-2 text-sm leading-6 text-ink/60">The Node ID stays stable. Assign the sensor to its correct monitored area and section.</p>
             </div>
             <button type="button" class="management-modal-close actionable" data-management-modal-close aria-label="Close node settings"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
           </header>
@@ -2491,7 +2493,9 @@
               <div class="grid gap-4 sm:grid-cols-2">
                 <label class="block"><span class="text-sm font-semibold text-ink/72">Node display name</span><input name="modalNodeName" value="${escapeAttribute(nodeName)}" placeholder="Climate sensor, north side" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
                 <label class="block"><span class="text-sm font-semibold text-ink/72">DevEUI</span><input name="modalNodeDevEui" value="${escapeAttribute(node.devEui || "")}" placeholder="70B3D57ED006ABCD" maxlength="16" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 font-mono text-sm uppercase text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
-                <label class="block sm:col-span-2"><span class="text-sm font-semibold text-ink/72">Assigned section</span><select name="modalNodeAssignment" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">${assignmentOptions}</select><span class="mt-1.5 block text-xs leading-5 text-ink/50">Moving a node keeps its Node ID and DevEUI, but its future readings will belong to the selected section.</span></label>
+                <label class="block"><span class="text-sm font-semibold text-ink/72">Assigned area</span><select name="modalNodeSiteId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">${areaOptions}</select></label>
+                <label class="block"><span class="text-sm font-semibold text-ink/72">Assigned section</span><select name="modalNodeSectionId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">${sectionOptions}</select></label>
+                <span class="sm:col-span-2 -mt-2 block text-xs leading-5 text-ink/50">Moving a node keeps its Node ID and DevEUI. Future readings will belong to the selected area and section.</span>
               </div>
               <p class="management-modal-error mt-3 rounded-[16px] bg-[#f9e3df] px-3.5 py-2.5 text-sm font-semibold text-ember" role="alert" hidden></p>
               <div class="mt-5 flex flex-wrap gap-3"><button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save node</button><button type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink/72" data-modal-node-open-live-site="${escapeAttribute(site.id)}" data-modal-node-open-live-zone="${escapeAttribute(zone.id)}">Open current block</button></div>
@@ -2605,11 +2609,11 @@
       const { nodeId } = managementModalState || {};
       const form = elements.managementModalOverlay.querySelector('[data-management-modal-form="node"]');
       const formData = new FormData(form);
-      const assignment = String(formData.get("modalNodeAssignment") || "");
-      const [targetSiteId, targetZoneId] = assignment.split("|");
+      const targetSiteId = String(formData.get("modalNodeSiteId") || "");
+      const targetZoneId = String(formData.get("modalNodeSectionId") || "");
       const nodeName = String(formData.get("modalNodeName") || "").trim();
       const devEui = String(formData.get("modalNodeDevEui") || "").trim().toUpperCase();
-      if (!nodeId || !targetSiteId || !targetZoneId) return setManagementModalError("Choose the block that should own this node.");
+      if (!nodeId || !targetSiteId || !targetZoneId) return setManagementModalError("Choose both an area and a section for this node.");
       if (devEui && !/^[0-9A-F]{16}$/.test(devEui)) return setManagementModalError("DevEUI must be 16 hexadecimal characters.");
       if (isApiDataMode()) {
         const record = findNodeRecordById(nodeId);
@@ -6442,12 +6446,14 @@
         "blockSiteId",
         "nodeSiteId",
         "nodeFilterSiteId",
+        "modalNodeSiteId",
         "modalLocationMoveTarget",
         "modalBlockSiteId"
       ]);
       const sectionSelectNames = new Set([
         "nodeZoneId",
-        "nodeFilterZoneId"
+        "nodeFilterZoneId",
+        "modalNodeSectionId"
       ]);
       const isAreaSelect = areaSelectNames.has(select.name) || select.hasAttribute("data-block-filter-select");
 
@@ -6463,9 +6469,7 @@
 
       let zoneId = value;
       let siteId = "";
-      if (select.name === "modalNodeAssignment") {
-        [siteId, zoneId] = value.split("|");
-      } else if (!sectionSelectNames.has(select.name)) {
+      if (!sectionSelectNames.has(select.name)) {
         return null;
       }
 
@@ -13658,6 +13662,13 @@
     elements.managementModalOverlay.addEventListener("change", (event) => {
       if (event.target instanceof HTMLInputElement && event.target.name === "modalLocationLeaveUnassigned") {
         syncLocationUnassignedChoice();
+      }
+      if (event.target instanceof HTMLSelectElement && event.target.name === "modalNodeSiteId") {
+        const sectionSelect = elements.managementModalOverlay.querySelector('[name="modalNodeSectionId"]');
+        if (!(sectionSelect instanceof HTMLSelectElement)) return;
+        sectionSelect.innerHTML = getNodeSectionOptions(event.target.value);
+        sectionSelect.disabled = !sectionSelect.value;
+        syncEnhancedSelect(sectionSelect);
       }
     });
 
