@@ -11079,6 +11079,10 @@
       border-top-color: #a64d3d;
     }
 
+    .triage-priority-card[data-state="neutral"] {
+      border-top-color: #929b96;
+    }
+
     .triage-location-line {
       display: flex;
       align-items: center;
@@ -11191,6 +11195,10 @@
 
     .triage-score-card[data-state="critical"] {
       background: linear-gradient(145deg, #70382e, #984c3d);
+    }
+
+    .triage-score-card[data-state="neutral"] {
+      background: linear-gradient(145deg, #5d6862, #7a8580);
     }
 
     .triage-score-card .triage-card-kicker {

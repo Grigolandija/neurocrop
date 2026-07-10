@@ -853,6 +853,7 @@
       optimal: { label: "Optimal", shortLabel: "Optimal", badge: "Green section", textClass: "text-moss", thumb: "#2F6A4F", uplink: "4 min ago" },
       warning: { label: "Warning", shortLabel: "Attention", badge: "Amber section", textClass: "text-amber", thumb: "#D08A2D", uplink: "7 min ago" },
       critical: { label: "Critical", shortLabel: "Critical", badge: "Red section", textClass: "text-ember", thumb: "#AF4D38", uplink: "11 min ago" },
+      neutral: { label: "No data", shortLabel: "No data", badge: "No data", textClass: "text-ink/55", thumb: "#A0A59F", uplink: "Unavailable" },
       unknown: { label: "No data", shortLabel: "No data", badge: "No data", textClass: "text-ink/55", thumb: "#A0A59F", uplink: "Unavailable" }
     };
 
@@ -11068,7 +11069,8 @@
       const dataStatusLabel = getFreshnessLabel(farmState.dataStatus);
       const hasUsableCurrentData = farmState.coverage.reportingNodes > 0
         && farmState.coverage.liveMetrics > 0;
-      const scoreCardState = hasUsableCurrentData ? displayedOverallState.state : "critical";
+      const hasNoRegisteredNodes = Number(farmState.coverage.registeredNodes || 0) === 0;
+      const scoreCardState = hasUsableCurrentData ? displayedOverallState.state : hasNoRegisteredNodes ? "neutral" : "critical";
       const scoreCardValue = hasUsableCurrentData ? `${displayedOverallState.indexScore}` : "--";
       const scoreCardLabel = hasUsableCurrentData
         ? getHealthStateLabel(displayedOverallState.state)
@@ -11078,17 +11080,21 @@
         : diagnosticText("Waiting for live data", "Laukiama gyvų duomenų");
       const effectivePriorityTitle = hasUsableCurrentData
         ? priorityTitle
-        : diagnosticText("Restore sensor data", "Atkurkite sensorių duomenis");
+        : hasNoRegisteredNodes
+          ? diagnosticText("Add the first sensor node", "Pridėkite pirmą sensoriaus mazgą")
+          : diagnosticText("Restore sensor data", "Atkurkite sensorių duomenis");
       const effectiveSuggestedAction = hasUsableCurrentData
         ? suggestedAction
-        : diagnosticText(
-            "Check node power, gateway coverage, and the latest uplink.",
-            "Patikrinkite mazgų maitinimą, ryšio aprėptį ir paskutinį duomenų siuntimą."
-          );
+        : hasNoRegisteredNodes
+          ? diagnosticText("Register a node before assessing growing conditions.", "Prieš vertinant auginimo sąlygas, užregistruokite mazgą.")
+          : diagnosticText(
+              "Check node power, gateway coverage, and the latest uplink.",
+              "Patikrinkite mazgų maitinimą, ryšio aprėptį ir paskutinį duomenų siuntimą."
+            );
 
       const actionQueue = [
         {
-          tone: hasUsableCurrentData ? priorityResult?.state || "optimal" : "warning",
+          tone: hasUsableCurrentData ? priorityResult?.state || "optimal" : hasNoRegisteredNodes ? "neutral" : "warning",
           title: hasUsableCurrentData
             ? priorityResult && priorityDefinition ? priorityTitle : "Continue monitoring"
             : effectivePriorityTitle,
@@ -11098,9 +11104,9 @@
               ? `Last known condition: ${farmState.lastKnownCondition.status}.`
               : "Current growing conditions cannot be verified.",
           action: hasUsableCurrentData ? "trend" : "nodes",
-          label: hasUsableCurrentData ? "View trend" : "Open nodes"
+          label: hasUsableCurrentData ? "View trend" : hasNoRegisteredNodes ? "Register node" : "Open nodes"
         },
-        farmState.dataStatus !== "live"
+        !hasNoRegisteredNodes && farmState.dataStatus !== "live"
           ? {
               tone: "warning",
               title: `${dataStatusLabel} sensor delivery`,
@@ -11127,7 +11133,7 @@
               label: "Review alerts"
             }
           : null,
-        unavailableCount > 0
+        !hasNoRegisteredNodes && unavailableCount > 0
           ? {
               tone: "warning",
               title: `Review ${unavailableCount} missing metric${unavailableCount === 1 ? "" : "s"}`,
@@ -11934,7 +11940,8 @@
       const displayedOverallState = isSiteView ? siteOverallState : overallState;
       const selectedSiteLiveSnapshots = siteSnapshots.filter(snapshotHasLiveGrowthData);
       const hasDisplayedLiveGrowthData = isSiteView ? selectedSiteLiveSnapshots.length > 0 : availableResults.length > 0;
-      const displayedScoreState = hasDisplayedLiveGrowthData ? displayedOverallState.state : "critical";
+      const displayedNoNodes = sensorHealthNodes.length === 0;
+      const displayedScoreState = hasDisplayedLiveGrowthData ? displayedOverallState.state : displayedNoNodes ? "neutral" : "critical";
       const displayedScoreValue = hasDisplayedLiveGrowthData ? `${displayedOverallState.indexScore}` : "--";
       const displayedScoreLabel = hasDisplayedLiveGrowthData
         ? getHealthStateLabel(displayedOverallState.state)
