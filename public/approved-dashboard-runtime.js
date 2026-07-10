@@ -494,6 +494,17 @@
     restorePlatformOrganization: (organizationId) => request(`/platform/organizations/${encodeURIComponent(organizationId)}/restore`, {
       method: "PATCH"
     }),
+    deletePlatformOrganization: (organizationId) => request(`/platform/organizations/${encodeURIComponent(organizationId)}?confirm=delete`, {
+      method: "DELETE"
+    }),
+    getPlatformAdmins: () => request("/platform/admins"),
+    grantPlatformAdmin: (payload) => request("/platform/admins", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+    revokePlatformAdmin: (userId) => request(`/platform/admins/${encodeURIComponent(userId)}`, {
+      method: "DELETE"
+    }),
     getDashboard: () => request("/dashboard"),
     getCropProfiles: () => request("/crop-profiles"),
     getLatestReadings: (sectionId) => request(`/readings/latest${queryString({ sectionId })}`),
@@ -1789,6 +1800,7 @@
     };
     let platformOrganizationState = {
       organizations: [],
+      admins: [],
       status: "idle",
       error: "",
       latestInviteUrl: "",
@@ -1811,6 +1823,7 @@
     function resetPlatformOrganizationState() {
       platformOrganizationState = {
         organizations: [],
+        admins: [],
         status: "idle",
         error: "",
         latestInviteUrl: "",
@@ -1851,8 +1864,12 @@
       platformOrganizationState.error = "";
       renderDashboard();
       try {
-        const response = await window.NeuroCropApi.getPlatformOrganizations();
+        const [response, adminResponse] = await Promise.all([
+          window.NeuroCropApi.getPlatformOrganizations(),
+          window.NeuroCropApi.getPlatformAdmins()
+        ]);
         platformOrganizationState.organizations = Array.isArray(response?.organizations) ? response.organizations : [];
+        platformOrganizationState.admins = Array.isArray(adminResponse?.admins) ? adminResponse.admins : [];
         platformOrganizationState.status = "ready";
       } catch (error) {
         platformOrganizationState.status = "error";
@@ -7709,6 +7726,7 @@
           const metric = profile.metrics[metricKey];
           const metricDraft = draftMetrics[metricKey];
           const rangeValues = getProfileEditorRangeValues(metricDraft || metric);
+          const automaticRanges = deriveAutomaticAlertRanges(metricDraft || metric, [rangeValues.optimalMin, rangeValues.optimalMax]);
           const step = metric.decimals === 0 ? "1" : "0.01";
           const optimalInput = (label, value, bound) => `
             <label class="block min-w-0">
@@ -7724,8 +7742,8 @@
               <span>to</span>
               ${optimalInput("Optimal maximum", rangeValues.optimalMax, 1)}
             </div>
-            <div class="crop-profile-metric-boundary crop-profile-metric-warning" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}"><b>Warning</b>${escapeHtml(formatRange(metric.warning, metric))}</div>
-            <div class="crop-profile-metric-boundary crop-profile-metric-critical" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}"><b>Critical</b>${escapeHtml(formatRange(metric.critical, metric))}</div>
+            <div class="crop-profile-metric-boundary crop-profile-metric-warning" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}"><b>Warning</b>${escapeHtml(formatRange(automaticRanges.warning, metric))}</div>
+            <div class="crop-profile-metric-boundary crop-profile-metric-critical" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}"><b>Critical</b>${escapeHtml(formatRange(automaticRanges.critical, metric))}</div>
           </div>
         `;
         }).join("");
@@ -8213,8 +8231,26 @@
                   ${organization.status === "archived"
                     ? `<button type="button" class="settings-text-button" data-platform-restore="${escapeAttribute(organization.id)}">Restore</button>`
                     : `<button type="button" class="settings-text-button" data-platform-archive="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}">Archive</button>`}
+                  <button type="button" class="settings-text-button text-red-700" data-platform-delete="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}" ${organization.id === currentSession?.organizationId ? "disabled" : ""}>Delete</button>
                 </div>
               `).join("") || `<div class="settings-policy-note"><div><strong>No customer organizations yet</strong><p>Create the first customer workspace above.</p></div></div>`}
+            </div>
+            <form class="settings-form-card mt-6" data-settings-form="platform-admin">
+              <div class="settings-form-title"><i class="fa-solid fa-user-shield" aria-hidden="true"></i><div><h3>Platform administrators</h3><p>Platform admins can create customer organizations, send owner invitations, and delete customer workspaces.</p></div></div>
+              <div class="settings-add-member-fields">
+                <input name="platformAdminEmail" type="email" placeholder="Existing user email" required>
+                <button type="submit" class="settings-primary-button">Grant admin</button>
+              </div>
+            </form>
+            <div class="settings-team-list mt-4">
+              ${platformOrganizationState.admins.map((admin) => `
+                <div class="settings-team-row">
+                  <span class="settings-member-avatar"><i class="fa-solid fa-user-shield" aria-hidden="true"></i></span>
+                  <span class="settings-member-copy"><strong>${escapeHtml(admin.name || admin.email)}</strong><small>${escapeHtml(admin.email)} · ${escapeHtml(admin.id)}</small></span>
+                  <span class="settings-role-pill">Platform admin</span>
+                  <button type="button" class="settings-text-button" data-platform-admin-revoke="${escapeAttribute(admin.id)}" data-platform-admin-email="${escapeAttribute(admin.email)}" ${admin.id === currentSession?.id ? "disabled" : ""}>Revoke</button>
+                </div>
+              `).join("") || `<div class="settings-policy-note"><div><strong>No platform admins loaded</strong><p>Refresh this panel if the list looks empty.</p></div></div>`}
             </div>
           ` : ""}
         </section>
@@ -8424,6 +8460,79 @@
       return Number(normalized);
     }
 
+    function getMetricHardBounds(metric) {
+      const unit = String(metric?.unit || "").toLowerCase();
+      const key = String(metric?.metricKey || "");
+      if (unit === "%" || key === "humidity" || key === "soilMoisture") return { min: 0, max: 100 };
+      if (unit === "ph" || key === "ph") return { min: 0, max: 14 };
+      if (["ppm", "lx", "lux", "kpa", "ms/cm", "hpa"].includes(unit)) return { min: 0, max: Infinity };
+      return { min: -Infinity, max: Infinity };
+    }
+
+    function clampMetricBoundary(value, metric) {
+      const bounds = getMetricHardBounds(metric);
+      return Math.min(Math.max(value, bounds.min), bounds.max);
+    }
+
+    function getPositiveGap(outerValue, innerValue) {
+      const gap = Number(outerValue) - Number(innerValue);
+      return Number.isFinite(gap) && gap > 0 ? gap : null;
+    }
+
+    function getAutomaticBoundaryPadding(metric, optimalRange) {
+      const values = getProfileEditorRangeValues(metric);
+      const optimalMin = Number(optimalRange?.[0]);
+      const optimalMax = Number(optimalRange?.[1]);
+      const span = Math.max(Math.abs(optimalMax - optimalMin), stepFromDecimals(metric?.decimals || 0), 1);
+      const fallbackWarning = span * 0.25;
+      const fallbackCritical = span * 0.75;
+
+      const warningLowGap = getPositiveGap(optimalMin, values.warningLow);
+      const warningHighGap = getPositiveGap(values.warningHigh, optimalMax);
+      const criticalLowGap = getPositiveGap(optimalMin, values.criticalLow);
+      const criticalHighGap = getPositiveGap(values.criticalHigh, optimalMax);
+
+      const warningGap = Math.max(warningLowGap || 0, warningHighGap || 0, fallbackWarning);
+      const criticalGap = Math.max(criticalLowGap || 0, criticalHighGap || 0, warningGap * 2, fallbackCritical);
+
+      return {
+        warningLow: warningLowGap || warningHighGap || warningGap,
+        warningHigh: warningHighGap || warningLowGap || warningGap,
+        criticalLow: criticalLowGap || criticalHighGap || criticalGap,
+        criticalHigh: criticalHighGap || criticalLowGap || criticalGap
+      };
+    }
+
+    function deriveAutomaticAlertRanges(metric, optimalRange) {
+      const optimalMin = Number(optimalRange?.[0]);
+      const optimalMax = Number(optimalRange?.[1]);
+      if (!Number.isFinite(optimalMin) || !Number.isFinite(optimalMax)) {
+        const values = getProfileEditorRangeValues(metric);
+        return {
+          warning: [values.warningLow, values.warningHigh],
+          critical: [values.criticalLow, values.criticalHigh]
+        };
+      }
+
+      const padding = getAutomaticBoundaryPadding(metric, [optimalMin, optimalMax]);
+      const decimals = Number.isFinite(Number(metric?.decimals)) ? Number(metric.decimals) : 2;
+      const warning = [
+        roundValue(clampMetricBoundary(optimalMin - padding.warningLow, metric), decimals),
+        roundValue(clampMetricBoundary(optimalMax + padding.warningHigh, metric), decimals)
+      ];
+      const critical = [
+        roundValue(clampMetricBoundary(optimalMin - padding.criticalLow, metric), decimals),
+        roundValue(clampMetricBoundary(optimalMax + padding.criticalHigh, metric), decimals)
+      ];
+
+      if (critical[0] > warning[0]) critical[0] = warning[0];
+      if (warning[0] > optimalMin) warning[0] = optimalMin;
+      if (warning[1] < optimalMax) warning[1] = optimalMax;
+      if (critical[1] < warning[1]) critical[1] = warning[1];
+
+      return { warning, critical };
+    }
+
     function getProfileEditorRangeValues(metric) {
       const optimal = Array.isArray(metric?.optimal) ? metric.optimal : [0, 0];
       const warning = Array.isArray(metric?.warning) ? metric.warning : optimal;
@@ -8504,14 +8613,8 @@
 
     function rebalanceOptimalRangeBounds(target) {
       if (!(target instanceof HTMLInputElement) || target.dataset.rangeKey !== "optimal") return;
-      const baselineRaw = target.dataset.optimalRangeBaseline;
-      if (!baselineRaw) return;
-
-      let baseline;
-      try { baseline = JSON.parse(baselineRaw); } catch { return; }
       const nextOptimal = parseProfileRangeInputValue(target.value);
-      const oldOptimal = Number(baseline[`optimal:${target.dataset.bound}`]);
-      if (!Number.isFinite(nextOptimal) || !Number.isFinite(oldOptimal) || nextOptimal === oldOptimal) return;
+      if (!Number.isFinite(nextOptimal)) return;
 
       const form = target.closest('[data-settings-form="crop-profile-editor"]');
       const row = target.closest("[data-profile-metric-row]");
@@ -8526,28 +8629,13 @@
       draft.metrics[metricKey] = metric;
       const decimals = metric.decimals;
       const bound = Number(target.dataset.bound);
-      const updates = [];
 
-      if (bound === 0) {
-        const warningGap = oldOptimal - Number(baseline["warning:0"]);
-        const criticalGap = oldOptimal - Number(baseline["critical:0"]);
-        if (Number.isFinite(warningGap)) updates.push({ rangeKey: "warning", bound: 0, value: nextOptimal - Math.max(warningGap, 0) });
-        if (Number.isFinite(criticalGap)) updates.push({ rangeKey: "critical", bound: 0, value: nextOptimal - Math.max(criticalGap, 0) });
-      } else {
-        const warningGap = Number(baseline["warning:1"]) - oldOptimal;
-        const criticalGap = Number(baseline["critical:1"]) - oldOptimal;
-        if (Number.isFinite(warningGap)) updates.push({ rangeKey: "warning", bound: 1, value: nextOptimal + Math.max(warningGap, 0) });
-        if (Number.isFinite(criticalGap)) updates.push({ rangeKey: "critical", bound: 1, value: nextOptimal + Math.max(criticalGap, 0) });
-      }
-
-      for (const update of updates) {
-        const value = formatProfileRangeInput(update.value, decimals);
-        if (!Array.isArray(metric[update.rangeKey])) metric[update.rangeKey] = [];
-        metric[update.rangeKey][update.bound] = value;
-      }
       if (!Array.isArray(metric.optimal)) metric.optimal = [];
       metric.optimal[bound] = target.value;
       const ranges = getProfileEditorRangeValues(metric);
+      const automaticRanges = deriveAutomaticAlertRanges(metric, [ranges.optimalMin, ranges.optimalMax]);
+      metric.warning = automaticRanges.warning.map((value) => formatProfileRangeInput(value, decimals));
+      metric.critical = automaticRanges.critical.map((value) => formatProfileRangeInput(value, decimals));
       const warningLabel = row.querySelector('[data-profile-alert-limit="warning"]');
       const criticalLabel = row.querySelector('[data-profile-alert-limit="critical"]');
       if (warningLabel) warningLabel.innerHTML = `<b>Warning</b> ${escapeHtml(formatRange(metric.warning, metric))}`;
@@ -8639,6 +8727,9 @@
           nextRanges[rangeKey][bound] = value;
         }
         const [optimalMin, optimalMax] = nextRanges.optimal;
+        const automaticRanges = deriveAutomaticAlertRanges({ ...metric, ...draftMetric, optimal: nextRanges.optimal }, nextRanges.optimal);
+        nextRanges.warning = automaticRanges.warning;
+        nextRanges.critical = automaticRanges.critical;
         const [warningMin, warningMax] = nextRanges.warning;
         const [criticalMin, criticalMax] = nextRanges.critical;
         const hasValidRangeOrder =
@@ -13862,6 +13953,7 @@
     elements.settingsManagementSection.addEventListener("input", (event) => {
       syncSettingsProfileFormField(event.target);
       syncCropProfileEditorDraft(event.target);
+      rebalanceOptimalRangeBounds(event.target);
       updateSettingsField(event.target);
     });
 
@@ -13947,6 +14039,25 @@
           await hydratePlatformOrganizations();
         } catch (error) {
           setManagementNotice("settings", error?.message || "Customer organization could not be created.", "warning");
+          renderDashboard();
+        }
+        return;
+      } else if (formKey === "platform-admin") {
+        const formData = new FormData(settingsForm);
+        const email = String(formData.get("platformAdminEmail") || "").trim();
+        if (!email) {
+          setManagementNotice("settings", "Enter an existing user email before granting platform admin access.", "warning");
+          renderDashboard();
+          return;
+        }
+        try {
+          await window.NeuroCropApi.grantPlatformAdmin({ email });
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `${email} can now create and manage customer organizations.`, "optimal");
+          settingsForm.reset();
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "Platform admin access could not be granted.", "warning");
           renderDashboard();
         }
         return;
@@ -14045,6 +14156,40 @@
           await hydratePlatformOrganizations();
         } catch (error) {
           setManagementNotice("settings", error?.message || "Customer organization could not be restored.", "warning");
+          renderDashboard();
+        }
+        return;
+      }
+
+      const deletePlatformButton = event.target.closest("[data-platform-delete]");
+      if (deletePlatformButton) {
+        const organizationId = deletePlatformButton.dataset.platformDelete;
+        const organizationName = deletePlatformButton.dataset.platformName || organizationId;
+        const message = `Permanently delete ${organizationName}?\n\nThis removes its areas, sections, nodes, measurements, users, invitations, and ChirpStack devices where possible. This cannot be undone.`;
+        if (!window.confirm(message)) return;
+        try {
+          const response = await window.NeuroCropApi.deletePlatformOrganization(organizationId);
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `${organizationName} deleted permanently. Removed ${Number(response?.summary?.nodes || 0)} nodes and ${Number(response?.summary?.measurements || 0)} measurements.`, "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "Customer organization could not be deleted.", "warning");
+          renderDashboard();
+        }
+        return;
+      }
+
+      const revokePlatformAdminButton = event.target.closest("[data-platform-admin-revoke]");
+      if (revokePlatformAdminButton) {
+        const adminEmail = revokePlatformAdminButton.dataset.platformAdminEmail || "this user";
+        if (!window.confirm(`Remove platform admin access from ${adminEmail}?`)) return;
+        try {
+          await window.NeuroCropApi.revokePlatformAdmin(revokePlatformAdminButton.dataset.platformAdminRevoke);
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `${adminEmail} is no longer a platform administrator.`, "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "Platform admin access could not be revoked.", "warning");
           renderDashboard();
         }
         return;
