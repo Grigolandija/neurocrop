@@ -7132,17 +7132,41 @@
     function getNodeHealthSummary(node, freshness) {
       const flags = node?.errorFlags || {};
       const counters = node?.errorCounters || {};
-      const hasTransportFault = Boolean(flags.watchdog_reset || flags.last_tx_failed || flags.join_backoff || flags.boot_fault || flags.tx_timeout);
-      const hasRepeatedFault = Number(counters.read_fail || 0) >= 3 || Number(counters.tx_fail || 0) >= 3 || Number(counters.reinit || 0) >= 5;
-      if (freshness?.transportStatus === "offline") return { label: "Offline", tone: "critical" };
-      if (hasTransportFault || hasRepeatedFault) return { label: "Needs attention", tone: "warning" };
-      return { label: "Healthy", tone: "optimal" };
+      const reasons = [];
+
+      if (flags.watchdog_reset) reasons.push("Watchdog reset reported");
+      if (flags.last_tx_failed) reasons.push("Last transmission failed");
+      if (flags.join_backoff) reasons.push("Network join backoff");
+      if (flags.boot_fault) reasons.push("Boot fault reported");
+      if (flags.tx_timeout) reasons.push("Transmission timeout");
+      if (Number(counters.read_fail || 0) >= 3) reasons.push(`${counters.read_fail} sensor read failures`);
+      if (Number(counters.tx_fail || 0) >= 3) reasons.push(`${counters.tx_fail} transmission failures`);
+      if (Number(counters.reinit || 0) >= 5) reasons.push(`Sensor reinitialised ${counters.reinit} times`);
+
+      if (freshness?.transportStatus === "offline") {
+        return { label: "Offline", detail: "No recent uplink", tone: "critical" };
+      }
+      if (reasons.length > 0) {
+        return { label: "Needs attention", detail: reasons.join(" · "), tone: "warning" };
+      }
+      return { label: "Healthy", detail: "No device faults reported", tone: "optimal" };
     }
 
     function formatNodeSignal(node) {
       if (!Number.isFinite(node?.rssi) || !Number.isFinite(node?.snr)) return "Signal unavailable";
       const sf = Number.isFinite(node.spreadingFactor) ? ` · SF${node.spreadingFactor}` : "";
       return `${node.rssi} dBm · SNR ${node.snr}${sf}`;
+    }
+
+    function getNodeReportingModeLabel(profile) {
+      const key = String(profile || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+      const labels = {
+        power_save: "Power save",
+        powersave: "Power save",
+        normal: "Normal",
+        intense: "Intense"
+      };
+      return labels[key] || (key ? key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Mode unavailable");
     }
 
     function renderNodesManagementPage() {
@@ -7206,6 +7230,7 @@
               : "Battery unknown";
             const batteryDetail = Number.isFinite(node.batteryMv) ? `${(node.batteryMv / 1000).toFixed(2)} V` : "";
             const firmwareDetail = node.firmwareVersion ? `Firmware ${node.firmwareVersion}` : "Firmware unknown";
+            const reportingMode = getNodeReportingModeLabel(node.profile);
             const compactIdentity = [site.name, zone.name, node.devEui ? `DevEUI ${node.devEui}` : "No DevEUI"];
             const compactTelemetry = [formatNodeSignal(node), sensors.length ? sensors.join(", ") : "No sensors detected"];
             const nodeListId = node.devEui || node.id;
@@ -7214,15 +7239,15 @@
             return `
               <article class="node-table-row" data-state="${state === "neutral" ? "optimal" : state}" data-expanded="${String(isExpanded)}">
                 <button type="button" class="node-table-summary" data-node-expand-id="${escapeAttribute(nodeListId)}" aria-expanded="${String(isExpanded)}" aria-controls="node-detail-${escapeAttribute(nodeListId)}">
-                  <span class="node-table-identity"><strong>${escapeHtml(nodeName)}</strong><small>${escapeHtml(site.name)} · ${escapeHtml(zone.name)}</small></span>
+                  <span class="node-table-identity"><strong>${escapeHtml(nodeName)}</strong><small>${escapeHtml(site.name)} · ${escapeHtml(zone.name)} · ${escapeHtml(reportingMode)}</small></span>
                   <span class="node-table-signal"><i class="fa-solid fa-signal" aria-hidden="true"></i>${escapeHtml(freshnessLabel)} · ${escapeHtml(formatNodeSignal(node))}</span>
                   <span class="node-table-sensors">${escapeHtml(sensors.length ? sensors.join(", ") : "No sensors detected")}</span>
                   <span class="management-chip node-freshness-chip" data-freshness="${escapeAttribute(freshness.transportStatus)}">
                     <i class="fa-solid ${freshness.transportStatus === "live" ? "fa-signal" : freshness.transportStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
                     ${escapeHtml(freshnessLabel)}
                   </span>
-                  <span class="management-chip" data-tone="${health.tone}">
-                    ${escapeHtml(health.label)}
+                  <span class="management-chip node-health-chip" data-tone="${health.tone}" title="${escapeAttribute(health.detail)}">
+                    ${escapeHtml(health.label)}${health.tone === "warning" ? `: ${escapeHtml(health.detail)}` : ""}
                   </span>
                   <span class="management-chip" data-tone="${state === "critical" ? "critical" : state === "warning" ? "warning" : "optimal"}">
                     <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
@@ -7232,9 +7257,10 @@
                 </button>
                 <div id="node-detail-${escapeAttribute(nodeListId)}" class="node-table-detail" ${isExpanded ? "" : "hidden"}>
                   <div><span>Device</span><strong>${escapeHtml(compactIdentity.join(" · "))}</strong></div>
-                  <div><span>Reporting</span><strong>${escapeHtml(node.profile ? `${node.profile.replace(/_/g, " ")} · ${firmwareDetail}` : firmwareDetail)}</strong></div>
+                  <div><span>Reporting mode</span><strong>${escapeHtml(`${reportingMode} · ${firmwareDetail}`)}</strong></div>
                   <div><span>Sensors</span><strong>${escapeHtml(compactTelemetry[1])}</strong></div>
                   <div><span>Connection</span><strong>${escapeHtml(compactTelemetry[0])}</strong></div>
+                  <div><span>Health</span><strong>${escapeHtml(health.detail)}</strong></div>
                   <div class="node-table-detail-actions">
                   <button type="button" class="inline-action actionable" data-tone="primary" data-node-open-block-site-id="${escapeAttribute(site.id)}" data-node-open-block-zone-id="${escapeAttribute(zone.id)}">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
