@@ -398,6 +398,71 @@
       font-weight: 750;
     }
 
+    /* Crop profile editor: compact table for frequent agronomy target edits. */
+    .profile-target-editor {
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px solid rgba(20, 32, 27, 0.09);
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 8px 22px rgba(20, 32, 27, 0.035);
+    }
+
+    .profile-target-form { margin-top: 14px; }
+    .profile-target-fields {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .profile-target-fields label span { font-size: 10px; font-weight: 750; color: rgba(20, 32, 27, 0.56); }
+    .profile-target-fields input {
+      min-height: 38px;
+      border-radius: 10px;
+      background: #fbfcfa;
+    }
+    .profile-target-note { margin: 12px 0 8px; color: rgba(20, 32, 27, 0.55); font-size: 11px; }
+    .profile-target-table { overflow-x: auto; border: 1px solid rgba(20, 32, 27, 0.09); border-radius: 13px; }
+    .profile-target-table-head,
+    .profile-target-row {
+      display: grid;
+      grid-template-columns: minmax(190px, 1fr) 92px 92px minmax(260px, .9fr);
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+    }
+    .profile-target-table-head {
+      min-width: 660px;
+      background: #173c31;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    .profile-target-table-head span:nth-child(2), .profile-target-table-head span:nth-child(3) { color: #b9d5c2; text-align: center; }
+    .profile-target-table-head span:last-child { text-align: right; }
+    .profile-target-row { min-width: 660px; min-height: 54px; border-top: 1px solid rgba(20, 32, 27, 0.07); background: #fff; }
+    .profile-target-row:nth-child(even) { background: #fcfcfa; }
+    .profile-target-row strong { font-size: 13px; }
+    .profile-target-input {
+      width: 70px;
+      height: 32px;
+      justify-self: center;
+      border: 1px solid rgba(20, 32, 27, 0.13);
+      border-radius: 8px;
+      background: #f5faf5;
+      color: #14201b;
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+      outline: none;
+    }
+    .profile-target-input:focus { border-color: #2f6a4f; box-shadow: 0 0 0 3px rgba(47, 106, 79, .12); }
+    .profile-target-limits { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; font-size: 9px; font-weight: 750; }
+    .profile-target-limits span { padding: 4px 7px; border-radius: 999px; background: #fff5e4; color: #9d681d; white-space: nowrap; }
+    .profile-target-limits span:last-child { background: #fff0ec; color: #ad5645; }
+    .profile-target-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+
     @media (max-width: 1180px) {
       .management-list-row {
         align-items: flex-start;

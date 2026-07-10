@@ -7513,27 +7513,27 @@
           const optimalInput = (label, value, bound) => `
             <label class="block min-w-0">
               <span class="sr-only">${escapeHtml(`${metric.label} ${label}`)}</span>
-              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="h-7 w-[62px] justify-self-center rounded-md border border-black/10 bg-[#f7fbf6] px-1 text-center text-[11px] font-bold tabular-nums text-ink outline-none transition focus:border-pine/45 focus:ring-2 focus:ring-pine/12">
+              <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="profile-target-input">
             </label>
           `;
 
           return `
-          <div class="grid grid-cols-[minmax(190px,1fr)_92px_92px_minmax(220px,.72fr)] items-center gap-2 border-b border-black/6 px-3 py-1 last:border-b-0" data-profile-metric-row="${escapeAttribute(metricKey)}">
+          <div class="profile-target-row" data-profile-metric-row="${escapeAttribute(metricKey)}">
             <div class="min-w-0 whitespace-nowrap">
               <strong class="truncate text-[13px] leading-none text-ink">${escapeHtml(metric.label)}</strong><span class="ml-1 text-[11px] font-semibold text-ink/45">${escapeHtml(formatUnit(metric.unit))}</span>
             </div>
             ${optimalInput("Optimal minimum", rangeValues.optimalMin, 0)}
             ${optimalInput("Optimal maximum", rangeValues.optimalMax, 1)}
-            <div class="flex flex-wrap justify-end gap-1.5 text-[10px] font-semibold">
-              <span class="rounded-full bg-[#fff4df] px-2 py-1 text-amber" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}">${escapeHtml(getWarningStartLabel({ ...metric, optimal: [rangeValues.optimalMin, rangeValues.optimalMax] }))}</span>
-              <span class="rounded-full bg-[#fff0ec] px-2 py-1 text-ember" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}">${escapeHtml(getCriticalBoundaryLabel({ ...metric, critical: [rangeValues.criticalLow, rangeValues.criticalHigh] }))}</span>
+            <div class="profile-target-limits">
+              <span data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}">${escapeHtml(getWarningStartLabel({ ...metric, optimal: [rangeValues.optimalMin, rangeValues.optimalMax] }))}</span>
+              <span data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}">${escapeHtml(getCriticalBoundaryLabel({ ...metric, critical: [rangeValues.criticalLow, rangeValues.criticalHigh] }))}</span>
             </div>
           </div>
         `;
         }).join("");
 
       return `
-        <section class="mt-4 rounded-[20px] border border-black/8 bg-[#f8f3ea] p-3">
+        <section class="profile-target-editor">
           <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <p class="text-[9px] font-bold uppercase tracking-[0.16em] text-pine/56">Edit target ranges</p>
@@ -7541,16 +7541,16 @@
             </div>
             <span class="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-ink/58">${Object.keys(profile.metrics).filter(isGrowthMetricKey).length} growth metrics</span>
           </div>
-          <form class="mt-3" data-settings-form="crop-profile-editor" data-profile-key="${escapeAttribute(profileKey)}">
-            <div class="grid gap-2 md:grid-cols-3">
+          <form class="profile-target-form" data-settings-form="crop-profile-editor" data-profile-key="${escapeAttribute(profileKey)}">
+            <div class="profile-target-fields">
               <label class="block"><span class="text-[11px] font-semibold text-ink/64">Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}" class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
               <label class="block"><span class="text-[11px] font-semibold text-ink/64">Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
               <label class="block"><span class="text-[11px] font-semibold text-ink/64">Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative" class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
             </div>
-            <p class="mt-2 text-[11px] leading-4 text-ink/54">Set the optimal interval. Warning and critical limits update automatically from it.</p>
-            <div class="mt-2.5 overflow-x-auto rounded-[16px] border border-black/8 bg-white">
+            <p class="profile-target-note">Set the optimal interval. Warning and critical limits update automatically from it.</p>
+            <div class="profile-target-table">
               <div class="min-w-[610px]">
-                <div class="grid grid-cols-[minmax(190px,1fr)_92px_92px_minmax(220px,.72fr)] gap-2 rounded-t-[15px] bg-[#f3f1eb] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-ink/46">
+                <div class="profile-target-table-head">
                   <span>Parameter</span>
                   <span class="text-center text-moss">Optimal min</span>
                   <span class="text-center text-moss">Optimal max</span>
@@ -7559,7 +7559,7 @@
                 <div>${metricRows}</div>
               </div>
             </div>
-            <div class="mt-3 flex flex-wrap items-center gap-2">
+            <div class="profile-target-actions">
               <button type="submit" class="actionable rounded-xl bg-pine px-3.5 py-2 text-xs font-semibold text-white">Save profile targets</button>
               <button type="button" class="actionable rounded-xl border border-ember/20 bg-white px-3.5 py-2 text-xs font-semibold text-ember disabled:cursor-not-allowed disabled:opacity-50" data-settings-profile-delete="${escapeAttribute(profileKey)}" ${profileUsageCount > 0 || profileKey === "default" ? "disabled" : ""}>Delete profile</button>
               <span class="text-xs text-ink/54">${profileKey === "default" ? "Default profile stays available as the safe starter program." : profileUsageCount > 0 ? `Used by ${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"} and cannot be deleted yet.` : "Changes update scores, alerts, and history target bands."}</span>
