@@ -6600,6 +6600,18 @@
       });
     }
 
+    function rebuildEnhancedSelect(select) {
+      const wrapper = select?.closest(".nc-select");
+      if (wrapper?.parentNode) {
+        wrapper.parentNode.insertBefore(select, wrapper);
+        wrapper.remove();
+      }
+
+      select.removeAttribute("data-nc-select-enhanced");
+      select.classList.remove("nc-select-native");
+      enhanceDashboardSelects(select.parentElement || elements.managementModalOverlay);
+    }
+
     function renderSiteOptions(snapshots = null) {
       getActiveSite();
       const contextSnapshots = snapshots || getContextMenuSnapshots();
@@ -13666,9 +13678,11 @@
       if (event.target instanceof HTMLSelectElement && event.target.name === "modalNodeSiteId") {
         const sectionSelect = elements.managementModalOverlay.querySelector('[name="modalNodeSectionId"]');
         if (!(sectionSelect instanceof HTMLSelectElement)) return;
+        const targetSite = dashboardData.sites.find((site) => site.id === event.target.value);
+        const targetZones = Array.isArray(targetSite?.zones) ? targetSite.zones : [];
         sectionSelect.innerHTML = getNodeSectionOptions(event.target.value);
-        sectionSelect.disabled = !sectionSelect.value;
-        syncEnhancedSelect(sectionSelect);
+        sectionSelect.disabled = targetZones.length === 0;
+        rebuildEnhancedSelect(sectionSelect);
       }
     });
 
