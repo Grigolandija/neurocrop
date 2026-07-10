@@ -27,7 +27,7 @@ assert(runtime.includes("function rebuildEnhancedSelect(select)"), "Node Area ch
 assert(runtime.includes('sectionSelect.disabled = targetZones.length === 0;'), "Node Section selector must reflect whether the selected Area has sections");
 assert(runtime.includes('aria-expanded="${String(isExpanded)}"') && runtime.includes('class="node-table-detail"'), "Nodes must expose compact expandable detail rows");
 assert(runtime.includes("function getNodeReportingModeLabel(profile)") && runtime.includes('power_save: "Power save"'), "Node reporting modes must be presented with clear labels");
-assert(runtime.includes("Sensor reinitialised ${counters.reinit} times") && runtime.includes('<div><span>Health</span>'), "Node health status must show a concrete diagnostic reason");
+assert(runtime.includes("Sensor reinitialised ${counters.reinit} times") && runtime.includes('label: reasons[0]') && runtime.includes('<div><span>Health</span>'), "Node health status must show a concise primary reason and full diagnostics");
 assert(runtime.includes('class="crop-profile-metric-row"') && runtime.includes('data-profile-alert-limit="warning"'), "Crop profile targets must retain visible automatic alert boundaries");
 assert(runtime.includes('class="settings-local-notice"'), "non-API settings must be clearly identified as browser-local");
 assert(runtime.includes('snapshot?.overall?.source === "backend"') && runtime.includes("Number.isFinite(snapshot.overall.indexScore)"), "Area and Section selectors must display backend scores before local readings load");

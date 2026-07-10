@@ -7134,11 +7134,11 @@
       const counters = node?.errorCounters || {};
       const reasons = [];
 
-      if (flags.watchdog_reset) reasons.push("Watchdog reset reported");
+      if (flags.tx_timeout) reasons.push("Transmission timeout");
       if (flags.last_tx_failed) reasons.push("Last transmission failed");
+      if (flags.watchdog_reset) reasons.push("Watchdog reset reported");
       if (flags.join_backoff) reasons.push("Network join backoff");
       if (flags.boot_fault) reasons.push("Boot fault reported");
-      if (flags.tx_timeout) reasons.push("Transmission timeout");
       if (Number(counters.read_fail || 0) >= 3) reasons.push(`${counters.read_fail} sensor read failures`);
       if (Number(counters.tx_fail || 0) >= 3) reasons.push(`${counters.tx_fail} transmission failures`);
       if (Number(counters.reinit || 0) >= 5) reasons.push(`Sensor reinitialised ${counters.reinit} times`);
@@ -7147,7 +7147,7 @@
         return { label: "Offline", detail: "No recent uplink", tone: "critical" };
       }
       if (reasons.length > 0) {
-        return { label: "Needs attention", detail: reasons.join(" · "), tone: "warning" };
+        return { label: reasons[0], detail: reasons.join(" · "), tone: "warning" };
       }
       return { label: "Healthy", detail: "No device faults reported", tone: "optimal" };
     }
@@ -7247,7 +7247,7 @@
                     ${escapeHtml(freshnessLabel)}
                   </span>
                   <span class="management-chip node-health-chip" data-tone="${health.tone}" title="${escapeAttribute(health.detail)}">
-                    ${escapeHtml(health.label)}${health.tone === "warning" ? `: ${escapeHtml(health.detail)}` : ""}
+                    ${escapeHtml(health.label)}
                   </span>
                   <span class="management-chip" data-tone="${state === "critical" ? "critical" : state === "warning" ? "warning" : "optimal"}">
                     <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
