@@ -595,6 +595,179 @@
     .settings-program-studio .profile-target-limits span { padding: 3px 6px; font-size: 8px; }
     .settings-program-studio .profile-target-actions { margin: 12px 14px 14px; }
 
+    /* Complete Crop Profiles rebuild. */
+    .crop-profiles-page {
+      display: grid;
+      gap: 20px;
+      padding: 4px 0 82px;
+    }
+
+    .crop-profiles-page-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 0 2px 18px;
+      border-bottom: 1px solid rgba(20, 32, 27, 0.12);
+    }
+
+    .crop-profiles-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(20, 32, 27, 0.54);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .crop-profiles-breadcrumb i { color: rgba(20, 32, 27, 0.3); font-size: 9px; }
+    .crop-profiles-breadcrumb b { color: #214f40; font-weight: 750; }
+    .crop-profiles-page-head h2 { margin-top: 9px; color: #14201b; font-family: var(--font-display, inherit); font-size: clamp(1.8rem, 2.5vw, 2.35rem); font-weight: 800; line-height: 1; }
+    .crop-profiles-page-head p { max-width: 660px; margin-top: 8px; color: rgba(20, 32, 27, 0.61); font-size: 14px; line-height: 1.5; }
+
+    .crop-profiles-page-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; }
+    .crop-profiles-page-actions > span { color: rgba(20, 32, 27, 0.57); font-size: 12px; white-space: nowrap; }
+    .crop-profiles-page-actions > span b { color: #14201b; font-size: 14px; }
+    .crop-profiles-page-actions .settings-primary-button { min-height: 42px; padding: 8px 14px; border-radius: 10px; font-size: 13px; }
+
+    .crop-profile-switcher {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
+    }
+
+    .crop-profile-switcher-option {
+      display: flex;
+      flex: 0 0 240px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 76px;
+      padding: 13px 14px;
+      border: 1px solid rgba(20, 32, 27, 0.13);
+      border-radius: 12px;
+      background: #fff;
+      color: #14201b;
+      text-align: left;
+      transition: border-color .14s ease, background-color .14s ease, box-shadow .14s ease;
+    }
+
+    .crop-profile-switcher-option:hover { border-color: rgba(47, 106, 79, 0.4); background: #fbfdfb; }
+    .crop-profile-switcher-option[data-active="true"] { border-color: #2f6a4f; background: #eef6f0; box-shadow: inset 3px 0 0 #2f6a4f; }
+    .crop-profile-switcher-option strong, .crop-profile-switcher-option small { display: block; }
+    .crop-profile-switcher-option strong { max-width: 164px; overflow: hidden; font-size: 14px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+    .crop-profile-switcher-option small { margin-top: 5px; color: rgba(20, 32, 27, 0.57); font-size: 12px; font-weight: 600; }
+    .crop-profile-switcher-option b { flex: 0 0 auto; color: #2f6a4f; font-size: 11px; font-weight: 750; white-space: nowrap; }
+
+    .crop-profile-create-drawer {
+      border: 1px solid rgba(47, 106, 79, 0.26);
+      border-radius: 12px;
+      background: #f8fbf8;
+    }
+
+    .crop-profile-create-drawer summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 48px;
+      padding: 0 15px;
+      color: #214f40;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 750;
+      list-style: none;
+    }
+
+    .crop-profile-create-drawer summary::-webkit-details-marker { display: none; }
+    .crop-profile-create-drawer summary span { display: inline-flex; align-items: center; gap: 8px; }
+    .crop-profile-create-drawer summary small { color: rgba(20, 32, 27, 0.52); font-size: 12px; font-weight: 600; }
+    .crop-profile-create-drawer form { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr auto; align-items: end; gap: 10px; padding: 0 15px 15px; }
+    .crop-profile-create-drawer label span { display: block; margin-bottom: 5px; color: rgba(20, 32, 27, 0.66); font-size: 12px; font-weight: 700; }
+    .crop-profile-create-drawer input, .crop-profile-create-drawer select, .crop-profile-detail-fields input { width: 100%; height: 42px; padding: 0 11px; border: 1px solid rgba(20, 32, 27, 0.14); border-radius: 9px; background: #fff; color: #14201b; font-size: 14px; outline: none; }
+    .crop-profile-create-drawer input:focus, .crop-profile-create-drawer select:focus, .crop-profile-detail-fields input:focus, .crop-profile-metric-row input:focus { border-color: #2f6a4f; box-shadow: 0 0 0 3px rgba(47, 106, 79, 0.13); }
+    .crop-profile-create-drawer .settings-primary-button { height: 42px; border-radius: 9px; white-space: nowrap; }
+
+    .crop-profile-editor { min-width: 0; }
+    .crop-profile-editor-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(270px, 3fr); align-items: start; gap: 24px; }
+    .crop-profile-editor-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding: 4px 0 14px; border-bottom: 1px solid rgba(20, 32, 27, 0.12); }
+    .crop-profile-editor-section-head p, .crop-profile-side-section header p { color: #214f40; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .crop-profile-editor-section-head h3 { margin-top: 5px; color: #14201b; font-size: 20px; font-weight: 800; line-height: 1.15; }
+    .crop-profile-editor-section-head > span { max-width: 255px; color: rgba(20, 32, 27, 0.56); font-size: 12px; line-height: 1.45; text-align: right; }
+
+    .crop-profile-metric-group { margin-top: 24px; border-top: 2px solid #214f40; }
+    .crop-profile-metric-group > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; padding: 13px 0 10px; }
+    .crop-profile-metric-group h4 { color: #14201b; font-size: 16px; font-weight: 800; }
+    .crop-profile-metric-group p { margin-top: 3px; color: rgba(20, 32, 27, 0.57); font-size: 12px; }
+    .crop-profile-metric-group > header > span { color: rgba(20, 32, 27, 0.5); font-size: 12px; font-weight: 700; }
+    .crop-profile-metric-heading, .crop-profile-metric-row { display: grid; grid-template-columns: minmax(140px, 1.1fr) minmax(150px, .9fr) 78px minmax(210px, 1.4fr); gap: 12px; align-items: center; }
+    .crop-profile-metric-heading { min-height: 32px; padding: 0 12px; border-top: 1px solid rgba(20, 32, 27, 0.09); background: #f5f5f1; color: rgba(20, 32, 27, 0.58); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .crop-profile-metric-row { min-height: 76px; padding: 10px 12px; border-top: 1px solid rgba(20, 32, 27, 0.08); }
+    .crop-profile-metric-name strong { color: #14201b; font-size: 14px; font-weight: 800; }
+    .crop-profile-metric-name span { display: block; margin-top: 3px; color: rgba(20, 32, 27, 0.5); font-size: 12px; font-weight: 600; }
+    .crop-profile-optimal-inputs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; color: rgba(20, 32, 27, 0.46); font-size: 12px; font-weight: 700; }
+    .crop-profile-optimal-inputs .profile-target-input { width: 100%; height: 40px; border: 1px solid rgba(20, 32, 27, 0.14); border-radius: 8px; background: #f5faf5; color: #14201b; font-size: 14px; font-weight: 750; text-align: center; outline: none; }
+    .crop-profile-range-visual { position: relative; height: 18px; }
+    .crop-profile-range-visual::before { position: absolute; top: 7px; right: 0; left: 0; height: 4px; border-radius: 999px; background: #e6e5dd; content: ""; }
+    .crop-profile-range-visual span { position: absolute; top: 7px; left: 25%; width: 50%; height: 4px; border-radius: 999px; background: #84b79b; }
+    .crop-profile-range-visual i, .crop-profile-range-visual b { position: absolute; top: 3px; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 999px; background: #2f6a4f; box-shadow: 0 1px 3px rgba(20, 32, 27, .25); }
+    .crop-profile-range-visual i { left: calc(25% - 6px); }
+    .crop-profile-range-visual b { left: calc(75% - 6px); }
+    .crop-profile-boundaries { display: grid; gap: 3px; color: rgba(20, 32, 27, 0.63); font-size: 11px; line-height: 1.25; }
+    .crop-profile-boundaries b { display: inline-block; width: 49px; font-size: 10px; font-weight: 800; }
+    .crop-profile-boundaries span:nth-child(1) b { color: #2f6a4f; }
+    .crop-profile-boundaries span:nth-child(2) b { color: #a56d1c; }
+    .crop-profile-boundaries span:nth-child(3) b { color: #ad5645; }
+
+    .crop-profile-editor-aside { position: sticky; top: 72px; display: grid; gap: 10px; }
+    .crop-profile-side-section { padding: 15px; border: 1px solid rgba(20, 32, 27, 0.12); border-radius: 11px; background: #fff; }
+    .crop-profile-side-section header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(20, 32, 27, 0.08); }
+    .crop-profile-side-section header span { color: rgba(20, 32, 27, 0.55); font-size: 12px; font-weight: 650; text-align: right; }
+    .crop-profile-detail-fields { display: grid; gap: 10px; margin-top: 12px; }
+    .crop-profile-detail-fields label span { display: block; margin-bottom: 5px; color: rgba(20, 32, 27, 0.65); font-size: 12px; font-weight: 700; }
+    .crop-profile-assignment-list { display: grid; gap: 0; margin-top: 4px; }
+    .crop-profile-assignment-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 33px; border-bottom: 1px solid rgba(20, 32, 27, 0.07); color: #14201b; font-size: 13px; font-weight: 700; }
+    .crop-profile-assignment-list small { color: rgba(20, 32, 27, 0.52); font-size: 11px; font-weight: 600; }
+    .crop-profile-assignment-list .crop-profile-more-assignments { color: #2f6a4f; font-size: 12px; }
+    .crop-profile-side-empty, .crop-profile-side-copy, .crop-profile-side-note, .crop-profile-management > p { margin-top: 11px; color: rgba(20, 32, 27, 0.6); font-size: 12px; line-height: 1.5; }
+    .crop-profile-side-note { color: #2f6a4f; font-weight: 650; }
+    .crop-profile-management { border-color: rgba(173, 86, 69, 0.22); }
+    .crop-profile-management .settings-secondary-button, .crop-profile-delete-button { width: 100%; min-height: 40px; margin-top: 12px; border-radius: 8px; font-size: 13px; }
+    .crop-profile-delete-button { border: 1px solid rgba(173, 86, 69, 0.28); background: #fff; color: #a14537; font-weight: 750; }
+    .crop-profile-delete-button:disabled { cursor: not-allowed; opacity: .42; }
+
+    .crop-profile-save-bar { position: sticky; bottom: 12px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding: 11px 14px 11px 16px; border: 1px solid rgba(20, 32, 27, 0.15); border-radius: 11px; background: rgba(255, 255, 255, .96); box-shadow: 0 8px 25px rgba(20, 32, 27, .11); }
+    .crop-profile-save-bar strong, .crop-profile-save-bar span { display: block; }
+    .crop-profile-save-bar strong { color: #214f40; font-size: 13px; font-weight: 800; }
+    .crop-profile-save-bar span { margin-top: 2px; color: rgba(20, 32, 27, 0.55); font-size: 12px; }
+    .crop-profile-save-bar > div:last-child { display: flex; gap: 8px; }
+    .crop-profile-discard-button { min-height: 40px; padding: 0 12px; border: 1px solid rgba(20, 32, 27, 0.13); border-radius: 8px; background: #fff; color: rgba(20, 32, 27, .7); font-size: 13px; font-weight: 700; }
+    .crop-profile-discard-button:disabled, .crop-profile-save-bar [data-profile-save]:disabled { cursor: not-allowed; opacity: .5; }
+    .crop-profile-save-bar .settings-primary-button { min-height: 40px; border-radius: 8px; font-size: 13px; }
+
+    @media (max-width: 1120px) {
+      .crop-profile-editor-grid { grid-template-columns: 1fr; }
+      .crop-profile-editor-aside { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .crop-profile-management { grid-column: span 2; }
+      .crop-profile-create-drawer form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      .crop-profiles-page-head { align-items: flex-start; flex-direction: column; }
+      .crop-profiles-page-actions { flex-wrap: wrap; }
+      .crop-profile-create-drawer form, .crop-profile-editor-aside { grid-template-columns: 1fr; }
+      .crop-profile-management { grid-column: auto; }
+      .crop-profile-metric-heading { display: none; }
+      .crop-profile-metric-row { grid-template-columns: 1fr; gap: 9px; padding: 14px 12px; }
+      .crop-profile-optimal-inputs { max-width: 280px; }
+      .crop-profile-range-visual { max-width: 240px; }
+      .crop-profile-save-bar { align-items: flex-start; flex-direction: column; }
+      .crop-profile-save-bar > div:last-child { width: 100%; }
+      .crop-profile-save-bar > div:last-child button { flex: 1; }
+    }
+
     @media (max-width: 860px) {
       .settings-program-studio-head { align-items: flex-start; flex-direction: column; }
       .settings-program-studio .settings-profile-workspace { grid-template-columns: 1fr; }
