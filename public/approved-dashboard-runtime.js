@@ -6213,11 +6213,11 @@
         if (coverageCount > 0) {
           lenses.push({
             key: "coverage",
-            label: "Coverage gaps",
+            label: "Incomplete coverage",
             icon: "fa-wave-square",
             tone: "warning",
             count: coverageCount,
-            description: `${coverageCount} location averages are being computed from partial block coverage.`
+            description: `${coverageCount} location averages are based on only part of the available sections.`
           });
         }
 
@@ -6245,6 +6245,7 @@
       }
 
       const focusCount = availableResults.filter((item) => item.state !== "optimal").length;
+      const unavailableCount = unavailableResults.length;
 
       lenses.push(
         {
@@ -6266,6 +6267,17 @@
           description: `Showing all live growth metrics for ${zone.name}.`
         }
       );
+
+      if (unavailableCount > 0) {
+        lenses.push({
+          key: "coverage",
+          label: "Unavailable metrics",
+          icon: "fa-sensor",
+          tone: "neutral",
+          count: unavailableCount,
+          description: `${unavailableCount} profile metric${unavailableCount === 1 ? " is" : "s are"} not reported by sensors in ${zone.name}.`
+        });
+      }
 
       groupKeys.forEach((groupKey) => {
         const group = getMetricWorkbenchGroup(groupKey === "climate" ? "airTemp" : groupKey === "root" ? "soilTemp" : "ec");
@@ -6726,8 +6738,8 @@
       const locationRows = locations.map((site) => {
         const siteSnapshots = globalSnapshots.filter((snapshot) => snapshot.site.id === site.id);
         const siteState = siteSnapshots.length > 0 ? deriveSiteOverallState(siteSnapshots) : null;
-        const stateKey = siteState?.state || "optimal";
-        const rowStateKey = (site.zones || []).length === 0 ? "warning" : stateKey;
+        const stateKey = siteState?.state || "neutral";
+        const rowStateKey = (site.zones || []).length === 0 ? "neutral" : stateKey;
         const blockCount = (site.zones || []).length;
         const nodeCount = getSiteNodeCount(site);
         const lowBatteryCount = (site.zones || []).reduce((sum, zone) => {
@@ -6757,8 +6769,8 @@
             </div>
 
             <div class="management-list-actions">
-              <span class="management-chip" data-tone="${blockCount > 0 ? stateKey : "warning"}">
-                ${escapeHtml(blockCount > 0 ? stateConfig[stateKey].label : "Setup needed")}
+              <span class="management-chip" data-tone="${blockCount > 0 ? stateKey : "neutral"}">
+                ${escapeHtml(blockCount > 0 ? stateConfig[stateKey].label : "No sections yet")}
               </span>
               ${blockCount > 0
                 ? `
@@ -6888,9 +6900,7 @@
       const locationOptions = dashboardData.sites.filter((site) => !isUnassignedLocation(site));
       const unassignedSite = dashboardData.sites.find((site) => isUnassignedLocation(site)) || null;
       const blockSites = unassignedSite ? [...locationOptions, unassignedSite] : locationOptions;
-      const filteredSites = activeBlockFilterSiteId === "all"
-        ? blockSites
-        : blockSites.filter((site) => site.id === activeBlockFilterSiteId);
+      const filteredSites = blockSites.filter((site) => site.id === activeSiteId);
       const blockEntries = filteredSites.flatMap((site) =>
         (site.zones || []).map((zone) => {
           const profile = cropProfiles[zone.profile];
@@ -6924,12 +6934,10 @@
         ? "Rename, move, or reprofile the monitored block without changing the live structure around it."
         : "Use one section for one monitored crop area inside an area.";
       const blockFormButtonLabel = blockFormState.mode === "edit" ? "Save section" : "Create section";
-      const emptyState = activeBlockFilterSiteId !== "all" && filteredSites.length > 0
+      const emptyState = filteredSites.length > 0
         ? `No sections exist in ${filteredSites[0].name} yet.`
         : "No sections exist yet.";
-      const activeFilterLabel = activeBlockFilterSiteId === "all"
-        ? "All areas"
-        : (locationOptions.find((site) => site.id === activeBlockFilterSiteId)?.name || "Filtered area");
+      const activeFilterLabel = filteredSites[0]?.name || "Selected area";
 
       const blockList = filteredBlockCount > 0
         ? blockEntries.map((row) => {
@@ -7083,29 +7091,8 @@
                 </form>
               `}
 
-            ${locationOptions.length > 0
-              ? `
-                <div class="mt-4 border-t border-black/8 pt-4">
-                  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <p class="text-[11px] uppercase tracking-[0.22em] text-pine/56">Filter current list</p>
-                      <p class="mt-1 text-sm leading-6 text-ink/58">Choose an area to focus the current section list.</p>
-                    </div>
-                    <label class="block lg:w-[280px]">
-                      <span class="sr-only">Filter sections by area</span>
-                      <select data-block-filter-select class="w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                        <option value="all" ${activeBlockFilterSiteId === "all" ? "selected" : ""}>All areas</option>
-                        ${locationOptions.map((site) => `<option value="${escapeAttribute(site.id)}" ${activeBlockFilterSiteId === site.id ? "selected" : ""}>${escapeHtml(site.name)}</option>`).join("")}
-                        ${unassignedSite ? `<option value="${escapeAttribute(unassignedSite.id)}" ${activeBlockFilterSiteId === unassignedSite.id ? "selected" : ""}>Unassigned sections</option>` : ""}
-                      </select>
-                    </label>
-                  </div>
-                </div>
-              `
-              : ""}
-
             <div class="mt-3 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
-              This step defines structure only. Sensor assignment can stay on Nodes and be managed separately.
+              Showing sections in <strong>${escapeHtml(activeFilterLabel)}</strong>. Change the Area in the global header to manage another area.
             </div>
           </div>
 
@@ -7360,6 +7347,16 @@
         const site = dashboardData.sites.find((item) => item.id === target.value);
         nodeFormState.siteId = site?.id || "";
         nodeFormState.zoneId = site?.zones?.[0]?.id || "";
+        const form = target.closest('[data-management-form="node"]');
+        const sectionSelect = form?.querySelector('[name="nodeZoneId"]');
+        if (sectionSelect instanceof HTMLSelectElement) {
+          const sections = site?.zones || [];
+          sectionSelect.innerHTML = sections.length > 0
+            ? sections.map((zone) => `<option value="${escapeAttribute(zone.id)}">${escapeHtml(zone.name)}</option>`).join("")
+            : `<option value="">No sections in this area</option>`;
+          sectionSelect.disabled = sections.length === 0;
+          rebuildEnhancedSelect(sectionSelect);
+        }
         return;
       }
 
@@ -10080,6 +10077,13 @@
       `;
     }
 
+    function getTrendAggregationLabel(response) {
+      if (response?.aggregation === "section_median_5m") {
+        return "Section median · 5 min intervals";
+      }
+      return "Real sensor readings";
+    }
+
     function buildTrendHistoryState(options) {
       const {
         isSiteView,
@@ -10153,6 +10157,12 @@
           !isSiteView ? trendHistoryByKey[getTrendHistoryCacheKey(zone.id, metricOption.key, activeTrendRangeKey)] : null
         )
       }));
+      const selectedHistoryResponses = selectedMetrics.map((metricOption) =>
+        !isSiteView
+          ? trendHistoryByKey[getTrendHistoryCacheKey(zone.id, metricOption.key, activeTrendRangeKey)]
+          : null
+      );
+      const aggregationLabel = getTrendAggregationLabel(selectedHistoryResponses.find(Boolean));
 
       const hasRenderableSeries = seriesItems.every((item) =>
         Array.isArray(item.series.values)
@@ -10272,8 +10282,8 @@
         rangeMeta: rangeConfig.meta,
         metricLabel: isMultiMetric ? `${selectedMetrics.length} metrics selected` : selectedMetric.label,
         metricMeta: isMultiMetric
-          ? "Dual-axis comparison · left and right Y axes use real units"
-          : `${selectedMetric.meta} · Target ${formatRange(optimalRange, selectedMetric.definition)}`,
+          ? `${aggregationLabel} · Dual-axis comparison with real units`
+          : `${aggregationLabel} · Target ${formatRange(optimalRange, selectedMetric.definition)}`,
         chartState,
         chartOption: buildTrendEChartsOption(chartState),
         axisLabels: {
@@ -10286,7 +10296,7 @@
         readoutHtml: renderTrendReadout(seriesItems, rangeConfig),
         hoverPoints,
         callout,
-        backendNote: "Ready for real sensor history once live readings are connected."
+        backendNote: isSiteView ? "Area comparison uses the selected section summaries." : aggregationLabel
       };
     }
 
@@ -12965,9 +12975,9 @@
             elements.metricsGrid.innerHTML = filteredAverageSummaries.length > 0
               ? renderSiteAverageSummaryCards(filteredAverageSummaries)
               : renderWorkbenchEmptyState(
-                  activeWorkbenchLens?.key === "coverage" ? "No coverage gaps in this lens." : "No averages match this lens.",
+                  activeWorkbenchLens?.key === "coverage" ? "No incomplete coverage in this view." : "No averages match this lens.",
                   activeWorkbenchLens?.key === "coverage"
-                    ? `Every location average in ${site.name} is currently backed by full block coverage.`
+                    ? `Every location average in ${site.name} is currently backed by every reporting section.`
                     : `Try another lens to inspect a different slice of the location averages.`,
                   "all"
                 );
@@ -12993,8 +13003,8 @@
             elements.metricsGrid.innerHTML = filteredUnavailableMetrics.length > 0
               ? filteredUnavailableMetrics.map((result) => renderMetricCard(result.key, profile.metrics[result.key], result)).join("")
               : renderWorkbenchEmptyState(
-                  "No coverage gaps in this block.",
-                  `Every growth metric in ${zone.name} is currently installed.`,
+                  "No unavailable metrics in this section.",
+                  `Every configured growth metric in ${zone.name} is currently reported by a detected sensor.`,
                   "all"
                 );
             elements.unavailableMetricsPanel.hidden = true;
@@ -13016,8 +13026,8 @@
 
             if (overflowUnavailableResults.length > 0) {
               const overflowLabel = activeWorkbenchLens?.kind === "group"
-                ? `${activeWorkbenchLens.label} coverage gaps`
-                : "Not installed on this block";
+                ? `${activeWorkbenchLens.label} unavailable metrics`
+                : "Unavailable metrics";
 
               elements.unavailableMetricsPanel.hidden = false;
               elements.unavailableMetricsTitle.textContent = overflowLabel;

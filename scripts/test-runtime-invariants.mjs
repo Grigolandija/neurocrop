@@ -19,6 +19,10 @@ assert(runtime.includes("if (!nextZone) {") && runtime.includes("renderDashboard
 assert(runtime.includes("if (isApiDataMode()) {") && runtime.includes("Never infer installed sensors"), "API mode must not fabricate per-node sensor readings");
 assert(runtime.includes("const warningColor = \"#d08a2d\""), "trend warning segments must use amber, not critical red");
 assert(runtime.includes("function renderRuntimeErrorState()"), "render failures must replace stale content with an explicit error state");
+assert(runtime.includes('const filteredSites = blockSites.filter((site) => site.id === activeSiteId);'), "Sections must always follow the Area selected in the global header");
+assert(!runtime.includes('data-block-filter-select class='), "Sections must not expose a competing local Area filter");
+assert(runtime.includes("function rebuildEnhancedSelect(select)"), "Node Area changes must rebuild the visible Section selector");
+assert(runtime.includes('sectionSelect.disabled = targetZones.length === 0;'), "Node Section selector must reflect whether the selected Area has sections");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
 
