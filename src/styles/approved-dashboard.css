@@ -774,7 +774,7 @@
     #nodesManagementSection .node-table-row[data-state="critical"] { box-shadow: inset 3px 0 0 #ad5645; }
     #nodesManagementSection .node-table-summary {
       display: grid;
-      grid-template-columns: minmax(180px, 1.1fr) minmax(140px, .9fr) minmax(150px, 1fr) auto auto auto 16px;
+      grid-template-columns: minmax(180px, 1.1fr) minmax(140px, .9fr) minmax(140px, .8fr) minmax(150px, .9fr) auto auto auto 16px;
       align-items: center;
       gap: 10px;
       width: 100%;
@@ -785,15 +785,15 @@
       text-align: left;
     }
     #nodesManagementSection .node-table-summary:hover { background: #fbfaf7; }
-    #nodesManagementSection .node-table-identity, #nodesManagementSection .node-table-signal, #nodesManagementSection .node-table-sensors { min-width: 0; }
+    #nodesManagementSection .node-table-identity, #nodesManagementSection .node-table-signal, #nodesManagementSection .node-table-sensors, #nodesManagementSection .node-table-payload { min-width: 0; }
     #nodesManagementSection .node-table-identity strong, #nodesManagementSection .node-table-identity small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #nodesManagementSection .node-table-identity strong { font-size: 13px; font-weight: 800; }
-    #nodesManagementSection .node-table-identity small, #nodesManagementSection .node-table-signal, #nodesManagementSection .node-table-sensors { margin-top: 2px; color: rgba(20, 32, 27, 0.58); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #nodesManagementSection .node-table-signal i { margin-right: 4px; color: #2f6a4f; font-size: 10px; }
+    #nodesManagementSection .node-table-identity small, #nodesManagementSection .node-table-signal, #nodesManagementSection .node-table-sensors, #nodesManagementSection .node-table-payload { margin-top: 2px; color: rgba(20, 32, 27, 0.58); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #nodesManagementSection .node-table-signal i, #nodesManagementSection .node-table-payload i { margin-right: 4px; color: #2f6a4f; font-size: 10px; }
     #nodesManagementSection .node-table-summary .management-chip { min-height: 27px; padding: 4px 7px; font-size: 10px; }
     #nodesManagementSection .node-table-chevron { color: rgba(20, 32, 27, .38); font-size: 11px; transition: transform .14s ease; }
     #nodesManagementSection .node-table-row[data-expanded="true"] .node-table-chevron { transform: rotate(180deg); }
-    #nodesManagementSection .node-table-detail { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)) auto; gap: 10px; padding: 10px 12px 12px 16px; border-top: 1px solid rgba(20, 32, 27, .08); background: #f8f7f2; }
+    #nodesManagementSection .node-table-detail { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) auto; gap: 10px; padding: 10px 12px 12px 16px; border-top: 1px solid rgba(20, 32, 27, .08); background: #f8f7f2; }
     #nodesManagementSection .node-table-detail[hidden] { display: none; }
     #nodesManagementSection .node-table-detail > div:not(.node-table-detail-actions) span, #nodesManagementSection .node-table-detail > div:not(.node-table-detail-actions) strong { display: block; }
     #nodesManagementSection .node-table-detail > div:not(.node-table-detail-actions) span { color: rgba(20, 32, 27, .48); font-size: 10px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
@@ -804,6 +804,7 @@
     @media (max-width: 1180px) {
       #nodesManagementSection .node-table-summary { grid-template-columns: minmax(160px, 1.1fr) minmax(130px, .8fr) 1fr auto auto 16px; }
       #nodesManagementSection .node-table-sensors { display: none; }
+      #nodesManagementSection .node-table-payload { display: none; }
       #nodesManagementSection .node-table-summary .management-chip:last-of-type { display: none; }
       #nodesManagementSection .node-table-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       #nodesManagementSection .node-table-detail-actions { grid-column: span 2; align-items: center; }
@@ -812,6 +813,7 @@
     @media (max-width: 900px) {
       #nodesManagementSection .node-table-summary { grid-template-columns: minmax(150px, 1fr) auto auto 16px; }
       #nodesManagementSection .node-table-signal { display: none; }
+      #nodesManagementSection .node-table-payload { display: none; }
       #nodesManagementSection .node-table-summary .management-chip { display: none; }
       #nodesManagementSection .node-table-summary .node-freshness-chip { display: inline-flex; }
     }

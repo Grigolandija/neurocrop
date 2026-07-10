@@ -513,7 +513,7 @@
       method: "PATCH",
       body: JSON.stringify(payload)
     }),
-    deleteArea: (areaId) => request(`/areas/${encodeURIComponent(areaId)}`, {
+    deleteArea: (areaId, options = {}) => request(`/areas/${encodeURIComponent(areaId)}${queryString({ keepSections: options.keepSections ? "true" : undefined })}`, {
       method: "DELETE"
     }),
     createSection: (payload) => request("/sections", {
@@ -1106,6 +1106,10 @@
 
     function isVisibleSettingsCropProfile(profileKey) {
       return !(isApiDataMode() && legacyStarterCropProfileKeys.has(profileKey));
+    }
+
+    function getVisibleCropProfileEntries() {
+      return Object.entries(cropProfiles).filter(([profileKey]) => isVisibleSettingsCropProfile(profileKey));
     }
 
     function applyApiCropProfiles(payload) {
@@ -2334,15 +2338,8 @@
               <h3 class="font-display text-base font-bold text-ink">Delete area</h3>
               ${canDelete
                 ? `
-                  <p class="mt-1 text-xs leading-5 text-ink/60">${blockCount > 0 ? `${blockCount} section${blockCount === 1 ? "" : "s"} need a new assignment.` : "No sections to move."}</p>
-                  ${blockCount > 0 && otherSites.length > 0 ? `
-                    <label class="mt-2 block">
-                      <span class="text-xs font-semibold text-ink/72">Move sections to</span>
-                      <select name="modalLocationMoveTarget" class="mt-1 w-full rounded-[15px] border border-black/10 bg-white px-3.5 py-2 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                        ${otherSites.map((item) => `<option value="${escapeAttribute(item.id)}">${escapeHtml(item.name)}</option>`).join("")}
-                      </select>
-                    </label>` : ""}
-                  ${blockCount > 0 ? `<label class="mt-2 flex items-center gap-2 text-xs text-ink/70"><input name="modalLocationLeaveUnassigned" type="checkbox" class="h-4 w-4 accent-[#21473b]"><span>Leave sections unassigned</span></label>` : ""}
+                  <p class="mt-1 text-xs leading-5 text-ink/60">${blockCount > 0 ? `By default this will delete ${blockCount} section${blockCount === 1 ? "" : "s"} in this area.` : "No sections in this area."}</p>
+                  ${blockCount > 0 ? `<label class="mt-2 flex items-center gap-2 text-xs text-ink/70"><input name="modalLocationLeaveUnassigned" type="checkbox" class="h-4 w-4 accent-[#21473b]"><span>Keep sections and mark them as unassigned</span></label>` : ""}
                   <div class="mt-2 flex flex-wrap items-center gap-3"><label class="flex items-center gap-2 text-xs text-ink/70"><input name="modalLocationDeleteConfirm" type="checkbox" class="h-4 w-4 accent-[#21473b]"><span>Confirm deletion</span></label><button type="button" class="actionable rounded-xl border border-ember/20 bg-white px-3.5 py-2 text-sm font-semibold text-ember" data-modal-location-delete="${escapeAttribute(site.id)}">Delete</button></div>
                 `
                 : ""}
@@ -2362,7 +2359,7 @@
 
       managementModalState = { type: "block", siteId, zoneId };
       const nodeCount = (zone.batteryNodes || []).length || zone.sensorCount || 0;
-      const profileOptions = Object.entries(cropProfiles).map(([profileKey, profile]) => `<option value="${escapeAttribute(profileKey)}" ${zone.profile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>`).join("");
+      const profileOptions = getVisibleCropProfileEntries().map(([profileKey, profile]) => `<option value="${escapeAttribute(profileKey)}" ${zone.profile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>`).join("");
 
       elements.managementModalOverlay.innerHTML = `
         <div class="management-modal-backdrop" data-management-modal-close></div>
@@ -2435,13 +2432,14 @@
       if (isApiDataMode()) {
         if (!window.NeuroCropApi?.deleteArea) return setManagementModalError("Area deletion API is not available yet.");
         try {
-          await window.NeuroCropApi.deleteArea(siteId);
+          const keepSections = Boolean(elements.managementModalOverlay.querySelector('[name="modalLocationLeaveUnassigned"]')?.checked);
+          await window.NeuroCropApi.deleteArea(siteId, { keepSections });
           await hydrateDashboardFromApi();
           closeManagementModal();
           resetLocationForm();
           resetBlockForm();
           resetNodeForm();
-          setManagementNotice("locations", "Area deleted.");
+          setManagementNotice("locations", keepSections ? "Area deleted. Its sections were kept as unassigned." : "Area and its sections deleted.");
           renderDashboard();
         } catch (error) {
           setManagementModalError(error instanceof Error ? error.message : "The area could not be deleted.");
@@ -2582,6 +2580,8 @@
       `).join("");
       const sectionOptions = getNodeSectionOptions(site.id, zone.id);
       const nodeName = node.name && node.name !== node.id ? node.name : "";
+      const nodeFreshness = getNodeFreshness(node, zone);
+      const lastPayload = formatNodeLastPayload(node, nodeFreshness);
 
       elements.managementModalOverlay.innerHTML = `
         <div class="management-modal-backdrop" data-management-modal-close></div>
@@ -2595,10 +2595,11 @@
             <button type="button" class="management-modal-close actionable" data-management-modal-close aria-label="Close node settings"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
           </header>
           <div class="management-modal-body">
-            <div class="grid gap-3 sm:grid-cols-3">
+            <div class="grid gap-3 sm:grid-cols-4">
               <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Node ID</div><div class="mt-1 font-mono text-sm font-extrabold text-ink">${escapeHtml(node.id)}</div></div>
               <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Battery</div><div class="mt-1 text-xl font-extrabold ${node.level < criticalBatteryThreshold ? "text-ember" : "text-ink"}">${escapeHtml(node.level)}%</div></div>
               <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Status</div><div class="mt-1 text-sm font-extrabold ${node.active === false ? "text-amber" : "text-moss"}">${node.active === false ? "Inactive" : "Active"}</div></div>
+              <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Last payload</div><div class="mt-1 text-sm font-extrabold text-ink">${escapeHtml(lastPayload.relative)}</div><div class="mt-0.5 truncate text-[11px] font-semibold text-ink/50">${escapeHtml(lastPayload.absolute)}</div></div>
             </div>
 
             <section class="node-sensor-panel" data-node-sensors-panel>Checking detected sensors...</section>
@@ -2954,6 +2955,38 @@
       if (minutes < 60) return diagnosticText(`${minutes} min ago`, `prieš ${minutes} min.`);
       const hours = Math.round(minutes / 60);
       return diagnosticText(`${hours} h ago`, `prieš ${hours} val.`);
+    }
+
+    function formatNodeLastPayload(node, freshness = null) {
+      const rawTimestamp = node?.lastReceivedAt || node?.lastSeen || null;
+      if (!rawTimestamp) {
+        return {
+          relative: diagnosticText("No payload yet", "Payload dar negautas"),
+          absolute: diagnosticText("Waiting for first uplink", "Laukiama pirmo uplink")
+        };
+      }
+
+      const date = new Date(rawTimestamp);
+      if (Number.isNaN(date.getTime())) {
+        return {
+          relative: diagnosticText("Payload time unknown", "Payload laikas nežinomas"),
+          absolute: String(rawTimestamp)
+        };
+      }
+
+      return {
+        relative: Number.isFinite(freshness?.ageSec)
+          ? formatFreshnessAge(freshness.ageSec)
+          : diagnosticText("Payload received", "Payload gautas"),
+        absolute: new Intl.DateTimeFormat("lt-LT", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }).format(date)
+      };
     }
 
     function getZoneMetricFreshness(zone, metricKey, now = Date.now()) {
@@ -7188,7 +7221,7 @@
                         name="blockProfile"
                         class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"
                       >
-                        ${Object.entries(cropProfiles).map(([profileKey, profile]) => `
+                        ${getVisibleCropProfileEntries().map(([profileKey, profile]) => `
                           <option value="${escapeAttribute(profileKey)}" ${blockFormState.profile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>
                         `).join("")}
                       </select>
@@ -7335,6 +7368,7 @@
             const freshness = freshnessByNodeId.get(node.id) || { transportStatus: "offline", ageSec: null };
             const freshnessLabel = getFreshnessLabel(freshness.transportStatus);
             const freshnessAge = formatFreshnessAge(freshness.ageSec);
+            const lastPayload = formatNodeLastPayload(node, freshness);
             const health = getNodeHealthSummary(node, freshness);
             const sensors = getNodeDetectedSensorNames(node);
             const batteryText = Number.isFinite(node.level)
@@ -7354,6 +7388,7 @@
                   <span class="node-table-identity"><strong>${escapeHtml(nodeName)}</strong><small>${escapeHtml(site.name)} · ${escapeHtml(zone.name)} · ${escapeHtml(reportingMode)}</small></span>
                   <span class="node-table-signal"><i class="fa-solid fa-signal" aria-hidden="true"></i>${escapeHtml(freshnessLabel)} · ${escapeHtml(formatNodeSignal(node))}</span>
                   <span class="node-table-sensors">${escapeHtml(sensors.length ? sensors.join(", ") : "No sensors detected")}</span>
+                  <span class="node-table-payload"><i class="fa-solid fa-clock" aria-hidden="true"></i>Last payload · ${escapeHtml(lastPayload.relative)}</span>
                   <span class="management-chip node-freshness-chip" data-freshness="${escapeAttribute(freshness.transportStatus)}">
                     <i class="fa-solid ${freshness.transportStatus === "live" ? "fa-signal" : freshness.transportStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
                     ${escapeHtml(freshnessLabel)}
@@ -7372,6 +7407,7 @@
                   <div><span>Reporting mode</span><strong>${escapeHtml(`${reportingMode} · ${firmwareDetail}`)}</strong></div>
                   <div><span>Sensors</span><strong>${escapeHtml(compactTelemetry[1])}</strong></div>
                   <div><span>Connection</span><strong>${escapeHtml(compactTelemetry[0])}</strong></div>
+                  <div><span>Last payload</span><strong>${escapeHtml(`${lastPayload.absolute} · ${lastPayload.relative}`)}</strong></div>
                   <div><span>Health</span><strong>${escapeHtml(health.detail)}</strong></div>
                   <div class="node-table-detail-actions">
                   <button type="button" class="inline-action actionable" data-tone="primary" data-node-open-block-site-id="${escapeAttribute(site.id)}" data-node-open-block-zone-id="${escapeAttribute(zone.id)}">
