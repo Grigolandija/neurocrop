@@ -7857,10 +7857,10 @@
       `).join("");
       const settingsPanels = [
         { key: "profiles", icon: "fa-seedling", label: "Crop profiles", note: "Targets and growth stages", count: profileEntries.length },
-        { key: "alerts", icon: "fa-bell", label: "Alerts & notifications", note: "Escalation and delivery", count: activeAlertCount },
-        { key: "team", icon: "fa-users", label: "Team & access", note: "Workspace permissions", count: settingsState.team.length },
-        { key: "workspace", icon: "fa-building", label: "Workspace", note: "Identity, units and time", count: "" },
-        { key: "data", icon: "fa-database", label: "Data policy", note: "Retention and aggregation", count: "" }
+        { key: "alerts", icon: "fa-bell", label: "Alerts & notifications", note: "Local browser preferences", count: activeAlertCount },
+        { key: "team", icon: "fa-users", label: "Team & access", note: "Local browser list", count: settingsState.team.length },
+        { key: "workspace", icon: "fa-building", label: "Workspace", note: "Local display preferences", count: "" },
+        { key: "data", icon: "fa-database", label: "Data policy", note: "Backend policy reference", count: "" }
       ];
 
       const profilePanel = `
@@ -8042,7 +8042,7 @@
             <div>
               <span class="settings-panel-kicker">Settings</span>
               <h1>Workspace configuration</h1>
-              <p>Manage growth logic, operational alerts, people and account preferences.</p>
+              <p>Manage crop targets and review the operational preferences available in this workspace.</p>
             </div>
             <div class="settings-head-summary">
               <span><strong>${profileEntries.length}</strong> profiles</span>
@@ -8051,6 +8051,12 @@
             </div>
           </section>
           ${renderManagementNotice("settings")}
+          ${activeSettingsPanelKey !== "profiles" ? `
+            <div class="settings-local-notice" role="status">
+              <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+              <span>These settings are currently stored in this browser. Crop profiles are saved through the NeuroCrop API.</span>
+            </div>
+          ` : ""}
           <div class="settings-page-layout">
             <nav class="settings-section-nav" aria-label="Settings categories">
               ${settingsPanels.map((panel) => `

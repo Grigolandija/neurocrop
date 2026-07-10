@@ -19,10 +19,15 @@ assert(runtime.includes("if (!nextZone) {") && runtime.includes("renderDashboard
 assert(runtime.includes("if (isApiDataMode()) {") && runtime.includes("Never infer installed sensors"), "API mode must not fabricate per-node sensor readings");
 assert(runtime.includes("const warningColor = \"#d08a2d\""), "trend warning segments must use amber, not critical red");
 assert(runtime.includes("function renderRuntimeErrorState()"), "render failures must replace stale content with an explicit error state");
+assert(runtime.includes('role="alert"') && runtime.includes("data-dashboard-retry"), "runtime errors must be announced and offer a retry action");
+assert(runtime.includes("function renderEmptyAreaState(site)") && runtime.includes("empty-area-state"), "empty areas must render a neutral dedicated state");
 assert(runtime.includes('const filteredSites = blockSites.filter((site) => site.id === activeSiteId);'), "Sections must always follow the Area selected in the global header");
 assert(!runtime.includes('data-block-filter-select class='), "Sections must not expose a competing local Area filter");
 assert(runtime.includes("function rebuildEnhancedSelect(select)"), "Node Area changes must rebuild the visible Section selector");
 assert(runtime.includes('sectionSelect.disabled = targetZones.length === 0;'), "Node Section selector must reflect whether the selected Area has sections");
+assert(runtime.includes('aria-expanded="${String(isExpanded)}"') && runtime.includes('class="node-table-detail"'), "Nodes must expose compact expandable detail rows");
+assert(runtime.includes('class="crop-profile-metric-row"') && runtime.includes('data-profile-alert-limit="warning"'), "Crop profile targets must retain visible automatic alert boundaries");
+assert(runtime.includes('class="settings-local-notice"'), "non-API settings must be clearly identified as browser-local");
 assert(runtime.includes('snapshot?.overall?.source === "backend"') && runtime.includes("Number.isFinite(snapshot.overall.indexScore)"), "Area and Section selectors must display backend scores before local readings load");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
