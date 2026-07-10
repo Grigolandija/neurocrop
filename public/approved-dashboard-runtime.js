@@ -1501,15 +1501,25 @@
           || dashboardData.sites.find((site) => (site.zones || []).length > 0)
           || dashboardData.sites[0];
         const nextZone = (nextSite?.zones || []).find((zone) => zone.id === activeZoneId)
-          || nextSite?.zones?.[0];
-        if (!nextSite || !nextZone) return;
+          || nextSite?.zones?.[0]
+          || null;
+        if (!nextSite) return;
         activeSiteId = nextSite.id;
-        activeZoneId = nextZone.id;
+        activeZoneId = nextZone?.id || "";
         persistActiveContext();
         renderSiteOptions();
         renderZoneOptions();
-        await fetchLatestReadingsForAllZones({ renderOnComplete: false });
-        resetCurrentReadingsFromActiveZone();
+        if (!nextZone) {
+          currentReadings = {};
+          renderDashboard();
+          return;
+        }
+        const latestReadings = await fetchLatestReadingsForZone(nextZone.id, {
+          onlyActive: false,
+          renderOnComplete: false
+        });
+        currentReadings = latestReadings ? readingsFromApiObservations(latestReadings) : {};
+        manualOverride = false;
         renderDashboard();
       } catch (error) {
         console.warn("NeuroCrop API dashboard load failed.", error);
@@ -2862,7 +2872,8 @@
         };
       }
 
-      const source = zone?.observationStates?.[metricKey] || getDemoObservationState(zone, metricKey);
+      const source = zone?.observationStates?.[metricKey]
+        || (isApiDataMode() ? null : getDemoObservationState(zone, metricKey));
       const state = source?.state
         || (freshnessStatus === "offline"
           ? "offline"
@@ -2924,15 +2935,15 @@
 
     function getMetricSensorSource(metricKey) {
       const sources = {
-        airTemp: "SHT45 · air",
-        humidity: "SHT45 · air",
-        vpd: "Derived · SHT45",
-        co2: "I²C · SCD41",
-        lux: "I²C · light",
-        soilTemp: "DS18B20 · substrate",
-        waterTemp: "DS18B20 · water",
-        soilMoisture: "I²C · substrate",
-        airPressure: "I²C · air",
+        airTemp: "Air climate",
+        humidity: "Air climate",
+        vpd: "Calculated from air climate",
+        co2: "CO2 measurement",
+        lux: "Light measurement",
+        soilTemp: "Temperature probe",
+        waterTemp: "Temperature probe",
+        soilMoisture: "Substrate measurement",
+        airPressure: "Air measurement",
         batteryLevel: "Node battery"
       };
       return sources[metricKey] || "External sensor";
@@ -3009,6 +3020,22 @@
           max: Number.isFinite(Number(apiObservation.range?.max)) ? Number(apiObservation.range.max) : Math.max(...values),
           outsideCount: outsideReadings.length,
           localOutliers: medianResult.state === "optimal" ? outsideReadings : []
+        };
+      }
+
+      // In API mode the backend is the only source of per-node readings.
+      // Never infer installed sensors or fabricate values from a section median.
+      if (isApiDataMode()) {
+        return {
+          installedCount: 0,
+          reportingCount: 0,
+          readings: [],
+          medianValue: null,
+          medianResult: { value: null, state: "unavailable", severity: 0 },
+          min: null,
+          max: null,
+          outsideCount: 0,
+          localOutliers: []
         };
       }
 
@@ -3288,19 +3315,6 @@
         }
         return null;
       }
-    }
-
-    async function fetchLatestReadingsForAllZones(options = {}) {
-      if (!isApiDataMode()) return;
-      const zoneIds = dashboardData.sites
-        .flatMap((site) => site.zones || [])
-        .map((zone) => zone.id)
-        .filter(Boolean);
-      const uniqueZoneIds = [...new Set(zoneIds)];
-      await Promise.allSettled(uniqueZoneIds.map((zoneId) =>
-        fetchLatestReadingsForZone(zoneId, { onlyActive: false, renderOnComplete: false })
-      ));
-      if (options.renderOnComplete !== false) renderDashboard();
     }
 
     function getTrendHistoryCacheKey(sectionId, metricKey, rangeKey) {
@@ -8742,16 +8756,32 @@
     function deriveOverallState(results) {
       const activeResults = results.filter((item) => item.available !== false && isGrowthMetricKey(item.key));
       const evaluationByMetric = new Map(activeResults.map((item) => [item.key, item]));
-      const scoreGroups = [
+      const groupedMetricKeys = [
         ["climate", ["airTemp", "humidity", "vpd"]],
         ["co2", ["co2"]],
         ["root_temperature", ["soilTemp"]]
-      ].map(([id, metricKeys]) => {
+      ];
+      const scoreGroups = groupedMetricKeys.map(([id, metricKeys]) => {
         const members = metricKeys.map((key) => evaluationByMetric.get(key)).filter(Boolean);
         if (!members.length) return null;
         const driver = [...members].sort((left, right) => right.severity - left.severity)[0];
         return { id, severity: driver.severity, state: driver.state, mainDriver: driver.key, metrics: members };
       }).filter(Boolean);
+      const groupedKeys = new Set(groupedMetricKeys.flatMap(([, metricKeys]) => metricKeys));
+
+      // Every installed growth metric affects the fallback score. Climate stays
+      // grouped to avoid counting temperature, humidity and VPD three times.
+      activeResults
+        .filter((result) => !groupedKeys.has(result.key))
+        .forEach((result) => {
+          scoreGroups.push({
+            id: result.key,
+            severity: result.severity,
+            state: result.state,
+            mainDriver: result.key,
+            metrics: [result]
+          });
+        });
 
       if (!scoreGroups.length) {
         return { state: "unknown", warningCount: 0, criticalCount: 0, stableCount: 0, riskScore: 0, indexScore: null };
@@ -9535,20 +9565,21 @@
       const optimalRange = item.option.optimalRange || definition.optimal;
       const warningRange = definition.warning || optimalRange;
       const criticalColor = "#b13d32";
+      const warningColor = "#d08a2d";
 
       if (definition.behavior === "higherIsBetter") {
         return [
           { lt: warningRange[0], color: criticalColor },
-          { gte: warningRange[0], lt: optimalRange[0], color: criticalColor },
+          { gte: warningRange[0], lt: optimalRange[0], color: warningColor },
           { gte: optimalRange[0], color: optimalColor }
         ];
       }
 
       return [
         { lt: warningRange[0], color: criticalColor },
-        { gte: warningRange[0], lt: optimalRange[0], color: criticalColor },
+        { gte: warningRange[0], lt: optimalRange[0], color: warningColor },
         { gte: optimalRange[0], lte: optimalRange[1], color: optimalColor },
-        { gt: optimalRange[1], lte: warningRange[1], color: criticalColor },
+        { gt: optimalRange[1], lte: warningRange[1], color: warningColor },
         { gt: warningRange[1], color: criticalColor }
       ];
     }
@@ -13101,6 +13132,26 @@
       persistActiveContext();
     }
 
+    function renderRuntimeErrorState() {
+      elements.heroStatusPanel.hidden = true;
+      elements.metricsSection.hidden = true;
+      elements.sensorHealthSection.hidden = true;
+      elements.alertsSection.hidden = true;
+      elements.opsDockSection.hidden = true;
+      elements.detailedDiagnosticsSection.hidden = true;
+      elements.todayPriorityPanel.hidden = true;
+      elements.overviewTriageSection.hidden = false;
+      elements.overviewTriageSection.dataset.state = "neutral";
+      elements.overviewTriageSection.innerHTML = `
+        <section class="empty-area-state" role="alert">
+          <p class="triage-eyebrow">View unavailable</p>
+          <h2>This view could not be loaded</h2>
+          <p>The rest of the workspace remains available. Choose another page or refresh the browser to retry.</p>
+        </section>
+      `;
+      document.body.dataset.dashboardState = "neutral";
+    }
+
     function renderDashboard(options = {}) {
       try {
         renderDashboardUnsafe(options);
@@ -13109,6 +13160,7 @@
       } catch (error) {
         console.error("Dashboard render failed", error);
         document.body.dataset.dashboardError = "true";
+        renderRuntimeErrorState();
         let banner = document.querySelector('[data-runtime-render-error]');
         if (!banner) {
           banner = document.createElement("div");
@@ -13117,7 +13169,7 @@
           banner.className = "fixed inset-x-4 top-3 z-[200] mx-auto max-w-2xl rounded-xl border border-ember/25 bg-[#fff7f4] px-4 py-3 text-sm font-semibold text-ember shadow-lg";
           elements.dashboardShell.prepend(banner);
         }
-        banner.textContent = "This view could not refresh. Your last visible data is still available.";
+        banner.textContent = "This view could not be loaded. Choose another page or refresh to retry.";
       }
     }
 

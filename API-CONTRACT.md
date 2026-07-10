@@ -4,7 +4,7 @@ API adresas nustatomas `public/runtime-config.js`:
 
 ```js
 window.NEUROCROP_CONFIG = {
-  apiBaseUrl: "https://api.neurocrop.lt/api/v1"
+  apiBaseUrl: "https://api.neurocrop.lt"
 };
 ```
 
@@ -229,9 +229,11 @@ PATCH  /sections/:sectionId
 DELETE /sections/:sectionId
 
 GET    /nodes?sectionId=...
-POST   /nodes
-PATCH  /nodes/:nodeId
-DELETE /nodes/:nodeId
+POST   /nodes/register
+PATCH  /nodes/:devEui
+DELETE /nodes/:devEui
+GET    /nodes/:devEui/sensors
+PATCH  /nodes/:devEui/sensors/:port
 
 GET    /crop-profiles
 POST   /crop-profiles
@@ -403,20 +405,22 @@ duomenų pristatymo diagnostikai, o ne X ašies pozicijai.
 ## Measurement export
 
 ```text
-GET /exports/measurements.csv?sectionId=...&metrics=airTemp,humidity&from=...&to=...
+GET /exports/measurements.csv?sectionId=...&from=...&to=...
 ```
 
 Eksportas yra autentifikuotas ir apribotas aktyvia vartotojo organizacija.
 Jis grąžina ne Section vidurkį, o kiekvieno node neapdorotus matavimus CSV
-formatu. CSV stulpeliai:
+formatu. Nenurodžius `metrics`, eksportuojamos visos fiziškai aptiktos tos
+Section metrikos. CSV naudoja `;` skirtuką ir atskirus vietinio laiko datos bei
+laiko stulpelius, kad failas tiesiogiai atsidarytų Excel programoje:
 
 ```text
-section_id,section_name,observed_at,node_dev_eui,node_name,metric,unit,value
+Date;Time;Area;Section;Sensor;Air temperature (°C);Relative humidity (%);...
 ```
 
-`metrics` yra kableliais atskirtas palaikomų metric raktų sąrašas. MVP riboja
-vieną eksportą iki 31 dienos; didesniems laikotarpiams vėliau bus naudojami
-agreguoti arba asinchroniškai sugeneruoti eksportai.
+`metrics` pasirinktinai priima kableliais atskirtą metric raktų sąrašą. MVP
+riboja vieną eksportą iki 31 dienos; didesniems laikotarpiams vėliau bus
+naudojami agreguoti arba asinchroniškai sugeneruoti eksportai.
 
 ## Alerts
 
