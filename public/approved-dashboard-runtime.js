@@ -3497,7 +3497,8 @@
           sectionId,
           metric: metricKey,
           from: from.toISOString(),
-          to: to.toISOString()
+          to: to.toISOString(),
+          stepMinutes: rangeConfig.intervalMinutes
         });
         trendHistoryByKey[cacheKey] = response;
         trendHistoryStatusByKey[cacheKey] = { status: "ready", error: "", fetchedAt: Date.now() };
@@ -10354,8 +10355,19 @@
     }
 
     function getTrendAggregationLabel(response) {
-      if (response?.aggregation === "section_median_5m") {
-        return "Section median · 5 min intervals";
+      const stepMinutes = Number(response?.stepMinutes);
+      if (Number.isFinite(stepMinutes) && stepMinutes > 0) {
+        if (stepMinutes < 60) return `Section median · ${stepMinutes} min intervals`;
+        const stepHours = stepMinutes / 60;
+        return `Section median · ${Number.isInteger(stepHours) ? stepHours : stepHours.toFixed(1)}h intervals`;
+      }
+
+      const aggregationMatch = String(response?.aggregation || "").match(/^section_median_(\d+)m$/);
+      if (aggregationMatch) {
+        const minutes = Number(aggregationMatch[1]);
+        if (minutes < 60) return `Section median · ${minutes} min intervals`;
+        const hours = minutes / 60;
+        return `Section median · ${Number.isInteger(hours) ? hours : hours.toFixed(1)}h intervals`;
       }
       return "Real sensor readings";
     }
