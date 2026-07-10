@@ -488,6 +488,12 @@
       method: "POST",
       body: JSON.stringify(payload)
     }),
+    archivePlatformOrganization: (organizationId) => request(`/platform/organizations/${encodeURIComponent(organizationId)}/archive`, {
+      method: "PATCH"
+    }),
+    restorePlatformOrganization: (organizationId) => request(`/platform/organizations/${encodeURIComponent(organizationId)}/restore`, {
+      method: "PATCH"
+    }),
     getDashboard: () => request("/dashboard"),
     getCropProfiles: () => request("/crop-profiles"),
     getLatestReadings: (sectionId) => request(`/readings/latest${queryString({ sectionId })}`),
@@ -8165,8 +8171,11 @@
               ${platformOrganizationState.organizations.map((organization) => `
                 <div class="settings-team-row">
                   <span class="settings-member-avatar"><i class="fa-solid fa-building" aria-hidden="true"></i></span>
-                  <span class="settings-member-copy"><strong>${escapeHtml(organization.name)}</strong><small>${escapeHtml(organization.id)} · ${Number(organization.areaCount || 0)} areas · ${Number(organization.nodeCount || 0)} nodes</small></span>
+                  <span class="settings-member-copy"><strong>${escapeHtml(organization.name)}</strong><small>${escapeHtml(organization.id)} · ${escapeHtml(organization.status || "active")} · ${Number(organization.areaCount || 0)} areas · ${Number(organization.nodeCount || 0)} nodes</small></span>
                   <span class="settings-role-pill">${Number(organization.memberCount || 0)} users</span>
+                  ${organization.status === "archived"
+                    ? `<button type="button" class="settings-text-button" data-platform-restore="${escapeAttribute(organization.id)}">Restore</button>`
+                    : `<button type="button" class="settings-text-button" data-platform-archive="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}">Archive</button>`}
                 </div>
               `).join("") || `<div class="settings-policy-note"><div><strong>No customer organizations yet</strong><p>Create the first customer workspace above.</p></div></div>`}
             </div>
@@ -13959,6 +13968,37 @@
       if (refreshPlatformButton) {
         platformOrganizationState.status = "idle";
         await hydratePlatformOrganizations();
+        return;
+      }
+
+      const archivePlatformButton = event.target.closest("[data-platform-archive]");
+      if (archivePlatformButton) {
+        const organizationId = archivePlatformButton.dataset.platformArchive;
+        const organizationName = archivePlatformButton.dataset.platformName || organizationId;
+        if (!window.confirm(`Archive ${organizationName}? Users will lose access, but data will be kept.`)) return;
+        try {
+          await window.NeuroCropApi.archivePlatformOrganization(organizationId);
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `${organizationName} archived. Data was kept.`, "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "Customer organization could not be archived.", "warning");
+          renderDashboard();
+        }
+        return;
+      }
+
+      const restorePlatformButton = event.target.closest("[data-platform-restore]");
+      if (restorePlatformButton) {
+        try {
+          await window.NeuroCropApi.restorePlatformOrganization(restorePlatformButton.dataset.platformRestore);
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", "Customer organization restored.", "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "Customer organization could not be restored.", "warning");
+          renderDashboard();
+        }
         return;
       }
 
