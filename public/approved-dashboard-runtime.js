@@ -7533,21 +7533,21 @@
         }).join("");
 
       return `
-        <section class="profile-target-editor">
-          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <section class="profile-target-editor" aria-label="Profile target ranges">
+          <div class="profile-target-editor-bar">
             <div>
-              <p class="text-[9px] font-bold uppercase tracking-[0.16em] text-pine/56">Edit target ranges</p>
-              <h4 class="mt-0.5 text-base font-extrabold text-ink">${escapeHtml(profile.name)}</h4>
+              <p>Target configuration</p>
+              <span>Only the optimal interval is edited. NeuroCrop derives warning and critical limits automatically.</span>
             </div>
-            <span class="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-ink/58">${Object.keys(profile.metrics).filter(isGrowthMetricKey).length} growth metrics</span>
+            <span>${Object.keys(profile.metrics).filter(isGrowthMetricKey).length} active metrics</span>
           </div>
           <form class="profile-target-form" data-settings-form="crop-profile-editor" data-profile-key="${escapeAttribute(profileKey)}">
             <div class="profile-target-fields">
-              <label class="block"><span class="text-[11px] font-semibold text-ink/64">Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}" class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
-              <label class="block"><span class="text-[11px] font-semibold text-ink/64">Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
-              <label class="block"><span class="text-[11px] font-semibold text-ink/64">Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative" class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
+              <label><span>Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}"></label>
+              <label><span>Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}"></label>
+              <label><span>Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative"></label>
             </div>
-            <p class="profile-target-note">Set the optimal interval. Warning and critical limits update automatically from it.</p>
+            <p class="profile-target-note"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Changes are saved to this crop profile and immediately used for its assigned sections.</p>
             <div class="profile-target-table">
               <div class="min-w-[610px]">
                 <div class="profile-target-table-head">
@@ -7827,22 +7827,23 @@
       ];
 
       const profilePanel = `
-        <section class="settings-content-panel" aria-labelledby="settingsProfilesTitle">
-          <header class="settings-panel-head">
+        <section class="settings-program-studio" aria-labelledby="settingsProfilesTitle">
+          <header class="settings-program-studio-head">
             <div>
-              <span class="settings-panel-kicker">API crop programs</span>
+              <span class="settings-panel-kicker">Growth configuration</span>
               <h2 id="settingsProfilesTitle">Crop profiles</h2>
-              <p>Create, edit and delete crop programs. These target ranges are stored through the backend API and drive scores, alerts and trend target bands.</p>
+              <p>Each profile defines a crop's optimal environment. Those targets power the growing score, live readings, and trends for every assigned section.</p>
             </div>
-            <span class="settings-summary-pill">${profileEntries.length} profiles · ${totalSections} sections</span>
+            <div class="settings-program-studio-stats">
+              <span><b>${profileEntries.length}</b> profiles</span>
+              <span><b>${totalSections}</b> sections</span>
+              <span>API synced</span>
+            </div>
           </header>
 
           <div class="settings-profile-workspace">
             <aside class="settings-profile-list" aria-label="Crop profiles">
-              <div class="settings-profile-list-title">
-                <span>Crop profiles</span>
-                <small>API-backed</small>
-              </div>
+              <div class="settings-profile-list-title"><span>Programs</span><small>Workspace</small></div>
               ${profileEntries.map(([profileKey, profile]) => `
                 <button type="button" class="settings-profile-option" data-settings-profile-key="${escapeAttribute(profileKey)}" data-active="${String(activeSettingsProfileKey === profileKey)}">
                   <span class="settings-profile-option-copy">
@@ -7872,19 +7873,21 @@
             <article class="settings-active-profile">
               <div class="settings-active-profile-head">
                 <div>
-                  <span class="settings-panel-kicker">Selected crop profile</span>
+                  <span class="settings-panel-kicker">Editing profile</span>
                   <h3>${escapeHtml(activeSettingsProfile?.name || "No profile selected")}</h3>
                   <p>${escapeHtml(activeSettingsProfile?.hint || "Create a crop profile to define target ranges.")}</p>
                 </div>
                 <div class="settings-head-actions">
-                  ${activeSettingsProfileKey === "default" ? '<span class="settings-summary-pill">Default</span>' : ""}
-                  ${activeSettingsProfile?.requiresReview ? '<span class="settings-summary-pill" data-tone="warning">Targets need review</span>' : ""}
-                  <span class="settings-summary-pill">${metricCount} metrics</span>
-                  <span class="settings-summary-pill">${profileUsageCounts[activeSettingsProfileKey] || 0} sections</span>
                   <button type="button" class="settings-secondary-button" data-settings-profile-duplicate="${escapeAttribute(activeSettingsProfileKey)}">
                     <i class="fa-regular fa-copy" aria-hidden="true"></i> Duplicate
                   </button>
                 </div>
+              </div>
+              <div class="settings-profile-facts">
+                <span>${activeSettingsProfileKey === "default" ? "Default program" : "Custom program"}</span>
+                <span>${metricCount} monitored metrics</span>
+                <span>${profileUsageCounts[activeSettingsProfileKey] || 0} assigned sections</span>
+                ${activeSettingsProfile?.requiresReview ? '<span data-tone="warning">Review targets before use</span>' : '<span data-tone="optimal">Targets ready</span>'}
               </div>
               ${activeSettingsProfile ? renderCropProfileEditor(activeSettingsProfileKey, activeSettingsProfile) : ""}
             </article>
