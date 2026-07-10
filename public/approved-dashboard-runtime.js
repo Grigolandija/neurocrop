@@ -127,13 +127,31 @@
       ...site,
       zones: (Array.isArray(site.zones) ? site.zones : []).map((zone) => {
         const batteryNodes = (Array.isArray(zone.batteryNodes) ? zone.batteryNodes : [])
-          .map((node) => ({
-            id: sanitizeNodeId(node.id),
-            name: sanitizeNodeName(node.name) || sanitizeNodeId(node.id),
-            level: Math.max(0, Math.min(Number(node.level) || 0, 100)),
-            devEui: sanitizeDevEui(node.devEui),
-            active: node.active !== false
-          }))
+          .map((node) => {
+            const numericValue = (value) => value === null || value === undefined || value === "" ? NaN : Number(value);
+            const batteryLevel = numericValue(node.level);
+            const batteryMv = numericValue(node.batteryMv);
+            const rssi = numericValue(node.rssi);
+            const snr = numericValue(node.snr);
+            const spreadingFactor = numericValue(node.spreadingFactor);
+            return {
+              id: sanitizeNodeId(node.id),
+              name: sanitizeNodeName(node.name) || sanitizeNodeId(node.id),
+              level: Number.isFinite(batteryLevel) ? Math.max(0, Math.min(batteryLevel, 100)) : null,
+              devEui: sanitizeDevEui(node.devEui),
+              active: node.active !== false,
+              lastSeen: node.lastSeen || null,
+              batteryMv: Number.isFinite(batteryMv) ? batteryMv : null,
+              firmwareVersion: String(node.firmwareVersion || "").trim() || null,
+              profile: String(node.profile || "").trim() || null,
+              rssi: Number.isFinite(rssi) ? rssi : null,
+              snr: Number.isFinite(snr) ? snr : null,
+              spreadingFactor: Number.isFinite(spreadingFactor) ? spreadingFactor : null,
+              sensorPresence: node.sensorPresence && typeof node.sensorPresence === "object" ? node.sensorPresence : null,
+              errorFlags: node.errorFlags && typeof node.errorFlags === "object" ? node.errorFlags : null,
+              errorCounters: node.errorCounters && typeof node.errorCounters === "object" ? node.errorCounters : null
+            };
+          })
           .sort((left, right) => left.id.localeCompare(right.id));
         const availableMetrics = Array.isArray(zone.availableMetrics) ? zone.availableMetrics.slice() : [];
 
@@ -7052,6 +7070,32 @@
       `;
     }
 
+    function getNodeDetectedSensorNames(node) {
+      const presence = node?.sensorPresence || {};
+      const sensors = [];
+      if (presence.sht45) sensors.push("Temperature", "Humidity");
+      if (presence.scd41) sensors.push("CO2");
+      if (presence.bh1750) sensors.push("Light");
+      if (presence.ds18b20) sensors.push("Temperature probe");
+      return sensors;
+    }
+
+    function getNodeHealthSummary(node, freshness) {
+      const flags = node?.errorFlags || {};
+      const counters = node?.errorCounters || {};
+      const hasTransportFault = Boolean(flags.watchdog_reset || flags.last_tx_failed || flags.join_backoff || flags.boot_fault || flags.tx_timeout);
+      const hasRepeatedFault = Number(counters.read_fail || 0) >= 3 || Number(counters.tx_fail || 0) >= 3 || Number(counters.reinit || 0) >= 5;
+      if (freshness?.transportStatus === "offline") return { label: "Offline", tone: "critical" };
+      if (hasTransportFault || hasRepeatedFault) return { label: "Needs attention", tone: "warning" };
+      return { label: "Healthy", tone: "optimal" };
+    }
+
+    function formatNodeSignal(node) {
+      if (!Number.isFinite(node?.rssi) || !Number.isFinite(node?.snr)) return "Signal unavailable";
+      const sf = Number.isFinite(node.spreadingFactor) ? ` · SF${node.spreadingFactor}` : "";
+      return `${node.rssi} dBm · SNR ${node.snr}${sf}`;
+    }
+
     function renderNodesManagementPage() {
       const locations = dashboardData.sites.filter((site) => (site.zones || []).length > 0);
       const selectedLocation = locations.find((site) => site.id === nodeFormState.siteId) || locations[0] || null;
@@ -7101,20 +7145,31 @@
       const nodeRows = filteredNodes.length > 0
         ? filteredNodes.map(({ node, site, zone }) => {
             const definition = cropProfiles[zone.profile]?.metrics?.batteryLevel;
-            const state = definition ? getBatteryNodeState(node.level, definition) : "neutral";
-            const stateLabel = state === "neutral" ? "Unknown" : stateConfig[state].label;
+            const state = Number.isFinite(node.level) && definition ? getBatteryNodeState(node.level, definition) : "neutral";
             const nodeName = node.name && node.name !== node.id ? node.name : node.id;
             const devEuiNote = node.devEui ? `DevEUI ${node.devEui}` : "DevEUI not assigned";
             const freshness = freshnessByNodeId.get(node.id) || { transportStatus: "offline", ageSec: null };
             const freshnessLabel = getFreshnessLabel(freshness.transportStatus);
             const freshnessAge = formatFreshnessAge(freshness.ageSec);
+            const health = getNodeHealthSummary(node, freshness);
+            const sensors = getNodeDetectedSensorNames(node);
+            const batteryText = Number.isFinite(node.level)
+              ? `${freshness.transportStatus === "offline" ? "Last " : ""}${node.level}%`
+              : "Battery unknown";
+            const batteryDetail = Number.isFinite(node.batteryMv) ? `${(node.batteryMv / 1000).toFixed(2)} V` : "";
+            const firmwareDetail = node.firmwareVersion ? `Firmware ${node.firmwareVersion}` : "Firmware unknown";
+            const modeDetail = node.profile ? `${node.profile.replace(/_/g, " ")} reporting` : "Reporting mode unknown";
 
             return `
               <div class="management-list-row" data-state="${state === "neutral" ? "optimal" : state}" data-freshness="${escapeAttribute(freshness.transportStatus)}">
                 <div class="management-list-main">
                   <div class="management-list-title">${escapeHtml(nodeName)}</div>
                   <div class="management-list-meta">${escapeHtml(node.id)} · ${escapeHtml(site.name)} · ${escapeHtml(zone.name)}</div>
-                  <div class="management-list-note">${escapeHtml(devEuiNote)} · ${escapeHtml(freshnessLabel)} · ${escapeHtml(freshnessAge)}</div>
+                  <div class="management-list-note">${escapeHtml(devEuiNote)} · ${escapeHtml(firmwareDetail)} · ${escapeHtml(modeDetail)}</div>
+                  <div class="node-health-summary" aria-label="Node health details">
+                    <span><i class="fa-solid fa-signal" aria-hidden="true"></i>${escapeHtml(formatNodeSignal(node))}</span>
+                    <span><i class="fa-solid fa-microchip" aria-hidden="true"></i>${escapeHtml(sensors.length ? sensors.join(", ") : "No sensors detected")}</span>
+                  </div>
                 </div>
 
                 <div class="management-list-actions">
@@ -7122,12 +7177,12 @@
                     <i class="fa-solid ${freshness.transportStatus === "live" ? "fa-signal" : freshness.transportStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
                     ${escapeHtml(freshnessLabel)}
                   </span>
-                  <span class="management-chip" data-tone="${state === "neutral" ? "neutral" : state}">
-                    ${escapeHtml(stateLabel)}
+                  <span class="management-chip" data-tone="${health.tone}">
+                    ${escapeHtml(health.label)}
                   </span>
                   <span class="management-chip" data-tone="${state === "critical" ? "critical" : state === "warning" ? "warning" : "optimal"}">
                     <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
-                    ${freshness.transportStatus === "offline" ? `Last ${escapeHtml(node.level)}%` : `${escapeHtml(node.level)}%`}
+                    ${escapeHtml(batteryText)}${batteryDetail ? ` · ${escapeHtml(batteryDetail)}` : ""}
                   </span>
                   <button type="button" class="inline-action actionable" data-tone="primary" data-node-open-block-site-id="${escapeAttribute(site.id)}" data-node-open-block-zone-id="${escapeAttribute(zone.id)}">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>

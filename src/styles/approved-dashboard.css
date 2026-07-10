@@ -95,6 +95,27 @@
       color: rgba(20, 32, 27, 0.5);
     }
 
+    .node-health-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 0.9rem;
+      margin-top: 0.52rem;
+      color: rgba(20, 32, 27, 0.64);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .node-health-summary span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .node-health-summary i {
+      color: #2f6a4f;
+      font-size: 0.72rem;
+    }
+
     .management-list-actions {
       display: flex;
       align-items: center;
