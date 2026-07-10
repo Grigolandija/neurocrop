@@ -11201,6 +11201,28 @@
       background: linear-gradient(145deg, #5d6862, #7a8580);
     }
 
+    .empty-area-state {
+      border: 1px solid rgba(20, 32, 27, 0.12);
+      border-radius: 28px;
+      background: linear-gradient(145deg, #f2f3f1, #fafaf8);
+      padding: 2rem;
+    }
+
+    .empty-area-state h2 {
+      margin: 0.45rem 0 0;
+      color: #26312c;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(1.5rem, 3vw, 2.1rem);
+      font-weight: 750;
+    }
+
+    .empty-area-state p:not(.triage-eyebrow) {
+      max-width: 44rem;
+      margin: 0.65rem 0 1.25rem;
+      color: rgba(20, 32, 27, 0.64);
+      line-height: 1.6;
+    }
+
     .triage-score-card .triage-card-kicker {
       color: rgba(255, 255, 255, 0.70);
     }

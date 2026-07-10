@@ -3176,12 +3176,16 @@
         zones: (Array.isArray(site.zones) ? site.zones : []).map((zone) => {
           const batteryNodes = (Array.isArray(zone.batteryNodes) ? zone.batteryNodes : []).map((node) => {
             const id = String(node.id || node.name || node.devEui || "").trim();
+            const rawBatteryLevel = node.level ?? node.batteryPercent;
+            const batteryLevel = rawBatteryLevel === null || rawBatteryLevel === undefined || rawBatteryLevel === ""
+              ? null
+              : Number(rawBatteryLevel);
             return {
               ...node,
               id,
               name: String(node.name || id || node.devEui || "").trim(),
               devEui: String(node.devEui || "").trim(),
-              level: Math.max(0, Math.min(Number(node.level ?? node.batteryPercent ?? 0) || 0, 100)),
+              level: Number.isFinite(batteryLevel) ? Math.max(0, Math.min(batteryLevel, 100)) : null,
               active: node.active !== false
             };
           });
@@ -3193,7 +3197,11 @@
           const normalizedProfileKey = normalizeCropProfileKey(zone.profile);
           return {
             ...zone,
-            profile: cropProfiles[normalizedProfileKey] ? normalizedProfileKey : activeProfileKey,
+            profile: cropProfiles[normalizedProfileKey]
+              ? normalizedProfileKey
+              : cropProfiles.default
+                ? "default"
+                : Object.keys(cropProfiles)[0] || "default",
             batteryNodes,
             sensorCount: Number(zone.sensorCount) || batteryNodes.length,
             availableMetrics,
@@ -11827,6 +11835,67 @@
       `;
     }
 
+    function renderEmptyAreaState(site) {
+      activeViewScope = "site";
+      activeProfileKey = cropProfiles.default ? "default" : Object.keys(cropProfiles)[0] || "default";
+      renderSiteOptions();
+      renderZoneOptions();
+      updateSidebarActionState();
+
+      if (activePrimaryPage === "blocks") {
+        activeBlockFilterSiteId = site.id;
+        blockFormState = {
+          mode: "create",
+          siteId: site.id,
+          zoneId: "",
+          name: "",
+          profile: activeProfileKey,
+          sensorCount: "0"
+        };
+        elements.overviewTriageSection.hidden = true;
+        elements.heroStatusPanel.hidden = true;
+        elements.blocksManagementSection.hidden = false;
+        renderBlocksManagementPage([]);
+        return;
+      }
+
+      elements.siteContextValue.textContent = site.name;
+      elements.siteContextMeta.textContent = diagnosticText("No sections yet", "Sekcijų dar nėra");
+      elements.siteContextMeta.dataset.state = "neutral";
+      elements.zoneContextCard.dataset.disabled = "true";
+      elements.zoneTrigger.disabled = true;
+      elements.zoneTrigger.setAttribute("aria-disabled", "true");
+      elements.zoneContextValue.textContent = diagnosticText("No sections", "Nėra sekcijų");
+      elements.zoneContextMeta.textContent = diagnosticText("Create the first section to start monitoring.", "Sukurkite pirmą sekciją ir pradėkite stebėjimą.");
+      elements.zoneContextMeta.dataset.state = "neutral";
+      elements.profileContextValue.textContent = cropProfiles[activeProfileKey]?.name || "Default";
+      elements.profileContextMeta.textContent = diagnosticText("Ready to assign", "Paruoštas priskyrimui");
+
+      elements.heroStatusPanel.hidden = true;
+      elements.overviewTriageSection.hidden = false;
+      elements.overviewTriageSection.dataset.state = "neutral";
+      elements.overviewTriageSection.innerHTML = `
+        <section class="empty-area-state">
+          <p class="triage-eyebrow">Area ready</p>
+          <h2>${escapeHtml(site.name)} has no sections yet</h2>
+          <p>Create the first section, then register nodes and begin collecting live readings.</p>
+          <button type="button" class="inline-action actionable" data-empty-area-open-sections>
+            <i class="fa-solid fa-border-all" aria-hidden="true"></i>
+            Open sections
+          </button>
+        </section>
+      `;
+      elements.metricsSection.hidden = true;
+      elements.sensorHealthSection.hidden = true;
+      elements.alertsSection.hidden = true;
+      elements.opsDockSection.hidden = true;
+      elements.detailedDiagnosticsSection.hidden = true;
+      elements.todayPriorityPanel.hidden = true;
+      document.body.dataset.dashboardState = "neutral";
+      document.body.dataset.viewScope = "site";
+      document.body.dataset.primaryPage = "overview";
+    }
+
     function renderDashboardUnsafe(options = {}) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
@@ -11839,8 +11908,12 @@
       const isPrimaryWorkspacePage = isManagementPage || isHistoryPage || isReadingsPage;
       const site = getActiveSite();
       const zone = getActiveZone(site);
-      if (!site || !zone) return;
-      const profile = cropProfiles[activeProfileKey];
+      if (!site) return;
+      if (!zone) {
+        renderEmptyAreaState(site);
+        return;
+      }
+      const profile = cropProfiles[activeProfileKey] || cropProfiles[zone.profile] || getDefaultCropProfileTemplate();
       const isDetailedExperienceMode = isReadingsPage || isHistoryPage || isDetailedExperience();
       const isSimpleExperienceMode = !isDetailedExperienceMode;
       const isDetailedOverview = !isPrimaryWorkspacePage && isDetailedExperienceMode;
@@ -13113,6 +13186,23 @@
       closeContextMenus();
       renderZoneOptions();
       scheduleDashboardRender();
+    });
+
+    elements.overviewTriageSection.addEventListener("click", (event) => {
+      const openSections = event.target.closest("[data-empty-area-open-sections]");
+      if (!openSections) return;
+      activePrimaryPage = "blocks";
+      activeBlockFilterSiteId = activeSiteId;
+      blockFormState = {
+        mode: "create",
+        siteId: activeSiteId,
+        zoneId: "",
+        name: "",
+        profile: cropProfiles.default ? "default" : activeProfileKey,
+        sensorCount: "0"
+      };
+      renderEmptyAreaState(getActiveSite());
+      syncTopLevelRoute("/sections");
     });
 
     elements.locationsManagementSection.addEventListener("input", (event) => {
