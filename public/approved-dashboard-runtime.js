@@ -2184,6 +2184,15 @@
       return `${formatNumber(value, definition.decimals)} ${formatUnit(definition.unit)}`;
     }
 
+    function getTrendDecimalPlaces(definition, metricKey) {
+      if (["airTemp", "humidity"].includes(metricKey)) return Math.max(2, Number(definition.decimals) || 0);
+      return Number(definition.decimals) || 0;
+    }
+
+    function formatTrendValue(value, definition, metricKey) {
+      return `${formatNumber(value, getTrendDecimalPlaces(definition, metricKey))} ${formatUnit(definition.unit)}`;
+    }
+
     function formatRange(range, definition) {
       return `${formatValue(range[0], definition)} - ${formatValue(range[1], definition)}`;
     }
@@ -9954,7 +9963,7 @@
         : [];
 
       if (historyPoints.length > 0) {
-        const values = historyPoints.map((point) => roundValue(point.value, option.definition.decimals));
+        const values = historyPoints.map((point) => roundValue(point.value, getTrendDecimalPlaces(option.definition, option.key)));
         return {
           domain,
           optimalRange,
@@ -10231,8 +10240,8 @@
       }).join("");
     }
 
-    function formatTrendTickValue(value, definition) {
-      return formatNumber(value, definition.decimals);
+    function formatTrendTickValue(value, definition, metricKey) {
+      return formatNumber(value, getTrendDecimalPlaces(definition, metricKey));
     }
 
     function formatTrendTimeLabel(date, rangeKey) {
@@ -10568,7 +10577,7 @@
             fontSize: 12,
             fontWeight: 700,
             margin: 12,
-            formatter: (value) => formatTrendTickValue(value, definition)
+            formatter: (value) => formatTrendTickValue(value, definition, item.option.key)
           },
           nameTextStyle: {
             color,
@@ -10577,7 +10586,7 @@
           },
           axisPointer: {
             label: {
-              formatter: (params) => formatValue(params.value, definition)
+              formatter: (params) => formatTrendValue(params.value, definition, item.option.key)
             }
           },
           splitLine: {
@@ -10708,14 +10717,14 @@
                 name: "Minimum",
                 coord: data[minimumIndex],
                 value: minimumValue,
-                displayLabel: `MIN ${formatValue(minimumValue, definition)}`,
+                displayLabel: `MIN ${formatTrendValue(minimumValue, definition, item.option.key)}`,
                 label: { position: "bottom" }
               },
               {
                 name: "Maximum",
                 coord: data[maximumIndex],
                 value: maximumValue,
-                displayLabel: `MAX ${formatValue(maximumValue, definition)}`,
+                displayLabel: `MAX ${formatTrendValue(maximumValue, definition, item.option.key)}`,
                 label: { position: "top" }
               }
             ]
@@ -10837,7 +10846,7 @@
                       <span style="width:8px;height:8px;border-radius:50%;background:${colors[param.seriesIndex]};"></span>
                       ${escapeHtml(translateInterfaceText(item.option.label))}
                     </span>
-                    <strong>${escapeHtml(formatValue(rawValue, item.option.definition))}</strong>
+                    <strong>${escapeHtml(formatTrendValue(rawValue, item.option.definition, item.option.key))}</strong>
                   </div>
                 `;
               })
@@ -11162,11 +11171,11 @@
             : rangeStart + ((series.values.length === 1 ? 1 : index / (series.values.length - 1)) * rangeConfig.totalHours * 60 * 60 * 1000)
         ));
         return {
-          value: formatValue(value, selectedMetric.definition),
+          value: formatTrendValue(value, selectedMetric.definition, selectedMetric.key),
           time: timestamp,
           items: seriesItems.map((item) => ({
             label: item.option.label,
-            value: formatValue(item.series.values[index], item.option.definition)
+            value: formatTrendValue(item.series.values[index], item.option.definition, item.option.key)
           }))
         };
       });
@@ -11317,13 +11326,13 @@
             const rows = params.map((param) => {
               const source = comparisonSeries[param.seriesIndex];
               const rawValue = source?.rawValues?.[param.dataIndex];
-              return `${escapeHtml(param.seriesName)}: <strong>${escapeHtml(formatValue(rawValue, metricOption.definition))}</strong>`;
+              return `${escapeHtml(param.seriesName)}: <strong>${escapeHtml(formatTrendValue(rawValue, metricOption.definition, metricOption.key))}</strong>`;
             }).join("<br>");
             return `<strong>${escapeHtml(timestamp)}</strong><br>${rows}`;
           }
         },
         xAxis: { type: "time", axisLabel: { fontSize: 10 } },
-        yAxis: { type: "value", scale: true, axisLabel: { formatter: (value) => formatTrendTickValue(value, metricOption.definition), fontSize: 10 } },
+        yAxis: { type: "value", scale: true, axisLabel: { formatter: (value) => formatTrendTickValue(value, metricOption.definition, metricOption.key), fontSize: 10 } },
         series: comparisonSeries.map((item) => ({
           name: item.name,
           type: "line",
