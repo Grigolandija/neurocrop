@@ -594,10 +594,10 @@
       "Sign out": "Atsijungti",
       "Control Center": "Valdymo centras",
       "Overview": "Apžvalga",
-      "Areas": "Erdvės",
-      "Area": "Erdvė",
-      "Sections": "Sekcijos",
-      "Section": "Sekcija",
+      "Sites": "Vietos",
+      "Site": "Vieta",
+      "Zones": "Zonos",
+      "Zone": "Zona",
       "Nodes": "Mazgai",
       "Node": "Mazgas",
       "Alerts": "Perspėjimai",
@@ -635,7 +635,9 @@
       "Green section": "Žalia sekcija",
       "Red section": "Raudona sekcija",
       "Crop profile": "Kultūros profilis",
-      "Inherited from section": "Paveldėta iš sekcijos",
+      "Inherited from zone": "Paveldėta iš zonos",
+      "Select site": "Pasirinkite vietą",
+      "Zone and node count": "Zonų ir mazgų skaičius",
       "View": "Vaizdas",
       "Simple": "Paprastas",
       "Detailed": "Išsamus",
@@ -683,32 +685,40 @@
       "Acknowledge": "Patvirtinti",
       "Snooze": "Atidėti",
       "Resolve": "Išspręsti",
-      "Current locations": "Esamos erdvės",
-      "Current sections": "Esamos sekcijos",
+      "Current sites": "Esamos vietos",
+      "Current zones": "Esamos zonos",
       "Current nodes": "Esami mazgai",
-      "Filter by Area": "Filtruoti pagal erdvę",
-      "Filter by Section": "Filtruoti pagal sekciją",
-      "All Areas": "Visos erdvės",
-      "All Sections": "Visos sekcijos",
+      "Filter by Site": "Filtruoti pagal vietą",
+      "Filter by Zone": "Filtruoti pagal zoną",
+      "All Sites": "Visos vietos",
+      "All Zones": "Visos zonos",
       "No low-battery nodes in this view": "Šiame vaizde nėra mazgų su silpna baterija",
       "No nodes match these filters.": "Nė vienas mazgas neatitinka pasirinktų filtrų.",
-      "Choose another Area or Section to see its nodes.": "Pasirinkite kitą erdvę arba sekciją, kad pamatytumėte jos mazgus.",
-      "Current areas": "Esamos erdvės",
+      "Choose another Site or Zone to see its nodes.": "Pasirinkite kitą vietą arba zoną, kad pamatytumėte jos mazgus.",
       "Active alerts": "Aktyvūs perspėjimai",
       "Low battery": "Silpna baterija",
-      "Shown sections": "Rodomos sekcijos",
-      "Register area": "Registruoti erdvę",
-      "Register section": "Registruoti sekciją",
+      "Shown zones": "Rodomos zonos",
+      "Register site": "Registruoti vietą",
+      "Register zone": "Registruoti zoną",
       "Register node": "Registruoti mazgą",
-      "Create area": "Sukurti erdvę",
-      "Edit area": "Redaguoti erdvę",
-      "Save area": "Išsaugoti erdvę",
-      "Area name": "Erdvės pavadinimas",
-      "Create section": "Sukurti sekciją",
-      "Edit section": "Redaguoti sekciją",
-      "Save section": "Išsaugoti sekciją",
-      "Section name": "Sekcijos pavadinimas",
-      "Connect a sensor to a section": "Prijungti sensorių prie sekcijos",
+      "Create site": "Sukurti vietą",
+      "Edit site": "Redaguoti vietą",
+      "Save site": "Išsaugoti vietą",
+      "Site name": "Vietos pavadinimas",
+      "Create zone": "Sukurti zoną",
+      "Edit zone": "Redaguoti zoną",
+      "Save zone": "Išsaugoti zoną",
+      "Zone name": "Zonos pavadinimas",
+      "Connect a sensor to a zone": "Prijungti sensorių prie zonos",
+      "All sites are stable": "Visos vietos stabilios",
+      "Stable zones": "Stabilios zonos",
+      "Warning zones": "Įspėjimo zonos",
+      "Critical zones": "Kritinės zonos",
+      "Showing the most urgent zones across the full system.": "Rodomos svarbiausios zonos visoje sistemoje.",
+      "Change the site or zone when you want to inspect another place.": "Keiskite vietą arba zoną, kai norite peržiūrėti kitą objektą.",
+      "Zone average · target band and recent trend": "Zonos vidurkis · tikslinės ribos ir naujausia tendencija",
+      "Battery status by zone": "Baterijų būsena pagal zonas",
+      "Search actions, sites, zones, or pages": "Ieškokite veiksmų, vietų, zonų ar puslapių",
       "Setup needed": "Reikia paruošti",
       "Open": "Atidaryti",
       "Live": "Tiesiogiai",
@@ -1534,19 +1544,20 @@
       return normalized;
     }
 
-    function setLoginState(session) {
+    function setLoginState(session, options = {}) {
       const normalizedSession = normalizeLoginSession(session);
       const signedIn = Boolean(normalizedSession?.email);
       elements.loginScreen.hidden = signedIn;
       elements.dashboardShell.hidden = !signedIn;
       if (signedIn) {
         elements.headerAccountEmail.textContent = normalizedSession.email;
+        if (options.resetWorkspace === true) resetWorkspaceForNewLogin();
         if (!normalizedSession.isPlatformAdmin && activePrimaryPage === "admin") {
           activePrimaryPage = "overview";
           activeSettingsPanelKey = "profiles";
           syncTopLevelRoute("/", { replace: true });
         }
-        restoreActiveContextForSession(normalizedSession);
+        if (options.resetWorkspace !== true) restoreActiveContextForSession(normalizedSession);
         updateSidebarActionState();
         window.requestAnimationFrame(syncStickyOffsets);
         hydrateDashboardFromApi();
@@ -1570,6 +1581,10 @@
           return;
         }
         dashboardData = normalizeApiDashboardData(nextDashboardData);
+        if (selectPriorityContextAfterLogin) {
+          selectPriorityContextAfterLogin = false;
+          selectLowestScoreContext();
+        }
         const { site: nextSite, zone: nextZone } = normalizeActiveSelection();
         if (!nextSite) {
           currentReadings = {};
@@ -1590,6 +1605,7 @@
         });
         currentReadings = latestReadings ? readingsFromApiObservations(latestReadings) : {};
         manualOverride = false;
+        lastDashboardHydratedAt = Date.now();
         renderDashboard();
       } catch (error) {
         console.warn("NeuroCrop API dashboard load failed.", error);
@@ -1608,6 +1624,14 @@
       const livePage = ["overview", "readings", "history", "alerts"].includes(activePrimaryPage);
       const signedIn = Boolean(getLoginSession()?.email);
       if (document.hidden || !signedIn || !livePage || !isApiDataMode()) return;
+      hydrateDashboardFromApi({ preserveCurrentOnError: true });
+    }
+
+    function refreshDataForActivePage() {
+      const dataPage = ["overview", "readings", "history"].includes(activePrimaryPage);
+      const signedIn = Boolean(getLoginSession()?.email);
+      const isStale = Date.now() - lastDashboardHydratedAt >= dashboardRefreshTtlMs;
+      if (!dataPage || !signedIn || !isApiDataMode() || !isStale) return;
       hydrateDashboardFromApi({ preserveCurrentOnError: true });
     }
 
@@ -1685,7 +1709,7 @@
       resetTeamAccessState();
       resetPlatformOrganizationState();
       elements.loginError.hidden = true;
-      setLoginState(session);
+      setLoginState(session, { resetWorkspace: true });
       syncStickyOffsets();
     });
 
@@ -1740,6 +1764,23 @@
       const context = loadActiveContext(session);
       if (context.siteId) activeSiteId = context.siteId;
       if (context.zoneId) activeZoneId = context.zoneId;
+    }
+
+    function resetWorkspaceForNewLogin() {
+      activePrimaryPage = "overview";
+      activeViewScope = "zone";
+      activeSiteDetailView = "averages";
+      activeWorkspaceFocus = "all";
+      activeWorkbenchLensKey = "all";
+      activeSiteId = "";
+      activeZoneId = "";
+      currentReadings = {};
+      manualOverride = false;
+      latestReadingsBySectionId = {};
+      latestReadingsStatusBySectionId = {};
+      resetTrendSelectionForContextChange();
+      syncTopLevelRoute("/", { replace: true });
+      selectPriorityContextAfterLogin = true;
     }
 
     const savedActiveContext = loadActiveContext();
@@ -1798,6 +1839,9 @@
     let latestReadingsBySectionId = {};
     let latestReadingsStatusBySectionId = {};
     let dashboardHydrationInFlight = false;
+    let lastDashboardHydratedAt = 0;
+    const dashboardRefreshTtlMs = 30 * 1000;
+    let selectPriorityContextAfterLogin = false;
     let activeBlockFilterSiteId = "all";
     let activeNodeFilterSiteId = "all";
     let activeNodeFilterZoneId = "all";
@@ -2027,9 +2071,13 @@
         setExperienceMode("detailed", { render: false, force: true });
       }
 
-      if (pageAlreadyActive && activePrimaryPage !== "history" && activePrimaryPage !== "readings") return;
+      if (pageAlreadyActive && activePrimaryPage !== "history" && activePrimaryPage !== "readings") {
+        refreshDataForActivePage();
+        return;
+      }
 
       renderDashboard();
+      refreshDataForActivePage();
 
       const targetByPage = {
         overview: "heroStatusPanel",
@@ -2329,8 +2377,8 @@
       };
     }
 
-    // The Sections workspace follows the Area selected in the global header.
-    // Keeping a separate stale filter here made the page show another area's data.
+    // The Zones workspace follows the Site selected in the global header.
+    // Keeping a separate stale filter here made the page show another site's data.
     function syncBlocksManagementContext() {
       const site = getActiveSite();
       if (!site) return;
@@ -6658,6 +6706,35 @@
       return { site, zone };
     }
 
+    function selectLowestScoreContext() {
+      const snapshots = getContextMenuSnapshots();
+      const siteCandidates = dashboardData.sites
+        .filter((site) => Array.isArray(site.zones) && site.zones.length > 0)
+        .map((site) => {
+          const siteSnapshots = snapshots.filter((snapshot) => snapshot.site.id === site.id);
+          const score = deriveSiteOverallState(siteSnapshots).indexScore;
+          return { site, score: Number.isFinite(score) ? score : Number.POSITIVE_INFINITY, siteSnapshots };
+        })
+        .sort((left, right) => left.score - right.score || left.site.name.localeCompare(right.site.name));
+
+      const selectedSite = siteCandidates[0]?.site || null;
+      if (!selectedSite) {
+        activeSiteId = "";
+        activeZoneId = "";
+        return;
+      }
+
+      const selectedZone = [...siteCandidates[0].siteSnapshots]
+        .filter((snapshot) => Number.isFinite(snapshot.overall?.indexScore))
+        .sort((left, right) => left.overall.indexScore - right.overall.indexScore || left.zone.name.localeCompare(right.zone.name))[0]?.zone
+        || selectedSite.zones[0];
+
+      activeSiteId = selectedSite.id;
+      activeZoneId = selectedZone?.id || "";
+      activeProfileKey = selectedZone?.profile || activeProfileKey;
+      activeViewScope = "zone";
+    }
+
     function getActiveSite() {
       return normalizeActiveSelection().site;
     }
@@ -7096,14 +7173,14 @@
         elements.locationsManagementShell.innerHTML = `
           <div class="surface rounded-[34px] p-6 md:p-8">
             <form data-management-form="location" class="max-w-5xl">
-              <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Create area</p>
-              <h2 class="mt-2 font-display text-3xl font-bold text-ink">Create your first area</h2>
-              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">Start with one greenhouse, room, tunnel, or other larger operating area. Sections and nodes are added after this.</p>
+              <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Create site</p>
+              <h2 class="mt-2 font-display text-3xl font-bold text-ink">Create your first site</h2>
+              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">A site can be a farm, field, greenhouse, laboratory, or other monitored location. Zones and nodes are added after this.</p>
               <div class="mt-6 flex flex-col gap-3 md:flex-row">
                 <input name="locationName" value="${escapeAttribute(locationFormState.name)}" placeholder="Greenhouse No. 1" class="min-h-[58px] flex-1 rounded-[22px] border border-black/10 bg-white px-5 text-base font-semibold outline-none transition focus:border-pine/45 focus:ring-4 focus:ring-pine/10">
                 <button type="submit" class="inline-flex min-h-[58px] items-center justify-center rounded-[22px] bg-pine px-6 text-base font-bold text-white shadow-soft transition hover:-translate-y-0.5">
                   <i class="fa-solid fa-location-dot mr-2" aria-hidden="true"></i>
-                  Create area
+                  Create site
                 </button>
               </div>
             </form>
@@ -7208,11 +7285,11 @@
 
               <div class="flex flex-wrap gap-2.5 xl:max-w-[500px] xl:justify-end">
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Areas</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Sites</div>
                   <div class="mt-0.5 text-xl font-extrabold text-ink">${totalLocations}</div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Sections</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Zones</div>
                   <div class="mt-0.5 text-xl font-extrabold text-ink">${totalBlocks}</div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
@@ -7231,7 +7308,7 @@
             <form class="mt-4" data-management-form="location">
               <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                 <label class="block">
-                  <span class="text-sm font-semibold text-ink/72">Area name</span>
+                  <span class="text-sm font-semibold text-ink/72">Site name</span>
                   <input
                     type="text"
                     name="locationName"
@@ -7257,15 +7334,15 @@
             </form>
 
             <div class="mt-3 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
-              Sections are always created inside a saved area, so the next step after this card is the Sections page.
+              Zones are created inside a saved site, so the next step after this card is the Zones page.
             </div>
           </div>
 
           <div class="surface rounded-[34px] p-6 md:p-7">
             <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current areas</p>
-                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${totalLocations} area${totalLocations === 1 ? "" : "s"} connected</h3>
+                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current sites</p>
+                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${totalLocations} site${totalLocations === 1 ? "" : "s"} connected</h3>
               </div>
               <div class="text-sm leading-6 text-ink/58">${totalBlocks} blocks · ${totalNodes} nodes in structure</div>
             </div>
@@ -7308,15 +7385,15 @@
       const filteredNodeCount = blockEntries.reduce((sum, row) => sum + ((row.zone.batteryNodes || []).length || row.zone.sensorCount || 0), 0);
       const filteredAlertCount = blockEntries.filter((row) => row.snapshot?.overall.state !== "optimal").length;
       const filteredLowBatteryCount = blockEntries.reduce((sum, row) => sum + row.lowBatteryCount, 0);
-      const blockFormTitle = blockFormState.mode === "edit" ? "Edit section" : "Create section";
+      const blockFormTitle = blockFormState.mode === "edit" ? "Edit zone" : "Create zone";
       const blockFormSummary = blockFormState.mode === "edit"
-        ? "Rename, move, or reprofile the monitored block without changing the live structure around it."
-        : "Use one section for one monitored crop area inside an area.";
-      const blockFormButtonLabel = blockFormState.mode === "edit" ? "Save section" : "Create section";
+        ? "Rename, move, or reprofile the monitored zone without changing the live structure around it."
+        : "Use one zone for one monitored crop, field sector, laboratory setup, or growing block inside a site.";
+      const blockFormButtonLabel = blockFormState.mode === "edit" ? "Save zone" : "Create zone";
       const emptyState = filteredSites.length > 0
-        ? `No sections exist in ${filteredSites[0].name} yet.`
-        : "No sections exist yet.";
-      const activeFilterLabel = filteredSites[0]?.name || "Selected area";
+        ? `No zones exist in ${filteredSites[0].name} yet.`
+        : "No zones exist yet.";
+      const activeFilterLabel = filteredSites[0]?.name || "Selected site";
 
       const blockList = filteredBlockCount > 0
         ? blockEntries.map((row) => {
@@ -7383,18 +7460,18 @@
           <div class="surface rounded-[30px] p-5 md:p-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register section</p>
+                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register zone</p>
                 <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">${blockFormTitle}</h2>
                 <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">${blockFormSummary}</p>
               </div>
 
               <div class="flex flex-wrap gap-2.5 xl:max-w-[540px] xl:justify-end">
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Shown sections</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Shown zones</div>
                   <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredBlockCount}</div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Areas</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Sites</div>
                   <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredSites.length}</div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
@@ -7413,14 +7490,14 @@
             ${locationOptions.length === 0
               ? `
                 <div class="mt-4 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
-                  Create an area first. After that, this becomes the main card for registering new monitored sections.
+                  Create a site first. After that, this becomes the main card for registering monitored zones.
                 </div>
               `
               : `
                 <form class="mt-4 space-y-3" data-management-form="block">
                   <div class="grid gap-3 xl:grid-cols-4">
                     <label class="block xl:col-span-2">
-                      <span class="text-sm font-semibold text-ink/72">Section name</span>
+                      <span class="text-sm font-semibold text-ink/72">Zone name</span>
                       <input
                         type="text"
                         name="blockName"
@@ -7431,7 +7508,7 @@
                     </label>
 
                     <label class="block">
-                      <span class="text-sm font-semibold text-ink/72">Area</span>
+                      <span class="text-sm font-semibold text-ink/72">Site</span>
                       <select
                         name="blockSiteId"
                         class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"
@@ -7471,15 +7548,15 @@
               `}
 
             <div class="mt-3 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
-              Showing sections in <strong>${escapeHtml(activeFilterLabel)}</strong>. Change the Area in the global header to manage another area.
+              Showing zones in <strong>${escapeHtml(activeFilterLabel)}</strong>. Change the Site in the global header to manage another site.
             </div>
           </div>
 
           <div class="surface rounded-[34px] p-6 md:p-7">
             <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current sections</p>
-                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${filteredBlockCount} section${filteredBlockCount === 1 ? "" : "s"} in this view</h3>
+                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current zones</p>
+                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${filteredBlockCount} zone${filteredBlockCount === 1 ? "" : "s"} in this view</h3>
               </div>
               <div class="text-sm leading-6 text-ink/58">
                 ${filteredAlertCount > 0 ? `${filteredAlertCount} need attention` : "No active alerts"} · ${filteredLowBatteryCount} low-battery node${filteredLowBatteryCount === 1 ? "" : "s"}
@@ -7639,7 +7716,7 @@
                   <div class="node-table-detail-actions">
                   <button type="button" class="inline-action actionable" data-tone="primary" data-node-open-block-site-id="${escapeAttribute(site.id)}" data-node-open-block-zone-id="${escapeAttribute(zone.id)}">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
-                    Open section
+                    Open zone
                   </button>
                   <button type="button" class="inline-action actionable" data-node-edit-site-id="${escapeAttribute(site.id)}" data-node-edit-zone-id="${escapeAttribute(zone.id)}" data-node-edit-id="${escapeAttribute(node.id)}">
                     <i class="fa-solid fa-sliders" aria-hidden="true"></i>
@@ -7653,7 +7730,7 @@
         : `
             <div class="panel rounded-[30px] p-6">
               <h3 class="font-display text-2xl font-bold text-ink">${nodes.length > 0 ? "No nodes match these filters." : "No nodes registered yet."}</h3>
-              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">${nodes.length > 0 ? "Choose another Area or Section to see its nodes." : "Choose a section above, enter the sensor identifier, and register the first sensor node."}</p>
+              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">${nodes.length > 0 ? "Choose another Site or Zone to see its nodes." : "Choose a zone above, enter the sensor identifier, and register the first sensor node."}</p>
             </div>
           `;
 
@@ -7663,8 +7740,8 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
                 <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register node</p>
-                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">Connect a sensor to a section</h2>
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">Assign the node to its physical growing section. The generated node ID stays internal; the sensor identifier connects this record to incoming readings.</p>
+                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">Connect a sensor to a zone</h2>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">Assign the node to its monitored zone. The generated node ID stays internal; the sensor identifier connects this record to incoming readings.</p>
               </div>
 
               <div class="flex flex-wrap gap-2.5 xl:max-w-[540px] xl:justify-end">
@@ -7693,13 +7770,13 @@
               ? `
                 <form class="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.15fr)_auto] xl:items-end" data-management-form="node">
                   <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">Area</span>
+                    <span class="text-sm font-semibold text-ink/72">Site</span>
                     <select name="nodeSiteId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
                       ${locations.map((site) => `<option value="${escapeAttribute(site.id)}" ${nodeFormState.siteId === site.id ? "selected" : ""}>${escapeHtml(site.name)}</option>`).join("")}
                     </select>
                   </label>
                   <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">Section</span>
+                    <span class="text-sm font-semibold text-ink/72">Zone</span>
                     <select name="nodeZoneId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
                       ${selectedBlocks.map((zone) => `<option value="${escapeAttribute(zone.id)}" ${nodeFormState.zoneId === zone.id ? "selected" : ""}>${escapeHtml(zone.name)}</option>`).join("")}
                     </select>
@@ -7712,7 +7789,7 @@
                 </form>
               `
               : `
-                <div class="mt-4 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">Create an area and its first section before registering a node.</div>
+                <div class="mt-4 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">Create a site and its first zone before registering a node.</div>
               `}
           </div>
 
@@ -7725,16 +7802,16 @@
               </div>
               <div class="node-list-filters grid gap-2 sm:grid-cols-2">
                 <label class="block">
-                  <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Filter by Area</span>
+                  <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Filter by Site</span>
                   <select name="nodeFilterSiteId" class="mt-1 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                    <option value="all" ${activeNodeFilterSiteId === "all" ? "selected" : ""}>All Areas</option>
+                    <option value="all" ${activeNodeFilterSiteId === "all" ? "selected" : ""}>All Sites</option>
                     ${filterLocations.map((site) => `<option value="${escapeAttribute(site.id)}" ${activeNodeFilterSiteId === site.id ? "selected" : ""}>${escapeHtml(site.name)}</option>`).join("")}
                   </select>
                 </label>
                 <label class="block">
-                  <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Filter by Section</span>
+                  <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Filter by Zone</span>
                   <select name="nodeFilterZoneId" class="mt-1 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                    <option value="all" ${activeNodeFilterZoneId === "all" ? "selected" : ""}>All Sections</option>
+                    <option value="all" ${activeNodeFilterZoneId === "all" ? "selected" : ""}>All Zones</option>
                     ${filterZones.map(({ site, zone }) => `<option value="${escapeAttribute(zone.id)}" ${activeNodeFilterZoneId === zone.id ? "selected" : ""}>${escapeHtml(activeNodeFilterSiteId === "all" ? `${site.name} — ${zone.name}` : zone.name)}</option>`).join("")}
                   </select>
                 </label>
@@ -7765,7 +7842,7 @@
           const sections = site?.zones || [];
           sectionSelect.innerHTML = sections.length > 0
             ? sections.map((zone) => `<option value="${escapeAttribute(zone.id)}">${escapeHtml(zone.name)}</option>`).join("")
-            : `<option value="">No sections in this area</option>`;
+            : `<option value="">No zones in this site</option>`;
           sectionSelect.disabled = sections.length === 0;
           rebuildEnhancedSelect(sectionSelect);
         }
@@ -7781,7 +7858,7 @@
       const site = dashboardData.sites.find((item) => item.id === nodeFormState.siteId);
       const zone = (site?.zones || []).find((item) => item.id === nodeFormState.zoneId);
       if (!site || !zone) {
-        setManagementNotice("nodes", "Choose the area and section where this node is installed.", "warning");
+        setManagementNotice("nodes", "Choose the site and zone where this node is installed.", "warning");
         renderDashboard();
         return;
       }
@@ -9073,6 +9150,9 @@
             }
             delete settingsProfileEditorDrafts[profileKey];
             await hydrateCropProfilesFromApi();
+            // Scores are calculated by the backend from the saved profile ranges.
+            // Reload the canonical dashboard immediately instead of waiting for a page refresh.
+            await hydrateDashboardFromApi();
             profileSaveFeedback = {
               profileKey: activeSettingsProfileKey,
               profileName: name,
@@ -9095,6 +9175,7 @@
                 activeSettingsProfileKey = "default";
                 delete settingsProfileEditorDrafts[profileKey];
                 await hydrateCropProfilesFromApi();
+                await hydrateDashboardFromApi();
                 profileSaveFeedback = {
                   profileKey: "default",
                   profileName: name,

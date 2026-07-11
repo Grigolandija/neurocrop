@@ -4,7 +4,7 @@
         <div class="flex h-14 w-14 items-center justify-center rounded-3xl bg-white/12 text-xl text-[#f5c26b] ring-1 ring-white/16"><i class="fa-solid fa-seedling" aria-hidden="true"></i></div>
         <p class="mt-10 text-xs font-bold uppercase tracking-[0.30em] text-white/58">NeuroCrop</p>
         <h1 class="mt-3 max-w-sm font-display text-4xl font-bold leading-tight">Know what your crop needs next.</h1>
-        <p class="mt-5 max-w-sm text-sm leading-7 text-white/70">A single workspace for live growing conditions, section history, alerts, and sensor health.</p>
+        <p class="mt-5 max-w-sm text-sm leading-7 text-white/70">A single workspace for live growing conditions, zone history, alerts, and sensor health.</p>
         <div class="relative mt-12 flex items-center gap-3 text-sm font-semibold text-white/76"><span class="h-2.5 w-2.5 rounded-full bg-[#88c69f]"></span> Workspace access</div>
       </aside>
       <div class="login-form-panel">
@@ -101,13 +101,13 @@
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="sites" data-active="false">
             <span class="flex items-center gap-3">
               <i class="fa-solid fa-location-dot w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Areas</span>
+              <span class="text-[1.02rem]">Sites</span>
             </span>
           </button>
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="zones" data-active="false">
             <span class="flex items-center gap-3">
               <i class="fa-solid fa-border-all w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Sections</span>
+              <span class="text-[1.02rem]">Zones</span>
             </span>
           </button>
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="nodes" data-active="false">
@@ -241,7 +241,7 @@
             <div class="flex items-center justify-between gap-4" data-global-system-toggle>
               <div class="min-w-0">
                 <p class="text-xs uppercase tracking-[0.30em] text-pine/56">System-wide status</p>
-                <h3 id="globalSystemTitle" class="mt-1 font-display text-xl font-bold text-ink">All areas are stable</h3>
+                <h3 id="globalSystemTitle" class="mt-1 font-display text-xl font-bold text-ink">All sites are stable</h3>
                 <p id="globalSystemSummary" class="mt-1 text-sm leading-6 text-ink/64"></p>
               </div>
               <span id="globalSystemChip" class="state-chip shrink-0" data-state="optimal">Optimal</span>
@@ -252,15 +252,15 @@
 
               <div class="mt-5 grid gap-3 md:grid-cols-3">
                 <div class="panel rounded-[24px] p-4">
-                  <div class="text-sm text-ink/52">Stable sections</div>
+                  <div class="text-sm text-ink/52">Stable zones</div>
                   <div id="globalStableCount" class="mt-2 text-3xl font-extrabold text-moss">0</div>
                 </div>
                 <div class="panel rounded-[24px] p-4">
-                  <div class="text-sm text-ink/52">Warning sections</div>
+                  <div class="text-sm text-ink/52">Warning zones</div>
                   <div id="globalWarningCount" class="mt-2 text-3xl font-extrabold text-amber">0</div>
                 </div>
                 <div class="panel rounded-[24px] p-4">
-                  <div class="text-sm text-ink/52">Critical sections</div>
+                  <div class="text-sm text-ink/52">Critical zones</div>
                   <div id="globalCriticalCount" class="mt-2 text-3xl font-extrabold text-ember">0</div>
                 </div>
               </div>
@@ -269,7 +269,7 @@
                 <div class="alert-rail-toolbar">
                   <div>
                     <p class="text-xs uppercase tracking-[0.24em] text-ink/42">Alert rail</p>
-                    <p id="alertRailMeta" class="alert-rail-meta">Showing the most urgent sections across the full system.</p>
+                    <p id="alertRailMeta" class="alert-rail-meta">Showing the most urgent zones across the full system.</p>
                   </div>
                   <div id="alertRailFilters" class="alert-filter-strip" role="toolbar" aria-label="Alert rail filters"></div>
                 </div>
@@ -294,11 +294,11 @@
                     <div class="selection-panel-head">
                       <div>
                         <p class="selection-panel-kicker">Currently viewing</p>
-                        <p id="scopeHelperText" class="selection-panel-summary">Change the area or section when you want to inspect another place.</p>
+                        <p id="scopeHelperText" class="selection-panel-summary">Change the site or zone when you want to inspect another place.</p>
                       </div>
                       <div class="scope-toggle" role="tablist" aria-label="Growth index scope">
-                        <button id="zoneScopeButton" type="button" class="scope-toggle-button" data-scope="zone" data-active="true" aria-pressed="true">Section</button>
-                        <button id="siteScopeButton" type="button" class="scope-toggle-button" data-scope="site" data-active="false" aria-pressed="false">Area</button>
+                        <button id="zoneScopeButton" type="button" class="scope-toggle-button" data-scope="zone" data-active="true" aria-pressed="true">Zone</button>
+                        <button id="siteScopeButton" type="button" class="scope-toggle-button" data-scope="site" data-active="false" aria-pressed="false">Site</button>
                       </div>
                     </div>
 
@@ -309,9 +309,9 @@
                             <i class="fa-solid fa-location-dot"></i>
                           </div>
                           <div class="min-w-0">
-                            <div class="context-card-label">Area</div>
+                            <div class="context-card-label">Site</div>
                             <div id="siteContextValue" class="context-card-value">Greenhouse No. 1</div>
-                            <div id="siteContextMeta" class="context-card-meta">Select area</div>
+                            <div id="siteContextMeta" class="context-card-meta">Select site</div>
                           </div>
                         </div>
                         <i class="context-card-chevron fa-solid fa-chevron-down"></i>
@@ -324,9 +324,9 @@
                             <i class="fa-solid fa-border-all"></i>
                           </div>
                           <div class="min-w-0">
-                            <div class="context-card-label">Section</div>
+                            <div class="context-card-label">Zone</div>
                             <div id="zoneContextValue" class="context-card-value">Tomato Block A, Rear</div>
-                            <div id="zoneContextMeta" class="context-card-meta">Section and node count</div>
+                            <div id="zoneContextMeta" class="context-card-meta">Zone and node count</div>
                           </div>
                         </div>
                         <i class="context-card-chevron fa-solid fa-chevron-down"></i>
@@ -341,7 +341,7 @@
                           <div class="min-w-0">
                             <div class="context-card-label">Crop profile</div>
                             <div id="profileContextValue" class="context-card-value">Tomatoes, vegetative</div>
-                            <div id="profileContextMeta" class="context-card-meta">Inherited from section</div>
+                            <div id="profileContextMeta" class="context-card-meta">Inherited from zone</div>
                           </div>
                         </div>
                       </label>
@@ -688,7 +688,7 @@
               </div>
               <div class="trend-history-context-selects">
                 <div class="trend-history-context-field">
-                  <span class="trend-history-context-field-label">Area</span>
+                  <span class="trend-history-context-field-label">Site</span>
                   <div class="trend-history-score-select">
                     <button id="historyLocationTrigger" type="button" class="trend-history-score-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="historyLocationMenu">
                       <span id="historyLocationValue" class="trend-history-score-value">Greenhouse No. 1</span>
@@ -702,7 +702,7 @@
                   </div>
                 </div>
                 <div class="trend-history-context-field">
-                  <span class="trend-history-context-field-label">Section</span>
+                  <span class="trend-history-context-field-label">Zone</span>
                   <div class="trend-history-score-select">
                     <button id="historyBlockTrigger" type="button" class="trend-history-score-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="historyBlockMenu">
                       <span id="historyBlockValue" class="trend-history-score-value">Tomato Block A, Rear</span>
@@ -736,7 +736,7 @@
                 <div class="trend-history-chart-head">
                   <div>
                     <div id="trendHistoryMetricLabel" class="trend-history-metric-label">Relative humidity</div>
-                    <p id="trendHistoryMetricMeta" class="trend-history-metric-meta">Section average · target band and recent trend</p>
+                    <p id="trendHistoryMetricMeta" class="trend-history-metric-meta">Zone average · target band and recent trend</p>
                   </div>
                 </div>
                 <div id="trendHistoryReadout" class="trend-history-readout" aria-label="Automatic trend interpretation"></div>
@@ -756,7 +756,7 @@
             <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
                 <p class="text-xs uppercase tracking-[0.30em] text-pine/56">Sensor health</p>
-                <h3 id="sensorHealthTitle" class="mt-1.5 font-display text-2xl font-bold text-ink">Battery status by section</h3>
+                <h3 id="sensorHealthTitle" class="mt-1.5 font-display text-2xl font-bold text-ink">Battery status by zone</h3>
               </div>
               <div class="flex flex-wrap items-center gap-3">
                 <button id="sensorHealthActionButton" type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-ink/72">
@@ -784,7 +784,7 @@
           <div class="surface rounded-[34px] p-6 md:p-7">
             <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
-                <p id="zoneImpactKicker" class="text-xs uppercase tracking-[0.30em] text-pine/56">Sections</p>
+                <p id="zoneImpactKicker" class="text-xs uppercase tracking-[0.30em] text-pine/56">Zones</p>
                 <h3 id="zoneImpactTitle" class="mt-2 font-display text-2xl font-bold text-ink">Where to check first</h3>
               </div>
               <button id="zoneImpactActionButton" type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-ink/72">
@@ -824,7 +824,7 @@
     </button>
     <button type="button" class="mobile-dock-button" data-sidebar-action="zones" data-active="false">
       <i class="fa-solid fa-border-all" aria-hidden="true"></i>
-      <span>Sections</span>
+      <span>Zones</span>
     </button>
   </nav>
   <div id="commandPaletteOverlay" class="command-palette-overlay" hidden>
@@ -837,7 +837,7 @@
           <button type="button" class="command-palette-dismiss" data-command-dismiss>Esc</button>
         </div>
         <div class="command-palette-hint">
-          <p id="commandPaletteTitle" class="font-semibold text-ink">Search actions, areas, sections, or pages</p>
+          <p id="commandPaletteTitle" class="font-semibold text-ink">Search actions, sites, zones, or pages</p>
           <span>Use arrows to move, Enter to open</span>
         </div>
       </div>

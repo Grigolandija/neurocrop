@@ -8,6 +8,8 @@ await import(path.join(root, "public/neurocrop-state-engine.js"));
 const engine = globalThis.NeuroCropStateEngine;
 if (!engine) throw new Error("NeuroCropStateEngine did not initialize.");
 
+const runtime = await fs.readFile(path.join(root, "public/approved-dashboard-runtime.js"), "utf8");
+
 const fixturesDir = path.join(root, "tests/state-engine");
 const fixtureNames = (await fs.readdir(fixturesDir)).filter((name) => name.endsWith(".json")).sort();
 let failures = 0;
@@ -17,6 +19,16 @@ function assertEqual(actual, expected, message) {
   failures += 1;
   console.error(`FAIL ${message}: expected ${JSON.stringify(expected)}, received ${JSON.stringify(actual)}`);
 }
+
+function assertIncludes(source, expected, message) {
+  assertEqual(source.includes(expected), true, message);
+}
+
+// A fresh sign-in must not reopen a persisted Trends/Area context.
+assertIncludes(runtime, 'setLoginState(session, { resetWorkspace: true });', "login resets workspace");
+assertIncludes(runtime, 'activePrimaryPage = "overview";', "fresh login opens overview");
+assertIncludes(runtime, 'function selectLowestScoreContext()', "fresh login selects a priority context");
+assertIncludes(runtime, 'activeViewScope = "zone";', "fresh login uses a selected zone scope");
 
 for (const fixtureName of fixtureNames) {
   const fixture = JSON.parse(await fs.readFile(path.join(fixturesDir, fixtureName), "utf8"));

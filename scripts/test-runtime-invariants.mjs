@@ -35,8 +35,10 @@ assert(runtime.includes('aria-expanded="${String(isExpanded)}"') && runtime.incl
 assert(runtime.includes("function getNodeReportingModeLabel(profile)") && runtime.includes('power_save: "Power save"'), "Node reporting modes must be presented with clear labels");
 assert(runtime.includes("Sensor reinitialised ${counters.reinit} times") && runtime.includes('label: reasons[0]') && runtime.includes('<div><span>Health</span>'), "Node health status must show a concise primary reason and full diagnostics");
 assert(runtime.includes('class="crop-profile-metric-row"') && runtime.includes('data-profile-alert-limit="warning"'), "Crop profile targets must retain visible automatic alert boundaries");
+assert(runtime.includes("await hydrateDashboardFromApi();") && runtime.includes("Scores are calculated by the backend from the saved profile ranges."), "saving a crop profile must immediately refresh canonical backend scores");
 assert(runtime.includes('class="settings-local-notice"'), "non-API settings must be clearly identified as browser-local");
 assert(runtime.includes('snapshot?.overall?.source === "backend"') && runtime.includes("Number.isFinite(snapshot.overall.indexScore)"), "Area and Section selectors must display backend scores before local readings load");
+assert(runtime.includes("function refreshDataForActivePage()") && runtime.includes("const dashboardRefreshTtlMs = 30 * 1000;") && runtime.includes("refreshDataForActivePage();"), "data pages must refresh stale dashboard data on navigation without reloading every page");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
 
