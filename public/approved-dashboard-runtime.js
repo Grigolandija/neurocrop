@@ -1546,6 +1546,7 @@
           activeSettingsPanelKey = "profiles";
           syncTopLevelRoute("/", { replace: true });
         }
+        restoreActiveContextForSession(normalizedSession);
         updateSidebarActionState();
         window.requestAnimationFrame(syncStickyOffsets);
         hydrateDashboardFromApi();
@@ -1568,19 +1569,8 @@
           return;
         }
         dashboardData = normalizeApiDashboardData(nextDashboardData);
-        const siteWithSavedZone = dashboardData.sites.find((site) =>
-          (site.zones || []).some((zone) => zone.id === activeZoneId)
-        );
-        const nextSite = siteWithSavedZone
-          || dashboardData.sites.find((site) => site.id === activeSiteId)
-          || dashboardData.sites.find((site) => (site.zones || []).length > 0)
-          || dashboardData.sites[0];
-        const nextZone = (nextSite?.zones || []).find((zone) => zone.id === activeZoneId)
-          || nextSite?.zones?.[0]
-          || null;
+        const { site: nextSite, zone: nextZone } = normalizeActiveSelection();
         if (!nextSite) return;
-        activeSiteId = nextSite.id;
-        activeZoneId = nextZone?.id || "";
         persistActiveContext();
         renderSiteOptions();
         renderZoneOptions();
@@ -1695,27 +1685,55 @@
 
     const activeContextStorageKey = "neurocrop-active-context-v1";
 
-    function loadActiveContext() {
+    function getActiveContextScopeKey(session = getLoginSession()) {
+      if (session?.organizationId) return `org:${session.organizationId}`;
+      if (session?.email) return `user:${session.email}`;
+      return "anonymous";
+    }
+
+    function readActiveContextStore() {
       try {
-        const stored = JSON.parse(window.localStorage.getItem(activeContextStorageKey) || "null");
-        return {
-          siteId: typeof stored?.siteId === "string" ? stored.siteId : "",
-          zoneId: typeof stored?.zoneId === "string" ? stored.zoneId : ""
-        };
+        return JSON.parse(window.localStorage.getItem(activeContextStorageKey) || "null") || {};
       } catch {
-        return { siteId: "", zoneId: "" };
+        return {};
       }
+    }
+
+    function loadActiveContext(session = getLoginSession()) {
+      const stored = readActiveContextStore();
+      const scopeKey = getActiveContextScopeKey(session);
+      const scoped = stored?.contexts?.[scopeKey];
+      const legacy = stored && !stored.contexts ? stored : null;
+      const context = scoped || legacy || {};
+      return {
+        siteId: typeof context?.siteId === "string" ? context.siteId : "",
+        zoneId: typeof context?.zoneId === "string" ? context.zoneId : ""
+      };
     }
 
     function persistActiveContext() {
       try {
-        window.localStorage.setItem(activeContextStorageKey, JSON.stringify({
+        const stored = readActiveContextStore();
+        const scopeKey = getActiveContextScopeKey();
+        const contexts = stored.contexts && typeof stored.contexts === "object" ? stored.contexts : {};
+        contexts[scopeKey] = {
           siteId: activeSiteId,
           zoneId: activeZoneId
+        };
+        window.localStorage.setItem(activeContextStorageKey, JSON.stringify({
+          version: 2,
+          lastScopeKey: scopeKey,
+          contexts
         }));
       } catch {
         // Context persistence is optional when browser storage is unavailable.
       }
+    }
+
+    function restoreActiveContextForSession(session = getLoginSession()) {
+      const context = loadActiveContext(session);
+      if (context.siteId) activeSiteId = context.siteId;
+      if (context.zoneId) activeZoneId = context.zoneId;
     }
 
     const savedActiveContext = loadActiveContext();
@@ -6584,14 +6602,50 @@
       return results;
     }
 
+    function normalizeActiveSelection(options = {}) {
+      const { preferCurrentZone = true } = options;
+      const sites = Array.isArray(dashboardData.sites) ? dashboardData.sites : [];
+      if (sites.length === 0) {
+        activeSiteId = "";
+        activeZoneId = "";
+        return { site: null, zone: null };
+      }
+
+      const siteContainingActiveZone = preferCurrentZone && activeZoneId
+        ? sites.find((site) => (site.zones || []).some((zone) => zone.id === activeZoneId))
+        : null;
+      const selectedSite = sites.find((site) => site.id === activeSiteId) || null;
+      const fallbackSite = sites.find((site) => (site.zones || []).length > 0) || sites[0] || null;
+      const site = siteContainingActiveZone || selectedSite || fallbackSite;
+
+      if (!site) {
+        activeSiteId = "";
+        activeZoneId = "";
+        return { site: null, zone: null };
+      }
+
+      activeSiteId = site.id;
+      const zones = Array.isArray(site.zones) ? site.zones : [];
+      if (zones.length === 0) {
+        activeZoneId = "";
+        return { site, zone: null };
+      }
+
+      const zone = zones.find((item) => item.id === activeZoneId) || zones[0];
+      activeZoneId = zone.id;
+      return { site, zone };
+    }
+
     function getActiveSite() {
-      return dashboardData.sites.find((site) => site.id === activeSiteId) || dashboardData.sites[0] || null;
+      return normalizeActiveSelection().site;
     }
 
     function getActiveZone(site = getActiveSite()) {
       if (!site || !Array.isArray(site.zones) || site.zones.length === 0) return null;
 
-      return site.zones.find((zone) => zone.id === activeZoneId) || site.zones[0];
+      const zone = site.zones.find((item) => item.id === activeZoneId) || site.zones[0];
+      activeZoneId = zone.id;
+      return zone;
     }
 
     function resetCurrentReadingsFromActiveZone() {
@@ -6877,7 +6931,7 @@
     }
 
     function renderSiteOptions(snapshots = null) {
-      getActiveSite();
+      normalizeActiveSelection();
       const contextSnapshots = snapshots || getContextMenuSnapshots();
 
       elements.siteMenu.innerHTML = dashboardData.sites.map((site) => {
@@ -6901,15 +6955,11 @@
     }
 
     function renderZoneOptions(snapshots = null) {
-      const site = getActiveSite();
+      const { site } = normalizeActiveSelection();
       if (!site || !Array.isArray(site.zones) || site.zones.length === 0) {
         activeZoneId = "";
         elements.zoneMenu.innerHTML = "";
         return;
-      }
-
-      if (!site.zones.some((zone) => zone.id === activeZoneId)) {
-        activeZoneId = site.zones[0].id;
       }
 
       const contextSnapshots = snapshots || getContextMenuSnapshots();
@@ -9554,7 +9604,7 @@
       return growthResults
         .map((result) => ({
           key: result.key,
-          available: result.available !== false,
+          available: result.available !== false || (isApiDataMode() && (zone.availableMetrics || []).includes(result.key)),
           definition: profile.metrics[result.key],
           optimalRange: profile.metrics[result.key].optimal,
           value: result.value,
@@ -9562,10 +9612,14 @@
           tone: result.state,
           label: profile.metrics[result.key].label,
           meta: result.available === false
-            ? "Sensor not installed in this block"
+            ? (isApiDataMode() && (zone.availableMetrics || []).includes(result.key)
+              ? "Waiting for latest reading"
+              : "Sensor not installed in this block")
             : profile.metrics[result.key].aggregation || "Block avg",
           summary: result.available === false
-            ? `${profile.metrics[result.key].label} is not installed in this block, so there is no history to show yet.`
+            ? (isApiDataMode() && (zone.availableMetrics || []).includes(result.key)
+              ? `${profile.metrics[result.key].label} has history available, but the latest reading is still loading.`
+              : `${profile.metrics[result.key].label} is not installed in this block, so there is no history to show yet.`)
             : result.state === "optimal"
             ? `${profile.metrics[result.key].label} is inside the target band right now.`
             : `${result.deviationText} right now, so use history to see whether this is getting worse or already recovering.`,
@@ -9611,6 +9665,12 @@
       activeTrendMetricKey = nonOptimalOption.key;
       activeTrendMetricKeys = [nonOptimalOption.key];
       return [nonOptimalOption];
+    }
+
+    function resetTrendSelectionForContextChange() {
+      activeTrendMetricKey = "";
+      activeTrendMetricKeys = [];
+      currentTrendHistoryPoints = [];
     }
 
     function getTrendToneColor(state) {
@@ -13931,6 +13991,8 @@
       if (!option) return;
       sidebarActionOverride = null;
       activeSiteId = option.dataset.siteId;
+      normalizeActiveSelection({ preferCurrentZone: false });
+      resetTrendSelectionForContextChange();
       if (activePrimaryPage === "blocks") syncBlocksManagementContext();
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
@@ -13944,6 +14006,8 @@
       if (!option) return;
       sidebarActionOverride = null;
       activeZoneId = option.dataset.zoneId;
+      normalizeActiveSelection();
+      resetTrendSelectionForContextChange();
       if (activePrimaryPage === "blocks") syncBlocksManagementContext();
       resetCurrentReadingsFromActiveZone();
       closeContextMenus();
@@ -15164,8 +15228,8 @@
       activeSiteId = nextSite.id;
       activeZoneId = nextZone.id;
       activeViewScope = "zone";
-      activeTrendMetricKey = "";
-      activeTrendMetricKeys = [];
+      normalizeActiveSelection({ preferCurrentZone: false });
+      resetTrendSelectionForContextChange();
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
       renderDashboard();
@@ -15178,8 +15242,8 @@
       if (!nextZone) return;
       activeZoneId = nextZone.id;
       activeViewScope = "zone";
-      activeTrendMetricKey = "";
-      activeTrendMetricKeys = [];
+      normalizeActiveSelection();
+      resetTrendSelectionForContextChange();
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
       renderDashboard();
