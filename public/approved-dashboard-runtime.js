@@ -497,6 +497,14 @@
     deletePlatformOrganization: (organizationId) => request(`/platform/organizations/${encodeURIComponent(organizationId)}?confirm=delete`, {
       method: "DELETE"
     }),
+    getPlatformUsers: () => request("/platform/users"),
+    getOrganizationRequests: (status = "pending") => request(`/platform/organization-requests${queryString({ status })}`),
+    approveOrganizationRequest: (requestId) => request(`/platform/organization-requests/${encodeURIComponent(requestId)}/approve`, {
+      method: "POST"
+    }),
+    rejectOrganizationRequest: (requestId) => request(`/platform/organization-requests/${encodeURIComponent(requestId)}/reject`, {
+      method: "POST"
+    }),
     getPlatformAdmins: () => request("/platform/admins"),
     grantPlatformAdmin: (payload) => request("/platform/admins", {
       method: "POST",
@@ -1802,6 +1810,8 @@
     let platformOrganizationState = {
       organizations: [],
       admins: [],
+      users: [],
+      organizationRequests: [],
       status: "idle",
       error: "",
       latestInviteUrl: "",
@@ -1825,6 +1835,8 @@
       platformOrganizationState = {
         organizations: [],
         admins: [],
+        users: [],
+        organizationRequests: [],
         status: "idle",
         error: "",
         latestInviteUrl: "",
@@ -1865,12 +1877,16 @@
       platformOrganizationState.error = "";
       renderDashboard();
       try {
-        const [response, adminResponse] = await Promise.all([
+        const [response, adminResponse, userResponse, requestResponse] = await Promise.all([
           window.NeuroCropApi.getPlatformOrganizations(),
-          window.NeuroCropApi.getPlatformAdmins()
+          window.NeuroCropApi.getPlatformAdmins(),
+          window.NeuroCropApi.getPlatformUsers(),
+          window.NeuroCropApi.getOrganizationRequests("pending")
         ]);
         platformOrganizationState.organizations = Array.isArray(response?.organizations) ? response.organizations : [];
         platformOrganizationState.admins = Array.isArray(adminResponse?.admins) ? adminResponse.admins : [];
+        platformOrganizationState.users = Array.isArray(userResponse?.users) ? userResponse.users : [];
+        platformOrganizationState.organizationRequests = Array.isArray(requestResponse?.requests) ? requestResponse.requests : [];
         platformOrganizationState.status = "ready";
       } catch (error) {
         platformOrganizationState.status = "error";
@@ -8239,6 +8255,20 @@
           ${platformOrganizationState.status === "loading" ? `<div class="settings-policy-note"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i><div><strong>Loading organizations</strong><p>Retrieving customer workspaces.</p></div></div>` : ""}
           ${platformOrganizationState.status === "error" ? `<div class="settings-policy-note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><div><strong>Organizations could not be loaded</strong><p>${escapeHtml(platformOrganizationState.error)}</p><button type="button" class="settings-text-button mt-2" data-platform-refresh>Retry</button></div></div>` : ""}
           ${platformOrganizationState.status === "ready" ? `
+            <div class="settings-form-card">
+              <div class="settings-form-title"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i><div><h3>Organization requests</h3><p>People who registered themselves and are waiting for NeuroCrop approval.</p></div></div>
+              <div class="settings-team-list mt-4">
+                ${platformOrganizationState.organizationRequests.map((request) => `
+                  <div class="settings-team-row">
+                    <span class="settings-member-avatar"><i class="fa-solid fa-user-clock" aria-hidden="true"></i></span>
+                    <span class="settings-member-copy"><strong>${escapeHtml(request.organizationName)}</strong><small>${escapeHtml(request.userEmail)} · ${escapeHtml(request.userName || "New user")} · requested ${escapeHtml(request.createdAt ? new Date(request.createdAt).toLocaleString("lt-LT", { dateStyle: "medium", timeStyle: "short" }) : "recently")}</small></span>
+                    <span class="settings-role-pill">${escapeHtml(request.status)}</span>
+                    <button type="button" class="settings-text-button" data-platform-request-approve="${escapeAttribute(request.id)}" data-platform-request-name="${escapeAttribute(request.organizationName)}">Approve</button>
+                    <button type="button" class="settings-text-button text-red-700" data-platform-request-reject="${escapeAttribute(request.id)}" data-platform-request-name="${escapeAttribute(request.organizationName)}">Reject</button>
+                  </div>
+                `).join("") || `<div class="settings-policy-note"><div><strong>No pending requests</strong><p>New self-registered customers will appear here before they get workspace access.</p></div></div>`}
+              </div>
+            </div>
             <form class="settings-form-card" data-settings-form="platform-organization">
               <div class="settings-form-title"><i class="fa-solid fa-building-circle-check" aria-hidden="true"></i><div><h3>New customer</h3><p>The owner receives an email invitation and sets their own password.</p></div></div>
               <div class="settings-add-member-fields">
@@ -8277,6 +8307,18 @@
                   <button type="button" class="settings-text-button" data-platform-admin-revoke="${escapeAttribute(admin.id)}" data-platform-admin-email="${escapeAttribute(admin.email)}" ${admin.id === currentSession?.id ? "disabled" : ""}>Revoke</button>
                 </div>
               `).join("") || `<div class="settings-policy-note"><div><strong>No platform admins loaded</strong><p>Refresh this panel if the list looks empty.</p></div></div>`}
+            </div>
+            <div class="settings-form-card mt-6">
+              <div class="settings-form-title"><i class="fa-solid fa-users-gear" aria-hidden="true"></i><div><h3>All users</h3><p>Use this list to see who already has an account and whether they are attached to an organization.</p></div></div>
+              <div class="settings-team-list mt-4">
+                ${platformOrganizationState.users.map((user) => `
+                  <div class="settings-team-row">
+                    <span class="settings-member-avatar"><i class="fa-solid ${user.isPlatformAdmin ? "fa-user-shield" : "fa-user"}" aria-hidden="true"></i></span>
+                    <span class="settings-member-copy"><strong>${escapeHtml(user.name || user.email)}</strong><small>${escapeHtml(user.email)} · ${Number(user.organizationCount || 0)} organizations · ${Number(user.pendingRequestCount || 0)} pending requests</small></span>
+                    <span class="settings-role-pill">${user.isPlatformAdmin ? "Platform admin" : (user.active === false ? "Inactive" : "User")}</span>
+                  </div>
+                `).join("") || `<div class="settings-policy-note"><div><strong>No users loaded</strong><p>Refresh this panel if the list looks empty.</p></div></div>`}
+              </div>
             </div>
           ` : ""}
         </section>
@@ -14201,6 +14243,40 @@
           await hydratePlatformOrganizations();
         } catch (error) {
           setManagementNotice("settings", error?.message || "Customer organization could not be deleted.", "warning");
+          renderDashboard();
+        }
+        return;
+      }
+
+      const approveRequestButton = event.target.closest("[data-platform-request-approve]");
+      if (approveRequestButton) {
+        const requestId = approveRequestButton.dataset.platformRequestApprove;
+        const requestName = approveRequestButton.dataset.platformRequestName || "this organization";
+        if (!window.confirm(`Approve ${requestName} and create a customer workspace?`)) return;
+        try {
+          await window.NeuroCropApi.approveOrganizationRequest(requestId);
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `${requestName} approved and created.`, "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "Organization request could not be approved.", "warning");
+          renderDashboard();
+        }
+        return;
+      }
+
+      const rejectRequestButton = event.target.closest("[data-platform-request-reject]");
+      if (rejectRequestButton) {
+        const requestId = rejectRequestButton.dataset.platformRequestReject;
+        const requestName = rejectRequestButton.dataset.platformRequestName || "this organization";
+        if (!window.confirm(`Reject ${requestName}? The user account will remain, but no workspace will be created.`)) return;
+        try {
+          await window.NeuroCropApi.rejectOrganizationRequest(requestId);
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `${requestName} request rejected.`, "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "Organization request could not be rejected.", "warning");
           renderDashboard();
         }
         return;
