@@ -1990,6 +1990,7 @@
       closeContextMenus();
 
       if (activePrimaryPage === "history" || activePrimaryPage === "readings") {
+        activeViewScope = "zone";
         activeWorkspaceFocus = "all";
         if (activePrimaryPage === "readings") activeWorkbenchLensKey = "all";
         setExperienceMode("detailed", { render: false, force: true });
@@ -4355,6 +4356,7 @@
         case "readings":
           activePrimaryPage = "readings";
           sidebarActionOverride = null;
+          activeViewScope = "zone";
           activeWorkspaceFocus = "all";
           activeWorkbenchLensKey = "all";
           setExperienceMode("detailed", { render: false });
@@ -4366,6 +4368,7 @@
         case "history":
           activePrimaryPage = "history";
           sidebarActionOverride = null;
+          activeViewScope = "zone";
           activeWorkspaceFocus = "all";
           setExperienceMode("detailed", { render: false, force: true });
           closeContextMenus();
@@ -10884,6 +10887,7 @@
       }
       activePrimaryPage = "history";
       sidebarActionOverride = null;
+      activeViewScope = "zone";
       activeWorkspaceFocus = "all";
       setExperienceMode("detailed");
       renderDashboard();
