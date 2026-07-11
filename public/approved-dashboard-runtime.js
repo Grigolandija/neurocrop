@@ -7962,7 +7962,8 @@
             </aside>
           </div>
           <footer class="crop-profile-save-bar">
-            <div><strong data-profile-save-state>${diagnosticText("All changes saved", "Visi pakeitimai išsaugoti")}</strong><span>${diagnosticText("Targets are stored in the workspace and used for scoring.", "Ribos saugomos darbo erdvėje ir naudojamos auginimo įverčiui.")}</span>${saveFeedback ? `<p class="crop-profile-save-feedback" data-tone="${escapeAttribute(saveFeedback.tone)}" role="status">${escapeHtml(getProfileSaveFeedbackText(saveFeedback))}</p>` : ""}</div>
+            <div><strong data-profile-save-state>${diagnosticText("All changes saved", "Visi pakeitimai išsaugoti")}</strong><span>${diagnosticText("Targets are stored in the workspace and used for scoring.", "Ribos saugomos darbo erdvėje ir naudojamos auginimo įverčiui.")}</span></div>
+            <div class="crop-profile-save-feedback-slot">${saveFeedback ? `<p class="crop-profile-save-feedback" data-tone="${escapeAttribute(saveFeedback.tone)}" role="status">${escapeHtml(getProfileSaveFeedbackText(saveFeedback))}</p>` : ""}</div>
             <div class="crop-profile-save-actions">
               <div><button type="button" class="crop-profile-discard-button" data-settings-profile-discard="${escapeAttribute(profileKey)}" disabled>Discard changes</button><button type="submit" class="settings-primary-button" data-profile-save disabled>Save changes</button></div>
             </div>
