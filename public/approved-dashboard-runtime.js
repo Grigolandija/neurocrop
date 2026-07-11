@@ -680,6 +680,9 @@
       "Left axis + right axis": "Kairė ir dešinė ašys",
       "Tooltip shows both real values": "Užvedus rodomos abi tikros reikšmės",
       "Time": "Laikas",
+      "Detail": "Detalė",
+      "Target context": "Tikslo kontekstas",
+      "away": "iki tikslo",
       "Active": "Aktyvūs",
       "Acknowledged": "Patvirtinti",
       "Snoozed": "Atidėti",
@@ -1470,6 +1473,7 @@
       historyBlockMenu: document.getElementById("historyBlockMenu"),
       trendMetricBar: document.getElementById("trendMetricBar"),
       trendPresentationBar: document.getElementById("trendPresentationBar"),
+      trendScaleBar: document.getElementById("trendScaleBar"),
       trendRangeBar: document.getElementById("trendRangeBar"),
       trendHistoryMetricLabel: document.getElementById("trendHistoryMetricLabel"),
       trendHistoryMetricMeta: document.getElementById("trendHistoryMetricMeta"),
@@ -1833,6 +1837,7 @@
     let activeTrendMetricKeys = [];
     let activeTrendRangeKey = "24h";
     let activeTrendPresentation = "smoothed";
+    let activeTrendScaleMode = "detail";
     let expandedLiveMetricKey = "";
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
@@ -10157,6 +10162,21 @@
       `).join("");
     }
 
+    function renderTrendScaleButtons(activeKey) {
+      return [
+        ["detail", translateInterfaceText("Detail")],
+        ["target", translateInterfaceText("Target context")]
+      ].map(([key, label]) => `
+        <button
+          type="button"
+          class="trend-history-scale-button"
+          data-trend-scale="${key}"
+          data-active="${String(key === activeKey)}"
+          aria-pressed="${String(key === activeKey)}"
+        >${escapeHtml(label)}</button>
+      `).join("");
+    }
+
     function formatTrendDuration(totalHours) {
       const minutes = Math.max(1, Math.round(totalHours * 60));
       if (minutes < 60) return `${minutes} min`;
@@ -10468,7 +10488,7 @@
       return ["#356b53", "#af7b2c", "#3d6f8f", "#8b5d7a", "#a05444", "#5b6f3d"][index % 6];
     }
 
-    function getTrendAxisDomain(values, definition, optimalRange) {
+    function getTrendAxisDomain(values, definition, optimalRange, scaleMode = activeTrendScaleMode) {
       const dataValues = values.map(Number).filter(Number.isFinite);
       if (!dataValues.length) return optimalRange;
 
@@ -10479,6 +10499,15 @@
       // Keep a readable scale even when a sensor has reported the same value all day.
       const minimumSpan = Math.max(precisionStep * 4, Math.max(Math.abs(dataMin), Math.abs(dataMax), 1) * 0.02);
       const dataSpan = Math.max(dataMax - dataMin, minimumSpan);
+
+      if (scaleMode === "target") {
+        const contextMin = Math.min(dataMin, ...optimalRange.map(Number).filter(Number.isFinite));
+        const contextMax = Math.max(dataMax, ...optimalRange.map(Number).filter(Number.isFinite));
+        const contextSpan = Math.max(contextMax - contextMin, dataSpan);
+        const contextPadding = Math.max(contextSpan * 0.08, precisionStep * 2);
+        return [contextMin - contextPadding, contextMax + contextPadding];
+      }
+
       const nearDataPadding = dataSpan * 0.18;
       let axisMin = dataMin - nearDataPadding;
       let axisMax = dataMax + nearDataPadding;
@@ -10622,6 +10651,11 @@
         const displayValues = displayValuesByItem.get(item);
         const axisDomain = getTrendAxisDomain(displayValues, definition, optimalRange);
         const isTargetVisible = (value) => value >= axisDomain[0] && value <= axisDomain[1];
+        const visibleTargetMin = Math.max(Number(optimalRange[0]), axisDomain[0]);
+        const visibleTargetMax = Math.min(Number(optimalRange[1]), axisDomain[1]);
+        const hasVisibleTargetBand = visibleTargetMin < visibleTargetMax;
+        const targetIsBelowView = Number(optimalRange[1]) < axisDomain[0];
+        const targetIsAboveView = Number(optimalRange[0]) > axisDomain[1];
         const isSmoothedView = activeTrendPresentation === "smoothed" && shouldSmoothTrendMetric(item.option.key);
         const data = displayValues.map((value, pointIndex) => [
           item.series.timestamps?.[pointIndex] ?? rangeStart,
@@ -10635,8 +10669,21 @@
         const maximumValue = Math.max(...displayValues);
         const minimumIndex = displayValues.indexOf(minimumValue);
         const maximumIndex = displayValues.indexOf(maximumValue);
+        const extremaPosition = (pointIndex, fallback) => {
+          if (pointIndex <= 1) return "right";
+          if (pointIndex >= displayValues.length - 2) return "left";
+          return fallback;
+        };
         const extremaLabelColor = colorWithAlpha(color, 0.94);
         const extremaBackground = "rgba(255, 255, 255, 0.94)";
+        const targetGap = targetIsBelowView
+          ? Math.max(0, minimumValue - Number(optimalRange[1]))
+          : targetIsAboveView
+            ? Math.max(0, Number(optimalRange[0]) - maximumValue)
+            : 0;
+        const offscreenTargetLabel = targetIsBelowView || targetIsAboveView
+          ? `${translateInterfaceText("Target")} ${formatValue(optimalRange[0], definition)}–${formatValue(optimalRange[1], definition)} ${targetIsBelowView ? "↓" : "↑"} · ${formatTrendValue(targetGap, definition, item.option.key)} ${translateInterfaceText("away")}`
+          : "";
 
         const seriesOption = {
           name: translateInterfaceText(item.option.label),
@@ -10701,6 +10748,15 @@
                 name: targetMinLabel,
                 yAxis: optimalRange[0],
                 label: { formatter: targetMinLabel }
+              },
+              offscreenTargetLabel && {
+                name: offscreenTargetLabel,
+                yAxis: targetIsBelowView ? axisDomain[0] : axisDomain[1],
+                lineStyle: { type: "dotted", opacity: 0.48 },
+                label: {
+                  formatter: offscreenTargetLabel,
+                  position: targetIsBelowView ? "insideStartBottom" : "insideStartTop"
+                }
               }
             ].filter(Boolean)
           },
@@ -10734,20 +10790,20 @@
                 coord: data[minimumIndex],
                 value: minimumValue,
                 displayLabel: `MIN ${formatTrendValue(minimumValue, definition, item.option.key)}`,
-                label: { position: "bottom" }
+                label: { position: extremaPosition(minimumIndex, "bottom") }
               },
               {
                 name: "Maximum",
                 coord: data[maximumIndex],
                 value: maximumValue,
                 displayLabel: `MAX ${formatTrendValue(maximumValue, definition, item.option.key)}`,
-                label: { position: "top" }
+                label: { position: extremaPosition(maximumIndex, "top") }
               }
             ]
           }
         };
 
-        if (isTargetVisible(optimalRange[0]) && isTargetVisible(optimalRange[1])) {
+        if (hasVisibleTargetBand) {
           const targetBandLayer = targetBandLayerBySeries.get(index) || 0;
           seriesOption.markArea = {
             silent: true,
@@ -10760,10 +10816,10 @@
             },
             data: [[
               {
-                yAxis: optimalRange[0]
+                yAxis: visibleTargetMin
               },
               {
-                yAxis: optimalRange[1]
+                yAxis: visibleTargetMax
               }
             ]]
           };
@@ -10791,7 +10847,7 @@
           label: { description: ariaLabel }
         },
         color: colors,
-        visualMap: trendValueVisualMaps,
+        visualMap: isMultiMetric ? [] : trendValueVisualMaps,
         grid: {
           top: 34,
           right: isMultiMetric ? 88 : 36,
@@ -14309,6 +14365,7 @@
         elements.trendMetricBar.innerHTML = trendHistoryState.metricButtons;
         const presentationMetricKey = trendHistoryState.chartState?.seriesItems?.[0]?.option?.key || "";
         elements.trendPresentationBar.innerHTML = renderTrendPresentationButtons(activeTrendPresentation, presentationMetricKey);
+        elements.trendScaleBar.innerHTML = renderTrendScaleButtons(activeTrendScaleMode);
         elements.trendRangeBar.innerHTML = trendHistoryState.rangeButtons;
         elements.trendHistoryMetricLabel.textContent = trendHistoryState.metricLabel;
         elements.trendHistoryMetricMeta.textContent = trendHistoryState.metricMeta;
@@ -15755,6 +15812,15 @@
       const nextPresentation = button.dataset.trendPresentation;
       if (!['raw', 'smoothed'].includes(nextPresentation) || nextPresentation === activeTrendPresentation) return;
       activeTrendPresentation = nextPresentation;
+      renderDashboard();
+    });
+
+    elements.trendScaleBar.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-trend-scale]");
+      if (!button) return;
+      const nextScaleMode = button.dataset.trendScale;
+      if (!["detail", "target"].includes(nextScaleMode) || nextScaleMode === activeTrendScaleMode) return;
+      activeTrendScaleMode = nextScaleMode;
       renderDashboard();
     });
 

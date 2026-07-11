@@ -8318,6 +8318,7 @@
 
     .trend-history-metric-strip,
     .trend-history-presentation-strip,
+    .trend-history-scale-strip,
     .trend-history-range-strip {
       display: flex;
       flex-wrap: wrap;
@@ -8326,6 +8327,7 @@
 
     .trend-history-metric-button,
     .trend-history-presentation-button,
+    .trend-history-scale-button,
     .trend-history-range-button {
       display: inline-flex;
       align-items: center;
@@ -8345,6 +8347,8 @@
     .trend-history-metric-button:focus-visible,
     .trend-history-presentation-button:hover,
     .trend-history-presentation-button:focus-visible,
+    .trend-history-scale-button:hover,
+    .trend-history-scale-button:focus-visible,
     .trend-history-range-button:hover,
     .trend-history-range-button:focus-visible {
       transform: translateY(-1px);
@@ -8357,6 +8361,7 @@
 
     .trend-history-metric-button[data-active="true"],
     .trend-history-presentation-button[data-active="true"],
+    .trend-history-scale-button[data-active="true"],
     .trend-history-range-button[data-active="true"] {
       border-color: transparent;
       background: linear-gradient(135deg, var(--designer-accent), #20382f);
@@ -13376,7 +13381,9 @@
 
     body[data-primary-page="history"] .trend-history-controls {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
+      justify-content: flex-end;
       gap: 8px;
     }
 
@@ -13385,8 +13392,16 @@
       gap: 4px;
     }
 
+    body[data-primary-page="history"] .trend-history-scale-strip {
+      display: flex;
+      gap: 4px;
+      padding-left: 8px;
+      border-left: 1px solid rgba(20, 32, 27, 0.08);
+    }
+
     body[data-primary-page="history"] .trend-history-metric-button,
     body[data-primary-page="history"] .trend-history-presentation-button,
+    body[data-primary-page="history"] .trend-history-scale-button,
     body[data-primary-page="history"] .trend-history-range-button {
       min-height: 30px;
       padding: 6px 9px;
@@ -13397,6 +13412,7 @@
 
     body[data-primary-page="history"] .trend-history-metric-button[data-active="true"],
     body[data-primary-page="history"] .trend-history-presentation-button[data-active="true"],
+    body[data-primary-page="history"] .trend-history-scale-button[data-active="true"],
     body[data-primary-page="history"] .trend-history-range-button[data-active="true"] {
       box-shadow: 0 6px 14px rgba(24, 33, 29, 0.11);
     }
