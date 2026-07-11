@@ -8583,86 +8583,126 @@
         </section>
       `;
 
+      const formatAdminDate = (value) => value
+        ? new Date(value).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" })
+        : "—";
       const platformPanel = `
-        <section class="settings-content-panel" aria-labelledby="settingsPlatformTitle">
-          <header class="settings-panel-head">
-            <div>
-              <span class="settings-panel-kicker">Platform</span>
-              <h2 id="settingsPlatformTitle">Customer organizations</h2>
-              <p>Create a customer workspace and send the first owner invitation.</p>
-            </div>
-            <span class="settings-summary-pill">${platformOrganizationState.organizations.length} organizations</span>
-          </header>
-          ${platformOrganizationState.status === "loading" ? `<div class="settings-policy-note"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i><div><strong>Loading organizations</strong><p>Retrieving customer workspaces.</p></div></div>` : ""}
-          ${platformOrganizationState.status === "error" ? `<div class="settings-policy-note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><div><strong>Organizations could not be loaded</strong><p>${escapeHtml(platformOrganizationState.error)}</p><button type="button" class="settings-text-button mt-2" data-platform-refresh>Retry</button></div></div>` : ""}
+        <div class="admin-console" aria-labelledby="adminConsoleTitle">
+          <div class="admin-console-toolbar">
+            <form class="admin-inline-form" data-settings-form="platform-organization">
+              <label><span>Organization name</span><input name="customerOrganizationName" placeholder="Company or institution" required></label>
+              <label><span>Owner email</span><input name="customerOwnerEmail" type="email" placeholder="owner@example.com" required></label>
+              <button type="submit" class="admin-button admin-button-primary">Create organization</button>
+            </form>
+            <button type="button" class="admin-button" data-platform-refresh>Refresh data</button>
+          </div>
+
+          ${platformOrganizationState.status === "loading" ? `<p class="admin-status" role="status">Loading administration data…</p>` : ""}
+          ${platformOrganizationState.status === "error" ? `<div class="admin-error" role="alert"><strong>Could not load administration data.</strong><span>${escapeHtml(platformOrganizationState.error)}</span><button type="button" class="admin-button" data-platform-refresh>Retry</button></div>` : ""}
+          ${platformOrganizationState.latestInviteUrl ? `<div class="admin-notice" role="status"><strong>${platformOrganizationState.latestInviteEmailSent ? "Invitation email sent" : "Invitation email was not confirmed"}</strong><span>${escapeHtml(platformOrganizationState.latestOrganizationName)} · ${escapeHtml(platformOrganizationState.latestInviteEmail)}</span><button type="button" class="admin-link-button" data-copy-invitation="${escapeAttribute(platformOrganizationState.latestInviteUrl)}">Copy backup link</button></div>` : ""}
+
           ${platformOrganizationState.status === "ready" ? `
-            <div class="settings-form-card">
-              <div class="settings-form-title"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i><div><h3>Organization requests</h3><p>People who registered themselves and are waiting for NeuroCrop approval.</p></div></div>
-              <div class="settings-team-list mt-4">
-                ${platformOrganizationState.organizationRequests.map((request) => `
-                  <div class="settings-team-row">
-                    <span class="settings-member-avatar"><i class="fa-solid fa-user-clock" aria-hidden="true"></i></span>
-                    <span class="settings-member-copy"><strong>${escapeHtml(request.organizationName)}</strong><small>${escapeHtml(request.userEmail)} · ${escapeHtml(request.userName || "New user")} · requested ${escapeHtml(request.createdAt ? new Date(request.createdAt).toLocaleString("lt-LT", { dateStyle: "medium", timeStyle: "short" }) : "recently")}</small></span>
-                    <span class="settings-role-pill">${escapeHtml(request.status)}</span>
-                    <button type="button" class="settings-text-button" data-platform-request-approve="${escapeAttribute(request.id)}" data-platform-request-name="${escapeAttribute(request.organizationName)}">Approve</button>
-                    <button type="button" class="settings-text-button text-red-700" data-platform-request-reject="${escapeAttribute(request.id)}" data-platform-request-name="${escapeAttribute(request.organizationName)}">Reject</button>
-                  </div>
-                `).join("") || `<div class="settings-policy-note"><div><strong>No pending requests</strong><p>New self-registered customers will appear here before they get workspace access.</p></div></div>`}
+            <section class="admin-section" aria-labelledby="adminRequestsTitle">
+              <header><h2 id="adminRequestsTitle">Pending requests</h2><span>${platformOrganizationState.organizationRequests.length}</span></header>
+              <div class="admin-table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>Organization</th><th>Requester</th><th>Requested</th><th>Status</th><th class="admin-actions-column">Actions</th></tr></thead>
+                  <tbody>
+                    ${platformOrganizationState.organizationRequests.map((request) => `
+                      <tr>
+                        <td><strong>${escapeHtml(request.organizationName)}</strong></td>
+                        <td>${escapeHtml(request.userName || "—")}<small>${escapeHtml(request.userEmail)}</small></td>
+                        <td>${escapeHtml(formatAdminDate(request.createdAt))}</td>
+                        <td><span class="admin-status-label" data-state="pending">${escapeHtml(request.status || "pending")}</span></td>
+                        <td class="admin-row-actions">
+                          <button type="button" class="admin-link-button" data-platform-request-approve="${escapeAttribute(request.id)}" data-platform-request-name="${escapeAttribute(request.organizationName)}">Approve</button>
+                          <button type="button" class="admin-link-button admin-link-danger" data-platform-request-reject="${escapeAttribute(request.id)}" data-platform-request-name="${escapeAttribute(request.organizationName)}">Reject</button>
+                        </td>
+                      </tr>
+                    `).join("") || `<tr><td colspan="5" class="admin-empty">No pending organization requests.</td></tr>`}
+                  </tbody>
+                </table>
               </div>
-            </div>
-            <form class="settings-form-card" data-settings-form="platform-organization">
-              <div class="settings-form-title"><i class="fa-solid fa-building-circle-check" aria-hidden="true"></i><div><h3>New customer</h3><p>The owner receives an email invitation and sets their own password.</p></div></div>
-              <div class="settings-add-member-fields">
-                <input name="customerOrganizationName" placeholder="Customer organization name" required>
-                <input name="customerOwnerEmail" type="email" placeholder="Owner email" required>
-                <button type="submit" class="settings-primary-button">Create customer</button>
+            </section>
+
+            <section class="admin-section" aria-labelledby="adminOrganizationsTitle">
+              <header>
+                <h2 id="adminOrganizationsTitle">Organizations</h2><span>${platformOrganizationState.organizations.length}</span>
+                <label class="admin-search"><span class="sr-only">Search organizations</span><input type="search" placeholder="Search organizations" data-admin-search="organizations"></label>
+              </header>
+              <div class="admin-table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>Name</th><th>Status</th><th>Members</th><th>Sites</th><th>Zones</th><th>Nodes</th><th>Created</th><th class="admin-actions-column">Actions</th></tr></thead>
+                  <tbody>
+                    ${platformOrganizationState.organizations.map((organization) => `
+                      <tr data-admin-row="organizations" data-admin-search-value="${escapeAttribute(`${organization.name} ${organization.id} ${organization.status || "active"}`.toLowerCase())}">
+                        <td><strong>${escapeHtml(organization.name)}</strong><small>${escapeHtml(organization.id)}</small></td>
+                        <td><span class="admin-status-label" data-state="${escapeAttribute(organization.status || "active")}">${escapeHtml(organization.status || "active")}</span></td>
+                        <td>${Number(organization.memberCount || 0)}</td>
+                        <td>${Number(organization.areaCount || 0)}</td>
+                        <td>${Number(organization.sectionCount || 0)}</td>
+                        <td>${Number(organization.nodeCount || 0)}</td>
+                        <td>${escapeHtml(formatAdminDate(organization.createdAt))}</td>
+                        <td class="admin-row-actions">
+                          ${organization.status === "archived"
+                            ? `<button type="button" class="admin-link-button" data-platform-restore="${escapeAttribute(organization.id)}">Restore</button>`
+                            : `<button type="button" class="admin-link-button" data-platform-archive="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}">Archive</button>`}
+                          <button type="button" class="admin-link-button admin-link-danger" data-platform-delete="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}" ${organization.id === currentSession?.organizationId ? "disabled" : ""}>Delete</button>
+                        </td>
+                      </tr>
+                    `).join("") || `<tr><td colspan="8" class="admin-empty">No organizations.</td></tr>`}
+                  </tbody>
+                </table>
               </div>
-            </form>
-            ${platformOrganizationState.latestInviteUrl ? `<div class="settings-policy-note mt-4"><i class="fa-solid ${platformOrganizationState.latestInviteEmailSent ? "fa-paper-plane" : "fa-link"}" aria-hidden="true"></i><div><strong>${platformOrganizationState.latestInviteEmailSent ? "Owner invitation email sent" : "Owner invitation link created"}</strong><p>${platformOrganizationState.latestInviteEmailSent ? `${escapeHtml(platformOrganizationState.latestInviteEmail)} can accept the ${escapeHtml(platformOrganizationState.latestOrganizationName)} workspace invitation from their inbox. The link below is kept as a backup.` : `Email delivery was not confirmed for ${escapeHtml(platformOrganizationState.latestOrganizationName)}, so use this backup link.`}</p><p class="break-all">${escapeHtml(platformOrganizationState.latestInviteUrl)}</p><button type="button" class="settings-text-button mt-2" data-copy-invitation="${escapeAttribute(platformOrganizationState.latestInviteUrl)}">Copy backup link</button></div></div>` : ""}
-            <div class="settings-team-list mt-6">
-              ${platformOrganizationState.organizations.map((organization) => `
-                <div class="settings-team-row">
-                  <span class="settings-member-avatar"><i class="fa-solid fa-building" aria-hidden="true"></i></span>
-                  <span class="settings-member-copy"><strong>${escapeHtml(organization.name)}</strong><small>${escapeHtml(organization.id)} · ${escapeHtml(organization.status || "active")} · ${Number(organization.areaCount || 0)} areas · ${Number(organization.nodeCount || 0)} nodes</small></span>
-                  <span class="settings-role-pill">${Number(organization.memberCount || 0)} users</span>
-                  ${organization.status === "archived"
-                    ? `<button type="button" class="settings-text-button" data-platform-restore="${escapeAttribute(organization.id)}">Restore</button>`
-                    : `<button type="button" class="settings-text-button" data-platform-archive="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}">Archive</button>`}
-                  <button type="button" class="settings-text-button text-red-700" data-platform-delete="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}" ${organization.id === currentSession?.organizationId ? "disabled" : ""}>Delete</button>
-                </div>
-              `).join("") || `<div class="settings-policy-note"><div><strong>No customer organizations yet</strong><p>Create the first customer workspace above.</p></div></div>`}
-            </div>
-            <form class="settings-form-card mt-6" data-settings-form="platform-admin">
-              <div class="settings-form-title"><i class="fa-solid fa-user-shield" aria-hidden="true"></i><div><h3>Platform administrators</h3><p>Platform admins can create customer organizations, send owner invitations, and delete customer workspaces.</p></div></div>
-              <div class="settings-add-member-fields">
-                <input name="platformAdminEmail" type="email" placeholder="Existing user email" required>
-                <button type="submit" class="settings-primary-button">Grant admin</button>
+            </section>
+
+            <section class="admin-section" aria-labelledby="adminUsersTitle">
+              <header>
+                <h2 id="adminUsersTitle">Users</h2><span>${platformOrganizationState.users.length}</span>
+                <label class="admin-search"><span class="sr-only">Search users</span><input type="search" placeholder="Search users" data-admin-search="users"></label>
+              </header>
+              <div class="admin-table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>Name</th><th>Email</th><th>Account</th><th>Organizations</th><th>Pending requests</th></tr></thead>
+                  <tbody>
+                    ${platformOrganizationState.users.map((user) => `
+                      <tr data-admin-row="users" data-admin-search-value="${escapeAttribute(`${user.name || ""} ${user.email || ""}`.toLowerCase())}">
+                        <td><strong>${escapeHtml(user.name || "—")}</strong></td>
+                        <td>${escapeHtml(user.email || "—")}</td>
+                        <td><span class="admin-status-label" data-state="${user.active === false ? "inactive" : "active"}">${user.isPlatformAdmin ? "Platform admin" : (user.active === false ? "Inactive" : "Active")}</span></td>
+                        <td>${Number(user.organizationCount || 0)}</td>
+                        <td>${Number(user.pendingRequestCount || 0)}</td>
+                      </tr>
+                    `).join("") || `<tr><td colspan="5" class="admin-empty">No users.</td></tr>`}
+                  </tbody>
+                </table>
               </div>
-            </form>
-            <div class="settings-team-list mt-4">
-              ${platformOrganizationState.admins.map((admin) => `
-                <div class="settings-team-row">
-                  <span class="settings-member-avatar"><i class="fa-solid fa-user-shield" aria-hidden="true"></i></span>
-                  <span class="settings-member-copy"><strong>${escapeHtml(admin.name || admin.email)}</strong><small>${escapeHtml(admin.email)} · ${escapeHtml(admin.id)}</small></span>
-                  <span class="settings-role-pill">Platform admin</span>
-                  <button type="button" class="settings-text-button" data-platform-admin-revoke="${escapeAttribute(admin.id)}" data-platform-admin-email="${escapeAttribute(admin.email)}" ${admin.id === currentSession?.id ? "disabled" : ""}>Revoke</button>
-                </div>
-              `).join("") || `<div class="settings-policy-note"><div><strong>No platform admins loaded</strong><p>Refresh this panel if the list looks empty.</p></div></div>`}
-            </div>
-            <div class="settings-form-card mt-6">
-              <div class="settings-form-title"><i class="fa-solid fa-users-gear" aria-hidden="true"></i><div><h3>All users</h3><p>Use this list to see who already has an account and whether they are attached to an organization.</p></div></div>
-              <div class="settings-team-list mt-4">
-                ${platformOrganizationState.users.map((user) => `
-                  <div class="settings-team-row">
-                    <span class="settings-member-avatar"><i class="fa-solid ${user.isPlatformAdmin ? "fa-user-shield" : "fa-user"}" aria-hidden="true"></i></span>
-                    <span class="settings-member-copy"><strong>${escapeHtml(user.name || user.email)}</strong><small>${escapeHtml(user.email)} · ${Number(user.organizationCount || 0)} organizations · ${Number(user.pendingRequestCount || 0)} pending requests</small></span>
-                    <span class="settings-role-pill">${user.isPlatformAdmin ? "Platform admin" : (user.active === false ? "Inactive" : "User")}</span>
-                  </div>
-                `).join("") || `<div class="settings-policy-note"><div><strong>No users loaded</strong><p>Refresh this panel if the list looks empty.</p></div></div>`}
+            </section>
+
+            <section class="admin-section" aria-labelledby="adminAdminsTitle">
+              <header><h2 id="adminAdminsTitle">Platform admins</h2><span>${platformOrganizationState.admins.length}</span></header>
+              <form class="admin-inline-form admin-inline-form-small" data-settings-form="platform-admin">
+                <label><span>Existing user email</span><input name="platformAdminEmail" type="email" placeholder="user@example.com" required></label>
+                <button type="submit" class="admin-button admin-button-primary">Grant admin</button>
+              </form>
+              <div class="admin-table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>Name</th><th>Email</th><th>User ID</th><th class="admin-actions-column">Actions</th></tr></thead>
+                  <tbody>
+                    ${platformOrganizationState.admins.map((admin) => `
+                      <tr>
+                        <td><strong>${escapeHtml(admin.name || "—")}</strong></td>
+                        <td>${escapeHtml(admin.email)}</td>
+                        <td><code>${escapeHtml(admin.id)}</code></td>
+                        <td class="admin-row-actions"><button type="button" class="admin-link-button admin-link-danger" data-platform-admin-revoke="${escapeAttribute(admin.id)}" data-platform-admin-email="${escapeAttribute(admin.email)}" ${admin.id === currentSession?.id ? "disabled" : ""}>Revoke</button></td>
+                      </tr>
+                    `).join("") || `<tr><td colspan="4" class="admin-empty">No platform administrators.</td></tr>`}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            </section>
           ` : ""}
-        </section>
+        </div>
       `;
 
       const workspacePanel = `
@@ -8731,23 +8771,13 @@
       }[activeSettingsPanelKey];
 
       elements.settingsManagementShell.innerHTML = isAdminPage ? `
-        <div class="settings-page-shell">
-          <section class="settings-page-head">
-            <div>
-              <span class="settings-panel-kicker">Admin</span>
-              <h1>Platform administration</h1>
-              <p>Approve new customer requests, manage organizations, users, and platform administrators.</p>
-            </div>
-            <div class="settings-head-summary">
-              <span><strong>${platformOrganizationState.organizationRequests.length}</strong> pending</span>
-              <span><strong>${platformOrganizationState.organizations.length}</strong> organizations</span>
-              <span><strong>${platformOrganizationState.users.length}</strong> users</span>
-            </div>
-          </section>
+        <div class="admin-page-shell">
+          <header class="admin-page-head">
+            <div><h1 id="adminConsoleTitle">Admin</h1><p>Organizations, users and access management.</p></div>
+            <div class="admin-page-counts"><span>${platformOrganizationState.organizationRequests.length} pending</span><span>${platformOrganizationState.organizations.length} organizations</span><span>${platformOrganizationState.users.length} users</span></div>
+          </header>
           ${renderManagementNotice("settings")}
-          <main class="settings-page-content">
-            ${platformPanel}
-          </main>
+          ${platformPanel}
         </div>
       ` : `
         <div class="settings-page-shell">
@@ -14797,6 +14827,15 @@
     });
 
     elements.settingsManagementSection.addEventListener("input", (event) => {
+      const adminSearch = event.target.closest("[data-admin-search]");
+      if (adminSearch instanceof HTMLInputElement) {
+        const tableKey = adminSearch.dataset.adminSearch;
+        const queryValue = adminSearch.value.trim().toLowerCase();
+        elements.settingsManagementSection.querySelectorAll(`[data-admin-row="${tableKey}"]`).forEach((row) => {
+          row.hidden = queryValue.length > 0 && !String(row.dataset.adminSearchValue || "").includes(queryValue);
+        });
+        return;
+      }
       syncSettingsProfileFormField(event.target);
       syncCropProfileEditorDraft(event.target);
       rebalanceOptimalRangeBounds(event.target);

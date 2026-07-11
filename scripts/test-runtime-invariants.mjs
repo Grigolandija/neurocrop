@@ -46,6 +46,7 @@ assert(runtime.includes('function calculateTimeAwareEwma(') && runtime.includes(
 assert(runtime.includes('let activeTrendScaleMode = "detail";') && runtime.includes('data-trend-scale') && runtime.includes('scaleMode === "target"'), "Trend charts must offer detail and full target-context Y-axis modes");
 assert(runtime.includes('offscreenTargetLabel') && runtime.includes('translateInterfaceText("away")'), "Detail trend scale must explain targets outside the visible measurement range");
 assert(runtime.includes('visualMap: isMultiMetric ? [] : trendValueVisualMaps'), "Dual metric trends must retain distinct series colors");
+assert(runtime.includes('class="admin-table"') && runtime.includes('data-admin-search="organizations"') && runtime.includes('data-admin-search="users"'), "Admin must use searchable management tables instead of decorative settings cards");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
 
