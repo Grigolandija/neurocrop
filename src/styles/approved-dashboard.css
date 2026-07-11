@@ -8926,6 +8926,7 @@
     .designer-app .inline-action { min-height: 36px; border-radius: 9px; }
 
     .designer-app .settings-page-shell,
+    .designer-app .admin-page-shell,
     .designer-app .crop-profiles-page {
       max-width: 1600px;
       margin: 0 auto;
@@ -9310,6 +9311,13 @@
 
     .admin-row-actions {
       text-align: right;
+      white-space: nowrap;
+    }
+
+    .admin-protected-label {
+      color: #68716d;
+      font-size: 0.82rem;
+      font-weight: 700;
       white-space: nowrap;
     }
 

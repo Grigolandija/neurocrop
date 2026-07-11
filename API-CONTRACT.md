@@ -491,3 +491,20 @@ laiką, net jeigu frontend siunčia `performedAt`.
 
 Visi endpointai turi tikrinti vartotojo organizaciją ir rolę. Frontend neturi
 gauti ChirpStack vidinių ID, API raktų, MQTT prisijungimų ar DB slaptažodžių.
+# Platform administration
+
+Platform administration has two distinct global roles, separate from organization membership roles:
+
+- `Super Admin` (`isSuperAdmin: true`) is the protected root operator. Only a Super Admin can grant or revoke Platform Admin access, activate/deactivate accounts, permanently delete users, or permanently delete organizations.
+- `Platform Admin` (`isPlatformAdmin: true`) can review organization requests and manage customer organizations, but cannot manage Super Admin privileges or permanently delete accounts.
+
+The authenticated user payload from `POST /auth/login` and `GET /auth/me` includes both `isPlatformAdmin` and `isSuperAdmin`.
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/platform/users` | Platform Admin | List users and account state. |
+| `POST` | `/platform/admins` | Super Admin | Grant Platform Admin using `{ "userId": "..." }`. |
+| `DELETE` | `/platform/admins/:userId` | Super Admin | Revoke Platform Admin. |
+| `PATCH` | `/platform/users/:userId/status` | Super Admin | Activate/deactivate using `{ "active": true/false }`; deactivation revokes active sessions. |
+| `DELETE` | `/platform/users/:userId?confirm=delete` | Super Admin | Permanently remove an account, sessions, requests, invitations, and memberships; organization measurements remain. |
+| `DELETE` | `/platform/organizations/:organizationId?confirm=delete` | Super Admin | Permanently remove an organization and all organization-owned operational data. |

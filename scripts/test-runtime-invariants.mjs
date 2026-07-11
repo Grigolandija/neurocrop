@@ -47,6 +47,9 @@ assert(runtime.includes('let activeTrendScaleMode = "detail";') && runtime.inclu
 assert(runtime.includes('offscreenTargetLabel') && runtime.includes('translateInterfaceText("away")'), "Detail trend scale must explain targets outside the visible measurement range");
 assert(runtime.includes('visualMap: isMultiMetric ? [] : trendValueVisualMaps'), "Dual metric trends must retain distinct series colors");
 assert(runtime.includes('class="admin-table"') && runtime.includes('data-admin-search="organizations"') && runtime.includes('data-admin-search="users"'), "Admin must use searchable management tables instead of decorative settings cards");
+assert(runtime.includes('data-platform-admin-grant=') && runtime.includes('data-platform-user-status=') && runtime.includes('data-platform-user-delete='), "Super Admin must manage admin access, account status, and deletion directly from the Users table");
+assert(runtime.includes('isSuperAdmin: session.isSuperAdmin === true') && runtime.includes('user.isSuperAdmin ? "Super admin"'), "Super Admin identity must remain explicit and protected in the frontend");
+assert(!runtime.includes('data-settings-form="platform-admin"'), "Admin access must not use a separate email form outside the Users table");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
 

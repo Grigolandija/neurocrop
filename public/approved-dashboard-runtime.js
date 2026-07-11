@@ -505,12 +505,18 @@
     rejectOrganizationRequest: (requestId) => request(`/platform/organization-requests/${encodeURIComponent(requestId)}/reject`, {
       method: "POST"
     }),
-    getPlatformAdmins: () => request("/platform/admins"),
     grantPlatformAdmin: (payload) => request("/platform/admins", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
     revokePlatformAdmin: (userId) => request(`/platform/admins/${encodeURIComponent(userId)}`, {
+      method: "DELETE"
+    }),
+    setPlatformUserActive: (userId, active) => request(`/platform/users/${encodeURIComponent(userId)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ active })
+    }),
+    deletePlatformUser: (userId) => request(`/platform/users/${encodeURIComponent(userId)}?confirm=delete`, {
       method: "DELETE"
     }),
     getDashboard: () => request("/dashboard"),
@@ -1538,7 +1544,8 @@
       if (!session || !session.email) return null;
       return {
         ...session,
-        isPlatformAdmin: session.isPlatformAdmin === true
+        isPlatformAdmin: session.isPlatformAdmin === true,
+        isSuperAdmin: session.isSuperAdmin === true
       };
     }
 
@@ -1925,7 +1932,6 @@
     };
     let platformOrganizationState = {
       organizations: [],
-      admins: [],
       users: [],
       organizationRequests: [],
       status: "idle",
@@ -1950,7 +1956,6 @@
     function resetPlatformOrganizationState() {
       platformOrganizationState = {
         organizations: [],
-        admins: [],
         users: [],
         organizationRequests: [],
         status: "idle",
@@ -1993,14 +1998,12 @@
       platformOrganizationState.error = "";
       renderDashboard();
       try {
-        const [response, adminResponse, userResponse, requestResponse] = await Promise.all([
+        const [response, userResponse, requestResponse] = await Promise.all([
           window.NeuroCropApi.getPlatformOrganizations(),
-          window.NeuroCropApi.getPlatformAdmins(),
           window.NeuroCropApi.getPlatformUsers(),
           window.NeuroCropApi.getOrganizationRequests("pending")
         ]);
         platformOrganizationState.organizations = Array.isArray(response?.organizations) ? response.organizations : [];
-        platformOrganizationState.admins = Array.isArray(adminResponse?.admins) ? adminResponse.admins : [];
         platformOrganizationState.users = Array.isArray(userResponse?.users) ? userResponse.users : [];
         platformOrganizationState.organizationRequests = Array.isArray(requestResponse?.requests) ? requestResponse.requests : [];
         platformOrganizationState.status = "ready";
@@ -8647,7 +8650,7 @@
                           ${organization.status === "archived"
                             ? `<button type="button" class="admin-link-button" data-platform-restore="${escapeAttribute(organization.id)}">Restore</button>`
                             : `<button type="button" class="admin-link-button" data-platform-archive="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}">Archive</button>`}
-                          <button type="button" class="admin-link-button admin-link-danger" data-platform-delete="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}" ${organization.id === currentSession?.organizationId ? "disabled" : ""}>Delete</button>
+                          ${currentSession?.isSuperAdmin ? `<button type="button" class="admin-link-button admin-link-danger" data-platform-delete="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}" ${organization.id === currentSession?.organizationId ? "disabled" : ""}>Delete</button>` : ""}
                         </td>
                       </tr>
                     `).join("") || `<tr><td colspan="8" class="admin-empty">No organizations.</td></tr>`}
@@ -8663,40 +8666,26 @@
               </header>
               <div class="admin-table-wrap">
                 <table class="admin-table">
-                  <thead><tr><th>Name</th><th>Email</th><th>Account</th><th>Organizations</th><th>Pending requests</th></tr></thead>
+                  <thead><tr><th>Name</th><th>Email</th><th>Account</th><th>Organizations</th><th>Pending requests</th><th class="admin-actions-column">Actions</th></tr></thead>
                   <tbody>
                     ${platformOrganizationState.users.map((user) => `
                       <tr data-admin-row="users" data-admin-search-value="${escapeAttribute(`${user.name || ""} ${user.email || ""}`.toLowerCase())}">
                         <td><strong>${escapeHtml(user.name || "—")}</strong></td>
                         <td>${escapeHtml(user.email || "—")}</td>
-                        <td><span class="admin-status-label" data-state="${user.active === false ? "inactive" : "active"}">${user.isPlatformAdmin ? "Platform admin" : (user.active === false ? "Inactive" : "Active")}</span></td>
+                        <td><span class="admin-status-label" data-state="${user.active === false ? "inactive" : "active"}">${user.isSuperAdmin ? "Super admin" : (user.isPlatformAdmin ? "Platform admin" : (user.active === false ? "Inactive" : "Active"))}</span></td>
                         <td>${Number(user.organizationCount || 0)}</td>
                         <td>${Number(user.pendingRequestCount || 0)}</td>
+                        <td class="admin-row-actions">
+                          ${user.isSuperAdmin ? `<span class="admin-protected-label">Protected</span>` : currentSession?.isSuperAdmin ? `
+                            ${user.isPlatformAdmin
+                              ? `<button type="button" class="admin-link-button" data-platform-admin-revoke="${escapeAttribute(user.id)}" data-platform-admin-email="${escapeAttribute(user.email)}">Revoke admin</button>`
+                              : `<button type="button" class="admin-link-button" data-platform-admin-grant="${escapeAttribute(user.id)}" data-platform-admin-email="${escapeAttribute(user.email)}" ${user.active === false ? "disabled" : ""}>Grant admin</button>`}
+                            <button type="button" class="admin-link-button" data-platform-user-status="${escapeAttribute(user.id)}" data-platform-user-active="${user.active === false ? "false" : "true"}" data-platform-user-email="${escapeAttribute(user.email)}" ${user.id === currentSession?.id ? "disabled" : ""}>${user.active === false ? "Activate" : "Deactivate"}</button>
+                            <button type="button" class="admin-link-button admin-link-danger" data-platform-user-delete="${escapeAttribute(user.id)}" data-platform-user-email="${escapeAttribute(user.email)}" ${user.id === currentSession?.id ? "disabled" : ""}>Delete</button>
+                          ` : `<span class="admin-protected-label">Read only</span>`}
+                        </td>
                       </tr>
-                    `).join("") || `<tr><td colspan="5" class="admin-empty">No users.</td></tr>`}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section class="admin-section" aria-labelledby="adminAdminsTitle">
-              <header><h2 id="adminAdminsTitle">Platform admins</h2><span>${platformOrganizationState.admins.length}</span></header>
-              <form class="admin-inline-form admin-inline-form-small" data-settings-form="platform-admin">
-                <label><span>Existing user email</span><input name="platformAdminEmail" type="email" placeholder="user@example.com" required></label>
-                <button type="submit" class="admin-button admin-button-primary">Grant admin</button>
-              </form>
-              <div class="admin-table-wrap">
-                <table class="admin-table">
-                  <thead><tr><th>Name</th><th>Email</th><th>User ID</th><th class="admin-actions-column">Actions</th></tr></thead>
-                  <tbody>
-                    ${platformOrganizationState.admins.map((admin) => `
-                      <tr>
-                        <td><strong>${escapeHtml(admin.name || "—")}</strong></td>
-                        <td>${escapeHtml(admin.email)}</td>
-                        <td><code>${escapeHtml(admin.id)}</code></td>
-                        <td class="admin-row-actions"><button type="button" class="admin-link-button admin-link-danger" data-platform-admin-revoke="${escapeAttribute(admin.id)}" data-platform-admin-email="${escapeAttribute(admin.email)}" ${admin.id === currentSession?.id ? "disabled" : ""}>Revoke</button></td>
-                      </tr>
-                    `).join("") || `<tr><td colspan="4" class="admin-empty">No platform administrators.</td></tr>`}
+                    `).join("") || `<tr><td colspan="6" class="admin-empty">No users.</td></tr>`}
                   </tbody>
                 </table>
               </div>
@@ -14927,25 +14916,6 @@
           renderDashboard();
         }
         return;
-      } else if (formKey === "platform-admin") {
-        const formData = new FormData(settingsForm);
-        const email = String(formData.get("platformAdminEmail") || "").trim();
-        if (!email) {
-          setManagementNotice("settings", "Enter an existing user email before granting platform admin access.", "warning");
-          renderDashboard();
-          return;
-        }
-        try {
-          await window.NeuroCropApi.grantPlatformAdmin({ email });
-          platformOrganizationState.status = "idle";
-          setManagementNotice("settings", `${email} can now create and manage customer organizations.`, "optimal");
-          settingsForm.reset();
-          await hydratePlatformOrganizations();
-        } catch (error) {
-          setManagementNotice("settings", error?.message || "Platform admin access could not be granted.", "warning");
-          renderDashboard();
-        }
-        return;
       } else {
         persistSettingsState(`${formKey.charAt(0).toUpperCase() + formKey.slice(1)} settings saved.`);
       }
@@ -15109,6 +15079,60 @@
           await hydratePlatformOrganizations();
         } catch (error) {
           setManagementNotice("settings", error?.message || "Platform admin access could not be revoked.", "warning");
+          renderDashboard();
+        }
+        return;
+      }
+
+      const grantPlatformAdminButton = event.target.closest("[data-platform-admin-grant]");
+      if (grantPlatformAdminButton) {
+        const userId = grantPlatformAdminButton.dataset.platformAdminGrant;
+        const userEmail = grantPlatformAdminButton.dataset.platformAdminEmail || "this user";
+        if (!window.confirm(`Grant Platform Admin access to ${userEmail}? This allows customer and organization management.`)) return;
+        try {
+          await window.NeuroCropApi.grantPlatformAdmin({ userId });
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `${userEmail} is now a platform administrator.`, "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "Platform admin access could not be granted.", "warning");
+          renderDashboard();
+        }
+        return;
+      }
+
+      const platformUserStatusButton = event.target.closest("[data-platform-user-status]");
+      if (platformUserStatusButton) {
+        const userId = platformUserStatusButton.dataset.platformUserStatus;
+        const userEmail = platformUserStatusButton.dataset.platformUserEmail || "this user";
+        const currentlyActive = platformUserStatusButton.dataset.platformUserActive === "true";
+        const nextActive = !currentlyActive;
+        if (!window.confirm(`${nextActive ? "Activate" : "Deactivate"} ${userEmail}?${nextActive ? "" : " Their active sessions will be closed."}`)) return;
+        try {
+          await window.NeuroCropApi.setPlatformUserActive(userId, nextActive);
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `${userEmail} ${nextActive ? "activated" : "deactivated"}.`, "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "User status could not be changed.", "warning");
+          renderDashboard();
+        }
+        return;
+      }
+
+      const deletePlatformUserButton = event.target.closest("[data-platform-user-delete]");
+      if (deletePlatformUserButton) {
+        const userId = deletePlatformUserButton.dataset.platformUserDelete;
+        const userEmail = deletePlatformUserButton.dataset.platformUserEmail || "this user";
+        const message = `Permanently delete ${userEmail}?\n\nThe account, sessions, invitations, requests, and memberships will be removed. Organization sensor measurements will be kept. This cannot be undone.`;
+        if (!window.confirm(message)) return;
+        try {
+          await window.NeuroCropApi.deletePlatformUser(userId);
+          platformOrganizationState.status = "idle";
+          setManagementNotice("settings", `${userEmail} deleted permanently. Organization measurement data was kept.`, "optimal");
+          await hydratePlatformOrganizations();
+        } catch (error) {
+          setManagementNotice("settings", error?.message || "User could not be deleted.", "warning");
           renderDashboard();
         }
         return;
