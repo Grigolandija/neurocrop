@@ -517,6 +517,8 @@
     getCropProfiles: () => request("/crop-profiles"),
     getLatestReadings: (sectionId) => request(`/readings/latest${queryString({ sectionId })}`),
     getHistory: (params) => request(`/history${queryString(params)}`),
+    getSectionAnalytics: (params) => request(`/analytics/section${queryString(params)}`),
+    getSiteComparison: (params) => request(`/analytics/site-comparison${queryString(params)}`),
     downloadMeasurementsCsv: (params) => downloadFile(
       `/exports/measurements.csv${queryString(params)}`,
       "neurocrop-measurements.csv"
@@ -1478,6 +1480,7 @@
       trendHistoryEndLabel: document.getElementById("trendHistoryEndLabel"),
       trendHistoryCallout: document.getElementById("trendHistoryCallout"),
       trendHistoryBackendNote: document.getElementById("trendHistoryBackendNote"),
+      trendAnalyticsPanel: document.getElementById("trendAnalyticsPanel"),
       sensorHealthTitle: document.getElementById("sensorHealthTitle"),
       sensorHealthActionButton: document.getElementById("sensorHealthActionButton"),
       sensorHealthChip: document.getElementById("sensorHealthChip"),
@@ -1832,9 +1835,16 @@
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
     let trendHistoryChartInstance = null;
+    let trendAnalyticsHeatmapInstance = null;
+    let trendComparisonChartInstance = null;
     let trendHistoryRequestId = 0;
     let trendHistoryByKey = {};
     let trendHistoryStatusByKey = {};
+    let trendAnalyticsByKey = {};
+    let trendAnalyticsStatusByKey = {};
+    let trendComparisonByKey = {};
+    let trendComparisonStatusByKey = {};
+    let trendComparisonZoneIds = [];
     const trendHistoryCacheTtlMs = 60 * 1000;
     const trendHistoryRetryDelayMs = 10 * 1000;
     let latestReadingsRequestId = 0;
@@ -3664,6 +3674,51 @@
           failedAt: Date.now()
         };
         if (activePrimaryPage === "history") renderDashboard();
+      }
+    }
+
+    function getTrendAnalyticsCacheKey(sectionId, metricKey, rangeKey) {
+      return `${sectionId || "none"}:${metricKey || "none"}:${rangeKey || "24h"}`;
+    }
+
+    async function fetchTrendSectionAnalytics(sectionId, metricKey, rangeKey) {
+      if (!isApiDataMode() || !sectionId || !metricKey || !window.NeuroCropApi?.getSectionAnalytics) return;
+      const cacheKey = getTrendAnalyticsCacheKey(sectionId, metricKey, rangeKey);
+      const status = trendAnalyticsStatusByKey[cacheKey];
+      if (status?.status === "loading" || (status?.status === "ready" && Date.now() - status.fetchedAt < trendHistoryCacheTtlMs)) return;
+      const range = trendRangeConfig[rangeKey] || trendRangeConfig["24h"];
+      const { from, to } = getTrendHistoryWindow(range);
+      trendAnalyticsStatusByKey[cacheKey] = { status: "loading", error: "" };
+      try {
+        const response = await window.NeuroCropApi.getSectionAnalytics({
+          sectionId,
+          metric: metricKey,
+          from: from.toISOString(),
+          to: to.toISOString(),
+          stepMinutes: range.intervalMinutes
+        });
+        trendAnalyticsByKey[cacheKey] = response;
+        trendAnalyticsStatusByKey[cacheKey] = { status: "ready", error: "", fetchedAt: Date.now() };
+        if (activePrimaryPage === "history" && getActiveZone()?.id === sectionId) renderDashboard();
+      } catch (error) {
+        trendAnalyticsStatusByKey[cacheKey] = { status: "error", error: error instanceof Error ? error.message : "Analytics could not be loaded." };
+      }
+    }
+
+    async function fetchTrendSiteComparison(site, metricKey, rangeKey, sectionIds) {
+      if (!isApiDataMode() || !site?.id || !metricKey || sectionIds.length < 2 || !window.NeuroCropApi?.getSiteComparison) return;
+      const cacheKey = `${site.id}:${metricKey}:${rangeKey}:${[...sectionIds].sort().join(",")}`;
+      if (trendComparisonStatusByKey[cacheKey]?.status === "loading" || trendComparisonStatusByKey[cacheKey]?.status === "ready") return;
+      const range = trendRangeConfig[rangeKey] || trendRangeConfig["24h"];
+      const { from, to } = getTrendHistoryWindow(range);
+      trendComparisonStatusByKey[cacheKey] = { status: "loading", error: "" };
+      try {
+        const response = await window.NeuroCropApi.getSiteComparison({ areaId: site.id, metric: metricKey, sectionIds: sectionIds.join(","), from: from.toISOString(), to: to.toISOString(), stepMinutes: range.intervalMinutes });
+        trendComparisonByKey[cacheKey] = response;
+        trendComparisonStatusByKey[cacheKey] = { status: "ready", error: "" };
+        if (activePrimaryPage === "history" && getActiveSite()?.id === site.id) renderDashboard();
+      } catch (error) {
+        trendComparisonStatusByKey[cacheKey] = { status: "error", error: error instanceof Error ? error.message : "Zone comparison could not be loaded." };
       }
     }
 
@@ -10386,6 +10441,7 @@
     function buildTrendEChartsOption(state) {
       const {
         seriesItems,
+        events = [],
         rangeKey,
         rangeLabel,
         totalHours,
@@ -10557,7 +10613,18 @@
                 name: targetMinLabel,
                 yAxis: optimalRange[0],
                 label: { formatter: targetMinLabel }
-              }
+              },
+              ...((index === 0 ? events : []).map((event) => ({
+                name: event.type,
+                xAxis: new Date(event.occurredAt).getTime(),
+                label: { show: false },
+                lineStyle: {
+                  color: event.severity === "warning" ? "#d08a2d" : "#6e7b75",
+                  type: "dotted",
+                  width: 1.2,
+                  opacity: 0.8
+                }
+              })))
             ].filter(Boolean)
           },
           markPoint: {
@@ -10908,6 +10975,11 @@
       const selectedMetrics = syncActiveTrendMetrics(trendMetricOptions, options.defaultMetricKey);
       const selectedMetric = selectedMetrics[0];
       const isMultiMetric = selectedMetrics.length > 1;
+      const analyticsKey = !isSiteView && selectedMetrics.length === 1
+        ? getTrendAnalyticsCacheKey(zone.id, selectedMetric?.key, activeTrendRangeKey)
+        : "";
+      const trendAnalytics = analyticsKey ? trendAnalyticsByKey[analyticsKey] : null;
+      if (analyticsKey) fetchTrendSectionAnalytics(zone.id, selectedMetric.key, activeTrendRangeKey);
 
       if (!selectedMetric) {
         return {
@@ -11069,6 +11141,7 @@
 
       const chartState = {
         seriesItems,
+        events: trendAnalytics?.events || [],
         rangeKey: activeTrendRangeKey,
         rangeLabel: rangeConfig.label,
         totalHours: rangeConfig.totalHours,
@@ -11149,6 +11222,124 @@
           </div>
         `;
       }
+    }
+
+    function disposeTrendAnalyticsCharts() {
+      trendAnalyticsHeatmapInstance?.dispose();
+      trendComparisonChartInstance?.dispose();
+      trendAnalyticsHeatmapInstance = null;
+      trendComparisonChartInstance = null;
+    }
+
+    function formatAnalyticsDuration(minutes) {
+      const value = Math.max(0, Number(minutes) || 0);
+      const hours = Math.floor(value / 60);
+      const remainder = Math.round(value % 60);
+      return hours ? `${hours}h ${remainder}m` : `${remainder}m`;
+    }
+
+    function renderTrendAnalytics({ site, zone, metricOption, rangeKey, isSiteView }) {
+      const panel = elements.trendAnalyticsPanel;
+      if (!panel) return;
+      if (isSiteView || !zone || !metricOption || !isApiDataMode()) {
+        panel.hidden = true;
+        panel.innerHTML = "";
+        disposeTrendAnalyticsCharts();
+        return;
+      }
+
+      const key = getTrendAnalyticsCacheKey(zone.id, metricOption.key, rangeKey);
+      const status = trendAnalyticsStatusByKey[key];
+      const analytics = trendAnalyticsByKey[key];
+      fetchTrendSectionAnalytics(zone.id, metricOption.key, rangeKey);
+      panel.hidden = false;
+
+      if (!analytics) {
+        panel.innerHTML = `<div class="trend-analytics-loading">${status?.status === "error" ? escapeHtml(status.error) : "Preparing growing analytics from real sensor history..."}</div>`;
+        disposeTrendAnalyticsCharts();
+        return;
+      }
+
+      const summary = analytics.timeInTarget || {};
+      const coveredMinutes = Math.max(1, Number(summary.coveredMinutes) || 0);
+      const states = ["optimal", "warning", "critical", "unavailable"];
+      const stateLabels = { optimal: "In target", warning: "Warning", critical: "Critical", unavailable: "No data" };
+      const timeCards = states.map((state) => {
+        const minutes = Number(summary[state]) || 0;
+        const percentage = Math.round((minutes / Math.max(1, Number(summary.expectedMinutes) || coveredMinutes)) * 100);
+        return `<div class="trend-time-card" data-state="${state}"><span>${stateLabels[state]}</span><strong>${percentage}%</strong><small>${formatAnalyticsDuration(minutes)}</small></div>`;
+      }).join("");
+      const events = (analytics.events || []).slice(-6).reverse();
+      const eventLabels = {
+        reporting_mode_changed: (event) => `Reporting mode: ${event.from || "unknown"} to ${event.to || "unknown"}`,
+        delivery_gap: (event) => `Sensor delivery gap: ${event.durationMinutes || 0} min`,
+        transmission_failed: () => "Transmission timeout reported by node"
+      };
+      const selected = trendComparisonZoneIds.filter((id) => site.zones.some((zoneItem) => zoneItem.id === id));
+      const defaultComparison = [zone.id, ...site.zones.filter((zoneItem) => zoneItem.id !== zone.id).slice(0, 3).map((zoneItem) => zoneItem.id)];
+      trendComparisonZoneIds = selected.length ? selected : defaultComparison;
+      const comparisonKey = `${site.id}:${metricOption.key}:${rangeKey}:${[...trendComparisonZoneIds].sort().join(",")}`;
+      const comparison = trendComparisonByKey[comparisonKey];
+      if (trendComparisonZoneIds.length > 1) fetchTrendSiteComparison(site, metricOption.key, rangeKey, trendComparisonZoneIds);
+      const comparisonOptions = site.zones.map((zoneItem) => `<label class="trend-comparison-zone"><input type="checkbox" data-trend-comparison-zone="${escapeAttribute(zoneItem.id)}" ${trendComparisonZoneIds.includes(zoneItem.id) ? "checked" : ""}><span>${escapeHtml(zoneItem.name)}</span></label>`).join("");
+
+      panel.innerHTML = `
+        <div class="trend-analytics-grid">
+          <article class="trend-analytics-card trend-time-in-target"><header><span>Time in target</span><strong>${escapeHtml(metricOption.label)}</strong></header><div class="trend-time-cards">${timeCards}</div><p>${Math.round((coveredMinutes / Math.max(1, Number(summary.expectedMinutes) || coveredMinutes)) * 100)}% sensor coverage for this window.</p></article>
+          <article class="trend-analytics-card trend-events"><header><span>Telemetry events</span><strong>${events.length} recent</strong></header><ul>${events.length ? events.map((event) => `<li data-state="${escapeAttribute(event.severity || "info")}"><time>${escapeHtml(new Date(event.occurredAt).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}</time><span>${escapeHtml(eventLabels[event.type]?.(event) || event.type)}</span></li>`).join("") : "<li><span>No node events in this window.</span></li>"}</ul></article>
+        </div>
+        <article class="trend-analytics-card trend-heatmap"><header><div><span>30-day condition map</span><strong>${escapeHtml(metricOption.label)} by hour</strong></div><small>${rangeKey === "30d" ? "One cell = one hour" : "Choose 30d to inspect the full hourly pattern"}</small></header><div id="trendAnalyticsHeatmap" class="trend-analytics-chart"></div></article>
+        <article class="trend-analytics-card trend-comparison"><header><div><span>Zone comparison</span><strong>${escapeHtml(metricOption.label)} across this site</strong></div><small>Choose up to six zones</small></header><div class="trend-comparison-options">${comparisonOptions}</div><div id="trendComparisonChart" class="trend-analytics-chart"></div>${trendComparisonZoneIds.length < 2 ? '<p class="trend-analytics-empty">Choose at least two zones to compare.</p>' : ""}</article>`;
+
+      renderTrendAnalyticsHeatmap(analytics.heatmap || [], metricOption, rangeKey);
+      renderTrendComparisonChart(comparison, metricOption);
+    }
+
+    function renderTrendAnalyticsHeatmap(points, metricOption, rangeKey) {
+      const element = document.getElementById("trendAnalyticsHeatmap");
+      if (!element || !window.echarts || !points.length) return;
+      if (rangeKey !== "30d") {
+        element.innerHTML = '<div class="trend-analytics-empty">Choose the 30d range to reveal the hourly condition pattern.</div>';
+        trendAnalyticsHeatmapInstance?.dispose();
+        trendAnalyticsHeatmapInstance = null;
+        return;
+      }
+      trendAnalyticsHeatmapInstance?.dispose();
+      trendAnalyticsHeatmapInstance = window.echarts.init(element, null, { renderer: "svg" });
+      const dateKeys = [...new Set(points.map((point) => new Date(point.observedAt).toLocaleDateString("sv-SE", { timeZone: "Europe/Vilnius" })))];
+      const stateValue = { unavailable: 0, optimal: 1, warning: 2, critical: 3 };
+      const heatData = points.map((point) => {
+        const date = new Date(point.observedAt);
+        const dateKey = date.toLocaleDateString("sv-SE", { timeZone: "Europe/Vilnius" });
+        const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Vilnius", hour: "2-digit", hourCycle: "h23" }).format(date));
+        return [dateKeys.indexOf(dateKey), hour, stateValue[point.state] ?? 0, point.value];
+      });
+      trendAnalyticsHeatmapInstance.setOption({
+        animation: false,
+        grid: { left: 52, right: 18, top: 12, bottom: 42 },
+        xAxis: { type: "category", data: dateKeys, axisLabel: { fontSize: 10, interval: Math.max(0, Math.ceil(dateKeys.length / 8) - 1) }, axisTick: { show: false } },
+        yAxis: { type: "category", data: Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`), axisLabel: { fontSize: 10, interval: 3 }, axisTick: { show: false } },
+        visualMap: { show: false, dimension: 2, pieces: [{ value: 3, color: "#c96858" }, { value: 2, color: "#d89a3a" }, { value: 1, color: "#78ad91" }, { value: 0, color: "#e7e4dc" }] },
+        tooltip: { formatter: (params) => `${params.value[0] >= 0 ? `${dateKeys[params.value[0]]} ${String(params.value[1]).padStart(2, "0")}:00` : ""}<br>${escapeHtml(metricOption.label)}: ${formatValue(params.value[3], metricOption.definition)}` },
+        series: [{ type: "heatmap", data: heatData, itemStyle: { borderColor: "#fff", borderWidth: 1 } }]
+      });
+    }
+
+    function renderTrendComparisonChart(comparison, metricOption) {
+      const element = document.getElementById("trendComparisonChart");
+      if (!element || !window.echarts || !comparison?.series?.length) return;
+      trendComparisonChartInstance?.dispose();
+      trendComparisonChartInstance = window.echarts.init(element, null, { renderer: "svg" });
+      trendComparisonChartInstance.setOption({
+        animation: false,
+        color: ["#356b53", "#af7b2c", "#3d6f8f", "#8b5d7a", "#a05444", "#5b6f3d"],
+        grid: { left: 58, right: 24, top: 42, bottom: 34 },
+        legend: { top: 4, type: "scroll", textStyle: { fontSize: 11 } },
+        tooltip: { trigger: "axis", valueFormatter: (value) => formatValue(value, metricOption.definition) },
+        xAxis: { type: "time", axisLabel: { fontSize: 10 } },
+        yAxis: { type: "value", scale: true, axisLabel: { formatter: (value) => formatTrendTickValue(value, metricOption.definition), fontSize: 10 } },
+        series: comparison.series.map((item) => ({ name: item.sectionName, type: "line", showSymbol: false, smooth: false, data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value]) }))
+      });
     }
 
     function openTrendHistory(metricKey) {
@@ -14055,7 +14246,19 @@
         elements.trendHistoryEndLabel.textContent = trendHistoryState.axisLabels.end;
         elements.trendHistoryCallout.textContent = trendHistoryState.callout;
         elements.trendHistoryBackendNote.textContent = trendHistoryState.backendNote;
+        renderTrendAnalytics({
+          site,
+          zone,
+          isSiteView,
+          metricOption: trendHistoryState.chartState?.seriesItems?.length === 1 ? trendHistoryState.chartState.seriesItems[0].option : null,
+          rangeKey: activeTrendRangeKey
+        });
       } else {
+        if (elements.trendAnalyticsPanel) {
+          elements.trendAnalyticsPanel.hidden = true;
+          elements.trendAnalyticsPanel.innerHTML = "";
+        }
+        disposeTrendAnalyticsCharts();
         currentTrendHistoryPoints = [];
         if (trendHistoryChartInstance) {
           trendHistoryChartInstance.dispose();
@@ -15516,6 +15719,25 @@
       resetTrendSelectionForContextChange();
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
+      renderDashboard();
+    });
+
+    elements.historySection.addEventListener("change", (event) => {
+      const input = event.target.closest("[data-trend-comparison-zone]");
+      if (!(input instanceof HTMLInputElement)) return;
+      const zoneId = input.dataset.trendComparisonZone;
+      if (!zoneId) return;
+      const selected = new Set(trendComparisonZoneIds);
+      if (input.checked) {
+        if (selected.size >= 6) {
+          input.checked = false;
+          return;
+        }
+        selected.add(zoneId);
+      } else {
+        selected.delete(zoneId);
+      }
+      trendComparisonZoneIds = [...selected];
       renderDashboard();
     });
 
