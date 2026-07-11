@@ -1469,6 +1469,7 @@
       historyBlockScore: document.getElementById("historyBlockScore"),
       historyBlockMenu: document.getElementById("historyBlockMenu"),
       trendMetricBar: document.getElementById("trendMetricBar"),
+      trendPresentationBar: document.getElementById("trendPresentationBar"),
       trendRangeBar: document.getElementById("trendRangeBar"),
       trendHistoryMetricLabel: document.getElementById("trendHistoryMetricLabel"),
       trendHistoryMetricMeta: document.getElementById("trendHistoryMetricMeta"),
@@ -1831,6 +1832,7 @@
     let activeTrendMetricKey = "";
     let activeTrendMetricKeys = [];
     let activeTrendRangeKey = "24h";
+    let activeTrendPresentation = "smoothed";
     let expandedLiveMetricKey = "";
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
@@ -10045,6 +10047,38 @@
       };
     }
 
+    function getTrendSmoothingWindowLabel(rangeKey) {
+      const intervalMinutes = trendRangeConfig[rangeKey]?.intervalMinutes || 10;
+      const minutes = intervalMinutes * 3;
+      if (minutes < 60) return `${minutes} min median`;
+      return `${Math.round(minutes / 60)}h median`;
+    }
+
+    function calculateCenteredMedian(values, radius = 1) {
+      return values.map((value, index) => {
+        const windowValues = values
+          .slice(Math.max(0, index - radius), Math.min(values.length, index + radius + 1))
+          .map(Number)
+          .filter(Number.isFinite)
+          .sort((left, right) => left - right);
+        if (!windowValues.length) return value;
+        const middle = Math.floor(windowValues.length / 2);
+        return windowValues.length % 2
+          ? windowValues[middle]
+          : (windowValues[middle - 1] + windowValues[middle]) / 2;
+      });
+    }
+
+    function getTrendDisplayValuesForMetric(rawValues, metricKey) {
+      const supportsSmoothing = ["airTemp", "humidity", "co2", "vpd"].includes(metricKey);
+      if (activeTrendPresentation !== "smoothed" || !supportsSmoothing || rawValues.length < 3) return rawValues;
+      return calculateCenteredMedian(rawValues);
+    }
+
+    function getTrendDisplayValues(item) {
+      return getTrendDisplayValuesForMetric(item.series.values, item.option.key);
+    }
+
     function renderTrendMetricButtons(metricOptions, activeKeys = []) {
       const activeKeySet = new Set(activeKeys);
       return metricOptions
@@ -10078,6 +10112,22 @@
         >
           <span>${escapeHtml(config.label)}</span>
         </button>
+      `).join("");
+    }
+
+    function renderTrendPresentationButtons(activeKey, rangeKey) {
+      const smoothingLabel = `Smoothed · ${getTrendSmoothingWindowLabel(rangeKey)}`;
+      return [
+        ["smoothed", smoothingLabel],
+        ["raw", "Raw"]
+      ].map(([key, label]) => `
+        <button
+          type="button"
+          class="trend-history-presentation-button"
+          data-trend-presentation="${key}"
+          data-active="${String(key === activeKey)}"
+          aria-pressed="${String(key === activeKey)}"
+        >${escapeHtml(label)}</button>
       `).join("");
     }
 
@@ -10458,6 +10508,10 @@
       const pointCount = seriesItems[0]?.series?.pointCount || seriesItems[0]?.series?.values?.length || 2;
       const pointIntervalMs = (totalHours * 60 * 60 * 1000) / Math.max(pointCount - 1, 1);
       const colors = seriesItems.map((_, index) => getTrendSeriesColor(index));
+      const displayValuesByItem = new Map(seriesItems.map((item) => [
+        item,
+        getTrendDisplayValues(item)
+      ]));
       const tooltipDateFormat = new Intl.DateTimeFormat("lt-LT", {
         day: "2-digit",
         month: "short",
@@ -10473,7 +10527,7 @@
           .map((item, index) => {
             const definition = item.option.definition;
             const optimalRange = item.option.optimalRange || definition.optimal;
-            const axisDomain = getTrendAxisDomain(item.series.values, definition, optimalRange);
+            const axisDomain = getTrendAxisDomain(displayValuesByItem.get(item), definition, optimalRange);
             const visualSpan = (optimalRange[1] - optimalRange[0])
               / Math.max(axisDomain[1] - axisDomain[0], 0.0001);
             return { index, visualSpan };
@@ -10489,7 +10543,7 @@
         const color = colors[index];
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
-        const axisDomain = getTrendAxisDomain(item.series.values, definition, optimalRange);
+        const axisDomain = getTrendAxisDomain(displayValuesByItem.get(item), definition, optimalRange);
         return {
           type: "value",
           name: `${translateInterfaceText(item.option.label)} (${formatUnit(definition.unit)})`,
@@ -10539,9 +10593,10 @@
         const color = colors[index];
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
-        const axisDomain = getTrendAxisDomain(item.series.values, definition, optimalRange);
+        const displayValues = displayValuesByItem.get(item);
+        const axisDomain = getTrendAxisDomain(displayValues, definition, optimalRange);
         const isTargetVisible = (value) => value >= axisDomain[0] && value <= axisDomain[1];
-        const data = item.series.values.map((value, pointIndex) => [
+        const data = displayValues.map((value, pointIndex) => [
           item.series.timestamps?.[pointIndex] ?? rangeStart,
           value
         ]);
@@ -10549,10 +10604,10 @@
         const labelPrefix = shortMetricLabel(item.option.label);
         const targetMinLabel = `${labelPrefix} min ${formatValue(optimalRange[0], definition)}`;
         const targetMaxLabel = `${labelPrefix} max ${formatValue(optimalRange[1], definition)}`;
-        const minimumValue = Math.min(...item.series.values);
-        const maximumValue = Math.max(...item.series.values);
-        const minimumIndex = item.series.values.indexOf(minimumValue);
-        const maximumIndex = item.series.values.indexOf(maximumValue);
+        const minimumValue = Math.min(...displayValues);
+        const maximumValue = Math.max(...displayValues);
+        const minimumIndex = displayValues.indexOf(minimumValue);
+        const maximumIndex = displayValues.indexOf(maximumValue);
         const extremaLabelColor = colorWithAlpha(color, 0.94);
         const extremaBackground = "rgba(255, 255, 255, 0.94)";
 
@@ -10564,9 +10619,7 @@
           showSymbol: false,
           symbol: "circle",
           symbolSize: 7,
-          // Visual interpolation only: the underlying measurements remain unchanged.
-          smooth: 0.38,
-          smoothMonotone: "x",
+          smooth: false,
           connectNulls: false,
           animation: false,
           lineStyle: {
@@ -10774,13 +10827,14 @@
               .map((param) => {
                 const item = seriesItems[param.seriesIndex];
                 if (!item) return "";
+                const rawValue = item.series.values[param.dataIndex];
                 return `
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:6px;">
                     <span style="display:flex;align-items:center;gap:7px;">
                       <span style="width:8px;height:8px;border-radius:50%;background:${colors[param.seriesIndex]};"></span>
                       ${escapeHtml(translateInterfaceText(item.option.label))}
                     </span>
-                    <strong>${escapeHtml(formatValue(param.value[1], item.option.definition))}</strong>
+                    <strong>${escapeHtml(formatValue(rawValue, item.option.definition))}</strong>
                   </div>
                 `;
               })
@@ -11033,6 +11087,9 @@
           : null
       );
       const aggregationLabel = getTrendAggregationLabel(selectedHistoryResponses.find(Boolean));
+      const presentationLabel = activeTrendPresentation === "smoothed"
+        ? `Smoothed view · ${getTrendSmoothingWindowLabel(activeTrendRangeKey)}`
+        : "Raw measurements";
 
       const hasRenderableSeries = seriesItems.every((item) =>
         Array.isArray(item.series.values)
@@ -11152,8 +11209,8 @@
         rangeMeta: rangeConfig.meta,
         metricLabel: isMultiMetric ? `${selectedMetrics.length} metrics selected` : selectedMetric.label,
         metricMeta: isMultiMetric
-          ? `${aggregationLabel} · Dual-axis comparison with real units`
-          : `${aggregationLabel} · Target ${formatRange(optimalRange, selectedMetric.definition)}`,
+          ? `${aggregationLabel} · ${presentationLabel} · Dual-axis comparison with real units`
+          : `${aggregationLabel} · ${presentationLabel} · Target ${formatRange(optimalRange, selectedMetric.definition)}`,
         chartState,
         chartOption: buildTrendEChartsOption(chartState),
         axisLabels: {
@@ -11235,21 +11292,41 @@
       if (!element || !window.echarts || !comparison?.series?.length) return;
       disposeTrendComparisonChart();
       trendComparisonChartInstance = window.echarts.init(element, null, { renderer: "svg" });
+      const comparisonSeries = comparison.series.map((item) => {
+        const rawValues = item.points.map((point) => Number(point.value));
+        const displayValues = getTrendDisplayValuesForMetric(rawValues, metricOption.key);
+        return {
+          name: item.sectionName,
+          rawValues,
+          data: item.points.map((point, index) => [new Date(point.observedAt).getTime(), displayValues[index]])
+        };
+      });
       trendComparisonChartInstance.setOption({
         animation: false,
         color: ["#356b53", "#af7b2c", "#3d6f8f", "#8b5d7a", "#a05444", "#5b6f3d"],
         grid: { left: 58, right: 24, top: 42, bottom: 34 },
         legend: { top: 4, type: "scroll", textStyle: { fontSize: 11 } },
-        tooltip: { trigger: "axis", valueFormatter: (value) => formatValue(value, metricOption.definition) },
+        tooltip: {
+          trigger: "axis",
+          formatter: (rawParams) => {
+            const params = Array.isArray(rawParams) ? rawParams : [rawParams];
+            const timestamp = params[0]?.value?.[0] ? new Date(params[0].value[0]).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB") : "";
+            const rows = params.map((param) => {
+              const source = comparisonSeries[param.seriesIndex];
+              const rawValue = source?.rawValues?.[param.dataIndex];
+              return `${escapeHtml(param.seriesName)}: <strong>${escapeHtml(formatValue(rawValue, metricOption.definition))}</strong>`;
+            }).join("<br>");
+            return `<strong>${escapeHtml(timestamp)}</strong><br>${rows}`;
+          }
+        },
         xAxis: { type: "time", axisLabel: { fontSize: 10 } },
         yAxis: { type: "value", scale: true, axisLabel: { formatter: (value) => formatTrendTickValue(value, metricOption.definition), fontSize: 10 } },
-        series: comparison.series.map((item) => ({
-          name: item.sectionName,
+        series: comparisonSeries.map((item) => ({
+          name: item.name,
           type: "line",
           showSymbol: false,
-          smooth: 0.38,
-          smoothMonotone: "x",
-          data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value])
+          smooth: false,
+          data: item.data
         }))
       });
     }
@@ -14200,6 +14277,7 @@
         elements.trendHistoryExportButton.hidden = !isApiDataMode() || isSiteView;
         elements.trendHistoryExportButton.disabled = false;
         elements.trendMetricBar.innerHTML = trendHistoryState.metricButtons;
+        elements.trendPresentationBar.innerHTML = renderTrendPresentationButtons(activeTrendPresentation, activeTrendRangeKey);
         elements.trendRangeBar.innerHTML = trendHistoryState.rangeButtons;
         elements.trendHistoryMetricLabel.textContent = trendHistoryState.metricLabel;
         elements.trendHistoryMetricMeta.textContent = trendHistoryState.metricMeta;
@@ -15637,6 +15715,15 @@
       const nextRangeKey = button.dataset.trendRange;
       if (!trendRangeConfig[nextRangeKey] || nextRangeKey === activeTrendRangeKey) return;
       activeTrendRangeKey = nextRangeKey;
+      renderDashboard();
+    });
+
+    elements.trendPresentationBar.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-trend-presentation]");
+      if (!button) return;
+      const nextPresentation = button.dataset.trendPresentation;
+      if (!['raw', 'smoothed'].includes(nextPresentation) || nextPresentation === activeTrendPresentation) return;
+      activeTrendPresentation = nextPresentation;
       renderDashboard();
     });
 
