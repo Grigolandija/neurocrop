@@ -25,6 +25,7 @@ assert(runtime.includes("function renderEmptyAreaState(site)") && runtime.includ
 assert(runtime.includes("const { preferCurrentZone = false } = options;"), "the selected Area must take precedence over a stale Section context");
 assert(runtime.includes("const alertsModuleEnabled = false;") && runtime.includes('nextRoute.page === "alerts" && !alertsModuleEnabled'), "Alerts must remain unavailable until the module is released");
 assert(runtime.includes('const aggregationName = isPeak ? "Section peak" : "Section median";'), "Light history must identify peak aggregation instead of pretending it is a median");
+assert(runtime.includes("const dataValues = values.map(Number).filter(Number.isFinite);") && runtime.includes("A nearby target line provides useful context; a distant target must not flatten the real curve."), "trend Y axes must prioritize real measurement ranges over wide display ranges");
 assert(runtime.includes('const filteredSites = blockSites.filter((site) => site.id === activeSiteId);'), "Sections must always follow the Area selected in the global header");
 assert(!runtime.includes('data-block-filter-select class='), "Sections must not expose a competing local Area filter");
 assert(runtime.includes("function rebuildEnhancedSelect(select)"), "Node Area changes must rebuild the visible Section selector");
@@ -39,6 +40,7 @@ assert(runtime.includes("await hydrateDashboardFromApi();") && runtime.includes(
 assert(runtime.includes('class="settings-local-notice"'), "non-API settings must be clearly identified as browser-local");
 assert(runtime.includes('snapshot?.overall?.source === "backend"') && runtime.includes("Number.isFinite(snapshot.overall.indexScore)"), "Area and Section selectors must display backend scores before local readings load");
 assert(runtime.includes("function refreshDataForActivePage()") && runtime.includes("const dashboardRefreshTtlMs = 30 * 1000;") && runtime.includes("refreshDataForActivePage();"), "data pages must refresh stale dashboard data on navigation without reloading every page");
+assert(runtime.includes('setLoginState(session, { resetWorkspace: true });'), "authenticated workspace entry must reset to Overview and a concrete priority zone");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
 

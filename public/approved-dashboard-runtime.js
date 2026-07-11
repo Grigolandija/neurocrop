@@ -1642,7 +1642,9 @@
           const session = normalizeLoginSession(response?.user || { email: "" });
           if (!session.email) throw new Error("Authenticated user email is missing.");
           persistLoginSession(session);
-          setLoginState(session);
+          // Opening an authenticated workspace is a new entry point: always begin
+          // on Overview with the backend-selected priority zone, never a stale site scope.
+          setLoginState(session, { resetWorkspace: true });
           return;
         } catch (error) {
           window.sessionStorage.removeItem(loginSessionKey);
@@ -10330,20 +10332,31 @@
     }
 
     function getTrendAxisDomain(values, definition, optimalRange) {
-      const warningRange = definition.warning || optimalRange;
-      const displayRange = definition.displayRange || null;
-      const referenceValues = definition.behavior === "higherIsBetter"
-        ? [...values, optimalRange[0], optimalRange[1], warningRange[0]]
-        : [...values, ...optimalRange, ...warningRange];
-      const referenceMin = Math.min(...referenceValues);
-      const referenceMax = Math.max(...referenceValues);
-      const baseDomain = displayRange || definition.critical || definition.warning || definition.optimal;
-      const referenceSpan = Math.max(referenceMax - referenceMin, (baseDomain[1] - baseDomain[0]) * 0.12, 0.01);
-      const axisPadding = referenceSpan * 0.14;
-      return [
-        displayRange ? Math.max(displayRange[0], referenceMin - axisPadding) : referenceMin - axisPadding,
-        displayRange ? Math.min(displayRange[1], referenceMax + axisPadding) : referenceMax + axisPadding
-      ];
+      const dataValues = values.map(Number).filter(Number.isFinite);
+      if (!dataValues.length) return optimalRange;
+
+      const dataMin = Math.min(...dataValues);
+      const dataMax = Math.max(...dataValues);
+      const decimals = Math.max(0, Number(definition.decimals) || 0);
+      const precisionStep = 10 ** -decimals;
+      // Keep a readable scale even when a sensor has reported the same value all day.
+      const minimumSpan = Math.max(precisionStep * 4, Math.max(Math.abs(dataMin), Math.abs(dataMax), 1) * 0.02);
+      const dataSpan = Math.max(dataMax - dataMin, minimumSpan);
+      const nearDataPadding = dataSpan * 0.18;
+      let axisMin = dataMin - nearDataPadding;
+      let axisMax = dataMax + nearDataPadding;
+
+      // A nearby target line provides useful context; a distant target must not flatten the real curve.
+      const nearbyTargetLimit = dataSpan * 0.5;
+      for (const limit of optimalRange) {
+        if (!Number.isFinite(Number(limit))) continue;
+        if (limit >= dataMin - nearbyTargetLimit && limit <= dataMax + nearbyTargetLimit) {
+          axisMin = Math.min(axisMin, limit - nearDataPadding);
+          axisMax = Math.max(axisMax, limit + nearDataPadding);
+        }
+      }
+
+      return [axisMin, axisMax];
     }
 
     function buildTrendValueColorPieces(item, optimalColor) {
@@ -10465,6 +10478,8 @@
         const color = colors[index];
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
+        const axisDomain = getTrendAxisDomain(item.series.values, definition, optimalRange);
+        const isTargetVisible = (value) => value >= axisDomain[0] && value <= axisDomain[1];
         const data = item.series.values.map((value, pointIndex) => [
           item.series.timestamps?.[pointIndex] ?? rangeStart,
           value
@@ -10533,17 +10548,17 @@
               padding: [4, 7]
             },
             data: [
-              {
+              isTargetVisible(optimalRange[1]) && {
                 name: targetMaxLabel,
                 yAxis: optimalRange[1],
                 label: { formatter: targetMaxLabel }
               },
-              {
+              isTargetVisible(optimalRange[0]) && {
                 name: targetMinLabel,
                 yAxis: optimalRange[0],
                 label: { formatter: targetMinLabel }
               }
-            ]
+            ].filter(Boolean)
           },
           markPoint: {
             silent: true,
@@ -10588,25 +10603,27 @@
           }
         };
 
-        const targetBandLayer = targetBandLayerBySeries.get(index) || 0;
-        seriesOption.markArea = {
-          silent: true,
-          animation: false,
-          z: targetBandLayer,
-          itemStyle: {
-            color: colorWithAlpha(color, isMultiMetric && targetBandLayer === 0 ? 0.065 : 0.105),
-            borderColor: "transparent",
-            borderWidth: 0
-          },
-          data: [[
-            {
-              yAxis: optimalRange[0]
+        if (isTargetVisible(optimalRange[0]) && isTargetVisible(optimalRange[1])) {
+          const targetBandLayer = targetBandLayerBySeries.get(index) || 0;
+          seriesOption.markArea = {
+            silent: true,
+            animation: false,
+            z: targetBandLayer,
+            itemStyle: {
+              color: colorWithAlpha(color, isMultiMetric && targetBandLayer === 0 ? 0.065 : 0.105),
+              borderColor: "transparent",
+              borderWidth: 0
             },
-            {
-              yAxis: optimalRange[1]
-            }
-          ]]
-        };
+            data: [[
+              {
+                yAxis: optimalRange[0]
+              },
+              {
+                yAxis: optimalRange[1]
+              }
+            ]]
+          };
+        }
 
         return seriesOption;
       });
