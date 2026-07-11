@@ -7896,7 +7896,7 @@
           const metric = profile.metrics[metricKey];
           const metricDraft = draftMetrics[metricKey];
           const rangeValues = getProfileEditorRangeValues(metricDraft || metric);
-          const automaticRanges = deriveAutomaticAlertRanges(metricDraft || metric, [rangeValues.optimalMin, rangeValues.optimalMax]);
+          const automaticRanges = deriveAutomaticAlertRanges({ ...(metricDraft || metric), metricKey }, [rangeValues.optimalMin, rangeValues.optimalMax]);
           const step = metric.decimals === 0 ? "1" : "0.01";
           const optimalInput = (label, value, bound) => `
             <label class="block min-w-0">
@@ -8699,27 +8699,54 @@
       return Number.isFinite(gap) && gap > 0 ? gap : null;
     }
 
+    const AUTOMATIC_ALERT_BOUNDARY_RULES = {
+      airTemp: { warning: [2, 2], critical: [4, 4] },
+      humidity: { warning: [5, 5], critical: [15, 15] },
+      co2: { warning: [150, 150], critical: [400, 400] },
+      lux: { warning: "light", critical: "light" },
+      soilTemp: { warning: [2, 2], critical: [5, 6] },
+      vpd: { warning: [0.2, 0.2], critical: [0.6, 0.6] },
+      soilMoisture: { warning: [8, 8], critical: [18, 18] },
+      ec: { warning: "ec", critical: "ec" },
+      ph: { warning: [0.3, 0.4], critical: [0.8, 0.8] },
+      leafTemp: { warning: [2, 2], critical: [5, 5] },
+      soilEc: { warning: [0.3, 0.4], critical: [0.8, 1] },
+      waterTemp: { warning: [2, 2], critical: [5, 6] },
+      airPressure: { warning: [6, 6], critical: [14, 14] }
+    };
+
     function getAutomaticBoundaryPadding(metric, optimalRange) {
-      const values = getProfileEditorRangeValues(metric);
+      const key = String(metric?.metricKey || "");
       const optimalMin = Number(optimalRange?.[0]);
       const optimalMax = Number(optimalRange?.[1]);
-      const span = Math.max(Math.abs(optimalMax - optimalMin), stepFromDecimals(metric?.decimals || 0), 1);
-      const fallbackWarning = span * 0.25;
-      const fallbackCritical = span * 0.75;
+      const span = Math.max(optimalMax - optimalMin, stepFromDecimals(metric?.decimals || 0), 0);
+      const rule = AUTOMATIC_ALERT_BOUNDARY_RULES[key];
 
-      const warningLowGap = getPositiveGap(optimalMin, values.warningLow);
-      const warningHighGap = getPositiveGap(values.warningHigh, optimalMax);
-      const criticalLowGap = getPositiveGap(optimalMin, values.criticalLow);
-      const criticalHighGap = getPositiveGap(values.criticalHigh, optimalMax);
+      if (rule?.warning === "light") {
+        return {
+          warningLow: Math.max(4000, span * 0.5),
+          warningHigh: Math.max(4000, span * 0.25),
+          criticalLow: Math.max(10000, span * 1.25),
+          criticalHigh: Math.max(10000, span * 0.75)
+        };
+      }
 
-      const warningGap = Math.max(warningLowGap || 0, warningHighGap || 0, fallbackWarning);
-      const criticalGap = Math.max(criticalLowGap || 0, criticalHighGap || 0, warningGap * 2, fallbackCritical);
+      if (rule?.warning === "ec") {
+        return {
+          warningLow: Math.max(0.3, span * 0.4),
+          warningHigh: Math.max(0.3, span * 0.4),
+          criticalLow: Math.max(0.6, span),
+          criticalHigh: Math.max(0.8, span)
+        };
+      }
 
+      const warning = Array.isArray(rule?.warning) ? rule.warning : [Math.max(span * 0.25, 1), Math.max(span * 0.25, 1)];
+      const critical = Array.isArray(rule?.critical) ? rule.critical : [Math.max(span * 0.75, 2), Math.max(span * 0.75, 2)];
       return {
-        warningLow: warningLowGap || warningHighGap || warningGap,
-        warningHigh: warningHighGap || warningLowGap || warningGap,
-        criticalLow: criticalLowGap || criticalHighGap || criticalGap,
-        criticalHigh: criticalHighGap || criticalLowGap || criticalGap
+        warningLow: warning[0],
+        warningHigh: warning[1],
+        criticalLow: critical[0],
+        criticalHigh: critical[1]
       };
     }
 
@@ -8734,6 +8761,8 @@
         };
       }
 
+      // Limits are derived only from the current optimal target and the metric policy.
+      // Never use prior alert limits here: doing so compounds the range on every save.
       const padding = getAutomaticBoundaryPadding(metric, [optimalMin, optimalMax]);
       const decimals = Number.isFinite(Number(metric?.decimals)) ? Number(metric.decimals) : 2;
       const warning = [
@@ -8853,7 +8882,7 @@
       if (!Array.isArray(metric.optimal)) metric.optimal = [];
       metric.optimal[bound] = target.value;
       const ranges = getProfileEditorRangeValues(metric);
-      const automaticRanges = deriveAutomaticAlertRanges(metric, [ranges.optimalMin, ranges.optimalMax]);
+      const automaticRanges = deriveAutomaticAlertRanges({ ...metric, metricKey }, [ranges.optimalMin, ranges.optimalMax]);
       metric.warning = automaticRanges.warning.map((value) => formatProfileRangeInput(value, decimals));
       metric.critical = automaticRanges.critical.map((value) => formatProfileRangeInput(value, decimals));
       const warningLabel = row.querySelector('[data-profile-alert-limit="warning"]');
@@ -8948,7 +8977,7 @@
           nextRanges[rangeKey][bound] = value;
         }
         const [optimalMin, optimalMax] = nextRanges.optimal;
-        const automaticRanges = deriveAutomaticAlertRanges({ ...metric, ...draftMetric, optimal: nextRanges.optimal }, nextRanges.optimal);
+        const automaticRanges = deriveAutomaticAlertRanges({ ...metric, ...draftMetric, metricKey, optimal: nextRanges.optimal }, nextRanges.optimal);
         nextRanges.warning = automaticRanges.warning;
         nextRanges.critical = automaticRanges.critical;
         const [warningMin, warningMax] = nextRanges.warning;
