@@ -746,7 +746,10 @@
     .crop-profile-save-bar strong, .crop-profile-save-bar span { display: block; }
     .crop-profile-save-bar strong { color: #214f40; font-size: 13px; font-weight: 800; }
     .crop-profile-save-bar span { margin-top: 2px; color: rgba(20, 32, 27, 0.55); font-size: 12px; }
-    .crop-profile-save-bar > div:last-child { display: flex; gap: 8px; }
+    .crop-profile-save-actions { display: grid; justify-items: end; gap: 5px; }
+    .crop-profile-save-actions > div { display: flex; gap: 8px; }
+    .crop-profile-save-feedback { max-width: 390px; margin: 0; color: #28684f; font-size: 11px; font-weight: 750; line-height: 1.35; text-align: right; }
+    .crop-profile-save-feedback[data-tone="warning"] { color: #a96813; }
     .crop-profile-discard-button { min-height: 40px; padding: 0 12px; border: 1px solid rgba(20, 32, 27, 0.13); border-radius: 8px; background: #fff; color: rgba(20, 32, 27, .7); font-size: 13px; font-weight: 700; }
     .crop-profile-discard-button:disabled, .crop-profile-save-bar [data-profile-save]:disabled { cursor: not-allowed; opacity: .5; }
     .crop-profile-save-bar .settings-primary-button { min-height: 40px; border-radius: 8px; font-size: 13px; }
@@ -838,8 +841,10 @@
       .crop-profile-metric-detail { grid-template-columns: 1fr; padding: 10px 12px; }
       .crop-profile-optimal-inputs { max-width: 280px; }
       .crop-profile-save-bar { align-items: flex-start; flex-direction: column; }
-      .crop-profile-save-bar > div:last-child { width: 100%; }
-      .crop-profile-save-bar > div:last-child button { flex: 1; }
+      .crop-profile-save-actions { width: 100%; justify-items: stretch; }
+      .crop-profile-save-actions > div { width: 100%; }
+      .crop-profile-save-actions > div button { flex: 1; }
+      .crop-profile-save-feedback { max-width: none; text-align: left; }
     }
 
     @media (max-width: 860px) {
@@ -9013,8 +9018,9 @@
       .designer-app .crop-profile-switcher-option { flex-basis: min(82vw, 280px); }
       .designer-app .crop-profile-editor-aside { grid-template-columns: 1fr; }
       .designer-app .crop-profile-management { grid-column: auto; }
-      .designer-app .crop-profile-save-bar > div:last-child { width: 100%; }
-      .designer-app .crop-profile-save-bar button { flex: 1; }
+      .designer-app .crop-profile-save-actions { width: 100%; justify-items: stretch; }
+      .designer-app .crop-profile-save-actions > div { width: 100%; }
+      .designer-app .crop-profile-save-actions > div button { flex: 1; }
       .designer-app .crop-profile-create-drawer form { grid-template-columns: 1fr; }
       .designer-app .crop-profile-create-drawer form .settings-primary-button { grid-column: auto; }
       .designer-app .settings-head-summary { width: 100%; justify-content: flex-start; }

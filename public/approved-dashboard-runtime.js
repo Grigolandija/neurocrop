@@ -1800,6 +1800,7 @@
     let activeSettingsPanelKey = "profiles";
     let activeCropProfileView = "mine";
     let settingsProfileEditorDrafts = {};
+    let profileSaveFeedback = { profileKey: "", tone: "optimal", text: "" };
     let managementNotice = { page: "", tone: "optimal", text: "" };
     const dashboardRouteMap = {
       overview: { page: "overview", route: "/" },
@@ -7876,6 +7877,9 @@
       const draftMetrics = draft?.metrics || {};
       const profileUsageCount = getProfileUsageCounts()[profileKey] || 0;
       const assignments = getProfileAssignments(profileKey);
+      const saveFeedback = profileSaveFeedback.profileKey === profileKey
+        ? profileSaveFeedback
+        : null;
       const metricRows = (metricKeys) => metricKeys
         .filter((metricKey) => isGrowthMetricKey(metricKey) && profile.metrics[metricKey])
         .map((metricKey) => {
@@ -7949,7 +7953,10 @@
           </div>
           <footer class="crop-profile-save-bar">
             <div><strong data-profile-save-state>All changes saved</strong><span>Targets are stored in the workspace and used for scoring.</span></div>
-            <div><button type="button" class="crop-profile-discard-button" data-settings-profile-discard="${escapeAttribute(profileKey)}" disabled>Discard changes</button><button type="submit" class="settings-primary-button" data-profile-save disabled>Save changes</button></div>
+            <div class="crop-profile-save-actions">
+              <div><button type="button" class="crop-profile-discard-button" data-settings-profile-discard="${escapeAttribute(profileKey)}" disabled>Discard changes</button><button type="submit" class="settings-primary-button" data-profile-save disabled>Save changes</button></div>
+              ${saveFeedback ? `<p class="crop-profile-save-feedback" data-tone="${escapeAttribute(saveFeedback.tone)}" role="status">${escapeHtml(saveFeedback.text)}</p>` : ""}
+            </div>
           </footer>
         </form>
       `;
@@ -8854,6 +8861,7 @@
       const profile = cropProfiles[profileKey];
       if (!profile) return;
       const draft = ensureSettingsProfileEditorDraft(profileKey, profile);
+      if (profileSaveFeedback.profileKey === profileKey) profileSaveFeedback = { profileKey: "", tone: "optimal", text: "" };
       form.dataset.dirty = "true";
       const saveButton = form.querySelector("[data-profile-save]");
       const discardButton = form.querySelector("[data-settings-profile-discard]");
@@ -8974,7 +8982,11 @@
             }
             delete settingsProfileEditorDrafts[profileKey];
             await hydrateCropProfilesFromApi();
-            setManagementNotice("settings", `${name} targets saved. Scores, alerts, and history now use these ranges.`);
+            profileSaveFeedback = {
+              profileKey: activeSettingsProfileKey,
+              tone: "optimal",
+              text: `${name} targets saved. Scores, alerts, and history now use these ranges.`
+            };
             renderDashboard();
           } catch (error) {
             if (profileKey === "default" && window.NeuroCropApi?.createCropProfile) {
@@ -8992,7 +9004,11 @@
                 activeSettingsProfileKey = "default";
                 delete settingsProfileEditorDrafts[profileKey];
                 await hydrateCropProfilesFromApi();
-                setManagementNotice("settings", `${name} created in the backend and targets saved.`);
+                profileSaveFeedback = {
+                  profileKey: "default",
+                  tone: "optimal",
+                  text: `${name} created in the backend and targets saved.`
+                };
                 renderDashboard();
                 return;
               } catch (createError) {
@@ -9011,7 +9027,11 @@
       persistCustomCropProfiles();
       persistCropProfileOverrides();
       delete settingsProfileEditorDrafts[profileKey];
-      setManagementNotice("settings", `${name} targets saved. Scores, alerts, and history now use these ranges.`);
+      profileSaveFeedback = {
+        profileKey,
+        tone: "optimal",
+        text: `${name} targets saved. Scores, alerts, and history now use these ranges.`
+      };
       renderDashboard();
     }
 
