@@ -5,10 +5,7 @@
     body {
       font-family: "Manrope", sans-serif;
       min-height: 100vh;
-      background:
-        radial-gradient(circle at top left, rgba(47, 106, 79, 0.06), transparent 26%),
-        radial-gradient(circle at top right, rgba(208, 138, 45, 0.07), transparent 28%),
-        linear-gradient(180deg, #faf6ee 0%, #f3ede2 100%);
+      background: #f4f5f1;
       color: #14201b;
     }
 
@@ -12294,8 +12291,8 @@
     #historyLocationMenu .context-menu-option[data-active="true"],
     #historyBlockMenu .context-menu-option[data-active="true"] {
       border-color: rgba(47, 106, 79, 0.13);
-      background: linear-gradient(180deg, #f3f8f4, #edf4ef);
-      color: #a86f1f;
+      background: #edf4ef;
+      color: #214f40;
       box-shadow: inset 3px 0 0 #2f6a4f;
     }
 
@@ -13747,6 +13744,15 @@
     .designer-app textarea:disabled {
       cursor: not-allowed;
       opacity: 0.52;
+    }
+
+    .designer-app [aria-busy="true"] {
+      cursor: progress;
+    }
+
+    .designer-app [aria-busy="true"] .page-content-shell {
+      opacity: 0.72;
+      transition: opacity 0.16s ease;
     }
 
     .designer-app .metric-value,

@@ -1559,6 +1559,7 @@
       const { preserveCurrentOnError = false } = options;
       if (!window.NeuroCropApi?.isConnected() || dashboardHydrationInFlight) return;
       dashboardHydrationInFlight = true;
+      elements.dashboardShell.setAttribute("aria-busy", "true");
       try {
         await hydrateCropProfilesFromApi();
         const nextDashboardData = await window.NeuroCropApi.getDashboard();
@@ -1570,7 +1571,11 @@
         }
         dashboardData = normalizeApiDashboardData(nextDashboardData);
         const { site: nextSite, zone: nextZone } = normalizeActiveSelection();
-        if (!nextSite) return;
+        if (!nextSite) {
+          currentReadings = {};
+          renderDashboard();
+          return;
+        }
         persistActiveContext();
         renderSiteOptions();
         renderZoneOptions();
@@ -1595,6 +1600,7 @@
         }
       } finally {
         dashboardHydrationInFlight = false;
+        elements.dashboardShell.removeAttribute("aria-busy");
       }
     }
 
@@ -6834,6 +6840,32 @@
       });
     }
 
+    function setEnhancedSelectOpen(wrapper, isOpen, { restoreFocus = false } = {}) {
+      if (!wrapper) return;
+      const trigger = wrapper.querySelector("[data-nc-select-trigger]");
+      const menu = wrapper.querySelector("[data-nc-select-menu]");
+      wrapper.dataset.open = String(Boolean(isOpen));
+      if (trigger) trigger.setAttribute("aria-expanded", String(Boolean(isOpen)));
+      if (menu) menu.hidden = !isOpen;
+      if (!isOpen && restoreFocus && trigger instanceof HTMLElement) trigger.focus();
+    }
+
+    function focusEnhancedSelectOption(wrapper, direction = "selected") {
+      const options = Array.from(wrapper?.querySelectorAll("[data-nc-select-option]:not(:disabled)") || []);
+      if (options.length === 0) return;
+      const selectedIndex = Math.max(0, options.findIndex((option) => option.getAttribute("aria-selected") === "true"));
+      const targetIndex = direction === "first"
+        ? 0
+        : direction === "last"
+          ? options.length - 1
+          : direction === "next"
+            ? Math.min(options.length - 1, selectedIndex + 1)
+            : direction === "previous"
+              ? Math.max(0, selectedIndex - 1)
+              : selectedIndex;
+      options[targetIndex]?.focus();
+    }
+
     function syncEnhancedSelect(select, snapshots = null) {
       const wrapper = select?.closest(".nc-select");
       if (!wrapper) return;
@@ -6855,7 +6887,10 @@
       });
 
       const trigger = wrapper.querySelector("[data-nc-select-trigger]");
-      if (trigger) trigger.disabled = select.disabled;
+      if (trigger) {
+        trigger.disabled = select.disabled;
+        trigger.setAttribute("aria-label", selectedOption?.textContent?.trim() || "Select option");
+      }
       wrapper.dataset.disabled = String(select.disabled);
     }
 
@@ -6915,6 +6950,8 @@
             data-select-id="${escapeAttribute(selectId)}"
             aria-haspopup="listbox"
             aria-expanded="false"
+            aria-controls="${escapeAttribute(selectId)}-menu"
+            aria-label="${escapeAttribute(selectedOption?.textContent?.trim() || "Select option") }"
             ${select.disabled ? "disabled" : ""}
           >
             <span class="nc-select-trigger-label" data-nc-select-label>${escapeHtml(selectedOption?.textContent?.trim() || "")}</span>
@@ -6923,7 +6960,7 @@
               <i class="fa-solid fa-chevron-down nc-select-chevron" aria-hidden="true"></i>
             </span>
           </button>
-          <span class="context-menu nc-select-menu" data-nc-select-menu role="listbox" hidden>
+          <span id="${escapeAttribute(selectId)}-menu" class="context-menu nc-select-menu" data-nc-select-menu role="listbox" hidden>
             ${menuOptions}
           </span>
         `);
@@ -13956,6 +13993,12 @@
     }
 
     function renderRuntimeErrorState() {
+      const errorTitle = diagnosticText("View unavailable", "Rodinys nepasiekiamas");
+      const errorNote = diagnosticText(
+        "The rest of the workspace remains available. Retry this view or choose another page.",
+        "Likusi darbo erdvė veikia. Bandykite šį rodinį dar kartą arba pasirinkite kitą puslapį."
+      );
+      const retryLabel = diagnosticText("Retry view", "Bandyti dar kartą");
       elements.heroStatusPanel.hidden = true;
       elements.metricsSection.hidden = true;
       elements.sensorHealthSection.hidden = true;
@@ -13967,12 +14010,12 @@
       elements.overviewTriageSection.dataset.state = "neutral";
       elements.overviewTriageSection.innerHTML = `
         <section class="empty-area-state" role="alert">
-          <p class="triage-eyebrow">View unavailable</p>
-          <h2>This view could not be loaded</h2>
-          <p>The rest of the workspace remains available. Retry this view or choose another page.</p>
+          <p class="triage-eyebrow">${escapeHtml(errorTitle)}</p>
+          <h2>${escapeHtml(diagnosticText("This view could not be loaded", "Šio rodinio nepavyko įkelti"))}</h2>
+          <p>${escapeHtml(errorNote)}</p>
           <button type="button" class="inline-action actionable" data-dashboard-retry>
             <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-            Retry view
+            ${escapeHtml(retryLabel)}
           </button>
         </section>
       `;
@@ -14006,7 +14049,7 @@
           banner.className = "fixed inset-x-4 top-3 z-[200] mx-auto max-w-2xl rounded-xl border border-ember/25 bg-[#fff7f4] px-4 py-3 text-sm font-semibold text-ember shadow-lg";
           elements.dashboardShell.prepend(banner);
         }
-        banner.innerHTML = `<div class="flex items-center justify-between gap-3"><span>This view could not be loaded.</span><button type="button" class="rounded-lg border border-ember/20 bg-white px-3 py-1.5 text-xs font-extrabold text-ember" data-dashboard-retry>Retry view</button></div>`;
+        banner.innerHTML = `<div class="flex items-center justify-between gap-3"><span>${escapeHtml(diagnosticText("This view could not be loaded.", "Šio rodinio nepavyko įkelti."))}</span><button type="button" class="rounded-lg border border-ember/20 bg-white px-3 py-1.5 text-xs font-extrabold text-ember" data-dashboard-retry>${escapeHtml(diagnosticText("Retry view", "Bandyti dar kartą"))}</button></div>`;
       }
     }
 
@@ -15013,11 +15056,13 @@
           `select[data-nc-select-enhanced="${CSS.escape(enhancedSelectOption.dataset.selectId || "")}"]`
         );
         if (select instanceof HTMLSelectElement && !enhancedSelectOption.disabled) {
+          const wrapper = enhancedSelectOption.closest(".nc-select");
           select.value = enhancedSelectOption.dataset.value || "";
           syncEnhancedSelect(select);
           closeEnhancedSelectMenus();
           select.dispatchEvent(new Event("input", { bubbles: true }));
           select.dispatchEvent(new Event("change", { bubbles: true }));
+          setEnhancedSelectOpen(wrapper, false, { restoreFocus: true });
         }
         return;
       }
@@ -15028,10 +15073,7 @@
         if (!wrapper || enhancedSelectTrigger.disabled) return;
         const shouldOpen = wrapper.dataset.open !== "true";
         closeEnhancedSelectMenus(wrapper);
-        wrapper.dataset.open = String(shouldOpen);
-        enhancedSelectTrigger.setAttribute("aria-expanded", String(shouldOpen));
-        const menu = wrapper.querySelector("[data-nc-select-menu]");
-        if (menu) menu.hidden = !shouldOpen;
+        setEnhancedSelectOpen(wrapper, shouldOpen);
         return;
       }
 
@@ -15057,6 +15099,56 @@
 
       if (event.target.closest(".context-card")) return;
       closeContextMenus();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const trigger = event.target.closest?.("[data-nc-select-trigger]");
+      const option = event.target.closest?.("[data-nc-select-option]");
+
+      if (trigger) {
+        const wrapper = trigger.closest(".nc-select");
+        if (!wrapper || trigger.disabled) return;
+        if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
+          event.preventDefault();
+          const shouldOpen = wrapper.dataset.open !== "true";
+          closeEnhancedSelectMenus(wrapper);
+          setEnhancedSelectOpen(wrapper, shouldOpen);
+          if (shouldOpen) {
+            focusEnhancedSelectOption(wrapper, event.key === "ArrowUp" ? "last" : "selected");
+          }
+          return;
+        }
+        if (event.key === "Escape" && wrapper.dataset.open === "true") {
+          event.preventDefault();
+          setEnhancedSelectOpen(wrapper, false, { restoreFocus: true });
+        }
+        return;
+      }
+
+      if (!option) return;
+      const wrapper = option.closest(".nc-select");
+      if (!wrapper) return;
+      const options = Array.from(wrapper.querySelectorAll("[data-nc-select-option]:not(:disabled)"));
+      const currentIndex = options.indexOf(option);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setEnhancedSelectOpen(wrapper, false, { restoreFocus: true });
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        focusEnhancedSelectOption(wrapper, "first");
+      } else if (event.key === "End") {
+        event.preventDefault();
+        focusEnhancedSelectOption(wrapper, "last");
+      } else if (event.key === "ArrowDown" && currentIndex >= 0) {
+        event.preventDefault();
+        options[Math.min(options.length - 1, currentIndex + 1)]?.focus();
+      } else if (event.key === "ArrowUp" && currentIndex >= 0) {
+        event.preventDefault();
+        options[Math.max(0, currentIndex - 1)]?.focus();
+      } else if (["Enter", " "].includes(event.key)) {
+        event.preventDefault();
+        option.click();
+      }
     });
 
     window.addEventListener("storage", refreshDashboardDataFromStore);
