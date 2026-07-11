@@ -4291,6 +4291,14 @@
           button.hidden = !showAdmin;
           button.style.display = showAdmin ? "" : "none";
         }
+        if (button.dataset.sidebarAction === "zones") {
+          const hasAreas = (dashboardData.sites || []).some((site) => !isUnassignedLocation(site));
+          button.disabled = !hasAreas;
+          button.setAttribute("aria-disabled", String(!hasAreas));
+          button.style.opacity = hasAreas ? "" : "0.42";
+          button.style.pointerEvents = hasAreas ? "" : "none";
+          button.title = hasAreas ? "" : "Create an area before adding sections.";
+        }
         const isActive = button.dataset.sidebarAction === activeAction;
         button.dataset.active = String(isActive);
         if (isActive) {
@@ -4327,6 +4335,7 @@
           scrollToSection("locationsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "zones":
+          if (!(dashboardData.sites || []).some((existingSite) => !isUnassignedLocation(existingSite))) return;
           activePrimaryPage = "blocks";
           syncBlocksManagementContext();
           sidebarActionOverride = null;
@@ -6972,6 +6981,30 @@
     function renderLocationsManagementPage(globalSnapshots) {
       const locations = dashboardData.sites.filter((site) => !isUnassignedLocation(site));
       const totalLocations = locations.length;
+      if (totalLocations === 0) {
+        locationFormState = {
+          ...locationFormState,
+          mode: "create",
+          editingId: null
+        };
+        elements.locationsManagementShell.innerHTML = `
+          <div class="surface rounded-[34px] p-6 md:p-8">
+            <form data-management-form="location" class="max-w-5xl">
+              <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Create area</p>
+              <h2 class="mt-2 font-display text-3xl font-bold text-ink">Create your first area</h2>
+              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">Start with one greenhouse, room, tunnel, or other larger operating area. Sections and nodes are added after this.</p>
+              <div class="mt-6 flex flex-col gap-3 md:flex-row">
+                <input name="locationName" value="${escapeAttribute(locationFormState.name)}" placeholder="Greenhouse No. 1" class="min-h-[58px] flex-1 rounded-[22px] border border-black/10 bg-white px-5 text-base font-semibold outline-none transition focus:border-pine/45 focus:ring-4 focus:ring-pine/10">
+                <button type="submit" class="inline-flex min-h-[58px] items-center justify-center rounded-[22px] bg-pine px-6 text-base font-bold text-white shadow-soft transition hover:-translate-y-0.5">
+                  <i class="fa-solid fa-location-dot mr-2" aria-hidden="true"></i>
+                  Create area
+                </button>
+              </div>
+            </form>
+          </div>
+        `;
+        return;
+      }
       const totalBlocks = dashboardData.sites.reduce((sum, site) => sum + (site.zones || []).length, 0);
       const totalNodes = dashboardData.sites.reduce((sum, site) => sum + getSiteNodeCount(site), 0);
       const activeAlertCount = globalSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal").length;
@@ -12548,6 +12581,7 @@
       elements.heroStatusPanel.hidden = true;
       elements.todayPriorityPanel.hidden = true;
       elements.metricsSection.hidden = true;
+      elements.historySection.hidden = true;
       elements.sensorHealthSection.hidden = true;
       elements.alertsSection.hidden = true;
       elements.opsDockSection.hidden = true;
