@@ -12511,6 +12511,75 @@
       document.body.dataset.primaryPage = "overview";
     }
 
+    function renderEmptyWorkspaceState() {
+      activeViewScope = "site";
+      activeProfileKey = cropProfiles.default ? "default" : Object.keys(cropProfiles)[0] || "default";
+      renderSiteOptions();
+      renderZoneOptions();
+      updateSidebarActionState();
+
+      const isLocationsPage = activePrimaryPage === "locations";
+      const isBlocksPage = activePrimaryPage === "blocks";
+      const isNodesPage = activePrimaryPage === "nodes";
+      const isSettingsPage = activePrimaryPage === "settings";
+      const isAdminPage = activePrimaryPage === "admin";
+      const isAlertsPage = activePrimaryPage === "alerts";
+      const showWorkspaceSetup = !isLocationsPage && !isBlocksPage && !isNodesPage && !isSettingsPage && !isAdminPage && !isAlertsPage;
+
+      elements.siteContextValue.textContent = diagnosticText("No areas", "Nėra area");
+      elements.siteContextMeta.textContent = diagnosticText("Create the first area", "Sukurkite pirmą area");
+      elements.siteContextMeta.dataset.state = "neutral";
+      elements.zoneContextCard.dataset.disabled = "true";
+      elements.zoneTrigger.disabled = true;
+      elements.zoneTrigger.setAttribute("aria-disabled", "true");
+      elements.zoneContextValue.textContent = diagnosticText("No sections", "Nėra sekcijų");
+      elements.zoneContextMeta.textContent = diagnosticText("Create an area and section to start monitoring.", "Sukurkite area ir sekciją, kad pradėtumėte stebėjimą.");
+      elements.zoneContextMeta.dataset.state = "neutral";
+      elements.profileContextValue.textContent = cropProfiles[activeProfileKey]?.name || "Default";
+      elements.profileContextMeta.textContent = diagnosticText("Ready for first section", "Paruoštas pirmai sekcijai");
+
+      elements.experienceModeSection.hidden = true;
+      elements.locationsManagementSection.hidden = !isLocationsPage;
+      elements.blocksManagementSection.hidden = !isBlocksPage;
+      elements.nodesManagementSection.hidden = !isNodesPage;
+      elements.settingsManagementSection.hidden = !(isSettingsPage || isAdminPage);
+      elements.alertsManagementSection.hidden = !isAlertsPage;
+      elements.overviewTriageSection.hidden = !showWorkspaceSetup;
+      elements.heroStatusPanel.hidden = true;
+      elements.todayPriorityPanel.hidden = true;
+      elements.metricsSection.hidden = true;
+      elements.sensorHealthSection.hidden = true;
+      elements.alertsSection.hidden = true;
+      elements.opsDockSection.hidden = true;
+      elements.detailedDiagnosticsSection.hidden = true;
+      if (elements.sidebarQuickActions) elements.sidebarQuickActions.hidden = true;
+
+      if (isLocationsPage) renderLocationsManagementPage([]);
+      if (isBlocksPage) renderBlocksManagementPage([]);
+      if (isNodesPage) renderNodesManagementPage([]);
+      if (isSettingsPage || isAdminPage) renderSettingsManagementPage([]);
+      if (isAlertsPage) renderAlertsManagementPage([]);
+
+      if (showWorkspaceSetup) {
+        elements.overviewTriageSection.dataset.state = "neutral";
+        elements.overviewTriageSection.innerHTML = `
+          <section class="empty-area-state">
+            <p class="triage-eyebrow">${diagnosticText("Workspace ready", "Workspace paruoštas")}</p>
+            <h2>${diagnosticText("Create your first growing area", "Sukurkite pirmą auginimo area")}</h2>
+            <p>${diagnosticText("This organization has no areas, sections, or nodes yet. Start by creating an area, then add a section and register nodes.", "Šioje organizacijoje dar nėra area, sekcijų ar nodes. Pradėkite nuo area sukūrimo, tada pridėkite sekciją ir registruokite nodes.")}</p>
+            <button type="button" class="inline-action actionable" data-dashboard-action="sites">
+              <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+              ${diagnosticText("Create area", "Sukurti area")}
+            </button>
+          </section>
+        `;
+      }
+
+      document.body.dataset.dashboardState = "neutral";
+      document.body.dataset.viewScope = "site";
+      document.body.dataset.primaryPage = activePrimaryPage;
+    }
+
     function renderDashboardUnsafe(options = {}) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
@@ -12524,7 +12593,10 @@
       const isPrimaryWorkspacePage = isManagementPage || isHistoryPage || isReadingsPage;
       const site = getActiveSite();
       const zone = getActiveZone(site);
-      if (!site) return;
+      if (!site) {
+        renderEmptyWorkspaceState();
+        return;
+      }
       if (!zone) {
         renderEmptyAreaState(site);
         return;
