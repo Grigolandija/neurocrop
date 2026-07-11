@@ -1516,14 +1516,41 @@
       }
     }
 
+    function normalizeLoginSession(session) {
+      if (!session || !session.email) return null;
+      return {
+        ...session,
+        isPlatformAdmin: session.isPlatformAdmin === true
+      };
+    }
+
+    function persistLoginSession(session) {
+      const normalized = normalizeLoginSession(session);
+      if (normalized) {
+        window.sessionStorage.setItem(loginSessionKey, JSON.stringify(normalized));
+      } else {
+        window.sessionStorage.removeItem(loginSessionKey);
+      }
+      return normalized;
+    }
+
     function setLoginState(session) {
-      const signedIn = Boolean(session?.email);
+      const normalizedSession = normalizeLoginSession(session);
+      const signedIn = Boolean(normalizedSession?.email);
       elements.loginScreen.hidden = signedIn;
       elements.dashboardShell.hidden = !signedIn;
       if (signedIn) {
-        elements.headerAccountEmail.textContent = session.email;
+        elements.headerAccountEmail.textContent = normalizedSession.email;
+        if (!normalizedSession.isPlatformAdmin && activePrimaryPage === "admin") {
+          activePrimaryPage = "overview";
+          activeSettingsPanelKey = "profiles";
+          syncTopLevelRoute("/", { replace: true });
+        }
+        updateSidebarActionState();
         window.requestAnimationFrame(syncStickyOffsets);
         hydrateDashboardFromApi();
+      } else {
+        updateSidebarActionState();
       }
     }
 
@@ -1592,9 +1619,9 @@
       if (window.NeuroCropApi?.isConnected()) {
         try {
           const response = await window.NeuroCropApi.getCurrentUser();
-          const session = response?.user || { email: "" };
+          const session = normalizeLoginSession(response?.user || { email: "" });
           if (!session.email) throw new Error("Authenticated user email is missing.");
-          window.sessionStorage.setItem(loginSessionKey, JSON.stringify(session));
+          persistLoginSession(session);
           setLoginState(session);
           return;
         } catch (error) {
@@ -1607,7 +1634,8 @@
         }
       }
 
-      const session = getLoginSession();
+      const session = normalizeLoginSession(getLoginSession());
+      persistLoginSession(session);
       setLoginState(session);
       if (!session) elements.loginEmail.focus();
     }
@@ -1649,7 +1677,7 @@
       if (window.NeuroCropApi?.isConnected()) {
         try {
           const response = await window.NeuroCropApi.login(email, password);
-          session = response?.user || { email };
+          session = normalizeLoginSession(response?.user || { email });
         } catch (error) {
           elements.loginError.textContent = "We could not sign you in. Check your email and password, then try again.";
           elements.loginError.hidden = false;
@@ -1657,7 +1685,7 @@
         }
       }
 
-      window.sessionStorage.setItem(loginSessionKey, JSON.stringify(session));
+      session = persistLoginSession(session);
       resetTeamAccessState();
       resetPlatformOrganizationState();
       elements.loginError.hidden = true;
@@ -4259,7 +4287,9 @@
 
       sidebarActionButtons.forEach((button) => {
         if (button.dataset.sidebarAction === "admin") {
-          button.hidden = !getLoginSession()?.isPlatformAdmin;
+          const showAdmin = getLoginSession()?.isPlatformAdmin === true;
+          button.hidden = !showAdmin;
+          button.style.display = showAdmin ? "" : "none";
         }
         const isActive = button.dataset.sidebarAction === activeAction;
         button.dataset.active = String(isActive);
@@ -8389,7 +8419,26 @@
         data: dataPanel
       }[activeSettingsPanelKey];
 
-      elements.settingsManagementShell.innerHTML = `
+      elements.settingsManagementShell.innerHTML = isAdminPage ? `
+        <div class="settings-page-shell">
+          <section class="settings-page-head">
+            <div>
+              <span class="settings-panel-kicker">Admin</span>
+              <h1>Platform administration</h1>
+              <p>Approve new customer requests, manage organizations, users, and platform administrators.</p>
+            </div>
+            <div class="settings-head-summary">
+              <span><strong>${platformOrganizationState.organizationRequests.length}</strong> pending</span>
+              <span><strong>${platformOrganizationState.organizations.length}</strong> organizations</span>
+              <span><strong>${platformOrganizationState.users.length}</strong> users</span>
+            </div>
+          </section>
+          ${renderManagementNotice("settings")}
+          <main class="settings-page-content">
+            ${platformPanel}
+          </main>
+        </div>
+      ` : `
         <div class="settings-page-shell">
           <section class="settings-page-head">
             <div>

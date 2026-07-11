@@ -9034,7 +9034,8 @@
 
     /* Tailwind's display utilities otherwise override the native hidden attribute. */
     #loginScreen[hidden],
-    #dashboardShell[hidden] {
+    #dashboardShell[hidden],
+    [data-sidebar-action="admin"][hidden] {
       display: none !important;
     }
 
