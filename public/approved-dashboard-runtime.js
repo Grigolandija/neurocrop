@@ -1800,7 +1800,7 @@
     let activeSettingsPanelKey = "profiles";
     let activeCropProfileView = "mine";
     let settingsProfileEditorDrafts = {};
-    let profileSaveFeedback = { profileKey: "", tone: "optimal", text: "" };
+    let profileSaveFeedback = { profileKey: "", profileName: "", tone: "optimal" };
     let managementNotice = { page: "", tone: "optimal", text: "" };
     const dashboardRouteMap = {
       overview: { page: "overview", route: "/" },
@@ -7871,6 +7871,16 @@
       return `Warning ${formatRange(metric.warning, metric)} · Critical ${formatRange(metric.critical, metric)}`;
     }
 
+    function getProfileSaveFeedbackText(feedback) {
+      const profileName = feedback.profileKey === "default"
+        ? diagnosticText("Default", "Numatytasis")
+        : feedback.profileName;
+      return diagnosticText(
+        `${profileName} targets saved. Scores, alerts, and history now use these ranges.`,
+        `Profilio „${profileName}“ ribos išsaugotos. Augimo įvertis, įspėjimai ir istorija dabar naudoja šias ribas.`
+      );
+    }
+
     function renderCropProfileEditor(profileKey, profile) {
       profile = getCompleteCropProfile(profile);
       const draft = settingsProfileEditorDrafts[profileKey] || null;
@@ -7952,10 +7962,9 @@
             </aside>
           </div>
           <footer class="crop-profile-save-bar">
-            <div><strong data-profile-save-state>All changes saved</strong><span>Targets are stored in the workspace and used for scoring.</span></div>
+            <div><strong data-profile-save-state>${diagnosticText("All changes saved", "Visi pakeitimai išsaugoti")}</strong><span>${diagnosticText("Targets are stored in the workspace and used for scoring.", "Ribos saugomos darbo erdvėje ir naudojamos auginimo įverčiui.")}</span>${saveFeedback ? `<p class="crop-profile-save-feedback" data-tone="${escapeAttribute(saveFeedback.tone)}" role="status">${escapeHtml(getProfileSaveFeedbackText(saveFeedback))}</p>` : ""}</div>
             <div class="crop-profile-save-actions">
               <div><button type="button" class="crop-profile-discard-button" data-settings-profile-discard="${escapeAttribute(profileKey)}" disabled>Discard changes</button><button type="submit" class="settings-primary-button" data-profile-save disabled>Save changes</button></div>
-              ${saveFeedback ? `<p class="crop-profile-save-feedback" data-tone="${escapeAttribute(saveFeedback.tone)}" role="status">${escapeHtml(saveFeedback.text)}</p>` : ""}
             </div>
           </footer>
         </form>
@@ -8861,7 +8870,7 @@
       const profile = cropProfiles[profileKey];
       if (!profile) return;
       const draft = ensureSettingsProfileEditorDraft(profileKey, profile);
-      if (profileSaveFeedback.profileKey === profileKey) profileSaveFeedback = { profileKey: "", tone: "optimal", text: "" };
+      if (profileSaveFeedback.profileKey === profileKey) profileSaveFeedback = { profileKey: "", profileName: "", tone: "optimal" };
       form.dataset.dirty = "true";
       const saveButton = form.querySelector("[data-profile-save]");
       const discardButton = form.querySelector("[data-settings-profile-discard]");
@@ -8984,8 +8993,8 @@
             await hydrateCropProfilesFromApi();
             profileSaveFeedback = {
               profileKey: activeSettingsProfileKey,
-              tone: "optimal",
-              text: `${name} targets saved. Scores, alerts, and history now use these ranges.`
+              profileName: name,
+              tone: "optimal"
             };
             renderDashboard();
           } catch (error) {
@@ -9006,8 +9015,8 @@
                 await hydrateCropProfilesFromApi();
                 profileSaveFeedback = {
                   profileKey: "default",
-                  tone: "optimal",
-                  text: `${name} created in the backend and targets saved.`
+                  profileName: name,
+                  tone: "optimal"
                 };
                 renderDashboard();
                 return;
@@ -9029,8 +9038,8 @@
       delete settingsProfileEditorDrafts[profileKey];
       profileSaveFeedback = {
         profileKey,
-        tone: "optimal",
-        text: `${name} targets saved. Scores, alerts, and history now use these ranges.`
+        profileName: name,
+        tone: "optimal"
       };
       renderDashboard();
     }

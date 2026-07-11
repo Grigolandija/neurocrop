@@ -748,7 +748,7 @@
     .crop-profile-save-bar span { margin-top: 2px; color: rgba(20, 32, 27, 0.55); font-size: 12px; }
     .crop-profile-save-actions { display: grid; justify-items: end; gap: 5px; }
     .crop-profile-save-actions > div { display: flex; gap: 8px; }
-    .crop-profile-save-feedback { max-width: 390px; margin: 0; color: #28684f; font-size: 11px; font-weight: 750; line-height: 1.35; text-align: right; }
+    .crop-profile-save-feedback { max-width: 560px; margin: 5px 0 0; color: #28684f; font-size: 11px; font-weight: 750; line-height: 1.35; text-align: left; }
     .crop-profile-save-feedback[data-tone="warning"] { color: #a96813; }
     .crop-profile-discard-button { min-height: 40px; padding: 0 12px; border: 1px solid rgba(20, 32, 27, 0.13); border-radius: 8px; background: #fff; color: rgba(20, 32, 27, .7); font-size: 13px; font-weight: 700; }
     .crop-profile-discard-button:disabled, .crop-profile-save-bar [data-profile-save]:disabled { cursor: not-allowed; opacity: .5; }
