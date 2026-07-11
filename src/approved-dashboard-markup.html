@@ -720,7 +720,10 @@
 
             <div class="trend-history-toolbar">
               <div id="trendMetricBar" class="trend-history-metric-strip" role="toolbar" aria-label="Trend history metric selector"></div>
-              <div id="trendRangeBar" class="trend-history-range-strip" role="toolbar" aria-label="Trend history range selector"></div>
+              <div class="trend-history-controls">
+                <div id="trendPresentationBar" class="trend-history-presentation-strip" role="toolbar" aria-label="Trend presentation selector"></div>
+                <div id="trendRangeBar" class="trend-history-range-strip" role="toolbar" aria-label="Trend history range selector"></div>
+              </div>
             </div>
 
             <div class="trend-history-layout">
@@ -748,6 +751,8 @@
                 <p id="trendHistoryBackendNote" class="trend-history-backend-note">This panel is ready for real sensor history once live readings are connected.</p>
               </div>
             </div>
+
+            <section id="trendAnalyticsPanel" class="trend-analytics-panel" hidden aria-label="Growing analytics"></section>
           </div>
         </section>
 

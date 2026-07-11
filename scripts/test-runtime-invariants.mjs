@@ -41,6 +41,8 @@ assert(runtime.includes('class="settings-local-notice"'), "non-API settings must
 assert(runtime.includes('snapshot?.overall?.source === "backend"') && runtime.includes("Number.isFinite(snapshot.overall.indexScore)"), "Area and Section selectors must display backend scores before local readings load");
 assert(runtime.includes("function refreshDataForActivePage()") && runtime.includes("const dashboardRefreshTtlMs = 30 * 1000;") && runtime.includes("refreshDataForActivePage();"), "data pages must refresh stale dashboard data on navigation without reloading every page");
 assert(runtime.includes('setLoginState(session, { resetWorkspace: true });'), "authenticated workspace entry must reset to Overview and a concrete priority zone");
+assert(runtime.includes('function renderTrendAnalytics(') && runtime.includes('Time in target') && runtime.includes('function renderTrendComparisonChart('), "Trends must provide time in target and zone comparison");
+assert(runtime.includes('function calculateCenteredMedian(') && runtime.includes('function getTrendDisplayValuesForMetric(') && runtime.includes('data-trend-presentation'), "Trend charts must support a raw and median-smoothed presentation without changing source measurements");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
 
