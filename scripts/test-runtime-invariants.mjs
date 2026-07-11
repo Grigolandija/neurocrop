@@ -21,6 +21,7 @@ assert(runtime.includes("const warningColor = \"#d08a2d\""), "trend warning segm
 assert(runtime.includes("function renderRuntimeErrorState()"), "render failures must replace stale content with an explicit error state");
 assert(runtime.includes('role="alert"') && runtime.includes("data-dashboard-retry"), "runtime errors must be announced and offer a retry action");
 assert(runtime.includes("function renderEmptyAreaState(site)") && runtime.includes("empty-area-state"), "empty areas must render a neutral dedicated state");
+assert(runtime.includes("const { preferCurrentZone = false } = options;"), "the selected Area must take precedence over a stale Section context");
 assert(runtime.includes('const filteredSites = blockSites.filter((site) => site.id === activeSiteId);'), "Sections must always follow the Area selected in the global header");
 assert(!runtime.includes('data-block-filter-select class='), "Sections must not expose a competing local Area filter");
 assert(runtime.includes("function rebuildEnhancedSelect(select)"), "Node Area changes must rebuild the visible Section selector");

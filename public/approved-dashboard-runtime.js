@@ -6604,7 +6604,8 @@
     }
 
     function normalizeActiveSelection(options = {}) {
-      const { preferCurrentZone = true } = options;
+      // Area is primary context; a stale section must not restore another area.
+      const { preferCurrentZone = false } = options;
       const sites = Array.isArray(dashboardData.sites) ? dashboardData.sites : [];
       if (sites.length === 0) {
         activeSiteId = "";

@@ -28,12 +28,12 @@ Frontend jungiasi tik prie NeuroCrop API:
 LoRaWAN Node
     -> ChirpStack
     -> NeuroCrop ingest procesas
-    -> MySQL
+    -> PostgreSQL
     -> NeuroCrop REST API
     -> Frontend
 ```
 
-Frontend negali tiesiogiai jungtis prie MySQL, MQTT ar ChirpStack.
+Frontend negali tiesiogiai jungtis prie PostgreSQL, MQTT ar ChirpStack.
 
 ChirpStack API raktai, MQTT prisijungimai, DB slaptažodžiai, payload dekoderiai
 ir Rule Engine turi veikti tik serverio pusėje. Klientui ChirpStack neturi būti
@@ -72,7 +72,7 @@ Pavyzdys:
 
 ```js
 window.NEUROCROP_CONFIG = {
-  apiBaseUrl: "https://api.neurocrop.lt/api/v1"
+  apiBaseUrl: "https://api.neurocrop.lt"
 };
 ```
 
@@ -101,9 +101,7 @@ API-CONTRACT.md
 Keičiant endpointą ar atsakymo formatą pirmiausia atnaujinti kontraktą, tada
 backend ir frontend. Produkcijoje rekomenduojama API versija:
 
-```text
-/api/v1
-```
+`https://api.neurocrop.lt` be papildomo URL prefikso.
 
 Visos datos siunčiamos ISO 8601 UTC formatu, pvz.:
 
