@@ -10564,7 +10564,9 @@
           showSymbol: false,
           symbol: "circle",
           symbolSize: 7,
-          smooth: false,
+          // Visual interpolation only: the underlying measurements remain unchanged.
+          smooth: 0.38,
+          smoothMonotone: "x",
           connectNulls: false,
           animation: false,
           lineStyle: {
@@ -11245,7 +11247,8 @@
           name: item.sectionName,
           type: "line",
           showSymbol: false,
-          smooth: false,
+          smooth: 0.38,
+          smoothMonotone: "x",
           data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value])
         }))
       });
