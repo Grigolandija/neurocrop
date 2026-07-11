@@ -799,32 +799,26 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
 .trend-insights strong { display: block; margin-top: 6px; font-size: 16px; }
 .trend-insights p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .echarts-trend { width: 100%; height: 610px; border: 1px solid var(--line); border-radius: 24px; background: #fff; }
-
 .trend-analytics-panel { display: grid; gap: 16px; margin-top: 20px; }
-.trend-analytics-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
 .trend-analytics-card { border: 1px solid rgba(24, 33, 29, .10); border-radius: 20px; background: #fff; padding: 16px; }
 .trend-analytics-card > header { display: flex; align-items: start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
 .trend-analytics-card header span { display: block; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(24, 33, 29, .52); }
 .trend-analytics-card header strong { display: block; margin-top: 3px; font-size: 16px; color: #18211d; }
-.trend-analytics-card header small { max-width: 220px; color: rgba(24, 33, 29, .58); font-size: 12px; text-align: right; }
+.trend-analytics-card header small { color: rgba(24, 33, 29, .58); font-size: 12px; text-align: right; }
 .trend-time-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; border-radius: 14px; }
-.trend-time-card { min-height: 76px; padding: 10px; background: #edf5ee; }
+.trend-time-card { min-height: 72px; padding: 10px; background: #edf5ee; }
 .trend-time-card[data-state="warning"] { background: #fff3dc; }
 .trend-time-card[data-state="critical"] { background: #fff0ed; }
 .trend-time-card[data-state="unavailable"] { background: #f0efe9; }
 .trend-time-card span, .trend-time-card small { display: block; font-size: 11px; color: rgba(24, 33, 29, .64); }
 .trend-time-card strong { display: block; margin: 4px 0; font-size: 20px; color: #18211d; }
-.trend-time-in-target p, .trend-analytics-empty { margin: 10px 0 0; font-size: 12px; color: rgba(24, 33, 29, .60); }
-.trend-events ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.trend-events li { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; font-size: 12px; line-height: 1.35; color: rgba(24, 33, 29, .76); }
-.trend-events li[data-state="warning"] span { color: #a36d1b; font-weight: 700; }
-.trend-events time { color: rgba(24, 33, 29, .52); }
-.trend-analytics-chart { width: 100%; height: 250px; }
 .trend-comparison-options { display: flex; flex-wrap: wrap; gap: 8px; margin: -2px 0 12px; }
 .trend-comparison-zone { display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(24, 33, 29, .12); border-radius: 999px; padding: 5px 9px; font-size: 12px; color: rgba(24, 33, 29, .76); cursor: pointer; }
 .trend-comparison-zone input { accent-color: #356b53; }
-.trend-analytics-loading { margin-top: 20px; border: 1px solid rgba(24, 33, 29, .10); border-radius: 18px; padding: 18px; color: rgba(24, 33, 29, .60); font-size: 13px; }
-@media (max-width: 860px) { .trend-analytics-grid { grid-template-columns: 1fr; } .trend-time-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .trend-analytics-card header { align-items: start; flex-direction: column; } .trend-analytics-card header small { text-align: left; } }
+.trend-comparison-chart { width: 100%; height: 250px; }
+.trend-analytics-empty, .trend-analytics-loading { margin: 10px 0 0; color: rgba(24, 33, 29, .60); font-size: 12px; }
+.trend-analytics-loading { border: 1px solid rgba(24, 33, 29, .10); border-radius: 18px; padding: 18px; }
+@media (max-width: 860px) { .trend-time-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .trend-analytics-card > header { flex-direction: column; } .trend-analytics-card header small { text-align: left; } }
 .trend-explanation { margin-top: 12px; border-radius: 17px; padding: 14px 17px; background: #f5f1e8; }
 .trend-explanation span { font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
 .trend-explanation p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }

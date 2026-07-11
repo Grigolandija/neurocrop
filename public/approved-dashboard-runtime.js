@@ -1835,7 +1835,6 @@
     let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
     let trendHistoryChartInstance = null;
-    let trendAnalyticsHeatmapInstance = null;
     let trendComparisonChartInstance = null;
     let trendHistoryRequestId = 0;
     let trendHistoryByKey = {};
@@ -3713,12 +3712,19 @@
       const { from, to } = getTrendHistoryWindow(range);
       trendComparisonStatusByKey[cacheKey] = { status: "loading", error: "" };
       try {
-        const response = await window.NeuroCropApi.getSiteComparison({ areaId: site.id, metric: metricKey, sectionIds: sectionIds.join(","), from: from.toISOString(), to: to.toISOString(), stepMinutes: range.intervalMinutes });
+        const response = await window.NeuroCropApi.getSiteComparison({
+          areaId: site.id,
+          metric: metricKey,
+          sectionIds: sectionIds.join(","),
+          from: from.toISOString(),
+          to: to.toISOString(),
+          stepMinutes: range.intervalMinutes
+        });
         trendComparisonByKey[cacheKey] = response;
         trendComparisonStatusByKey[cacheKey] = { status: "ready", error: "" };
         if (activePrimaryPage === "history" && getActiveSite()?.id === site.id) renderDashboard();
       } catch (error) {
-        trendComparisonStatusByKey[cacheKey] = { status: "error", error: error instanceof Error ? error.message : "Zone comparison could not be loaded." };
+        trendComparisonStatusByKey[cacheKey] = { status: "error", error: error instanceof Error ? error.message : "Comparison could not be loaded." };
       }
     }
 
@@ -10441,7 +10447,6 @@
     function buildTrendEChartsOption(state) {
       const {
         seriesItems,
-        events = [],
         rangeKey,
         rangeLabel,
         totalHours,
@@ -10559,9 +10564,7 @@
           showSymbol: false,
           symbol: "circle",
           symbolSize: 7,
-          // Interpolate only the visual line; raw readings and extrema remain unchanged.
-          smooth: 0.18,
-          smoothMonotone: "x",
+          smooth: false,
           connectNulls: false,
           animation: false,
           lineStyle: {
@@ -10615,18 +10618,7 @@
                 name: targetMinLabel,
                 yAxis: optimalRange[0],
                 label: { formatter: targetMinLabel }
-              },
-              ...((index === 0 ? events : []).map((event) => ({
-                name: event.type,
-                xAxis: new Date(event.occurredAt).getTime(),
-                label: { show: false },
-                lineStyle: {
-                  color: event.severity === "warning" ? "#d08a2d" : "#6e7b75",
-                  type: "dotted",
-                  width: 1.2,
-                  opacity: 0.8
-                }
-              })))
+              }
             ].filter(Boolean)
           },
           markPoint: {
@@ -10977,11 +10969,10 @@
       const selectedMetrics = syncActiveTrendMetrics(trendMetricOptions, options.defaultMetricKey);
       const selectedMetric = selectedMetrics[0];
       const isMultiMetric = selectedMetrics.length > 1;
-      const analyticsKey = !isSiteView && selectedMetrics.length === 1
-        ? getTrendAnalyticsCacheKey(zone.id, selectedMetric?.key, activeTrendRangeKey)
-        : "";
-      const trendAnalytics = analyticsKey ? trendAnalyticsByKey[analyticsKey] : null;
-      if (analyticsKey) fetchTrendSectionAnalytics(zone.id, selectedMetric.key, activeTrendRangeKey);
+
+      if (!isSiteView && selectedMetrics.length === 1) {
+        fetchTrendSectionAnalytics(zone.id, selectedMetric.key, activeTrendRangeKey);
+      }
 
       if (!selectedMetric) {
         return {
@@ -11143,7 +11134,6 @@
 
       const chartState = {
         seriesItems,
-        events: trendAnalytics?.events || [],
         rangeKey: activeTrendRangeKey,
         rangeLabel: rangeConfig.label,
         totalHours: rangeConfig.totalHours,
@@ -11226,10 +11216,8 @@
       }
     }
 
-    function disposeTrendAnalyticsCharts() {
-      trendAnalyticsHeatmapInstance?.dispose();
+    function disposeTrendComparisonChart() {
       trendComparisonChartInstance?.dispose();
-      trendAnalyticsHeatmapInstance = null;
       trendComparisonChartInstance = null;
     }
 
@@ -11240,97 +11228,10 @@
       return hours ? `${hours}h ${remainder}m` : `${remainder}m`;
     }
 
-    function renderTrendAnalytics({ site, zone, metricOption, rangeKey, isSiteView }) {
-      const panel = elements.trendAnalyticsPanel;
-      if (!panel) return;
-      if (isSiteView || !zone || !metricOption || !isApiDataMode()) {
-        panel.hidden = true;
-        panel.innerHTML = "";
-        disposeTrendAnalyticsCharts();
-        return;
-      }
-
-      const key = getTrendAnalyticsCacheKey(zone.id, metricOption.key, rangeKey);
-      const status = trendAnalyticsStatusByKey[key];
-      const analytics = trendAnalyticsByKey[key];
-      fetchTrendSectionAnalytics(zone.id, metricOption.key, rangeKey);
-      panel.hidden = false;
-
-      if (!analytics) {
-        panel.innerHTML = `<div class="trend-analytics-loading">${status?.status === "error" ? escapeHtml(status.error) : "Preparing growing analytics from real sensor history..."}</div>`;
-        disposeTrendAnalyticsCharts();
-        return;
-      }
-
-      const summary = analytics.timeInTarget || {};
-      const coveredMinutes = Math.max(1, Number(summary.coveredMinutes) || 0);
-      const states = ["optimal", "warning", "critical", "unavailable"];
-      const stateLabels = { optimal: "In target", warning: "Warning", critical: "Critical", unavailable: "No data" };
-      const timeCards = states.map((state) => {
-        const minutes = Number(summary[state]) || 0;
-        const percentage = Math.round((minutes / Math.max(1, Number(summary.expectedMinutes) || coveredMinutes)) * 100);
-        return `<div class="trend-time-card" data-state="${state}"><span>${stateLabels[state]}</span><strong>${percentage}%</strong><small>${formatAnalyticsDuration(minutes)}</small></div>`;
-      }).join("");
-      const events = (analytics.events || []).slice(-6).reverse();
-      const eventLabels = {
-        reporting_mode_changed: (event) => `Reporting mode: ${event.from || "unknown"} to ${event.to || "unknown"}`,
-        delivery_gap: (event) => `Sensor delivery gap: ${event.durationMinutes || 0} min`,
-        transmission_failed: () => "Transmission timeout reported by node"
-      };
-      const selected = trendComparisonZoneIds.filter((id) => site.zones.some((zoneItem) => zoneItem.id === id));
-      const defaultComparison = [zone.id, ...site.zones.filter((zoneItem) => zoneItem.id !== zone.id).slice(0, 3).map((zoneItem) => zoneItem.id)];
-      trendComparisonZoneIds = selected.length ? selected : defaultComparison;
-      const comparisonKey = `${site.id}:${metricOption.key}:${rangeKey}:${[...trendComparisonZoneIds].sort().join(",")}`;
-      const comparison = trendComparisonByKey[comparisonKey];
-      if (trendComparisonZoneIds.length > 1) fetchTrendSiteComparison(site, metricOption.key, rangeKey, trendComparisonZoneIds);
-      const comparisonOptions = site.zones.map((zoneItem) => `<label class="trend-comparison-zone"><input type="checkbox" data-trend-comparison-zone="${escapeAttribute(zoneItem.id)}" ${trendComparisonZoneIds.includes(zoneItem.id) ? "checked" : ""}><span>${escapeHtml(zoneItem.name)}</span></label>`).join("");
-
-      panel.innerHTML = `
-        <div class="trend-analytics-grid">
-          <article class="trend-analytics-card trend-time-in-target"><header><span>Time in target</span><strong>${escapeHtml(metricOption.label)}</strong></header><div class="trend-time-cards">${timeCards}</div><p>${Math.round((coveredMinutes / Math.max(1, Number(summary.expectedMinutes) || coveredMinutes)) * 100)}% sensor coverage for this window.</p></article>
-          <article class="trend-analytics-card trend-events"><header><span>Telemetry events</span><strong>${events.length} recent</strong></header><ul>${events.length ? events.map((event) => `<li data-state="${escapeAttribute(event.severity || "info")}"><time>${escapeHtml(new Date(event.occurredAt).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}</time><span>${escapeHtml(eventLabels[event.type]?.(event) || event.type)}</span></li>`).join("") : "<li><span>No node events in this window.</span></li>"}</ul></article>
-        </div>
-        <article class="trend-analytics-card trend-heatmap"><header><div><span>30-day condition map</span><strong>${escapeHtml(metricOption.label)} by hour</strong></div><small>${rangeKey === "30d" ? "One cell = one hour" : "Choose 30d to inspect the full hourly pattern"}</small></header><div id="trendAnalyticsHeatmap" class="trend-analytics-chart"></div></article>
-        <article class="trend-analytics-card trend-comparison"><header><div><span>Zone comparison</span><strong>${escapeHtml(metricOption.label)} across this site</strong></div><small>Choose up to six zones</small></header><div class="trend-comparison-options">${comparisonOptions}</div><div id="trendComparisonChart" class="trend-analytics-chart"></div>${trendComparisonZoneIds.length < 2 ? '<p class="trend-analytics-empty">Choose at least two zones to compare.</p>' : ""}</article>`;
-
-      renderTrendAnalyticsHeatmap(analytics.heatmap || [], metricOption, rangeKey);
-      renderTrendComparisonChart(comparison, metricOption);
-    }
-
-    function renderTrendAnalyticsHeatmap(points, metricOption, rangeKey) {
-      const element = document.getElementById("trendAnalyticsHeatmap");
-      if (!element || !window.echarts || !points.length) return;
-      if (rangeKey !== "30d") {
-        element.innerHTML = '<div class="trend-analytics-empty">Choose the 30d range to reveal the hourly condition pattern.</div>';
-        trendAnalyticsHeatmapInstance?.dispose();
-        trendAnalyticsHeatmapInstance = null;
-        return;
-      }
-      trendAnalyticsHeatmapInstance?.dispose();
-      trendAnalyticsHeatmapInstance = window.echarts.init(element, null, { renderer: "svg" });
-      const dateKeys = [...new Set(points.map((point) => new Date(point.observedAt).toLocaleDateString("sv-SE", { timeZone: "Europe/Vilnius" })))];
-      const stateValue = { unavailable: 0, optimal: 1, warning: 2, critical: 3 };
-      const heatData = points.map((point) => {
-        const date = new Date(point.observedAt);
-        const dateKey = date.toLocaleDateString("sv-SE", { timeZone: "Europe/Vilnius" });
-        const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Vilnius", hour: "2-digit", hourCycle: "h23" }).format(date));
-        return [dateKeys.indexOf(dateKey), hour, stateValue[point.state] ?? 0, point.value];
-      });
-      trendAnalyticsHeatmapInstance.setOption({
-        animation: false,
-        grid: { left: 52, right: 18, top: 12, bottom: 42 },
-        xAxis: { type: "category", data: dateKeys, axisLabel: { fontSize: 10, interval: Math.max(0, Math.ceil(dateKeys.length / 8) - 1) }, axisTick: { show: false } },
-        yAxis: { type: "category", data: Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`), axisLabel: { fontSize: 10, interval: 3 }, axisTick: { show: false } },
-        visualMap: { show: false, dimension: 2, pieces: [{ value: 3, color: "#c96858" }, { value: 2, color: "#d89a3a" }, { value: 1, color: "#78ad91" }, { value: 0, color: "#e7e4dc" }] },
-        tooltip: { formatter: (params) => `${params.value[0] >= 0 ? `${dateKeys[params.value[0]]} ${String(params.value[1]).padStart(2, "0")}:00` : ""}<br>${escapeHtml(metricOption.label)}: ${formatValue(params.value[3], metricOption.definition)}` },
-        series: [{ type: "heatmap", data: heatData, itemStyle: { borderColor: "#fff", borderWidth: 1 } }]
-      });
-    }
-
     function renderTrendComparisonChart(comparison, metricOption) {
       const element = document.getElementById("trendComparisonChart");
       if (!element || !window.echarts || !comparison?.series?.length) return;
-      trendComparisonChartInstance?.dispose();
+      disposeTrendComparisonChart();
       trendComparisonChartInstance = window.echarts.init(element, null, { renderer: "svg" });
       trendComparisonChartInstance.setOption({
         animation: false,
@@ -11344,11 +11245,62 @@
           name: item.sectionName,
           type: "line",
           showSymbol: false,
-          smooth: 0.18,
-          smoothMonotone: "x",
+          smooth: false,
           data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value])
         }))
       });
+    }
+
+    function renderTrendAnalytics({ site, zone, metricOption, rangeKey, isSiteView }) {
+      const panel = elements.trendAnalyticsPanel;
+      if (!panel) return;
+      if (isSiteView || !site || !zone || !metricOption || !isApiDataMode()) {
+        panel.hidden = true;
+        panel.innerHTML = "";
+        disposeTrendComparisonChart();
+        return;
+      }
+
+      const key = getTrendAnalyticsCacheKey(zone.id, metricOption.key, rangeKey);
+      const analytics = trendAnalyticsByKey[key];
+      const analyticsStatus = trendAnalyticsStatusByKey[key];
+      fetchTrendSectionAnalytics(zone.id, metricOption.key, rangeKey);
+      panel.hidden = false;
+
+      if (!analytics) {
+        panel.innerHTML = `<div class="trend-analytics-loading">${analyticsStatus?.status === "error" ? escapeHtml(analyticsStatus.error) : "Preparing time-in-target data from real sensor history..."}</div>`;
+        disposeTrendComparisonChart();
+        return;
+      }
+
+      const summary = analytics.timeInTarget || {};
+      const expectedMinutes = Math.max(1, Number(summary.expectedMinutes) || 0);
+      const stateLabels = { optimal: "In target", warning: "Warning", critical: "Critical", unavailable: "No data" };
+      const timeCards = ["optimal", "warning", "critical", "unavailable"].map((state) => {
+        const minutes = Number(summary[state]) || 0;
+        return `<div class="trend-time-card" data-state="${state}"><span>${stateLabels[state]}</span><strong>${Math.round((minutes / expectedMinutes) * 100)}%</strong><small>${formatAnalyticsDuration(minutes)}</small></div>`;
+      }).join("");
+
+      const eligibleZones = site.zones || [];
+      const selected = trendComparisonZoneIds.filter((id) => eligibleZones.some((item) => item.id === id));
+      trendComparisonZoneIds = selected.length ? selected : [zone.id, ...eligibleZones.filter((item) => item.id !== zone.id).slice(0, 3).map((item) => item.id)];
+      const comparisonKey = `${site.id}:${metricOption.key}:${rangeKey}:${[...trendComparisonZoneIds].sort().join(",")}`;
+      const comparison = trendComparisonByKey[comparisonKey];
+      if (trendComparisonZoneIds.length > 1) fetchTrendSiteComparison(site, metricOption.key, rangeKey, trendComparisonZoneIds);
+
+      panel.innerHTML = `
+        <section class="trend-analytics-card trend-time-in-target">
+          <header><div><span>Time in target</span><strong>${escapeHtml(metricOption.label)}</strong></div><small>${Math.round(((Number(summary.coveredMinutes) || 0) / expectedMinutes) * 100)}% sensor coverage</small></header>
+          <div class="trend-time-cards">${timeCards}</div>
+        </section>
+        <section class="trend-analytics-card trend-comparison">
+          <header><div><span>Zone comparison</span><strong>${escapeHtml(metricOption.label)} across this site</strong></div><small>Choose up to six zones</small></header>
+          <div class="trend-comparison-options">${eligibleZones.map((item) => `<label class="trend-comparison-zone"><input type="checkbox" data-trend-comparison-zone="${escapeAttribute(item.id)}" ${trendComparisonZoneIds.includes(item.id) ? "checked" : ""}><span>${escapeHtml(item.name)}</span></label>`).join("")}</div>
+          <div id="trendComparisonChart" class="trend-comparison-chart"></div>
+          ${trendComparisonZoneIds.length < 2 ? '<p class="trend-analytics-empty">Choose at least two zones to compare.</p>' : ""}
+        </section>`;
+
+      renderTrendComparisonChart(comparison, metricOption);
     }
 
     function openTrendHistory(metricKey) {
@@ -14267,7 +14219,7 @@
           elements.trendAnalyticsPanel.hidden = true;
           elements.trendAnalyticsPanel.innerHTML = "";
         }
-        disposeTrendAnalyticsCharts();
+        disposeTrendComparisonChart();
         currentTrendHistoryPoints = [];
         if (trendHistoryChartInstance) {
           trendHistoryChartInstance.dispose();
