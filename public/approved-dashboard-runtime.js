@@ -1742,6 +1742,7 @@
     let activeProfileKey = "tomato";
     let activeScenarioKey = "optimal";
     let activeViewScope = "zone";
+    const alertsModuleEnabled = false;
     let activePrimaryPage = "overview";
     let activeSiteDetailView = "averages";
     let activeExperienceMode = "simple";
@@ -1994,6 +1995,11 @@
 
     function applyDashboardRoute(rawRoute) {
       const nextRoute = resolveDashboardRoute(rawRoute);
+      if (nextRoute.page === "alerts" && !alertsModuleEnabled) {
+        activePrimaryPage = "overview";
+        syncTopLevelRoute("/", { replace: true });
+        return;
+      }
       const pageAlreadyActive = nextRoute.page === activePrimaryPage;
 
       if (nextRoute.page === "admin" && !getLoginSession()?.isPlatformAdmin) {
@@ -4306,6 +4312,13 @@
       }
 
       sidebarActionButtons.forEach((button) => {
+        if (button.dataset.sidebarAction === "alerts") {
+          button.disabled = !alertsModuleEnabled;
+          button.setAttribute("aria-disabled", String(!alertsModuleEnabled));
+          button.style.opacity = alertsModuleEnabled ? "" : "0.42";
+          button.style.pointerEvents = alertsModuleEnabled ? "" : "none";
+          button.title = alertsModuleEnabled ? "" : diagnosticText("Coming soon", "Netrukus");
+        }
         if (button.dataset.sidebarAction === "admin") {
           const showAdmin = getLoginSession()?.isPlatformAdmin === true;
           button.hidden = !showAdmin;
@@ -4414,6 +4427,7 @@
           scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "alerts":
+          if (!alertsModuleEnabled) return;
           activePrimaryPage = "alerts";
           sidebarActionOverride = null;
           closeContextMenus();
@@ -10720,18 +10734,20 @@
 
     function getTrendAggregationLabel(response) {
       const stepMinutes = Number(response?.stepMinutes);
+      const isPeak = String(response?.aggregation || "").startsWith("section_peak_");
+      const aggregationName = isPeak ? "Section peak" : "Section median";
       if (Number.isFinite(stepMinutes) && stepMinutes > 0) {
-        if (stepMinutes < 60) return `Section median · ${stepMinutes} min intervals`;
+        if (stepMinutes < 60) return `${aggregationName} · ${stepMinutes} min intervals`;
         const stepHours = stepMinutes / 60;
-        return `Section median · ${Number.isInteger(stepHours) ? stepHours : stepHours.toFixed(1)}h intervals`;
+        return `${aggregationName} · ${Number.isInteger(stepHours) ? stepHours : stepHours.toFixed(1)}h intervals`;
       }
 
-      const aggregationMatch = String(response?.aggregation || "").match(/^section_median_(\d+)m$/);
+      const aggregationMatch = String(response?.aggregation || "").match(/^section_(?:median|peak)_(\d+)m$/);
       if (aggregationMatch) {
         const minutes = Number(aggregationMatch[1]);
-        if (minutes < 60) return `Section median · ${minutes} min intervals`;
+        if (minutes < 60) return `${aggregationName} · ${minutes} min intervals`;
         const hours = minutes / 60;
-        return `Section median · ${Number.isInteger(hours) ? hours : hours.toFixed(1)}h intervals`;
+        return `${aggregationName} · ${Number.isInteger(hours) ? hours : hours.toFixed(1)}h intervals`;
       }
       return "Real sensor readings";
     }
