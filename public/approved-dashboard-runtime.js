@@ -10056,37 +10056,51 @@
       };
     }
 
-    function getTrendSmoothingWindowLabel(rangeKey) {
-      const intervalMinutes = trendRangeConfig[rangeKey]?.intervalMinutes || 10;
-      const points = rangeKey === "24h" ? 5 : 3;
-      const minutes = intervalMinutes * points;
-      if (minutes < 60) return `${minutes} min average`;
-      return `${Math.round(minutes / 60)}h average`;
+    function getTrendEwmaTimeConstantMinutes(metricKey) {
+      if (metricKey === "co2") return 15;
+      if (["airTemp", "humidity", "vpd"].includes(metricKey)) return 30;
+      return null;
     }
 
     function shouldSmoothTrendMetric(metricKey) {
-      return ["airTemp", "humidity", "co2", "vpd"].includes(metricKey);
+      return getTrendEwmaTimeConstantMinutes(metricKey) !== null;
     }
 
-    function calculateCenteredMovingAverage(values, radius) {
+    function getTrendEwmaLabel(metricKey) {
+      const timeConstant = getTrendEwmaTimeConstantMinutes(metricKey);
+      return timeConstant ? `EWMA · ${timeConstant} min` : "Raw only";
+    }
+
+    function calculateTimeAwareEwma(values, timestamps, timeConstantMinutes, fallbackIntervalMinutes) {
+      if (!values.length) return [];
+      let filteredValue = Number(values[0]);
       return values.map((value, index) => {
-        const windowValues = values
-          .slice(Math.max(0, index - radius), Math.min(values.length, index + radius + 1))
-          .map(Number)
-          .filter(Number.isFinite);
-        if (!windowValues.length) return value;
-        return windowValues.reduce((sum, item) => sum + item, 0) / windowValues.length;
+        const rawValue = Number(value);
+        if (!Number.isFinite(rawValue)) return filteredValue;
+        if (index === 0 || !Number.isFinite(filteredValue)) {
+          filteredValue = rawValue;
+          return filteredValue;
+        }
+        const currentTimestamp = Number(timestamps?.[index]);
+        const previousTimestamp = Number(timestamps?.[index - 1]);
+        const elapsedMinutes = Number.isFinite(currentTimestamp) && Number.isFinite(previousTimestamp) && currentTimestamp > previousTimestamp
+          ? (currentTimestamp - previousTimestamp) / 60000
+          : fallbackIntervalMinutes;
+        const alpha = 1 - Math.exp(-Math.max(elapsedMinutes, 0.01) / timeConstantMinutes);
+        filteredValue += alpha * (rawValue - filteredValue);
+        return filteredValue;
       });
     }
 
-    function getTrendDisplayValuesForMetric(rawValues, metricKey, rangeKey) {
-      const supportsSmoothing = shouldSmoothTrendMetric(metricKey);
-      if (activeTrendPresentation !== "smoothed" || !supportsSmoothing || rawValues.length < 3) return rawValues;
-      return calculateCenteredMovingAverage(rawValues, rangeKey === "24h" ? 2 : 1);
+    function getTrendDisplayValuesForMetric(rawValues, timestamps, metricKey, rangeKey) {
+      const timeConstant = getTrendEwmaTimeConstantMinutes(metricKey);
+      if (activeTrendPresentation !== "smoothed" || timeConstant === null || rawValues.length < 2) return rawValues;
+      const fallbackInterval = trendRangeConfig[rangeKey]?.intervalMinutes || 10;
+      return calculateTimeAwareEwma(rawValues, timestamps, timeConstant, fallbackInterval);
     }
 
     function getTrendDisplayValues(item, rangeKey) {
-      return getTrendDisplayValuesForMetric(item.series.values, item.option.key, rangeKey);
+      return getTrendDisplayValuesForMetric(item.series.values, item.series.timestamps, item.option.key, rangeKey);
     }
 
     function renderTrendMetricButtons(metricOptions, activeKeys = []) {
@@ -10125,18 +10139,20 @@
       `).join("");
     }
 
-    function renderTrendPresentationButtons(activeKey, rangeKey) {
-      const smoothingLabel = `Smoothed · ${getTrendSmoothingWindowLabel(rangeKey)}`;
+    function renderTrendPresentationButtons(activeKey, metricKey) {
+      const supportsEwma = shouldSmoothTrendMetric(metricKey);
+      const effectiveActiveKey = supportsEwma ? activeKey : "raw";
       return [
-        ["smoothed", smoothingLabel],
+        ["smoothed", getTrendEwmaLabel(metricKey)],
         ["raw", "Raw"]
       ].map(([key, label]) => `
         <button
           type="button"
           class="trend-history-presentation-button"
           data-trend-presentation="${key}"
-          data-active="${String(key === activeKey)}"
-          aria-pressed="${String(key === activeKey)}"
+          data-active="${String(key === effectiveActiveKey)}"
+          aria-pressed="${String(key === effectiveActiveKey)}"
+          ${key === "smoothed" && !supportsEwma ? "disabled" : ""}
         >${escapeHtml(label)}</button>
       `).join("");
     }
@@ -11099,8 +11115,8 @@
           : null
       );
       const aggregationLabel = getTrendAggregationLabel(selectedHistoryResponses.find(Boolean));
-      const presentationLabel = activeTrendPresentation === "smoothed"
-        ? `Smoothed view · ${getTrendSmoothingWindowLabel(activeTrendRangeKey)}`
+      const presentationLabel = activeTrendPresentation === "smoothed" && shouldSmoothTrendMetric(selectedMetric.key)
+        ? `${getTrendEwmaLabel(selectedMetric.key)} filtered view`
         : "Raw measurements";
 
       const hasRenderableSeries = seriesItems.every((item) =>
@@ -11306,11 +11322,12 @@
       trendComparisonChartInstance = window.echarts.init(element, null, { renderer: "svg" });
       const comparisonSeries = comparison.series.map((item) => {
         const rawValues = item.points.map((point) => Number(point.value));
-        const displayValues = getTrendDisplayValuesForMetric(rawValues, metricOption.key, rangeKey);
+        const timestamps = item.points.map((point) => new Date(point.observedAt).getTime());
+        const displayValues = getTrendDisplayValuesForMetric(rawValues, timestamps, metricOption.key, rangeKey);
         return {
           name: item.sectionName,
           rawValues,
-          data: item.points.map((point, index) => [new Date(point.observedAt).getTime(), displayValues[index]])
+          data: item.points.map((point, index) => [timestamps[index], displayValues[index]])
         };
       });
       trendComparisonChartInstance.setOption({
@@ -14290,7 +14307,8 @@
         elements.trendHistoryExportButton.hidden = !isApiDataMode() || isSiteView;
         elements.trendHistoryExportButton.disabled = false;
         elements.trendMetricBar.innerHTML = trendHistoryState.metricButtons;
-        elements.trendPresentationBar.innerHTML = renderTrendPresentationButtons(activeTrendPresentation, activeTrendRangeKey);
+        const presentationMetricKey = trendHistoryState.chartState?.seriesItems?.[0]?.option?.key || "";
+        elements.trendPresentationBar.innerHTML = renderTrendPresentationButtons(activeTrendPresentation, presentationMetricKey);
         elements.trendRangeBar.innerHTML = trendHistoryState.rangeButtons;
         elements.trendHistoryMetricLabel.textContent = trendHistoryState.metricLabel;
         elements.trendHistoryMetricMeta.textContent = trendHistoryState.metricMeta;
