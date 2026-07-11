@@ -10559,7 +10559,9 @@
           showSymbol: false,
           symbol: "circle",
           symbolSize: 7,
-          smooth: false,
+          // Interpolate only the visual line; raw readings and extrema remain unchanged.
+          smooth: 0.18,
+          smoothMonotone: "x",
           connectNulls: false,
           animation: false,
           lineStyle: {
@@ -11338,7 +11340,14 @@
         tooltip: { trigger: "axis", valueFormatter: (value) => formatValue(value, metricOption.definition) },
         xAxis: { type: "time", axisLabel: { fontSize: 10 } },
         yAxis: { type: "value", scale: true, axisLabel: { formatter: (value) => formatTrendTickValue(value, metricOption.definition), fontSize: 10 } },
-        series: comparison.series.map((item) => ({ name: item.sectionName, type: "line", showSymbol: false, smooth: false, data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value]) }))
+        series: comparison.series.map((item) => ({
+          name: item.sectionName,
+          type: "line",
+          showSymbol: false,
+          smooth: 0.18,
+          smoothMonotone: "x",
+          data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value])
+        }))
       });
     }
 

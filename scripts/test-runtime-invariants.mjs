@@ -43,6 +43,7 @@ assert(runtime.includes("function refreshDataForActivePage()") && runtime.includ
 assert(runtime.includes('setLoginState(session, { resetWorkspace: true });'), "authenticated workspace entry must reset to Overview and a concrete priority zone");
 assert(runtime.includes('getSectionAnalytics: (params)') && runtime.includes('getSiteComparison: (params)') && runtime.includes('function renderTrendAnalytics('), "Trends must provide API-backed growing analytics");
 assert(runtime.includes('type: "heatmap"') && runtime.includes('function renderTrendComparisonChart(') && runtime.includes('events = []'), "Trends must retain the heatmap, zone comparison, and event markers");
+assert(runtime.includes('smooth: 0.18') && runtime.includes('smoothMonotone: "x"'), "Trend charts must use mild monotone visual smoothing without modifying source measurements");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
 
