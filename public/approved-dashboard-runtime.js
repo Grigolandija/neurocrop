@@ -10049,34 +10049,35 @@
 
     function getTrendSmoothingWindowLabel(rangeKey) {
       const intervalMinutes = trendRangeConfig[rangeKey]?.intervalMinutes || 10;
-      const minutes = intervalMinutes * 3;
-      if (minutes < 60) return `${minutes} min median`;
-      return `${Math.round(minutes / 60)}h median`;
+      const points = rangeKey === "24h" ? 5 : 3;
+      const minutes = intervalMinutes * points;
+      if (minutes < 60) return `${minutes} min average`;
+      return `${Math.round(minutes / 60)}h average`;
     }
 
-    function calculateCenteredMedian(values, radius = 1) {
+    function shouldSmoothTrendMetric(metricKey) {
+      return ["airTemp", "humidity", "co2", "vpd"].includes(metricKey);
+    }
+
+    function calculateCenteredMovingAverage(values, radius) {
       return values.map((value, index) => {
         const windowValues = values
           .slice(Math.max(0, index - radius), Math.min(values.length, index + radius + 1))
           .map(Number)
-          .filter(Number.isFinite)
-          .sort((left, right) => left - right);
+          .filter(Number.isFinite);
         if (!windowValues.length) return value;
-        const middle = Math.floor(windowValues.length / 2);
-        return windowValues.length % 2
-          ? windowValues[middle]
-          : (windowValues[middle - 1] + windowValues[middle]) / 2;
+        return windowValues.reduce((sum, item) => sum + item, 0) / windowValues.length;
       });
     }
 
-    function getTrendDisplayValuesForMetric(rawValues, metricKey) {
-      const supportsSmoothing = ["airTemp", "humidity", "co2", "vpd"].includes(metricKey);
+    function getTrendDisplayValuesForMetric(rawValues, metricKey, rangeKey) {
+      const supportsSmoothing = shouldSmoothTrendMetric(metricKey);
       if (activeTrendPresentation !== "smoothed" || !supportsSmoothing || rawValues.length < 3) return rawValues;
-      return calculateCenteredMedian(rawValues);
+      return calculateCenteredMovingAverage(rawValues, rangeKey === "24h" ? 2 : 1);
     }
 
-    function getTrendDisplayValues(item) {
-      return getTrendDisplayValuesForMetric(item.series.values, item.option.key);
+    function getTrendDisplayValues(item, rangeKey) {
+      return getTrendDisplayValuesForMetric(item.series.values, item.option.key, rangeKey);
     }
 
     function renderTrendMetricButtons(metricOptions, activeKeys = []) {
@@ -10510,7 +10511,7 @@
       const colors = seriesItems.map((_, index) => getTrendSeriesColor(index));
       const displayValuesByItem = new Map(seriesItems.map((item) => [
         item,
-        getTrendDisplayValues(item)
+        getTrendDisplayValues(item, rangeKey)
       ]));
       const tooltipDateFormat = new Intl.DateTimeFormat("lt-LT", {
         day: "2-digit",
@@ -10596,6 +10597,7 @@
         const displayValues = displayValuesByItem.get(item);
         const axisDomain = getTrendAxisDomain(displayValues, definition, optimalRange);
         const isTargetVisible = (value) => value >= axisDomain[0] && value <= axisDomain[1];
+        const isSmoothedView = activeTrendPresentation === "smoothed" && shouldSmoothTrendMetric(item.option.key);
         const data = displayValues.map((value, pointIndex) => [
           item.series.timestamps?.[pointIndex] ?? rangeStart,
           value
@@ -10619,7 +10621,8 @@
           showSymbol: false,
           symbol: "circle",
           symbolSize: 7,
-          smooth: false,
+          smooth: isSmoothedView ? 0.32 : false,
+          smoothMonotone: isSmoothedView ? "x" : undefined,
           connectNulls: false,
           animation: false,
           lineStyle: {
@@ -11287,14 +11290,14 @@
       return hours ? `${hours}h ${remainder}m` : `${remainder}m`;
     }
 
-    function renderTrendComparisonChart(comparison, metricOption) {
+    function renderTrendComparisonChart(comparison, metricOption, rangeKey) {
       const element = document.getElementById("trendComparisonChart");
       if (!element || !window.echarts || !comparison?.series?.length) return;
       disposeTrendComparisonChart();
       trendComparisonChartInstance = window.echarts.init(element, null, { renderer: "svg" });
       const comparisonSeries = comparison.series.map((item) => {
         const rawValues = item.points.map((point) => Number(point.value));
-        const displayValues = getTrendDisplayValuesForMetric(rawValues, metricOption.key);
+        const displayValues = getTrendDisplayValuesForMetric(rawValues, metricOption.key, rangeKey);
         return {
           name: item.sectionName,
           rawValues,
@@ -11325,7 +11328,8 @@
           name: item.name,
           type: "line",
           showSymbol: false,
-          smooth: false,
+          smooth: activeTrendPresentation === "smoothed" && shouldSmoothTrendMetric(metricOption.key) ? 0.32 : false,
+          smoothMonotone: activeTrendPresentation === "smoothed" && shouldSmoothTrendMetric(metricOption.key) ? "x" : undefined,
           data: item.data
         }))
       });
@@ -11380,7 +11384,7 @@
           ${trendComparisonZoneIds.length < 2 ? '<p class="trend-analytics-empty">Choose at least two zones to compare.</p>' : ""}
         </section>`;
 
-      renderTrendComparisonChart(comparison, metricOption);
+      renderTrendComparisonChart(comparison, metricOption, rangeKey);
     }
 
     function openTrendHistory(metricKey) {
