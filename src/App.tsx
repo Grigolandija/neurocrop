@@ -14,7 +14,7 @@ declare global {
 
 declare const __BUILD_VERSION__: string
 
-const supportedRoutes = new Set(['/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/history', '/settings', '/crop-profiles'])
+const supportedRoutes = new Set(['/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/history', '/settings', '/crop-profiles', '/admin'])
 
 function AcceptInvitePage() {
   const navigate = useNavigate()

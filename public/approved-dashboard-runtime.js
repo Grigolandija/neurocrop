@@ -1758,6 +1758,7 @@
       history: { page: "history", route: "/history" },
       alerts: { page: "alerts", route: "/alerts" },
       settings: { page: "settings", route: "/settings" },
+      admin: { page: "admin", route: "/admin" },
       "crop-profiles": { page: "settings", route: "/crop-profiles" }
     };
     const alertActionStorageKey = "neurocrop-dashboard-alert-actions-v1";
@@ -1932,7 +1933,14 @@
       const nextRoute = resolveDashboardRoute(rawRoute);
       const pageAlreadyActive = nextRoute.page === activePrimaryPage;
 
+      if (nextRoute.page === "admin" && !getLoginSession()?.isPlatformAdmin) {
+        activePrimaryPage = "overview";
+        syncTopLevelRoute("/", { replace: true });
+        return;
+      }
+
       activePrimaryPage = nextRoute.page;
+      if (activePrimaryPage === "admin") activeSettingsPanelKey = "platform";
       if (activePrimaryPage === "blocks") syncBlocksManagementContext();
       sidebarActionOverride = null;
       closeContextMenus();
@@ -1955,7 +1963,8 @@
         readings: "metricsSection",
         history: "historySection",
         alerts: "alertsManagementSection",
-        settings: "settingsManagementSection"
+        settings: "settingsManagementSection",
+        admin: "settingsManagementSection"
       };
       scrollToSection(targetByPage[activePrimaryPage] || "heroStatusPanel", {
         behavior: "auto",
@@ -4226,11 +4235,16 @@
         activeAction = "alerts";
       } else if (activePrimaryPage === "settings") {
         activeAction = "settings";
+      } else if (activePrimaryPage === "admin") {
+        activeAction = "admin";
       } else if (sidebarActionOverride) {
         activeAction = sidebarActionOverride;
       }
 
       sidebarActionButtons.forEach((button) => {
+        if (button.dataset.sidebarAction === "admin") {
+          button.hidden = !getLoginSession()?.isPlatformAdmin;
+        }
         const isActive = button.dataset.sidebarAction === activeAction;
         button.dataset.active = String(isActive);
         if (isActive) {
@@ -4310,6 +4324,16 @@
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/settings");
+          scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
+          return;
+        case "admin":
+          if (!getLoginSession()?.isPlatformAdmin) return;
+          activePrimaryPage = "admin";
+          activeSettingsPanelKey = "platform";
+          sidebarActionOverride = null;
+          closeContextMenus();
+          renderDashboard();
+          syncTopLevelRoute("/admin");
           scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "alerts":
@@ -8029,12 +8053,14 @@
     function renderSettingsManagementPage(globalSnapshots) {
       const currentSession = getLoginSession();
       const isPlatformAdmin = Boolean(currentSession?.isPlatformAdmin);
+      const isAdminPage = activePrimaryPage === "admin";
+      if (isAdminPage) activeSettingsPanelKey = "platform";
       const profileEntries = Object.entries(cropProfiles).filter(([profileKey]) => isVisibleSettingsCropProfile(profileKey));
       if (!cropProfiles[activeSettingsProfileKey] || !isVisibleSettingsCropProfile(activeSettingsProfileKey)) {
         activeSettingsProfileKey = profileEntries[0]?.[0] || activeProfileKey;
       }
 
-      const validPanels = new Set(["profiles", "alerts", "team", "workspace", "data", ...(isPlatformAdmin ? ["platform"] : [])]);
+      const validPanels = new Set(["profiles", "alerts", "team", "workspace", "data", ...(isPlatformAdmin && isAdminPage ? ["platform"] : [])]);
       if (!validPanels.has(activeSettingsPanelKey)) activeSettingsPanelKey = "profiles";
       const apiBackedTeam = Boolean(window.NeuroCropApi?.isConnected());
       if (activeSettingsPanelKey === "team" && apiBackedTeam && teamAccessState.status === "idle") {
@@ -8062,7 +8088,7 @@
       `).join("");
       const settingsPanels = [
         { key: "profiles", icon: "fa-seedling", label: "Crop profiles", note: "Targets and growth stages", count: profileEntries.length },
-        ...(isPlatformAdmin ? [{ key: "platform", icon: "fa-briefcase", label: "Customers", note: "Client workspaces", count: platformOrganizationState.organizations.length }] : []),
+        ...(isPlatformAdmin && isAdminPage ? [{ key: "platform", icon: "fa-briefcase", label: "Customers", note: "Client workspaces", count: platformOrganizationState.organizations.length }] : []),
         { key: "alerts", icon: "fa-bell", label: "Alerts & notifications", note: "Local browser preferences", count: activeAlertCount },
         { key: "team", icon: "fa-users", label: "Team & access", note: apiBackedTeam ? "API-backed access" : "Local browser list", count: teamMemberCount },
         { key: "workspace", icon: "fa-building", label: "Workspace", note: "Local display preferences", count: "" },
@@ -8326,8 +8352,8 @@
           <section class="settings-page-head">
             <div>
               <span class="settings-panel-kicker">Settings</span>
-              <h1>Workspace configuration</h1>
-              <p>Manage crop targets and review the operational preferences available in this workspace.</p>
+              <h1>${isAdminPage ? "Platform administration" : "Workspace configuration"}</h1>
+              <p>${isAdminPage ? "Create customer workspaces, manage platform admins, and permanently remove organizations when needed." : "Manage crop targets and review the operational preferences available in this workspace."}</p>
             </div>
             <div class="settings-head-summary">
               <span><strong>${profileEntries.length}</strong> profiles</span>
@@ -8336,7 +8362,7 @@
             </div>
           </section>
           ${renderManagementNotice("settings")}
-          ${activeSettingsPanelKey !== "profiles" && activeSettingsPanelKey !== "team" ? `
+          ${!isAdminPage && activeSettingsPanelKey !== "profiles" && activeSettingsPanelKey !== "team" ? `
             <div class="settings-local-notice" role="status">
               <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
               <span>These settings are currently stored in this browser. Crop profiles are saved through the NeuroCrop API.</span>
@@ -12401,8 +12427,9 @@
       const isReadingsPage = activePrimaryPage === "readings";
       const isHistoryPage = activePrimaryPage === "history";
       const isSettingsPage = activePrimaryPage === "settings";
+      const isAdminPage = activePrimaryPage === "admin";
       const isAlertsPage = activePrimaryPage === "alerts";
-      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isSettingsPage || isAlertsPage;
+      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isSettingsPage || isAdminPage || isAlertsPage;
       const isPrimaryWorkspacePage = isManagementPage || isHistoryPage || isReadingsPage;
       const site = getActiveSite();
       const zone = getActiveZone(site);
@@ -13024,7 +13051,7 @@
       elements.locationsManagementSection.hidden = !isLocationsPage;
       elements.blocksManagementSection.hidden = !isBlocksPage;
       elements.nodesManagementSection.hidden = !isNodesPage;
-      elements.settingsManagementSection.hidden = !isSettingsPage;
+      elements.settingsManagementSection.hidden = !(isSettingsPage || isAdminPage);
       elements.alertsManagementSection.hidden = !isAlertsPage;
       elements.overviewTriageSection.hidden = isPrimaryWorkspacePage || isDetailedExperienceMode;
       elements.detailedDiagnosticsSection.hidden = !isDetailedOverview;
