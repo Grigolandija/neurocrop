@@ -13277,9 +13277,12 @@
       elements.siteContextValue.textContent = site.name;
       elements.siteContextMeta.textContent = selectedSiteScore.text;
       elements.siteContextMeta.dataset.state = selectedSiteScore.state;
-      elements.zoneContextCard.dataset.disabled = isSiteView ? "true" : "false";
-      elements.zoneTrigger.disabled = isSiteView;
-      elements.zoneTrigger.setAttribute("aria-disabled", String(isSiteView));
+      // A section can always be selected when the current area has sections.
+      // Choosing one switches the dashboard from Area to Section scope.
+      const hasSections = Boolean(site?.zones?.length);
+      elements.zoneContextCard.dataset.disabled = hasSections ? "false" : "true";
+      elements.zoneTrigger.disabled = !hasSections;
+      elements.zoneTrigger.setAttribute("aria-disabled", String(!hasSections));
       elements.zoneContextValue.textContent = isSiteView ? "All sections" : zone.name;
       elements.zoneContextMeta.textContent = isSiteView
         ? (interfaceLanguage === "lt" ? "Įtraukta į Area įvertį" : "Included in Area score")
@@ -13940,7 +13943,7 @@
     });
 
     elements.zoneTrigger.addEventListener("click", (event) => {
-      if (activeViewScope === "site") return;
+      if (elements.zoneTrigger.disabled) return;
       event.stopPropagation();
       const shouldOpen = elements.zoneMenu.hidden;
       setHeaderBatteryDropdownOpen(false);
@@ -14006,6 +14009,7 @@
       if (!option) return;
       sidebarActionOverride = null;
       activeZoneId = option.dataset.zoneId;
+      activeViewScope = "zone";
       normalizeActiveSelection();
       resetTrendSelectionForContextChange();
       if (activePrimaryPage === "blocks") syncBlocksManagementContext();
