@@ -25,6 +25,7 @@ test.beforeEach(async ({ page }) => {
 test('login has no serious accessibility violations', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('#loginForm')).toBeVisible()
+  await expect(page.locator('#loginError')).toBeHidden()
   await expectNoSeriousViolations(page)
 })
 

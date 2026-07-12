@@ -1500,6 +1500,7 @@
           resetTeamAccessState();
           resetPlatformOrganizationState();
           setLoginState(null);
+          elements.loginError.hidden = true;
           elements.loginEmail.focus();
           return;
         }
@@ -16062,7 +16063,10 @@
       setHeaderAccountMenuOpen(false);
       setLoginState(null);
       elements.loginPassword.value = "";
-      elements.loginError.textContent = "Your session has ended. Please sign in again.";
+      elements.loginError.textContent = diagnosticText(
+        "Your session has ended. Please sign in again.",
+        "Jūsų sesija baigėsi. Prisijunkite dar kartą."
+      );
       elements.loginError.hidden = false;
       elements.loginEmail.focus();
     });

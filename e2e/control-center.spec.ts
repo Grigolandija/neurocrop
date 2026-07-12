@@ -34,6 +34,17 @@ function navigationAction(page: Page, action: string) {
   return page.locator(`[data-sidebar-action="${action}"]:visible`)
 }
 
+test('wrong password shows a clear inline login error', async ({ page }) => {
+  await prepare(page)
+  await page.goto('/')
+  await page.locator('#loginEmail').fill('tenant-a@ci.neurocrop.test')
+  await page.locator('#loginPassword').fill('Definitely-wrong-password')
+  await page.locator('#loginForm').getByRole('button', { name: /sign in/i }).click()
+  await expect(page.locator('#loginError')).toBeVisible()
+  await expect(page.locator('#loginError')).toContainText('Check your email and password')
+  await expect(page.locator('#dashboardShell')).toBeHidden()
+})
+
 test('tenant dashboard selects a real Area and Section and supports navigation', async ({ page }) => {
   await login(page, 'tenant-a@ci.neurocrop.test')
   await expect(page.locator('#headerAccountEmail')).toHaveText('tenant-a@ci.neurocrop.test')

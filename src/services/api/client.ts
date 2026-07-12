@@ -62,7 +62,9 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
   })
 
   if (!response.ok) {
-    if (response.status === 401 && path !== '/auth/login') {
+    // An unauthenticated /auth/me response is the normal signed-out state, not
+    // an expired-session event that should alarm the user.
+    if (response.status === 401 && path !== '/auth/login' && path !== '/auth/me') {
       notifyUnauthorized()
       throw new Error('Your session has ended. Please sign in again.')
     }

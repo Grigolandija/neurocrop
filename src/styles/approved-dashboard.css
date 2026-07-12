@@ -89,7 +89,7 @@
       margin-top: 0.22rem;
       font-size: 0.92rem;
       line-height: 1.45;
-      color: rgba(20, 32, 27, 0.5);
+      color: #5f6762;
     }
 
     .node-health-summary {
@@ -7575,13 +7575,12 @@
       border-color: rgba(24, 33, 29, 0.07);
       background: rgba(24, 33, 29, 0.035);
       cursor: not-allowed;
-      opacity: 0.58;
       filter: grayscale(1);
     }
 
     .header-view-control[data-disabled="true"] .header-view-label,
     .header-view-control[data-disabled="true"] .header-view-choice {
-      color: rgba(24, 33, 29, 0.42);
+      color: #626965;
       cursor: not-allowed;
     }
 
