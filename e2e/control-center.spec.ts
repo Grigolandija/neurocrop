@@ -19,23 +19,27 @@ async function login(page: Page, email: string) {
   await expect(page.locator('#dashboardShell')).toBeVisible()
 }
 
+function navigationAction(page: Page, action: string) {
+  return page.locator(`[data-sidebar-action="${action}"]:visible`)
+}
+
 test('tenant dashboard selects a real Area and Section and supports navigation', async ({ page }) => {
   await login(page, 'tenant-a@ci.neurocrop.test')
   await expect(page.locator('#headerAccountEmail')).toHaveText('tenant-a@ci.neurocrop.test')
-  await expect(page.locator('[data-sidebar-action="overview"]')).toHaveAttribute('data-active', 'true')
+  await expect(navigationAction(page, 'overview')).toHaveAttribute('data-active', 'true')
   await expect(page.locator('#headerContextSelectors')).not.toContainText('All sections')
 
-  await page.locator('[data-sidebar-action="sites"]').click()
+  await navigationAction(page, 'sites').click()
   await expect(page).toHaveURL(/\/areas$/)
-  await page.locator('[data-sidebar-action="nodes"]').click()
+  await navigationAction(page, 'nodes').click()
   await expect(page).toHaveURL(/\/nodes$/)
-  await page.locator('[data-sidebar-action="history"]').click()
+  await navigationAction(page, 'history').click()
   await expect(page).toHaveURL(/\/history$/)
 })
 
 test('measurement CSV can be downloaded from Trends', async ({ page }) => {
   await login(page, 'tenant-a@ci.neurocrop.test')
-  await page.locator('[data-sidebar-action="history"]').click()
+  await navigationAction(page, 'history').click()
   await expect(page.locator('#trendHistoryExportButton')).toBeVisible()
   await page.locator('#trendHistoryExportButton').click()
   await expect(page.locator('[data-csv-export-form]')).toBeVisible()
@@ -49,13 +53,13 @@ test('measurement CSV can be downloaded from Trends', async ({ page }) => {
 test('empty organization shows onboarding without stale charts', async ({ page }) => {
   await login(page, 'tenant-empty@ci.neurocrop.test')
   await expect(page.getByRole('heading', { name: /create your first growing area/i })).toBeVisible()
-  await expect(page.locator('[data-sidebar-action="zones"]')).toBeDisabled()
+  await expect(navigationAction(page, 'zones')).toBeDisabled()
   await expect(page.locator('#historySection')).toBeHidden()
 })
 
 test('large workspace keeps 100+ Areas accessible', async ({ page }) => {
   await login(page, 'tenant-large@ci.neurocrop.test')
-  await page.locator('[data-sidebar-action="sites"]').click()
+  await navigationAction(page, 'sites').click()
   await expect(page.locator('.management-list-row')).toHaveCount(120)
   await expect(page.getByText('Scale Area 120', { exact: true })).toBeVisible()
 })
