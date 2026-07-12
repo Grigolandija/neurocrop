@@ -10106,6 +10106,7 @@
 
     function getTrendEwmaTimeConstantMinutes(metricKey) {
       if (metricKey === "co2") return 15;
+      if (metricKey === "lux") return 20;
       if (["airTemp", "humidity", "vpd"].includes(metricKey)) return 30;
       return null;
     }
@@ -10610,6 +10611,10 @@
         item,
         getTrendDisplayValues(item, rangeKey)
       ]));
+      const chartDomainValuesByItem = new Map(seriesItems.map((item) => [
+        item,
+        [...displayValuesByItem.get(item), ...item.series.values.map(Number)]
+      ]));
       const tooltipDateFormat = new Intl.DateTimeFormat("lt-LT", {
         day: "2-digit",
         month: "short",
@@ -10625,7 +10630,7 @@
           .map((item, index) => {
             const definition = item.option.definition;
             const optimalRange = item.option.optimalRange || definition.optimal;
-            const axisDomain = getTrendAxisDomain(displayValuesByItem.get(item), definition, optimalRange);
+            const axisDomain = getTrendAxisDomain(chartDomainValuesByItem.get(item), definition, optimalRange);
             const visualSpan = (optimalRange[1] - optimalRange[0])
               / Math.max(axisDomain[1] - axisDomain[0], 0.0001);
             return { index, visualSpan };
@@ -10641,7 +10646,7 @@
         const color = colors[index];
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
-        const axisDomain = getTrendAxisDomain(displayValuesByItem.get(item), definition, optimalRange);
+        const axisDomain = getTrendAxisDomain(chartDomainValuesByItem.get(item), definition, optimalRange);
         return {
           type: "value",
           name: `${translateInterfaceText(item.option.label)} (${formatUnit(definition.unit)})`,
@@ -10692,7 +10697,13 @@
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
         const displayValues = displayValuesByItem.get(item);
-        const axisDomain = getTrendAxisDomain(displayValues, definition, optimalRange);
+        // Filtering changes only the rendered curve; extrema remain factual raw measurements.
+        const rawValues = item.series.values.map(Number);
+        const minimumValue = Math.min(...rawValues);
+        const maximumValue = Math.max(...rawValues);
+        const minimumIndex = rawValues.indexOf(minimumValue);
+        const maximumIndex = rawValues.indexOf(maximumValue);
+        const axisDomain = getTrendAxisDomain([...displayValues, minimumValue, maximumValue], definition, optimalRange);
         const isTargetVisible = (value) => value >= axisDomain[0] && value <= axisDomain[1];
         const visibleTargetMin = Math.max(Number(optimalRange[0]), axisDomain[0]);
         const visibleTargetMax = Math.min(Number(optimalRange[1]), axisDomain[1]);
@@ -10708,13 +10719,9 @@
         const labelPrefix = shortMetricLabel(item.option.label);
         const targetMinLabel = `${labelPrefix} min ${formatValue(optimalRange[0], definition)}`;
         const targetMaxLabel = `${labelPrefix} max ${formatValue(optimalRange[1], definition)}`;
-        const minimumValue = Math.min(...displayValues);
-        const maximumValue = Math.max(...displayValues);
-        const minimumIndex = displayValues.indexOf(minimumValue);
-        const maximumIndex = displayValues.indexOf(maximumValue);
         const extremaPosition = (pointIndex, fallback) => {
           if (pointIndex <= 1) return "right";
-          if (pointIndex >= displayValues.length - 2) return "left";
+          if (pointIndex >= rawValues.length - 2) return "left";
           return fallback;
         };
         const extremaLabelColor = colorWithAlpha(color, 0.94);
@@ -10830,14 +10837,14 @@
             data: [
               {
                 name: "Minimum",
-                coord: data[minimumIndex],
+                coord: [item.series.timestamps?.[minimumIndex] ?? rangeStart, minimumValue],
                 value: minimumValue,
                 displayLabel: `MIN ${formatTrendValue(minimumValue, definition, item.option.key)}`,
                 label: { position: extremaPosition(minimumIndex, "bottom") }
               },
               {
                 name: "Maximum",
-                coord: data[maximumIndex],
+                coord: [item.series.timestamps?.[maximumIndex] ?? rangeStart, maximumValue],
                 value: maximumValue,
                 displayLabel: `MAX ${formatTrendValue(maximumValue, definition, item.option.key)}`,
                 label: { position: extremaPosition(maximumIndex, "top") }

@@ -44,6 +44,7 @@ assert(runtime.includes("function refreshDataForActivePage()") && runtime.includ
 assert(runtime.includes('setLoginState(session, { resetWorkspace: true });'), "authenticated workspace entry must reset to Overview and a concrete priority zone");
 assert(runtime.includes('function renderTrendAnalytics(') && runtime.includes('Time in target') && runtime.includes('function renderTrendComparisonChart('), "Trends must provide time in target and zone comparison");
 assert(runtime.includes('function calculateTimeAwareEwma(') && runtime.includes('1 - Math.exp(') && runtime.includes('data-trend-presentation'), "Trend charts must support a raw and time-aware EWMA presentation without changing source measurements");
+assert(runtime.includes('if (metricKey === "lux") return 20;') && runtime.includes('const rawValues = item.series.values.map(Number);'), "Lux must support EWMA rendering while chart extrema remain based on raw measurements");
 assert(runtime.includes('let activeTrendScaleMode = "detail";') && runtime.includes('data-trend-scale') && runtime.includes('scaleMode === "target"'), "Trend charts must offer detail and full target-context Y-axis modes");
 assert(runtime.includes('offscreenTargetLabel') && runtime.includes('translateInterfaceText("away")'), "Detail trend scale must explain targets outside the visible measurement range");
 assert(runtime.includes('visualMap: isMultiMetric ? [] : trendValueVisualMaps'), "Dual metric trends must retain distinct series colors");
