@@ -17,6 +17,7 @@ const invitePage = await fs.readFile(path.join(root, "src/pages/AcceptInvitePage
 const authLayout = await fs.readFile(path.join(root, "src/features/auth/AuthLayout.tsx"), "utf8");
 const areasModel = await fs.readFile(path.join(root, "src/features/areas/model.ts"), "utf8");
 const sectionsModel = await fs.readFile(path.join(root, "src/features/sections/model.ts"), "utf8");
+const nodesModel = await fs.readFile(path.join(root, "src/features/nodes/model.ts"), "utf8");
 let failures = 0;
 
 function assert(condition, message) {
@@ -44,13 +45,16 @@ assert(runtime.includes("function setEnhancedSelectOpen") && runtime.includes("f
 assert(runtime.includes('aria-controls="${escapeAttribute(selectId)}-menu"') && runtime.includes('document.addEventListener("keydown", (event) => {'), "enhanced selects must expose an associated menu and keyboard controls");
 assert(runtime.includes('sectionSelect.disabled = targetZones.length === 0;'), "Node Section selector must reflect whether the selected Area has sections");
 assert(runtime.includes('aria-expanded="${String(isExpanded)}"') && runtime.includes('class="node-table-detail"'), "Nodes must expose compact expandable detail rows");
-assert(runtime.includes("function getNodeReportingModeLabel(profile)") && runtime.includes('power_save: "Power save"'), "Node reporting modes must be presented with clear labels");
-assert(runtime.includes("Sensor reinitialised ${counters.reinit} times") && runtime.includes('label: reasons[0]') && runtime.includes('<div><span>Health</span>'), "Node health status must show a concise primary reason and full diagnostics");
+assert(runtime.includes("function getNodeReportingModeLabel(profile)") && nodesModel.includes("power_save: 'Power save'"), "Node reporting modes must be presented with clear labels from the Node feature model");
+assert(nodesModel.includes('Sensor reinitialised ${counters.reinit} times') && nodesModel.includes('label: reasons[0]') && runtime.includes('<div><span>Health</span>'), "Node health status must show a concise primary reason and full diagnostics");
 assert(runtime.includes('class="crop-profile-metric-row"') && runtime.includes('data-profile-alert-limit="warning"'), "Crop profile targets must retain visible automatic alert boundaries");
 assert(runtime.includes("await hydrateDashboardFromApi();") && runtime.includes("Scores are calculated by the backend from the saved profile ranges."), "saving a crop profile must immediately refresh canonical backend scores");
 assert(runtime.includes('class="settings-local-notice"'), "non-API settings must be clearly identified as browser-local");
 assert(runtime.includes('snapshot?.overall?.source === "backend"') && runtime.includes("Number.isFinite(snapshot.overall.indexScore)"), "Area and Section selectors must display backend scores before local readings load");
 assert(runtime.includes("function refreshDataForActivePage()") && runtime.includes("const dashboardRefreshTtlMs = 30 * 1000;") && runtime.includes("refreshDataForActivePage();"), "data pages must refresh stale dashboard data on navigation without reloading every page");
+assert(runtime.includes('silent = false') && runtime.includes('preserveCurrentOnError: true, silent: true') && runtime.includes('if (!silent) elements.dashboardShell.setAttribute("aria-busy", "true")') && runtime.includes('if (!silent) elements.dashboardShell.removeAttribute("aria-busy")'), "background refreshes must update data silently while foreground loading always cleans up its busy state");
+assert(runtime.includes('dashboardHydrationInFlight && dashboardHydrationOrganizationId === organizationId') && runtime.includes('dashboardHydrationInFlightRequestId === requestId'), "dashboard hydration must coalesce duplicate requests without blocking an organization switch");
+assert(runtime.includes('if (unauthorizedStateHandled) return;') && runtime.includes('unauthorizedStateHandled = false;'), "parallel unauthorized responses must collapse into one stable signed-out transition");
 assert(runtime.includes('setLoginState(session, { resetWorkspace: true });'), "authenticated workspace entry must reset to Overview and a concrete priority zone");
 assert(runtime.includes('function renderTrendAnalytics(') && runtime.includes('Time in target') && runtime.includes('function renderTrendComparisonChart('), "Trends must provide time in target and zone comparison");
 assert(runtime.includes('function calculateTimeAwareEwma(') && runtime.includes('1 - Math.exp(') && runtime.includes('data-trend-presentation'), "Trend charts must support a raw and time-aware EWMA presentation without changing source measurements");
@@ -59,6 +63,8 @@ assert(runtime.includes('let activeTrendScaleMode = "detail";') && runtime.inclu
 assert(runtime.includes('offscreenTargetLabel') && runtime.includes('translateInterfaceText("away")'), "Detail trend scale must explain targets outside the visible measurement range");
 assert(runtime.includes('visualMap: isMultiMetric ? [] : trendValueVisualMaps'), "Dual metric trends must retain distinct series colors");
 assert(runtime.includes('class="admin-table"') && runtime.includes('data-admin-search="organizations"') && runtime.includes('data-admin-search="users"'), "Admin must use searchable management tables instead of decorative settings cards");
+assert(runtime.includes('id="adminAdministratorsTitle"') && runtime.includes('data-admin-search="administrators"') && runtime.includes('data-admin-row="administrators"'), "Admin must expose a dedicated searchable administrators table separate from the users table");
+assert(runtime.includes('Managed in Administrators') && runtime.includes('platformAdministrators.map'), "administrator revocation must be managed in the dedicated administrators table without duplicate user-row controls");
 assert(apiClient.includes('async function readResponseBody(response: Response)') && apiClient.includes('value.error?.message') && apiClient.includes('AbortSignal.timeout(15_000)'), "API requests must handle empty/non-JSON responses, expose structured error messages, and time out");
 assert(dashboardPage.includes('installNeuroCropApi()') && !runtime.includes('async function readResponseBody(response)'), "the modular API client must be installed and its legacy runtime duplicate must remain removed");
 assert(appSource.includes("lazy(() => import('./pages/DashboardPage'))") && appSource.includes("lazy(() => import('./pages/RegisterPage'))") && appSource.includes('<Suspense fallback='), "application routes must be code-split behind an explicit loading state");
@@ -68,6 +74,7 @@ assert(apiFacade.includes('export const neurocropApi') && apiFacade.includes('ge
 assert(dashboardPage.includes('installNeuroCropFeatures()') && runtime.includes('window.NeuroCropFeatures.areas') && runtime.includes('window.NeuroCropFeatures.sections'), "Area and Section feature models must be installed before the legacy renderer uses them");
 assert(areasModel.includes('export function buildAreasSummary') && areasModel.includes('export function getAreaFormCopy'), "Area counts and UI copy must live in the Area feature model");
 assert(sectionsModel.includes('export function getSectionsForArea') && sectionsModel.includes('export function summarizeSections'), "Section scoping, ordering, and counts must live in the Section feature model");
+assert(runtime.includes('window.NeuroCropFeatures.nodes.getHealthSummary') && nodesModel.includes('export function getDetectedSensorNames') && nodesModel.includes('export function formatLastPayload'), "Node health, sensors, and payload presentation must live in the Node feature model");
 assert(runtime.includes('let dashboardHydrationRequestId = 0;') && runtime.includes('const isCurrentRequest = () => requestId === dashboardHydrationRequestId'), "stale dashboard responses must not overwrite a newer organization context");
 assert(runtime.includes('data-platform-admin-grant=') && runtime.includes('data-platform-user-status=') && runtime.includes('data-platform-user-delete='), "Super Admin must manage admin access, account status, and deletion directly from the Users table");
 assert(runtime.includes('isSuperAdmin: session.isSuperAdmin === true') && runtime.includes('user.isSuperAdmin ? "Super admin"'), "Super Admin identity must remain explicit and protected in the frontend");

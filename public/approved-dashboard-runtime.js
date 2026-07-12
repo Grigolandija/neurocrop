@@ -1371,6 +1371,7 @@
       elements.loginScreen.hidden = signedIn;
       elements.dashboardShell.hidden = !signedIn;
       if (signedIn) {
+        unauthorizedStateHandled = false;
         elements.headerAccountEmail.textContent = normalizedSession.email;
         if (options.resetWorkspace === true) resetWorkspaceForNewLogin();
         if (!normalizedSession.isPlatformAdmin && activePrimaryPage === "admin") {
@@ -1388,13 +1389,17 @@
     }
 
     async function hydrateDashboardFromApi(options = {}) {
-      const { preserveCurrentOnError = false } = options;
+      const { preserveCurrentOnError = false, silent = false } = options;
       if (!window.NeuroCropApi?.isConnected()) return;
-      const requestId = ++dashboardHydrationRequestId;
       const organizationId = getLoginSession()?.organizationId || "";
+      if (dashboardHydrationInFlight && dashboardHydrationOrganizationId === organizationId) return;
+      dashboardHydrationInFlight = true;
+      const requestId = ++dashboardHydrationRequestId;
+      dashboardHydrationOrganizationId = organizationId;
+      dashboardHydrationInFlightRequestId = requestId;
       const isCurrentRequest = () => requestId === dashboardHydrationRequestId
         && organizationId === (getLoginSession()?.organizationId || "");
-      elements.dashboardShell.setAttribute("aria-busy", "true");
+      if (!silent) elements.dashboardShell.setAttribute("aria-busy", "true");
       try {
         await hydrateCropProfilesFromApi(isCurrentRequest);
         if (!isCurrentRequest()) return;
@@ -1442,7 +1447,11 @@
           renderDashboard();
         }
       } finally {
-        if (isCurrentRequest()) elements.dashboardShell.removeAttribute("aria-busy");
+        if (dashboardHydrationInFlightRequestId === requestId) {
+          dashboardHydrationInFlight = false;
+          dashboardHydrationOrganizationId = "";
+        }
+        if (!silent) elements.dashboardShell.removeAttribute("aria-busy");
       }
     }
 
@@ -1450,7 +1459,7 @@
       const livePage = ["overview", "readings", "history", "alerts"].includes(activePrimaryPage);
       const signedIn = Boolean(getLoginSession()?.email);
       if (document.hidden || !signedIn || !livePage || !isApiDataMode()) return;
-      hydrateDashboardFromApi({ preserveCurrentOnError: true });
+      hydrateDashboardFromApi({ preserveCurrentOnError: true, silent: true });
     }
 
     function refreshDataForActivePage() {
@@ -1458,7 +1467,7 @@
       const signedIn = Boolean(getLoginSession()?.email);
       const isStale = Date.now() - lastDashboardHydratedAt >= dashboardRefreshTtlMs;
       if (!dataPage || !signedIn || !isApiDataMode() || !isStale) return;
-      hydrateDashboardFromApi({ preserveCurrentOnError: true });
+      hydrateDashboardFromApi({ preserveCurrentOnError: true, silent: true });
     }
 
     async function initializeLoginGate() {
@@ -1675,8 +1684,12 @@
     let latestReadingsBySectionId = {};
     let latestReadingsStatusBySectionId = {};
     let dashboardHydrationRequestId = 0;
+    let dashboardHydrationInFlight = false;
+    let dashboardHydrationOrganizationId = "";
+    let dashboardHydrationInFlightRequestId = 0;
     let lastDashboardHydratedAt = 0;
     const dashboardRefreshTtlMs = 30 * 1000;
+    let unauthorizedStateHandled = false;
     let selectPriorityContextAfterLogin = false;
     let activeBlockFilterSiteId = "all";
     let activeNodeFilterSiteId = "all";
@@ -2931,53 +2944,15 @@
     }
 
     function getFreshnessLabel(status) {
-      return {
-        live: diagnosticText("Live", "Tiesiogiai"),
-        delayed: diagnosticText("Delayed", "Vėluoja"),
-        stale: diagnosticText("Stale", "Pasenę"),
-        offline: diagnosticText("Offline", "Neprisijungęs")
-      }[status] || diagnosticText("Unknown", "Nežinoma");
+      return window.NeuroCropFeatures.nodes.getFreshnessLabel(status, diagnosticText);
     }
 
     function formatFreshnessAge(ageSec) {
-      if (!Number.isFinite(ageSec)) return diagnosticText("time unknown", "laikas nežinomas");
-      if (ageSec < 60) return diagnosticText(`${Math.max(1, Math.round(ageSec))} sec ago`, `prieš ${Math.max(1, Math.round(ageSec))} sek.`);
-      const minutes = Math.round(ageSec / 60);
-      if (minutes < 60) return diagnosticText(`${minutes} min ago`, `prieš ${minutes} min.`);
-      const hours = Math.round(minutes / 60);
-      return diagnosticText(`${hours} h ago`, `prieš ${hours} val.`);
+      return window.NeuroCropFeatures.nodes.formatFreshnessAge(ageSec, diagnosticText);
     }
 
     function formatNodeLastPayload(node, freshness = null) {
-      const rawTimestamp = node?.lastReceivedAt || node?.lastSeen || null;
-      if (!rawTimestamp) {
-        return {
-          relative: diagnosticText("No payload yet", "Payload dar negautas"),
-          absolute: diagnosticText("Waiting for first uplink", "Laukiama pirmo uplink")
-        };
-      }
-
-      const date = new Date(rawTimestamp);
-      if (Number.isNaN(date.getTime())) {
-        return {
-          relative: diagnosticText("Payload time unknown", "Payload laikas nežinomas"),
-          absolute: String(rawTimestamp)
-        };
-      }
-
-      return {
-        relative: Number.isFinite(freshness?.ageSec)
-          ? formatFreshnessAge(freshness.ageSec)
-          : diagnosticText("Payload received", "Payload gautas"),
-        absolute: new Intl.DateTimeFormat("lt-LT", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit"
-        }).format(date)
-      };
+      return window.NeuroCropFeatures.nodes.formatLastPayload(node, freshness || {}, diagnosticText);
     }
 
     function getZoneMetricFreshness(zone, metricKey, now = Date.now()) {
@@ -7466,53 +7441,19 @@
     }
 
     function getNodeDetectedSensorNames(node) {
-      const presence = node?.sensorPresence || {};
-      const sensors = [];
-      if (presence.sht45) sensors.push("Temperature", "Humidity");
-      if (presence.scd41) sensors.push("CO2");
-      if (presence.bh1750) sensors.push("Light");
-      if (presence.ds18b20) sensors.push("Temperature probe");
-      return sensors;
+      return window.NeuroCropFeatures.nodes.getDetectedSensorNames(node);
     }
 
     function getNodeHealthSummary(node, freshness) {
-      const flags = node?.errorFlags || {};
-      const counters = node?.errorCounters || {};
-      const reasons = [];
-
-      if (flags.tx_timeout) reasons.push("Transmission timeout");
-      if (flags.last_tx_failed) reasons.push("Last transmission failed");
-      if (flags.watchdog_reset) reasons.push("Watchdog reset reported");
-      if (flags.join_backoff) reasons.push("Network join backoff");
-      if (flags.boot_fault) reasons.push("Boot fault reported");
-      if (Number(counters.read_fail || 0) >= 3) reasons.push(`${counters.read_fail} sensor read failures`);
-      if (Number(counters.tx_fail || 0) >= 3) reasons.push(`${counters.tx_fail} transmission failures`);
-      if (Number(counters.reinit || 0) >= 5) reasons.push(`Sensor reinitialised ${counters.reinit} times`);
-
-      if (freshness?.transportStatus === "offline") {
-        return { label: "Offline", detail: "No recent uplink", tone: "critical" };
-      }
-      if (reasons.length > 0) {
-        return { label: reasons[0], detail: reasons.join(" · "), tone: "warning" };
-      }
-      return { label: "Healthy", detail: "No device faults reported", tone: "optimal" };
+      return window.NeuroCropFeatures.nodes.getHealthSummary(node, freshness || {});
     }
 
     function formatNodeSignal(node) {
-      if (!Number.isFinite(node?.rssi) || !Number.isFinite(node?.snr)) return "Signal unavailable";
-      const sf = Number.isFinite(node.spreadingFactor) ? ` · SF${node.spreadingFactor}` : "";
-      return `${node.rssi} dBm · SNR ${node.snr}${sf}`;
+      return window.NeuroCropFeatures.nodes.formatSignal(node);
     }
 
     function getNodeReportingModeLabel(profile) {
-      const key = String(profile || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
-      const labels = {
-        power_save: "Power save",
-        powersave: "Power save",
-        normal: "Normal",
-        intense: "Intense"
-      };
-      return labels[key] || (key ? key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Mode unavailable");
+      return window.NeuroCropFeatures.nodes.getReportingModeLabel(profile);
     }
 
     function renderNodesManagementPage() {
@@ -8404,6 +8345,7 @@
       const formatAdminDate = (value) => value
         ? new Date(value).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" })
         : "—";
+      const platformAdministrators = platformOrganizationState.users.filter((user) => user.isSuperAdmin || user.isPlatformAdmin);
       const platformPanel = `
         <div class="admin-console" aria-labelledby="adminConsoleTitle">
           <div class="admin-console-toolbar">
@@ -8474,6 +8416,36 @@
               </div>
             </section>
 
+            <section class="admin-section" aria-labelledby="adminAdministratorsTitle">
+              <header>
+                <h2 id="adminAdministratorsTitle">Administrators</h2><span>${platformAdministrators.length}</span>
+                <label class="admin-search"><span class="sr-only">Search administrators</span><input type="search" placeholder="Search administrators" data-admin-search="administrators"></label>
+              </header>
+              <div class="admin-table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>Name</th><th>Email</th><th>Admin level</th><th>Account</th><th>Organizations</th><th class="admin-actions-column">Actions</th></tr></thead>
+                  <tbody>
+                    ${platformAdministrators.map((user) => `
+                      <tr data-admin-row="administrators" data-admin-search-value="${escapeAttribute(`${user.name || ""} ${user.email || ""} ${user.isSuperAdmin ? "super admin" : "platform admin"}`.toLowerCase())}">
+                        <td><strong>${escapeHtml(user.name || "—")}</strong></td>
+                        <td>${escapeHtml(user.email || "—")}</td>
+                        <td><span class="admin-status-label" data-state="active">${user.isSuperAdmin ? "Super admin" : "Platform admin"}</span></td>
+                        <td><span class="admin-status-label" data-state="${user.active === false ? "inactive" : "active"}">${user.active === false ? "Inactive" : "Active"}</span></td>
+                        <td>${Number(user.organizationCount || 0)}</td>
+                        <td class="admin-row-actions">
+                          ${user.isSuperAdmin
+                            ? `<span class="admin-protected-label">Protected</span>`
+                            : currentSession?.isSuperAdmin
+                              ? `<button type="button" class="admin-link-button admin-link-danger" data-platform-admin-revoke="${escapeAttribute(user.id)}" data-platform-admin-email="${escapeAttribute(user.email)}">Revoke admin</button>`
+                              : `<span class="admin-protected-label">Read only</span>`}
+                        </td>
+                      </tr>
+                    `).join("") || `<tr><td colspan="6" class="admin-empty">No administrators.</td></tr>`}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
             <section class="admin-section" aria-labelledby="adminUsersTitle">
               <header>
                 <h2 id="adminUsersTitle">Users</h2><span>${platformOrganizationState.users.length}</span>
@@ -8493,7 +8465,7 @@
                         <td class="admin-row-actions">
                           ${user.isSuperAdmin ? `<span class="admin-protected-label">Protected</span>` : currentSession?.isSuperAdmin ? `
                             ${user.isPlatformAdmin
-                              ? `<button type="button" class="admin-link-button" data-platform-admin-revoke="${escapeAttribute(user.id)}" data-platform-admin-email="${escapeAttribute(user.email)}">Revoke admin</button>`
+                              ? `<span class="admin-protected-label">Managed in Administrators</span>`
                               : `<button type="button" class="admin-link-button" data-platform-admin-grant="${escapeAttribute(user.id)}" data-platform-admin-email="${escapeAttribute(user.email)}" ${user.active === false ? "disabled" : ""}>Grant admin</button>`}
                             <button type="button" class="admin-link-button" data-platform-user-status="${escapeAttribute(user.id)}" data-platform-user-active="${user.active === false ? "false" : "true"}" data-platform-user-email="${escapeAttribute(user.email)}" ${user.id === currentSession?.id ? "disabled" : ""}>${user.active === false ? "Activate" : "Deactivate"}</button>
                             <button type="button" class="admin-link-button admin-link-danger" data-platform-user-delete="${escapeAttribute(user.id)}" data-platform-user-email="${escapeAttribute(user.email)}" ${user.id === currentSession?.id ? "disabled" : ""}>Delete</button>
@@ -15992,6 +15964,8 @@
     });
 
     window.addEventListener("neurocrop:unauthorized", () => {
+      if (unauthorizedStateHandled) return;
+      unauthorizedStateHandled = true;
       window.sessionStorage.removeItem(loginSessionKey);
       resetTeamAccessState();
       resetPlatformOrganizationState();
