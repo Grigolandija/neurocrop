@@ -8875,6 +8875,25 @@
       color: #59615d;
     }
 
+    @media (min-width: 1180px) and (max-width: 1399px) {
+      body[data-primary-page="readings"] #metricsGrid[data-display="readings-board"] {
+        min-width: 0;
+      }
+
+      .live-readings-table-head,
+      .live-reading-row {
+        grid-template-columns:
+          minmax(150px, 1fr)
+          minmax(92px, 0.55fr)
+          minmax(120px, 0.7fr)
+          minmax(155px, 1fr)
+          minmax(82px, 0.5fr)
+          76px
+          70px;
+        gap: 0.5rem;
+      }
+    }
+
     /* Commercial UI consolidation: one compact system across every route. */
     .skip-to-content {
       position: fixed;
