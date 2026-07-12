@@ -93,6 +93,7 @@ test('empty organization shows onboarding without stale charts', async ({ page }
   await expect(page.getByRole('heading', { name: /create your first growing area/i })).toBeVisible()
   await expect(navigationAction(page, 'zones')).toBeDisabled()
   await expect(page.locator('#historySection')).toBeHidden()
+  await expect(page.locator('#zoneImpactSection')).toBeHidden()
   await expect(page.locator('#advancedToolsPanel')).toBeHidden()
 
   await navigationAction(page, 'nodes').click()

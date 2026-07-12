@@ -2452,6 +2452,12 @@
         try {
           const keepSections = Boolean(elements.managementModalOverlay.querySelector('[name="modalLocationLeaveUnassigned"]')?.checked);
           await window.NeuroCropApi.deleteArea(siteId, { keepSections });
+          const hasAnotherArea = (dashboardData.sites || []).some((site) => site.id !== siteId && !isUnassignedLocation(site));
+          if (!hasAnotherArea) {
+            activePrimaryPage = "overview";
+            sidebarActionOverride = null;
+            syncTopLevelRoute("/", { replace: true });
+          }
           await hydrateDashboardFromApi();
           closeManagementModal();
           resetLocationForm();
@@ -13001,6 +13007,7 @@
       elements.alertsSection.hidden = true;
       elements.opsDockSection.hidden = true;
       elements.detailedDiagnosticsSection.hidden = true;
+      elements.zoneImpactSection.hidden = true;
       if (elements.advancedToolsPanel) {
         elements.advancedToolsPanel.hidden = true;
         elements.advancedToolsPanel.open = false;
