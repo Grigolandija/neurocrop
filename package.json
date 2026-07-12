@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "test:state": "node ./scripts/test-state-engine.mjs",
     "test:runtime": "node ./scripts/test-runtime-invariants.mjs",
+    "test:e2e": "playwright test",
     "test": "pnpm test:state && pnpm test:runtime",
     "preview": "vite preview"
   },
@@ -23,7 +24,9 @@
     "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

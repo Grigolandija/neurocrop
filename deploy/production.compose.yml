@@ -1,0 +1,49 @@
+services:
+  neurocrop-api:
+    image: ${NEUROCROP_BACKEND_IMAGE:?Set NEUROCROP_BACKEND_IMAGE}
+    container_name: neurocrop-api
+    restart: unless-stopped
+    networks:
+      - chirpstack
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      PGHOST: postgresql
+      PGUSER: ${PGUSER:-chirpstack}
+      PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD}
+      PGDATABASE: ${PGDATABASE:-neurocrop}
+      ALLOWED_ORIGINS: https://neurocrop.lt,https://www.neurocrop.lt
+    secrets:
+      - session_secret
+      - chirpstack_api_token
+      - chirpstack_application_id
+      - chirpstack_device_profile_id
+      - default_otaa_app_key
+      - resend_api_key
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+networks:
+  chirpstack:
+    external: true
+    name: chirpstack_default
+
+secrets:
+  session_secret:
+    file: /opt/neurocrop-backend/.session_secret
+  chirpstack_api_token:
+    file: /opt/neurocrop-backend/.chirpstack_api_token
+  chirpstack_application_id:
+    file: /opt/neurocrop-backend/.chirpstack_application_id
+  chirpstack_device_profile_id:
+    file: /opt/neurocrop-backend/.chirpstack_device_profile_id
+  default_otaa_app_key:
+    file: /opt/neurocrop-backend/.default_otaa_app_key
+  resend_api_key:
+    file: /opt/neurocrop-backend/.resend_api_key

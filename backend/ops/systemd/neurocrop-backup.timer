@@ -1,0 +1,11 @@
+[Unit]
+Description=Run NeuroCrop PostgreSQL backup daily
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 Europe/Vilnius
+RandomizedDelaySec=10m
+Persistent=true
+Unit=neurocrop-backup.service
+
+[Install]
+WantedBy=timers.target

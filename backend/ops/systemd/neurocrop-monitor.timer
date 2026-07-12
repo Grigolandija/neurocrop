@@ -1,0 +1,12 @@
+[Unit]
+Description=Run NeuroCrop health monitor every five minutes
+
+[Timer]
+OnBootSec=2m
+OnUnitActiveSec=5m
+AccuracySec=30s
+Persistent=true
+Unit=neurocrop-monitor.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,16 @@
+.git
+node_modules
+npm-debug.log
+*.bak-*
+*.dump
+*.sql.gz
+.password_hash
+.session_secret
+.chirpstack_api_token
+.chirpstack_application_id
+.chirpstack_device_profile_id
+.default_otaa_app_key
+.resend_api_key
+.env
+.env.*
+coverage

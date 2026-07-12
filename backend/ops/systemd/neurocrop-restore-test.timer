@@ -1,0 +1,11 @@
+[Unit]
+Description=Verify NeuroCrop backup restoration weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00 Europe/Vilnius
+RandomizedDelaySec=15m
+Persistent=true
+Unit=neurocrop-restore-test.service
+
+[Install]
+WantedBy=timers.target

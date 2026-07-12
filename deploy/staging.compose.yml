@@ -1,0 +1,37 @@
+services:
+  neurocrop-api-staging:
+    image: ${NEUROCROP_BACKEND_IMAGE:?Set NEUROCROP_BACKEND_IMAGE}
+    container_name: neurocrop-api-staging
+    restart: unless-stopped
+    networks:
+      - chirpstack
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      NODE_ENV: staging
+      API_PORT: 3000
+      PGHOST: postgresql
+      PGUSER: ${PGUSER:-chirpstack}
+      PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD}
+      PGDATABASE: ${PGDATABASE:-neurocrop_staging}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://staging.neurocrop.lt}
+    secrets:
+      - session_secret
+      - resend_api_key
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+networks:
+  chirpstack:
+    external: true
+    name: chirpstack_default
+
+secrets:
+  session_secret:
+    file: /opt/neurocrop-backend/.session_secret
+  resend_api_key:
+    file: /opt/neurocrop-backend/.resend_api_key
