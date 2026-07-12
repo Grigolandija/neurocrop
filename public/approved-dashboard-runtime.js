@@ -1854,7 +1854,6 @@
     }
     const scenarioPresetButtons = [...document.querySelectorAll("[data-scenario-preset]")];
     const sidebarActionButtons = [...document.querySelectorAll("[data-sidebar-action]")];
-    const dashboardActionButtons = [...document.querySelectorAll("[data-dashboard-action]")];
     const mobileCommandButtons = [...document.querySelectorAll("[data-mobile-command]")];
     const detailedExperienceTargets = new Set([
       "opsDockSection",
@@ -15182,12 +15181,6 @@
       });
     });
 
-    dashboardActionButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        runDashboardAction(button.dataset.dashboardAction);
-      });
-    });
-
     mobileCommandButtons.forEach((button) => {
       button.addEventListener("click", () => {
         if (button.dataset.mobileCommand === "palette") {
@@ -15968,6 +15961,12 @@
     });
 
     document.addEventListener("click", (event) => {
+      const dashboardActionButton = event.target.closest("[data-dashboard-action]");
+      if (dashboardActionButton) {
+        event.preventDefault();
+        runDashboardAction(dashboardActionButton.dataset.dashboardAction);
+        return;
+      }
       const retryButton = event.target.closest("[data-dashboard-retry]");
       if (retryButton) {
         retryDashboardView(retryButton);

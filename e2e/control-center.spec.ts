@@ -78,6 +78,10 @@ test('empty organization shows onboarding without stale charts', async ({ page }
   await expect(page.getByRole('heading', { name: /create your first growing area/i })).toBeVisible()
   await expect(navigationAction(page, 'zones')).toBeDisabled()
   await expect(page.locator('#historySection')).toBeHidden()
+
+  await page.getByRole('button', { name: 'Create area' }).click()
+  await expect(page).toHaveURL(/\/areas$/)
+  await expect(navigationAction(page, 'sites')).toHaveAttribute('data-active', 'true')
 })
 
 test('large workspace keeps 100+ Areas accessible', async ({ page }) => {
