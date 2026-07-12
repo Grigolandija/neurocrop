@@ -37,6 +37,7 @@ export const neurocropApi = {
   getLatestReadings: (sectionId: string) => request(`/readings/latest${queryString({ sectionId })}`),
   getHistory: (params: Payload) => request(`/history${queryString(params)}`),
   getSectionAnalytics: (params: Payload) => request(`/analytics/section${queryString(params)}`),
+  getSectionDynamics: (sectionId: string) => request(`/analytics/dynamics${queryString({ sectionId })}`),
   getSiteComparison: (params: Payload) => request(`/analytics/site-comparison${queryString(params)}`),
   downloadMeasurementsCsv: (params: Payload) => downloadFile(`/exports/measurements.csv${queryString(params)}`, 'neurocrop-measurements.csv'),
   getAreas: () => request('/areas'),

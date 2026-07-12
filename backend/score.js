@@ -266,6 +266,14 @@ function deriveScoreFromEvaluations(evaluations, scoreRules) {
   };
 }
 
+export function buildScoreFromMetricValues(metricValues = {}, profileMetrics = {}) {
+  const scoreRules = buildScoreRules(profileMetrics);
+  const evaluations = Object.entries(metricValues)
+    .map(([metricId, value]) => evaluateMetricValue(metricId, value, scoreRules))
+    .filter(Boolean);
+  return deriveScoreFromEvaluations(evaluations, scoreRules);
+}
+
 export function buildSectionDashboardState(nodeRows, measurements, profileMetrics = {}) {
   const now = Date.now();
   const scoreRules = buildScoreRules(profileMetrics);

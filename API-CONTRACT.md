@@ -309,6 +309,19 @@ GET /crop-profiles
           "critical": [45, 85],
           "zone": "Greenhouse No. 1 / microclimate zone",
           "action": "Review humidification and ventilation settings."
+        },
+        "lux": {
+          "label": "Light",
+          "unit": "lx",
+          "decimals": 0,
+          "optimal": [10000, 35000],
+          "lightingSchedule": {
+            "enabled": true,
+            "start": "06:00",
+            "end": "22:00",
+            "timeZone": "Europe/Vilnius",
+            "darkThresholdLux": 100
+          }
         }
       }
     }
@@ -433,12 +446,18 @@ duomenų pristatymo diagnostikai, o ne X ašies pozicijai.
 
 ```text
 GET /analytics/section?sectionId=...&metric=...&from=...&to=...&stepMinutes=...
+GET /analytics/dynamics?sectionId=...
 GET /analytics/site-comparison?areaId=...&sectionIds=...&metric=...&from=...&to=...&stepMinutes=...
 ```
 
 Analytics užklausos yra autentifikuotos, apribotos aktyvia organizacija ir vienu
 kartu priima ne daugiau kaip 31 dieną. Leidžiami žingsniai: 10, 60 ir 240 min.;
 zonų palyginimas vienu metu priima nuo vienos iki šešių tos pačios Area sekcijų.
+`/analytics/dynamics` grąžina realią paskutinių 24 valandų Growing Score ir
+rodiklių pradžią, pabaigą, minimumą bei maksimumą. Jei Crop Profile turi
+`lux.lightingSchedule`, atsakyme taip pat pateikiamas pasiektas fotoperiodas,
+laikas tiksliniame apšvietime, netikėtos tamsos / naktinės šviesos trukmė ir
+aiškiai kaip apytikslis pažymėtas iš lux įvertintas DLI.
 
 ## Measurement export
 

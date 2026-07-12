@@ -1710,6 +1710,8 @@
     let trendAnalyticsStatusByKey = {};
     let trendComparisonByKey = {};
     let trendComparisonStatusByKey = {};
+    let dynamicsBySectionId = {};
+    let dynamicsStatusBySectionId = {};
     let trendComparisonZoneIds = [];
     const trendHistoryCacheTtlMs = 60 * 1000;
     const trendHistoryRetryDelayMs = 10 * 1000;
@@ -2889,7 +2891,7 @@
     }
 
     function isGrowthMetricKey(key) {
-      return key !== "batteryLevel";
+      return key !== "batteryLevel" && key !== "lux";
     }
 
     function getBatteryAlertThreshold(definition) {
@@ -3436,7 +3438,32 @@
       const rawValue = readings?.[metricKey];
       if (!isConfigured) return getUnavailableMetricEvaluation(definition, "Sensor not installed.");
       if (!Number.isFinite(Number(rawValue))) return getUnavailableMetricEvaluation(definition, "No live data");
+      if (metricKey === "lux") return evaluateCurrentLightReading(definition, Number(rawValue));
       return evaluateMetric(definition, Number(rawValue));
+    }
+
+    function evaluateCurrentLightReading(definition, value) {
+      const schedule = definition?.lightingSchedule || {};
+      if (schedule.enabled !== true || !/^\d{2}:\d{2}$/.test(schedule.start || "") || !/^\d{2}:\d{2}$/.test(schedule.end || "")) {
+        return { ...evaluateMetric(definition, value), state: "optimal", severity: 0, statusLabel: diagnosticText("Monitoring only", "Tik stebėjimas"), deviationText: diagnosticText("Configure a lighting schedule to evaluate this reading.", "Norėdami vertinti šį rodmenį, nustatykite apšvietimo grafiką.") };
+      }
+      const parts = new Intl.DateTimeFormat("en-GB", { timeZone: schedule.timeZone || "Europe/Vilnius", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+      const clock = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+      const nowMinutes = Number(clock.hour) * 60 + Number(clock.minute);
+      const toMinutes = (clockValue) => Number(clockValue.slice(0, 2)) * 60 + Number(clockValue.slice(3, 5));
+      const start = toMinutes(schedule.start);
+      const end = toMinutes(schedule.end);
+      const expectedLight = start === end || (start < end ? nowMinutes >= start && nowMinutes < end : nowMinutes >= start || nowMinutes < end);
+      const darkThreshold = Math.max(0, Number(schedule.darkThresholdLux) || 100);
+      if (!expectedLight) {
+        return value <= darkThreshold
+          ? { ...evaluateMetric(definition, value), state: "optimal", severity: 0, statusLabel: diagnosticText("Expected darkness", "Numatyta tamsa"), deviationText: diagnosticText("Darkness matches the lighting schedule.", "Tamsa atitinka apšvietimo grafiką.") }
+          : { ...evaluateMetric(definition, value), state: "warning", severity: 0.5, statusLabel: diagnosticText("Unexpected night light", "Netikėta šviesa naktį"), deviationText: diagnosticText("Light is present outside the scheduled photoperiod.", "Šviesa aptikta už numatyto fotoperiodo ribų.") };
+      }
+      if (value <= darkThreshold) {
+        return { ...evaluateMetric(definition, value), state: "critical", severity: 1, statusLabel: diagnosticText("Scheduled light missing", "Trūksta numatytos šviesos"), deviationText: diagnosticText("The lighting period is active, but the measured light is near zero.", "Apšvietimo periodas aktyvus, bet išmatuota šviesa beveik lygi nuliui.") };
+      }
+      return evaluateMetric(definition, value);
     }
 
     function isMetricConfiguredForReadings(metricKey, availableMetrics, readings) {
@@ -3569,6 +3596,21 @@
         if (activePrimaryPage === "history" && getActiveSite()?.id === site.id) renderDashboard();
       } catch (error) {
         trendComparisonStatusByKey[cacheKey] = { status: "error", error: error instanceof Error ? error.message : "Comparison could not be loaded." };
+      }
+    }
+
+    async function fetchSectionDynamics(sectionId) {
+      if (!isApiDataMode() || !sectionId || !window.NeuroCropApi?.getSectionDynamics) return;
+      const status = dynamicsStatusBySectionId[sectionId];
+      if (status?.status === "loading" || (status?.status === "ready" && Date.now() - status.fetchedAt < trendHistoryCacheTtlMs)) return;
+      dynamicsStatusBySectionId[sectionId] = { status: "loading", error: "" };
+      try {
+        dynamicsBySectionId[sectionId] = await window.NeuroCropApi.getSectionDynamics(sectionId);
+        dynamicsStatusBySectionId[sectionId] = { status: "ready", error: "", fetchedAt: Date.now() };
+        if (activePrimaryPage === "overview") renderDashboard();
+      } catch (error) {
+        dynamicsStatusBySectionId[sectionId] = { status: "error", error: error instanceof Error ? error.message : "24-hour dynamics could not be loaded." };
+        if (activePrimaryPage === "overview") renderDashboard();
       }
     }
 
@@ -7889,7 +7931,7 @@
         ? profileSaveFeedback
         : null;
       const metricRows = (metricKeys) => metricKeys
-        .filter((metricKey) => isGrowthMetricKey(metricKey) && profile.metrics[metricKey])
+        .filter((metricKey) => metricKey !== "batteryLevel" && profile.metrics[metricKey])
         .map((metricKey) => {
           const metric = profile.metrics[metricKey];
           const metricDraft = draftMetrics[metricKey];
@@ -7902,6 +7944,15 @@
               <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="profile-target-input">
             </label>
           `;
+          const lightingSchedule = (metricDraft || metric).lightingSchedule || {};
+          const lightingScheduleMarkup = metricKey === "lux" ? `
+            <div class="crop-profile-lighting-schedule">
+              <label><input type="checkbox" data-lighting-schedule="enabled" ${lightingSchedule.enabled === true ? "checked" : ""}> <span>${diagnosticText("Use lighting schedule", "Naudoti apšvietimo grafiką")}</span></label>
+              <label><span>${diagnosticText("Lights on", "Šviesos pradžia")}</span><input type="time" value="${escapeAttribute(lightingSchedule.start || "06:00")}" data-lighting-schedule="start"></label>
+              <label><span>${diagnosticText("Lights off", "Šviesos pabaiga")}</span><input type="time" value="${escapeAttribute(lightingSchedule.end || "22:00")}" data-lighting-schedule="end"></label>
+              <label><span>${diagnosticText("Dark threshold", "Tamsos riba")}</span><input type="number" min="0" step="10" value="${escapeAttribute(lightingSchedule.darkThresholdLux ?? 100)}" data-lighting-schedule="darkThresholdLux"><small>lx</small></label>
+            </div>
+          ` : "";
           return `
           <div class="crop-profile-metric-row" data-profile-metric-row="${escapeAttribute(metricKey)}">
             <div class="crop-profile-metric-name"><strong>${escapeHtml(metric.label)}</strong><span>${escapeHtml(formatUnit(metric.unit))}</span></div>
@@ -7912,6 +7963,7 @@
             </div>
             <div class="crop-profile-metric-boundary crop-profile-metric-warning" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}"><b>Warning</b>${escapeHtml(formatRange(automaticRanges.warning, metric))}</div>
             <div class="crop-profile-metric-boundary crop-profile-metric-critical" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}"><b>Critical</b>${escapeHtml(formatRange(automaticRanges.critical, metric))}</div>
+            ${lightingScheduleMarkup}
           </div>
         `;
         }).join("");
@@ -8988,6 +9040,20 @@
         if (!draft.metrics[metricKey]) draft.metrics[metricKey] = cloneDashboardValue(completeMetrics[metricKey] || {});
         if (!Array.isArray(draft.metrics[metricKey][rangeKey])) draft.metrics[metricKey][rangeKey] = cloneDashboardValue(completeMetrics[metricKey]?.[rangeKey] || []);
         draft.metrics[metricKey][rangeKey][bound] = target.value;
+        return;
+      }
+
+      if (target instanceof HTMLInputElement && target.hasAttribute("data-lighting-schedule")) {
+        const row = target.closest("[data-profile-metric-row]");
+        const metricKey = row?.dataset.profileMetricRow;
+        const field = target.dataset.lightingSchedule;
+        if (!metricKey || !field) return;
+        const completeMetrics = getCompleteCropProfileMetrics(profile.metrics || {});
+        if (!draft.metrics[metricKey]) draft.metrics[metricKey] = cloneDashboardValue(completeMetrics[metricKey] || {});
+        if (!draft.metrics[metricKey].lightingSchedule) draft.metrics[metricKey].lightingSchedule = {};
+        draft.metrics[metricKey].lightingSchedule[field] = field === "enabled"
+          ? target.checked
+          : field === "darkThresholdLux" ? Number(target.value) : target.value;
       }
     }
 
@@ -9051,6 +9117,19 @@
         metric.optimal = nextRanges.optimal;
         metric.warning = nextRanges.warning;
         metric.critical = nextRanges.critical;
+        if (metricKey === "lux") {
+          const enabledInput = row.querySelector('[data-lighting-schedule="enabled"]');
+          const startInput = row.querySelector('[data-lighting-schedule="start"]');
+          const endInput = row.querySelector('[data-lighting-schedule="end"]');
+          const thresholdInput = row.querySelector('[data-lighting-schedule="darkThresholdLux"]');
+          metric.lightingSchedule = {
+            enabled: enabledInput instanceof HTMLInputElement && enabledInput.checked,
+            start: startInput instanceof HTMLInputElement ? startInput.value : "06:00",
+            end: endInput instanceof HTMLInputElement ? endInput.value : "22:00",
+            timeZone: "Europe/Vilnius",
+            darkThresholdLux: thresholdInput instanceof HTMLInputElement ? Math.max(0, Number(thresholdInput.value) || 100) : 100
+          };
+        }
       }
 
       profile.name = name;
@@ -11646,7 +11725,7 @@
               <p class="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink/42">${formatRange(definition.optimal, definition)}</p>
             </div>
             <div class="flex flex-col items-end gap-2 text-right">
-              <span class="state-chip metric-state-chip" data-role="state-chip" data-state="${result.state}">${stateConfig[result.state].label}</span>
+              <span class="state-chip metric-state-chip" data-role="state-chip" data-state="${result.state}">${escapeHtml(result.statusLabel || stateConfig[result.state].label)}</span>
               <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink/40">${definition.aggregation || "Block avg"}</p>
             </div>
           </div>
@@ -11692,7 +11771,7 @@
 
       if (stateChip) {
         stateChip.dataset.state = result.state;
-        stateChip.textContent = stateConfig[result.state].label;
+        stateChip.textContent = result.statusLabel || stateConfig[result.state].label;
       }
 
       if (currentValue) {
@@ -12611,6 +12690,23 @@
           trend: getDiagnosticTrend(result, definition, `${site.id}:${zone.id}:diagnostic-table`)
         };
       });
+      const dynamics = dynamicsBySectionId[zone.id] || null;
+      const dynamicsStatus = dynamicsStatusBySectionId[zone.id]?.status || "idle";
+      if (isApiDataMode() && dynamicsStatus === "idle") queueMicrotask(() => fetchSectionDynamics(zone.id));
+      const dynamicsMetricRows = dynamics
+        ? ["airTemp", "humidity", "co2", "lux", "vpd", "soilTemp"]
+            .filter((metricKey) => dynamics.metrics?.[metricKey] && profile.metrics?.[metricKey])
+            .slice(0, 3)
+            .map((metricKey) => ({ metricKey, definition: profile.metrics[metricKey], summary: dynamics.metrics[metricKey] }))
+        : [];
+      const dynamicsDirectionLabel = (direction) => ({
+        stable: diagnosticText("Stable", "Stabili"),
+        rising: diagnosticText("Rising", "Kyla"),
+        falling: diagnosticText("Falling", "Krinta"),
+        improving: diagnosticText("Improving", "Gerėja"),
+        declining: diagnosticText("Declining", "Blogėja")
+      }[direction] || direction || "—");
+      const lighting = dynamics?.lighting || null;
       const factors = [
         ...trendRows.map((item) => ({
           label: getDiagnosticMetricLabel(item.definition.label),
@@ -12894,9 +12990,17 @@
               <button type="button" class="diagnostic-link-button" data-triage-action="trend" data-metric-key="${escapeAttribute(primaryResult?.key || "humidity")}">${diagnosticText("Open full trend", "Atidaryti visą grafiką")}</button>
             </div>
             <div class="diagnostic-dynamics-list">
-              <div><span>${diagnosticText("Growing score", "Auginimo sąlygų įvertis")}</span><strong>—</strong><small>${diagnosticText("Score history is not available yet", "Score istorija dar nepasiekiama")}</small></div>
-              ${trendRows.slice(0, 3).map((item) => `<div><span>${escapeHtml(getDiagnosticMetricLabel(item.definition.label))}</span><strong>${escapeHtml(formatValue(item.trend.start, item.definition))} → ${escapeHtml(formatValue(item.trend.end, item.definition))}</strong><small>${escapeHtml(item.trend.direction)}</small></div>`).join("")}
+              ${dynamicsStatus === "loading" || dynamicsStatus === "idle" ? `<div><span>${diagnosticText("24h analytics", "24 val. analitika")}</span><strong>…</strong><small>${diagnosticText("Loading measured history", "Kraunama matavimų istorija")}</small></div>` : dynamicsStatus === "error" ? `<div><span>${diagnosticText("24h analytics", "24 val. analitika")}</span><strong>—</strong><small>${diagnosticText("History could not be loaded", "Istorijos įkelti nepavyko")}</small></div>` : `
+                <div><span>${diagnosticText("Growing score", "Auginimo sąlygų įvertis")}</span><strong>${dynamics?.score ? `${dynamics.score.start} → ${dynamics.score.end}` : "—"}</strong><small>${dynamics?.score ? `${escapeHtml(dynamicsDirectionLabel(dynamics.score.direction))} · ${dynamics.score.delta >= 0 ? "+" : ""}${dynamics.score.delta}` : diagnosticText("Not enough measured inputs", "Nepakanka išmatuotų rodiklių")}</small></div>
+                ${dynamicsMetricRows.map((item) => `<div><span>${escapeHtml(getDiagnosticMetricLabel(item.definition.label))}</span><strong>${escapeHtml(formatValue(item.summary.start, item.definition))} → ${escapeHtml(formatValue(item.summary.end, item.definition))}</strong><small>${escapeHtml(dynamicsDirectionLabel(item.summary.direction))} · min ${escapeHtml(formatValue(item.summary.min, item.definition))} · max ${escapeHtml(formatValue(item.summary.max, item.definition))}</small></div>`).join("")}
+              `}
             </div>
+            ${lighting?.configured ? `<div class="diagnostic-lighting-summary">
+              <div><span>${diagnosticText("Current light phase", "Dabartinis šviesos etapas")}</span><strong>${escapeHtml(lighting.currentState === "expected_darkness" ? diagnosticText("Expected darkness", "Numatyta tamsa") : lighting.currentState === "unexpected_light" ? diagnosticText("Unexpected night light", "Netikėta šviesa naktį") : lighting.currentState === "critical_darkness" ? diagnosticText("Missing scheduled light", "Trūksta numatytos šviesos") : diagnosticText("Scheduled light", "Numatyta šviesa"))}</strong><small>${escapeHtml(lighting.schedule.start)}–${escapeHtml(lighting.schedule.end)}</small></div>
+              <div><span>${diagnosticText("Photoperiod achieved", "Pasiektas fotoperiodas")}</span><strong>${lighting.photoperiodAchievedPct ?? "—"}%</strong><small>${Number(lighting.achievedLightHours || 0).toFixed(1)} / ${Number(lighting.expectedLightHours || 0).toFixed(1)} h · ${lighting.expectedLightDataCoveragePct ?? "—"}% ${diagnosticText("data", "duomenų")}</small></div>
+              <div><span>${diagnosticText("Time in light target", "Laikas tiksliniame apšvietime")}</span><strong>${lighting.timeInLightTargetPct ?? "—"}%</strong><small>${lighting.unexpectedDarkMinutes || 0} min ${diagnosticText("unexpected darkness", "netikėtos tamsos")}</small></div>
+              <div><span>${diagnosticText("Approximate DLI", "Apytikslis DLI")}</span><strong>${Number(lighting.approximateDli || 0).toFixed(1)}</strong><small>mol/m²/day · ${diagnosticText("estimated from lux", "įvertinta pagal lux")}</small></div>
+            </div>` : `<p class="diagnostic-model-note">${diagnosticText("Configure the lighting period in Crop Profiles to distinguish expected darkness from a lighting failure.", "Crop Profiles nustatykite apšvietimo periodą, kad numatyta tamsa būtų atskirta nuo apšvietimo gedimo.")}</p>`}
           </section>
         </div>
 

@@ -3,7 +3,7 @@ import test from 'node:test';
 import fs from 'node:fs';
 import { calcAbsoluteHumidity, calcDewPoint, calcVPD } from '../calculations.js';
 import { getAllowedOrigins, getSessionCookieOptions, publicError } from '../config.js';
-import { buildScoreRules, buildSectionDashboardState, evaluateMetricValue, statusFromMeasurementTime } from '../score.js';
+import { buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, evaluateMetricValue, statusFromMeasurementTime } from '../score.js';
 import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
@@ -49,12 +49,30 @@ test('profile metric validation rejects malformed and reversed bands', () => {
   assert.match(validateCropProfileMetrics({ airTemp: { optimal: ['x', 24] } }), /increasing/);
 });
 
+test('lighting schedules are validated without exposing hardware assumptions', () => {
+  assert.equal(validateCropProfileMetrics({ lux: { optimal: [10000, 30000], lightingSchedule: { enabled: true, start: '06:00', end: '22:00', darkThresholdLux: 100 } } }), null);
+  assert.match(validateCropProfileMetrics({ lux: { optimal: [10000, 30000], lightingSchedule: { enabled: true, start: '25:00', end: '22:00' } } }), /HH:MM/);
+  assert.match(validateCropProfileMetrics({ lux: { optimal: [10000, 30000], lightingSchedule: { darkThresholdLux: -1 } } }), /zero or greater/);
+});
+
 test('score rules use saved optimal ranges and automatic alert bands', () => {
   const rules = buildScoreRules({ airTemp: { optimal: [18, 22] } });
   assert.deepEqual(rules.airTemp.warning, [16, 24]);
   assert.deepEqual(rules.airTemp.critical, [14, 26]);
   assert.equal(evaluateMetricValue('airTemp', 23, rules).state, 'warning');
   assert.equal(evaluateMetricValue('airTemp', 27, rules).state, 'critical');
+});
+
+test('historical score snapshots use the same canonical score model', () => {
+  const healthy = buildScoreFromMetricValues({ airTemp: 20, humidity: 60, co2: 700 }, {
+    airTemp: { optimal: [18, 22] }, humidity: { optimal: [50, 70] }, co2: { optimal: [500, 900] }
+  });
+  const hot = buildScoreFromMetricValues({ airTemp: 30, humidity: 60, co2: 700 }, {
+    airTemp: { optimal: [18, 22] }, humidity: { optimal: [50, 70] }, co2: { optimal: [500, 900] }
+  });
+  assert.equal(healthy.score, 100);
+  assert.ok(hot.score < healthy.score);
+  assert.equal(hot.mainDriver, 'airTemp');
 });
 
 test('all 13 growth parameters have persisted history rules', () => {

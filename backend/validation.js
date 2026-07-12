@@ -24,6 +24,19 @@ export function validateCropProfileMetrics(metrics, { allowEmpty = true } = {}) 
         return `${metricId}.${bandName} must contain an increasing numeric minimum and maximum`;
       }
     }
+    if (metricId === 'lux' && metric.lightingSchedule !== undefined) {
+      const schedule = metric.lightingSchedule;
+      if (!isPlainObject(schedule)) return 'lux.lightingSchedule must be an object';
+      if (schedule.enabled !== undefined && typeof schedule.enabled !== 'boolean') return 'lux.lightingSchedule.enabled must be boolean';
+      for (const field of ['start', 'end']) {
+        if (schedule[field] !== undefined && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(schedule[field]))) {
+          return `lux.lightingSchedule.${field} must use HH:MM format`;
+        }
+      }
+      if (schedule.darkThresholdLux !== undefined && (!Number.isFinite(Number(schedule.darkThresholdLux)) || Number(schedule.darkThresholdLux) < 0)) {
+        return 'lux.lightingSchedule.darkThresholdLux must be zero or greater';
+      }
+    }
   }
   return null;
 }

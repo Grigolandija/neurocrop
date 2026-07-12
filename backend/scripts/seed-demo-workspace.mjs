@@ -15,7 +15,16 @@ const profileMetrics = {
   airTemp: metric('Air temperature', 'degC', 1, [20, 24]),
   humidity: metric('Relative humidity', '%', 0, [55, 75]),
   co2: metric('CO2', 'ppm', 0, [500, 900]),
-  lux: metric('Light', 'lx', 0, [10000, 35000]),
+  lux: {
+    ...metric('Light', 'lx', 0, [10000, 35000]),
+    lightingSchedule: {
+      enabled: true,
+      start: '06:00',
+      end: '22:00',
+      timeZone: 'Europe/Vilnius',
+      darkThresholdLux: 100
+    }
+  },
   soilTemp: metric('Substrate temperature', 'degC', 1, [18, 24]),
   vpd: metric('VPD', 'kPa', 2, [0.8, 1.4]),
   soilMoisture: metric('Soil moisture', '%', 0, [45, 65]),

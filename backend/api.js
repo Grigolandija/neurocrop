@@ -20,7 +20,7 @@ import {
 } from './auth-users.js';
 import { registerTeamRoutes } from './team-routes.js';
 import { registerPlatformOrganizationRoutes } from './organization-routes.js';
-import { buildScoreRules, buildSectionDashboardState, statusFromMeasurementTime } from './score.js';
+import { buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, statusFromMeasurementTime } from './score.js';
 import { getAllowedOrigins, publicError } from './config.js';
 import { validateCropProfileMetrics } from './validation.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
@@ -1278,7 +1278,7 @@ function analyticsStateForValue(value, rule) {
   return 'optimal';
 }
 
-async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes) {
+async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes, options = {}) {
   const column = METRIC_TO_COLUMN[metric] || (metric === 'vpd' ? 'vpd' : null);
   if (!column) return [];
   const bucketSeconds = stepMinutes * 60;
@@ -1305,7 +1305,7 @@ async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes) {
   }
 
   const presence = historyPresenceCondition(metric);
-  const aggregation = metric === 'lux'
+  const aggregation = metric === 'lux' && options.luxAggregation !== 'median'
     ? `MAX(${column})`
     : `percentile_cont(0.5) WITHIN GROUP (ORDER BY ${column})`;
   const { rows } = await query(
@@ -1416,6 +1416,161 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('[api] /analytics/section:', e.message);
     res.status(e.status || 500).json({ error: { code: e.status ? 'VALIDATION_ERROR' : 'DB_ERROR', message: e.message } });
+  }
+});
+
+function parseClockMinutes(value) {
+  const match = /^(\d{2}):(\d{2})$/.exec(String(value || ''));
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours < 24 && minutes < 60 ? hours * 60 + minutes : null;
+}
+
+function localClockMinutes(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return Number(values.hour) * 60 + Number(values.minute);
+}
+
+function isScheduledLightMinute(minute, start, end) {
+  if (start === end) return true;
+  return start < end ? minute >= start && minute < end : minute >= start || minute < end;
+}
+
+function summarizeDynamics(points, definition) {
+  const clean = points.filter((point) => Number.isFinite(Number(point.value)));
+  if (!clean.length) return null;
+  const start = Number(clean[0].value);
+  const end = Number(clean[clean.length - 1].value);
+  const values = clean.map((point) => Number(point.value));
+  return {
+    start,
+    end,
+    delta: end - start,
+    min: Math.min(...values),
+    max: Math.max(...values),
+    direction: Math.abs(end - start) <= Math.max(10 ** -(Number(definition?.decimals) || 0), 0.01)
+      ? 'stable'
+      : end > start ? 'rising' : 'falling'
+  };
+}
+
+app.get('/analytics/dynamics', requireAuth, async (req, res) => {
+  try {
+    const organizationId = getOrganizationId(req);
+    const section = await getSectionById(req.query.sectionId, organizationId);
+    if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+    const to = new Date();
+    const from = new Date(to.getTime() - 24 * 60 * 60 * 1000);
+    const stepMinutes = 10;
+    const { rows: profileRows } = await query(
+      `SELECT metrics FROM crop_profiles WHERE organization_id=$1 AND id=$2 LIMIT 1`,
+      [organizationId, section.crop_profile]
+    );
+    const profileMetrics = profileRows[0]?.metrics || {};
+    const devEuis = await getSectionDevEuis(section.id, organizationId);
+    if (!devEuis.length) return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
+
+    const metricIds = Object.keys(profileMetrics)
+      .filter((metricId) => metricId !== 'batteryLevel' && (METRIC_TO_COLUMN[metricId] || metricId === 'vpd'));
+    const histories = Object.fromEntries(await Promise.all(metricIds.map(async (metricId) => [
+      metricId,
+      await getMetricHistoryBuckets(devEuis, metricId, from, to, stepMinutes, { luxAggregation: 'median' })
+    ])));
+    const metrics = Object.fromEntries(metricIds.map((metricId) => [
+      metricId,
+      summarizeDynamics(histories[metricId], profileMetrics[metricId])
+    ]).filter(([, summary]) => summary));
+
+    const valuesByBucket = new Map();
+    Object.entries(histories).forEach(([metricId, points]) => {
+      if (metricId === 'lux') return;
+      points.forEach((point) => {
+        const key = new Date(point.observedAt).toISOString();
+        if (!valuesByBucket.has(key)) valuesByBucket.set(key, {});
+        valuesByBucket.get(key)[metricId] = Number(point.value);
+      });
+    });
+    const scorePoints = [...valuesByBucket.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([observedAt, values]) => ({
+      observedAt,
+      ...buildScoreFromMetricValues(values, profileMetrics)
+    })).filter((point) => Number.isFinite(point.score));
+    const scoreValues = scorePoints.map((point) => point.score);
+    const score = scorePoints.length ? {
+      start: scorePoints[0].score,
+      end: scorePoints[scorePoints.length - 1].score,
+      delta: scorePoints[scorePoints.length - 1].score - scorePoints[0].score,
+      min: Math.min(...scoreValues),
+      max: Math.max(...scoreValues),
+      direction: scorePoints[scorePoints.length - 1].score === scorePoints[0].score
+        ? 'stable'
+        : scorePoints[scorePoints.length - 1].score > scorePoints[0].score ? 'improving' : 'declining'
+    } : null;
+
+    const luxDefinition = profileMetrics.lux || {};
+    const schedule = luxDefinition.lightingSchedule || {};
+    const scheduleStart = parseClockMinutes(schedule.start);
+    const scheduleEnd = parseClockMinutes(schedule.end);
+    const scheduleEnabled = schedule.enabled === true && scheduleStart !== null && scheduleEnd !== null;
+    const timeZone = String(schedule.timeZone || 'Europe/Vilnius');
+    const darkThresholdLux = Math.max(0, Number(schedule.darkThresholdLux) || 100);
+    let lighting = { configured: false };
+    if (scheduleEnabled && histories.lux?.length) {
+      let expectedLightBuckets = 0;
+      let observedExpectedLightBuckets = 0;
+      let achievedLightBuckets = 0;
+      let targetBuckets = 0;
+      let unexpectedDarkBuckets = 0;
+      let nightLightBuckets = 0;
+      let luxSeconds = 0;
+      for (let cursor = new Date(Math.floor(from.getTime() / (stepMinutes * 60000)) * stepMinutes * 60000); cursor < to; cursor = new Date(cursor.getTime() + stepMinutes * 60000)) {
+        if (isScheduledLightMinute(localClockMinutes(cursor, timeZone), scheduleStart, scheduleEnd)) expectedLightBuckets += 1;
+      }
+      histories.lux.forEach((point) => {
+        const expectedLight = isScheduledLightMinute(localClockMinutes(new Date(point.observedAt), timeZone), scheduleStart, scheduleEnd);
+        const value = Number(point.value);
+        if (expectedLight) {
+          observedExpectedLightBuckets += 1;
+          if (value > darkThresholdLux) achievedLightBuckets += 1;
+          else unexpectedDarkBuckets += 1;
+          if (value >= Number(luxDefinition.optimal?.[0]) && value <= Number(luxDefinition.optimal?.[1])) targetBuckets += 1;
+        } else if (value > darkThresholdLux) {
+          nightLightBuckets += 1;
+        }
+        luxSeconds += Math.max(0, value) * stepMinutes * 60;
+      });
+      const nowMinute = localClockMinutes(to, timeZone);
+      const currentPhase = isScheduledLightMinute(nowMinute, scheduleStart, scheduleEnd) ? 'light' : 'dark';
+      const latestLux = Number(histories.lux[histories.lux.length - 1]?.value);
+      lighting = {
+        configured: true,
+        schedule: { start: schedule.start, end: schedule.end, timeZone, darkThresholdLux },
+        currentPhase,
+        currentState: currentPhase === 'dark'
+          ? latestLux <= darkThresholdLux ? 'expected_darkness' : 'unexpected_light'
+          : latestLux <= darkThresholdLux ? 'critical_darkness' : analyticsStateForValue(latestLux, metricAnalyticsRule('lux', profileMetrics)),
+        expectedLightHours: expectedLightBuckets * stepMinutes / 60,
+        achievedLightHours: achievedLightBuckets * stepMinutes / 60,
+        photoperiodAchievedPct: observedExpectedLightBuckets ? Math.round(achievedLightBuckets / observedExpectedLightBuckets * 100) : null,
+        timeInLightTargetPct: observedExpectedLightBuckets ? Math.round(targetBuckets / observedExpectedLightBuckets * 100) : null,
+        expectedLightDataCoveragePct: expectedLightBuckets ? Math.round(observedExpectedLightBuckets / expectedLightBuckets * 100) : null,
+        unexpectedDarkMinutes: unexpectedDarkBuckets * stepMinutes,
+        nightLightMinutes: nightLightBuckets * stepMinutes,
+        approximateDli: Number((luxSeconds * 0.0185 / 1e6).toFixed(2)),
+        dliIsApproximate: true
+      };
+    }
+
+    res.json({ sectionId: section.id, from: from.toISOString(), to: to.toISOString(), stepMinutes, score, metrics, lighting });
+  } catch (e) {
+    console.error('[api] /analytics/dynamics:', e.message);
+    res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
 });
 
