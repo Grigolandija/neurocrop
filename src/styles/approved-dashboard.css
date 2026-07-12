@@ -14280,7 +14280,9 @@
 
     .triage-reading[data-observation="cached"],
     .live-reading-row[data-observation="cached"] {
-      opacity: 0.76;
+      border-color: rgba(80, 91, 85, 0.16);
+      background: #fcfdfb;
+      opacity: 1;
     }
 
     .triage-reading[data-observation="failed"],

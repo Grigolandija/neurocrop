@@ -30,7 +30,10 @@ app.use(cookieParser());
 const PORT = parseInt(process.env.API_PORT || '3000', 10);
 const HOST = '0.0.0.0';
 const ALLOWED_ORIGINS = getAllowedOrigins();
-const authLimiter = createMemoryRateLimiter({ limit: 8, windowMs: 15 * 60 * 1000 });
+const authLimiter = createMemoryRateLimiter({
+  limit: Number(process.env.AUTH_LOGIN_RATE_LIMIT || 8),
+  windowMs: 15 * 60 * 1000
+});
 
 function authAttemptKey(req) {
   const email = String(req.body?.email || '').trim().toLowerCase();

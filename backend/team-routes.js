@@ -17,7 +17,10 @@ import { createMemoryRateLimiter } from './rate-limit.js';
 
 const INVITE_TTL_DAYS = 7;
 const INVITABLE_ROLES = new Set(['admin', 'grower', 'technician', 'viewer']);
-const registrationLimiter = createMemoryRateLimiter({ limit: 5, windowMs: 60 * 60 * 1000 });
+const registrationLimiter = createMemoryRateLimiter({
+  limit: Number(process.env.AUTH_REGISTRATION_RATE_LIMIT || 5),
+  windowMs: 60 * 60 * 1000
+});
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex');
