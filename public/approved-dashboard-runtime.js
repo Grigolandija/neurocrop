@@ -2889,7 +2889,7 @@
 
     const nodeFreshnessStateCache = new Map();
     const scopeFarmStateCache = new Map();
-    let latestRenderedFarmState = null;
+    let apiTransportConnected = true;
 
     function getDemoFreshnessOffsetSec(node) {
       if (node?.active === false) return 7200;
@@ -3286,23 +3286,16 @@
 
     function updateClientConnectionStatus() {
       if (!elements.headerConnectionStatus || !elements.headerConnectionLabel) return;
-      const engine = window.NeuroCropStateEngine;
-      const apiConnected = Boolean(window.NeuroCropApi?.isConnected?.());
-      const lease = engine?.getClientLeaseStatus && latestRenderedFarmState
-        ? engine.getClientLeaseStatus(latestRenderedFarmState, Date.now())
-        : { connected: true, computedAt: null };
-      const connected = navigator.onLine && (!apiConnected || lease.connected);
+      const apiConfigured = Boolean(window.NeuroCropApi?.isConnected?.());
+      const connected = navigator.onLine && (!apiConfigured || apiTransportConnected);
       elements.headerConnectionStatus.dataset.connection = connected ? "online" : "lost";
       elements.headerConnectionLabel.textContent = connected
         ? "Online"
         : diagnosticText("Connection lost", "Ryšys nutrūko");
       elements.headerConnectionStatus.title = connected
         ? diagnosticText("Dashboard connection is active.", "Sistemos ryšys aktyvus.")
-        : lease.computedAt
-          ? diagnosticText(
-              `Showing state computed at ${new Date(lease.computedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`,
-              `Rodoma būsena, apskaičiuota ${new Date(lease.computedAt).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit" })}.`
-            )
+        : navigator.onLine
+          ? diagnosticText("The API could not be reached.", "Nepavyko pasiekti API.")
           : diagnosticText("The browser is offline.", "Naršyklė neprisijungusi.");
     }
 
@@ -12141,7 +12134,6 @@
         .slice(0, 3);
       const metricKey = priorityResult?.key || readingItems[0]?.key || "humidity";
       const farmState = getZoneFarmState(site, zone, results);
-      latestRenderedFarmState = farmState;
       updateClientConnectionStatus();
       const nodeSummary = farmState.nodeSummary || { live: 0, delayed: 0, stale: 0, offline: 0 };
       const dataStatusLabel = getFreshnessLabel(farmState.dataStatus);
@@ -16003,6 +15995,10 @@
 
     window.addEventListener("online", updateClientConnectionStatus);
     window.addEventListener("offline", updateClientConnectionStatus);
+    window.addEventListener("neurocrop:api-connection", (event) => {
+      apiTransportConnected = event.detail?.connected !== false;
+      updateClientConnectionStatus();
+    });
     document.addEventListener("visibilitychange", () => {
       updateClientConnectionStatus();
       if (!document.hidden) refreshLiveDashboardData();

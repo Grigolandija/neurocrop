@@ -31,8 +31,26 @@ function notifyUnauthorized() {
   window.dispatchEvent(new CustomEvent('neurocrop:unauthorized'))
 }
 
+function notifyApiConnection(connected: boolean) {
+  window.dispatchEvent(new CustomEvent('neurocrop:api-connection', {
+    detail: { connected },
+  }))
+}
+
+async function fetchWithConnectionStatus(input: RequestInfo | URL, init: RequestInit) {
+  try {
+    const response = await fetch(input, init)
+    // Any HTTP response proves that the API transport is reachable, including 4xx/5xx.
+    notifyApiConnection(true)
+    return response
+  } catch (error) {
+    notifyApiConnection(false)
+    throw error
+  }
+}
+
 export const request: ApiRequest = async <T>(path: string, options: RequestInit = {}) => {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
+  const response = await fetchWithConnectionStatus(`${apiBaseUrl()}${path}`, {
     credentials: 'include',
     signal: options.signal || AbortSignal.timeout(15_000),
     headers: {
@@ -56,7 +74,7 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
 }
 
 export async function downloadFile(path: string, fallbackFilename: string) {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
+  const response = await fetchWithConnectionStatus(`${apiBaseUrl()}${path}`, {
     credentials: 'include',
     signal: AbortSignal.timeout(60_000),
     headers: { Accept: 'text/csv' },

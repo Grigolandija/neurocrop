@@ -48,6 +48,21 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page).toHaveURL(/\/history$/)
 })
 
+test('successful API traffic restores the connection indicator without a refresh', async ({ page }) => {
+  await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('neurocrop:api-connection', {
+      detail: { connected: false },
+    }))
+  })
+  await expect(page.locator('#headerConnectionLabel')).toHaveText('Connection lost')
+
+  await page.evaluate(async () => {
+    await (window as typeof window & { NeuroCropApi: { getDashboard: () => Promise<unknown> } }).NeuroCropApi.getDashboard()
+  })
+  await expect(page.locator('#headerConnectionLabel')).toHaveText('Online')
+})
+
 test('new customer can register and receives a pending workspace confirmation', async ({ page }) => {
   await prepare(page)
   await page.goto('/register')
