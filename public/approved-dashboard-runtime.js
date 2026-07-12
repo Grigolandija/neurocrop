@@ -12962,6 +12962,12 @@
     }
 
     function renderEmptyWorkspaceState() {
+      const workspaceDependentPages = new Set(["blocks", "nodes", "readings", "history"]);
+      if (workspaceDependentPages.has(activePrimaryPage)) {
+        activePrimaryPage = "overview";
+        sidebarActionOverride = null;
+        syncTopLevelRoute("/", { replace: true });
+      }
       activeViewScope = "site";
       activeProfileKey = cropProfiles.default ? "default" : Object.keys(cropProfiles)[0] || "default";
       renderSiteOptions();
@@ -13003,6 +13009,10 @@
       elements.alertsSection.hidden = true;
       elements.opsDockSection.hidden = true;
       elements.detailedDiagnosticsSection.hidden = true;
+      if (elements.advancedToolsPanel) {
+        elements.advancedToolsPanel.hidden = true;
+        elements.advancedToolsPanel.open = false;
+      }
       if (elements.sidebarQuickActions) elements.sidebarQuickActions.hidden = true;
 
       if (isLocationsPage) renderLocationsManagementPage([]);
