@@ -76,14 +76,20 @@ test('large workspace keeps 100+ Areas accessible', async ({ page }) => {
 
 test('primary desktop pages fit the viewport without horizontal overflow', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
-  const overflows: Array<{ action: string; viewport: number; content: number }> = []
+  const overflows: Array<{ action: string; viewport: number; content: number; offenders: string[] }> = []
   for (const action of ['overview', 'sites', 'zones', 'nodes', 'readings', 'history', 'settings']) {
     await navigationAction(page, action).click()
     await page.waitForTimeout(100)
-    const dimensions = await page.evaluate(() => ({
-      viewport: window.innerWidth,
-      content: document.documentElement.scrollWidth
-    }))
+    const dimensions = await page.evaluate(() => {
+      const viewport = window.innerWidth
+      const offenders = Array.from(document.querySelectorAll<HTMLElement>('body *'))
+        .map((element) => ({ element, rect: element.getBoundingClientRect() }))
+        .filter(({ rect }) => rect.width > 0 && rect.right > viewport + 1)
+        .sort((a, b) => b.rect.right - a.rect.right)
+        .slice(0, 8)
+        .map(({ element, rect }) => `${element.tagName.toLowerCase()}#${element.id}.${element.className || ''} right=${Math.round(rect.right)} width=${Math.round(rect.width)}`)
+      return { viewport, content: document.documentElement.scrollWidth, offenders }
+    })
     if (dimensions.content > dimensions.viewport + 1) overflows.push({ action, ...dimensions })
   }
   expect(overflows).toEqual([])
