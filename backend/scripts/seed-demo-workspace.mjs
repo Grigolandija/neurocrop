@@ -111,7 +111,13 @@ try {
       const group = sensorGroups[groupIndex];
       const devEui = `de${String(sectionIndex + 1).padStart(2, '0')}${String(groupIndex + 1).padStart(2, '0')}0000000000`;
       const sensors = Object.fromEntries(['sht45', ...group.sensors].map((key) => [key, true]));
-      const battery = 98 - ((sectionIndex * 3 + groupIndex * 5) % 27);
+      const lowBatteryByNode = {
+        '1-2': 34,
+        '6-3': 18,
+        '8-1': 9
+      };
+      const battery = lowBatteryByNode[`${sectionIndex}-${groupIndex}`]
+        ?? 98 - ((sectionIndex * 3 + groupIndex * 5) % 27);
       const nodeName = `${sectionName} · ${group.name}`;
       await client.query(
         `INSERT INTO nodes (dev_eui,organization_id,area_id,section_id,name,node_type,firmware_build,
@@ -121,7 +127,7 @@ try {
         [devEui, organizationId, areaId, sectionId, nodeName, 3650 + battery * 5, battery,
           -52 - ((sectionIndex + groupIndex) % 18), 6.5 + ((sectionIndex + groupIndex) % 6) * 0.7,
           7 + ((sectionIndex + groupIndex) % 4), JSON.stringify(sensors),
-          JSON.stringify({ raw: 0, tx_timeout: false, sensor_missing: false }),
+          JSON.stringify({ raw: 0, tx_timeout: false, sensor_missing: false, battery_low: battery < 35, battery_critical: battery < 15 }),
           JSON.stringify({ read_fail: 0, reinit: sectionIndex % 4 === 0 ? 1 : 0, tx_fail: 0 })]
       );
 
@@ -145,7 +151,7 @@ try {
           CASE WHEN $12 THEN ($2-0.4 + 2.7*daylight + 0.2*sin(extract(epoch from sample_time)/6400))::real END,
           CASE WHEN $13 THEN (20.1 + 0.85*sin(day_angle-1.1) + 0.12*cos(extract(epoch from sample_time)/11000))::real END,
           CASE WHEN $14 THEN (1009 + 7*sin(extract(epoch from sample_time)/604800*2*pi()+$3*0.2) + 1.4*cos(extract(epoch from sample_time)/86400))::real END,
-          $15,$16,214,'normal',false,false,0,0,0,$17,$18,$19,
+          $15,$16,214,'normal',($16 < 15),false,0,0,0,$17,$18,$19,
           jsonb_build_object('payload_format','neurosense_demo_v2','firmware_version','2.1.4','demo',true,
             'expected_uplink_interval_s',600,'sensors',$20::jsonb)
          FROM (

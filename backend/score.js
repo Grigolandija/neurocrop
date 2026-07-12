@@ -4,7 +4,9 @@ const DEFAULT_SCORE_RULES = {
   airTemp: { column: 'temperature', optimal: [22, 26], warning: [20, 28], critical: [18, 30], growth: true },
   humidity: { column: 'humidity', optimal: [60, 70], warning: [55, 75], critical: [45, 85], growth: true },
   co2: { column: 'co2', optimal: [900, 1100], warning: [750, 1250], critical: [550, 1500], growth: true },
-  lux: { column: 'lux', optimal: [10000, 35000], warning: [5000, 45000], critical: [0, 60000], growth: true },
+  // Light is stored and trended, but it cannot penalize an instantaneous score
+  // without a photoperiod schedule: 0 lx at night is expected, not a crop failure.
+  lux: { column: 'lux', optimal: [10000, 35000], warning: [5000, 45000], critical: [0, 60000], growth: false },
   soilTemp: { column: 'soil_temperature', optimal: [20, 24], warning: [18, 26], critical: [15, 30], growth: true },
   soilMoisture: { column: 'soil_moisture', optimal: [45, 65], warning: [37, 73], critical: [27, 83], growth: true },
   ec: { column: 'ec', optimal: [1.8, 2.8], warning: [1.4, 3.2], critical: [0.8, 3.8], growth: true },

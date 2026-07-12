@@ -57,13 +57,14 @@ test('score rules use saved optimal ranges and automatic alert bands', () => {
   assert.equal(evaluateMetricValue('airTemp', 27, rules).state, 'critical');
 });
 
-test('all 13 growth parameters have persisted history and score rules', () => {
+test('all 13 growth parameters have persisted history rules', () => {
   const growthMetrics = [
     'airTemp', 'humidity', 'co2', 'lux', 'soilTemp', 'vpd', 'soilMoisture',
     'ec', 'ph', 'leafTemp', 'soilEc', 'waterTemp', 'airPressure'
   ];
   const rules = buildScoreRules({});
-  assert.deepEqual(growthMetrics.filter((key) => !rules[key]?.growth), []);
+  assert.equal(rules.lux.growth, false);
+  assert.deepEqual(growthMetrics.filter((key) => key !== 'lux' && !rules[key]?.growth), []);
   assert.deepEqual(growthMetrics.filter((key) => key !== 'vpd' && !METRIC_TO_COLUMN[key]), []);
 });
 
