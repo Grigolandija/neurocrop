@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for a successfully tested NeuroCrop staging release
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+RandomizedDelaySec=45s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

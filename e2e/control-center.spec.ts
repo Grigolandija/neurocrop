@@ -47,6 +47,18 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page).toHaveURL(/\/history$/)
 })
 
+test('new customer can register and receives a pending workspace confirmation', async ({ page }) => {
+  await prepare(page)
+  await page.goto('/register')
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  await page.getByLabel('Email address').fill(`e2e-${suffix}@example.invalid`)
+  await page.getByLabel('Your name').fill('E2E Customer')
+  await page.getByLabel('Organization name').fill(`E2E Organization ${suffix}`)
+  await page.getByLabel('Password').fill('NeuroCrop-E2E-Password-2026')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('status')).toContainText('Account created')
+})
+
 test('measurement CSV can be downloaded from Trends', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
   await navigationAction(page, 'history').click()

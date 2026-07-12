@@ -33,6 +33,8 @@ Staging runs two isolated containers:
 
 The temporary protected staging URL is `https://staging.194-135-91-65.nip.io`. Caddy serves the frontend and proxies `/api/*` to the staging API, so session cookies remain same-origin. Replace this temporary hostname with `staging.neurocrop.lt` when Cloudflare DNS and access policy are ready.
 
+The VPS checks GitHub every five minutes and deploys only the newest `main` commit whose `CI` workflow completed successfully. Images are tagged with the full commit SHA, and the immediately preceding pair remains available through `rollback.sh staging`.
+
 ## Rollback
 
 Every successful deployment records the prior immutable image. Roll back with:

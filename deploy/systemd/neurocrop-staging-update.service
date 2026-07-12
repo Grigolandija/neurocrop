@@ -1,0 +1,12 @@
+[Unit]
+Description=Deploy latest successfully tested NeuroCrop main commit to staging
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/neurocrop-deploy/update-staging-from-ci.sh
+
+[Install]
+WantedBy=multi-user.target
