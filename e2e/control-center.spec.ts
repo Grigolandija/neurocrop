@@ -88,22 +88,25 @@ test('measurement CSV can be downloaded from Trends', async ({ page }) => {
   expect(download.suggestedFilename()).toMatch(/^neurocrop-.*\.csv$/)
 })
 
-test('empty organization shows onboarding without stale charts', async ({ page }) => {
+test('empty organization always uses the canonical Areas onboarding', async ({ page }) => {
   await authenticate(page, 'tenant-empty@ci.neurocrop.test')
-  await expect(page.getByRole('heading', { name: /create your first growing area/i })).toBeVisible()
+  await expect(page).toHaveURL(/\/areas$/)
+  await expect(page.getByRole('heading', { name: /create your first area/i })).toBeVisible()
+  await expect(navigationAction(page, 'sites')).toHaveAttribute('data-active', 'true')
   await expect(navigationAction(page, 'zones')).toBeDisabled()
   await expect(page.locator('#historySection')).toBeHidden()
   await expect(page.locator('#zoneImpactSection')).toBeHidden()
   await expect(page.locator('#advancedToolsPanel')).toBeHidden()
 
-  await navigationAction(page, 'nodes').click()
-  await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('heading', { name: /create your first growing area/i })).toBeVisible()
-  await expect(page.locator('#advancedToolsPanel')).toBeHidden()
-
-  await page.getByRole('button', { name: 'Create area' }).click()
+  await navigationAction(page, 'overview').click()
   await expect(page).toHaveURL(/\/areas$/)
+  await expect(page.getByRole('heading', { name: /create your first area/i })).toBeVisible()
   await expect(navigationAction(page, 'sites')).toHaveAttribute('data-active', 'true')
+
+  await navigationAction(page, 'nodes').click()
+  await expect(page).toHaveURL(/\/areas$/)
+  await expect(page.getByRole('heading', { name: /create your first area/i })).toBeVisible()
+  await expect(page.locator('#advancedToolsPanel')).toBeHidden()
 })
 
 test('large workspace keeps 100+ Areas accessible', async ({ page }) => {

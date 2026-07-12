@@ -2454,9 +2454,9 @@
           await window.NeuroCropApi.deleteArea(siteId, { keepSections });
           const hasAnotherArea = (dashboardData.sites || []).some((site) => site.id !== siteId && !isUnassignedLocation(site));
           if (!hasAnotherArea) {
-            activePrimaryPage = "overview";
+            activePrimaryPage = "locations";
             sidebarActionOverride = null;
-            syncTopLevelRoute("/", { replace: true });
+            syncTopLevelRoute("/areas", { replace: true });
           }
           await hydrateDashboardFromApi();
           closeManagementModal();
@@ -4293,10 +4293,7 @@
           if (site && zone) {
             openZoneDetail(site.id, zone.id, { behavior: "auto", highlight: false });
           } else {
-            sidebarActionOverride = null;
-            updateSidebarActionState();
-            syncTopLevelRoute("/");
-            scrollToSection("heroStatusPanel", { behavior: "auto", highlight: false });
+            runDashboardAction("sites");
           }
           return;
         case "sites":
@@ -12960,11 +12957,11 @@
     }
 
     function renderEmptyWorkspaceState() {
-      const workspaceDependentPages = new Set(["blocks", "nodes", "readings", "history"]);
+      const workspaceDependentPages = new Set(["overview", "blocks", "nodes", "readings", "history"]);
       if (workspaceDependentPages.has(activePrimaryPage)) {
-        activePrimaryPage = "overview";
+        activePrimaryPage = "locations";
         sidebarActionOverride = null;
-        syncTopLevelRoute("/", { replace: true });
+        syncTopLevelRoute("/areas", { replace: true });
       }
       activeViewScope = "site";
       activeProfileKey = cropProfiles.default ? "default" : Object.keys(cropProfiles)[0] || "default";
