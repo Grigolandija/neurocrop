@@ -1,4 +1,21 @@
 services:
+  neurocrop-frontend-staging:
+    image: ${NEUROCROP_FRONTEND_IMAGE:?Set NEUROCROP_FRONTEND_IMAGE}
+    container_name: neurocrop-frontend-staging
+    restart: unless-stopped
+    networks:
+      - chirpstack
+    ports:
+      - "127.0.0.1:4173:80"
+    environment:
+      NEUROCROP_API_BASE_URL: /api
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   neurocrop-api-staging:
     image: ${NEUROCROP_BACKEND_IMAGE:?Set NEUROCROP_BACKEND_IMAGE}
     container_name: neurocrop-api-staging
@@ -14,10 +31,9 @@ services:
       PGUSER: ${PGUSER:-chirpstack}
       PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD}
       PGDATABASE: ${PGDATABASE:-neurocrop_staging}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://staging.neurocrop.lt}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://staging.194-135-91-65.nip.io}
     secrets:
       - session_secret
-      - resend_api_key
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 15s
@@ -32,6 +48,4 @@ networks:
 
 secrets:
   session_secret:
-    file: /opt/neurocrop-backend/.session_secret
-  resend_api_key:
-    file: /opt/neurocrop-backend/.resend_api_key
+    file: /opt/neurocrop-deploy/staging/session_secret

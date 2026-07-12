@@ -26,6 +26,13 @@ Create a mode `600` `runtime.env` in each directory with PostgreSQL credentials.
 
 Create the staging database once, then let the API execute versioned migrations. Do not point staging at the production database.
 
+Staging runs two isolated containers:
+
+- `neurocrop-frontend-staging`, serving the immutable frontend image;
+- `neurocrop-api-staging`, using only `neurocrop_staging`.
+
+The temporary protected staging URL is `https://staging.194-135-91-65.nip.io`. Caddy serves the frontend and proxies `/api/*` to the staging API, so session cookies remain same-origin. Replace this temporary hostname with `staging.neurocrop.lt` when Cloudflare DNS and access policy are ready.
+
 ## Rollback
 
 Every successful deployment records the prior immutable image. Roll back with:

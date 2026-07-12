@@ -14,7 +14,7 @@ services:
       PGUSER: ${PGUSER:-chirpstack}
       PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD}
       PGDATABASE: ${PGDATABASE:-neurocrop}
-      ALLOWED_ORIGINS: https://neurocrop.lt,https://www.neurocrop.lt
+      CORS_ALLOWED_ORIGINS: https://neurocrop.lt,https://www.neurocrop.lt
     secrets:
       - session_secret
       - chirpstack_api_token

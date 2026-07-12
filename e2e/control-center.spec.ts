@@ -73,3 +73,20 @@ test('large workspace keeps 100+ Areas accessible', async ({ page }) => {
   await expect(page.locator('[data-site-option]')).toHaveCount(101)
   await expect(page.locator('[data-site-option]').filter({ hasText: 'Scale Area 101' })).toBeVisible()
 })
+
+test('primary desktop pages fit the viewport without horizontal overflow', async ({ page }) => {
+  await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  for (const action of ['overview', 'sites', 'zones', 'nodes', 'readings', 'history', 'settings']) {
+    await navigationAction(page, action).click()
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
+  }
+})
+
+test('destructive Area removal requires explicit confirmation', async ({ page }) => {
+  await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  await navigationAction(page, 'sites').click()
+  await page.locator('[data-location-edit]').first().click()
+  await expect(page.locator('#managementModalOverlay')).toBeVisible()
+  await page.locator('[data-modal-location-delete]').click()
+  await expect(page.locator('.management-modal-error')).toContainText('Confirm')
+})
