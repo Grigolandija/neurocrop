@@ -1523,6 +1523,7 @@
 
     elements.loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (elements.loginSubmit.disabled) return;
       const email = elements.loginEmail.value.trim();
       const password = elements.loginPassword.value;
       if (!elements.loginEmail.validity.valid || password.length < 4) {
@@ -1532,13 +1533,24 @@
       }
 
       let session = { email };
+      elements.loginSubmit.disabled = true;
       if (window.NeuroCropApi?.isConnected()) {
         try {
           const response = await window.NeuroCropApi.login(email, password);
           session = normalizeLoginSession(response?.user || { email });
         } catch (error) {
-          elements.loginError.textContent = "We could not sign you in. Check your email and password, then try again.";
+          const message = String(error?.message || "");
+          elements.loginError.textContent = message.includes("Too many login attempts")
+            ? diagnosticText(
+                "Too many sign-in attempts. Wait 15 minutes before trying again.",
+                "Per daug prisijungimo bandymų. Prieš bandydami dar kartą palaukite 15 minučių."
+              )
+            : diagnosticText(
+                "We could not sign you in. Check your email and password, then try again.",
+                "Prisijungti nepavyko. Patikrinkite el. paštą ir slaptažodį, tada bandykite dar kartą."
+              );
           elements.loginError.hidden = false;
+          elements.loginSubmit.disabled = false;
           return;
         }
       }
@@ -1549,6 +1561,7 @@
       elements.loginError.hidden = true;
       setLoginState(session, { resetWorkspace: true });
       syncStickyOffsets();
+      elements.loginSubmit.disabled = false;
     });
     elements.loginSubmit.disabled = false;
 
