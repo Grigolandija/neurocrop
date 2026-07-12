@@ -4,7 +4,7 @@ set -Eeuo pipefail
 PG_CONTAINER="${PG_CONTAINER:-postgresql}"
 PGUSER="${PGUSER:-chirpstack}"
 API_HEALTH_URL="${API_HEALTH_URL:-https://api.neurocrop.lt/health}"
-MONITOR_EMAIL_TO="${MONITOR_EMAIL_TO:-andriusgrigas@gmail.com}"
+MONITOR_EMAIL_TO="${MONITOR_EMAIL_TO:-agrigas1@gmail.com}"
 MONITOR_EMAIL_FROM="${MONITOR_EMAIL_FROM:-NeuroCrop Monitoring <noreply@neurocrop.lt>}"
 RESEND_API_KEY_FILE="${RESEND_API_KEY_FILE:-/opt/neurocrop-backend/.resend_api_key}"
 MONITOR_STATE_DIR="${MONITOR_STATE_DIR:-/var/lib/neurocrop-monitor}"
