@@ -1112,6 +1112,7 @@
       loginForm: document.getElementById("loginForm"),
       loginEmail: document.getElementById("loginEmail"),
       loginPassword: document.getElementById("loginPassword"),
+      loginSubmit: document.getElementById("loginSubmit"),
       loginError: document.getElementById("loginError"),
       appHeader: document.getElementById("dashboardHeader"),
       experienceModeSection: document.getElementById("experienceModeSection"),
@@ -1549,6 +1550,7 @@
       setLoginState(session, { resetWorkspace: true });
       syncStickyOffsets();
     });
+    elements.loginSubmit.disabled = false;
 
     const activeContextStorageKey = "neurocrop-active-context-v1";
 

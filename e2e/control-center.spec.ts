@@ -13,6 +13,7 @@ async function prepare(page: Page) {
 async function login(page: Page, email: string) {
   await prepare(page)
   await page.goto('/')
+  await expect(page.locator('#loginSubmit')).toBeEnabled()
   await page.locator('#loginEmail').fill(email)
   await page.locator('#loginPassword').fill(password)
   await page.locator('#loginForm').getByRole('button', { name: /sign in/i }).click()

@@ -14258,7 +14258,7 @@
 
     .reading-freshness-label[data-observation="cached"] {
       background: #efefec;
-      color: #716f69;
+      color: #66645f;
     }
 
     .reading-freshness-label[data-observation="delayed"],
