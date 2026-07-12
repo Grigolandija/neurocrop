@@ -1540,12 +1540,16 @@
       const email = elements.loginEmail.value.trim();
       const password = elements.loginPassword.value;
       if (!elements.loginEmail.validity.valid || password.length < 4) {
-        elements.loginError.textContent = "Enter a valid email address and a password of at least 4 characters.";
+        elements.loginError.textContent = diagnosticText(
+          "Enter a valid email address and a password of at least 4 characters.",
+          "Įveskite teisingą el. pašto adresą ir bent 4 simbolių slaptažodį."
+        );
         elements.loginError.hidden = false;
         return;
       }
 
       let session = { email };
+      elements.loginError.hidden = true;
       elements.loginSubmit.disabled = true;
       if (window.NeuroCropApi?.isConnected()) {
         try {

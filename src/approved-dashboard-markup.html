@@ -18,7 +18,7 @@
         <form id="loginForm" class="mt-8 space-y-5" novalidate>
           <label class="block"><span class="text-sm font-bold text-ink/76">Email address</span><input id="loginEmail" class="login-field mt-2" type="email" autocomplete="email" placeholder="you@farm.com" required></label>
           <label class="block"><span class="text-sm font-bold text-ink/76">Password</span><input id="loginPassword" class="login-field mt-2" type="password" autocomplete="current-password" placeholder="Enter your password" required></label>
-          <p id="loginError" class="hidden rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-ember" role="alert"></p>
+          <p id="loginError" class="rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-ember" role="alert" aria-live="assertive" hidden></p>
           <button id="loginSubmit" type="submit" class="login-submit" disabled>Sign in <i class="fa-solid fa-arrow-right ml-2" aria-hidden="true"></i></button>
         </form>
         <p class="mt-7 text-xs leading-5 text-ink/46">Need access? <a class="font-bold text-pine underline underline-offset-4" href="/register">Create account and request workspace</a>.</p>
