@@ -8870,6 +8870,11 @@
       }
     }
 
+    .designer-app .triage-action-list p,
+    .designer-app .triage-reliability-score > span {
+      color: #59615d;
+    }
+
     /* Commercial UI consolidation: one compact system across every route. */
     .skip-to-content {
       position: fixed;
