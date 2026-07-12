@@ -73,7 +73,7 @@ elif [[ "$measurement_age" == "-1" ]]; then
 fi
 
 stale_nodes="$(docker exec "$PG_CONTAINER" psql -U "$PGUSER" -d neurocrop -Atqc \
-  "SELECT count(*) FROM nodes WHERE section_id IS NOT NULL AND last_received_at IS NOT NULL AND last_received_at < now() - interval '${NODE_STALE_MINUTES} minutes';" 2>/dev/null || printf -- -1)"
+  "SELECT count(*) FROM nodes WHERE organization_id <> 'org-neurocrop-demo' AND section_id IS NOT NULL AND last_received_at IS NOT NULL AND last_received_at < now() - interval '${NODE_STALE_MINUTES} minutes';" 2>/dev/null || printf -- -1)"
 if [[ "$stale_nodes" =~ ^[0-9]+$ ]] && (( stale_nodes > 0 )); then
   add_issue "Nodes" "${stale_nodes} assigned node(s) have not reported for ${NODE_STALE_MINUTES}+ minutes"
 fi
