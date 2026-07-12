@@ -10611,10 +10611,6 @@
         item,
         getTrendDisplayValues(item, rangeKey)
       ]));
-      const chartDomainValuesByItem = new Map(seriesItems.map((item) => [
-        item,
-        [...displayValuesByItem.get(item), ...item.series.values.map(Number)]
-      ]));
       const tooltipDateFormat = new Intl.DateTimeFormat("lt-LT", {
         day: "2-digit",
         month: "short",
@@ -10630,7 +10626,7 @@
           .map((item, index) => {
             const definition = item.option.definition;
             const optimalRange = item.option.optimalRange || definition.optimal;
-            const axisDomain = getTrendAxisDomain(chartDomainValuesByItem.get(item), definition, optimalRange);
+            const axisDomain = getTrendAxisDomain(displayValuesByItem.get(item), definition, optimalRange);
             const visualSpan = (optimalRange[1] - optimalRange[0])
               / Math.max(axisDomain[1] - axisDomain[0], 0.0001);
             return { index, visualSpan };
@@ -10646,7 +10642,7 @@
         const color = colors[index];
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
-        const axisDomain = getTrendAxisDomain(chartDomainValuesByItem.get(item), definition, optimalRange);
+        const axisDomain = getTrendAxisDomain(displayValuesByItem.get(item), definition, optimalRange);
         return {
           type: "value",
           name: `${translateInterfaceText(item.option.label)} (${formatUnit(definition.unit)})`,
@@ -10697,20 +10693,20 @@
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
         const displayValues = displayValuesByItem.get(item);
-        // Filtering changes only the rendered curve; extrema remain factual raw measurements.
         const rawValues = item.series.values.map(Number);
-        const minimumValue = Math.min(...rawValues);
-        const maximumValue = Math.max(...rawValues);
-        const minimumIndex = rawValues.indexOf(minimumValue);
-        const maximumIndex = rawValues.indexOf(maximumValue);
-        const axisDomain = getTrendAxisDomain([...displayValues, minimumValue, maximumValue], definition, optimalRange);
+        const isSmoothedView = activeTrendPresentation === "smoothed" && shouldSmoothTrendMetric(item.option.key);
+        const extremaValues = isSmoothedView ? displayValues : rawValues;
+        const minimumValue = Math.min(...extremaValues);
+        const maximumValue = Math.max(...extremaValues);
+        const minimumIndex = extremaValues.indexOf(minimumValue);
+        const maximumIndex = extremaValues.indexOf(maximumValue);
+        const axisDomain = getTrendAxisDomain(displayValues, definition, optimalRange);
         const isTargetVisible = (value) => value >= axisDomain[0] && value <= axisDomain[1];
         const visibleTargetMin = Math.max(Number(optimalRange[0]), axisDomain[0]);
         const visibleTargetMax = Math.min(Number(optimalRange[1]), axisDomain[1]);
         const hasVisibleTargetBand = visibleTargetMin < visibleTargetMax;
         const targetIsBelowView = Number(optimalRange[1]) < axisDomain[0];
         const targetIsAboveView = Number(optimalRange[0]) > axisDomain[1];
-        const isSmoothedView = activeTrendPresentation === "smoothed" && shouldSmoothTrendMetric(item.option.key);
         const data = displayValues.map((value, pointIndex) => [
           item.series.timestamps?.[pointIndex] ?? rangeStart,
           value
@@ -10721,7 +10717,7 @@
         const targetMaxLabel = `${labelPrefix} max ${formatValue(optimalRange[1], definition)}`;
         const extremaPosition = (pointIndex, fallback) => {
           if (pointIndex <= 1) return "right";
-          if (pointIndex >= rawValues.length - 2) return "left";
+          if (pointIndex >= extremaValues.length - 2) return "left";
           return fallback;
         };
         const extremaLabelColor = colorWithAlpha(color, 0.94);
