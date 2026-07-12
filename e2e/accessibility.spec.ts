@@ -29,10 +29,11 @@ test('login has no serious accessibility violations', async ({ page }) => {
 })
 
 test('authenticated overview has no serious accessibility violations', async ({ page }) => {
+  const response = await page.request.post(`${apiBaseUrl}/auth/login`, {
+    data: { email: 'tenant-a@ci.neurocrop.test', password }
+  })
+  expect(response.ok(), await response.text()).toBeTruthy()
   await page.goto('/')
-  await page.locator('#loginEmail').fill('tenant-a@ci.neurocrop.test')
-  await page.locator('#loginPassword').fill(password)
-  await page.locator('#loginForm').getByRole('button', { name: /sign in/i }).click()
   await expect(page.locator('#dashboardShell')).toBeVisible()
   await expectNoSeriousViolations(page)
 })

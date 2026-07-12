@@ -12568,6 +12568,22 @@
       gap: 16px;
     }
 
+    /* Small operational labels must remain readable on warm neutral surfaces. */
+    .header-view-label,
+    .header-view-choice:not([data-active="true"]),
+    #dashboardHeader.global-system-bar .header-context-selectors .context-card-label,
+    .language-switch button:not([data-active="true"]),
+    .triage-eyebrow,
+    .triage-card-kicker,
+    .triage-location-line,
+    .triage-priority-facts span,
+    .triage-guidance span,
+    .triage-section-heading > span,
+    .triage-reading small,
+    .overview-updated-time {
+      color: #59615d;
+    }
+
     .triage-action-list {
       display: grid;
       gap: 8px;
