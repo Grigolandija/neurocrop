@@ -26,6 +26,7 @@
     </div>
   </section>
 
+  <a class="skip-to-content" href="#dashboardMain">Skip to main content</a>
   <div id="dashboardShell" class="dashboard-shell flex min-h-screen" hidden>
     <header id="dashboardHeader" class="global-system-bar">
       <div class="global-system-bar-actions">
@@ -101,13 +102,13 @@
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="sites" data-active="false">
             <span class="flex items-center gap-3">
               <i class="fa-solid fa-location-dot w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Sites</span>
+              <span class="text-[1.02rem]">Areas</span>
             </span>
           </button>
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="zones" data-active="false">
             <span class="flex items-center gap-3">
               <i class="fa-solid fa-border-all w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Zones</span>
+              <span class="text-[1.02rem]">Sections</span>
             </span>
           </button>
           <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="nodes" data-active="false">
@@ -154,7 +155,7 @@
       </div>
     </aside>
 
-    <main class="min-w-0 flex-1">
+    <main id="dashboardMain" class="min-w-0 flex-1" tabindex="-1">
       <div class="dashboard-main-inner px-3 py-2 md:px-4 md:py-3 lg:px-4 lg:py-3">
         <section id="experienceModeSection" class="mb-6 section-jump-target" hidden>
           <div class="surface rounded-[30px] px-5 py-4 md:px-6">

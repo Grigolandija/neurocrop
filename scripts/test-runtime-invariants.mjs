@@ -7,6 +7,8 @@ const runtime = await fs.readFile(path.join(root, "public/approved-dashboard-run
 const config = await fs.readFile(path.join(root, "public/runtime-config.js"), "utf8");
 const contract = await fs.readFile(path.join(root, "API-CONTRACT.md"), "utf8");
 const appSource = await fs.readFile(path.join(root, "src/App.tsx"), "utf8");
+const markup = await fs.readFile(path.join(root, "src/approved-dashboard-markup.html"), "utf8");
+const styles = await fs.readFile(path.join(root, "src/styles/approved-dashboard.css"), "utf8");
 let failures = 0;
 
 function assert(condition, message) {
@@ -53,7 +55,17 @@ assert(runtime.includes('async function readResponseBody(response)') && runtime.
 assert(runtime.includes('let dashboardHydrationRequestId = 0;') && runtime.includes('const isCurrentRequest = () => requestId === dashboardHydrationRequestId'), "stale dashboard responses must not overwrite a newer organization context");
 assert(runtime.includes('data-platform-admin-grant=') && runtime.includes('data-platform-user-status=') && runtime.includes('data-platform-user-delete='), "Super Admin must manage admin access, account status, and deletion directly from the Users table");
 assert(runtime.includes('isSuperAdmin: session.isSuperAdmin === true') && runtime.includes('user.isSuperAdmin ? "Super admin"'), "Super Admin identity must remain explicit and protected in the frontend");
+assert(runtime.includes('isGrowthMetricKey(item.key) && item.configured !== false') && runtime.includes('configured: isConfigured,'), "Coverage and missing-metric trust must count only metrics configured for the section");
+assert(runtime.includes('const configuredMetrics = Array.isArray(zone.configuredMetrics)') && runtime.includes('...configuredMetrics'), "Dashboard normalization must preserve physically configured metrics even when a reading is temporarily missing");
+assert(runtime.includes('class="management-feedback') && runtime.includes('aria-live="polite"') && runtime.includes('setAttribute("aria-busy"'), "Management feedback and live data loading must expose accessible status semantics");
+assert(runtime.includes('const totalGrowthCount = (zone.configuredMetrics || zone.availableMetrics || [])') && !runtime.includes('Object.keys(profile.metrics).filter((key) => isGrowthMetricKey(key)).length'), "Section management coverage must use configured hardware metrics rather than the future profile catalogue");
 assert(!runtime.includes('data-settings-form="platform-admin"'), "Admin access must not use a separate email form outside the Users table");
+assert(markup.includes('class="skip-to-content"') && markup.includes('id="dashboardMain"') && markup.includes('tabindex="-1"'), "the application shell must provide a keyboard-accessible skip link and focus target");
+assert(markup.includes('<span class="text-[1.02rem]">Areas</span>') && markup.includes('<span class="text-[1.02rem]">Sections</span>'), "primary navigation must use consistent Area and Section terminology");
+assert(styles.includes("Commercial UI consolidation") && styles.includes(".management-list-row") && styles.includes("min-height: 58px"), "management lists must retain the compact commercial layout for large workspaces");
+assert(styles.includes('.state-chip[data-state="unknown"]') && styles.includes('background: #ecefec'), "No data and unknown states must remain visually neutral rather than critical red");
+assert(styles.includes("@media (max-width: 760px)") && styles.includes(".admin-table-wrap"), "the consolidated UI must preserve mobile and wide-table fallbacks");
+assert(styles.includes('#overviewTriageSection[aria-busy="true"]') && styles.includes("nc-skeleton-sweep"), "live surfaces must retain visible skeleton loading states");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
 assert((appSource.match(/window\.location\.assign\('\/'\)/g) || []).length >= 3, "auth-only routes must return through a clean document load instead of reusing global dashboard listeners");

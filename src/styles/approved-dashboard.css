@@ -8870,6 +8870,217 @@
       }
     }
 
+    /* Commercial UI consolidation: one compact system across every route. */
+    .skip-to-content {
+      position: fixed;
+      z-index: 1000;
+      top: 8px;
+      left: 12px;
+      transform: translateY(-140%);
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: var(--nc-primary);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      transition: transform 0.15s ease;
+    }
+
+    .skip-to-content:focus { transform: translateY(0); }
+
+    .designer-app .dashboard-main-inner {
+      width: 100%;
+      max-width: 1720px;
+      margin-inline: auto;
+      padding: 14px 0 34px !important;
+    }
+
+    .designer-app .dashboard-main-inner > section,
+    .designer-app .dashboard-main-inner > div > section {
+      margin-top: 14px !important;
+    }
+
+    .designer-app .dashboard-main-inner > section:first-child,
+    .designer-app .dashboard-main-inner > div:first-child > section:first-child {
+      margin-top: 0 !important;
+    }
+
+    .designer-app .surface,
+    .designer-app .panel,
+    .designer-app .triage-section,
+    .designer-app .diagnostic-card,
+    .designer-app .settings-content-panel,
+    .designer-app .crop-profile-side-section {
+      border: 1px solid var(--nc-border);
+      border-radius: 14px !important;
+      background: var(--nc-surface);
+      box-shadow: 0 1px 2px rgba(20, 32, 27, 0.035), 0 8px 20px rgba(20, 32, 27, 0.025);
+    }
+
+    .designer-app .surface[class*="p-6"],
+    .designer-app .surface[class*="p-7"],
+    .designer-app .surface[class*="p-8"],
+    .designer-app .panel[class*="p-6"] {
+      padding: 18px !important;
+    }
+
+    .designer-app .management-list-row {
+      min-height: 58px;
+      padding: 10px 14px;
+    }
+
+    .designer-app .management-list-main { gap: 3px; }
+    .designer-app .management-list-title { font-size: 14px; line-height: 1.2; }
+    .designer-app .management-list-meta,
+    .designer-app .management-list-note { margin-top: 2px; font-size: 12px; line-height: 1.3; }
+    .designer-app .management-list-actions { gap: 6px; }
+
+    .designer-app #nodesManagementSection .node-table-row {
+      min-height: 50px;
+      padding-block: 8px;
+    }
+
+    .designer-app #nodesManagementSection .node-table-detail {
+      padding: 10px 14px 12px;
+      background: var(--nc-surface-muted);
+    }
+
+    .designer-app .crop-profile-switcher { gap: 8px; }
+    .designer-app .crop-profile-switcher-option {
+      min-height: 62px;
+      flex-basis: 220px;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .designer-app .crop-profile-metric-group { margin-top: 14px; }
+    .designer-app .crop-profile-metric-group > header { padding: 10px 0 8px; }
+    .designer-app .crop-profile-metric-row { min-height: 42px; padding-block: 4px; }
+    .designer-app .crop-profile-metric-summary { min-height: 38px; }
+    .designer-app .crop-profile-save-bar { bottom: 8px; margin-top: 14px; }
+
+    .designer-app .state-chip[data-state="neutral"],
+    .designer-app .state-chip[data-state="unknown"],
+    .designer-app .metric-state-chip[data-state="neutral"],
+    .designer-app .metric-state-chip[data-state="unknown"] {
+      border-color: rgba(88, 96, 91, 0.18);
+      background: #ecefec;
+      color: #626963;
+    }
+
+    .designer-app .state-chip[data-state="neutral"]::before,
+    .designer-app .state-chip[data-state="unknown"]::before {
+      background: currentColor;
+    }
+
+    .designer-app .empty-area-state,
+    .designer-app .workbench-empty-card,
+    .designer-app .admin-empty,
+    .designer-app .node-sensor-empty {
+      border: 1px dashed rgba(20, 32, 27, 0.22);
+      border-radius: 12px;
+      background: var(--nc-surface-muted);
+      box-shadow: none;
+    }
+
+    .designer-app .management-modal-shell {
+      width: min(760px, calc(100vw - 28px));
+      max-height: min(860px, calc(100vh - 28px));
+      border-radius: 16px;
+    }
+
+    .designer-app .management-modal-header { padding: 16px 18px; }
+    .designer-app .management-modal-body { padding: 16px 18px 20px; }
+
+    .designer-app .admin-table th,
+    .designer-app .admin-table td { padding: 10px 12px; }
+    .designer-app .admin-table th { font-size: 10px; }
+    .designer-app .admin-table td { font-size: 12px; }
+
+    .designer-app .settings-form-card,
+    .designer-app .settings-policy-note,
+    .designer-app .settings-team-row { border-radius: 10px; }
+
+    .designer-app [role="alert"] { scroll-margin-top: 72px; }
+
+    .designer-app .management-feedback {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      border: 1px solid currentColor;
+      border-radius: 10px !important;
+      line-height: 1.45;
+    }
+
+    .designer-app .management-feedback i { margin-top: 2px; }
+
+    .designer-app #overviewTriageSection[aria-busy="true"],
+    .designer-app #metricsSection[aria-busy="true"] {
+      position: relative;
+      min-height: 140px;
+      overflow: hidden;
+    }
+
+    .designer-app #overviewTriageSection[aria-busy="true"]::after,
+    .designer-app #metricsSection[aria-busy="true"]::after {
+      position: absolute;
+      z-index: 5;
+      inset: 0;
+      border-radius: inherit;
+      background:
+        linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.78) 42%, transparent 64%) -220px 0 / 220px 100% no-repeat,
+        linear-gradient(#e8ece8 0 0) 22px 24px / 28% 16px no-repeat,
+        linear-gradient(#eef1ed 0 0) 22px 56px / calc(100% - 44px) 54px no-repeat,
+        var(--nc-surface);
+      content: "";
+      animation: nc-skeleton-sweep 1.15s ease-in-out infinite;
+    }
+
+    @keyframes nc-skeleton-sweep {
+      to { background-position: calc(100% + 220px) 0, 22px 24px, 22px 56px, 0 0; }
+    }
+
+    @media (max-width: 1279px) {
+      .designer-app .global-system-bar { overflow: visible; }
+      .designer-app .global-system-bar-actions { min-width: 0; }
+      .designer-app .header-context-tools { min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+      .designer-app .header-status-card { flex: 0 0 auto; }
+    }
+
+    @media (max-width: 1023px) {
+      .designer-app .dashboard-shell { padding-inline: 12px; }
+      .designer-app .dashboard-main-inner { padding-top: 10px !important; padding-bottom: 86px !important; }
+      .designer-app .global-system-bar { padding-inline: 12px; }
+      .designer-app .header-status-card { gap: 7px; }
+      .designer-app .header-account-button > span:nth-child(2),
+      .designer-app .header-connection-status { display: none; }
+      .designer-app .management-list-row { grid-template-columns: minmax(0, 1fr); }
+      .designer-app .management-list-actions { width: 100%; flex-wrap: wrap; }
+      .designer-app .crop-profile-editor-grid { gap: 14px; }
+    }
+
+    @media (max-width: 767px) {
+      .designer-app .dashboard-shell { padding-inline: 8px; }
+      .designer-app .dashboard-main-inner { padding-top: 8px !important; }
+      .designer-app .surface[class*="p-5"],
+      .designer-app .surface[class*="p-6"],
+      .designer-app .surface[class*="p-7"],
+      .designer-app .surface[class*="p-8"],
+      .designer-app .panel[class*="p-5"],
+      .designer-app .panel[class*="p-6"] { padding: 14px !important; }
+      .designer-app .header-view-control { display: none; }
+      .designer-app .header-context-selectors { min-width: max-content; }
+      .designer-app .language-switch { display: none; }
+      .designer-app .management-list-row { min-height: 54px; padding: 9px 10px; }
+      .designer-app .management-list-actions .inline-action { flex: 1 1 auto; }
+      .designer-app .crop-profile-switcher { margin-inline: -2px; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+      .designer-app .crop-profile-switcher-option { flex: 0 0 min(78vw, 240px); }
+      .designer-app .crop-profile-save-bar { bottom: 72px; }
+      .designer-app .admin-table-wrap { overflow-x: auto; }
+      .designer-app .admin-table { min-width: 720px; }
+      .designer-app .management-modal-shell { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+    }
+
     /* Product-wide hierarchy and responsive polish. These overrides deliberately
        sit last so legacy page-specific rules cannot fragment the experience. */
     .designer-app .dashboard-shell {

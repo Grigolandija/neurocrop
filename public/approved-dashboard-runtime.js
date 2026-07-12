@@ -716,6 +716,15 @@
       "Resolve": "Išspręsti",
       "Current sites": "Esamos vietos",
       "Current zones": "Esamos zonos",
+      "Areas": "Erdvės",
+      "Sections": "Sekcijos",
+      "Skip to main content": "Pereiti prie pagrindinio turinio",
+      "Current areas": "Esamos erdvės",
+      "Create your first area": "Sukurkite pirmąją erdvę",
+      "Register section": "Registruoti sekciją",
+      "Shown sections": "Rodomos sekcijos",
+      "Section name": "Sekcijos pavadinimas",
+      "No sections in this area": "Šioje erdvėje sekcijų nėra",
       "Current nodes": "Esami mazgai",
       "Filter by Site": "Filtruoti pagal vietą",
       "Filter by Zone": "Filtruoti pagal zoną",
@@ -3459,7 +3468,7 @@
 
     function getZoneFarmState(site, zone, results, now = Date.now()) {
       const engine = window.NeuroCropStateEngine;
-      const growthResults = (results || []).filter((result) => isGrowthMetricKey(result.key));
+      const growthResults = (results || []).filter((result) => isGrowthMetricKey(result.key) && result.configured !== false);
       const availableResults = growthResults.filter((result) => result.available !== false);
       const conditionStatus = getConditionStatusFromResults(results);
       const nodeInputs = (zone?.batteryNodes || []).map((node) => ({
@@ -3581,7 +3590,11 @@
               active: node.active !== false
             };
           });
-          const availableMetrics = Array.isArray(zone.availableMetrics) ? zone.availableMetrics.slice() : [];
+          const configuredMetrics = Array.isArray(zone.configuredMetrics) ? zone.configuredMetrics.slice() : [];
+          const availableMetrics = [...new Set([
+            ...(Array.isArray(zone.availableMetrics) ? zone.availableMetrics : []),
+            ...configuredMetrics
+          ])];
           if (batteryNodes.length > 0 && !availableMetrics.includes("batteryLevel")) {
             availableMetrics.push("batteryLevel");
           }
@@ -3597,6 +3610,7 @@
             batteryNodes,
             sensorCount: Number(zone.sensorCount) || batteryNodes.length,
             availableMetrics,
+            configuredMetrics,
             backendState,
             backendScore: zone.score ?? zone.indexScore ?? backendState?.score ?? backendState?.indexScore ?? null,
             backendConditionStatus: zone.conditionStatus ?? backendState?.conditionStatus ?? backendState?.status ?? null,
@@ -4029,7 +4043,7 @@
     }
 
     function getCoverageStatsFromResults(results) {
-      const growthResults = results.filter((item) => isGrowthMetricKey(item.key));
+      const growthResults = results.filter((item) => isGrowthMetricKey(item.key) && item.configured !== false);
       const total = growthResults.length;
       const available = growthResults.filter((item) => item.available !== false).length;
 
@@ -7259,10 +7273,12 @@
       const toneClass = managementNotice.tone === "warning"
         ? "bg-[#f8e7d2] text-amber"
         : "bg-[#eef4ec] text-moss";
+      const icon = managementNotice.tone === "warning" ? "fa-triangle-exclamation" : "fa-circle-check";
 
       return `
-        <div class="mt-4 rounded-[22px] px-4 py-3 text-sm font-semibold ${toneClass}">
-          ${escapeHtml(managementNotice.text)}
+        <div class="management-feedback mt-4 rounded-[22px] px-4 py-3 text-sm font-semibold ${toneClass}" role="${managementNotice.tone === "warning" ? "alert" : "status"}" aria-live="polite">
+          <i class="fa-solid ${icon}" aria-hidden="true"></i>
+          <span>${escapeHtml(managementNotice.text)}</span>
         </div>
       `;
     }
@@ -7279,14 +7295,14 @@
         elements.locationsManagementShell.innerHTML = `
           <div class="surface rounded-[34px] p-6 md:p-8">
             <form data-management-form="location" class="max-w-5xl">
-              <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Create site</p>
-              <h2 class="mt-2 font-display text-3xl font-bold text-ink">Create your first site</h2>
-              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">A site can be a farm, field, greenhouse, laboratory, or other monitored location. Zones and nodes are added after this.</p>
+              <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Create area</p>
+              <h2 class="mt-2 font-display text-3xl font-bold text-ink">Create your first area</h2>
+              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">An area can be a farm, field, greenhouse, laboratory, or another monitored location. Sections and nodes are added afterwards.</p>
               <div class="mt-6 flex flex-col gap-3 md:flex-row">
                 <input name="locationName" value="${escapeAttribute(locationFormState.name)}" placeholder="Greenhouse No. 1" class="min-h-[58px] flex-1 rounded-[22px] border border-black/10 bg-white px-5 text-base font-semibold outline-none transition focus:border-pine/45 focus:ring-4 focus:ring-pine/10">
                 <button type="submit" class="inline-flex min-h-[58px] items-center justify-center rounded-[22px] bg-pine px-6 text-base font-bold text-white shadow-soft transition hover:-translate-y-0.5">
                   <i class="fa-solid fa-location-dot mr-2" aria-hidden="true"></i>
-                  Create site
+                  Create area
                 </button>
               </div>
             </form>
@@ -7311,7 +7327,7 @@
         const profiles = getSiteProfileNames(site);
         const activeSiteIssueCount = siteSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal").length;
         const summary = blockCount === 0
-          ? "No sections exist yet. Create the first monitored section here before opening live monitoring."
+          ? "No sections exist yet. Create the first monitored section before opening live monitoring."
           : activeAlertCount > 0 && activeSiteIssueCount > 0
             ? `${activeSiteIssueCount} block${activeSiteIssueCount === 1 ? " currently needs attention." : "s currently need attention."}`
             : "All current blocks are stable and ready for monitoring.";
@@ -7391,11 +7407,11 @@
 
               <div class="flex flex-wrap gap-2.5 xl:max-w-[500px] xl:justify-end">
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Sites</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Areas</div>
                   <div class="mt-0.5 text-xl font-extrabold text-ink">${totalLocations}</div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Zones</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Sections</div>
                   <div class="mt-0.5 text-xl font-extrabold text-ink">${totalBlocks}</div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
@@ -7414,7 +7430,7 @@
             <form class="mt-4" data-management-form="location">
               <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                 <label class="block">
-                  <span class="text-sm font-semibold text-ink/72">Site name</span>
+                  <span class="text-sm font-semibold text-ink/72">Area name</span>
                   <input
                     type="text"
                     name="locationName"
@@ -7440,15 +7456,15 @@
             </form>
 
             <div class="mt-3 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
-              Zones are created inside a saved site, so the next step after this card is the Zones page.
+              Sections are created inside a saved area, so the next step is the Sections page.
             </div>
           </div>
 
           <div class="surface rounded-[34px] p-6 md:p-7">
             <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current sites</p>
-                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${totalLocations} site${totalLocations === 1 ? "" : "s"} connected</h3>
+                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current areas</p>
+                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${totalLocations} area${totalLocations === 1 ? "" : "s"} connected</h3>
               </div>
               <div class="text-sm leading-6 text-ink/58">${totalBlocks} blocks · ${totalNodes} nodes in structure</div>
             </div>
@@ -7470,9 +7486,7 @@
           const batteryDefinition = profile?.metrics?.batteryLevel || null;
           const lowBatteryCount = batteryDefinition ? getLowBatteryNodes(zone, batteryDefinition).length : 0;
           const installedGrowthCount = (zone.availableMetrics || []).filter((key) => isGrowthMetricKey(key)).length;
-          const totalGrowthCount = profile
-            ? Object.keys(profile.metrics).filter((key) => isGrowthMetricKey(key)).length
-            : 0;
+          const totalGrowthCount = (zone.configuredMetrics || zone.availableMetrics || []).filter((key) => isGrowthMetricKey(key)).length;
 
           return {
             site,
@@ -7491,15 +7505,15 @@
       const filteredNodeCount = blockEntries.reduce((sum, row) => sum + ((row.zone.batteryNodes || []).length || row.zone.sensorCount || 0), 0);
       const filteredAlertCount = blockEntries.filter((row) => row.snapshot?.overall.state !== "optimal").length;
       const filteredLowBatteryCount = blockEntries.reduce((sum, row) => sum + row.lowBatteryCount, 0);
-      const blockFormTitle = blockFormState.mode === "edit" ? "Edit zone" : "Create zone";
+      const blockFormTitle = blockFormState.mode === "edit" ? "Edit section" : "Create section";
       const blockFormSummary = blockFormState.mode === "edit"
-        ? "Rename, move, or reprofile the monitored zone without changing the live structure around it."
-        : "Use one zone for one monitored crop, field sector, laboratory setup, or growing block inside a site.";
-      const blockFormButtonLabel = blockFormState.mode === "edit" ? "Save zone" : "Create zone";
+        ? "Rename, move, or reprofile the monitored section without changing its sensor history."
+        : "Use one section for one monitored crop, field sector, laboratory setup, or growing block inside an area.";
+      const blockFormButtonLabel = blockFormState.mode === "edit" ? "Save section" : "Create section";
       const emptyState = filteredSites.length > 0
-        ? `No zones exist in ${filteredSites[0].name} yet.`
-        : "No zones exist yet.";
-      const activeFilterLabel = filteredSites[0]?.name || "Selected site";
+        ? `No sections exist in ${filteredSites[0].name} yet.`
+        : "No sections exist yet.";
+      const activeFilterLabel = filteredSites[0]?.name || "Selected area";
 
       const blockList = filteredBlockCount > 0
         ? blockEntries.map((row) => {
@@ -7508,12 +7522,12 @@
             const summary = row.lowBatteryCount > 0
               ? `${row.lowBatteryCount} node${row.lowBatteryCount === 1 ? " is" : "s are"} below the battery watch threshold.`
               : row.installedGrowthCount < row.totalGrowthCount
-                ? `${row.installedGrowthCount}/${row.totalGrowthCount} live readings are installed in this block.`
+                ? `${row.installedGrowthCount}/${row.totalGrowthCount} configured metrics are reporting.`
                 : (row.zone.batteryNodes || []).length === 0
                   ? "Structure is ready, but no nodes are attached yet."
                   : "Ready for live monitoring.";
             const coverageLabel = row.totalGrowthCount > 0
-              ? `${row.installedGrowthCount}/${row.totalGrowthCount} live`
+              ? `${row.installedGrowthCount}/${row.totalGrowthCount} reporting`
               : "No live metrics";
             const locationLabel = row.isUnassigned ? "Unassigned" : row.site.name;
             const metaLine = `${locationLabel} · ${row.profile?.name || row.zone.profile} · ${((row.zone.batteryNodes || []).length || row.zone.sensorCount || 0)} node${((row.zone.batteryNodes || []).length || row.zone.sensorCount || 0) === 1 ? "" : "s"} · ${coverageLabel}`;
@@ -7548,7 +7562,7 @@
         : `
             <div class="panel rounded-[30px] p-6">
               <h3 class="font-display text-2xl font-bold text-ink">${escapeHtml(emptyState)}</h3>
-              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">Create the first block from the registration form above. Real node assignment can stay on the Nodes page later.</p>
+              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">Create the first section using the form above, then assign its nodes on the Nodes page.</p>
             </div>
           `;
       const blockListMarkup = filteredBlockCount > 0
@@ -7566,18 +7580,18 @@
           <div class="surface rounded-[30px] p-5 md:p-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register zone</p>
+                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register section</p>
                 <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">${blockFormTitle}</h2>
                 <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">${blockFormSummary}</p>
               </div>
 
               <div class="flex flex-wrap gap-2.5 xl:max-w-[540px] xl:justify-end">
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Shown zones</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Shown sections</div>
                   <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredBlockCount}</div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Sites</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Areas</div>
                   <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredSites.length}</div>
                 </div>
                 <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
@@ -7596,14 +7610,14 @@
             ${locationOptions.length === 0
               ? `
                 <div class="mt-4 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
-                  Create a site first. After that, this becomes the main card for registering monitored zones.
+                  Create an area first. After that, this becomes the main form for registering monitored sections.
                 </div>
               `
               : `
                 <form class="mt-4 space-y-3" data-management-form="block">
                   <div class="grid gap-3 xl:grid-cols-4">
                     <label class="block xl:col-span-2">
-                      <span class="text-sm font-semibold text-ink/72">Zone name</span>
+                      <span class="text-sm font-semibold text-ink/72">Section name</span>
                       <input
                         type="text"
                         name="blockName"
@@ -7948,7 +7962,7 @@
           const sections = site?.zones || [];
           sectionSelect.innerHTML = sections.length > 0
             ? sections.map((zone) => `<option value="${escapeAttribute(zone.id)}">${escapeHtml(zone.name)}</option>`).join("")
-            : `<option value="">No zones in this site</option>`;
+            : `<option value="">No sections in this area</option>`;
           sectionSelect.disabled = sections.length === 0;
           rebuildEnhancedSelect(sectionSelect);
         }
@@ -11965,6 +11979,7 @@
           : availableMetrics;
         return {
           key,
+          configured: isConfigured,
           available: isConfigured && (!isApiDataMode() || hasLiveValue),
           ...(isConfigured
             ? evaluateMetricForReadings(definition, key, metricAvailableSet, readings)
@@ -12554,7 +12569,7 @@
             <div class="triage-section-heading">
               <div><span class="triage-eyebrow">Data and hardware</span><h3>${escapeHtml(dataStatusLabel)} data</h3></div>
             </div>
-            <div class="triage-reliability-score" data-freshness="${escapeAttribute(farmState.dataStatus)}"><strong>${farmState.coverage.liveMetrics}/${farmState.coverage.expectedMetrics}</strong><span>metrics live now</span></div>
+            <div class="triage-reliability-score" data-freshness="${escapeAttribute(farmState.dataStatus)}"><strong>${farmState.coverage.liveMetrics}/${farmState.coverage.expectedMetrics}</strong><span>${diagnosticText("configured metrics reporting", "sukonfigūruoti rodikliai siunčia duomenis")}</span></div>
             <div class="triage-reliability-facts">
               <span><i class="fa-solid fa-signal" aria-hidden="true"></i>${nodeSummary.live} live · ${nodeSummary.delayed} delayed</span>
               <span><i class="fa-solid fa-clock" aria-hidden="true"></i>${nodeSummary.stale} stale · ${nodeSummary.offline} offline</span>
@@ -13011,15 +13026,15 @@
 
           <section class="diagnostic-card diagnostic-trust diagnostic-trust-wide">
             <div class="diagnostic-section-head">
-              <div><span class="diagnostic-eyebrow">${diagnosticText("Sensor trust", "Sensorių patikimumas")}</span><h3>${diagnosticText("Can this diagnosis be trusted?", "Ar šia diagnoze galima pasitikėti?")}</h3></div>
+              <div><span class="diagnostic-eyebrow">${diagnosticText("Monitoring coverage", "Stebėjimo aprėptis")}</span><h3>${diagnosticText("Installed sensor coverage", "Įdiegtų sensorių aprėptis")}</h3></div>
             </div>
             <div class="diagnostic-coverage">
               <strong>${coverage.available}/${coverage.total}</strong>
               <span>${escapeHtml(confidenceLabel)}</span>
             </div>
             <div class="diagnostic-trust-facts">
-              <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i>${coverage.available} ${diagnosticText("live growth metrics", "aktyvūs auginimo rodikliai")}</span>
-              <span><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>${coverage.unavailable} ${diagnosticText("missing metrics", "trūkstami rodikliai")}</span>
+              <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i>${coverage.available} ${diagnosticText("configured metrics reporting", "sukonfigūruoti rodikliai siunčia duomenis")}</span>
+              <span><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>${coverage.unavailable} ${diagnosticText("configured metrics not reporting", "sukonfigūruoti rodikliai nesiunčia duomenų")}</span>
               <span><i class="fa-solid fa-battery-half" aria-hidden="true"></i>${selectedLowBatteryNodes.length} ${diagnosticText(`low-battery nodes in this ${isSiteView ? "area" : "section"}`, `mazgai su silpna baterija šioje ${isSiteView ? "srityje" : "sekcijoje"}`)}</span>
               <span><i class="fa-solid fa-clock" aria-hidden="true"></i>${diagnosticText("Oldest uplink", "Seniausias duomenų gavimas")} ${escapeHtml(getDiagnosticDurationText(stateConfig[activeScenarioKey].uplink))}</span>
             </div>
@@ -13292,6 +13307,8 @@
       const hasReadings = Object.keys(currentReadings).length > 0;
       const activeReadingsStatus = latestReadingsStatusBySectionId[zone.id]?.status || "";
       const isActiveReadingsLoading = isApiDataMode() && !hasReadings && activeReadingsStatus === "loading";
+      elements.overviewTriageSection?.setAttribute("aria-busy", String(isActiveReadingsLoading));
+      elements.metricsSection?.setAttribute("aria-busy", String(isActiveReadingsLoading));
       const readings = hasReadings
         ? currentReadings
         : isApiDataMode()
@@ -13310,6 +13327,7 @@
           : availableMetrics;
         return {
           key,
+          configured: isConfigured,
           available: isConfigured && (!isApiDataMode() || hasLiveValue),
           ...(isConfigured
             ? evaluateMetricForReadings(definition, key, metricAvailableSet, readings)
@@ -13318,7 +13336,7 @@
       });
 
       const overallState = getBackendOverallState(zone) || deriveOverallState(results);
-      const growthResults = results.filter((item) => isGrowthMetricKey(item.key));
+      const growthResults = results.filter((item) => isGrowthMetricKey(item.key) && item.configured !== false);
       const nonOptimalResults = growthResults.filter((item) => item.available !== false && item.state !== "optimal");
       const availableResults = growthResults.filter((item) => item.available !== false);
       const unavailableResults = growthResults.filter((item) => item.available === false);
@@ -13789,7 +13807,7 @@
       const detailedSnapshot = isSiteView && weakestSiteSnapshot
         ? weakestSiteSnapshot
         : { zone, profile, results };
-      const detailedGrowthResults = detailedSnapshot.results.filter((item) => isGrowthMetricKey(item.key));
+      const detailedGrowthResults = detailedSnapshot.results.filter((item) => isGrowthMetricKey(item.key) && item.configured !== false);
       renderDetailedDiagnostics({
         site,
         zone: detailedSnapshot.zone,
