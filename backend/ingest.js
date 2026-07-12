@@ -78,13 +78,16 @@ async function handleUplink(msg) {
   }
   await query(
     `INSERT INTO measurements (
-        time,dev_eui,temperature,humidity,co2,lux,soil_temperature,
+        time,dev_eui,temperature,humidity,co2,lux,soil_temperature,soil_moisture,
+        ec,ph,soil_ec,leaf_temperature,water_temperature,air_pressure,
         battery_mv,battery_percent,firmware_build,profile,battery_critical,
         vpd_out_of_range,err_read_fail,err_reinit,err_tx_fail,rssi,snr,
         spreading_factor,raw_object,received_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
     [time, devEui, n(obj.temperature), n(obj.humidity), n(obj.co2), n(obj.lux),
-     n(obj.soil_temperature), n(obj.battery_mv), n(obj.battery_percent),
+     n(obj.soil_temperature), n(obj.soil_moisture), n(obj.ec), n(obj.ph), n(obj.soil_ec),
+     n(obj.leaf_temperature), n(obj.water_temperature), n(obj.air_pressure),
+     n(obj.battery_mv), n(obj.battery_percent),
      n(obj.firmware_build), adaptive.profile ?? null, adaptive.battery_critical ?? null,
      adaptive.vpd_out_of_range ?? null, n(ec.read_fail), n(ec.reinit), n(ec.tx_fail),
      n(rx.rssi), n(rx.snr), sf, JSON.stringify(obj), receivedAt]

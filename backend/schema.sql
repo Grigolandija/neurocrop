@@ -154,6 +154,13 @@ CREATE TABLE IF NOT EXISTS measurements (
     co2              INTEGER,
     lux              INTEGER,
     soil_temperature REAL,
+    soil_moisture    REAL,
+    ec               REAL,
+    ph               REAL,
+    soil_ec          REAL,
+    leaf_temperature REAL,
+    water_temperature REAL,
+    air_pressure     REAL,
     battery_mv       INTEGER,
     battery_percent  INTEGER,
     firmware_build   INTEGER,
@@ -170,6 +177,13 @@ CREATE TABLE IF NOT EXISTS measurements (
     received_at      TIMESTAMPTZ NOT NULL
 );
 ALTER TABLE measurements ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS soil_moisture REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS ec REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS ph REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS soil_ec REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS leaf_temperature REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS water_temperature REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS air_pressure REAL;
 CREATE INDEX IF NOT EXISTS idx_measurements_deveui_time ON measurements (dev_eui, time DESC);
 CREATE INDEX IF NOT EXISTS idx_measurements_time ON measurements (time DESC);
 CREATE INDEX IF NOT EXISTS idx_measurements_deveui_received_at ON measurements (dev_eui, received_at DESC);

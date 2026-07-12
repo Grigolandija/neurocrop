@@ -2708,6 +2708,9 @@
         if (sensor.port === "onewire") {
           return [{ label: sensor.label || "Temperature probe", configurable: true, sensor }];
         }
+        if (sensor.port === "aux") {
+          return [{ label: sensor.label || "Detected sensor" }];
+        }
         return [];
       });
 

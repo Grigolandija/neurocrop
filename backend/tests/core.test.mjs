@@ -6,6 +6,7 @@ import { getAllowedOrigins, getSessionCookieOptions, publicError } from '../conf
 import { buildScoreRules, buildSectionDashboardState, evaluateMetricValue, statusFromMeasurementTime } from '../score.js';
 import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
+import { METRIC_TO_COLUMN } from '../metrics.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -54,6 +55,16 @@ test('score rules use saved optimal ranges and automatic alert bands', () => {
   assert.deepEqual(rules.airTemp.critical, [14, 26]);
   assert.equal(evaluateMetricValue('airTemp', 23, rules).state, 'warning');
   assert.equal(evaluateMetricValue('airTemp', 27, rules).state, 'critical');
+});
+
+test('all 13 growth parameters have persisted history and score rules', () => {
+  const growthMetrics = [
+    'airTemp', 'humidity', 'co2', 'lux', 'soilTemp', 'vpd', 'soilMoisture',
+    'ec', 'ph', 'leafTemp', 'soilEc', 'waterTemp', 'airPressure'
+  ];
+  const rules = buildScoreRules({});
+  assert.deepEqual(growthMetrics.filter((key) => !rules[key]?.growth), []);
+  assert.deepEqual(growthMetrics.filter((key) => key !== 'vpd' && !METRIC_TO_COLUMN[key]), []);
 });
 
 test('rate limiter expires attempts and can reset successful keys', () => {

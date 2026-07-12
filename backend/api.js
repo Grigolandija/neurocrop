@@ -1009,12 +1009,14 @@ function medianValue(values) {
 
 function measurementReportsMetric(measurement, metric) {
   const sensors = measurement?.raw_object?.sensors || {};
-  if (metric === 'airTemp' || metric === 'humidity') return sensors.sht45?.present === true;
-  if (metric === 'co2') return sensors.scd41?.present === true;
-  if (metric === 'lux') return sensors.bh1750?.present === true;
-  if (metric === 'soilTemp') return sensors.ds18b20?.present === true;
   if (metric === 'batteryLevel') return true;
-  return false;
+  const sensorKey = {
+    airTemp: 'sht45', humidity: 'sht45', vpd: 'sht45', co2: 'scd41', lux: 'bh1750',
+    soilTemp: 'ds18b20', soilMoisture: 'soil_moisture_probe', ec: 'ec_probe', ph: 'ph_probe',
+    soilEc: 'soil_ec_probe', leafTemp: 'leaf_temperature_probe',
+    waterTemp: 'water_temperature_probe', airPressure: 'pressure_sensor'
+  }[metric];
+  return sensorKey ? sensors[sensorKey]?.present === true : false;
 }
 
 app.get('/readings/latest', requireAuth, async (req, res) => {
@@ -1123,7 +1125,14 @@ function historyPresenceCondition(metric) {
     humidity: 'sht45',
     co2: 'scd41',
     lux: 'bh1750',
-    soilTemp: 'ds18b20'
+    soilTemp: 'ds18b20',
+    soilMoisture: 'soil_moisture_probe',
+    ec: 'ec_probe',
+    ph: 'ph_probe',
+    soilEc: 'soil_ec_probe',
+    leafTemp: 'leaf_temperature_probe',
+    waterTemp: 'water_temperature_probe',
+    airPressure: 'pressure_sensor'
   }[metric];
   return sensorPath
     ? `(raw_object->'sensors'->'${sensorPath}'->>'present')::boolean IS TRUE`
@@ -1484,6 +1493,13 @@ const EXPORT_METRIC_LABELS = {
   co2: 'CO2',
   lux: 'Light',
   soilTemp: 'Soil temperature',
+  soilMoisture: 'Soil moisture',
+  ec: 'Nutrient solution EC',
+  ph: 'Nutrient solution pH',
+  soilEc: 'Substrate EC',
+  leafTemp: 'Leaf temperature',
+  waterTemp: 'Water temperature',
+  airPressure: 'Air pressure',
   vpd: 'VPD',
   batteryLevel: 'Battery level'
 };
@@ -1494,6 +1510,13 @@ const EXPORT_METRIC_SENSOR_KEYS = {
   co2: 'scd41',
   lux: 'bh1750',
   soilTemp: 'ds18b20',
+  soilMoisture: 'soil_moisture_probe',
+  ec: 'ec_probe',
+  ph: 'ph_probe',
+  soilEc: 'soil_ec_probe',
+  leafTemp: 'leaf_temperature_probe',
+  waterTemp: 'water_temperature_probe',
+  airPressure: 'pressure_sensor',
   vpd: 'sht45'
 };
 
@@ -1610,6 +1633,16 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
   const hasBh1750 = rawSensors.bh1750?.present === true;
   const hasDs18b20 = rawSensors.ds18b20?.present === true;
 
+  const auxiliaryDefinitions = [
+    ['pressure_sensor', 'Air pressure sensor', ['airPressure']],
+    ['leaf_temperature_probe', 'Leaf temperature sensor', ['leafTemp']],
+    ['soil_moisture_probe', 'Soil moisture sensor', ['soilMoisture']],
+    ['soil_ec_probe', 'Substrate EC sensor', ['soilEc']],
+    ['ec_probe', 'Nutrient EC sensor', ['ec']],
+    ['ph_probe', 'Nutrient pH sensor', ['ph']],
+    ['water_temperature_probe', 'Water temperature sensor', ['waterTemp']]
+  ];
+
   return [
     {
       port: 'internal',
@@ -1637,7 +1670,11 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
       role: configuredOneWire.role || 'unassigned_temperature',
       label: configuredOneWire.label || 'Temperature probe',
       configurable: true
-    }
+    },
+    ...auxiliaryDefinitions.map(([key, label, metrics]) => ({
+      port: 'aux', sensorModel: null, detected: rawSensors[key]?.present === true,
+      metrics, role: null, label, configurable: false
+    }))
   ];
 }
 

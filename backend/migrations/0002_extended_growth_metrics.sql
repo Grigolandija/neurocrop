@@ -1,0 +1,7 @@
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS soil_moisture REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS ec REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS ph REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS soil_ec REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS leaf_temperature REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS water_temperature REAL;
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS air_pressure REAL;

@@ -20,6 +20,13 @@ export function getDetectedSensorNames(node: NodeHealthInput) {
   if (presence.scd41) sensors.push('CO2')
   if (presence.bh1750) sensors.push('Light')
   if (presence.ds18b20) sensors.push('Temperature probe')
+  if (presence.pressure_sensor) sensors.push('Air pressure')
+  if (presence.leaf_temperature_probe) sensors.push('Leaf temperature')
+  if (presence.soil_moisture_probe) sensors.push('Soil moisture')
+  if (presence.soil_ec_probe) sensors.push('Substrate EC')
+  if (presence.ec_probe) sensors.push('Nutrient EC')
+  if (presence.ph_probe) sensors.push('Nutrient pH')
+  if (presence.water_temperature_probe) sensors.push('Water temperature')
   return sensors
 }
 
