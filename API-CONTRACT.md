@@ -17,6 +17,10 @@ ir DB prisijungimai priklauso tik backend.
 POST /auth/login
 POST /auth/logout
 GET  /auth/me
+POST /auth/register
+GET  /auth/organizations
+POST /auth/switch-organization
+POST /auth/accept-invite
 ```
 
 ```json
@@ -242,6 +246,10 @@ POST   /crop-profiles/:profileId/duplicate
 DELETE /crop-profiles/:profileId
 ```
 
+`DELETE /nodes/:devEui` grąžina `409 NODE_HAS_HISTORY`, jeigu Node jau turi
+matavimų. Istorija nėra automatiškai ištrinama; ilgalaikiam pašalinimui reikalinga
+atskira archyvavimo arba duomenų išvalymo politika.
+
 Crop profiles endpoint'ai turi aptarnauti tą patį modelį, kurį šiandien naudoja
 Settings puslapis. Frontend'as dirba su profile `id` kaip su kanoniniu raktu,
 todėl `sections.crop_profile` turi laikyti būtent šį `id`.
@@ -402,6 +410,17 @@ Taškai neprivalo būti gauti tą pačią sekundę. Backend turi grąžinti tikr
 `observedAt`; grafikas juos braižo laiko ašyje. `receivedAt` naudojamas
 duomenų pristatymo diagnostikai, o ne X ašies pozicijai.
 
+## Analytics
+
+```text
+GET /analytics/section?sectionId=...&metric=...&from=...&to=...&stepMinutes=...
+GET /analytics/site-comparison?areaId=...&sectionIds=...&metric=...&from=...&to=...&stepMinutes=...
+```
+
+Analytics užklausos yra autentifikuotos, apribotos aktyvia organizacija ir vienu
+kartu priima ne daugiau kaip 31 dieną. Leidžiami žingsniai: 10, 60 ir 240 min.;
+zonų palyginimas vienu metu priima nuo vienos iki šešių tos pačios Area sekcijų.
+
 ## Measurement export
 
 ```text
@@ -422,7 +441,7 @@ Date;Time;Area;Section;Sensor;Air temperature (°C);Relative humidity (%);...
 riboja vieną eksportą iki 31 dienos; didesniems laikotarpiams vėliau bus
 naudojami agreguoti arba asinchroniškai sugeneruoti eksportai.
 
-## Alerts
+## Alerts (planned, not deployed)
 
 ```text
 GET  /alerts?status=open
@@ -435,7 +454,7 @@ Backend automatiškai žymi sąlygą `recovered`, kai rodiklis stabiliai grįžt
 profilio ribas. Vartotojo `resolve` yra darbo proceso įrašas, ne sensoriaus
 reikšmės pakeitimas.
 
-## Interventions
+## Interventions (planned, not deployed)
 
 Frontend neturi saugoti atliktų veiksmų tik `localStorage`. Veiksmas ir jo
 rezultatas turi būti organizacijos audit trail dalis:

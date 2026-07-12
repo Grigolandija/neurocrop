@@ -6,6 +6,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const runtime = await fs.readFile(path.join(root, "public/approved-dashboard-runtime.js"), "utf8");
 const config = await fs.readFile(path.join(root, "public/runtime-config.js"), "utf8");
 const contract = await fs.readFile(path.join(root, "API-CONTRACT.md"), "utf8");
+const appSource = await fs.readFile(path.join(root, "src/App.tsx"), "utf8");
 let failures = 0;
 
 function assert(condition, message) {
@@ -47,11 +48,14 @@ assert(runtime.includes('let activeTrendScaleMode = "detail";') && runtime.inclu
 assert(runtime.includes('offscreenTargetLabel') && runtime.includes('translateInterfaceText("away")'), "Detail trend scale must explain targets outside the visible measurement range");
 assert(runtime.includes('visualMap: isMultiMetric ? [] : trendValueVisualMaps'), "Dual metric trends must retain distinct series colors");
 assert(runtime.includes('class="admin-table"') && runtime.includes('data-admin-search="organizations"') && runtime.includes('data-admin-search="users"'), "Admin must use searchable management tables instead of decorative settings cards");
+assert(runtime.includes('async function readResponseBody(response)') && runtime.includes('payload.error?.message') && runtime.includes('AbortSignal.timeout(15000)'), "API requests must handle empty/non-JSON responses, expose structured error messages, and time out");
+assert(runtime.includes('let dashboardHydrationRequestId = 0;') && runtime.includes('const isCurrentRequest = () => requestId === dashboardHydrationRequestId'), "stale dashboard responses must not overwrite a newer organization context");
 assert(runtime.includes('data-platform-admin-grant=') && runtime.includes('data-platform-user-status=') && runtime.includes('data-platform-user-delete='), "Super Admin must manage admin access, account status, and deletion directly from the Users table");
 assert(runtime.includes('isSuperAdmin: session.isSuperAdmin === true') && runtime.includes('user.isSuperAdmin ? "Super admin"'), "Super Admin identity must remain explicit and protected in the frontend");
 assert(!runtime.includes('data-settings-form="platform-admin"'), "Admin access must not use a separate email form outside the Users table");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
+assert((appSource.match(/window\.location\.assign\('\/'\)/g) || []).length >= 3, "auth-only routes must return through a clean document load instead of reusing global dashboard listeners");
 
 if (failures) process.exitCode = 1;
 else console.log("Runtime invariants passed.");

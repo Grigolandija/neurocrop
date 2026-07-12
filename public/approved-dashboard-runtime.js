@@ -387,6 +387,27 @@
   const config = window.NEUROCROP_CONFIG || {};
   const apiBaseUrl = String(config.apiBaseUrl || "").replace(/\/$/, "");
 
+  async function readResponseBody(response) {
+    const text = await response.text();
+    if (!text) return null;
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error("The API returned malformed JSON.");
+      }
+    }
+    return text;
+  }
+
+  function responseErrorMessage(payload, fallback) {
+    if (payload && typeof payload === "object") {
+      return String(payload.error?.message || payload.message || fallback);
+    }
+    return String(payload || fallback).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }
+
   async function request(path, options = {}) {
     if (!apiBaseUrl) {
       throw new Error("API base URL is not configured.");
@@ -394,6 +415,7 @@
 
     const response = await fetch(`${apiBaseUrl}${path}`, {
       credentials: "include",
+      signal: options.signal || AbortSignal.timeout(15000),
       headers: {
         Accept: "application/json",
         ...(options.body ? { "Content-Type": "application/json" } : {}),
@@ -407,16 +429,11 @@
         window.dispatchEvent(new CustomEvent("neurocrop:unauthorized"));
         throw new Error("Your session has ended. Please sign in again.");
       }
-      const detail = await response.text().catch(() => "");
-      const htmlPreMatch = detail.match(/<pre>([\s\S]*?)<\/pre>/i);
-      const readableDetail = htmlPreMatch
-        ? htmlPreMatch[1].replace(/<[^>]+>/g, "").trim()
-        : detail.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      throw new Error(readableDetail || `API request failed with ${response.status}.`);
+      const detail = await readResponseBody(response).catch(() => null);
+      throw new Error(responseErrorMessage(detail, `API request failed with ${response.status}.`));
     }
 
-    if (response.status === 204) return null;
-    return response.json();
+    return readResponseBody(response);
   }
 
   async function downloadFile(path, fallbackFilename) {
@@ -426,6 +443,7 @@
 
     const response = await fetch(`${apiBaseUrl}${path}`, {
       credentials: "include",
+      signal: AbortSignal.timeout(60000),
       headers: { Accept: "text/csv" }
     });
 
@@ -434,8 +452,8 @@
         window.dispatchEvent(new CustomEvent("neurocrop:unauthorized"));
         throw new Error("Your session has ended. Please sign in again.");
       }
-      const detail = await response.text().catch(() => "");
-      throw new Error(detail.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || `Export failed with ${response.status}.`);
+      const detail = await readResponseBody(response).catch(() => null);
+      throw new Error(responseErrorMessage(detail, `Export failed with ${response.status}.`));
     }
 
     const header = response.headers.get("content-disposition") || "";
@@ -447,7 +465,7 @@
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function queryString(params) {
@@ -1174,10 +1192,11 @@
       });
     }
 
-    async function hydrateCropProfilesFromApi() {
+    async function hydrateCropProfilesFromApi(shouldApply = () => true) {
       if (!window.NeuroCropApi?.isConnected?.() || !window.NeuroCropApi?.getCropProfiles) return null;
       try {
         const response = await window.NeuroCropApi.getCropProfiles();
+        if (!shouldApply()) return null;
         applyApiCropProfiles(response);
         return response;
       } catch (error) {
@@ -1583,12 +1602,17 @@
 
     async function hydrateDashboardFromApi(options = {}) {
       const { preserveCurrentOnError = false } = options;
-      if (!window.NeuroCropApi?.isConnected() || dashboardHydrationInFlight) return;
-      dashboardHydrationInFlight = true;
+      if (!window.NeuroCropApi?.isConnected()) return;
+      const requestId = ++dashboardHydrationRequestId;
+      const organizationId = getLoginSession()?.organizationId || "";
+      const isCurrentRequest = () => requestId === dashboardHydrationRequestId
+        && organizationId === (getLoginSession()?.organizationId || "");
       elements.dashboardShell.setAttribute("aria-busy", "true");
       try {
-        await hydrateCropProfilesFromApi();
+        await hydrateCropProfilesFromApi(isCurrentRequest);
+        if (!isCurrentRequest()) return;
         const nextDashboardData = await window.NeuroCropApi.getDashboard();
+        if (!isCurrentRequest()) return;
         if (!nextDashboardData || !Array.isArray(nextDashboardData.sites) || nextDashboardData.sites.length === 0) {
           dashboardData = { sites: [], note: "API returned no dashboard structure." };
           currentReadings = {};
@@ -1618,20 +1642,20 @@
           onlyActive: false,
           renderOnComplete: false
         });
+        if (!isCurrentRequest() || nextZone.id !== getActiveZone()?.id) return;
         currentReadings = latestReadings ? readingsFromApiObservations(latestReadings) : {};
         manualOverride = false;
         lastDashboardHydratedAt = Date.now();
         renderDashboard();
       } catch (error) {
         console.warn("NeuroCrop API dashboard load failed.", error);
-        if (!preserveCurrentOnError) {
+        if (isCurrentRequest() && !preserveCurrentOnError) {
           dashboardData = { sites: [], note: "API dashboard load failed." };
           currentReadings = {};
           renderDashboard();
         }
       } finally {
-        dashboardHydrationInFlight = false;
-        elements.dashboardShell.removeAttribute("aria-busy");
+        if (isCurrentRequest()) elements.dashboardShell.removeAttribute("aria-busy");
       }
     }
 
@@ -1863,7 +1887,7 @@
     let latestReadingsRequestId = 0;
     let latestReadingsBySectionId = {};
     let latestReadingsStatusBySectionId = {};
-    let dashboardHydrationInFlight = false;
+    let dashboardHydrationRequestId = 0;
     let lastDashboardHydratedAt = 0;
     const dashboardRefreshTtlMs = 30 * 1000;
     let selectPriorityContextAfterLogin = false;

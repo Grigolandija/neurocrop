@@ -25,7 +25,6 @@ function validateRegistrationInput(email: string, name: string, organizationName
 }
 
 function RegisterPage() {
-  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [organizationName, setOrganizationName] = useState('')
@@ -87,7 +86,7 @@ function RegisterPage() {
             {success ? <p className="rounded-2xl bg-[#e5f1ea] px-4 py-3 text-sm font-semibold text-pine" role="status">{success}</p> : null}
             <button type="submit" className="login-submit" disabled={submitting}>{submitting ? 'Creating account...' : 'Create account'}</button>
           </form>
-          <button type="button" className="mt-6 text-sm font-semibold text-pine underline underline-offset-4" onClick={() => navigate('/')}>Back to sign in</button>
+          <button type="button" className="mt-6 text-sm font-semibold text-pine underline underline-offset-4" onClick={() => window.location.assign('/')}>Back to sign in</button>
         </section>
       </div>
     </main>
@@ -95,7 +94,6 @@ function RegisterPage() {
 }
 
 function AcceptInvitePage() {
-  const navigate = useNavigate()
   const token = new URLSearchParams(window.location.search).get('token') || ''
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
@@ -123,7 +121,7 @@ function AcceptInvitePage() {
         const payload = await response.json().catch(() => null)
         throw new Error(payload?.error?.message || 'We could not accept this invitation.')
       }
-      navigate('/', { replace: true })
+      window.location.assign('/')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'We could not accept this invitation.')
     } finally {
@@ -150,7 +148,7 @@ function AcceptInvitePage() {
             {error ? <p className="rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-ember" role="alert">{error}</p> : null}
             <button type="submit" className="login-submit" disabled={submitting || !token}>{submitting ? 'Setting up access...' : 'Accept invitation'}</button>
           </form>
-          <button type="button" className="mt-6 text-sm font-semibold text-pine underline underline-offset-4" onClick={() => navigate('/')}>Back to sign in</button>
+          <button type="button" className="mt-6 text-sm font-semibold text-pine underline underline-offset-4" onClick={() => window.location.assign('/')}>Back to sign in</button>
         </section>
       </div>
     </main>
