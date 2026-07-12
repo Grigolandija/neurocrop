@@ -9,7 +9,10 @@ async function expectNoSeriousViolations(page: Page) {
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze()
   const violations = results.violations.filter((item) => ['serious', 'critical'].includes(item.impact || ''))
-  expect(violations, violations.map((item) => `${item.id}: ${item.help}`).join('\n')).toEqual([])
+  const summary = violations.flatMap((item) => item.nodes.map((node) =>
+    `${item.id}: ${node.target.join(' ')} :: ${node.html}`
+  )).join('\n')
+  expect(violations, summary).toEqual([])
 }
 
 test.beforeEach(async ({ page }) => {

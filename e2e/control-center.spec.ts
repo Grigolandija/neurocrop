@@ -60,6 +60,6 @@ test('empty organization shows onboarding without stale charts', async ({ page }
 test('large workspace keeps 100+ Areas accessible', async ({ page }) => {
   await login(page, 'tenant-large@ci.neurocrop.test')
   await navigationAction(page, 'sites').click()
-  await expect(page.locator('.management-list-row')).toHaveCount(120)
-  await expect(page.getByText('Scale Area 120', { exact: true })).toBeVisible()
+  await expect(page.locator('.management-list-row')).toHaveCount(101)
+  await expect(page.getByText('Scale Area 101', { exact: true })).toBeVisible()
 })

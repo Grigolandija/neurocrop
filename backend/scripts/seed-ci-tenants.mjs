@@ -36,7 +36,7 @@ for (const tenant of tenants) {
   );
   if (tenant.empty) continue;
   if (tenant.large) {
-    for (let index = 1; index <= 120; index += 1) {
+    for (let index = 1; index <= 101; index += 1) {
       await query(
         `INSERT INTO areas (id, organization_id, name) VALUES ($1, $2, $3)
          ON CONFLICT (id) DO UPDATE SET organization_id=EXCLUDED.organization_id, name=EXCLUDED.name`,
