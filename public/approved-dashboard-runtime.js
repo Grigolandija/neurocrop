@@ -383,228 +383,6 @@
     saveDashboardData: writeStoredData
   };
 })();
-(function () {
-  const config = window.NEUROCROP_CONFIG || {};
-  const apiBaseUrl = String(config.apiBaseUrl || "").replace(/\/$/, "");
-
-  async function readResponseBody(response) {
-    const text = await response.text();
-    if (!text) return null;
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      try {
-        return JSON.parse(text);
-      } catch {
-        throw new Error("The API returned malformed JSON.");
-      }
-    }
-    return text;
-  }
-
-  function responseErrorMessage(payload, fallback) {
-    if (payload && typeof payload === "object") {
-      return String(payload.error?.message || payload.message || fallback);
-    }
-    return String(payload || fallback).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  }
-
-  async function request(path, options = {}) {
-    if (!apiBaseUrl) {
-      throw new Error("API base URL is not configured.");
-    }
-
-    const response = await fetch(`${apiBaseUrl}${path}`, {
-      credentials: "include",
-      signal: options.signal || AbortSignal.timeout(15000),
-      headers: {
-        Accept: "application/json",
-        ...(options.body ? { "Content-Type": "application/json" } : {}),
-        ...(options.headers || {})
-      },
-      ...options
-    });
-
-    if (!response.ok) {
-      if (response.status === 401 && path !== "/auth/login") {
-        window.dispatchEvent(new CustomEvent("neurocrop:unauthorized"));
-        throw new Error("Your session has ended. Please sign in again.");
-      }
-      const detail = await readResponseBody(response).catch(() => null);
-      throw new Error(responseErrorMessage(detail, `API request failed with ${response.status}.`));
-    }
-
-    return readResponseBody(response);
-  }
-
-  async function downloadFile(path, fallbackFilename) {
-    if (!apiBaseUrl) {
-      throw new Error("API base URL is not configured.");
-    }
-
-    const response = await fetch(`${apiBaseUrl}${path}`, {
-      credentials: "include",
-      signal: AbortSignal.timeout(60000),
-      headers: { Accept: "text/csv" }
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        window.dispatchEvent(new CustomEvent("neurocrop:unauthorized"));
-        throw new Error("Your session has ended. Please sign in again.");
-      }
-      const detail = await readResponseBody(response).catch(() => null);
-      throw new Error(responseErrorMessage(detail, `Export failed with ${response.status}.`));
-    }
-
-    const header = response.headers.get("content-disposition") || "";
-    const filename = header.match(/filename="?([^";]+)"?/i)?.[1] || fallbackFilename;
-    const url = URL.createObjectURL(await response.blob());
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  function queryString(params) {
-    const query = new URLSearchParams();
-    Object.entries(params || {}).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") query.set(key, value);
-    });
-    const serialized = query.toString();
-    return serialized ? `?${serialized}` : "";
-  }
-
-  // This is the frontend/backend contract. The backend owns credentials,
-  // ChirpStack connectivity, validation, and database queries.
-  window.NeuroCropApi = {
-    isConnected: () => Boolean(apiBaseUrl),
-    login: (email, password) => request("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password })
-    }),
-    logout: () => request("/auth/logout", { method: "POST" }),
-    getCurrentUser: () => request("/auth/me"),
-    getOrganizations: () => request("/auth/organizations"),
-    switchOrganization: (organizationId) => request("/auth/switch-organization", {
-      method: "POST",
-      body: JSON.stringify({ organizationId })
-    }),
-    getTeam: () => request("/team"),
-    getInvitations: () => request("/invitations"),
-    inviteMember: (payload) => request("/invitations", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
-    revokeInvitation: (invitationId) => request(`/invitations/${encodeURIComponent(invitationId)}`, {
-      method: "DELETE"
-    }),
-    getPlatformOrganizations: () => request("/platform/organizations"),
-    createPlatformOrganization: (payload) => request("/platform/organizations", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
-    archivePlatformOrganization: (organizationId) => request(`/platform/organizations/${encodeURIComponent(organizationId)}/archive`, {
-      method: "PATCH"
-    }),
-    restorePlatformOrganization: (organizationId) => request(`/platform/organizations/${encodeURIComponent(organizationId)}/restore`, {
-      method: "PATCH"
-    }),
-    deletePlatformOrganization: (organizationId) => request(`/platform/organizations/${encodeURIComponent(organizationId)}?confirm=delete`, {
-      method: "DELETE"
-    }),
-    getPlatformUsers: () => request("/platform/users"),
-    getOrganizationRequests: (status = "pending") => request(`/platform/organization-requests${queryString({ status })}`),
-    approveOrganizationRequest: (requestId) => request(`/platform/organization-requests/${encodeURIComponent(requestId)}/approve`, {
-      method: "POST"
-    }),
-    rejectOrganizationRequest: (requestId) => request(`/platform/organization-requests/${encodeURIComponent(requestId)}/reject`, {
-      method: "POST"
-    }),
-    grantPlatformAdmin: (payload) => request("/platform/admins", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
-    revokePlatformAdmin: (userId) => request(`/platform/admins/${encodeURIComponent(userId)}`, {
-      method: "DELETE"
-    }),
-    setPlatformUserActive: (userId, active) => request(`/platform/users/${encodeURIComponent(userId)}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ active })
-    }),
-    deletePlatformUser: (userId) => request(`/platform/users/${encodeURIComponent(userId)}?confirm=delete`, {
-      method: "DELETE"
-    }),
-    getDashboard: () => request("/dashboard"),
-    getCropProfiles: () => request("/crop-profiles"),
-    getLatestReadings: (sectionId) => request(`/readings/latest${queryString({ sectionId })}`),
-    getHistory: (params) => request(`/history${queryString(params)}`),
-    getSectionAnalytics: (params) => request(`/analytics/section${queryString(params)}`),
-    getSiteComparison: (params) => request(`/analytics/site-comparison${queryString(params)}`),
-    downloadMeasurementsCsv: (params) => downloadFile(
-      `/exports/measurements.csv${queryString(params)}`,
-      "neurocrop-measurements.csv"
-    ),
-    getAreas: () => request("/areas"),
-    getSections: (areaId) => request(`/sections${queryString({ areaId })}`),
-    getNodes: (sectionId) => request(`/nodes${queryString({ sectionId })}`),
-    createArea: (payload) => request("/areas", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
-    updateArea: (areaId, payload) => request(`/areas/${encodeURIComponent(areaId)}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload)
-    }),
-    deleteArea: (areaId, options = {}) => request(`/areas/${encodeURIComponent(areaId)}${queryString({ keepSections: options.keepSections ? "true" : undefined })}`, {
-      method: "DELETE"
-    }),
-    createSection: (payload) => request("/sections", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
-    updateSection: (sectionId, payload) => request(`/sections/${encodeURIComponent(sectionId)}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload)
-    }),
-    deleteSection: (sectionId) => request(`/sections/${encodeURIComponent(sectionId)}`, {
-      method: "DELETE"
-    }),
-    updateNode: (devEui, payload) => request(`/nodes/${encodeURIComponent(devEui)}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload)
-    }),
-    getNodeSensors: (devEui) => request(`/nodes/${encodeURIComponent(devEui)}/sensors`),
-    updateNodeSensor: (devEui, port, payload) => request(`/nodes/${encodeURIComponent(devEui)}/sensors/${encodeURIComponent(port)}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload)
-    }),
-    createCropProfile: (payload) => request("/crop-profiles", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
-    updateCropProfile: (profileId, payload) => request(`/crop-profiles/${encodeURIComponent(profileId)}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload)
-    }),
-    duplicateCropProfile: (profileId, payload) => request(`/crop-profiles/${encodeURIComponent(profileId)}/duplicate`, {
-      method: "POST",
-      body: JSON.stringify(payload || {})
-    }),
-    deleteCropProfile: (profileId) => request(`/crop-profiles/${encodeURIComponent(profileId)}`, {
-      method: "DELETE"
-    }),
-    registerNode: (payload) => request("/nodes/register", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
-    deleteNode: (devEui) => request(`/nodes/${encodeURIComponent(devEui)}`, {
-      method: "DELETE"
-    })
-  };
-})();
     const interfaceLanguageStorageKey = "neurocrop-interface-language-v1";
     const originalInterfaceText = new WeakMap();
     let interfaceLanguage = (() => {
@@ -7285,8 +7063,11 @@
 
     function renderLocationsManagementPage(globalSnapshots) {
       const locations = dashboardData.sites.filter((site) => !isUnassignedLocation(site));
-      const totalLocations = locations.length;
+      const areaFeature = window.NeuroCropFeatures.areas;
+      const areaSummary = areaFeature.buildAreasSummary(locations, globalSnapshots);
+      const totalLocations = areaSummary.areaCount;
       if (totalLocations === 0) {
+        const emptyCopy = areaFeature.emptyAreasCopy;
         locationFormState = {
           ...locationFormState,
           mode: "create",
@@ -7295,9 +7076,9 @@
         elements.locationsManagementShell.innerHTML = `
           <div class="surface rounded-[34px] p-6 md:p-8">
             <form data-management-form="location" class="max-w-5xl">
-              <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Create area</p>
-              <h2 class="mt-2 font-display text-3xl font-bold text-ink">Create your first area</h2>
-              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">An area can be a farm, field, greenhouse, laboratory, or another monitored location. Sections and nodes are added afterwards.</p>
+              <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">${escapeHtml(emptyCopy.eyebrow)}</p>
+              <h2 class="mt-2 font-display text-3xl font-bold text-ink">${escapeHtml(emptyCopy.title)}</h2>
+              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">${escapeHtml(emptyCopy.description)}</p>
               <div class="mt-6 flex flex-col gap-3 md:flex-row">
                 <input name="locationName" value="${escapeAttribute(locationFormState.name)}" placeholder="Greenhouse No. 1" class="min-h-[58px] flex-1 rounded-[22px] border border-black/10 bg-white px-5 text-base font-semibold outline-none transition focus:border-pine/45 focus:ring-4 focus:ring-pine/10">
                 <button type="submit" class="inline-flex min-h-[58px] items-center justify-center rounded-[22px] bg-pine px-6 text-base font-bold text-white shadow-soft transition hover:-translate-y-0.5">
@@ -7310,9 +7091,9 @@
         `;
         return;
       }
-      const totalBlocks = dashboardData.sites.reduce((sum, site) => sum + (site.zones || []).length, 0);
-      const totalNodes = dashboardData.sites.reduce((sum, site) => sum + getSiteNodeCount(site), 0);
-      const activeAlertCount = globalSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal").length;
+      const totalBlocks = areaSummary.sectionCount;
+      const totalNodes = areaSummary.nodeCount;
+      const activeAlertCount = areaSummary.attentionCount;
       const locationRows = locations.map((site) => {
         const siteSnapshots = globalSnapshots.filter((snapshot) => snapshot.site.id === site.id);
         const siteState = siteSnapshots.length > 0 ? deriveSiteOverallState(siteSnapshots) : null;
@@ -7389,11 +7170,10 @@
             </div>
           `;
 
-      const locationFormButtonLabel = locationFormState.mode === "edit" ? "Save area" : "Create area";
-      const locationFormTitle = locationFormState.mode === "edit" ? "Edit area" : "Create area";
-      const locationFormSummary = locationFormState.mode === "edit"
-        ? "Rename the larger operating area without touching the blocks already inside it."
-        : "Use one location for one greenhouse, room, tunnel, or other larger operating area.";
+      const areaFormCopy = areaFeature.getAreaFormCopy(locationFormState.mode);
+      const locationFormButtonLabel = areaFormCopy.buttonLabel;
+      const locationFormTitle = areaFormCopy.title;
+      const locationFormSummary = areaFormCopy.summary;
 
       elements.locationsManagementShell.innerHTML = `
         <div class="space-y-6">
@@ -7475,14 +7255,14 @@
     }
 
     function renderBlocksManagementPage(globalSnapshots) {
+      const sectionFeature = window.NeuroCropFeatures.sections;
       const locationOptions = dashboardData.sites.filter((site) => !isUnassignedLocation(site));
       const unassignedSite = dashboardData.sites.find((site) => isUnassignedLocation(site)) || null;
       const blockSites = unassignedSite ? [...locationOptions, unassignedSite] : locationOptions;
       const filteredSites = blockSites.filter((site) => site.id === activeSiteId);
-      const blockEntries = filteredSites.flatMap((site) =>
-        (site.zones || []).map((zone) => {
+      const scopedSections = sectionFeature.getSectionsForArea(blockSites, activeSiteId, globalSnapshots);
+      const blockEntries = scopedSections.map(({ area: site, section: zone, snapshot }) => {
           const profile = cropProfiles[zone.profile];
-          const snapshot = globalSnapshots.find((item) => item.site.id === site.id && item.zone.id === zone.id) || null;
           const batteryDefinition = profile?.metrics?.batteryLevel || null;
           const lowBatteryCount = batteryDefinition ? getLowBatteryNodes(zone, batteryDefinition).length : 0;
           const installedGrowthCount = (zone.availableMetrics || []).filter((key) => isGrowthMetricKey(key)).length;
@@ -7498,21 +7278,18 @@
             installedGrowthCount,
             totalGrowthCount
           };
-        })
-      ).sort((left, right) => (left.snapshot?.overall.indexScore || 100) - (right.snapshot?.overall.indexScore || 100));
+        });
 
-      const filteredBlockCount = blockEntries.length;
-      const filteredNodeCount = blockEntries.reduce((sum, row) => sum + ((row.zone.batteryNodes || []).length || row.zone.sensorCount || 0), 0);
-      const filteredAlertCount = blockEntries.filter((row) => row.snapshot?.overall.state !== "optimal").length;
+      const sectionSummary = sectionFeature.summarizeSections(scopedSections);
+      const filteredBlockCount = sectionSummary.sectionCount;
+      const filteredNodeCount = sectionSummary.nodeCount;
+      const filteredAlertCount = sectionSummary.attentionCount;
       const filteredLowBatteryCount = blockEntries.reduce((sum, row) => sum + row.lowBatteryCount, 0);
-      const blockFormTitle = blockFormState.mode === "edit" ? "Edit section" : "Create section";
-      const blockFormSummary = blockFormState.mode === "edit"
-        ? "Rename, move, or reprofile the monitored section without changing its sensor history."
-        : "Use one section for one monitored crop, field sector, laboratory setup, or growing block inside an area.";
-      const blockFormButtonLabel = blockFormState.mode === "edit" ? "Save section" : "Create section";
-      const emptyState = filteredSites.length > 0
-        ? `No sections exist in ${filteredSites[0].name} yet.`
-        : "No sections exist yet.";
+      const sectionFormCopy = sectionFeature.getSectionFormCopy(blockFormState.mode);
+      const blockFormTitle = sectionFormCopy.title;
+      const blockFormSummary = sectionFormCopy.summary;
+      const blockFormButtonLabel = sectionFormCopy.buttonLabel;
+      const emptyState = sectionFeature.getEmptySectionsTitle(filteredSites[0]?.name);
       const activeFilterLabel = filteredSites[0]?.name || "Selected area";
 
       const blockList = filteredBlockCount > 0

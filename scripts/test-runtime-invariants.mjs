@@ -9,6 +9,14 @@ const contract = await fs.readFile(path.join(root, "API-CONTRACT.md"), "utf8");
 const appSource = await fs.readFile(path.join(root, "src/App.tsx"), "utf8");
 const markup = await fs.readFile(path.join(root, "src/approved-dashboard-markup.html"), "utf8");
 const styles = await fs.readFile(path.join(root, "src/styles/approved-dashboard.css"), "utf8");
+const apiClient = await fs.readFile(path.join(root, "src/services/api/client.ts"), "utf8");
+const apiFacade = await fs.readFile(path.join(root, "src/services/api/neurocropApi.ts"), "utf8");
+const dashboardPage = await fs.readFile(path.join(root, "src/pages/DashboardPage.tsx"), "utf8");
+const registerPage = await fs.readFile(path.join(root, "src/pages/RegisterPage.tsx"), "utf8");
+const invitePage = await fs.readFile(path.join(root, "src/pages/AcceptInvitePage.tsx"), "utf8");
+const authLayout = await fs.readFile(path.join(root, "src/features/auth/AuthLayout.tsx"), "utf8");
+const areasModel = await fs.readFile(path.join(root, "src/features/areas/model.ts"), "utf8");
+const sectionsModel = await fs.readFile(path.join(root, "src/features/sections/model.ts"), "utf8");
 let failures = 0;
 
 function assert(condition, message) {
@@ -51,7 +59,15 @@ assert(runtime.includes('let activeTrendScaleMode = "detail";') && runtime.inclu
 assert(runtime.includes('offscreenTargetLabel') && runtime.includes('translateInterfaceText("away")'), "Detail trend scale must explain targets outside the visible measurement range");
 assert(runtime.includes('visualMap: isMultiMetric ? [] : trendValueVisualMaps'), "Dual metric trends must retain distinct series colors");
 assert(runtime.includes('class="admin-table"') && runtime.includes('data-admin-search="organizations"') && runtime.includes('data-admin-search="users"'), "Admin must use searchable management tables instead of decorative settings cards");
-assert(runtime.includes('async function readResponseBody(response)') && runtime.includes('payload.error?.message') && runtime.includes('AbortSignal.timeout(15000)'), "API requests must handle empty/non-JSON responses, expose structured error messages, and time out");
+assert(apiClient.includes('async function readResponseBody(response: Response)') && apiClient.includes('value.error?.message') && apiClient.includes('AbortSignal.timeout(15_000)'), "API requests must handle empty/non-JSON responses, expose structured error messages, and time out");
+assert(dashboardPage.includes('installNeuroCropApi()') && !runtime.includes('async function readResponseBody(response)'), "the modular API client must be installed and its legacy runtime duplicate must remain removed");
+assert(appSource.includes("lazy(() => import('./pages/DashboardPage'))") && appSource.includes("lazy(() => import('./pages/RegisterPage'))") && appSource.includes('<Suspense fallback='), "application routes must be code-split behind an explicit loading state");
+assert(registerPage.includes('neurocropApi.register(') && invitePage.includes('neurocropApi.acceptInvitation('), "authentication pages must use the shared API facade rather than direct fetch calls");
+assert(apiClient.includes('export const request') && apiClient.includes("AbortSignal.timeout(15_000)") && apiClient.includes('notifyUnauthorized()'), "API transport, timeout, and session handling must live in the dedicated service module");
+assert(apiFacade.includes('export const neurocropApi') && apiFacade.includes('getDashboard:') && apiFacade.includes('downloadMeasurementsCsv:'), "backend endpoints must be exposed by the modular API facade");
+assert(dashboardPage.includes('installNeuroCropFeatures()') && runtime.includes('window.NeuroCropFeatures.areas') && runtime.includes('window.NeuroCropFeatures.sections'), "Area and Section feature models must be installed before the legacy renderer uses them");
+assert(areasModel.includes('export function buildAreasSummary') && areasModel.includes('export function getAreaFormCopy'), "Area counts and UI copy must live in the Area feature model");
+assert(sectionsModel.includes('export function getSectionsForArea') && sectionsModel.includes('export function summarizeSections'), "Section scoping, ordering, and counts must live in the Section feature model");
 assert(runtime.includes('let dashboardHydrationRequestId = 0;') && runtime.includes('const isCurrentRequest = () => requestId === dashboardHydrationRequestId'), "stale dashboard responses must not overwrite a newer organization context");
 assert(runtime.includes('data-platform-admin-grant=') && runtime.includes('data-platform-user-status=') && runtime.includes('data-platform-user-delete='), "Super Admin must manage admin access, account status, and deletion directly from the Users table");
 assert(runtime.includes('isSuperAdmin: session.isSuperAdmin === true') && runtime.includes('user.isSuperAdmin ? "Super admin"'), "Super Admin identity must remain explicit and protected in the frontend");
@@ -68,7 +84,7 @@ assert(styles.includes("@media (max-width: 760px)") && styles.includes(".admin-t
 assert(styles.includes('#overviewTriageSection[aria-busy="true"]') && styles.includes("nc-skeleton-sweep"), "live surfaces must retain visible skeleton loading states");
 assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
 assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
-assert((appSource.match(/window\.location\.assign\('\/'\)/g) || []).length >= 3, "auth-only routes must return through a clean document load instead of reusing global dashboard listeners");
+assert((`${authLayout}\n${invitePage}`.match(/window\.location\.assign\('\/'\)/g) || []).length >= 2, "auth-only routes must return through a clean document load instead of reusing global dashboard listeners");
 
 if (failures) process.exitCode = 1;
 else console.log("Runtime invariants passed.");

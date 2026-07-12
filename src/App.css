@@ -868,3 +868,15 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   .hero-head { grid-template-columns: 1fr 310px; }
   .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+.app-route-loading {
+  min-height: 100vh;
+  background:
+    linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.72) 48%, transparent 66%),
+    #f3eee4;
+  background-size: 220% 100%;
+  animation: route-loading-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes route-loading-sweep {
+  to { background-position: -120% 0; }
+}

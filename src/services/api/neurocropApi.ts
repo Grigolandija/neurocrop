@@ -1,0 +1,65 @@
+import { downloadFile, isApiConnected, queryString, request } from './client'
+
+type Payload = Record<string, unknown>
+
+const json = (payload: Payload) => JSON.stringify(payload)
+const encoded = (value: string) => encodeURIComponent(value)
+
+export const neurocropApi = {
+  isConnected: isApiConnected,
+  register: (payload: Payload) => request('/auth/register', { method: 'POST', body: json(payload) }),
+  acceptInvitation: (payload: Payload) => request('/auth/accept-invite', { method: 'POST', body: json(payload) }),
+  login: (email: string, password: string) => request('/auth/login', { method: 'POST', body: json({ email, password }) }),
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  getCurrentUser: () => request('/auth/me'),
+  getOrganizations: () => request('/auth/organizations'),
+  switchOrganization: (organizationId: string) => request('/auth/switch-organization', { method: 'POST', body: json({ organizationId }) }),
+  getTeam: () => request('/team'),
+  getInvitations: () => request('/invitations'),
+  inviteMember: (payload: Payload) => request('/invitations', { method: 'POST', body: json(payload) }),
+  revokeInvitation: (id: string) => request(`/invitations/${encoded(id)}`, { method: 'DELETE' }),
+  getPlatformOrganizations: () => request('/platform/organizations'),
+  createPlatformOrganization: (payload: Payload) => request('/platform/organizations', { method: 'POST', body: json(payload) }),
+  archivePlatformOrganization: (id: string) => request(`/platform/organizations/${encoded(id)}/archive`, { method: 'PATCH' }),
+  restorePlatformOrganization: (id: string) => request(`/platform/organizations/${encoded(id)}/restore`, { method: 'PATCH' }),
+  deletePlatformOrganization: (id: string) => request(`/platform/organizations/${encoded(id)}?confirm=delete`, { method: 'DELETE' }),
+  getPlatformUsers: () => request('/platform/users'),
+  getOrganizationRequests: (status = 'pending') => request(`/platform/organization-requests${queryString({ status })}`),
+  approveOrganizationRequest: (id: string) => request(`/platform/organization-requests/${encoded(id)}/approve`, { method: 'POST' }),
+  rejectOrganizationRequest: (id: string) => request(`/platform/organization-requests/${encoded(id)}/reject`, { method: 'POST' }),
+  grantPlatformAdmin: (payload: Payload) => request('/platform/admins', { method: 'POST', body: json(payload) }),
+  revokePlatformAdmin: (id: string) => request(`/platform/admins/${encoded(id)}`, { method: 'DELETE' }),
+  setPlatformUserActive: (id: string, active: boolean) => request(`/platform/users/${encoded(id)}/status`, { method: 'PATCH', body: json({ active }) }),
+  deletePlatformUser: (id: string) => request(`/platform/users/${encoded(id)}?confirm=delete`, { method: 'DELETE' }),
+  getDashboard: () => request('/dashboard'),
+  getCropProfiles: () => request('/crop-profiles'),
+  getLatestReadings: (sectionId: string) => request(`/readings/latest${queryString({ sectionId })}`),
+  getHistory: (params: Payload) => request(`/history${queryString(params)}`),
+  getSectionAnalytics: (params: Payload) => request(`/analytics/section${queryString(params)}`),
+  getSiteComparison: (params: Payload) => request(`/analytics/site-comparison${queryString(params)}`),
+  downloadMeasurementsCsv: (params: Payload) => downloadFile(`/exports/measurements.csv${queryString(params)}`, 'neurocrop-measurements.csv'),
+  getAreas: () => request('/areas'),
+  getSections: (areaId?: string) => request(`/sections${queryString({ areaId })}`),
+  getNodes: (sectionId?: string) => request(`/nodes${queryString({ sectionId })}`),
+  createArea: (payload: Payload) => request('/areas', { method: 'POST', body: json(payload) }),
+  updateArea: (id: string, payload: Payload) => request(`/areas/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
+  deleteArea: (id: string, options: { keepSections?: boolean } = {}) => request(`/areas/${encoded(id)}${queryString({ keepSections: options.keepSections ? 'true' : undefined })}`, { method: 'DELETE' }),
+  createSection: (payload: Payload) => request('/sections', { method: 'POST', body: json(payload) }),
+  updateSection: (id: string, payload: Payload) => request(`/sections/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
+  deleteSection: (id: string) => request(`/sections/${encoded(id)}`, { method: 'DELETE' }),
+  updateNode: (devEui: string, payload: Payload) => request(`/nodes/${encoded(devEui)}`, { method: 'PATCH', body: json(payload) }),
+  getNodeSensors: (devEui: string) => request(`/nodes/${encoded(devEui)}/sensors`),
+  updateNodeSensor: (devEui: string, port: string, payload: Payload) => request(`/nodes/${encoded(devEui)}/sensors/${encoded(port)}`, { method: 'PATCH', body: json(payload) }),
+  createCropProfile: (payload: Payload) => request('/crop-profiles', { method: 'POST', body: json(payload) }),
+  updateCropProfile: (id: string, payload: Payload) => request(`/crop-profiles/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
+  duplicateCropProfile: (id: string, payload: Payload = {}) => request(`/crop-profiles/${encoded(id)}/duplicate`, { method: 'POST', body: json(payload) }),
+  deleteCropProfile: (id: string) => request(`/crop-profiles/${encoded(id)}`, { method: 'DELETE' }),
+  registerNode: (payload: Payload) => request('/nodes/register', { method: 'POST', body: json(payload) }),
+  deleteNode: (devEui: string) => request(`/nodes/${encoded(devEui)}`, { method: 'DELETE' }),
+}
+
+export function installNeuroCropApi() {
+  window.NeuroCropApi = neurocropApi
+}
+
+export type NeuroCropApi = typeof neurocropApi
