@@ -12584,6 +12584,11 @@
       color: #59615d;
     }
 
+    .triage-action-list p,
+    .triage-reliability-score > span {
+      color: #59615d;
+    }
+
     .triage-action-list {
       display: grid;
       gap: 8px;
