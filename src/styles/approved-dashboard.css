@@ -13689,6 +13689,22 @@
       justify-self: start;
     }
 
+    .settings-password-feedback {
+      margin: 0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff1dc;
+      color: #9a6518;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .settings-password-feedback[data-tone="optimal"] {
+      background: #e8f3ec;
+      color: #24634d;
+    }
+
     .settings-form-title {
       display: flex;
       align-items: center;

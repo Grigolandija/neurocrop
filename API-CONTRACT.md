@@ -17,10 +17,29 @@ ir DB prisijungimai priklauso tik backend.
 POST /auth/login
 POST /auth/logout
 GET  /auth/me
+POST /auth/change-password
 POST /auth/register
 GET  /auth/organizations
 POST /auth/switch-organization
 POST /auth/accept-invite
+```
+
+`POST /auth/change-password` priima dabartinį ir naują (bent 12 simbolių)
+slaptažodžius. Sėkmingai pakeitus slaptažodį dabartinė sesija lieka aktyvi, o
+visos kitos to vartotojo sesijos atšaukiamos:
+
+```json
+{
+  "currentPassword": "old-password",
+  "newPassword": "new-secure-password"
+}
+```
+
+```json
+{
+  "changed": true,
+  "otherSessionsRevoked": true
+}
 ```
 
 ```json

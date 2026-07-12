@@ -42,7 +42,7 @@ export function hashUserPassword(password) {
   return `${salt}:${hash}`;
 }
 
-function hashSessionToken(token) {
+export function hashSessionToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 

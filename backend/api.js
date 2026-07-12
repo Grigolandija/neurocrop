@@ -9,6 +9,8 @@ import {
   createUserSession,
   findUserForLogin,
   getMemberships,
+  hashSessionToken,
+  hashUserPassword,
   publicUser,
   requireUserAuth as requireAuth,
   requireRole,
@@ -125,6 +127,60 @@ app.post('/auth/logout', async (req, res, next) => {
 });
 
 app.get('/auth/me', requireAuth, (req, res) => res.json({ user: req.user }));
+
+app.post('/auth/change-password', requireAuth, async (req, res, next) => {
+  const currentPassword = String(req.body?.currentPassword || '');
+  const newPassword = String(req.body?.newPassword || '');
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Current and new passwords are required' } });
+  }
+  if (newPassword.length < 12) {
+    return res.status(400).json({ error: { code: 'WEAK_PASSWORD', message: 'New password must be at least 12 characters' } });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'SELECT password_hash FROM users WHERE id=$1 AND is_active=true FOR UPDATE',
+      [req.user.id]
+    );
+    const account = rows[0];
+    if (!account) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Account not found' } });
+    }
+    if (!verifyUserPassword(currentPassword, account.password_hash)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: { code: 'CURRENT_PASSWORD_INVALID', message: 'Current password is incorrect' } });
+    }
+    if (verifyUserPassword(newPassword, account.password_hash)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: { code: 'PASSWORD_UNCHANGED', message: 'New password must be different from the current password' } });
+    }
+
+    await client.query(
+      'UPDATE users SET password_hash=$1, updated_at=now() WHERE id=$2',
+      [hashUserPassword(newPassword), req.user.id]
+    );
+    await client.query(
+      `UPDATE auth_sessions SET revoked_at=now()
+       WHERE user_id=$1 AND token_hash<>$2 AND revoked_at IS NULL`,
+      [req.user.id, hashSessionToken(req.cookies.neurocrop_session)]
+    );
+    await client.query('COMMIT');
+    res.json({ changed: true, otherSessionsRevoked: true });
+  } catch (error) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch {}
+    }
+    next(error);
+  } finally {
+    client?.release();
+  }
+});
 
 async function latestForNode(devEui) {
   const { rows } = await query(`SELECT * FROM measurements WHERE dev_eui=$1 ORDER BY time DESC LIMIT 1`, [devEui]);

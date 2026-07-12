@@ -12,6 +12,7 @@ export const neurocropApi = {
   login: (email: string, password: string) => request('/auth/login', { method: 'POST', body: json({ email, password }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   getCurrentUser: () => request('/auth/me'),
+  changePassword: (payload: Payload) => request('/auth/change-password', { method: 'POST', body: json(payload) }),
   getOrganizations: () => request('/auth/organizations'),
   switchOrganization: (organizationId: string) => request('/auth/switch-organization', { method: 'POST', body: json({ organizationId }) }),
   getTeam: () => request('/team'),

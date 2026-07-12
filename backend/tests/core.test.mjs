@@ -137,3 +137,15 @@ test('platform organization creation does not grant the creator tenant membershi
   );
   assert.equal(createRoute.includes('INSERT INTO organization_memberships'), false);
 });
+
+test('password change verifies the current password and revokes other sessions', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const route = source.slice(
+    source.indexOf("app.post('/auth/change-password'"),
+    source.indexOf("async function latestForNode", source.indexOf("app.post('/auth/change-password'"))
+  );
+  assert.match(route, /verifyUserPassword\(currentPassword/);
+  assert.match(route, /newPassword\.length < 12/);
+  assert.match(route, /token_hash<>\$2/);
+  assert.match(route, /hashSessionToken\(req\.cookies\.neurocrop_session\)/);
+});

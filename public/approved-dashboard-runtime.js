@@ -595,6 +595,19 @@
       "Account": "Paskyra",
       "Account identity": "Paskyros informacija",
       "Save organization": "Išsaugoti organizaciją",
+      "Security": "Saugumas",
+      "Change password": "Keisti slaptažodį",
+      "Use at least 12 characters. Other signed-in devices will be signed out.": "Naudokite bent 12 simbolių. Kituose įrenginiuose paskyra bus atjungta.",
+      "Current password": "Dabartinis slaptažodis",
+      "New password": "Naujas slaptažodis",
+      "Confirm new password": "Pakartokite naują slaptažodį",
+      "Enter your current password": "Įveskite dabartinį slaptažodį",
+      "At least 12 characters": "Bent 12 simbolių",
+      "Repeat the new password": "Pakartokite naują slaptažodį",
+      "Password changed. Other signed-in devices were signed out.": "Slaptažodis pakeistas. Kituose įrenginiuose paskyra atjungta.",
+      "Enter your current password and a new password.": "Įveskite dabartinį ir naują slaptažodžius.",
+      "The new password must contain at least 12 characters.": "Naujas slaptažodis turi būti bent 12 simbolių ilgio.",
+      "The new passwords do not match.": "Nauji slaptažodžiai nesutampa.",
       "Work the issues that need attention": "Tvarkykite svarbiausius perspėjimus",
       "Each alert is tied to an Area, Section and live sensor reading. Actions are recorded locally until the backend is connected.": "Kiekvienas perspėjimas susietas su erdve, sekcija ir dabartiniu sensoriaus matavimu. Veiksmai saugomi lokaliai, kol bus prijungtas backend.",
       "View trend": "Peržiūrėti tendenciją",
@@ -8517,6 +8530,16 @@
               </div>
               <button type="submit" class="settings-primary-button">Save preferences</button>
             </form>
+            <form class="settings-form-card" data-settings-form="password">
+              <div class="settings-form-title"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><div><h3>Security</h3><p>Use at least 12 characters. Other signed-in devices will be signed out.</p></div></div>
+              <label><span>Current password</span><input name="currentPassword" type="password" autocomplete="current-password" placeholder="Enter your current password" required></label>
+              <div class="settings-form-grid">
+                <label><span>New password</span><input name="newPassword" type="password" autocomplete="new-password" minlength="12" placeholder="At least 12 characters" required></label>
+                <label><span>Confirm new password</span><input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" placeholder="Repeat the new password" required></label>
+              </div>
+              <p class="settings-password-feedback" data-password-feedback role="status" hidden></p>
+              <button type="submit" class="settings-primary-button">Change password</button>
+            </form>
           </div>
         </section>
       `;
@@ -14681,6 +14704,49 @@
       const settingsForm = event.target.closest("[data-settings-form]");
       if (!settingsForm) return;
       const formKey = settingsForm.dataset.settingsForm;
+      if (formKey === "password") {
+        const formData = new FormData(settingsForm);
+        const currentPassword = String(formData.get("currentPassword") || "");
+        const newPassword = String(formData.get("newPassword") || "");
+        const confirmPassword = String(formData.get("confirmPassword") || "");
+        const feedback = settingsForm.querySelector("[data-password-feedback]");
+        const submitButton = settingsForm.querySelector('button[type="submit"]');
+        const showFeedback = (message, tone = "warning") => {
+          if (!feedback) return;
+          feedback.hidden = false;
+          feedback.dataset.tone = tone;
+          feedback.textContent = translateInterfaceText(message);
+        };
+
+        if (!currentPassword || !newPassword) {
+          showFeedback("Enter your current password and a new password.");
+          return;
+        }
+        if (newPassword.length < 12) {
+          showFeedback("The new password must contain at least 12 characters.");
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          showFeedback("The new passwords do not match.");
+          return;
+        }
+        if (!window.NeuroCropApi?.changePassword) {
+          showFeedback("Password change is not available right now.");
+          return;
+        }
+
+        if (submitButton instanceof HTMLButtonElement) submitButton.disabled = true;
+        try {
+          await window.NeuroCropApi.changePassword({ currentPassword, newPassword });
+          settingsForm.reset();
+          showFeedback("Password changed. Other signed-in devices were signed out.", "optimal");
+        } catch (error) {
+          showFeedback(error?.message || "Password could not be changed.");
+        } finally {
+          if (submitButton instanceof HTMLButtonElement) submitButton.disabled = false;
+        }
+        return;
+      }
       if (formKey === "team") {
         const formData = new FormData(settingsForm);
         const email = String(formData.get("teamEmail") || "").trim();
