@@ -76,10 +76,17 @@ test('large workspace keeps 100+ Areas accessible', async ({ page }) => {
 
 test('primary desktop pages fit the viewport without horizontal overflow', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  const overflows: Array<{ action: string; viewport: number; content: number }> = []
   for (const action of ['overview', 'sites', 'zones', 'nodes', 'readings', 'history', 'settings']) {
     await navigationAction(page, action).click()
-    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
+    await page.waitForTimeout(100)
+    const dimensions = await page.evaluate(() => ({
+      viewport: window.innerWidth,
+      content: document.documentElement.scrollWidth
+    }))
+    if (dimensions.content > dimensions.viewport + 1) overflows.push({ action, ...dimensions })
   }
+  expect(overflows).toEqual([])
 })
 
 test('destructive Area removal requires explicit confirmation', async ({ page }) => {
