@@ -18,9 +18,10 @@ async function login(page: Page, email: string) {
   await page.locator('#loginPassword').fill(password)
   await page.locator('#loginForm').getByRole('button', { name: /sign in/i }).click()
   await expect(page.locator('#dashboardShell')).toBeVisible()
+  await expect(page.locator('[data-site-option]')).toHaveCount(1)
 }
 
-async function authenticate(page: Page, email: string) {
+async function authenticate(page: Page, email: string, expectedAreaCount: number | 'empty' = 1) {
   const response = await page.request.post(`${apiBaseUrl}/auth/login`, {
     data: { email, password }
   })
@@ -28,6 +29,11 @@ async function authenticate(page: Page, email: string) {
   await prepare(page)
   await page.goto('/')
   await expect(page.locator('#dashboardShell')).toBeVisible()
+  if (expectedAreaCount === 'empty') {
+    await expect(page.getByRole('heading', { name: /create your first area/i })).toBeVisible()
+  } else {
+    await expect(page.locator('[data-site-option]')).toHaveCount(expectedAreaCount)
+  }
 }
 
 function navigationAction(page: Page, action: string) {
@@ -100,7 +106,7 @@ test('measurement CSV can be downloaded from Trends', async ({ page }) => {
 })
 
 test('empty organization always uses the canonical Areas onboarding', async ({ page }) => {
-  await authenticate(page, 'tenant-empty@ci.neurocrop.test')
+  await authenticate(page, 'tenant-empty@ci.neurocrop.test', 'empty')
   await expect(page).toHaveURL(/\/areas$/)
   await expect(page.getByRole('heading', { name: /create your first area/i })).toBeVisible()
   await expect(navigationAction(page, 'sites')).toHaveAttribute('data-active', 'true')
@@ -121,7 +127,7 @@ test('empty organization always uses the canonical Areas onboarding', async ({ p
 })
 
 test('large workspace keeps 100+ Areas accessible', async ({ page }) => {
-  await authenticate(page, 'tenant-large@ci.neurocrop.test')
+  await authenticate(page, 'tenant-large@ci.neurocrop.test', 101)
   await page.locator('#siteTrigger').click()
   await expect(page.locator('[data-site-option]')).toHaveCount(101)
   await expect(page.locator('[data-site-option]').filter({ hasText: 'Scale Area 101' })).toBeVisible()
