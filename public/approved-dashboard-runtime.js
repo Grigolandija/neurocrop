@@ -14223,7 +14223,7 @@ function buildTrendMetricOptions(options) {
             site,
             zone,
             profile,
-            growthResults,
+            metricResults: results,
             siteAverageSummaries
           });
       currentTrendMetricOptions = trendMetricOptions;
