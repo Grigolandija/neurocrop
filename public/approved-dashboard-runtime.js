@@ -7626,6 +7626,19 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       };
     }
 
+    function getNodeDiagnosticsNextCheck(diagnostics) {
+      if (diagnostics.flags.includes("TX timeout flag active")) {
+        return "Check LoRaWAN TX completion, duty-cycle queue and radio logs.";
+      }
+      if (diagnostics.counters.some((item) => item.endsWith("sensor reinitialisations"))) {
+        return "Check sensor connection, I2C bus and power stability.";
+      }
+      if (diagnostics.flags.length || diagnostics.counters.length) {
+        return "Review firmware logs and the next uplink.";
+      }
+      return "No diagnostic action required.";
+    }
+
     function formatNodeSignal(node) {
       return window.NeuroCropFeatures.nodes.formatSignal(node);
     }
@@ -8588,6 +8601,11 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                       const txFailures = diagnostics.hasCounters
                         ? `${diagnostics.txFailures ?? 0}${diagnostics.txFailures >= 15 ? "+" : ""}/15 TX failures since last successful TX`
                         : "TX counter unavailable (18-byte payload)";
+                      const sensorCounters = diagnostics.counters.filter((item) => !item.endsWith("transmission failures"));
+                      const txTimeoutDetail = diagnostics.flags.includes("TX timeout flag active")
+                        ? "TX did not complete within the firmware 120 s window."
+                        : "";
+                      const nextCheck = getNodeDiagnosticsNextCheck(diagnostics);
                       const status = node.transportStatus || "offline";
                       return `
                         <tr>
@@ -8595,10 +8613,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                           <td>${escapeHtml([node.areaName, node.sectionName].filter(Boolean).join(" · ") || "Unassigned")}</td>
                           <td><span class="platform-node-status" data-state="${escapeAttribute(status)}">${escapeHtml(status)}</span></td>
                           <td>${escapeHtml(formatAdminDate(node.lastSeen))}</td>
-                          <td>${escapeHtml(formatNodeSignal(node))}</td>
+                          <td>${escapeHtml([formatNodeSignal(node), getNodeReportingModeLabel(node.profile)].filter(Boolean).join(" · "))}</td>
                           <td>${escapeHtml(node.firmwareVersion || "Unknown")}</td>
                           <td>${Number.isFinite(Number(node.level)) ? `${escapeHtml(String(node.level))}%${Number.isFinite(Number(node.batteryMv)) ? ` · ${escapeHtml((Number(node.batteryMv) / 1000).toFixed(2))} V` : ""}` : "—"}</td>
-                          <td class="platform-node-faults"><strong>${escapeHtml(faultFlags)}</strong><small>${escapeHtml(txFailures)}</small>${diagnostics.counters.filter((item) => !item.endsWith("transmission failures")).length ? `<small>${escapeHtml(diagnostics.counters.filter((item) => !item.endsWith("transmission failures")).join(" · "))}</small>` : ""}</td>
+                          <td class="platform-node-faults"><strong>${escapeHtml(faultFlags)}</strong>${txTimeoutDetail ? `<small>${escapeHtml(txTimeoutDetail)}</small>` : ""}<small>${escapeHtml(txFailures)}</small>${sensorCounters.length ? `<small>${escapeHtml(sensorCounters.join(" · "))}</small>` : ""}<small class="platform-node-next-check"><b>Next check:</b> ${escapeHtml(nextCheck)}</small></td>
                         </tr>
                       `;
                     }).join("") || `<tr><td colspan="8" class="admin-empty">No nodes are registered for this organization.</td></tr>`}
