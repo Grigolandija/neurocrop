@@ -11161,12 +11161,20 @@
       background: #83b49e;
     }
 
-    .live-reading-zone[data-tone="warning"] {
-      background: #d7a152;
+    .live-reading-zone[data-tone="warning"][data-side="left"] {
+      background: linear-gradient(to right, #d7a152, #83b49e);
     }
 
-    .live-reading-zone[data-tone="critical"] {
-      background: #cf8879;
+    .live-reading-zone[data-tone="warning"][data-side="right"] {
+      background: linear-gradient(to right, #83b49e, #d7a152);
+    }
+
+    .live-reading-zone[data-tone="critical"][data-side="left"] {
+      background: linear-gradient(to right, #cf8879, #d7a152);
+    }
+
+    .live-reading-zone[data-tone="critical"][data-side="right"] {
+      background: linear-gradient(to right, #d7a152, #cf8879);
     }
 
     .live-reading-marker {

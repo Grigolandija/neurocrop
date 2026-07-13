@@ -11626,7 +11626,7 @@ function buildTrendMetricOptions(options) {
             <div class="live-reading-position">
               ${visual ? `
                 <span class="live-reading-track" aria-label="${diagnosticText("Section median position against target", "Sekcijos medianos padėtis tikslinio intervalo atžvilgiu")}">
-                  ${visual.zones.map((zone) => `<i class="live-reading-zone" data-tone="${zone.tone}" style="left:${zone.left.toFixed(2)}%;width:${zone.width.toFixed(2)}%"></i>`).join("")}
+                  ${visual.zones.map((zone) => `<i class="live-reading-zone" data-tone="${zone.tone}" data-side="${zone.side}" style="left:${zone.left.toFixed(2)}%;width:${zone.width.toFixed(2)}%"></i>`).join("")}
                   <i class="live-reading-marker" style="left:${visual.marker.toFixed(2)}%"></i>
                 </span>
               ` : `<span class="live-reading-no-data">${diagnosticText("No sensor data", "Nėra sensoriaus duomenų")}</span>`}
@@ -12674,8 +12674,9 @@ function buildTrendMetricOptions(options) {
       const scaleMax = Math.max(critical[1], warning[1], optimal[1], value);
       const span = Math.max(scaleMax - scaleMin, 0.001);
       const toTrackPercent = (rangeValue) => clamp(((rangeValue - scaleMin) / span) * 100, 0, 100);
-      const zone = (tone, start, end) => ({
+      const zone = (tone, start, end, side = "") => ({
         tone,
+        side,
         left: toTrackPercent(start),
         width: Math.max(toTrackPercent(end) - toTrackPercent(start), 0)
       });
@@ -12683,11 +12684,11 @@ function buildTrendMetricOptions(options) {
       return {
         marker: clamp(toTrackPercent(value), 2, 98),
         zones: [
-          zone("critical", scaleMin, warning[0]),
-          zone("warning", warning[0], optimal[0]),
+          zone("critical", scaleMin, warning[0], "left"),
+          zone("warning", warning[0], optimal[0], "left"),
           zone("optimal", optimal[0], optimal[1]),
-          zone("warning", optimal[1], warning[1]),
-          zone("critical", warning[1], scaleMax)
+          zone("warning", optimal[1], warning[1], "right"),
+          zone("critical", warning[1], scaleMax, "right")
         ].filter((item) => item.width > 0)
       };
     }
