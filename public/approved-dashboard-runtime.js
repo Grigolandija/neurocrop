@@ -1940,6 +1940,9 @@
       activePrimaryPage = nextRoute.page;
       if (activePrimaryPage === "admin") activeSettingsPanelKey = "platform";
       if (activePrimaryPage === "blocks") syncBlocksManagementContext();
+      if (activePrimaryPage === "settings" && !pageAlreadyActive && cropProfiles[activeProfileKey]) {
+        activeSettingsProfileKey = activeProfileKey;
+      }
       sidebarActionOverride = null;
       closeContextMenus();
 
@@ -3614,6 +3617,20 @@
       }
     }
 
+    function invalidateProfileAnalytics(profileKey) {
+      const affectedSectionIds = new Set(
+        dashboardData.sites.flatMap((site) =>
+          site.zones
+            .filter((zone) => normalizeCropProfileKey(zone.profile) === normalizeCropProfileKey(profileKey))
+            .map((zone) => zone.id)
+        )
+      );
+      for (const sectionId of affectedSectionIds) {
+        delete dynamicsBySectionId[sectionId];
+        delete dynamicsStatusBySectionId[sectionId];
+      }
+    }
+
     function getSystemLowBatteryNodes() {
       return dashboardData.sites.flatMap((site) =>
         site.zones.flatMap((zone) => {
@@ -4410,6 +4427,7 @@
           return;
         case "settings":
           activePrimaryPage = "settings";
+          if (cropProfiles[activeProfileKey]) activeSettingsProfileKey = activeProfileKey;
           sidebarActionOverride = null;
           closeContextMenus();
           renderDashboard();
@@ -9155,6 +9173,7 @@
             }
             delete settingsProfileEditorDrafts[profileKey];
             await hydrateCropProfilesFromApi();
+            invalidateProfileAnalytics(profileKey);
             // Scores are calculated by the backend from the saved profile ranges.
             // Reload the canonical dashboard immediately instead of waiting for a page refresh.
             await hydrateDashboardFromApi();
@@ -9180,6 +9199,7 @@
                 activeSettingsProfileKey = "default";
                 delete settingsProfileEditorDrafts[profileKey];
                 await hydrateCropProfilesFromApi();
+                invalidateProfileAnalytics(profileKey);
                 await hydrateDashboardFromApi();
                 profileSaveFeedback = {
                   profileKey: "default",
@@ -13000,7 +13020,7 @@
               <div><span>${diagnosticText("Photoperiod achieved", "Pasiektas fotoperiodas")}</span><strong>${lighting.photoperiodAchievedPct ?? "—"}%</strong><small>${Number(lighting.achievedLightHours || 0).toFixed(1)} / ${Number(lighting.expectedLightHours || 0).toFixed(1)} h · ${lighting.expectedLightDataCoveragePct ?? "—"}% ${diagnosticText("data", "duomenų")}</small></div>
               <div><span>${diagnosticText("Time in light target", "Laikas tiksliniame apšvietime")}</span><strong>${lighting.timeInLightTargetPct ?? "—"}%</strong><small>${lighting.unexpectedDarkMinutes || 0} min ${diagnosticText("unexpected darkness", "netikėtos tamsos")}</small></div>
               <div><span>${diagnosticText("Approximate DLI", "Apytikslis DLI")}</span><strong>${Number(lighting.approximateDli || 0).toFixed(1)}</strong><small>mol/m²/day · ${diagnosticText("estimated from lux", "įvertinta pagal lux")}</small></div>
-            </div>` : `<p class="diagnostic-model-note">${diagnosticText("Configure the lighting period in Crop Profiles to distinguish expected darkness from a lighting failure.", "Crop Profiles nustatykite apšvietimo periodą, kad numatyta tamsa būtų atskirta nuo apšvietimo gedimo.")}</p>`}
+            </div>` : `<p class="diagnostic-model-note">${diagnosticText(`Configure the lighting period in the “${profile.name}” Crop Profile to distinguish expected darkness from a lighting failure.`, `Crop Profile „${profile.name}“ nustatykite apšvietimo periodą, kad numatyta tamsa būtų atskirta nuo apšvietimo gedimo.`)}</p>`}
           </section>
         </div>
 
