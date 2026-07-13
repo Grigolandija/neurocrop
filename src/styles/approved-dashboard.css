@@ -8888,9 +8888,8 @@
           minmax(92px, 0.55fr)
           minmax(120px, 0.7fr)
           minmax(155px, 1fr)
-          minmax(82px, 0.5fr)
           76px
-          70px;
+          38px;
         gap: 0.5rem;
       }
     }
@@ -10922,9 +10921,8 @@
         minmax(92px, 0.62fr)
         minmax(120px, 0.78fr)
         minmax(155px, 1.25fr)
-        minmax(82px, 0.58fr)
         76px
-        70px;
+        38px;
       align-items: center;
       gap: 0.85rem;
     }
@@ -11154,8 +11152,7 @@
 
     .live-reading-identity > span:last-child,
     .live-reading-value,
-    .live-reading-target,
-    .live-reading-trend {
+    .live-reading-target {
       display: flex;
       min-width: 0;
       flex-direction: column;
@@ -11163,8 +11160,7 @@
 
     .live-reading-identity strong,
     .live-reading-value strong,
-    .live-reading-target strong,
-    .live-reading-trend strong {
+    .live-reading-target strong {
       overflow: hidden;
       color: #14201b;
       font-size: 0.78rem;
@@ -11180,25 +11176,13 @@
     }
 
     .live-reading-identity small,
-    .live-reading-value small,
-    .live-reading-target span,
-    .live-reading-trend span,
-    .live-reading-trend small {
+    .live-reading-value small {
       overflow: hidden;
       margin-top: 0.14rem;
       color: rgba(20, 32, 27, 0.47);
       font-size: 0.62rem;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .live-reading-target span,
-    .live-reading-trend span {
-      margin: 0 0 0.16rem;
-      font-size: 0.57rem;
-      font-weight: 800;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
     }
 
     .live-reading-position {
@@ -11301,16 +11285,16 @@
 
     .live-reading-trend-button {
       display: inline-flex;
+      width: 30px;
+      height: 30px;
       align-items: center;
       justify-content: center;
-      gap: 0.28rem;
       border: 1px solid rgba(20, 32, 27, 0.11);
-      border-radius: 999px;
-      padding: 0.32rem 0.46rem;
+      border-radius: 9px;
+      padding: 0;
       color: #294b40;
       background: #fff;
-      font-size: 0.56rem;
-      font-weight: 850;
+      font-size: 0.68rem;
     }
 
     #siteMetricsViewToggle {

@@ -6659,7 +6659,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       groupKeys.forEach((groupKey) => {
         const group = getMetricWorkbenchGroup(groupKey === "climate" ? "airTemp" : groupKey === "root" ? "soilTemp" : "ec");
         const count = availableResults.filter((item) => getMetricWorkbenchGroup(item.key).key === groupKey).length;
-        if (count === 0) return;
+        if (count === 0 || count === availableResults.length) return;
 
         lenses.push({
           key: `group-${group.key}`,
@@ -9926,7 +9926,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         feed: { key: "feed", label: "Feed line", icon: "fa-flask" },
         infrastructure: { key: "infrastructure", label: "Node health", icon: "fa-microchip" }
       };
-      groups.climate.label = "Current readings";
+      groups.climate.label = "Climate";
       groups.root.label = "Plant indicators";
       groups.feed.label = "Nutrients";
 
@@ -11747,7 +11747,6 @@ function buildTrendMetricOptions(options) {
       const typicalResult = summary.medianResult;
       const hasCurrentValue = isAvailable && summary.reportingCount > 0;
       const visual = hasCurrentValue ? getLiveReadingPositionVisual(typicalResult, definition) : null;
-      const trend = isAvailable ? getDiagnosticTrend(result, definition, scopeSeed) : null;
       const statusLabel = !isAvailable
         ? diagnosticText("Unavailable", "Neprieinama")
         : typicalResult.state === "optimal"
@@ -11805,7 +11804,6 @@ function buildTrendMetricOptions(options) {
               <small>${exceptionLabel ? `<b class="live-reading-exception">${escapeHtml(exceptionLabel)}</b>` : escapeHtml(deviation)}</small>
             </div>
             <div class="live-reading-target">
-              <span>${diagnosticText("Target", "Tikslas")}</span>
               <strong>${escapeHtml(formatRange(definition.optimal, definition))}</strong>
             </div>
             <div class="live-reading-position">
@@ -11816,15 +11814,9 @@ function buildTrendMetricOptions(options) {
                 </span>
               ` : `<span class="live-reading-no-data">${diagnosticText("No sensor data", "Nėra sensoriaus duomenų")}</span>`}
             </div>
-            <div class="live-reading-trend">
-              <span>${diagnosticText("24h", "24 val.")}</span>
-              <strong>${trend ? escapeHtml(trend.direction) : "—"}</strong>
-              <small>${trend ? escapeHtml(formatSignedValue(trend.delta, definition)) : ""}</small>
-            </div>
             <span class="live-reading-status" data-state="${escapeAttribute(isAvailable ? typicalResult.state : "unavailable")}">${escapeHtml(["offline", "missing", "not-installed"].includes(observation.state) ? observation.label : statusLabel)}</span>
-            <button type="button" class="live-reading-trend-button" data-history-metric="${escapeAttribute(key)}" ${isAvailable ? "" : "disabled"}>
-              ${diagnosticText("Trend", "Grafikas")}
-              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            <button type="button" class="live-reading-trend-button" data-history-metric="${escapeAttribute(key)}" aria-label="${escapeAttribute(diagnosticText(`Open ${definition.label} trend`, `Atidaryti ${getDiagnosticMetricLabel(definition.label)} grafiką`))}" title="${escapeAttribute(diagnosticText("Open trend", "Atidaryti grafiką"))}" ${isAvailable ? "" : "disabled"}>
+              <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
             </button>
           </article>
           <div class="live-reading-node-detail" ${isExpanded ? "" : "hidden"}>
@@ -11883,7 +11875,6 @@ function buildTrendMetricOptions(options) {
           <span>${diagnosticText("Current", "Dabar")}</span>
           <span>${diagnosticText("Target", "Tikslas")}</span>
           <span>${diagnosticText("Position", "Padėtis")}</span>
-          <span>${diagnosticText("Direction", "Kryptis")}</span>
           <span>${diagnosticText("Status", "Būsena")}</span>
           <span></span>
         </div>
