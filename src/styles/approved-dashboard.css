@@ -14588,3 +14588,174 @@
 .diagnostic-lighting-summary span,
 .diagnostic-lighting-summary small { display: block; color: rgba(24, 33, 29, 0.56); }
 .diagnostic-lighting-summary strong { display: block; margin: 3px 0; color: #21473b; }
+
+/* Areas and sections use the same compact hierarchy as the live readings workspace. */
+.management-page-shell {
+  max-width: 100%;
+}
+
+.management-page-intro,
+.management-editor-card,
+.management-list-card {
+  border: 1px solid rgba(24, 33, 29, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 28px rgba(24, 33, 29, 0.05);
+}
+
+.management-page-intro {
+  padding: 22px 24px;
+}
+
+.management-page-eyebrow,
+.management-editor-eyebrow {
+  margin: 0;
+  color: rgba(24, 33, 29, 0.55);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.management-page-title {
+  margin: 7px 0 0;
+  color: #18211d;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.7rem, 2.6vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.management-page-summary,
+.management-editor-summary {
+  margin: 9px 0 0;
+  color: rgba(24, 33, 29, 0.64);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.management-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.management-summary-item {
+  min-width: 88px;
+  border: 1px solid rgba(24, 33, 29, 0.07);
+  border-radius: 14px;
+  background: #f7f6f1;
+  padding: 9px 12px;
+}
+
+.management-summary-item > div {
+  color: rgba(24, 33, 29, 0.55);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.management-summary-item strong {
+  display: block;
+  margin-top: 4px;
+  color: #18211d;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.management-summary-item[data-tone="warning"] strong { color: #b8731c; }
+.management-summary-item[data-tone="optimal"] strong { color: #2f785b; }
+
+.management-editor-card {
+  padding: 18px 20px;
+  background: linear-gradient(110deg, #fbfaf6 0%, #f4f1ea 100%);
+}
+
+.management-editor-title {
+  margin: 4px 0 0;
+  color: #18211d;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.management-editor-card form { margin-top: 16px; }
+
+.management-editor-note {
+  margin-top: 12px;
+  border: 1px solid rgba(24, 33, 29, 0.07);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.64);
+  padding: 9px 12px;
+  color: rgba(24, 33, 29, 0.62);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.management-list-card {
+  padding: 20px;
+}
+
+.management-list-heading {
+  margin: 6px 0 0;
+  color: #18211d;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.designer-app .management-page-shell .management-list-shell {
+  margin-top: 14px;
+  border-radius: 16px;
+}
+
+.designer-app .management-page-shell .management-list-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 82px;
+  padding: 14px 16px;
+}
+
+.management-entity-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: #fbf1dc;
+  color: #ad741e;
+  font-size: 15px;
+}
+
+.designer-app .management-page-shell .management-list-title { font-size: 15px; }
+.designer-app .management-page-shell .management-list-meta { font-size: 12px; }
+.designer-app .management-page-shell .management-list-note { font-size: 12px; }
+
+@media (max-width: 760px) {
+  .management-page-intro,
+  .management-editor-card,
+  .management-list-card { padding: 16px; border-radius: 16px; }
+
+  .management-summary-strip { justify-content: flex-start; }
+  .management-summary-item { min-width: 76px; flex: 1 1 76px; }
+  .management-list-heading { font-size: 20px; }
+
+  .designer-app .management-page-shell .management-list-row {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .designer-app .management-page-shell .management-list-actions {
+    grid-column: 1 / -1;
+  }
+}

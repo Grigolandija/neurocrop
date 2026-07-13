@@ -7255,17 +7255,18 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         const summary = blockCount === 0
           ? "No sections exist yet. Create the first monitored section before opening live monitoring."
           : activeAlertCount > 0 && activeSiteIssueCount > 0
-            ? `${activeSiteIssueCount} block${activeSiteIssueCount === 1 ? " currently needs attention." : "s currently need attention."}`
-            : "All current blocks are stable and ready for monitoring.";
+            ? `${activeSiteIssueCount} section${activeSiteIssueCount === 1 ? " currently needs attention." : "s currently need attention."}`
+            : "All current sections are stable and ready for monitoring.";
         const metaLine = blockCount === 0
           ? "No sections are connected yet"
-          : `${siteState ? `${siteState.indexScore}% location score` : "--"} · ${blockCount} block${blockCount === 1 ? "" : "s"} · ${nodeCount} node${nodeCount === 1 ? "" : "s"}`;
+          : `${siteState ? `${siteState.indexScore}% location score` : "--"} · ${blockCount} section${blockCount === 1 ? "" : "s"} · ${nodeCount} node${nodeCount === 1 ? "" : "s"}`;
         const noteLine = profiles.length > 0
           ? `${profiles.join(" · ")}${lowBatteryCount > 0 ? ` · ${lowBatteryCount} low-battery node${lowBatteryCount === 1 ? "" : "s"}` : ""}`
           : summary;
 
         return `
           <div class="management-list-row" data-state="${rowStateKey}">
+            <div class="management-entity-icon" aria-hidden="true"><i class="fa-solid fa-location-dot"></i></div>
             <div class="management-list-main">
               <div class="management-list-title">${escapeHtml(site.name)}</div>
               <div class="management-list-meta">${escapeHtml(metaLine)}</div>
@@ -7286,12 +7287,12 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 : `
                   <button type="button" class="inline-action actionable" data-tone="primary" data-location-create-block="${escapeAttribute(site.id)}">
                     <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                    First block
+                    First section
                   </button>
                 `}
               <button type="button" class="inline-action actionable" data-location-manage-blocks="${escapeAttribute(site.id)}">
                 <i class="fa-solid fa-border-all" aria-hidden="true"></i>
-                Blocks
+                Sections
               </button>
               <button type="button" class="inline-action actionable" data-location-edit="${escapeAttribute(site.id)}">
                 <i class="fa-solid fa-sliders" aria-hidden="true"></i>
@@ -7321,33 +7322,37 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const locationFormSummary = areaFormCopy.summary;
 
       elements.locationsManagementShell.innerHTML = `
-        <div class="space-y-6">
-          <div class="surface rounded-[30px] p-5 md:p-5">
+        <div class="management-page-shell space-y-5">
+          <header class="management-page-intro">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register area</p>
-                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">${locationFormTitle}</h2>
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">${locationFormSummary}</p>
+                <p class="management-page-eyebrow">Areas</p>
+                <h2 class="management-page-title">Manage monitored areas</h2>
+                <p class="management-page-summary">Organize the locations that contain your monitored sections and nodes.</p>
               </div>
 
-              <div class="flex flex-wrap gap-2.5 xl:max-w-[500px] xl:justify-end">
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Areas</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${totalLocations}</div>
+              <div class="management-summary-strip">
+                <div class="management-summary-item">
+                  <div>Areas</div><strong>${totalLocations}</strong>
                 </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Sections</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${totalBlocks}</div>
+                <div class="management-summary-item">
+                  <div>Sections</div><strong>${totalBlocks}</strong>
                 </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Nodes</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${totalNodes}</div>
+                <div class="management-summary-item">
+                  <div>Nodes</div><strong>${totalNodes}</strong>
                 </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Active alerts</div>
-                  <div class="mt-0.5 text-xl font-extrabold ${activeAlertCount > 0 ? "text-amber" : "text-moss"}">${activeAlertCount}</div>
+                <div class="management-summary-item" data-tone="${activeAlertCount > 0 ? "warning" : "optimal"}">
+                  <div>Alerts</div><strong>${activeAlertCount}</strong>
                 </div>
               </div>
+            </div>
+          </header>
+
+          <div class="management-editor-card">
+            <div>
+              <p class="management-editor-eyebrow">${locationFormState.mode === "edit" ? "Edit area" : "New area"}</p>
+              <h3 class="management-editor-title">${locationFormTitle}</h3>
+              <p class="management-editor-summary">${locationFormSummary}</p>
             </div>
 
             ${renderManagementNotice("locations")}
@@ -7380,18 +7385,18 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
               </div>
             </form>
 
-            <div class="mt-3 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
+            <div class="management-editor-note">
               Sections are created inside a saved area, so the next step is the Sections page.
             </div>
           </div>
 
-          <div class="surface rounded-[34px] p-6 md:p-7">
+          <div class="management-list-card">
             <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current areas</p>
-                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${totalLocations} area${totalLocations === 1 ? "" : "s"} connected</h3>
+                <p class="management-page-eyebrow">Current areas</p>
+                <h3 class="management-list-heading">${totalLocations} area${totalLocations === 1 ? "" : "s"} connected</h3>
               </div>
-              <div class="text-sm leading-6 text-ink/58">${totalBlocks} blocks · ${totalNodes} nodes in structure</div>
+              <div class="text-sm leading-6 text-ink/58">${totalBlocks} sections · ${totalNodes} nodes in structure</div>
             </div>
             ${locationList}
           </div>
@@ -7456,6 +7461,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
 
             return `
               <div class="management-list-row" data-state="${stateKey}">
+                <div class="management-entity-icon" aria-hidden="true"><i class="fa-solid fa-border-all"></i></div>
                 <div class="management-list-main">
                   <div class="management-list-title">${escapeHtml(row.zone.name)}</div>
                   <div class="management-list-meta">${escapeHtml(metaLine)}</div>
@@ -7498,33 +7504,37 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           `;
 
       elements.blocksManagementShell.innerHTML = `
-        <div class="space-y-6">
-          <div class="surface rounded-[30px] p-5 md:p-5">
+        <div class="management-page-shell space-y-5">
+          <header class="management-page-intro">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register section</p>
-                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">${blockFormTitle}</h2>
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">${blockFormSummary}</p>
+                <p class="management-page-eyebrow">Sections</p>
+                <h2 class="management-page-title">Manage growing sections</h2>
+                <p class="management-page-summary">Configure each monitored section, its crop profile and the nodes reporting from it.</p>
               </div>
 
-              <div class="flex flex-wrap gap-2.5 xl:max-w-[540px] xl:justify-end">
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Shown sections</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredBlockCount}</div>
+              <div class="management-summary-strip">
+                <div class="management-summary-item">
+                  <div>Sections</div><strong>${filteredBlockCount}</strong>
                 </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Areas</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredSites.length}</div>
+                <div class="management-summary-item">
+                  <div>Areas</div><strong>${filteredSites.length}</strong>
                 </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Nodes</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredNodeCount}</div>
+                <div class="management-summary-item">
+                  <div>Nodes</div><strong>${filteredNodeCount}</strong>
                 </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Low battery</div>
-                  <div class="mt-0.5 text-xl font-extrabold ${filteredLowBatteryCount > 0 ? "text-amber" : "text-moss"}">${filteredLowBatteryCount}</div>
+                <div class="management-summary-item" data-tone="${filteredLowBatteryCount > 0 ? "warning" : "optimal"}">
+                  <div>Low battery</div><strong>${filteredLowBatteryCount}</strong>
                 </div>
               </div>
+            </div>
+          </header>
+
+          <div class="management-editor-card">
+            <div>
+              <p class="management-editor-eyebrow">${blockFormState.mode === "edit" ? "Edit section" : "New section"}</p>
+              <h3 class="management-editor-title">${blockFormTitle}</h3>
+              <p class="management-editor-summary">${blockFormSummary}</p>
             </div>
 
             ${renderManagementNotice("blocks")}
@@ -7589,16 +7599,16 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 </form>
               `}
 
-            <div class="mt-3 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
-              Showing zones in <strong>${escapeHtml(activeFilterLabel)}</strong>. Change the Site in the global header to manage another site.
+            <div class="management-editor-note">
+              Showing sections in <strong>${escapeHtml(activeFilterLabel)}</strong>. Change the Site in the global header to manage another area.
             </div>
           </div>
 
-          <div class="surface rounded-[34px] p-6 md:p-7">
+          <div class="management-list-card">
             <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current zones</p>
-                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${filteredBlockCount} zone${filteredBlockCount === 1 ? "" : "s"} in this view</h3>
+                <p class="management-page-eyebrow">Current sections</p>
+                <h3 class="management-list-heading">${filteredBlockCount} section${filteredBlockCount === 1 ? "" : "s"} in this view</h3>
               </div>
               <div class="text-sm leading-6 text-ink/58">
                 ${filteredAlertCount > 0 ? `${filteredAlertCount} need attention` : "No active alerts"} · ${filteredLowBatteryCount} low-battery node${filteredLowBatteryCount === 1 ? "" : "s"}
