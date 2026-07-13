@@ -12658,6 +12658,8 @@ function buildTrendMetricOptions(options) {
       const span = Math.max(scaleMax - scaleMin, 0.001);
       const toTrackPercent = (value) => clamp(((value - scaleMin) / span) * 100, 0, 100);
       const toMarkerPercent = (value) => clamp(toTrackPercent(value), 2, 98);
+      const optimalStart = toTrackPercent(optimal[0]);
+      const optimalEnd = toTrackPercent(optimal[1]);
       const zone = (tone, start, end) => ({
         tone,
         left: toTrackPercent(start),
@@ -12666,6 +12668,8 @@ function buildTrendMetricOptions(options) {
 
       return {
         marker: toMarkerPercent(result.value),
+        optimalStart,
+        optimalEnd,
         zones: [
           zone("critical", scaleMin, warning[0]),
           zone("warning", warning[0], optimal[0]),
