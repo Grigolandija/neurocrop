@@ -7255,35 +7255,27 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         const summary = blockCount === 0
           ? "No sections exist yet. Create the first monitored section before opening live monitoring."
           : activeAlertCount > 0 && activeSiteIssueCount > 0
-            ? `${activeSiteIssueCount} section${activeSiteIssueCount === 1 ? " currently needs attention." : "s currently need attention."}`
-            : "All current sections are stable and ready for monitoring.";
+            ? `${activeSiteIssueCount} block${activeSiteIssueCount === 1 ? " currently needs attention." : "s currently need attention."}`
+            : "All current blocks are stable and ready for monitoring.";
         const metaLine = blockCount === 0
           ? "No sections are connected yet"
-          : `${siteState ? `${siteState.indexScore}% location score` : "--"} · ${blockCount} section${blockCount === 1 ? "" : "s"} · ${nodeCount} node${nodeCount === 1 ? "" : "s"}`;
+          : `${siteState ? `${siteState.indexScore}% location score` : "--"} · ${blockCount} block${blockCount === 1 ? "" : "s"} · ${nodeCount} node${nodeCount === 1 ? "" : "s"}`;
         const noteLine = profiles.length > 0
           ? `${profiles.join(" · ")}${lowBatteryCount > 0 ? ` · ${lowBatteryCount} low-battery node${lowBatteryCount === 1 ? "" : "s"}` : ""}`
           : summary;
 
         return `
-          <article class="area-atlas-card" data-state="${rowStateKey}">
-            <div class="area-atlas-card-top">
-              <span class="area-atlas-kicker"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Area</span>
-              <span class="area-atlas-state" data-tone="${blockCount > 0 ? stateKey : "neutral"}">${escapeHtml(blockCount > 0 ? stateConfig[stateKey].label : "No sections yet")}</span>
+          <div class="management-list-row" data-state="${rowStateKey}">
+            <div class="management-list-main">
+              <div class="management-list-title">${escapeHtml(site.name)}</div>
+              <div class="management-list-meta">${escapeHtml(metaLine)}</div>
+              <div class="management-list-note">${escapeHtml(blockCount > 0 ? `${noteLine}. ${summary}` : summary)}</div>
             </div>
-            <div class="area-atlas-title-row">
-              <div>
-                <h3>${escapeHtml(site.name)}</h3>
-                <p>${escapeHtml(siteState ? `${siteState.indexScore}% conditions score` : "No live score yet")}</p>
-              </div>
-              <div class="area-atlas-score" data-tone="${rowStateKey}">${siteState ? `${siteState.indexScore}%` : "--"}<span>score</span></div>
-            </div>
-            <div class="area-atlas-facts">
-              <div><span>Sections</span><strong>${blockCount}</strong></div>
-              <div><span>Nodes</span><strong>${nodeCount}</strong></div>
-              <div><span>Profiles</span><strong>${profiles.length}</strong></div>
-            </div>
-            <p class="area-atlas-note">${escapeHtml(blockCount > 0 ? `${noteLine}. ${summary}` : summary)}</p>
-            <div class="area-atlas-actions">
+
+            <div class="management-list-actions">
+              <span class="management-chip" data-tone="${blockCount > 0 ? stateKey : "neutral"}">
+                ${escapeHtml(blockCount > 0 ? stateConfig[stateKey].label : "No sections yet")}
+              </span>
               ${blockCount > 0
                 ? `
                   <button type="button" class="inline-action actionable" data-tone="primary" data-location-open-live="${escapeAttribute(site.id)}">
@@ -7294,27 +7286,27 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 : `
                   <button type="button" class="inline-action actionable" data-tone="primary" data-location-create-block="${escapeAttribute(site.id)}">
                     <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                    First section
+                    First block
                   </button>
                 `}
               <button type="button" class="inline-action actionable" data-location-manage-blocks="${escapeAttribute(site.id)}">
                 <i class="fa-solid fa-border-all" aria-hidden="true"></i>
-                Sections
+                Blocks
               </button>
               <button type="button" class="inline-action actionable" data-location-edit="${escapeAttribute(site.id)}">
                 <i class="fa-solid fa-sliders" aria-hidden="true"></i>
                 Edit
               </button>
             </div>
-          </article>
+          </div>
         `;
       }).join("");
 
       const locationList = totalLocations > 0
         ? `
-            <div class="area-atlas-grid">
+            <article class="management-list-shell mt-5">
               ${locationRows}
-            </div>
+            </article>
           `
         : `
             <div class="panel rounded-[30px] p-6 mt-5">
@@ -7329,66 +7321,80 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const locationFormSummary = areaFormCopy.summary;
 
       elements.locationsManagementShell.innerHTML = `
-        <div class="layout-hub layout-hub--areas">
-          <header class="layout-hub-header">
+        <div class="space-y-6">
+          <div class="surface rounded-[30px] p-5 md:p-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="layout-hub-kicker">Areas</p>
-                <h2>Your growing estate</h2>
-                <p>Organize the places that hold your sections, crop programs and field nodes.</p>
+                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register area</p>
+                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">${locationFormTitle}</h2>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">${locationFormSummary}</p>
               </div>
 
-              <div class="layout-hub-counts">
-                <div><strong>${totalLocations}</strong><span>areas</span></div>
-                <div><strong>${totalBlocks}</strong><span>sections</span></div>
-                <div><strong>${totalNodes}</strong><span>nodes</span></div>
-                <div data-tone="${activeAlertCount > 0 ? "warning" : "optimal"}"><strong>${activeAlertCount}</strong><span>alerts</span></div>
-              </div>
-            </div>
-          </header>
-
-          <section class="layout-hub-composer">
-            <div class="layout-hub-composer-icon"><i class="fa-solid fa-plus" aria-hidden="true"></i></div>
-            <div class="layout-hub-composer-copy">
-              <p>${locationFormState.mode === "edit" ? "Edit area" : "Add an area"}</p>
-              <h3>${locationFormTitle}</h3>
-              <span>${locationFormSummary}</span>
-            </div>
-            <div class="layout-hub-composer-body">
-              ${renderManagementNotice("locations")}
-
-              <form data-management-form="location">
-                <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                  <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">Area name</span>
-                    <input
-                      type="text"
-                      name="locationName"
-                      value="${escapeAttribute(locationFormState.name)}"
-                      placeholder="Greenhouse No. 3"
-                      class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"
-                    >
-                  </label>
-                  <div class="flex flex-wrap gap-3 pt-1 lg:justify-end">
-                    <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">${locationFormButtonLabel}</button>
-                    ${locationFormState.mode === "edit" ? `<button type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink/72" data-location-form-cancel>Cancel</button>` : ""}
-                  </div>
+              <div class="flex flex-wrap gap-2.5 xl:max-w-[500px] xl:justify-end">
+                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Areas</div>
+                  <div class="mt-0.5 text-xl font-extrabold text-ink">${totalLocations}</div>
                 </div>
-              </form>
-              <p class="layout-hub-composer-note">Sections are created inside a saved area, so the next step is the Sections page.</p>
-            </div>
-          </section>
-
-          <section class="layout-hub-collection">
-            <div class="layout-hub-collection-head">
-              <div>
-                <p>Connected areas</p>
-                <h3>${totalLocations} area${totalLocations === 1 ? "" : "s"} in your workspace</h3>
+                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Sections</div>
+                  <div class="mt-0.5 text-xl font-extrabold text-ink">${totalBlocks}</div>
+                </div>
+                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Nodes</div>
+                  <div class="mt-0.5 text-xl font-extrabold text-ink">${totalNodes}</div>
+                </div>
+                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Active alerts</div>
+                  <div class="mt-0.5 text-xl font-extrabold ${activeAlertCount > 0 ? "text-amber" : "text-moss"}">${activeAlertCount}</div>
+                </div>
               </div>
-              <span>${totalBlocks} sections · ${totalNodes} nodes</span>
+            </div>
+
+            ${renderManagementNotice("locations")}
+
+            <form class="mt-4" data-management-form="location">
+              <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                <label class="block">
+                  <span class="text-sm font-semibold text-ink/72">Area name</span>
+                  <input
+                    type="text"
+                    name="locationName"
+                    value="${escapeAttribute(locationFormState.name)}"
+                    placeholder="Greenhouse No. 3"
+                    class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"
+                  >
+                </label>
+
+                <div class="flex flex-wrap gap-3 pt-1 lg:justify-end">
+                  <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">
+                    ${locationFormButtonLabel}
+                  </button>
+                  ${locationFormState.mode === "edit"
+                    ? `
+                      <button type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink/72" data-location-form-cancel>
+                        Cancel
+                      </button>
+                    `
+                    : ""}
+                </div>
+              </div>
+            </form>
+
+            <div class="mt-3 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
+              Sections are created inside a saved area, so the next step is the Sections page.
+            </div>
+          </div>
+
+          <div class="surface rounded-[34px] p-6 md:p-7">
+            <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current areas</p>
+                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${totalLocations} area${totalLocations === 1 ? "" : "s"} connected</h3>
+              </div>
+              <div class="text-sm leading-6 text-ink/58">${totalBlocks} blocks · ${totalNodes} nodes in structure</div>
             </div>
             ${locationList}
-          </section>
+          </div>
         </div>
       `;
     }
@@ -7449,19 +7455,20 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             const metaLine = `${locationLabel} · ${row.profile?.name || row.zone.profile} · ${((row.zone.batteryNodes || []).length || row.zone.sensorCount || 0)} node${((row.zone.batteryNodes || []).length || row.zone.sensorCount || 0) === 1 ? "" : "s"} · ${coverageLabel}`;
 
             return `
-              <article class="section-registry-entry" data-state="${stateKey}">
-                <div class="section-registry-status">
-                  <span class="section-registry-dot"></span>
-                  <span>${escapeHtml(row.isUnassigned ? "Unassigned" : stateConfig[stateKey].label)}</span>
+              <div class="management-list-row" data-state="${stateKey}">
+                <div class="management-list-main">
+                  <div class="management-list-title">${escapeHtml(row.zone.name)}</div>
+                  <div class="management-list-meta">${escapeHtml(metaLine)}</div>
+                  <div class="management-list-note">${escapeHtml(summary)}</div>
                 </div>
-                <div class="section-registry-name">
-                  <span class="section-registry-icon"><i class="fa-solid fa-border-all" aria-hidden="true"></i></span>
-                  <div><strong>${escapeHtml(row.zone.name)}</strong><span>${escapeHtml(locationLabel)}</span></div>
-                </div>
-                <div class="section-registry-profile"><span>Crop profile</span><strong>${escapeHtml(row.profile?.name || row.zone.profile)}</strong></div>
-                <div class="section-registry-coverage"><span>Reporting</span><strong>${escapeHtml(coverageLabel)}</strong><small>${escapeHtml(summary)}</small></div>
-                <div class="section-registry-score" data-tone="${stateKey}"><strong>${escapeHtml(score)}</strong><span>score</span></div>
-                <div class="section-registry-actions">
+
+                <div class="management-list-actions">
+                  <span class="management-chip" data-tone="${stateKey}">
+                    ${escapeHtml(row.isUnassigned ? "Unassigned" : stateConfig[stateKey].label)}
+                  </span>
+                  <span class="management-chip" data-tone="${stateKey}">
+                    ${escapeHtml(score)}
+                  </span>
                   <button type="button" class="inline-action actionable" data-tone="primary" data-block-open-live-site-id="${escapeAttribute(row.site.id)}" data-block-open-live-zone-id="${escapeAttribute(row.zone.id)}">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
                     Live
@@ -7471,7 +7478,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                     Edit
                   </button>
                 </div>
-              </article>
+              </div>
             `;
           }).join("")
         : `
@@ -7482,51 +7489,54 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           `;
       const blockListMarkup = filteredBlockCount > 0
         ? `
-            <div class="section-registry">
-              <div class="section-registry-columns" aria-hidden="true"><span>Status</span><span>Section & area</span><span>Crop profile</span><span>Sensor coverage</span><span>Score</span><span>Actions</span></div>
+            <article class="management-list-shell mt-5">
               ${blockList}
-            </div>
+            </article>
           `
         : `
             <div class="mt-5">${blockList}</div>
           `;
 
       elements.blocksManagementShell.innerHTML = `
-        <div class="layout-hub layout-hub--sections">
-          <header class="layout-hub-header">
+        <div class="space-y-6">
+          <div class="surface rounded-[30px] p-5 md:p-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="layout-hub-kicker">Sections</p>
-                <h2>Section operating board</h2>
-                <p>Assign crop profiles, connect nodes and check which sections are ready for live monitoring.</p>
+                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register section</p>
+                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">${blockFormTitle}</h2>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">${blockFormSummary}</p>
               </div>
 
-              <div class="layout-hub-counts">
-                <div><strong>${filteredBlockCount}</strong><span>sections</span></div>
-                <div><strong>${filteredSites.length}</strong><span>areas</span></div>
-                <div><strong>${filteredNodeCount}</strong><span>nodes</span></div>
-                <div data-tone="${filteredLowBatteryCount > 0 ? "warning" : "optimal"}"><strong>${filteredLowBatteryCount}</strong><span>low battery</span></div>
+              <div class="flex flex-wrap gap-2.5 xl:max-w-[540px] xl:justify-end">
+                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Shown sections</div>
+                  <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredBlockCount}</div>
+                </div>
+                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Areas</div>
+                  <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredSites.length}</div>
+                </div>
+                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Nodes</div>
+                  <div class="mt-0.5 text-xl font-extrabold text-ink">${filteredNodeCount}</div>
+                </div>
+                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Low battery</div>
+                  <div class="mt-0.5 text-xl font-extrabold ${filteredLowBatteryCount > 0 ? "text-amber" : "text-moss"}">${filteredLowBatteryCount}</div>
+                </div>
               </div>
             </div>
-          </header>
 
-          <section class="layout-hub-composer">
-            <div class="layout-hub-composer-icon"><i class="fa-solid fa-plus" aria-hidden="true"></i></div>
-            <div class="layout-hub-composer-copy">
-              <p>${blockFormState.mode === "edit" ? "Edit section" : "Add a section"}</p>
-              <h3>${blockFormTitle}</h3>
-              <span>${blockFormSummary}</span>
-            </div>
-            <div class="layout-hub-composer-body">
-              ${renderManagementNotice("blocks")}
-              ${locationOptions.length === 0
+            ${renderManagementNotice("blocks")}
+
+            ${locationOptions.length === 0
               ? `
-                <div class="layout-hub-composer-note">
+                <div class="mt-4 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
                   Create an area first. After that, this becomes the main form for registering monitored sections.
                 </div>
               `
               : `
-                <form data-management-form="block">
+                <form class="mt-4 space-y-3" data-management-form="block">
                   <div class="grid gap-3 xl:grid-cols-4">
                     <label class="block xl:col-span-2">
                       <span class="text-sm font-semibold text-ink/72">Section name</span>
@@ -7579,24 +7589,23 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 </form>
               `}
 
-            <p class="layout-hub-composer-note">
-              Showing sections in <strong>${escapeHtml(activeFilterLabel)}</strong>. Change the Site in the global header to manage another area.
-            </p>
+            <div class="mt-3 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
+              Showing zones in <strong>${escapeHtml(activeFilterLabel)}</strong>. Change the Site in the global header to manage another site.
             </div>
-          </section>
+          </div>
 
-          <section class="layout-hub-collection">
-            <div class="layout-hub-collection-head">
+          <div class="surface rounded-[34px] p-6 md:p-7">
+            <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
-                <p>Active registry</p>
-                <h3>${filteredBlockCount} section${filteredBlockCount === 1 ? "" : "s"} in this view</h3>
+                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current zones</p>
+                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${filteredBlockCount} zone${filteredBlockCount === 1 ? "" : "s"} in this view</h3>
               </div>
-              <span>
+              <div class="text-sm leading-6 text-ink/58">
                 ${filteredAlertCount > 0 ? `${filteredAlertCount} need attention` : "No active alerts"} · ${filteredLowBatteryCount} low-battery node${filteredLowBatteryCount === 1 ? "" : "s"}
-              </span>
+              </div>
             </div>
             ${blockListMarkup}
-          </section>
+          </div>
         </div>
       `;
     }
