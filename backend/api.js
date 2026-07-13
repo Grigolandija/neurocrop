@@ -1685,6 +1685,17 @@ function getExportMetricValue(row, metric) {
   return row[METRIC_TO_COLUMN[metric]];
 }
 
+function rowReportsExportMetric(row, metric) {
+  if (metric === 'batteryLevel') return true;
+  const sensorKey = EXPORT_METRIC_SENSOR_KEYS[metric];
+  const sensor = row.raw_object?.sensors?.[sensorKey];
+  if (sensor && typeof sensor.present === 'boolean') return sensor.present;
+
+  // Older uplinks may not contain sensor-presence metadata. Keep their values
+  // rather than discarding valid historical measurements.
+  return Number.isFinite(Number(getExportMetricValue(row, metric)));
+}
+
 app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
   const sectionId = String(req.query.sectionId || '').trim();
   const section = await getSectionById(sectionId, getOrganizationId(req));
@@ -1717,7 +1728,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
     );
 
     const { rows } = await query(
-      `SELECT m.time, COALESCE(n.name, m.dev_eui) AS node_name, ${columns.map((column) => `m.${column}`).join(', ')}
+      `SELECT m.time, m.raw_object, COALESCE(n.name, m.dev_eui) AS node_name, ${columns.map((column) => `m.${column}`).join(', ')}
        FROM measurements m
        JOIN nodes n ON n.dev_eui=m.dev_eui
        WHERE n.organization_id=$1
@@ -1735,7 +1746,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
     });
 
     const metricsWithData = installedMetrics.filter((metric) =>
-      rows.some((row) => Number.isFinite(Number(getExportMetricValue(row, metric))))
+      rows.some((row) => rowReportsExportMetric(row, metric) && Number.isFinite(Number(getExportMetricValue(row, metric))))
     );
 
     const headers = [
@@ -1743,7 +1754,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       'Time',
       'Area',
       'Section',
-      'Sensor',
+      'Node',
       ...metricsWithData.map((metric) =>
         `${EXPORT_METRIC_LABELS[metric] || metric} (${EXPORT_METRIC_UNITS[metric] || ''})`
       )
@@ -1754,7 +1765,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       const { date, time } = formatExportDateTime(row.time);
       const values = metricsWithData.map((metric) => {
         const value = getExportMetricValue(row, metric);
-        return Number.isFinite(Number(value)) ? formatExportValue(value) : '';
+        return rowReportsExportMetric(row, metric) && Number.isFinite(Number(value)) ? formatExportValue(value) : '';
       });
 
       lines.push([
