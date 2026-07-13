@@ -1728,7 +1728,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
     );
 
     const { rows } = await query(
-      `SELECT m.time, m.raw_object, COALESCE(n.name, m.dev_eui) AS node_name, ${columns.map((column) => `m.${column}`).join(', ')}
+      `SELECT m.time, m.dev_eui, m.raw_object, COALESCE(n.name, m.dev_eui) AS node_name, ${columns.map((column) => `m.${column}`).join(', ')}
        FROM measurements m
        JOIN nodes n ON n.dev_eui=m.dev_eui
        WHERE n.organization_id=$1
@@ -1748,22 +1748,34 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
     const metricsWithData = installedMetrics.filter((metric) =>
       rows.some((row) => rowReportsExportMetric(row, metric) && Number.isFinite(Number(getExportMetricValue(row, metric))))
     );
+    const metricColumns = [];
+    const metricColumnKeys = new Set();
+    for (const row of rows) {
+      for (const metric of metricsWithData) {
+        const value = getExportMetricValue(row, metric);
+        if (!rowReportsExportMetric(row, metric) || !Number.isFinite(Number(value))) continue;
+        const key = `${row.dev_eui}:${metric}`;
+        if (metricColumnKeys.has(key)) continue;
+        metricColumnKeys.add(key);
+        metricColumns.push({ key, nodeName: row.node_name, metric });
+      }
+    }
 
     const headers = [
       'Date',
       'Time',
       'Area',
       'Section',
-      'Node',
-      ...metricsWithData.map((metric) =>
-        `${EXPORT_METRIC_LABELS[metric] || metric} (${EXPORT_METRIC_UNITS[metric] || ''})`
+      ...metricColumns.map(({ nodeName, metric }) =>
+        `${nodeName} · ${EXPORT_METRIC_LABELS[metric] || metric} (${EXPORT_METRIC_UNITS[metric] || ''})`
       )
     ];
     const lines = [headers.map(csvEscape).join(';')];
 
     for (const row of rows) {
       const { date, time } = formatExportDateTime(row.time);
-      const values = metricsWithData.map((metric) => {
+      const values = metricColumns.map(({ key, metric }) => {
+        if (key !== `${row.dev_eui}:${metric}`) return '';
         const value = getExportMetricValue(row, metric);
         return rowReportsExportMetric(row, metric) && Number.isFinite(Number(value)) ? formatExportValue(value) : '';
       });
@@ -1773,7 +1785,6 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
         time,
         section.area_name || '',
         section.name,
-        row.node_name,
         ...values
       ].map(csvEscape).join(';'));
     }
