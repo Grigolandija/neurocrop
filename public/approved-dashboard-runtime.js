@@ -7265,18 +7265,25 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           : summary;
 
         return `
-          <div class="management-list-row" data-state="${rowStateKey}">
-            <div class="management-entity-icon" aria-hidden="true"><i class="fa-solid fa-location-dot"></i></div>
-            <div class="management-list-main">
-              <div class="management-list-title">${escapeHtml(site.name)}</div>
-              <div class="management-list-meta">${escapeHtml(metaLine)}</div>
-              <div class="management-list-note">${escapeHtml(blockCount > 0 ? `${noteLine}. ${summary}` : summary)}</div>
+          <article class="area-atlas-card" data-state="${rowStateKey}">
+            <div class="area-atlas-card-top">
+              <span class="area-atlas-kicker"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Area</span>
+              <span class="area-atlas-state" data-tone="${blockCount > 0 ? stateKey : "neutral"}">${escapeHtml(blockCount > 0 ? stateConfig[stateKey].label : "No sections yet")}</span>
             </div>
-
-            <div class="management-list-actions">
-              <span class="management-chip" data-tone="${blockCount > 0 ? stateKey : "neutral"}">
-                ${escapeHtml(blockCount > 0 ? stateConfig[stateKey].label : "No sections yet")}
-              </span>
+            <div class="area-atlas-title-row">
+              <div>
+                <h3>${escapeHtml(site.name)}</h3>
+                <p>${escapeHtml(siteState ? `${siteState.indexScore}% conditions score` : "No live score yet")}</p>
+              </div>
+              <div class="area-atlas-score" data-tone="${rowStateKey}">${siteState ? `${siteState.indexScore}%` : "--"}<span>score</span></div>
+            </div>
+            <div class="area-atlas-facts">
+              <div><span>Sections</span><strong>${blockCount}</strong></div>
+              <div><span>Nodes</span><strong>${nodeCount}</strong></div>
+              <div><span>Profiles</span><strong>${profiles.length}</strong></div>
+            </div>
+            <p class="area-atlas-note">${escapeHtml(blockCount > 0 ? `${noteLine}. ${summary}` : summary)}</p>
+            <div class="area-atlas-actions">
               ${blockCount > 0
                 ? `
                   <button type="button" class="inline-action actionable" data-tone="primary" data-location-open-live="${escapeAttribute(site.id)}">
@@ -7299,15 +7306,15 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 Edit
               </button>
             </div>
-          </div>
+          </article>
         `;
       }).join("");
 
       const locationList = totalLocations > 0
         ? `
-            <article class="management-list-shell mt-5">
+            <div class="area-atlas-grid">
               ${locationRows}
-            </article>
+            </div>
           `
         : `
             <div class="panel rounded-[30px] p-6 mt-5">
@@ -7322,84 +7329,66 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const locationFormSummary = areaFormCopy.summary;
 
       elements.locationsManagementShell.innerHTML = `
-        <div class="management-page-shell space-y-5">
-          <header class="management-page-intro">
+        <div class="management-canvas management-canvas--areas">
+          <header class="management-hero">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="management-page-eyebrow">Areas</p>
-                <h2 class="management-page-title">Manage monitored areas</h2>
-                <p class="management-page-summary">Organize the locations that contain your monitored sections and nodes.</p>
+                <p class="management-hero-kicker">Area atlas</p>
+                <h2>Every growing location, at a glance.</h2>
+                <p>Organize the places that hold your sections, crop programs and field nodes.</p>
               </div>
 
-              <div class="management-summary-strip">
-                <div class="management-summary-item">
-                  <div>Areas</div><strong>${totalLocations}</strong>
-                </div>
-                <div class="management-summary-item">
-                  <div>Sections</div><strong>${totalBlocks}</strong>
-                </div>
-                <div class="management-summary-item">
-                  <div>Nodes</div><strong>${totalNodes}</strong>
-                </div>
-                <div class="management-summary-item" data-tone="${activeAlertCount > 0 ? "warning" : "optimal"}">
-                  <div>Alerts</div><strong>${activeAlertCount}</strong>
-                </div>
+              <div class="management-hero-counts">
+                <div><strong>${totalLocations}</strong><span>areas</span></div>
+                <div><strong>${totalBlocks}</strong><span>sections</span></div>
+                <div><strong>${totalNodes}</strong><span>nodes</span></div>
+                <div data-tone="${activeAlertCount > 0 ? "warning" : "optimal"}"><strong>${activeAlertCount}</strong><span>alerts</span></div>
               </div>
             </div>
           </header>
 
-          <div class="management-editor-card">
-            <div>
-              <p class="management-editor-eyebrow">${locationFormState.mode === "edit" ? "Edit area" : "New area"}</p>
-              <h3 class="management-editor-title">${locationFormTitle}</h3>
-              <p class="management-editor-summary">${locationFormSummary}</p>
+          <section class="management-composer">
+            <div class="management-composer-icon"><i class="fa-solid fa-plus" aria-hidden="true"></i></div>
+            <div class="management-composer-copy">
+              <p>${locationFormState.mode === "edit" ? "Edit area" : "Add an area"}</p>
+              <h3>${locationFormTitle}</h3>
+              <span>${locationFormSummary}</span>
             </div>
+            <div class="management-composer-body">
+              ${renderManagementNotice("locations")}
 
-            ${renderManagementNotice("locations")}
-
-            <form class="mt-4" data-management-form="location">
-              <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                <label class="block">
-                  <span class="text-sm font-semibold text-ink/72">Area name</span>
-                  <input
-                    type="text"
-                    name="locationName"
-                    value="${escapeAttribute(locationFormState.name)}"
-                    placeholder="Greenhouse No. 3"
-                    class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"
-                  >
-                </label>
-
-                <div class="flex flex-wrap gap-3 pt-1 lg:justify-end">
-                  <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">
-                    ${locationFormButtonLabel}
-                  </button>
-                  ${locationFormState.mode === "edit"
-                    ? `
-                      <button type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink/72" data-location-form-cancel>
-                        Cancel
-                      </button>
-                    `
-                    : ""}
+              <form data-management-form="location">
+                <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                  <label class="block">
+                    <span class="text-sm font-semibold text-ink/72">Area name</span>
+                    <input
+                      type="text"
+                      name="locationName"
+                      value="${escapeAttribute(locationFormState.name)}"
+                      placeholder="Greenhouse No. 3"
+                      class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"
+                    >
+                  </label>
+                  <div class="flex flex-wrap gap-3 pt-1 lg:justify-end">
+                    <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">${locationFormButtonLabel}</button>
+                    ${locationFormState.mode === "edit" ? `<button type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink/72" data-location-form-cancel>Cancel</button>` : ""}
+                  </div>
                 </div>
-              </div>
-            </form>
-
-            <div class="management-editor-note">
-              Sections are created inside a saved area, so the next step is the Sections page.
+              </form>
+              <p class="management-composer-note">Sections are created inside a saved area, so the next step is the Sections page.</p>
             </div>
-          </div>
+          </section>
 
-          <div class="management-list-card">
-            <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <section class="management-collection">
+            <div class="management-collection-head">
               <div>
-                <p class="management-page-eyebrow">Current areas</p>
-                <h3 class="management-list-heading">${totalLocations} area${totalLocations === 1 ? "" : "s"} connected</h3>
+                <p>Connected areas</p>
+                <h3>${totalLocations} area${totalLocations === 1 ? "" : "s"} in your workspace</h3>
               </div>
-              <div class="text-sm leading-6 text-ink/58">${totalBlocks} sections · ${totalNodes} nodes in structure</div>
+              <span>${totalBlocks} sections · ${totalNodes} nodes</span>
             </div>
             ${locationList}
-          </div>
+          </section>
         </div>
       `;
     }
@@ -7460,21 +7449,19 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             const metaLine = `${locationLabel} · ${row.profile?.name || row.zone.profile} · ${((row.zone.batteryNodes || []).length || row.zone.sensorCount || 0)} node${((row.zone.batteryNodes || []).length || row.zone.sensorCount || 0) === 1 ? "" : "s"} · ${coverageLabel}`;
 
             return `
-              <div class="management-list-row" data-state="${stateKey}">
-                <div class="management-entity-icon" aria-hidden="true"><i class="fa-solid fa-border-all"></i></div>
-                <div class="management-list-main">
-                  <div class="management-list-title">${escapeHtml(row.zone.name)}</div>
-                  <div class="management-list-meta">${escapeHtml(metaLine)}</div>
-                  <div class="management-list-note">${escapeHtml(summary)}</div>
+              <article class="section-registry-entry" data-state="${stateKey}">
+                <div class="section-registry-status">
+                  <span class="section-registry-dot"></span>
+                  <span>${escapeHtml(row.isUnassigned ? "Unassigned" : stateConfig[stateKey].label)}</span>
                 </div>
-
-                <div class="management-list-actions">
-                  <span class="management-chip" data-tone="${stateKey}">
-                    ${escapeHtml(row.isUnassigned ? "Unassigned" : stateConfig[stateKey].label)}
-                  </span>
-                  <span class="management-chip" data-tone="${stateKey}">
-                    ${escapeHtml(score)}
-                  </span>
+                <div class="section-registry-name">
+                  <span class="section-registry-icon"><i class="fa-solid fa-border-all" aria-hidden="true"></i></span>
+                  <div><strong>${escapeHtml(row.zone.name)}</strong><span>${escapeHtml(locationLabel)}</span></div>
+                </div>
+                <div class="section-registry-profile"><span>Crop profile</span><strong>${escapeHtml(row.profile?.name || row.zone.profile)}</strong></div>
+                <div class="section-registry-coverage"><span>Reporting</span><strong>${escapeHtml(coverageLabel)}</strong><small>${escapeHtml(summary)}</small></div>
+                <div class="section-registry-score" data-tone="${stateKey}"><strong>${escapeHtml(score)}</strong><span>score</span></div>
+                <div class="section-registry-actions">
                   <button type="button" class="inline-action actionable" data-tone="primary" data-block-open-live-site-id="${escapeAttribute(row.site.id)}" data-block-open-live-zone-id="${escapeAttribute(row.zone.id)}">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
                     Live
@@ -7484,7 +7471,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                     Edit
                   </button>
                 </div>
-              </div>
+              </article>
             `;
           }).join("")
         : `
@@ -7495,58 +7482,51 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           `;
       const blockListMarkup = filteredBlockCount > 0
         ? `
-            <article class="management-list-shell mt-5">
+            <div class="section-registry">
+              <div class="section-registry-columns" aria-hidden="true"><span>Status</span><span>Section & area</span><span>Crop profile</span><span>Sensor coverage</span><span>Score</span><span>Actions</span></div>
               ${blockList}
-            </article>
+            </div>
           `
         : `
             <div class="mt-5">${blockList}</div>
           `;
 
       elements.blocksManagementShell.innerHTML = `
-        <div class="management-page-shell space-y-5">
-          <header class="management-page-intro">
+        <div class="management-canvas management-canvas--sections">
+          <header class="management-hero">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="management-page-eyebrow">Sections</p>
-                <h2 class="management-page-title">Manage growing sections</h2>
-                <p class="management-page-summary">Configure each monitored section, its crop profile and the nodes reporting from it.</p>
+                <p class="management-hero-kicker">Section registry</p>
+                <h2>Operations, organized by section.</h2>
+                <p>Assign crop profiles, connect nodes and check which sections are ready for live monitoring.</p>
               </div>
 
-              <div class="management-summary-strip">
-                <div class="management-summary-item">
-                  <div>Sections</div><strong>${filteredBlockCount}</strong>
-                </div>
-                <div class="management-summary-item">
-                  <div>Areas</div><strong>${filteredSites.length}</strong>
-                </div>
-                <div class="management-summary-item">
-                  <div>Nodes</div><strong>${filteredNodeCount}</strong>
-                </div>
-                <div class="management-summary-item" data-tone="${filteredLowBatteryCount > 0 ? "warning" : "optimal"}">
-                  <div>Low battery</div><strong>${filteredLowBatteryCount}</strong>
-                </div>
+              <div class="management-hero-counts">
+                <div><strong>${filteredBlockCount}</strong><span>sections</span></div>
+                <div><strong>${filteredSites.length}</strong><span>areas</span></div>
+                <div><strong>${filteredNodeCount}</strong><span>nodes</span></div>
+                <div data-tone="${filteredLowBatteryCount > 0 ? "warning" : "optimal"}"><strong>${filteredLowBatteryCount}</strong><span>low battery</span></div>
               </div>
             </div>
           </header>
 
-          <div class="management-editor-card">
-            <div>
-              <p class="management-editor-eyebrow">${blockFormState.mode === "edit" ? "Edit section" : "New section"}</p>
-              <h3 class="management-editor-title">${blockFormTitle}</h3>
-              <p class="management-editor-summary">${blockFormSummary}</p>
+          <section class="management-composer">
+            <div class="management-composer-icon"><i class="fa-solid fa-plus" aria-hidden="true"></i></div>
+            <div class="management-composer-copy">
+              <p>${blockFormState.mode === "edit" ? "Edit section" : "Add a section"}</p>
+              <h3>${blockFormTitle}</h3>
+              <span>${blockFormSummary}</span>
             </div>
-
-            ${renderManagementNotice("blocks")}
-
-            ${locationOptions.length === 0
+            <div class="management-composer-body">
+              ${renderManagementNotice("blocks")}
+              ${locationOptions.length === 0
               ? `
-                <div class="mt-4 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">
+                <div class="management-composer-note">
                   Create an area first. After that, this becomes the main form for registering monitored sections.
                 </div>
               `
               : `
-                <form class="mt-4 space-y-3" data-management-form="block">
+                <form data-management-form="block">
                   <div class="grid gap-3 xl:grid-cols-4">
                     <label class="block xl:col-span-2">
                       <span class="text-sm font-semibold text-ink/72">Section name</span>
@@ -7599,23 +7579,24 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 </form>
               `}
 
-            <div class="management-editor-note">
+            <p class="management-composer-note">
               Showing sections in <strong>${escapeHtml(activeFilterLabel)}</strong>. Change the Site in the global header to manage another area.
+            </p>
             </div>
-          </div>
+          </section>
 
-          <div class="management-list-card">
-            <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <section class="management-collection">
+            <div class="management-collection-head">
               <div>
-                <p class="management-page-eyebrow">Current sections</p>
-                <h3 class="management-list-heading">${filteredBlockCount} section${filteredBlockCount === 1 ? "" : "s"} in this view</h3>
+                <p>Active registry</p>
+                <h3>${filteredBlockCount} section${filteredBlockCount === 1 ? "" : "s"} in this view</h3>
               </div>
-              <div class="text-sm leading-6 text-ink/58">
+              <span>
                 ${filteredAlertCount > 0 ? `${filteredAlertCount} need attention` : "No active alerts"} · ${filteredLowBatteryCount} low-battery node${filteredLowBatteryCount === 1 ? "" : "s"}
-              </div>
+              </span>
             </div>
             ${blockListMarkup}
-          </div>
+          </section>
         </div>
       `;
     }
