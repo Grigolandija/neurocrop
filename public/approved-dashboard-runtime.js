@@ -1851,6 +1851,10 @@
       renderDashboard();
     }
 
+    function hasOrganizationFaultCount(value) {
+      return value !== null && value !== undefined && Number.isFinite(Number(value));
+    }
+
     async function hydratePlatformOrganizations() {
       if (!window.NeuroCropApi?.isConnected() || platformOrganizationState.status === "loading") return;
       const session = getLoginSession();
@@ -1864,7 +1868,24 @@
           window.NeuroCropApi.getPlatformUsers(),
           window.NeuroCropApi.getOrganizationRequests("pending")
         ]);
-        platformOrganizationState.organizations = Array.isArray(response?.organizations) ? response.organizations : [];
+        const organizations = Array.isArray(response?.organizations) ? response.organizations : [];
+        const organizationsMissingFaultCounts = organizations.filter((organization) => !hasOrganizationFaultCount(organization.faultNodeCount));
+        const fallbackFaultCounts = await Promise.all(organizationsMissingFaultCounts.map(async (organization) => {
+          try {
+            const diagnostics = await window.NeuroCropApi.getPlatformOrganizationNodes(organization.id);
+            const nodes = Array.isArray(diagnostics?.nodes) ? diagnostics.nodes : [];
+            return [organization.id, nodes.filter((node) => Object.values(node.errorFlags || {}).some(Boolean)).length];
+          } catch {
+            return [organization.id, null];
+          }
+        }));
+        const fallbackFaultCountByOrganization = new Map(fallbackFaultCounts);
+        platformOrganizationState.organizations = organizations.map((organization) => ({
+          ...organization,
+          faultNodeCount: hasOrganizationFaultCount(organization.faultNodeCount)
+            ? Number(organization.faultNodeCount)
+            : fallbackFaultCountByOrganization.get(organization.id)
+        }));
         platformOrganizationState.users = Array.isArray(userResponse?.users) ? userResponse.users : [];
         platformOrganizationState.organizationRequests = Array.isArray(requestResponse?.requests) ? requestResponse.requests : [];
         platformOrganizationState.status = "ready";
@@ -8676,7 +8697,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 <table class="admin-table">
                   <thead><tr><th>Name</th><th>Status</th><th>Members</th><th>Sites</th><th>Zones</th><th>Nodes</th><th>Node faults</th><th>Created</th><th class="admin-actions-column">Actions</th></tr></thead>
                   <tbody>
-                    ${platformOrganizationState.organizations.map((organization) => `
+                    ${platformOrganizationState.organizations.map((organization) => {
+                      const faultNodeCount = hasOrganizationFaultCount(organization.faultNodeCount) ? Number(organization.faultNodeCount) : null;
+                      const faultLabel = faultNodeCount === null ? "Unavailable" : faultNodeCount > 0 ? `${faultNodeCount} flagged` : "None";
+                      return `
                       <tr data-admin-row="organizations" data-admin-search-value="${escapeAttribute(`${organization.name} ${organization.id} ${organization.status || "active"}`.toLowerCase())}">
                         <td><strong>${escapeHtml(organization.name)}</strong><small>${escapeHtml(organization.id)}</small></td>
                         <td><span class="admin-status-label" data-state="${escapeAttribute(organization.status || "active")}">${escapeHtml(organization.status || "active")}</span></td>
@@ -8684,7 +8708,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                         <td>${Number(organization.areaCount || 0)}</td>
                         <td>${Number(organization.sectionCount || 0)}</td>
                         <td>${Number(organization.nodeCount || 0)}</td>
-                        <td><span class="admin-status-label" data-state="${Number(organization.faultNodeCount || 0) > 0 ? "warning" : "clear"}">${Number(organization.faultNodeCount || 0) > 0 ? `${Number(organization.faultNodeCount)} flagged` : "None"}</span></td>
+                        <td><span class="admin-status-label" data-state="${faultNodeCount === null ? "inactive" : faultNodeCount > 0 ? "warning" : "clear"}">${escapeHtml(faultLabel)}</span></td>
                         <td>${escapeHtml(formatAdminDate(organization.createdAt))}</td>
                         <td class="admin-row-actions">
                           <button type="button" class="admin-link-button" data-platform-node-diagnostics="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}">Node diagnostics</button>
@@ -8694,7 +8718,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                           ${currentSession?.isSuperAdmin ? `<button type="button" class="admin-link-button admin-link-danger" data-platform-delete="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}" ${organization.id === currentSession?.organizationId ? "disabled" : ""}>Delete</button>` : ""}
                         </td>
                       </tr>
-                    `).join("") || `<tr><td colspan="9" class="admin-empty">No organizations.</td></tr>`}
+                    `;
+                    }).join("") || `<tr><td colspan="9" class="admin-empty">No organizations.</td></tr>`}
                   </tbody>
                 </table>
               </div>
