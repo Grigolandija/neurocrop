@@ -7578,10 +7578,17 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const flags = Object.entries(node.errorFlags || {})
         .filter(([, active]) => active)
         .map(([key]) => flagLabels[key] || key);
+      const hasCounters = Boolean(node.errorCounters && typeof node.errorCounters === "object");
       const counters = Object.entries(node.errorCounters || {})
         .filter(([, value]) => Number(value) > 0)
         .map(([key, value]) => `${value} ${counterLabels[key] || key}`);
-      return [...flags, ...counters].join(" · ") || "No active device fault flags or non-zero error counters";
+      const txFailures = Number(node.errorCounters?.tx_fail);
+      return {
+        flags,
+        counters,
+        hasCounters,
+        txFailures: Number.isFinite(txFailures) ? txFailures : null
+      };
     }
 
     function formatNodeSignal(node) {
@@ -7649,6 +7656,16 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             const lastPayload = formatNodeLastPayload(node, freshness);
             const health = getNodeHealthSummary(node, freshness);
             const faultDiagnostics = getNodeFaultDiagnostics(node);
+            const faultFlagSummary = faultDiagnostics.flags.join(" · ") || "No active device fault flags";
+            const txFailureSummary = !faultDiagnostics.hasCounters
+              ? "TX failure counter unavailable (requires v2.1.4+ 20-byte payload)"
+              : faultDiagnostics.txFailures === null
+                ? "TX failure counter unavailable"
+                : `${faultDiagnostics.txFailures}${faultDiagnostics.txFailures >= 15 ? "+" : ""} failed transmissions since last successful TX (counter range 0-15)`;
+            const otherCounterSummary = faultDiagnostics.counters.filter((item) => !item.endsWith("transmission failures")).join(" · ");
+            const transportContext = freshness.transportStatus === "live"
+              ? "Current transport is live. The codec does not include the timeout timestamp or a gateway error code."
+              : "The codec does not include the timeout timestamp or a gateway error code.";
             const sensors = getNodeDetectedSensorNames(node);
             const batteryText = Number.isFinite(node.level)
               ? `${freshness.transportStatus === "offline" ? "Last " : ""}${node.level}%`
@@ -7687,7 +7704,13 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                   <div><span>Sensors</span><strong>${escapeHtml(compactTelemetry[1])}</strong></div>
                   <div><span>Connection</span><strong>${escapeHtml(compactTelemetry[0])}</strong></div>
                   <div><span>Last payload</span><strong>${escapeHtml(`${lastPayload.absolute} · ${lastPayload.relative}`)}</strong></div>
-                  <div class="node-table-fault-summary"><span>Fault diagnostics</span><strong>${escapeHtml(faultDiagnostics)}</strong></div>
+                  <div class="node-table-fault-summary">
+                    <span>Fault diagnostics</span>
+                    <strong>${escapeHtml(faultFlagSummary)}</strong>
+                    <small>${escapeHtml(txFailureSummary)}</small>
+                    ${otherCounterSummary ? `<small>${escapeHtml(otherCounterSummary)}</small>` : ""}
+                    <small>${escapeHtml(transportContext)}</small>
+                  </div>
                   <div class="node-table-detail-actions">
                   <button type="button" class="inline-action actionable" data-tone="primary" data-node-open-block-site-id="${escapeAttribute(site.id)}" data-node-open-block-zone-id="${escapeAttribute(zone.id)}">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
