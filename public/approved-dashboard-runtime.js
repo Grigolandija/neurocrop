@@ -13391,12 +13391,12 @@ function buildTrendMetricOptions(options) {
       const heroSensorGlanceState = buildHeroSensorGlanceState({
         isSiteView,
         isSiteHotspotsView,
-      site,
-      zone,
-      profile,
-      metricResults: results,
-      siteAverageSummaries: siteTrendAverageSummaries
-    });
+        site,
+        zone,
+        profile,
+        growthResults,
+        siteAverageSummaries: siteTrendAverageSummaries
+      });
       const actionDeck = buildActionDeck({
         isSiteView,
         site,
