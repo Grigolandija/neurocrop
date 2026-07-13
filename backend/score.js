@@ -61,11 +61,11 @@ function measurementHasMetricSensor(measurement, metricId) {
 
 function getExpectedGrowthMetrics(nodeRows, measurements, scoreRules, availableMetrics) {
   const expected = new Set(
-    availableMetrics.filter((metricId) => scoreRules[metricId]?.growth)
+    availableMetrics.filter((metricId) => metricId !== 'batteryLevel')
   );
 
   for (const [metricId, rule] of Object.entries(scoreRules)) {
-    if (!rule.growth) continue;
+    if (metricId === 'batteryLevel') continue;
     const sensorId = SENSOR_PRESENCE_BY_METRIC[metricId];
     if (!sensorId) continue;
     const installed = nodeRows.some((node) => node?.last_sensor_presence?.[sensorId] === true)
