@@ -2894,7 +2894,7 @@
     }
 
     function isGrowthMetricKey(key) {
-      return key !== "batteryLevel" && key !== "lux";
+      return key !== "batteryLevel";
     }
 
     function getBatteryAlertThreshold(definition) {
