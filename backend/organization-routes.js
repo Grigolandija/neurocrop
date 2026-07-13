@@ -246,7 +246,14 @@ export function registerPlatformOrganizationRoutes(app) {
                 COUNT(DISTINCT m.user_id)::int AS member_count,
                 COUNT(DISTINCT a.id)::int AS area_count,
                 COUNT(DISTINCT s.id)::int AS section_count,
-                COUNT(DISTINCT n.dev_eui)::int AS node_count
+                COUNT(DISTINCT n.dev_eui)::int AS node_count,
+                COUNT(DISTINCT n.dev_eui) FILTER (
+                  WHERE EXISTS (
+                    SELECT 1
+                    FROM jsonb_each(COALESCE(n.last_error_flags, '{}'::jsonb)) AS flag(key, value)
+                    WHERE value='true'::jsonb
+                  )
+                )::int AS fault_node_count
          FROM organizations o
          LEFT JOIN organization_memberships m ON m.organization_id=o.id
          LEFT JOIN areas a ON a.organization_id=o.id
@@ -266,7 +273,8 @@ export function registerPlatformOrganizationRoutes(app) {
           memberCount: row.member_count,
           areaCount: row.area_count,
           sectionCount: row.section_count,
-          nodeCount: row.node_count
+          nodeCount: row.node_count,
+          faultNodeCount: row.fault_node_count
         }))
       });
     } catch (error) {

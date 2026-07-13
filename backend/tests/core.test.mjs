@@ -177,6 +177,15 @@ test('platform node diagnostics are restricted to platform administrators', () =
   assert.match(route, /last_error_counters/);
 });
 
+test('platform organization listing includes active node fault counts', () => {
+  const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.get('/platform/organizations'");
+  const route = source.slice(routeStart, source.indexOf("app.get('/platform/organizations/:organizationId/nodes'", routeStart));
+  assert.match(route, /fault_node_count/);
+  assert.match(route, /jsonb_each/);
+  assert.match(route, /faultNodeCount/);
+});
+
 test('password change verifies the current password and revokes other sessions', () => {
   const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   const route = source.slice(

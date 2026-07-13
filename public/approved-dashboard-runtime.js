@@ -8674,7 +8674,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
               </header>
               <div class="admin-table-wrap">
                 <table class="admin-table">
-                  <thead><tr><th>Name</th><th>Status</th><th>Members</th><th>Sites</th><th>Zones</th><th>Nodes</th><th>Created</th><th class="admin-actions-column">Actions</th></tr></thead>
+                  <thead><tr><th>Name</th><th>Status</th><th>Members</th><th>Sites</th><th>Zones</th><th>Nodes</th><th>Node faults</th><th>Created</th><th class="admin-actions-column">Actions</th></tr></thead>
                   <tbody>
                     ${platformOrganizationState.organizations.map((organization) => `
                       <tr data-admin-row="organizations" data-admin-search-value="${escapeAttribute(`${organization.name} ${organization.id} ${organization.status || "active"}`.toLowerCase())}">
@@ -8684,6 +8684,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                         <td>${Number(organization.areaCount || 0)}</td>
                         <td>${Number(organization.sectionCount || 0)}</td>
                         <td>${Number(organization.nodeCount || 0)}</td>
+                        <td><span class="admin-status-label" data-state="${Number(organization.faultNodeCount || 0) > 0 ? "warning" : "clear"}">${Number(organization.faultNodeCount || 0) > 0 ? `${Number(organization.faultNodeCount)} flagged` : "None"}</span></td>
                         <td>${escapeHtml(formatAdminDate(organization.createdAt))}</td>
                         <td class="admin-row-actions">
                           <button type="button" class="admin-link-button" data-platform-node-diagnostics="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}">Node diagnostics</button>
@@ -8693,7 +8694,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                           ${currentSession?.isSuperAdmin ? `<button type="button" class="admin-link-button admin-link-danger" data-platform-delete="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}" ${organization.id === currentSession?.organizationId ? "disabled" : ""}>Delete</button>` : ""}
                         </td>
                       </tr>
-                    `).join("") || `<tr><td colspan="8" class="admin-empty">No organizations.</td></tr>`}
+                    `).join("") || `<tr><td colspan="9" class="admin-empty">No organizations.</td></tr>`}
                   </tbody>
                 </table>
               </div>

@@ -9663,6 +9663,11 @@
       color: #925f13;
     }
 
+    .admin-status-label[data-state="warning"] {
+      background: #fff0d8;
+      color: #925f13;
+    }
+
     .admin-empty {
       height: 58px !important;
       color: #748079 !important;
