@@ -11561,7 +11561,7 @@ function buildTrendMetricOptions(options) {
           };
       const typicalResult = summary.medianResult;
       const hasCurrentValue = isAvailable && summary.reportingCount > 0;
-      const visual = hasCurrentValue ? getDiagnosticDeviationVisual(typicalResult, definition) : null;
+      const visual = hasCurrentValue ? getLiveReadingPositionVisual(typicalResult, definition) : null;
       const trend = isAvailable ? getDiagnosticTrend(result, definition, scopeSeed) : null;
       const statusLabel = !isAvailable
         ? diagnosticText("Unavailable", "Neprieinama")
@@ -11626,7 +11626,7 @@ function buildTrendMetricOptions(options) {
             <div class="live-reading-position">
               ${visual ? `
                 <span class="live-reading-track" aria-label="${diagnosticText("Section median position against target", "Sekcijos medianos padėtis tikslinio intervalo atžvilgiu")}">
-                  <i class="live-reading-optimal" style="left:${visual.optimalStart.toFixed(2)}%;width:${Math.max(visual.optimalEnd - visual.optimalStart, 2).toFixed(2)}%"></i>
+                  ${visual.zones.map((zone) => `<i class="live-reading-zone" data-tone="${zone.tone}" style="left:${zone.left.toFixed(2)}%;width:${zone.width.toFixed(2)}%"></i>`).join("")}
                   <i class="live-reading-marker" style="left:${visual.marker.toFixed(2)}%"></i>
                 </span>
               ` : `<span class="live-reading-no-data">${diagnosticText("No sensor data", "Nėra sensoriaus duomenų")}</span>`}
@@ -12660,6 +12660,35 @@ function buildTrendMetricOptions(options) {
         marker: toPercent(result.value),
         optimalStart: toPercent(definition.optimal[0]),
         optimalEnd: toPercent(definition.optimal[1])
+      };
+    }
+
+    function getLiveReadingPositionVisual(result, definition) {
+      const optimal = definition?.optimal;
+      if (!Array.isArray(optimal) || optimal.length < 2) return null;
+
+      const warning = Array.isArray(definition.warning) ? definition.warning : optimal;
+      const critical = Array.isArray(definition.critical) ? definition.critical : warning;
+      const value = Number(result?.value);
+      const scaleMin = Math.min(critical[0], warning[0], optimal[0], value);
+      const scaleMax = Math.max(critical[1], warning[1], optimal[1], value);
+      const span = Math.max(scaleMax - scaleMin, 0.001);
+      const toTrackPercent = (rangeValue) => clamp(((rangeValue - scaleMin) / span) * 100, 0, 100);
+      const zone = (tone, start, end) => ({
+        tone,
+        left: toTrackPercent(start),
+        width: Math.max(toTrackPercent(end) - toTrackPercent(start), 0)
+      });
+
+      return {
+        marker: clamp(toTrackPercent(value), 2, 98),
+        zones: [
+          zone("critical", scaleMin, warning[0]),
+          zone("warning", warning[0], optimal[0]),
+          zone("optimal", optimal[0], optimal[1]),
+          zone("warning", optimal[1], warning[1]),
+          zone("critical", warning[1], scaleMax)
+        ].filter((item) => item.width > 0)
       };
     }
 

@@ -11150,12 +11150,23 @@
       background: #e9e6dc;
     }
 
-    .live-reading-optimal {
+    .live-reading-zone {
       position: absolute;
       top: 1px;
       bottom: 1px;
       border-radius: 999px;
+    }
+
+    .live-reading-zone[data-tone="optimal"] {
       background: #83b49e;
+    }
+
+    .live-reading-zone[data-tone="warning"] {
+      background: #d7a152;
+    }
+
+    .live-reading-zone[data-tone="critical"] {
+      background: #cf8879;
     }
 
     .live-reading-marker {
