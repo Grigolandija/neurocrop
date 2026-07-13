@@ -3361,6 +3361,25 @@
       return Boolean(window.NeuroCropApi?.isConnected?.());
     }
 
+    function detectedMetricKeysFromNodes(nodes) {
+      const detected = new Set();
+
+      (Array.isArray(nodes) ? nodes : []).forEach((node) => {
+        const presence = node?.sensorPresence;
+        if (!presence || typeof presence !== "object") return;
+
+        if (presence.sht45 === true) {
+          detected.add("airTemp");
+          detected.add("humidity");
+          detected.add("vpd");
+        }
+        if (presence.scd41 === true) detected.add("co2");
+        if (presence.bh1750 === true) detected.add("lux");
+      });
+
+      return [...detected];
+    }
+
     function normalizeApiDashboardData(data) {
       const nextData = cloneDashboardValue(data || {});
       nextData.sites = Array.isArray(nextData.sites) ? nextData.sites : [];
@@ -3385,7 +3404,8 @@
           const configuredMetrics = Array.isArray(zone.configuredMetrics) ? zone.configuredMetrics.slice() : [];
           const availableMetrics = [...new Set([
             ...(Array.isArray(zone.availableMetrics) ? zone.availableMetrics : []),
-            ...configuredMetrics
+            ...configuredMetrics,
+            ...detectedMetricKeysFromNodes(batteryNodes)
           ])];
           if (batteryNodes.length > 0 && !availableMetrics.includes("batteryLevel")) {
             availableMetrics.push("batteryLevel");

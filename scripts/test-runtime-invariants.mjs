@@ -26,6 +26,13 @@ function assert(condition, message) {
   console.error(`FAIL ${message}`);
 }
 
+assert(
+  runtime.includes('presence.bh1750 === true')
+    && runtime.includes('detected.add("lux")')
+    && runtime.includes('...detectedMetricKeysFromNodes(batteryNodes)'),
+  "Detected light hardware must expose Lux in API-backed metric availability"
+);
+
 assert(!runtime.includes("fetchLatestReadingsForAllZones"), "dashboard must not fetch latest readings for every section");
 assert(runtime.includes("if (!nextZone) {") && runtime.includes("renderDashboard();"), "empty areas must render instead of returning during hydration");
 assert(runtime.includes('elements.dashboardShell.setAttribute("aria-busy", "true")') && runtime.includes('elements.dashboardShell.removeAttribute("aria-busy")'), "dashboard hydration must expose its loading state without leaving the UI blank");
