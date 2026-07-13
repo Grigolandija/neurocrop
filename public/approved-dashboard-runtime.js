@@ -7562,6 +7562,28 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       return window.NeuroCropFeatures.nodes.getHealthSummary(node, freshness || {});
     }
 
+    function getNodeFaultDiagnostics(node) {
+      const flagLabels = {
+        tx_timeout: "TX timeout flag active",
+        last_tx_failed: "Last transmission failed",
+        watchdog_reset: "Watchdog reset reported",
+        join_backoff: "Network join backoff active",
+        boot_fault: "Boot fault reported"
+      };
+      const counterLabels = {
+        tx_fail: "transmission failures",
+        read_fail: "sensor read failures",
+        reinit: "sensor reinitialisations"
+      };
+      const flags = Object.entries(node.errorFlags || {})
+        .filter(([, active]) => active)
+        .map(([key]) => flagLabels[key] || key);
+      const counters = Object.entries(node.errorCounters || {})
+        .filter(([, value]) => Number(value) > 0)
+        .map(([key, value]) => `${value} ${counterLabels[key] || key}`);
+      return [...flags, ...counters].join(" · ") || "No active device fault flags or non-zero error counters";
+    }
+
     function formatNodeSignal(node) {
       return window.NeuroCropFeatures.nodes.formatSignal(node);
     }
@@ -7626,6 +7648,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             const freshnessAge = formatFreshnessAge(freshness.ageSec);
             const lastPayload = formatNodeLastPayload(node, freshness);
             const health = getNodeHealthSummary(node, freshness);
+            const faultDiagnostics = getNodeFaultDiagnostics(node);
             const sensors = getNodeDetectedSensorNames(node);
             const batteryText = Number.isFinite(node.level)
               ? `${freshness.transportStatus === "offline" ? "Last " : ""}${node.level}%`
@@ -7664,7 +7687,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                   <div><span>Sensors</span><strong>${escapeHtml(compactTelemetry[1])}</strong></div>
                   <div><span>Connection</span><strong>${escapeHtml(compactTelemetry[0])}</strong></div>
                   <div><span>Last payload</span><strong>${escapeHtml(`${lastPayload.absolute} · ${lastPayload.relative}`)}</strong></div>
-                  <div><span>Health</span><strong>${escapeHtml(health.detail)}</strong></div>
+                  <div class="node-table-fault-summary"><span>Fault diagnostics</span><strong>${escapeHtml(faultDiagnostics)}</strong></div>
                   <div class="node-table-detail-actions">
                   <button type="button" class="inline-action actionable" data-tone="primary" data-node-open-block-site-id="${escapeAttribute(site.id)}" data-node-open-block-zone-id="${escapeAttribute(zone.id)}">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>

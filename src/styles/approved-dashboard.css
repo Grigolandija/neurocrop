@@ -799,6 +799,7 @@
     #nodesManagementSection .node-table-detail > div:not(.node-table-detail-actions) span, #nodesManagementSection .node-table-detail > div:not(.node-table-detail-actions) strong { display: block; }
     #nodesManagementSection .node-table-detail > div:not(.node-table-detail-actions) span { color: rgba(20, 32, 27, .48); font-size: 10px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
     #nodesManagementSection .node-table-detail > div:not(.node-table-detail-actions) strong { overflow: hidden; margin-top: 3px; color: #14201b; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    #nodesManagementSection .node-table-detail .node-table-fault-summary strong { overflow: visible; text-overflow: clip; white-space: normal; line-height: 1.35; }
     #nodesManagementSection .node-table-detail-actions { display: flex; align-items: end; gap: 6px; }
     #nodesManagementSection .node-health-chip { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
 
