@@ -11626,7 +11626,7 @@ function buildTrendMetricOptions(options) {
             <div class="live-reading-position">
               ${visual ? `
                 <span class="live-reading-track" aria-label="${diagnosticText("Section median position against target", "Sekcijos medianos padėtis tikslinio intervalo atžvilgiu")}">
-                  ${visual.zones.map((zone) => `<i class="live-reading-zone" data-tone="${zone.tone}" style="left:${zone.left.toFixed(2)}%;width:${zone.width.toFixed(2)}%"></i>`).join("")}
+                  <i class="live-reading-optimal" style="left:${visual.optimalStart.toFixed(2)}%;width:${Math.max(visual.optimalEnd - visual.optimalStart, 2).toFixed(2)}%"></i>
                   <i class="live-reading-marker" style="left:${visual.marker.toFixed(2)}%"></i>
                 </span>
               ` : `<span class="live-reading-no-data">${diagnosticText("No sensor data", "Nėra sensoriaus duomenų")}</span>`}
@@ -12650,33 +12650,16 @@ function buildTrendMetricOptions(options) {
     }
 
     function getDiagnosticDeviationVisual(result, definition) {
-      const optimal = definition.optimal;
-      const warning = definition.warning || optimal;
-      const critical = definition.critical || warning;
-      const scaleMin = Math.min(critical[0], warning[0], optimal[0], result.value);
-      const scaleMax = Math.max(critical[1], warning[1], optimal[1], result.value);
+      const scale = definition.critical || definition.warning || definition.optimal;
+      const scaleMin = Math.min(scale[0], definition.optimal[0], result.value);
+      const scaleMax = Math.max(scale[1], definition.optimal[1], result.value);
       const span = Math.max(scaleMax - scaleMin, 0.001);
-      const toTrackPercent = (value) => clamp(((value - scaleMin) / span) * 100, 0, 100);
-      const toMarkerPercent = (value) => clamp(toTrackPercent(value), 2, 98);
-      const optimalStart = toTrackPercent(optimal[0]);
-      const optimalEnd = toTrackPercent(optimal[1]);
-      const zone = (tone, start, end) => ({
-        tone,
-        left: toTrackPercent(start),
-        width: Math.max(toTrackPercent(end) - toTrackPercent(start), 0)
-      });
+      const toPercent = (value) => clamp(((value - scaleMin) / span) * 100, 2, 98);
 
       return {
-        marker: toMarkerPercent(result.value),
-        optimalStart,
-        optimalEnd,
-        zones: [
-          zone("critical", scaleMin, warning[0]),
-          zone("warning", warning[0], optimal[0]),
-          zone("optimal", optimal[0], optimal[1]),
-          zone("warning", optimal[1], warning[1]),
-          zone("critical", warning[1], scaleMax)
-        ].filter((item) => item.width > 0)
+        marker: toPercent(result.value),
+        optimalStart: toPercent(definition.optimal[0]),
+        optimalEnd: toPercent(definition.optimal[1])
       };
     }
 
