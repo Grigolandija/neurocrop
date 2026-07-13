@@ -41,10 +41,13 @@
           <span id="heroTimestampChip" hidden aria-hidden="true"></span>
         </div>
         <div class="header-status-card">
-          <div class="language-switch" role="group" aria-label="Language">
-            <button type="button" data-language-option="lt" data-active="false" aria-pressed="false">LT</button>
-            <button type="button" data-language-option="en" data-active="true" aria-pressed="true">EN</button>
-          </div>
+          <label class="header-language-select">
+            <span class="sr-only">Language</span>
+            <select data-language-select aria-label="Language">
+              <option value="lt">LT</option>
+              <option value="en">EN</option>
+            </select>
+          </label>
           <span id="headerConnectionStatus" class="header-connection-status" data-connection="online">
             <span class="header-connection-dot"></span>
             <span id="headerConnectionLabel">Online</span>
@@ -52,7 +55,7 @@
           <div class="header-battery-wrap">
             <button id="headerBatteryIndicator" type="button" class="header-battery-indicator actionable" data-state="optimal" aria-label="Low battery nodes" aria-expanded="false" aria-controls="headerBatteryDropdown">
               <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
-              <span id="headerBatteryCount" class="header-battery-count">0</span>
+              <span id="headerBatteryCount" class="sr-only">0</span>
             </button>
             <div id="headerBatteryDropdown" class="header-battery-dropdown" aria-hidden="true">
               <div class="header-battery-dropdown-header">

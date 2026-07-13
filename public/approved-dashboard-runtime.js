@@ -694,6 +694,9 @@
         button.dataset.active = String(isActive);
         button.setAttribute("aria-pressed", String(isActive));
       });
+      document.querySelectorAll("[data-language-select]").forEach((select) => {
+        select.value = interfaceLanguage;
+      });
 
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
       let node = walker.nextNode();
@@ -16466,6 +16469,11 @@ function buildTrendMetricOptions(options) {
       const languageButton = event.target.closest("[data-language-option]");
       if (!languageButton) return;
       setInterfaceLanguage(languageButton.dataset.languageOption);
+    });
+
+    document.addEventListener("change", (event) => {
+      const languageSelect = event.target.closest?.("[data-language-select]");
+      if (languageSelect instanceof HTMLSelectElement) setInterfaceLanguage(languageSelect.value);
     });
 
     window.addEventListener("neurocrop:unauthorized", () => {
