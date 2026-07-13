@@ -14408,9 +14408,14 @@ function buildTrendMetricOptions(options) {
         : isSimpleExperienceMode
           ? "The readings behind this score"
           : "What drives the index most";
-      elements.workbenchToolbar.hidden = isSimpleExperienceMode;
-      elements.workbenchLensBar.innerHTML = renderWorkbenchLenses(currentWorkbenchLenses, activeWorkbenchLens?.key);
-      elements.workbenchLensSummary.textContent = isReadingsPage
+      const shouldShowWorkbenchToolbar = !isSimpleExperienceMode && (!isReadingsPage || currentWorkbenchLenses.length > 1);
+      elements.workbenchToolbar.hidden = !shouldShowWorkbenchToolbar;
+      elements.workbenchLensBar.innerHTML = shouldShowWorkbenchToolbar
+        ? renderWorkbenchLenses(currentWorkbenchLenses, activeWorkbenchLens?.key)
+        : "";
+      elements.workbenchLensSummary.textContent = !shouldShowWorkbenchToolbar
+        ? ""
+        : isReadingsPage
         ? diagnosticText(
             "Choose a metric group or open its trend for the full history.",
             "Pasirinkite rodiklių grupę arba atidarykite grafiką išsamiai istorijai."
