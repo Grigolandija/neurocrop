@@ -6659,7 +6659,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       groupKeys.forEach((groupKey) => {
         const group = getMetricWorkbenchGroup(groupKey === "climate" ? "airTemp" : groupKey === "root" ? "soilTemp" : "ec");
         const count = availableResults.filter((item) => getMetricWorkbenchGroup(item.key).key === groupKey).length;
-        if (count === 0 || count === availableResults.length) return;
 
         lenses.push({
           key: `group-${group.key}`,
@@ -6669,6 +6668,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           icon: group.icon,
           tone: "neutral",
           count,
+          disabled: count === 0,
           description: `Showing ${count} ${group.label.toLowerCase()} metrics for ${zone.name}.`
         });
       });
@@ -9942,6 +9942,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           data-active="${String(lens.key === activeKey)}"
           data-tone="${escapeAttribute(lens.tone || "neutral")}"
           aria-pressed="${String(lens.key === activeKey)}"
+          aria-disabled="${String(lens.disabled === true)}"
+          ${lens.disabled === true ? "disabled" : ""}
         >
           <span class="workbench-lens-button-icon">
             <i class="fa-solid ${escapeAttribute(lens.icon || "fa-wave-square")}" aria-hidden="true"></i>
@@ -14408,7 +14410,7 @@ function buildTrendMetricOptions(options) {
         : isSimpleExperienceMode
           ? "The readings behind this score"
           : "What drives the index most";
-      const shouldShowWorkbenchToolbar = !isSimpleExperienceMode && (!isReadingsPage || currentWorkbenchLenses.length > 1);
+      const shouldShowWorkbenchToolbar = !isSimpleExperienceMode;
       elements.workbenchToolbar.hidden = !shouldShowWorkbenchToolbar;
       elements.workbenchLensBar.innerHTML = shouldShowWorkbenchToolbar
         ? renderWorkbenchLenses(currentWorkbenchLenses, activeWorkbenchLens?.key)

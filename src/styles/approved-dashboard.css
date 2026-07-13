@@ -2951,6 +2951,18 @@
       outline: none;
     }
 
+    .workbench-lens-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.46;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .workbench-lens-button:disabled:hover {
+      box-shadow: none;
+      transform: none;
+    }
+
     .workbench-lens-button[data-active="true"] {
       background: #21473b;
       color: #ffffff;
