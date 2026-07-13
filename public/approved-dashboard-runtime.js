@@ -10082,6 +10082,10 @@ function buildTrendMetricOptions(options) {
       return getTrendDisplayValuesForMetric(item.series.values, item.series.timestamps, item.option.key, rangeKey);
     }
 
+    function getTrendMetricDisplayLabel(option) {
+      return option?.key === "lux" ? "LUX" : option?.label || "";
+    }
+
     function renderTrendMetricButtons(metricOptions, activeKeys = []) {
       const activeKeySet = new Set(activeKeys);
       return metricOptions
@@ -10097,7 +10101,7 @@ function buildTrendMetricOptions(options) {
           data-tone="${escapeAttribute(option.tone || "neutral")}" 
           aria-pressed="${String(isActive)}"
         >
-          <span>${escapeHtml(option.label)}</span>
+          <span>${escapeHtml(getTrendMetricDisplayLabel(option))}</span>
         </button>
       `;
         }).join("");
