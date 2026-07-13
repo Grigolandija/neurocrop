@@ -10934,7 +10934,7 @@
       padding: 0 0.85rem;
       color: rgba(20, 32, 27, 0.42);
       background: #f3f1ea;
-      font-size: 0.62rem;
+      font-size: 0.64rem;
       font-weight: 850;
       letter-spacing: 0.09em;
       text-transform: uppercase;
@@ -11167,15 +11167,16 @@
     .live-reading-trend strong {
       overflow: hidden;
       color: #14201b;
-      font-size: 0.78rem;
+      font-size: 0.82rem;
       font-weight: 850;
+      line-height: 1.2;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .live-reading-value strong {
       font-family: "Space Grotesk", sans-serif;
-      font-size: 1.08rem;
+      font-size: 1.12rem;
       letter-spacing: -0.02em;
     }
 
@@ -11186,14 +11187,15 @@
       overflow: hidden;
       margin-top: 0.14rem;
       color: rgba(20, 32, 27, 0.47);
-      font-size: 0.62rem;
+      font-size: 0.64rem;
+      line-height: 1.2;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .live-reading-trend span {
       margin: 0 0 0.16rem;
-      font-size: 0.57rem;
+      font-size: 0.64rem;
       font-weight: 800;
       letter-spacing: 0.07em;
       text-transform: uppercase;
@@ -11277,7 +11279,7 @@
       padding: 0.32rem 0.48rem;
       color: #2f6a4f;
       background: #edf4ef;
-      font-size: 0.61rem;
+      font-size: 0.64rem;
       font-weight: 850;
       white-space: nowrap;
     }
