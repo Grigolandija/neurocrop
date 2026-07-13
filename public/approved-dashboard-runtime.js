@@ -9848,7 +9848,7 @@ function buildTrendMetricOptions(options) {
     )
     .map((result) => ({
           key: result.key,
-          available: result.available !== false || (isApiDataMode() && (zone.availableMetrics || []).includes(result.key)),
+          available: result.configured !== false,
           definition: profile.metrics[result.key],
           optimalRange: profile.metrics[result.key].optimal,
           value: result.value,
