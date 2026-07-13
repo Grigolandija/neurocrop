@@ -6370,10 +6370,13 @@
         .join("");
     }
 
-    function buildSiteAverageSummaries(siteSnapshots) {
-      const metricKeys = [...new Set(siteSnapshots.flatMap((snapshot) =>
-        Object.keys(snapshot.profile.metrics).filter((key) => isGrowthMetricKey(key))
-      ))];
+function buildSiteAverageSummaries(siteSnapshots, options = {}) {
+  const includeNonGrowthMetrics = options.includeNonGrowthMetrics === true;
+  const metricKeys = [...new Set(siteSnapshots.flatMap((snapshot) =>
+    Object.keys(snapshot.profile.metrics).filter((key) =>
+      key !== "batteryLevel" && (includeNonGrowthMetrics || isGrowthMetricKey(key))
+    )
+  ))];
 
       return metricKeys
         .map((key) => summarizeSiteMetric(siteSnapshots, key))
@@ -9806,15 +9809,15 @@
       `;
     }
 
-    function buildTrendMetricOptions(options) {
-      const {
-        isSiteView,
-        site,
-        zone,
-        profile,
-        growthResults,
-        siteAverageSummaries
-      } = options;
+function buildTrendMetricOptions(options) {
+  const {
+    isSiteView,
+    site,
+    zone,
+    profile,
+    metricResults,
+    siteAverageSummaries
+  } = options;
 
       if (isSiteView) {
         return siteAverageSummaries.map((summary) => ({
@@ -9838,8 +9841,12 @@
         }));
       }
 
-      return growthResults
-        .map((result) => ({
+  return metricResults
+    .filter((result) =>
+      result.key !== "batteryLevel"
+      && (result.configured !== false || (zone.availableMetrics || []).includes(result.key))
+    )
+    .map((result) => ({
           key: result.key,
           available: result.available !== false || (isApiDataMode() && (zone.availableMetrics || []).includes(result.key)),
           definition: profile.metrics[result.key],
@@ -13341,8 +13348,11 @@
       if (activeWorkspaceFocus === "route" && isSiteView && activeSiteDetailView === "zones") {
         activeSiteDetailView = "averages";
       }
-      const isSiteHotspotsView = isSiteView && activeSiteDetailView === "zones";
-      const siteAverageSummaries = isSiteView ? buildSiteAverageSummaries(siteSnapshots) : [];
+  const isSiteHotspotsView = isSiteView && activeSiteDetailView === "zones";
+  const siteAverageSummaries = isSiteView ? buildSiteAverageSummaries(siteSnapshots) : [];
+  const siteTrendAverageSummaries = isSiteView
+    ? buildSiteAverageSummaries(siteSnapshots, { includeNonGrowthMetrics: true })
+    : [];
       const sensorHealthNodes = isSiteView ? siteBatteryNodes : zoneBatteryNodes;
       const displayedOverallState = isSiteView ? siteOverallState : overallState;
       const selectedSiteLiveSnapshots = siteSnapshots.filter(snapshotHasLiveGrowthData);
@@ -13377,12 +13387,12 @@
       const heroSensorGlanceState = buildHeroSensorGlanceState({
         isSiteView,
         isSiteHotspotsView,
-        site,
-        zone,
-        profile,
-        growthResults,
-        siteAverageSummaries
-      });
+      site,
+      zone,
+      profile,
+      metricResults: results,
+      siteAverageSummaries: siteTrendAverageSummaries
+    });
       const actionDeck = buildActionDeck({
         isSiteView,
         site,
