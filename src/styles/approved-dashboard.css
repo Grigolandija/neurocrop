@@ -11233,19 +11233,19 @@
     }
 
     .live-reading-zone[data-tone="warning"][data-side="left"] {
-      background: linear-gradient(to right, #d7a152 0 72%, #83b49e 100%);
+      background: linear-gradient(to right, #d7a152 0 96%, #83b49e 100%);
     }
 
     .live-reading-zone[data-tone="warning"][data-side="right"] {
-      background: linear-gradient(to right, #83b49e 0 28%, #d7a152 100%);
+      background: linear-gradient(to right, #83b49e 0%, #d7a152 4%, #d7a152 100%);
     }
 
     .live-reading-zone[data-tone="critical"][data-side="left"] {
-      background: linear-gradient(to right, #cf8879 0 72%, #d7a152 100%);
+      background: linear-gradient(to right, #cf8879 0 96%, #d7a152 100%);
     }
 
     .live-reading-zone[data-tone="critical"][data-side="right"] {
-      background: linear-gradient(to right, #d7a152 0 28%, #cf8879 100%);
+      background: linear-gradient(to right, #d7a152 0%, #cf8879 4%, #cf8879 100%);
     }
 
     .live-reading-marker {
