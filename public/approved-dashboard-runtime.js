@@ -3613,7 +3613,7 @@
         });
         trendHistoryByKey[cacheKey] = response;
         trendHistoryStatusByKey[cacheKey] = { status: "ready", error: "", fetchedAt: Date.now() };
-        if (requestId >= trendHistoryRequestId - 2 && activePrimaryPage === "history") {
+        if (activePrimaryPage === "readings" || (requestId >= trendHistoryRequestId - 2 && activePrimaryPage === "history")) {
           renderDashboard();
         }
       } catch (error) {
@@ -3622,7 +3622,7 @@
           error: error instanceof Error ? error.message : "History could not be loaded.",
           failedAt: Date.now()
         };
-        if (activePrimaryPage === "history") renderDashboard();
+        if (activePrimaryPage === "history" || activePrimaryPage === "readings") renderDashboard();
       }
     }
 
@@ -11747,6 +11747,10 @@ function buildTrendMetricOptions(options) {
       const typicalResult = summary.medianResult;
       const hasCurrentValue = isAvailable && summary.reportingCount > 0;
       const visual = hasCurrentValue ? getLiveReadingPositionVisual(typicalResult, definition) : null;
+      const trendCacheKey = getTrendHistoryCacheKey(zone?.id, key, "24h");
+      const trendStatus = trendHistoryStatusByKey[trendCacheKey]?.status || "idle";
+      const trendResponse = trendHistoryByKey[trendCacheKey] || null;
+      const trend = isAvailable && trendStatus === "ready" ? getDiagnosticTrend(result, definition, scopeSeed, trendResponse) : null;
       const statusLabel = !isAvailable
         ? diagnosticText("Unavailable", "Neprieinama")
         : typicalResult.state === "optimal"
@@ -11814,6 +11818,11 @@ function buildTrendMetricOptions(options) {
                 </span>
               ` : `<span class="live-reading-no-data">${diagnosticText("No sensor data", "Nėra sensoriaus duomenų")}</span>`}
             </div>
+            <div class="live-reading-trend">
+              <span>${diagnosticText("24h", "24 val.")}</span>
+              <strong>${trend ? escapeHtml(trend.direction) : trendStatus === "loading" || trendStatus === "idle" ? diagnosticText("Loading", "Kraunama") : "—"}</strong>
+              <small>${trend ? escapeHtml(formatSignedValue(trend.delta, definition)) : trendStatus === "error" ? diagnosticText("History unavailable", "Istorija nepasiekiama") : ""}</small>
+            </div>
             <span class="live-reading-status" data-state="${escapeAttribute(isAvailable ? typicalResult.state : "unavailable")}">${escapeHtml(["offline", "missing", "not-installed"].includes(observation.state) ? observation.label : statusLabel)}</span>
             <button type="button" class="live-reading-trend-button" data-history-metric="${escapeAttribute(key)}" aria-label="${escapeAttribute(diagnosticText(`Open ${definition.label} trend`, `Atidaryti ${getDiagnosticMetricLabel(definition.label)} grafiką`))}" title="${escapeAttribute(diagnosticText("Open trend", "Atidaryti grafiką"))}" ${isAvailable ? "" : "disabled"}>
               <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
@@ -11842,6 +11851,9 @@ function buildTrendMetricOptions(options) {
 
     function renderLiveReadingsBoard(results, profile, site, zone, options = {}) {
       const installedResults = results.filter((result) => result.available !== false);
+      if (isApiDataMode() && zone?.id && !options.isLoading) {
+        queueMicrotask(() => installedResults.forEach((result) => fetchTrendHistoryForMetric(zone.id, result.key, "24h")));
+      }
       const apiResponse = isApiDataMode() ? latestReadingsBySectionId[zone?.id] : null;
       const derived = apiResponse?.derived || {};
       const airTemp = Number(apiResponse?.observations?.airTemp?.value);
@@ -11875,6 +11887,7 @@ function buildTrendMetricOptions(options) {
           <span>${diagnosticText("Current", "Dabar")}</span>
           <span>${diagnosticText("Target", "Tikslas")}</span>
           <span>${diagnosticText("Position", "Padėtis")}</span>
+          <span>${diagnosticText("Direction", "Kryptis")}</span>
           <span>${diagnosticText("Status", "Būsena")}</span>
           <span></span>
         </div>
@@ -12687,14 +12700,14 @@ function buildTrendMetricOptions(options) {
       return interfaceLanguage === "lt" ? translateInterfaceText(label) : label;
     }
 
-    function getDiagnosticTrend(result, definition, scopeSeed) {
+    function getDiagnosticTrend(result, definition, scopeSeed, historyResponse = null) {
       const series = buildTrendSeries({
         key: result.key,
         value: result.value,
         state: result.state,
         definition,
         optimalRange: definition.optimal
-      }, "24h", scopeSeed);
+      }, "24h", scopeSeed, historyResponse);
       const start = series.values[0];
       const end = series.values[series.values.length - 1];
       const distanceFromTarget = (value) => {
