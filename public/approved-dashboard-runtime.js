@@ -7329,16 +7329,16 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const locationFormSummary = areaFormCopy.summary;
 
       elements.locationsManagementShell.innerHTML = `
-        <div class="management-canvas management-canvas--areas">
-          <header class="management-hero">
+        <div class="layout-hub layout-hub--areas">
+          <header class="layout-hub-header">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="management-hero-kicker">Area atlas</p>
-                <h2>Every growing location, at a glance.</h2>
+                <p class="layout-hub-kicker">Areas</p>
+                <h2>Your growing estate</h2>
                 <p>Organize the places that hold your sections, crop programs and field nodes.</p>
               </div>
 
-              <div class="management-hero-counts">
+              <div class="layout-hub-counts">
                 <div><strong>${totalLocations}</strong><span>areas</span></div>
                 <div><strong>${totalBlocks}</strong><span>sections</span></div>
                 <div><strong>${totalNodes}</strong><span>nodes</span></div>
@@ -7347,14 +7347,14 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             </div>
           </header>
 
-          <section class="management-composer">
-            <div class="management-composer-icon"><i class="fa-solid fa-plus" aria-hidden="true"></i></div>
-            <div class="management-composer-copy">
+          <section class="layout-hub-composer">
+            <div class="layout-hub-composer-icon"><i class="fa-solid fa-plus" aria-hidden="true"></i></div>
+            <div class="layout-hub-composer-copy">
               <p>${locationFormState.mode === "edit" ? "Edit area" : "Add an area"}</p>
               <h3>${locationFormTitle}</h3>
               <span>${locationFormSummary}</span>
             </div>
-            <div class="management-composer-body">
+            <div class="layout-hub-composer-body">
               ${renderManagementNotice("locations")}
 
               <form data-management-form="location">
@@ -7375,12 +7375,12 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                   </div>
                 </div>
               </form>
-              <p class="management-composer-note">Sections are created inside a saved area, so the next step is the Sections page.</p>
+              <p class="layout-hub-composer-note">Sections are created inside a saved area, so the next step is the Sections page.</p>
             </div>
           </section>
 
-          <section class="management-collection">
-            <div class="management-collection-head">
+          <section class="layout-hub-collection">
+            <div class="layout-hub-collection-head">
               <div>
                 <p>Connected areas</p>
                 <h3>${totalLocations} area${totalLocations === 1 ? "" : "s"} in your workspace</h3>
@@ -7492,16 +7492,16 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           `;
 
       elements.blocksManagementShell.innerHTML = `
-        <div class="management-canvas management-canvas--sections">
-          <header class="management-hero">
+        <div class="layout-hub layout-hub--sections">
+          <header class="layout-hub-header">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="max-w-3xl">
-                <p class="management-hero-kicker">Section registry</p>
-                <h2>Operations, organized by section.</h2>
+                <p class="layout-hub-kicker">Sections</p>
+                <h2>Section operating board</h2>
                 <p>Assign crop profiles, connect nodes and check which sections are ready for live monitoring.</p>
               </div>
 
-              <div class="management-hero-counts">
+              <div class="layout-hub-counts">
                 <div><strong>${filteredBlockCount}</strong><span>sections</span></div>
                 <div><strong>${filteredSites.length}</strong><span>areas</span></div>
                 <div><strong>${filteredNodeCount}</strong><span>nodes</span></div>
@@ -7510,18 +7510,18 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             </div>
           </header>
 
-          <section class="management-composer">
-            <div class="management-composer-icon"><i class="fa-solid fa-plus" aria-hidden="true"></i></div>
-            <div class="management-composer-copy">
+          <section class="layout-hub-composer">
+            <div class="layout-hub-composer-icon"><i class="fa-solid fa-plus" aria-hidden="true"></i></div>
+            <div class="layout-hub-composer-copy">
               <p>${blockFormState.mode === "edit" ? "Edit section" : "Add a section"}</p>
               <h3>${blockFormTitle}</h3>
               <span>${blockFormSummary}</span>
             </div>
-            <div class="management-composer-body">
+            <div class="layout-hub-composer-body">
               ${renderManagementNotice("blocks")}
               ${locationOptions.length === 0
               ? `
-                <div class="management-composer-note">
+                <div class="layout-hub-composer-note">
                   Create an area first. After that, this becomes the main form for registering monitored sections.
                 </div>
               `
@@ -7579,14 +7579,14 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 </form>
               `}
 
-            <p class="management-composer-note">
+            <p class="layout-hub-composer-note">
               Showing sections in <strong>${escapeHtml(activeFilterLabel)}</strong>. Change the Site in the global header to manage another area.
             </p>
             </div>
           </section>
 
-          <section class="management-collection">
-            <div class="management-collection-head">
+          <section class="layout-hub-collection">
+            <div class="layout-hub-collection-head">
               <div>
                 <p>Active registry</p>
                 <h3>${filteredBlockCount} section${filteredBlockCount === 1 ? "" : "s"} in this view</h3>
