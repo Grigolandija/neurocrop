@@ -168,6 +168,15 @@ test('platform organization creation does not grant the creator tenant membershi
   assert.equal(createRoute.includes('INSERT INTO organization_memberships'), false);
 });
 
+test('platform node diagnostics are restricted to platform administrators', () => {
+  const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.get('/platform/organizations/:organizationId/nodes'");
+  const route = source.slice(routeStart, source.indexOf("app.post('/platform/organizations'", routeStart));
+  assert.match(route, /requirePlatformAdmin/);
+  assert.match(route, /last_error_flags/);
+  assert.match(route, /last_error_counters/);
+});
+
 test('password change verifies the current password and revokes other sessions', () => {
   const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   const route = source.slice(

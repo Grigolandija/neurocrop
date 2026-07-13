@@ -54,7 +54,7 @@ assert(runtime.includes('aria-controls="${escapeAttribute(selectId)}-menu"') && 
 assert(runtime.includes('sectionSelect.disabled = targetZones.length === 0;'), "Node Section selector must reflect whether the selected Area has sections");
 assert(runtime.includes('aria-expanded="${String(isExpanded)}"') && runtime.includes('class="node-table-detail"'), "Nodes must expose compact expandable detail rows");
 assert(runtime.includes("function getNodeReportingModeLabel(profile)") && nodesModel.includes("power_save: 'Power save'"), "Node reporting modes must be presented with clear labels from the Node feature model");
-assert(nodesModel.includes('Sensor reinitialised ${counters.reinit} times') && nodesModel.includes('label: reasons[0]') && runtime.includes('<div><span>Health</span>'), "Node health status must show a concise primary reason and full diagnostics");
+assert(nodesModel.includes('Sensor reinitialised ${counters.reinit} times') && nodesModel.includes('label: reasons[0]') && runtime.includes('<span>Fault diagnostics</span>'), "Node health status must show a concise primary reason and full diagnostics");
 assert(runtime.includes('class="crop-profile-metric-row"') && runtime.includes('data-profile-alert-limit="warning"'), "Crop profile targets must retain visible automatic alert boundaries");
 assert(runtime.includes("await hydrateDashboardFromApi();") && runtime.includes("Scores are calculated by the backend from the saved profile ranges."), "saving a crop profile must immediately refresh canonical backend scores");
 assert(runtime.includes('class="settings-local-notice"'), "non-API settings must be clearly identified as browser-local");

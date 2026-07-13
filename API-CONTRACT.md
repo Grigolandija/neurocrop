@@ -559,6 +559,7 @@ The authenticated user payload from `POST /auth/login` and `GET /auth/me` includ
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
+| `GET` | `/platform/organizations/:organizationId/nodes` | Platform Admin | Read the selected organization's node fleet, transport state, radio telemetry, battery, firmware, and device fault diagnostics. |
 | `GET` | `/platform/users` | Platform Admin | List users and account state. |
 | `POST` | `/platform/admins` | Super Admin | Grant Platform Admin using `{ "userId": "..." }`. |
 | `DELETE` | `/platform/admins/:userId` | Super Admin | Revoke Platform Admin. |

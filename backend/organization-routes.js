@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { sendInvitationEmail } from './email.js';
 import { query, pool } from './db.js';
 import { requirePlatformAdmin, requireSuperAdmin, requireUserAuth } from './auth-users.js';
+import { statusFromMeasurementTime } from './score.js';
 
 const INVITE_TTL_DAYS = 14;
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://neurocrop.lt';
@@ -267,6 +268,71 @@ export function registerPlatformOrganizationRoutes(app) {
           sectionCount: row.section_count,
           nodeCount: row.node_count
         }))
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/platform/organizations/:organizationId/nodes', requireUserAuth, requirePlatformAdmin, async (req, res, next) => {
+    const organizationId = String(req.params.organizationId || '').trim();
+    if (!organizationId) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Organization id is required' } });
+    }
+
+    try {
+      const { rows: organizationRows } = await query(
+        `SELECT id FROM organizations WHERE id=$1`,
+        [organizationId]
+      );
+      if (!organizationRows[0]) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+      }
+
+      const { rows } = await query(
+        `SELECT n.dev_eui, n.name, n.node_type, n.area_id, n.section_id,
+                a.name AS area_name, s.name AS section_name,
+                n.last_seen, n.last_received_at, n.last_battery_mv, n.last_battery_percent,
+                n.last_firmware_version, n.last_profile, n.last_rssi, n.last_snr,
+                n.last_spreading_factor, n.last_sensor_presence, n.last_error_flags,
+                n.last_error_counters
+         FROM nodes n
+         LEFT JOIN areas a ON a.id=n.area_id AND a.organization_id=n.organization_id
+         LEFT JOIN sections s ON s.id=n.section_id AND s.organization_id=n.organization_id
+         WHERE n.organization_id=$1
+         ORDER BY COALESCE(a.created_at, n.created_at) ASC, COALESCE(s.created_at, n.created_at) ASC, n.created_at ASC`,
+        [organizationId]
+      );
+      const now = Date.now();
+      const profileIntervals = { normal: 300, intensive: 60, power_save: 900 };
+
+      res.json({
+        nodes: rows.map((row) => {
+          const lastSeen = row.last_received_at || row.last_seen || null;
+          const expectedIntervalSec = profileIntervals[row.last_profile] || 300;
+          return {
+            id: row.name || row.dev_eui,
+            devEui: row.dev_eui,
+            name: row.name || row.dev_eui,
+            nodeType: row.node_type,
+            areaId: row.area_id,
+            areaName: row.area_name || null,
+            sectionId: row.section_id,
+            sectionName: row.section_name || null,
+            lastSeen,
+            transportStatus: statusFromMeasurementTime(lastSeen, now, expectedIntervalSec),
+            level: row.last_battery_percent ?? null,
+            batteryMv: row.last_battery_mv ?? null,
+            firmwareVersion: row.last_firmware_version || null,
+            profile: row.last_profile || null,
+            rssi: row.last_rssi ?? null,
+            snr: row.last_snr ?? null,
+            spreadingFactor: row.last_spreading_factor ?? null,
+            sensorPresence: row.last_sensor_presence || null,
+            errorFlags: row.last_error_flags || null,
+            errorCounters: row.last_error_counters || null
+          };
+        })
       });
     } catch (error) {
       next(error);

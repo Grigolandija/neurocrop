@@ -1798,7 +1798,8 @@
       latestInviteUrl: "",
       latestInviteEmailSent: false,
       latestInviteEmail: "",
-      latestOrganizationName: ""
+      latestOrganizationName: "",
+      nodeDiagnostics: { organizationId: "", organizationName: "", nodes: [], status: "idle", error: "" }
     };
 
     function resetTeamAccessState() {
@@ -1822,7 +1823,8 @@
         latestInviteUrl: "",
         latestInviteEmailSent: false,
         latestInviteEmail: "",
-        latestOrganizationName: ""
+        latestOrganizationName: "",
+        nodeDiagnostics: { organizationId: "", organizationName: "", nodes: [], status: "idle", error: "" }
       };
     }
 
@@ -1869,6 +1871,39 @@
       } catch (error) {
         platformOrganizationState.status = "error";
         platformOrganizationState.error = error?.message || "Customer organizations could not be loaded.";
+      }
+      renderDashboard();
+    }
+
+    async function hydratePlatformNodeDiagnostics(organizationId, organizationName) {
+      if (!window.NeuroCropApi?.isConnected() || !getLoginSession()?.isPlatformAdmin) return;
+      const current = platformOrganizationState.nodeDiagnostics;
+      if (current.status === "loading" && current.organizationId === organizationId) return;
+      platformOrganizationState.nodeDiagnostics = {
+        organizationId,
+        organizationName,
+        nodes: [],
+        status: "loading",
+        error: ""
+      };
+      renderDashboard();
+      try {
+        const response = await window.NeuroCropApi.getPlatformOrganizationNodes(organizationId);
+        platformOrganizationState.nodeDiagnostics = {
+          organizationId,
+          organizationName,
+          nodes: Array.isArray(response?.nodes) ? response.nodes : [],
+          status: "ready",
+          error: ""
+        };
+      } catch (error) {
+        platformOrganizationState.nodeDiagnostics = {
+          organizationId,
+          organizationName,
+          nodes: [],
+          status: "error",
+          error: error?.message || "Node diagnostics could not be loaded."
+        };
       }
       renderDashboard();
     }
@@ -8516,6 +8551,64 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         ? new Date(value).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" })
         : "—";
       const platformAdministrators = platformOrganizationState.users.filter((user) => user.isSuperAdmin || user.isPlatformAdmin);
+      const nodeDiagnostics = platformOrganizationState.nodeDiagnostics;
+      const platformNodeDiagnosticsPanel = nodeDiagnostics.status === "idle" ? "" : (() => {
+        const nodes = nodeDiagnostics.nodes;
+        const transportCounts = nodes.reduce((counts, node) => {
+          const status = node.transportStatus || "offline";
+          counts[status] = (counts[status] || 0) + 1;
+          return counts;
+        }, { live: 0, delayed: 0, stale: 0, offline: 0 });
+        const faultNodeCount = nodes.filter((node) => {
+          const diagnostics = getNodeFaultDiagnostics(node);
+          return diagnostics.flags.length > 0 || diagnostics.counters.length > 0;
+        }).length;
+        return `
+          <section class="admin-section platform-node-diagnostics" aria-labelledby="platformNodeDiagnosticsTitle">
+            <header>
+              <div><h2 id="platformNodeDiagnosticsTitle">Node diagnostics · ${escapeHtml(nodeDiagnostics.organizationName)}</h2><p>Platform-admin view. Data is loaded on demand and is not visible to organization members.</p></div>
+              <button type="button" class="admin-link-button" data-platform-node-diagnostics-close>Close</button>
+            </header>
+            ${nodeDiagnostics.status === "loading" ? `<p class="admin-status" role="status">Loading node diagnostics…</p>` : ""}
+            ${nodeDiagnostics.status === "error" ? `<div class="admin-error" role="alert"><strong>Could not load node diagnostics.</strong><span>${escapeHtml(nodeDiagnostics.error)}</span><button type="button" class="admin-button" data-platform-node-diagnostics="${escapeAttribute(nodeDiagnostics.organizationId)}" data-platform-name="${escapeAttribute(nodeDiagnostics.organizationName)}">Retry</button></div>` : ""}
+            ${nodeDiagnostics.status === "ready" ? `
+              <div class="platform-node-summary" aria-label="Node health summary">
+                <span data-state="live"><strong>${transportCounts.live}</strong>Live</span>
+                <span data-state="delayed"><strong>${transportCounts.delayed + transportCounts.stale}</strong>Delayed</span>
+                <span data-state="offline"><strong>${transportCounts.offline}</strong>Offline</span>
+                <span data-state="warning"><strong>${faultNodeCount}</strong>Fault flags</span>
+              </div>
+              <div class="admin-table-wrap">
+                <table class="admin-table platform-node-table">
+                  <thead><tr><th>Node</th><th>Location</th><th>Transport</th><th>Last uplink</th><th>Radio</th><th>Firmware</th><th>Battery</th><th>Fault diagnostics</th></tr></thead>
+                  <tbody>
+                    ${nodes.map((node) => {
+                      const diagnostics = getNodeFaultDiagnostics(node);
+                      const faultFlags = diagnostics.flags.join(" · ") || "No active fault flags";
+                      const txFailures = diagnostics.hasCounters
+                        ? `${diagnostics.txFailures ?? 0}${diagnostics.txFailures >= 15 ? "+" : ""}/15 TX failures since last successful TX`
+                        : "TX counter unavailable (18-byte payload)";
+                      const status = node.transportStatus || "offline";
+                      return `
+                        <tr>
+                          <td><strong>${escapeHtml(node.name || node.devEui || "—")}</strong><small>${escapeHtml(node.devEui || "—")}</small></td>
+                          <td>${escapeHtml([node.areaName, node.sectionName].filter(Boolean).join(" · ") || "Unassigned")}</td>
+                          <td><span class="platform-node-status" data-state="${escapeAttribute(status)}">${escapeHtml(status)}</span></td>
+                          <td>${escapeHtml(formatAdminDate(node.lastSeen))}</td>
+                          <td>${escapeHtml(formatNodeSignal(node))}</td>
+                          <td>${escapeHtml(node.firmwareVersion || "Unknown")}</td>
+                          <td>${Number.isFinite(Number(node.level)) ? `${escapeHtml(String(node.level))}%${Number.isFinite(Number(node.batteryMv)) ? ` · ${escapeHtml((Number(node.batteryMv) / 1000).toFixed(2))} V` : ""}` : "—"}</td>
+                          <td class="platform-node-faults"><strong>${escapeHtml(faultFlags)}</strong><small>${escapeHtml(txFailures)}</small>${diagnostics.counters.filter((item) => !item.endsWith("transmission failures")).length ? `<small>${escapeHtml(diagnostics.counters.filter((item) => !item.endsWith("transmission failures")).join(" · "))}</small>` : ""}</td>
+                        </tr>
+                      `;
+                    }).join("") || `<tr><td colspan="8" class="admin-empty">No nodes are registered for this organization.</td></tr>`}
+                  </tbody>
+                </table>
+              </div>
+            ` : ""}
+          </section>
+        `;
+      })();
       const platformPanel = `
         <div class="admin-console" aria-labelledby="adminConsoleTitle">
           <div class="admin-console-toolbar">
@@ -8530,6 +8623,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           ${platformOrganizationState.status === "loading" ? `<p class="admin-status" role="status">Loading administration data…</p>` : ""}
           ${platformOrganizationState.status === "error" ? `<div class="admin-error" role="alert"><strong>Could not load administration data.</strong><span>${escapeHtml(platformOrganizationState.error)}</span><button type="button" class="admin-button" data-platform-refresh>Retry</button></div>` : ""}
           ${platformOrganizationState.latestInviteUrl ? `<div class="admin-notice" role="status"><strong>${platformOrganizationState.latestInviteEmailSent ? "Invitation email sent" : "Invitation email was not confirmed"}</strong><span>${escapeHtml(platformOrganizationState.latestOrganizationName)} · ${escapeHtml(platformOrganizationState.latestInviteEmail)}</span><button type="button" class="admin-link-button" data-copy-invitation="${escapeAttribute(platformOrganizationState.latestInviteUrl)}">Copy backup link</button></div>` : ""}
+          ${platformNodeDiagnosticsPanel}
 
           ${platformOrganizationState.status === "ready" ? `
             <section class="admin-section" aria-labelledby="adminRequestsTitle">
@@ -8574,6 +8668,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                         <td>${Number(organization.nodeCount || 0)}</td>
                         <td>${escapeHtml(formatAdminDate(organization.createdAt))}</td>
                         <td class="admin-row-actions">
+                          <button type="button" class="admin-link-button" data-platform-node-diagnostics="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}">Node diagnostics</button>
                           ${organization.status === "archived"
                             ? `<button type="button" class="admin-link-button" data-platform-restore="${escapeAttribute(organization.id)}">Restore</button>`
                             : `<button type="button" class="admin-link-button" data-platform-archive="${escapeAttribute(organization.id)}" data-platform-name="${escapeAttribute(organization.name)}">Archive</button>`}
@@ -15104,6 +15199,22 @@ function buildTrendMetricOptions(options) {
       if (refreshPlatformButton) {
         platformOrganizationState.status = "idle";
         await hydratePlatformOrganizations();
+        return;
+      }
+
+      const platformNodeDiagnosticsButton = event.target.closest("[data-platform-node-diagnostics]");
+      if (platformNodeDiagnosticsButton) {
+        await hydratePlatformNodeDiagnostics(
+          platformNodeDiagnosticsButton.dataset.platformNodeDiagnostics,
+          platformNodeDiagnosticsButton.dataset.platformName || "Organization"
+        );
+        return;
+      }
+
+      const closePlatformNodeDiagnosticsButton = event.target.closest("[data-platform-node-diagnostics-close]");
+      if (closePlatformNodeDiagnosticsButton) {
+        platformOrganizationState.nodeDiagnostics = { organizationId: "", organizationName: "", nodes: [], status: "idle", error: "" };
+        renderDashboard();
         return;
       }
 

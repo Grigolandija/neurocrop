@@ -20,6 +20,7 @@ export const neurocropApi = {
   inviteMember: (payload: Payload) => request('/invitations', { method: 'POST', body: json(payload) }),
   revokeInvitation: (id: string) => request(`/invitations/${encoded(id)}`, { method: 'DELETE' }),
   getPlatformOrganizations: () => request('/platform/organizations'),
+  getPlatformOrganizationNodes: (id: string) => request(`/platform/organizations/${encoded(id)}/nodes`),
   createPlatformOrganization: (payload: Payload) => request('/platform/organizations', { method: 'POST', body: json(payload) }),
   archivePlatformOrganization: (id: string) => request(`/platform/organizations/${encoded(id)}/archive`, { method: 'PATCH' }),
   restorePlatformOrganization: (id: string) => request(`/platform/organizations/${encoded(id)}/restore`, { method: 'PATCH' }),
