@@ -3200,6 +3200,9 @@
 
     function getNodeMetricSummary(zone, metricKey, definition, result) {
       const nodes = zone?.batteryNodes || [];
+      const evaluateNodeValue = (value) => metricKey === "lux"
+        ? evaluateCurrentLightReading(definition, value)
+        : evaluateMetric(definition, value);
       const apiObservation = isApiDataMode()
         ? latestReadingsBySectionId[zone?.id]?.observations?.[metricKey]
         : null;
@@ -3219,13 +3222,13 @@
             position: getNodePositionLabel(index, apiObservation.nodes.length),
             source: getMetricSensorSource(metricKey),
             value: Number(source.value),
-            metricResult: evaluateMetric(definition, Number(source.value)),
+            metricResult: evaluateNodeValue(Number(source.value)),
             observation: getObservationPresentation(zone, metricKey, result, freshnessStatus)
           };
         });
         const values = readings.map((reading) => reading.value).filter(Number.isFinite);
         const medianResult = Number.isFinite(Number(apiObservation.value))
-          ? evaluateMetric(definition, Number(apiObservation.value))
+          ? evaluateNodeValue(Number(apiObservation.value))
           : { value: null, state: "unavailable", severity: 0 };
         const outsideReadings = readings.filter((reading) => reading.metricResult.state !== "optimal");
 
@@ -3281,7 +3284,7 @@
         }
 
         value = roundValue(value, definition.decimals);
-        const metricResult = evaluateMetric(definition, value);
+        const metricResult = evaluateNodeValue(value);
         return {
           node,
           position: getNodePositionLabel(index, installedNodes.length),
@@ -3296,7 +3299,7 @@
       const medianValue = median(values);
       const medianResult = medianValue === null
         ? { value: null, state: "unavailable", severity: 0 }
-        : evaluateMetric(definition, roundValue(medianValue, definition.decimals));
+        : evaluateNodeValue(roundValue(medianValue, definition.decimals));
       const outsideReadings = reportingReadings.filter((reading) => reading.metricResult.state !== "optimal");
       const localOutliers = medianResult.state === "optimal" ? outsideReadings : [];
 
