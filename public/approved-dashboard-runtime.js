@@ -11820,7 +11820,7 @@ function buildTrendMetricOptions(options) {
             </div>
             <div class="live-reading-trend">
               <span>${diagnosticText("24h", "24 val.")}</span>
-              <strong>${trend ? escapeHtml(trend.direction) : trendStatus === "loading" || trendStatus === "idle" ? diagnosticText("Loading", "Kraunama") : "—"}</strong>
+              <strong>${trend ? escapeHtml(getLiveReadingDirection(trend, definition)) : trendStatus === "loading" || trendStatus === "idle" ? diagnosticText("Loading", "Kraunama") : "—"}</strong>
               <small>${trend ? escapeHtml(formatSignedValue(trend.delta, definition)) : trendStatus === "error" ? diagnosticText("History unavailable", "Istorija nepasiekiama") : ""}</small>
             </div>
             <span class="live-reading-status" data-state="${escapeAttribute(isAvailable ? typicalResult.state : "unavailable")}">${escapeHtml(["offline", "missing", "not-installed"].includes(observation.state) ? observation.label : statusLabel)}</span>
@@ -12731,6 +12731,14 @@ function buildTrendMetricOptions(options) {
         direction,
         series
       };
+    }
+
+    function getLiveReadingDirection(trend, definition) {
+      if (!trend) return "—";
+      const tolerance = Math.max(Math.abs(definition.optimal[1] - definition.optimal[0]) * 0.015, 0.001);
+      if (trend.delta > tolerance) return diagnosticText("Rising", "Didėja");
+      if (trend.delta < -tolerance) return diagnosticText("Falling", "Mažėja");
+      return diagnosticText("Stable", "Stabili");
     }
 
     function getDiagnosticImpact(result) {
