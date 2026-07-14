@@ -1735,7 +1735,6 @@
     let activeNodeStateFilter = "all";
     let activeNodeSearchQuery = "";
     let activeNodeDetailId = null;
-    let nodeRegistrationOpen = false;
     let expandedCropProfileMetricId = null;
     let activeSettingsProfileKey = activeProfileKey;
     let activeSettingsPanelKey = "profiles";
@@ -2684,6 +2683,56 @@
       return zones.map((block) => `
         <option value="${escapeAttribute(block.id)}" ${block.id === selectedZoneId ? "selected" : ""}>${escapeHtml(block.name)}</option>
       `).join("");
+    }
+
+    function openNodeRegistrationModal() {
+      const locations = dashboardData.sites.filter((site) => !isUnassignedLocation(site));
+      const selectedSite = locations.find((site) => site.id === nodeFormState.siteId)
+        || locations.find((site) => (site.zones || []).length > 0)
+        || locations[0]
+        || null;
+      const selectedZone = selectedSite?.zones?.find((zone) => zone.id === nodeFormState.zoneId)
+        || selectedSite?.zones?.[0]
+        || null;
+
+      nodeFormState.siteId = selectedSite?.id || "";
+      nodeFormState.zoneId = selectedZone?.id || "";
+      managementModalState = { type: "node-register" };
+
+      const areaOptions = locations.map((site) => `
+        <option value="${escapeAttribute(site.id)}" ${site.id === nodeFormState.siteId ? "selected" : ""}>${escapeHtml(site.name)}</option>
+      `).join("");
+      const sectionOptions = selectedSite
+        ? getNodeSectionOptions(selectedSite.id, nodeFormState.zoneId)
+        : `<option value="">No sections available</option>`;
+
+      elements.managementModalOverlay.innerHTML = `
+        <div class="management-modal-backdrop node-edit-backdrop-surface" data-management-modal-close></div>
+        <section class="management-modal-shell node-edit-modal node-register-modal" role="dialog" aria-modal="true" aria-labelledby="nodeRegistrationTitle">
+          <header class="node-edit-modal-head">
+            <div>
+              <p class="eyebrow">Register hardware</p>
+              <h2 id="nodeRegistrationTitle">Connect a sensor node</h2>
+              <span>Assign its DevEUI to the monitored section that will receive incoming readings.</span>
+            </div>
+            <button type="button" class="node-edit-close" data-management-modal-close aria-label="Close register node dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+          </header>
+          ${locations.length > 0 ? `
+            <form class="node-edit-form node-register-modal-form" data-management-modal-form="node-register">
+              <label class="node-edit-field"><span>Area</span><select name="nodeSiteId">${areaOptions}</select></label>
+              <label class="node-edit-field"><span>Section</span><select name="nodeZoneId" ${selectedSite?.zones?.length ? "" : "disabled"}>${sectionOptions}</select></label>
+              <label class="node-edit-field field-wide"><span>DevEUI</span><input name="nodeDevEui" value="${escapeAttribute(nodeFormState.devEui)}" placeholder="70B3D57ED006ABCD" minlength="16" maxlength="16" pattern="[0-9A-Fa-f]{16}" title="Enter exactly 16 hexadecimal characters" autocomplete="off" required></label>
+              <p class="management-modal-error field-wide" role="alert" hidden></p>
+              <footer class="node-edit-footer field-wide"><button type="button" class="button-new secondary" data-management-modal-close>Cancel</button><button type="submit" class="button-new primary"><i class="fa-solid fa-plus" aria-hidden="true"></i>Register node</button></footer>
+            </form>
+          ` : `
+            <div class="node-register-empty"><p>Create an Area and its first Section before registering a node.</p><button type="button" class="button-new secondary" data-management-modal-close>Close</button></div>
+          `}
+        </section>
+      `;
+      elements.managementModalOverlay.hidden = false;
+      enhanceDashboardSelects(elements.managementModalOverlay);
+      elements.managementModalOverlay.querySelector('[name="nodeDevEui"]')?.focus();
     }
 
     function openNodeManagementModal(siteId, zoneId, nodeId) {
@@ -7876,38 +7925,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             <div><span data-tone="offline"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></span><strong>${offlineNodes}</strong><small>Offline</small></div>
           </section>
 
-          <section id="nodeRegistrationPanel" class="node-register-panel" ${nodeRegistrationOpen ? "" : "hidden"}>
-            <div class="node-register-copy"><p>Register hardware</p><h3>Connect a sensor node</h3><span>Assign its DevEUI to the monitored section that will receive incoming readings.</span></div>
-
-            ${renderManagementNotice("nodes")}
-
-            ${locations.length > 0
-              ? `
-                <form class="node-register-form" data-management-form="node">
-                  <label class="block">
-                    <span>Area</span>
-                    <select name="nodeSiteId">
-                      ${locations.map((site) => `<option value="${escapeAttribute(site.id)}" ${nodeFormState.siteId === site.id ? "selected" : ""}>${escapeHtml(site.name)}</option>`).join("")}
-                    </select>
-                  </label>
-                  <label class="block">
-                    <span>Section</span>
-                    <select name="nodeZoneId">
-                      ${selectedBlocks.map((zone) => `<option value="${escapeAttribute(zone.id)}" ${nodeFormState.zoneId === zone.id ? "selected" : ""}>${escapeHtml(zone.name)}</option>`).join("")}
-                    </select>
-                  </label>
-                  <label class="block">
-                    <span>DevEUI</span>
-                    <input name="nodeDevEui" value="${escapeAttribute(nodeFormState.devEui)}" placeholder="70B3D57ED006ABCD" maxlength="16" autocomplete="off">
-                  </label>
-                  <button type="submit" class="node-fleet-primary-action actionable">Register node</button>
-                </form>
-              `
-              : `
-                <div class="mt-4 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">Create a site and its first zone before registering a node.</div>
-              `}
-          </section>
-
           <section class="nc-node-list">
             <div class="nc-list-toolbar">
               <label class="nc-search-field"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input name="nodeSearch" value="${escapeAttribute(activeNodeSearchQuery)}" placeholder="Search name, DevEUI or section"></label>
@@ -7976,14 +7993,12 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const site = dashboardData.sites.find((item) => item.id === nodeFormState.siteId);
       const zone = (site?.zones || []).find((item) => item.id === nodeFormState.zoneId);
       if (!site || !zone) {
-        setManagementNotice("nodes", "Choose the site and zone where this node is installed.", "warning");
-        renderDashboard();
+        setManagementModalError("Choose the Area and Section where this node is installed.");
         return;
       }
 
       if (!isApiDataMode() && !window.NeuroCropStore?.registerNode) {
-        setManagementNotice("nodes", "Node registration is unavailable until the data store is connected.", "warning");
-        renderDashboard();
+        setManagementModalError("Node registration is unavailable until the data store is connected.");
         return;
       }
 
@@ -8011,6 +8026,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         activeZoneId = zone.id;
         resetCurrentReadingsFromActiveZone();
         resetNodeForm({ siteId: site.id, zoneId: zone.id });
+        closeManagementModal();
         setManagementNotice("nodes", `Node registered in ${zone.name}. It will appear here when sensor readings begin arriving.`);
         renderDashboard();
       } catch (error) {
@@ -8018,8 +8034,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         const friendlyMessage = /Cannot POST \/nodes\/register/i.test(message)
           ? "Node registration API is not deployed yet. Backend needs POST /nodes/register before this can save to the database."
           : message;
-        setManagementNotice("nodes", friendlyMessage, "warning");
-        renderDashboard();
+        setManagementModalError(friendlyMessage);
       }
     }
 
@@ -15098,11 +15113,9 @@ function buildTrendMetricOptions(options) {
     elements.nodesManagementSection.addEventListener("click", (event) => {
       const registerJumpButton = event.target.closest("[data-node-register-jump]");
       if (registerJumpButton) {
-        nodeRegistrationOpen = !nodeRegistrationOpen;
-        renderDashboard();
-        if (nodeRegistrationOpen) {
-          window.setTimeout(() => elements.nodesManagementSection.querySelector('[name="nodeDevEui"]')?.focus(), 80);
-        }
+        resetNodeForm();
+        clearManagementNotice("nodes");
+        openNodeRegistrationModal();
         return;
       }
 
@@ -15640,6 +15653,15 @@ function buildTrendMetricOptions(options) {
       if (form.dataset.managementModalForm === "node") {
         saveNodeFromModal();
       }
+      if (form.dataset.managementModalForm === "node-register") {
+        submitNodeForm();
+      }
+    });
+
+    elements.managementModalOverlay.addEventListener("input", (event) => {
+      if (event.target instanceof HTMLInputElement && event.target.name === "nodeDevEui") {
+        syncNodeFormField(event.target);
+      }
     });
 
     elements.managementModalOverlay.addEventListener("change", (event) => {
@@ -15649,6 +15671,9 @@ function buildTrendMetricOptions(options) {
       if (event.target instanceof HTMLInputElement && event.target.name === "modalNodeDeleteConfirm") {
         const removeButton = elements.managementModalOverlay.querySelector("[data-modal-node-delete]");
         if (removeButton instanceof HTMLButtonElement) removeButton.disabled = !event.target.checked;
+      }
+      if (event.target instanceof HTMLSelectElement && ["nodeSiteId", "nodeZoneId"].includes(event.target.name)) {
+        syncNodeFormField(event.target);
       }
       if (event.target instanceof HTMLSelectElement && event.target.name === "modalNodeSiteId") {
         const sectionSelect = elements.managementModalOverlay.querySelector('[name="modalNodeSectionId"]');
