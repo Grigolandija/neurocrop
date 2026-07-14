@@ -265,6 +265,10 @@ POST   /crop-profiles/:profileId/duplicate
 DELETE /crop-profiles/:profileId
 ```
 
+`PATCH /nodes/:devEui` priima `name`, `sectionId` ir naują `devEui`. Keičiant
+`devEui`, matavimų istorija ir sensorių konfigūracija perkeliama kartu, o
+ChirpStack registracija atnaujinama į naują įrenginio identitetą.
+
 `DELETE /nodes/:devEui` grąžina `409 NODE_HAS_HISTORY`, jeigu Node jau turi
 matavimų. Istorija nėra automatiškai ištrinama; ilgalaikiam pašalinimui reikalinga
 atskira archyvavimo arba duomenų išvalymo politika.

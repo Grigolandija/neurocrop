@@ -44,3 +44,9 @@ test('an applied migration cannot be edited in place', async (context) => {
     /was modified after it was applied/
   );
 });
+
+test('DevEUI changes cascade to node history and sensor configuration', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0003_node_deveui_update.sql', import.meta.url), 'utf8');
+  assert.match(sql, /FOREIGN KEY \(dev_eui\) REFERENCES nodes\(dev_eui\) ON UPDATE CASCADE/);
+  assert.match(sql, /FOREIGN KEY \(node_dev_eui\) REFERENCES nodes\(dev_eui\) ON UPDATE CASCADE ON DELETE CASCADE/);
+});

@@ -9,6 +9,7 @@ const contract = await fs.readFile(path.join(root, "API-CONTRACT.md"), "utf8");
 const appSource = await fs.readFile(path.join(root, "src/App.tsx"), "utf8");
 const markup = await fs.readFile(path.join(root, "src/approved-dashboard-markup.html"), "utf8");
 const styles = await fs.readFile(path.join(root, "src/styles/approved-dashboard.css"), "utf8");
+const nodeStyles = await fs.readFile(path.join(root, "src/styles/nodes-page.css"), "utf8");
 const apiClient = await fs.readFile(path.join(root, "src/services/api/client.ts"), "utf8");
 const apiFacade = await fs.readFile(path.join(root, "src/services/api/neurocropApi.ts"), "utf8");
 const dashboardPage = await fs.readFile(path.join(root, "src/pages/DashboardPage.tsx"), "utf8");
@@ -53,6 +54,10 @@ assert(runtime.includes("function setEnhancedSelectOpen") && runtime.includes("f
 assert(runtime.includes('aria-controls="${escapeAttribute(selectId)}-menu"') && runtime.includes('document.addEventListener("keydown", (event) => {'), "enhanced selects must expose an associated menu and keyboard controls");
 assert(runtime.includes('sectionSelect.disabled = targetZones.length === 0;'), "Node Section selector must reflect whether the selected Area has sections");
 assert(runtime.includes('data-node-open-id="${escapeAttribute(node.id)}"') && runtime.includes("function renderNodeDetailPage(record)") && runtime.includes('syncTopLevelRoute(`/nodes/${encodeURIComponent(openNodeButton.dataset.nodeOpenId)}`)'), "Node rows must open the real node detail route");
+assert(runtime.includes('class="management-modal-shell node-edit-modal"') && runtime.includes('class="node-remove-zone node-edit-wide"') && nodeStyles.includes('.designer-app .node-edit-modal'), "Node editing must use the approved dedicated modal layout");
+assert(runtime.includes('name="modalNodeDevEui"') && runtime.includes('devEui,\n            sectionId: targetZoneId') && !runtime.includes('DevEUI is the physical device identity.'), "Node editing must submit valid DevEUI changes to the API");
+assert(runtime.includes('removeButton.disabled = !event.target.checked;') && runtime.includes('data-modal-node-delete="${escapeAttribute(node.id)}" disabled'), "Node removal must remain locked behind explicit confirmation");
+assert(!runtime.includes('name="modalNodeReportingMode"') && !runtime.includes('name="modalNodeReportingInterval"'), "Node edit modal must not expose reporting mode or interval controls");
 assert(runtime.includes("function getNodeReportingModeLabel(profile)") && nodesModel.includes("power_save: 'Power save'"), "Node reporting modes must be presented with clear labels from the Node feature model");
 assert(nodesModel.includes('Sensor reinitialised ${counters.reinit} times') && nodesModel.includes('label: reasons[0]') && runtime.includes('<dt>Fault flags</dt>'), "Node health status must show a concise primary reason and full diagnostics on the detail page");
 assert(runtime.includes('class="crop-profile-metric-row"') && runtime.includes('data-profile-alert-limit="warning"'), "Crop profile targets must retain visible automatic alert boundaries");

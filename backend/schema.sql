@@ -148,7 +148,7 @@ ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_error_flags JSONB;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_error_counters JSONB;
 CREATE TABLE IF NOT EXISTS measurements (
     time             TIMESTAMPTZ NOT NULL,
-    dev_eui          TEXT NOT NULL REFERENCES nodes(dev_eui),
+    dev_eui          TEXT NOT NULL REFERENCES nodes(dev_eui) ON UPDATE CASCADE,
     temperature      REAL,
     humidity         REAL,
     co2              INTEGER,
@@ -243,7 +243,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_crop_profiles_org ON crop_profiles (organization_id);
 
 CREATE TABLE IF NOT EXISTS node_sensor_configs (
-    node_dev_eui    TEXT NOT NULL REFERENCES nodes(dev_eui) ON DELETE CASCADE,
+    node_dev_eui    TEXT NOT NULL REFERENCES nodes(dev_eui) ON UPDATE CASCADE ON DELETE CASCADE,
     organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     port            TEXT NOT NULL CHECK (port IN ('internal', 'i2c', 'onewire')),
     role            TEXT,

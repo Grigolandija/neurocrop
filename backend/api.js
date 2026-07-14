@@ -2067,35 +2067,69 @@ app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technici
 
 app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technician'), async (req, res) => {
   const devEui = normalizeDevEui(req.params.devEui);
+  const nextDevEui = normalizeDevEui(req.body?.devEui || devEui);
   const name = String(req.body?.name || '').trim();
   const sectionId = String(req.body?.sectionId || '').trim();
+  const organizationId = getOrganizationId(req);
+  const identityChanged = nextDevEui !== devEui;
 
-  if (!/^[0-9a-f]{16}$/.test(devEui)) {
+  if (!/^[0-9a-f]{16}$/.test(devEui) || !/^[0-9a-f]{16}$/.test(nextDevEui)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'DevEUI must be 16 hexadecimal characters' } });
   }
-  if (!name && !sectionId) {
+  if (!name && !sectionId && !identityChanged) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Nothing to update' } });
   }
 
+  let createdChirpStackDevice = false;
   try {
+    const { rows: currentRows } = await query(
+      `SELECT dev_eui FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2`,
+      [devEui, organizationId]
+    );
+    if (!currentRows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });
+
     let section = null;
     if (sectionId) {
-      section = await getSectionById(sectionId, getOrganizationId(req));
+      section = await getSectionById(sectionId, organizationId);
       if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+    }
+
+    if (identityChanged) {
+      const { rows: conflictingRows } = await query(
+        `SELECT dev_eui FROM nodes WHERE lower(dev_eui)=$1 LIMIT 1`,
+        [nextDevEui]
+      );
+      if (conflictingRows[0]) {
+        return res.status(409).json({ error: {
+          code: 'DEVICE_ALREADY_ASSIGNED',
+          message: 'This DevEUI is already assigned to a node.'
+        } });
+      }
+
+      const existingChirpStackDevice = await getChirpStackDevice(nextDevEui);
+      await createChirpStackDevice({ devEui: nextDevEui, name: name || nextDevEui });
+      createdChirpStackDevice = !existingChirpStackDevice;
+      await ensureChirpStackDeviceKeys(nextDevEui);
     }
 
     const { rows } = await query(
       `UPDATE nodes
-       SET name=COALESCE(NULLIF($1, ''), name),
-           section_id=COALESCE($2, section_id),
-           area_id=COALESCE($3, area_id),
-           organization_id=$4
-       WHERE lower(dev_eui)=$5 AND organization_id=$4
+       SET dev_eui=$1,
+           name=COALESCE(NULLIF($2, ''), name),
+           section_id=COALESCE($3, section_id),
+           area_id=COALESCE($4, area_id),
+           organization_id=$5
+       WHERE lower(dev_eui)=$6 AND organization_id=$5
        RETURNING dev_eui, name, node_type, area_id, section_id, created_at, last_seen`,
-      [name, section?.id || null, section?.area_id || null, getOrganizationId(req), devEui]
+      [nextDevEui, name, section?.id || null, section?.area_id || null, organizationId, devEui]
     );
 
     if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });
+    if (identityChanged) {
+      deleteChirpStackDevice(devEui).catch((error) => {
+        console.error('[api] old ChirpStack device cleanup:', devEui, error.message);
+      });
+    }
     res.json({ node: {
       devEui: rows[0].dev_eui,
       name: rows[0].name,
@@ -2106,7 +2140,13 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
       lastSeen: rows[0].last_seen,
     } });
   } catch (e) {
+    if (identityChanged && createdChirpStackDevice) {
+      await deleteChirpStackDevice(nextDevEui).catch(() => {});
+    }
     console.error('[api] PATCH /nodes/:devEui:', e.message);
+    if (e.code === '23505') {
+      return res.status(409).json({ error: { code: 'DEVICE_ALREADY_ASSIGNED', message: 'This DevEUI is already assigned to a node.' } });
+    }
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
 });

@@ -2697,57 +2697,37 @@
         <option value="${escapeAttribute(location.id)}" ${location.id === site.id ? "selected" : ""}>${escapeHtml(location.name)}</option>
       `).join("");
       const sectionOptions = getNodeSectionOptions(site.id, zone.id);
-      const nodeName = node.name && node.name !== node.id ? node.name : "";
-      const nodeFreshness = getNodeFreshness(node, zone);
-      const lastPayload = formatNodeLastPayload(node, nodeFreshness);
+      const nodeName = node.name || node.id;
 
       elements.managementModalOverlay.innerHTML = `
         <div class="management-modal-backdrop" data-management-modal-close></div>
-        <section class="management-modal-shell" role="dialog" aria-modal="true" aria-labelledby="nodeManagementTitle">
-          <header class="management-modal-header">
+        <section class="management-modal-shell node-edit-modal" role="dialog" aria-modal="true" aria-labelledby="nodeManagementTitle">
+          <header class="node-edit-modal-head">
             <div>
-              <p class="text-[11px] font-bold uppercase tracking-[0.24em] text-pine/56">Node settings</p>
-              <h2 id="nodeManagementTitle" class="mt-1.5 font-display text-2xl font-bold text-ink">Manage ${escapeHtml(node.name || node.id)}</h2>
-              <p class="mt-2 text-sm leading-6 text-ink/60">The Node ID stays stable. Assign the sensor to its correct monitored area and section.</p>
+              <p class="node-edit-eyebrow">Node configuration</p>
+              <h2 id="nodeManagementTitle">Edit node</h2>
+              <span>Update its identity and monitored location.</span>
             </div>
-            <button type="button" class="management-modal-close actionable" data-management-modal-close aria-label="Close node settings"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            <button type="button" class="node-edit-close actionable" data-management-modal-close aria-label="Close node settings"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
           </header>
-          <div class="management-modal-body">
-            <div class="grid gap-3 sm:grid-cols-4">
-              <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Node ID</div><div class="mt-1 font-mono text-sm font-extrabold text-ink">${escapeHtml(node.id)}</div></div>
-              <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Battery</div><div class="mt-1 text-xl font-extrabold ${node.level < criticalBatteryThreshold ? "text-ember" : "text-ink"}">${escapeHtml(node.level)}%</div></div>
-              <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Status</div><div class="mt-1 text-sm font-extrabold ${node.active === false ? "text-amber" : "text-moss"}">${node.active === false ? "Inactive" : "Active"}</div></div>
-              <div class="rounded-[18px] bg-[#f8f3ea] px-3.5 py-3"><div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Last payload</div><div class="mt-1 text-sm font-extrabold text-ink">${escapeHtml(lastPayload.relative)}</div><div class="mt-0.5 truncate text-[11px] font-semibold text-ink/50">${escapeHtml(lastPayload.absolute)}</div></div>
-            </div>
-
-            <section class="node-sensor-panel" data-node-sensors-panel>Checking detected sensors...</section>
-
-            <form class="mt-5" data-management-modal-form="node">
-              <div class="grid gap-4 sm:grid-cols-2">
-                <label class="block"><span class="text-sm font-semibold text-ink/72">Node display name</span><input name="modalNodeName" value="${escapeAttribute(nodeName)}" placeholder="Climate sensor, north side" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
-                <label class="block"><span class="text-sm font-semibold text-ink/72">DevEUI</span><input name="modalNodeDevEui" value="${escapeAttribute(node.devEui || "")}" placeholder="70B3D57ED006ABCD" maxlength="16" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 font-mono text-sm uppercase text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12"></label>
-                <label class="block"><span class="text-sm font-semibold text-ink/72">Assigned area</span><select name="modalNodeSiteId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">${areaOptions}</select></label>
-                <label class="block"><span class="text-sm font-semibold text-ink/72">Assigned section</span><select name="modalNodeSectionId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">${sectionOptions}</select></label>
-                <span class="sm:col-span-2 -mt-2 block text-xs leading-5 text-ink/50">Moving a node keeps its Node ID and DevEUI. Future readings will belong to the selected area and section.</span>
-              </div>
-              <p class="management-modal-error mt-3 rounded-[16px] bg-[#f9e3df] px-3.5 py-2.5 text-sm font-semibold text-ember" role="alert" hidden></p>
-              <div class="mt-5 flex flex-wrap gap-3"><button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save node</button><button type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink/72" data-modal-node-open-live-site="${escapeAttribute(site.id)}" data-modal-node-open-live-zone="${escapeAttribute(zone.id)}">Open current block</button></div>
-            </form>
-            <div class="management-modal-danger">
-              <h3 class="font-display text-base font-bold text-ink">Remove node</h3>
-              <p class="mt-1 text-xs leading-5 text-ink/60">Removes it from this workspace.</p>
-              <div class="mt-2 flex flex-wrap items-center gap-3"><label class="flex items-center gap-2 text-xs text-ink/70"><input name="modalNodeDeleteConfirm" type="checkbox" class="h-4 w-4 accent-[#21473b]"><span>Confirm removal</span></label><button type="button" class="actionable rounded-xl border border-ember/20 bg-white px-3.5 py-2 text-sm font-semibold text-ember" data-modal-node-delete="${escapeAttribute(node.id)}">Remove</button></div>
-            </div>
-          </div>
+          <form class="node-edit-form" data-management-modal-form="node">
+            <label class="node-edit-field"><span>Node display name</span><input name="modalNodeName" value="${escapeAttribute(nodeName)}" placeholder="Climate sensor, north side" autocomplete="off" required></label>
+            <label class="node-edit-field"><span>DevEUI</span><input name="modalNodeDevEui" value="${escapeAttribute(node.devEui || "")}" placeholder="70B3D57ED006ABCD" minlength="16" maxlength="16" pattern="[0-9A-Fa-f]{16}" title="Enter exactly 16 hexadecimal characters" autocomplete="off" required></label>
+            <label class="node-edit-field"><span>Assigned area</span><select name="modalNodeSiteId">${areaOptions}</select></label>
+            <label class="node-edit-field"><span>Assigned section</span><select name="modalNodeSectionId" required>${sectionOptions}</select></label>
+            <p class="node-move-note node-edit-wide">Changing the assignment keeps the node and its history. Future readings will belong to the selected area and section.</p>
+            <p class="management-modal-error node-edit-wide" role="alert" hidden></p>
+            <section class="node-remove-zone node-edit-wide" aria-labelledby="removeNodeTitle">
+              <div><h3 id="removeNodeTitle">Remove node</h3><p>Removes it from this workspace. This action cannot be undone.</p></div>
+              <div class="node-remove-actions"><label><input name="modalNodeDeleteConfirm" type="checkbox"><span>Confirm removal</span></label><button type="button" class="actionable" data-modal-node-delete="${escapeAttribute(node.id)}" disabled><i class="fa-solid fa-trash-can" aria-hidden="true"></i>Remove</button></div>
+            </section>
+            <footer class="node-edit-footer node-edit-wide"><button type="button" class="node-edit-button secondary actionable" data-management-modal-close>Cancel</button><button type="submit" class="node-edit-button primary actionable" data-node-save><i class="fa-solid fa-check" aria-hidden="true"></i>Save changes</button></footer>
+          </form>
         </section>
       `;
       elements.managementModalOverlay.hidden = false;
       enhanceDashboardSelects(elements.managementModalOverlay);
-      if (isApiDataMode() && node.devEui && window.NeuroCropApi?.getNodeSensors) {
-        loadNodeSensorsIntoModal(node.devEui);
-      } else {
-        renderNodeSensorPanel(null, "Sensor detection is available when the node is connected to the NeuroCrop API.");
-      }
+      elements.managementModalOverlay.querySelector('[name="modalNodeName"]')?.focus();
     }
 
     function getNodeSensorRoleLabel(role) {
@@ -2850,17 +2830,16 @@
       const nodeName = String(formData.get("modalNodeName") || "").trim();
       const devEui = String(formData.get("modalNodeDevEui") || "").trim().toUpperCase();
       if (!nodeId || !targetSiteId || !targetZoneId) return setManagementModalError("Choose both an area and a section for this node.");
-      if (devEui && !/^[0-9A-F]{16}$/.test(devEui)) return setManagementModalError("DevEUI must be 16 hexadecimal characters.");
+      if (!nodeName) return setManagementModalError("Enter a node display name.");
+      if (!/^[0-9A-F]{16}$/.test(devEui)) return setManagementModalError("DevEUI must be 16 hexadecimal characters.");
       if (isApiDataMode()) {
         const record = findNodeRecordById(nodeId);
         const currentDevEui = record?.node?.devEui || nodeId;
         if (!window.NeuroCropApi?.updateNode) return setManagementModalError("Node update API is not available yet.");
-        if (devEui && normalizeDevEuiForCompare(devEui) !== normalizeDevEuiForCompare(currentDevEui)) {
-          return setManagementModalError("DevEUI is the physical device identity. Remove and register the node again to change it.");
-        }
         try {
           await window.NeuroCropApi.updateNode(currentDevEui, {
-            name: nodeName || nodeId,
+            name: nodeName,
+            devEui,
             sectionId: targetZoneId
           });
           await hydrateDashboardFromApi();
@@ -2870,9 +2849,14 @@
           resetNodeForm({ siteId: targetSiteId, zoneId: targetZoneId });
           const targetSite = dashboardData.sites.find((item) => item.id === targetSiteId);
           const targetZone = (targetSite?.zones || []).find((item) => item.id === targetZoneId);
+          const updatedNode = (targetZone?.batteryNodes || []).find((item) => normalizeDevEuiForCompare(item.devEui) === normalizeDevEuiForCompare(devEui));
           closeManagementModal();
-          setManagementNotice("nodes", `${nodeName || nodeId} saved${targetZone ? ` and assigned to ${targetZone.name}` : ""}.`);
+          setManagementNotice("nodes", `${nodeName} saved${targetZone ? ` and assigned to ${targetZone.name}` : ""}.`);
           renderDashboard();
+          if (activeNodeDetailId && updatedNode) {
+            activeNodeDetailId = updatedNode.id;
+            syncTopLevelRoute(`/nodes/${encodeURIComponent(updatedNode.id)}`, { replace: true });
+          }
         } catch (error) {
           setManagementModalError(error instanceof Error ? error.message : "The node could not be saved.");
         }
@@ -2934,6 +2918,8 @@
           closeManagementModal();
           setManagementNotice("nodes", `${nodeId} removed from the workspace.`);
           renderDashboard();
+          activeNodeDetailId = null;
+          syncTopLevelRoute("/nodes", { replace: true });
         } catch (error) {
           setManagementModalError(error instanceof Error ? error.message : "The node could not be removed.");
         }
@@ -2948,6 +2934,8 @@
         closeManagementModal();
         setManagementNotice("nodes", `${nodeId} removed from the workspace.`);
         renderDashboard();
+        activeNodeDetailId = null;
+        syncTopLevelRoute("/nodes", { replace: true });
       } catch (error) {
         setManagementModalError(error instanceof Error ? error.message : "The node could not be removed.");
       }
@@ -15657,6 +15645,10 @@ function buildTrendMetricOptions(options) {
     elements.managementModalOverlay.addEventListener("change", (event) => {
       if (event.target instanceof HTMLInputElement && event.target.name === "modalLocationLeaveUnassigned") {
         syncLocationUnassignedChoice();
+      }
+      if (event.target instanceof HTMLInputElement && event.target.name === "modalNodeDeleteConfirm") {
+        const removeButton = elements.managementModalOverlay.querySelector("[data-modal-node-delete]");
+        if (removeButton instanceof HTMLButtonElement) removeButton.disabled = !event.target.checked;
       }
       if (event.target instanceof HTMLSelectElement && event.target.name === "modalNodeSiteId") {
         const sectionSelect = elements.managementModalOverlay.querySelector('[name="modalNodeSectionId"]');
