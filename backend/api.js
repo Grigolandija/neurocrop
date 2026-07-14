@@ -1166,6 +1166,7 @@ app.post(
   requireAuth,
   requireRole('owner', 'admin', 'grower', 'technician'),
   async (req, res) => {
+    let client;
     try {
       const organizationId = getOrganizationId(req);
       const actionId = String(req.params.actionId || '').trim();
@@ -1192,7 +1193,28 @@ app.post(
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Action identity does not match its section' } });
       }
 
-      const { rows } = await query(
+      const observedAt = String(action.observedAt || 'unknown');
+      client = await pool.connect();
+      await client.query('BEGIN');
+      await client.query(
+        'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+        [organizationId, `${actionId}|${observedAt}|${req.user.id}`]
+      );
+      const { rows: existingRows } = await client.query(
+        `SELECT id, action_id, status, note, created_by, created_at
+         FROM action_feedback
+         WHERE organization_id=$1 AND action_id=$2 AND status=$3 AND created_by=$4
+           AND COALESCE(action_payload->>'observedAt', 'unknown')=$5
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [organizationId, actionId, status, req.user.id, observedAt]
+      );
+      if (existingRows[0]) {
+        await client.query('COMMIT');
+        return res.json({ feedback: publicActionFeedback(existingRows[0]), deduplicated: true });
+      }
+
+      const { rows } = await client.query(
         `INSERT INTO action_feedback (
            id, organization_id, action_id, section_id, metric_id,
            status, note, action_payload, created_by
@@ -1203,11 +1225,15 @@ app.post(
           status, note, JSON.stringify(action), req.user.id
         ]
       );
+      await client.query('COMMIT');
 
-      res.status(201).json({ feedback: publicActionFeedback(rows[0]) });
+      res.status(201).json({ feedback: publicActionFeedback(rows[0]), deduplicated: false });
     } catch (e) {
+      if (client) await client.query('ROLLBACK').catch(() => {});
       console.error('[api] POST /actions/today/:actionId/feedback:', e.message);
       res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+    } finally {
+      client?.release();
     }
   }
 );
@@ -1217,14 +1243,19 @@ app.get('/actions/history', requireAuth, async (req, res) => {
     const organizationId = getOrganizationId(req);
     const limit = Math.max(1, Math.min(Number(req.query.limit) || 20, 50));
     const { rows: feedbackRows } = await query(
-      `SELECT af.id, af.action_id, af.section_id, af.metric_id, af.status, af.note,
+      `WITH latest_feedback AS (
+         SELECT DISTINCT ON (action_id, COALESCE(action_payload->>'observedAt', 'unknown')) *
+         FROM action_feedback
+         WHERE organization_id=$1
+         ORDER BY action_id, COALESCE(action_payload->>'observedAt', 'unknown'), created_at DESC
+       )
+       SELECT af.id, af.action_id, af.section_id, af.metric_id, af.status, af.note,
               af.action_payload, af.created_by, af.created_at,
               s.name AS section_name, a.name AS area_name, u.display_name AS created_by_name
-       FROM action_feedback af
+       FROM latest_feedback af
        JOIN sections s ON s.id=af.section_id AND s.organization_id=af.organization_id
        LEFT JOIN areas a ON a.id=s.area_id AND a.organization_id=af.organization_id
        LEFT JOIN users u ON u.id=af.created_by
-       WHERE af.organization_id=$1
        ORDER BY af.created_at DESC
        LIMIT $2`,
       [organizationId, limit]

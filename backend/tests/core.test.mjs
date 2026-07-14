@@ -315,6 +315,8 @@ test('action feedback is tenant-scoped, role-protected and keeps an immutable sn
   assert.match(route, /getSectionById\(action\.sectionId, organizationId\)/);
   assert.match(route, /action_payload/);
   assert.match(route, /req\.user\.id/);
+  assert.match(route, /pg_advisory_xact_lock/);
+  assert.match(route, /deduplicated: true/);
 });
 
 test('action history is tenant-scoped and verifies outcomes from section measurements', () => {
@@ -322,7 +324,8 @@ test('action history is tenant-scoped and verifies outcomes from section measure
   const routeStart = source.indexOf("app.get('/actions/history'");
   const route = source.slice(routeStart, source.indexOf("app.get('/readings/latest'", routeStart));
   assert.ok(routeStart >= 0);
-  assert.match(route, /WHERE af\.organization_id=\$1/);
+  assert.match(route, /WHERE organization_id=\$1/);
   assert.match(route, /n\.organization_id=\$1/);
   assert.match(route, /evaluateActionOutcome/);
+  assert.match(route, /DISTINCT ON \(action_id, COALESCE\(action_payload->>'observedAt'/);
 });
