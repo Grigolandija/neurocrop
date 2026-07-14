@@ -7856,30 +7856,22 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                   ? "Watch"
                   : "Healthy";
             const statusTone = freshness.transportStatus === "offline" ? "offline" : health.tone;
+            const tableTone = statusTone === "optimal" ? "good" : statusTone === "warning" ? "watch" : statusTone;
 
             return `
-              <article class="node-fleet-row node-table-row" data-node-search-value="${escapeAttribute([nodeName, node.id, node.devEui, site.name, zone.name].filter(Boolean).join(" ").toLowerCase())}" data-state="${escapeAttribute(statusTone)}">
-                <button type="button" class="node-table-summary" data-node-open-id="${escapeAttribute(node.id)}" aria-label="Open ${escapeAttribute(nodeName)} details">
-                  <span class="node-table-identity"><strong>${escapeHtml(nodeName)}</strong><small>${escapeHtml(node.devEui || node.id)}</small></span>
-                  <span class="node-table-location"><strong>${escapeHtml(zone.name)}</strong><small>${escapeHtml(site.name)}</small></span>
-                  <span class="management-chip node-freshness-chip" data-freshness="${escapeAttribute(statusTone)}">
-                    <i class="fa-solid ${statusTone === "offline" ? "fa-link-slash" : statusTone === "optimal" ? "fa-circle-check" : "fa-circle-exclamation"}" aria-hidden="true"></i>${escapeHtml(statusLabel)}
-                  </span>
-                  <span class="node-table-battery" data-tone="${state === "critical" ? "critical" : state === "warning" ? "warning" : "optimal"}">
-                    <i class="fa-solid ${Number(node.level) < 25 ? "fa-battery-quarter" : "fa-battery-three-quarters"}" aria-hidden="true"></i>${escapeHtml(batteryText)}
-                  </span>
-                  <span class="node-table-signal"><i class="fa-solid fa-signal" aria-hidden="true"></i>${escapeHtml(formatNodeSignal(node))}</span>
-                  <span class="node-table-payload">${escapeHtml(lastPayload.relative)}</span>
-                  <i class="fa-solid fa-chevron-right node-table-chevron" aria-hidden="true"></i>
-                </button>
-              </article>
+              <tr data-node-search-value="${escapeAttribute([nodeName, node.id, node.devEui, site.name, zone.name].filter(Boolean).join(" ").toLowerCase())}">
+                <td><button type="button" class="nc-node-identity" data-node-open-id="${escapeAttribute(node.id)}"><strong>${escapeHtml(nodeName)}</strong><small>${escapeHtml(node.devEui || node.id)}</small></button></td>
+                <td><strong>${escapeHtml(zone.name)}</strong><small>${escapeHtml(site.name)}</small></td>
+                <td><span class="nc-status-new ${escapeAttribute(tableTone)}"><span class="nc-state-dot ${escapeAttribute(tableTone)}"></span>${escapeHtml(statusLabel)}</span></td>
+                <td><span class="nc-node-battery ${state === "critical" || state === "warning" ? "is-low" : ""}"><i class="fa-solid ${Number(node.level) < 25 ? "fa-battery-quarter" : "fa-battery-three-quarters"}" aria-hidden="true"></i>${escapeHtml(batteryText)}</span></td>
+                <td>${Number.isFinite(node.rssi) ? `${escapeHtml(String(node.rssi))} dBm` : "—"}</td>
+                <td>${escapeHtml(lastPayload.relative)}</td>
+                <td><button type="button" class="nc-row-arrow" data-node-open-id="${escapeAttribute(node.id)}" aria-label="Open ${escapeAttribute(nodeName)} details"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></td>
+              </tr>
             `;
           }).join("")
         : `
-            <div class="panel rounded-[30px] p-6">
-              <h3 class="font-display text-2xl font-bold text-ink">${nodes.length > 0 ? "No nodes match these filters." : "No nodes registered yet."}</h3>
-              <p class="mt-3 max-w-2xl text-sm leading-7 text-ink/66">${nodes.length > 0 ? "Choose another Site or Zone to see its nodes." : "Choose a zone above, enter the sensor identifier, and register the first sensor node."}</p>
-            </div>
+            <tr><td colspan="7" class="nc-node-empty">${nodes.length > 0 ? "No nodes match these filters." : "No nodes registered yet."}</td></tr>
           `;
 
       elements.nodesManagementShell.innerHTML = `
@@ -7928,10 +7920,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
               `}
           </section>
 
-          <section class="node-fleet-inventory">
-            <div class="node-fleet-toolbar">
-              <label class="node-fleet-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input name="nodeSearch" value="${escapeAttribute(activeNodeSearchQuery)}" placeholder="Search name, DevEUI or section"></label>
-              <div class="node-list-filters">
+          <section class="nc-node-list">
+            <div class="nc-list-toolbar">
+              <label class="nc-search-field"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input name="nodeSearch" value="${escapeAttribute(activeNodeSearchQuery)}" placeholder="Search name, DevEUI or section"></label>
+              <div class="nc-toolbar-selects">
                 <label class="block">
                   <span class="sr-only">Filter by area</span>
                   <select name="nodeFilterSiteId">
@@ -7950,9 +7942,12 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 </label>
               </div>
             </div>
-            <div class="node-fleet-table-head"><span>Node</span><span>Location</span><span>State</span><span>Battery</span><span>Signal</span><span>Last payload</span><span></span></div>
-            ${filteredNodes.length > 0 ? `<div class="node-fleet-table">${nodeRows}</div>` : `<div class="node-fleet-empty">${nodeRows}</div>`}
-            <footer class="node-fleet-footer"><span>${filteredNodes.length}${filteredNodes.length !== nodes.length ? ` of ${nodes.length}` : ""} nodes shown</span><span>${filteredLowBatteryCount > 0 ? `${filteredLowBatteryCount} need battery attention` : "No battery alerts in this view"}</span></footer>
+            <div class="nc-data-table-wrap">
+              <table class="nc-data-table nc-node-table">
+                <thead><tr><th>Node</th><th>Location</th><th>State</th><th>Battery</th><th>Signal</th><th>Last payload</th><th></th></tr></thead>
+                <tbody>${nodeRows}</tbody>
+              </table>
+            </div>
           </section>
         </div>
       `;

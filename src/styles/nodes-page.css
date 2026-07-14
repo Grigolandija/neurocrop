@@ -574,6 +574,180 @@
 
 .designer-app #nodesManagementSection .node-fleet-empty .panel { margin: 18px; }
 
+/* Exact table structure and metrics from the standalone redesign. */
+.designer-app #nodesManagementSection .nc-node-list {
+  --nc-trial-ink-950: #101916;
+  --nc-trial-ink-900: #16211d;
+  --nc-trial-ink-800: #23302b;
+  --nc-trial-ink-700: #3a4842;
+  --nc-trial-ink-500: #78837e;
+  --nc-trial-ink-400: #9ba49f;
+  --nc-trial-ink-300: #b9c0bc;
+  --nc-trial-ink-200: #d7dcd9;
+  --nc-trial-ink-100: #e9ecea;
+  --nc-trial-ink-050: #f4f5f3;
+  --nc-trial-paper: #fbfbf8;
+  color: var(--nc-trial-ink-900);
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.designer-app #nodesManagementSection .nc-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.designer-app #nodesManagementSection .nc-search-field {
+  display: flex;
+  min-width: 260px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--nc-trial-ink-200);
+  border-radius: 9px;
+  padding: 0 11px;
+  background: #fff;
+}
+
+.designer-app #nodesManagementSection .nc-search-field i { color: var(--nc-trial-ink-400); font-size: 10px; }
+
+.designer-app #nodesManagementSection .nc-search-field input {
+  width: 100%;
+  height: 38px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--nc-trial-ink-900);
+  font: 11px 'IBM Plex Sans', sans-serif;
+}
+
+.designer-app #nodesManagementSection .nc-toolbar-selects { display: flex; gap: 8px; }
+
+.designer-app #nodesManagementSection .nc-toolbar-selects select {
+  min-width: 128px;
+  min-height: 35px;
+  border: 1px solid var(--nc-trial-ink-200);
+  border-radius: 7px;
+  padding: 0 31px 0 10px;
+  background: var(--nc-trial-paper);
+  color: var(--nc-trial-ink-800);
+  font: 10px 'IBM Plex Sans', sans-serif;
+}
+
+.designer-app #nodesManagementSection .nc-data-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--nc-trial-ink-200);
+  border-radius: 11px;
+  background: #fff;
+}
+
+.designer-app #nodesManagementSection .nc-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--nc-trial-ink-700);
+  font: 10px 'IBM Plex Sans', sans-serif;
+}
+
+.designer-app #nodesManagementSection .nc-data-table th {
+  height: 38px;
+  border-bottom: 1px solid var(--nc-trial-ink-200);
+  padding: 0 14px;
+  background: var(--nc-trial-ink-050);
+  color: var(--nc-trial-ink-500);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.designer-app #nodesManagementSection .nc-data-table td {
+  height: 58px;
+  border-bottom: 1px solid var(--nc-trial-ink-100);
+  padding: 9px 14px;
+  color: var(--nc-trial-ink-700);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.designer-app #nodesManagementSection .nc-data-table tbody tr:last-child td { border-bottom: 0; }
+.designer-app #nodesManagementSection .nc-data-table tbody tr:hover { background: #fafbf9; }
+.designer-app #nodesManagementSection .nc-data-table td strong,
+.designer-app #nodesManagementSection .nc-data-table td small { display: block; }
+.designer-app #nodesManagementSection .nc-data-table td strong { color: var(--nc-trial-ink-900); font-size: 10px; font-weight: 700; }
+.designer-app #nodesManagementSection .nc-data-table td small { margin-top: 3px; color: var(--nc-trial-ink-500); font-size: 8px; }
+
+.designer-app #nodesManagementSection .nc-node-identity {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.designer-app #nodesManagementSection .nc-status-new {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  border-radius: 99px;
+  padding: 4px 8px;
+  background: var(--nc-trial-ink-050);
+  color: #59665f;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.designer-app #nodesManagementSection .nc-status-new.good { background: #e5f0e7; color: #3a6b47; }
+.designer-app #nodesManagementSection .nc-status-new.watch { background: #f7ead8; color: #875219; }
+.designer-app #nodesManagementSection .nc-status-new.critical { background: #f8e4df; color: #923a2e; }
+.designer-app #nodesManagementSection .nc-status-new.offline { background: #e8e9e8; color: #5c615e; }
+
+.designer-app #nodesManagementSection .nc-state-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--nc-trial-ink-300);
+}
+
+.designer-app #nodesManagementSection .nc-state-dot.good { background: #59a16c; }
+.designer-app #nodesManagementSection .nc-state-dot.watch { background: #d78a2d; }
+.designer-app #nodesManagementSection .nc-state-dot.critical { background: #b24435; }
+.designer-app #nodesManagementSection .nc-state-dot.offline { background: #6f7471; }
+.designer-app #nodesManagementSection .nc-node-battery { color: var(--nc-trial-ink-700); }
+.designer-app #nodesManagementSection .nc-node-battery i { margin-right: 5px; }
+.designer-app #nodesManagementSection .nc-node-battery.is-low { color: #b24435; }
+
+.designer-app #nodesManagementSection .nc-row-arrow {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  padding: 0;
+  background: var(--nc-trial-ink-050);
+  color: var(--nc-trial-ink-500);
+  cursor: pointer;
+}
+
+.designer-app #nodesManagementSection .nc-row-arrow:hover { background: var(--nc-trial-ink-100); color: var(--nc-trial-ink-800); }
+.designer-app #nodesManagementSection .nc-node-empty { height: 90px; color: var(--nc-trial-ink-500); text-align: center; }
+
+@media (max-width: 700px) {
+  .designer-app #nodesManagementSection .nc-list-toolbar { align-items: stretch; flex-direction: column; }
+  .designer-app #nodesManagementSection .nc-search-field { min-width: 0; }
+  .designer-app #nodesManagementSection .nc-toolbar-selects { display: grid; grid-template-columns: 1fr 1fr; }
+  .designer-app #nodesManagementSection .nc-toolbar-selects select { width: 100%; }
+}
+
 @media (max-width: 1180px) {
   body[data-primary-page="nodes"] {
     overflow-x: hidden !important;
