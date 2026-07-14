@@ -7762,7 +7762,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       if (resetFlags.watchdog_reset) resetReasons.push("Watchdog reset");
       if (resetFlags.tx_timeout) resetReasons.push("Transmission timeout recovery");
       if (resetFlags.boot_fault) resetReasons.push("Boot initialization fault");
-      const resetReason = resetReasons.join(" · ") || "No reset fault detected";
+      const resetReason = resetReasons.join(" · ");
 
       elements.nodesManagementShell.innerHTML = `
         <div class="node-detail-page">
@@ -7797,7 +7797,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
               <header><p>Diagnostics</p><h3>Latest device report</h3></header>
               <dl class="node-detail-diagnostics">
                 <div><dt>Firmware</dt><dd>${escapeHtml(node.firmwareVersion || "Unavailable")}</dd></div>
-                <div><dt>Reset status</dt><dd>${escapeHtml(resetReason)}</dd></div>
+                ${resetReason ? `<div><dt>Reset status</dt><dd>${escapeHtml(resetReason)}</dd></div>` : ""}
                 <div><dt>Read failures</dt><dd>${escapeHtml(String(readFailures))}</dd></div>
                 <div><dt>Transmit failures</dt><dd>${escapeHtml(String(transmitFailures))}</dd></div>
                 <div><dt>Last payload</dt><dd>${escapeHtml(lastPayload.absolute)}</dd></div>
