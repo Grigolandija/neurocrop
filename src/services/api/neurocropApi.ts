@@ -34,6 +34,7 @@ export const neurocropApi = {
   setPlatformUserActive: (id: string, active: boolean) => request(`/platform/users/${encoded(id)}/status`, { method: 'PATCH', body: json({ active }) }),
   deletePlatformUser: (id: string) => request(`/platform/users/${encoded(id)}?confirm=delete`, { method: 'DELETE' }),
   getDashboard: () => request('/dashboard'),
+  getTodayActions: (sectionId?: string) => request(`/actions/today${queryString({ sectionId })}`),
   getCropProfiles: () => request('/crop-profiles'),
   getLatestReadings: (sectionId: string) => request(`/readings/latest${queryString({ sectionId })}`),
   getHistory: (params: Payload) => request(`/history${queryString(params)}`),

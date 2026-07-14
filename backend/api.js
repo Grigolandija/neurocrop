@@ -20,12 +20,13 @@ import {
 } from './auth-users.js';
 import { registerTeamRoutes } from './team-routes.js';
 import { registerPlatformOrganizationRoutes } from './organization-routes.js';
-import { buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, statusFromMeasurementTime } from './score.js';
+import { buildCurrentMetricEvaluations, buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, statusFromMeasurementTime } from './score.js';
 import { getAllowedOrigins, publicError } from './config.js';
 import { validateCropProfileMetrics } from './validation.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
 import { runMigrations } from './migrate.js';
 import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
+import { buildTodayActions } from './today-actions.js';
 
 const app = express();
 app.use(express.json());
@@ -1027,6 +1028,91 @@ function measurementReportsMetric(measurement, metric) {
   }[metric];
   return sensorKey ? sensors[sensorKey]?.present === true : false;
 }
+
+app.get('/actions/today', requireAuth, async (req, res) => {
+  try {
+    const organizationId = getOrganizationId(req);
+    const requestedSectionId = String(req.query.sectionId || '').trim();
+    const [sectionsResult, nodesResult, profilesResult, measurementsResult] = await Promise.all([
+      query(
+        `SELECT s.id, s.area_id, s.name, s.crop_profile, a.name AS area_name
+         FROM sections s
+         LEFT JOIN areas a ON a.id=s.area_id
+         WHERE s.organization_id=$1
+         ORDER BY s.created_at ASC`,
+        [organizationId]
+      ),
+      query(
+        `SELECT dev_eui, section_id, last_seen, last_received_at, last_sensor_presence
+         FROM nodes WHERE organization_id=$1 ORDER BY created_at ASC`,
+        [organizationId]
+      ),
+      query(`SELECT id, metrics FROM crop_profiles WHERE organization_id=$1`, [organizationId]),
+      query(
+        `SELECT DISTINCT ON (m.dev_eui) m.*
+         FROM measurements m
+         JOIN nodes n ON n.dev_eui=m.dev_eui
+         WHERE n.organization_id=$1
+         ORDER BY m.dev_eui, m.time DESC`,
+        [organizationId]
+      )
+    ]);
+
+    const sections = requestedSectionId
+      ? sectionsResult.rows.filter((section) => section.id === requestedSectionId)
+      : sectionsResult.rows;
+    if (requestedSectionId && sections.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+    }
+
+    const nodesBySection = new Map();
+    for (const node of nodesResult.rows) {
+      if (!node.section_id) continue;
+      if (!nodesBySection.has(node.section_id)) nodesBySection.set(node.section_id, []);
+      nodesBySection.get(node.section_id).push(node);
+    }
+    const profileMetricsById = new Map(profilesResult.rows.map((row) => [row.id, row.metrics || {}]));
+    const latestByDevEui = new Map(
+      measurementsResult.rows.map((row) => [normalizeDevEui(row.dev_eui), row])
+    );
+
+    const snapshots = sections.map((section) => {
+      const nodeRows = nodesBySection.get(section.id) || [];
+      const measurements = nodeRows.map((node) => latestByDevEui.get(normalizeDevEui(node.dev_eui)) || null);
+      const profileMetrics = profileMetricsById.get(section.crop_profile) || {};
+      const current = buildCurrentMetricEvaluations(nodeRows, measurements, profileMetrics);
+      const observedAtByMetric = Object.fromEntries(current.evaluations.map((evaluation) => {
+        const times = current.currentMeasurements
+          .filter((measurement) => measurementReportsMetric(measurement, evaluation.metricId))
+          .map((measurement) => measurement.time)
+          .filter(Boolean)
+          .sort((left, right) => new Date(right) - new Date(left));
+        return [evaluation.metricId, times[0] || null];
+      }));
+
+      return {
+        section,
+        profileMetrics,
+        scoreRules: current.scoreRules,
+        evaluations: current.evaluations,
+        observedAtByMetric,
+        latestReceivedAt: measurements.map((measurement) => measurement?.time).filter(Boolean)
+          .sort((left, right) => new Date(right) - new Date(left))[0] || null,
+        reportingNodes: current.statuses.filter((status) => status === 'live' || status === 'delayed').length,
+        registeredNodes: nodeRows.length
+      };
+    });
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      sectionId: requestedSectionId || null,
+      actions: buildTodayActions(snapshots)
+    });
+  } catch (e) {
+    console.error('[api] /actions/today:', e.message);
+    res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  }
+});
 
 app.get('/readings/latest', requireAuth, async (req, res) => {
   const section = await getSectionById(req.query.sectionId, getOrganizationId(req));

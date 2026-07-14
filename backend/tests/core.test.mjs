@@ -3,11 +3,12 @@ import test from 'node:test';
 import fs from 'node:fs';
 import { calcAbsoluteHumidity, calcDewPoint, calcVPD } from '../calculations.js';
 import { getAllowedOrigins, getSessionCookieOptions, publicError } from '../config.js';
-import { buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, evaluateMetricValue, statusFromMeasurementTime } from '../score.js';
+import { buildCurrentMetricEvaluations, buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, evaluateMetricValue, statusFromMeasurementTime } from '../score.js';
 import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
 import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
+import { buildTodayActions } from '../today-actions.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -102,6 +103,62 @@ test('score rules use saved optimal ranges and automatic alert bands', () => {
   assert.deepEqual(rules.airTemp.critical, [14, 26]);
   assert.equal(evaluateMetricValue('airTemp', 23, rules).state, 'warning');
   assert.equal(evaluateMetricValue('airTemp', 27, rules).state, 'critical');
+});
+
+test('today actions rank critical live readings and suppress duplicate climate advice', () => {
+  const now = Date.parse('2026-07-14T12:00:00Z');
+  const nodeRows = [
+    { last_received_at: '2026-07-14T11:59:00Z' },
+    { last_received_at: '2026-07-14T11:58:00Z' }
+  ];
+  const measurements = [
+    {
+      time: '2026-07-14T11:59:00Z', temperature: 34, humidity: 92, co2: 300,
+      raw_object: { expected_uplink_interval_s: 300, sensors: { sht45: { present: true }, scd41: { present: true } } }
+    },
+    {
+      time: '2026-07-14T11:58:00Z', temperature: 32, humidity: 88, co2: 350,
+      raw_object: { expected_uplink_interval_s: 300, sensors: { sht45: { present: true }, scd41: { present: true } } }
+    }
+  ];
+  const profileMetrics = {
+    airTemp: { optimal: [20, 24], action: 'Open the roof vents in stages.' },
+    humidity: { optimal: [60, 70] },
+    co2: { optimal: [700, 900] }
+  };
+  const current = buildCurrentMetricEvaluations(nodeRows, measurements, profileMetrics, now);
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'North block', area_id: 'area-1', area_name: 'Main greenhouse', crop_profile: 'tomato' },
+    profileMetrics,
+    scoreRules: current.scoreRules,
+    evaluations: current.evaluations,
+    observedAtByMetric: { airTemp: measurements[0].time, humidity: measurements[0].time, vpd: measurements[0].time, co2: measurements[0].time },
+    reportingNodes: 2,
+    registeredNodes: 2
+  }]);
+
+  assert.equal(actions.length, 2);
+  assert.equal(actions[0].state, 'critical');
+  assert.equal(actions.filter((action) => ['airTemp', 'humidity', 'vpd'].includes(action.metricId)).length, 1);
+  assert.equal(actions.some((action) => action.metricId === 'co2'), true);
+  assert.equal(actions.every((action) => action.confidence === 'high'), true);
+});
+
+test('today actions ignore stale measurements and return no work for optimal readings', () => {
+  const profileMetrics = { airTemp: { optimal: [20, 24] }, humidity: { optimal: [60, 70] } };
+  const current = buildCurrentMetricEvaluations(
+    [{ last_received_at: '2026-07-14T08:00:00Z' }],
+    [{ time: '2026-07-14T08:00:00Z', temperature: 40, humidity: 90, raw_object: { expected_uplink_interval_s: 300, sensors: { sht45: { present: true } } } }],
+    profileMetrics,
+    Date.parse('2026-07-14T12:00:00Z')
+  );
+  assert.deepEqual(current.evaluations, []);
+  assert.deepEqual(buildTodayActions([{
+    section: { id: 'section-1', name: 'North block' },
+    profileMetrics,
+    scoreRules: current.scoreRules,
+    evaluations: current.evaluations
+  }]), []);
 });
 
 test('historical score snapshots use the same canonical score model', () => {

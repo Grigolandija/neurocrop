@@ -1448,11 +1448,18 @@
           renderDashboard();
           return;
         }
-        const latestReadings = await fetchLatestReadingsForZone(nextZone.id, {
-          onlyActive: false,
-          renderOnComplete: false
-        });
+        const [latestReadings, todayActionsResponse] = await Promise.all([
+          fetchLatestReadingsForZone(nextZone.id, {
+            onlyActive: false,
+            renderOnComplete: false
+          }),
+          window.NeuroCropApi.getTodayActions().catch((error) => {
+            console.warn("NeuroCrop API today actions load failed; using the local fallback.", error);
+            return null;
+          })
+        ]);
         if (!isCurrentRequest() || nextZone.id !== getActiveZone()?.id) return;
+        if (Array.isArray(todayActionsResponse?.actions)) backendTodayActions = todayActionsResponse.actions;
         currentReadings = latestReadings ? readingsFromApiObservations(latestReadings) : {};
         manualOverride = false;
         lastDashboardHydratedAt = Date.now();
@@ -1652,6 +1659,7 @@
       manualOverride = false;
       latestReadingsBySectionId = {};
       latestReadingsStatusBySectionId = {};
+      backendTodayActions = null;
       resetTrendSelectionForContextChange();
       syncTopLevelRoute("/", { replace: true });
       selectPriorityContextAfterLogin = true;
@@ -1722,6 +1730,7 @@
     let latestReadingsRequestId = 0;
     let latestReadingsBySectionId = {};
     let latestReadingsStatusBySectionId = {};
+    let backendTodayActions = null;
     let dashboardHydrationRequestId = 0;
     let dashboardHydrationInFlight = false;
     let dashboardHydrationOrganizationId = "";
@@ -14311,15 +14320,47 @@ function buildTrendMetricOptions(options) {
       actionDeckShortcutMap = new Map(visibleActionDeckCards.map((card, index) => [String(index + 1), card]));
       elements.todayPriorityPanel.hidden = true;
       if (isSimpleExperienceMode && !isPrimaryWorkspacePage) {
-        const prioritySnapshot = allSystemIssues[0] || { site, zone, profile, results };
-        const priorityResult = prioritySnapshot?.results
-          ?.filter((result) => result.available !== false && isGrowthMetricKey(result.key))
-          .sort((left, right) => {
-            if (left.state !== "optimal" && right.state === "optimal") return -1;
-            if (left.state === "optimal" && right.state !== "optimal") return 1;
-            return right.severity - left.severity;
-          })[0] || null;
-        const priorityDefinition = priorityResult ? prioritySnapshot.profile.metrics[priorityResult.key] : null;
+        const hasBackendPriority = Array.isArray(backendTodayActions);
+        const backendPriorityActions = hasBackendPriority
+          ? backendTodayActions.map((action) => {
+              const snapshot = globalSnapshots.find((item) => item.zone.id === action.sectionId);
+              if (!snapshot) return null;
+              return {
+                state: action.state,
+                title: action.title,
+                note: `${action.recommendedAction} ${action.expectedEffect}`,
+                cta: "Open metrics",
+                targetId: "metricsSection",
+                siteId: snapshot.site.id,
+                zoneId: snapshot.zone.id,
+                profileKey: snapshot.zone.profile,
+                metricKey: action.metricId,
+                backendAction: action,
+                snapshot
+              };
+            }).filter(Boolean)
+          : [];
+        const firstBackendPriority = backendPriorityActions[0] || null;
+        const prioritySnapshot = firstBackendPriority?.snapshot || allSystemIssues[0] || { site, zone, profile, results };
+        const priorityResult = firstBackendPriority
+          ? {
+              key: firstBackendPriority.metricKey,
+              value: firstBackendPriority.backendAction.value,
+              state: firstBackendPriority.state,
+              severity: firstBackendPriority.backendAction.severity,
+              deviationText: firstBackendPriority.backendAction.reason
+            }
+          : hasBackendPriority
+            ? null
+            : prioritySnapshot?.results
+              ?.filter((result) => result.available !== false && isGrowthMetricKey(result.key))
+              .sort((left, right) => {
+                if (left.state !== "optimal" && right.state === "optimal") return -1;
+                if (left.state === "optimal" && right.state !== "optimal") return 1;
+                return right.severity - left.severity;
+              })[0] || null;
+        const backendDefinition = firstBackendPriority ? firstBackendPriority.snapshot.profile.metrics[firstBackendPriority.metricKey] : null;
+        const priorityDefinition = backendDefinition || (priorityResult ? prioritySnapshot.profile.metrics[priorityResult.key] : null);
         const priorityTrendOption = priorityResult && priorityDefinition ? {
           key: priorityResult.key,
           value: priorityResult.value,
@@ -14336,12 +14377,14 @@ function buildTrendMetricOptions(options) {
         const priorityAlert = priorityResult
           ? alertRecords.find((record) => record.site.id === prioritySnapshot.site.id && record.zone.id === prioritySnapshot.zone.id && record.metricKey === priorityResult.key)
           : null;
-        const priorityTrend = !priorityDefinition
+        const priorityTrend = firstBackendPriority
+          ? "Latest live reading"
+          : !priorityDefinition
           ? "No trend yet"
           : priorityDelta === 0
             ? "Stable over 24 h"
             : `${priorityDelta > 0 ? "↑" : "↓"} ${formatValue(Math.abs(priorityDelta), priorityDefinition)} in 24 h`;
-        const globalPriorityAction = priorityResult && priorityDefinition ? {
+        const fallbackPriorityAction = priorityResult && priorityDefinition ? {
           state: priorityResult.state,
           title: `${getDecisionVerb(priorityResult, priorityDefinition)} ${priorityDefinition.label.toLowerCase()}`,
           note: `${prioritySnapshot.zone.name} in ${prioritySnapshot.site.name} is ${priorityResult.deviationText.toLowerCase()}. ${getDecisionImpactText(priorityResult.key, priorityDefinition.label)}`,
@@ -14352,12 +14395,13 @@ function buildTrendMetricOptions(options) {
           profileKey: prioritySnapshot.zone.profile,
           metricKey: priorityResult.key
         } : actionDeck.cards[0];
-        renderTodayPriority([globalPriorityAction], allSystemIssues, {
+        const priorityActions = hasBackendPriority ? backendPriorityActions : [fallbackPriorityAction].filter(Boolean);
+        renderTodayPriority(priorityActions, allSystemIssues, {
           metric: priorityDefinition?.label,
           definition: priorityDefinition,
           result: priorityResult,
           trend: priorityTrend,
-          duration: priorityAlert ? formatAlertDuration(priorityAlert.detectedAt) : "Latest reading",
+          duration: firstBackendPriority ? "Latest reading" : priorityAlert ? formatAlertDuration(priorityAlert.detectedAt) : "Latest reading",
           scopeLabel: prioritySnapshot.zone.name,
           siteId: prioritySnapshot.site.id,
           zoneId: prioritySnapshot.zone.id,

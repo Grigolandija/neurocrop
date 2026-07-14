@@ -201,6 +201,24 @@ function buildMetricValuesFromLatestMeasurements(measurements, scoreRules) {
   return values;
 }
 
+export function buildCurrentMetricEvaluations(nodeRows, measurements, profileMetrics = {}, now = Date.now()) {
+  const scoreRules = buildScoreRules(profileMetrics);
+  const statuses = nodeRows.map((node, index) => {
+    const measurement = measurements[index];
+    const expectedIntervalSec = measurement?.raw_object?.expected_uplink_interval_s || 300;
+    return statusFromMeasurementTime(node.last_received_at || node.last_seen || measurement?.time, now, expectedIntervalSec);
+  });
+  const currentMeasurements = measurements.filter((measurement, index) =>
+    measurement && ['live', 'delayed'].includes(statuses[index])
+  );
+  const metricValues = buildMetricValuesFromLatestMeasurements(currentMeasurements, scoreRules);
+  const evaluations = Object.entries(metricValues)
+    .map(([metricId, values]) => evaluateMetricValue(metricId, median(values), scoreRules))
+    .filter(Boolean);
+
+  return { scoreRules, statuses, currentMeasurements, metricValues, evaluations };
+}
+
 const SCORE_GROUPS = [
   // Climate readings are correlated, so the worst climate deviation is one group,
   // rather than three independent penalties. Weights are normalized across only
@@ -276,13 +294,12 @@ export function buildScoreFromMetricValues(metricValues = {}, profileMetrics = {
 
 export function buildSectionDashboardState(nodeRows, measurements, profileMetrics = {}) {
   const now = Date.now();
-  const scoreRules = buildScoreRules(profileMetrics);
-
-  const statuses = nodeRows.map((node, index) => {
-    const measurement = measurements[index];
-    const expectedIntervalSec = measurement?.raw_object?.expected_uplink_interval_s || 300;
-    return statusFromMeasurementTime(node.last_received_at || node.last_seen || measurement?.time, now, expectedIntervalSec);
-  });
+  const { scoreRules, statuses, metricValues, evaluations } = buildCurrentMetricEvaluations(
+    nodeRows,
+    measurements,
+    profileMetrics,
+    now
+  );
 
   const nodeSummary = {
     live: statuses.filter((status) => status === 'live').length,
@@ -290,14 +307,6 @@ export function buildSectionDashboardState(nodeRows, measurements, profileMetric
     stale: statuses.filter((status) => status === 'stale').length,
     offline: statuses.filter((status) => status === 'offline').length
   };
-
-  const currentMeasurements = measurements.filter((measurement, index) =>
-    measurement && ['live', 'delayed'].includes(statuses[index])
-  );
-  const metricValues = buildMetricValuesFromLatestMeasurements(currentMeasurements, scoreRules);
-  const evaluations = Object.entries(metricValues)
-    .map(([metricId, values]) => evaluateMetricValue(metricId, median(values), scoreRules))
-    .filter(Boolean);
 
   const availableMetrics = Object.entries(metricValues)
     .filter(([, values]) => values.length > 0)
