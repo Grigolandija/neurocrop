@@ -2726,6 +2726,7 @@
         </section>
       `;
       elements.managementModalOverlay.hidden = false;
+      enhanceDashboardSelects(elements.managementModalOverlay);
       elements.managementModalOverlay.querySelector('[name="modalNodeName"]')?.focus();
     }
 
@@ -15656,6 +15657,7 @@ function buildTrendMetricOptions(options) {
         const targetZones = Array.isArray(targetSite?.zones) ? targetSite.zones : [];
         sectionSelect.innerHTML = getNodeSectionOptions(event.target.value);
         sectionSelect.disabled = targetZones.length === 0;
+        rebuildEnhancedSelect(sectionSelect);
       }
       if (event.target instanceof HTMLSelectElement && event.target.name === "csvAreaId") {
         const sectionSelect = elements.managementModalOverlay.querySelector('[name="csvSectionId"]');
