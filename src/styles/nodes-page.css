@@ -624,6 +624,10 @@
 
 .designer-app #nodesManagementSection .nc-toolbar-selects { display: flex; gap: 8px; }
 
+.designer-app #nodesManagementSection .nc-toolbar-selects > label {
+  width: 180px;
+}
+
 .designer-app #nodesManagementSection .nc-toolbar-selects label:has(select[name="nodeFilterSiteId"]) .nc-select-menu {
   width: min(280px, calc(100vw - 32px));
 }
@@ -749,6 +753,7 @@
   .designer-app #nodesManagementSection .nc-list-toolbar { align-items: stretch; flex-direction: column; }
   .designer-app #nodesManagementSection .nc-search-field { min-width: 0; }
   .designer-app #nodesManagementSection .nc-toolbar-selects { display: grid; grid-template-columns: 1fr 1fr; }
+  .designer-app #nodesManagementSection .nc-toolbar-selects > label { width: 100%; }
   .designer-app #nodesManagementSection .nc-toolbar-selects select { width: 100%; }
 }
 
