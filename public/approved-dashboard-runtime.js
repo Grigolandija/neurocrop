@@ -2700,33 +2700,32 @@
       const nodeName = node.name || node.id;
 
       elements.managementModalOverlay.innerHTML = `
-        <div class="management-modal-backdrop" data-management-modal-close></div>
+        <div class="management-modal-backdrop node-edit-backdrop-surface" data-management-modal-close></div>
         <section class="management-modal-shell node-edit-modal" role="dialog" aria-modal="true" aria-labelledby="nodeManagementTitle">
           <header class="node-edit-modal-head">
             <div>
-              <p class="node-edit-eyebrow">Node configuration</p>
+              <p class="eyebrow">Node configuration</p>
               <h2 id="nodeManagementTitle">Edit node</h2>
-              <span>Update its identity and monitored location.</span>
+              <span>Update its identity and assignment.</span>
             </div>
-            <button type="button" class="node-edit-close actionable" data-management-modal-close aria-label="Close node settings"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            <button type="button" class="node-edit-close" data-management-modal-close aria-label="Close edit node dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
           </header>
           <form class="node-edit-form" data-management-modal-form="node">
-            <label class="node-edit-field"><span>Node display name</span><input name="modalNodeName" value="${escapeAttribute(nodeName)}" placeholder="Climate sensor, north side" autocomplete="off" required></label>
-            <label class="node-edit-field"><span>DevEUI</span><input name="modalNodeDevEui" value="${escapeAttribute(node.devEui || "")}" placeholder="70B3D57ED006ABCD" minlength="16" maxlength="16" pattern="[0-9A-Fa-f]{16}" title="Enter exactly 16 hexadecimal characters" autocomplete="off" required></label>
+            <label class="node-edit-field"><span>Node display name</span><input name="modalNodeName" value="${escapeAttribute(nodeName)}" required></label>
+            <label class="node-edit-field"><span>DevEUI</span><input name="modalNodeDevEui" value="${escapeAttribute(node.devEui || "")}" minlength="16" maxlength="16" pattern="[0-9A-Fa-f]{16}" title="Enter exactly 16 hexadecimal characters" required></label>
             <label class="node-edit-field"><span>Assigned area</span><select name="modalNodeSiteId">${areaOptions}</select></label>
             <label class="node-edit-field"><span>Assigned section</span><select name="modalNodeSectionId" required>${sectionOptions}</select></label>
-            <p class="node-move-note node-edit-wide">Changing the assignment keeps the node and its history. Future readings will belong to the selected area and section.</p>
-            <p class="management-modal-error node-edit-wide" role="alert" hidden></p>
-            <section class="node-remove-zone node-edit-wide" aria-labelledby="removeNodeTitle">
-              <div><h3 id="removeNodeTitle">Remove node</h3><p>Removes it from this workspace. This action cannot be undone.</p></div>
-              <div class="node-remove-actions"><label><input name="modalNodeDeleteConfirm" type="checkbox"><span>Confirm removal</span></label><button type="button" class="actionable" data-modal-node-delete="${escapeAttribute(node.id)}" disabled><i class="fa-solid fa-trash-can" aria-hidden="true"></i>Remove</button></div>
+            <p class="node-move-note field-wide">Moving a node keeps its Node ID. Future readings will belong to the selected area and section.</p>
+            <p class="management-modal-error field-wide" role="alert" hidden></p>
+            <section class="node-remove-zone field-wide" aria-labelledby="remove-node-title">
+              <div><h3 id="remove-node-title">Remove node</h3><p>Removes it from this workspace. This action cannot be undone.</p></div>
+              <div class="node-remove-actions"><label><input name="modalNodeDeleteConfirm" type="checkbox"><span>Confirm removal</span></label><button type="button" data-modal-node-delete="${escapeAttribute(node.id)}" disabled><i class="fa-solid fa-trash-can" aria-hidden="true"></i>Remove</button></div>
             </section>
-            <footer class="node-edit-footer node-edit-wide"><button type="button" class="node-edit-button secondary actionable" data-management-modal-close>Cancel</button><button type="submit" class="node-edit-button primary actionable" data-node-save><i class="fa-solid fa-check" aria-hidden="true"></i>Save changes</button></footer>
+            <footer class="node-edit-footer field-wide"><button type="button" class="button-new secondary" data-management-modal-close>Cancel</button><button type="submit" class="button-new primary" data-node-save><i class="fa-solid fa-check" aria-hidden="true"></i>Save changes</button></footer>
           </form>
         </section>
       `;
       elements.managementModalOverlay.hidden = false;
-      enhanceDashboardSelects(elements.managementModalOverlay);
       elements.managementModalOverlay.querySelector('[name="modalNodeName"]')?.focus();
     }
 
@@ -15657,7 +15656,6 @@ function buildTrendMetricOptions(options) {
         const targetZones = Array.isArray(targetSite?.zones) ? targetSite.zones : [];
         sectionSelect.innerHTML = getNodeSectionOptions(event.target.value);
         sectionSelect.disabled = targetZones.length === 0;
-        rebuildEnhancedSelect(sectionSelect);
       }
       if (event.target instanceof HTMLSelectElement && event.target.name === "csvAreaId") {
         const sectionSelect = elements.managementModalOverlay.querySelector('[name="csvSectionId"]');
