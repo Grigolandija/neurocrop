@@ -1732,8 +1732,10 @@
     let activeBlockFilterSiteId = "all";
     let activeNodeFilterSiteId = "all";
     let activeNodeFilterZoneId = "all";
+    let activeNodeStateFilter = "all";
     let activeNodeSearchQuery = "";
-    let expandedNodeListId = null;
+    let activeNodeDetailId = null;
+    let nodeRegistrationOpen = false;
     let expandedCropProfileMetricId = null;
     let activeSettingsProfileKey = activeProfileKey;
     let activeSettingsPanelKey = "profiles";
@@ -1955,9 +1957,16 @@
     function resolveDashboardRoute(rawValue) {
       const normalizedValue = String(rawValue || "")
         .replace(/^#/, "")
-        .replace(/^\/+/, "")
-        .toLowerCase();
-      return dashboardRouteMap[normalizedValue] || dashboardRouteMap.overview;
+        .replace(/^\/+/, "");
+      const nodeDetailMatch = normalizedValue.match(/^nodes\/([^/]+)$/i);
+      if (nodeDetailMatch) {
+        return {
+          page: "nodes",
+          route: `/${normalizedValue}`,
+          nodeId: decodeURIComponent(nodeDetailMatch[1])
+        };
+      }
+      return dashboardRouteMap[normalizedValue.toLowerCase()] || dashboardRouteMap.overview;
     }
 
     function syncTopLevelRoute(route, options = {}) {
@@ -1989,7 +1998,8 @@
         syncTopLevelRoute("/", { replace: true });
         return;
       }
-      const pageAlreadyActive = nextRoute.page === activePrimaryPage;
+      const pageAlreadyActive = nextRoute.page === activePrimaryPage
+        && (nextRoute.page !== "nodes" || (nextRoute.nodeId || null) === activeNodeDetailId);
 
       if (nextRoute.page === "admin" && !getLoginSession()?.isPlatformAdmin) {
         activePrimaryPage = "overview";
@@ -1998,6 +2008,7 @@
       }
 
       activePrimaryPage = nextRoute.page;
+      activeNodeDetailId = activePrimaryPage === "nodes" ? nextRoute.nodeId || null : null;
       if (activePrimaryPage === "admin") activeSettingsPanelKey = "platform";
       if (activePrimaryPage === "blocks") syncBlocksManagementContext();
       if (activePrimaryPage === "settings" && !pageAlreadyActive && cropProfiles[activeProfileKey]) {
@@ -7675,6 +7686,87 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       return window.NeuroCropFeatures.nodes.getReportingModeLabel(profile);
     }
 
+    function renderNodeDetailPage(record) {
+      if (!record) {
+        elements.nodesManagementShell.innerHTML = `
+          <div class="node-detail-page">
+            <button type="button" class="node-detail-back" data-node-list-back><i class="fa-solid fa-chevron-left" aria-hidden="true"></i>Nodes</button>
+            <section class="node-detail-empty"><h2>Node not found</h2><p>This node is no longer available in the current workspace.</p></section>
+          </div>
+        `;
+        return;
+      }
+
+      const { node, site, zone } = record;
+      const nodeName = node.name && node.name !== node.id ? node.name : node.id;
+      const freshness = getNodeFreshness(node, zone) || { transportStatus: "offline", ageSec: null };
+      const health = getNodeHealthSummary(node, freshness);
+      const sensors = getNodeDetectedSensorNames(node);
+      const diagnostics = getNodeFaultDiagnostics(node);
+      const lastPayload = formatNodeLastPayload(node, freshness);
+      const battery = Number.isFinite(node.level) ? Number(node.level) : null;
+      const statusLabel = freshness.transportStatus === "offline"
+        ? "Offline"
+        : health.tone === "critical"
+          ? "Fault"
+          : health.tone === "warning"
+            ? "Watch"
+            : "Healthy";
+      const statusTone = freshness.transportStatus === "offline" ? "offline" : health.tone;
+      const statusTitle = freshness.transportStatus === "offline"
+        ? "No recent uplink"
+        : health.tone === "optimal"
+          ? "Reporting normally"
+          : "Device diagnostics require review";
+      const readFailures = Number.isFinite(Number(node.errorCounters?.read_fail)) ? Number(node.errorCounters.read_fail) : "Unavailable";
+      const transmitFailures = Number.isFinite(Number(node.errorCounters?.tx_fail)) ? Number(node.errorCounters.tx_fail) : "Unavailable";
+      const resetReason = Object.entries(node.errorFlags || {}).filter(([, value]) => value).map(([key]) => key.replace(/_/g, " ")).join(", ") || "No reset fault reported";
+
+      elements.nodesManagementShell.innerHTML = `
+        <div class="node-detail-page">
+          <nav class="node-detail-breadcrumbs" aria-label="Breadcrumb">
+            <button type="button" data-node-list-back>Nodes</button><i class="fa-solid fa-chevron-right" aria-hidden="true"></i><span>${escapeHtml(nodeName)}</span>
+          </nav>
+          <header class="node-detail-head">
+            <div><p>${escapeHtml(node.devEui || node.id)}</p><h2>${escapeHtml(nodeName)}</h2><span>${escapeHtml(`${site.name} · ${zone.name}`)}</span></div>
+            <div class="node-detail-actions">
+              <button type="button" class="node-detail-secondary-action actionable" data-node-edit-site-id="${escapeAttribute(site.id)}" data-node-edit-zone-id="${escapeAttribute(zone.id)}" data-node-edit-id="${escapeAttribute(node.id)}"><i class="fa-solid fa-pen" aria-hidden="true"></i>Edit node</button>
+            </div>
+          </header>
+          <section class="node-detail-overview">
+            <div class="node-detail-health">
+              <span class="node-detail-orbit" data-tone="${escapeAttribute(statusTone)}"><i class="fa-solid fa-microchip" aria-hidden="true"></i></span>
+              <div><span class="node-detail-status" data-tone="${escapeAttribute(statusTone)}"><i class="fa-solid fa-circle" aria-hidden="true"></i>${escapeHtml(statusLabel)}</span><h3>${escapeHtml(statusTitle)}</h3><p>Last payload ${escapeHtml(lastPayload.relative)}</p></div>
+            </div>
+            <div class="node-detail-facts">
+              <div><small>Battery</small><strong>${battery === null ? "—" : `${battery}%`}</strong><span class="node-detail-track"><i style="width:${battery === null ? 0 : battery}%"></i></span>${Number.isFinite(node.batteryMv) ? `<p>${escapeHtml((node.batteryMv / 1000).toFixed(2))} V</p>` : ""}</div>
+              <div><small>Signal</small><strong>${Number.isFinite(node.rssi) ? `${escapeHtml(String(node.rssi))} dBm` : "—"}</strong><p>${Number.isFinite(node.snr) ? `SNR ${escapeHtml(String(node.snr))}` : "SNR unavailable"}${Number.isFinite(node.spreadingFactor) ? ` · SF${escapeHtml(String(node.spreadingFactor))}` : ""}</p></div>
+              <div><small>Reporting mode</small><strong>${escapeHtml(getNodeReportingModeLabel(node.profile))}</strong><p>${escapeHtml(freshness.transportStatus === "live" ? "Live uplink" : statusLabel)}</p></div>
+            </div>
+          </section>
+          <div class="node-detail-columns">
+            <section class="node-detail-section">
+              <header><p>Hardware</p><h3>Installed sensors</h3></header>
+              <div class="node-detail-sensors">
+                ${sensors.length ? sensors.map((sensor, index) => `<div><span><i class="fa-solid ${index % 2 ? "fa-temperature-half" : "fa-wave-square"}" aria-hidden="true"></i></span><div><strong>${escapeHtml(sensor)}</strong><small>Detected · Port ${index + 1}</small></div><span class="node-detail-status" data-tone="optimal"><i class="fa-solid fa-circle" aria-hidden="true"></i>Active</span></div>`).join("") : `<p class="node-detail-muted">No sensor presence information was reported.</p>`}
+              </div>
+            </section>
+            <section class="node-detail-section">
+              <header><p>Diagnostics</p><h3>Latest device report</h3></header>
+              <dl class="node-detail-diagnostics">
+                <div><dt>Firmware</dt><dd>${escapeHtml(node.firmwareVersion || "Unavailable")}</dd></div>
+                <div><dt>Reset reason</dt><dd>${escapeHtml(resetReason)}</dd></div>
+                <div><dt>Read failures</dt><dd>${escapeHtml(String(readFailures))}</dd></div>
+                <div><dt>Transmit failures</dt><dd>${escapeHtml(String(transmitFailures))}</dd></div>
+                <div><dt>Last payload</dt><dd>${escapeHtml(lastPayload.absolute)}</dd></div>
+                ${diagnostics.flags.length ? `<div><dt>Fault flags</dt><dd>${escapeHtml(diagnostics.flags.join(" · "))}</dd></div>` : ""}
+              </dl>
+            </section>
+          </div>
+        </div>
+      `;
+    }
+
     function renderNodesManagementPage() {
       const locations = dashboardData.sites.filter((site) => (site.zones || []).length > 0);
       const selectedLocation = locations.find((site) => site.id === nodeFormState.siteId) || locations[0] || null;
@@ -7693,6 +7785,13 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           (zone.batteryNodes || []).map((node) => ({ node, site, zone }))
         ))
         .sort((left, right) => left.node.id.localeCompare(right.node.id));
+      if (activeNodeDetailId) {
+        const detailRecord = nodes.find(({ node }) =>
+          [node.id, node.devEui].some((value) => String(value || "").toLowerCase() === String(activeNodeDetailId).toLowerCase())
+        );
+        renderNodeDetailPage(detailRecord);
+        return;
+      }
       const freshnessByNodeId = new Map(nodes.map(({ node, zone }) => [
         node.id,
         getNodeFreshness(node, zone)
@@ -7712,7 +7811,15 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         const matchesScope = (activeNodeFilterSiteId === "all" || site.id === activeNodeFilterSiteId)
           && (activeNodeFilterZoneId === "all" || zone.id === activeNodeFilterZoneId);
         const searchValue = [node.name, node.id, node.devEui, site.name, zone.name].filter(Boolean).join(" ").toLowerCase();
-        return matchesScope && (!activeNodeSearchQuery || searchValue.includes(activeNodeSearchQuery));
+        const freshness = getNodeFreshness(node, zone);
+        const health = getNodeHealthSummary(node, freshness);
+        const nodeState = freshness.transportStatus === "offline"
+          ? "offline"
+          : health.tone === "critical" || health.tone === "warning"
+            ? "fault"
+            : "healthy";
+        const matchesState = activeNodeStateFilter === "all" || activeNodeStateFilter === nodeState;
+        return matchesScope && matchesState && (!activeNodeSearchQuery || searchValue.includes(activeNodeSearchQuery));
       });
       const lowBatteryNodes = getSystemLowBatteryNodes();
       const activeNodes = nodes.filter(({ node }) => node.active !== false).length;
@@ -7736,40 +7843,27 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             const state = Number.isFinite(node.level) && definition ? getBatteryNodeState(node.level, definition) : "neutral";
             const nodeName = node.name && node.name !== node.id ? node.name : node.id;
             const freshness = freshnessByNodeId.get(node.id) || { transportStatus: "offline", ageSec: null };
-            const freshnessLabel = getFreshnessLabel(freshness.transportStatus);
-            const freshnessAge = formatFreshnessAge(freshness.ageSec);
             const lastPayload = formatNodeLastPayload(node, freshness);
             const health = getNodeHealthSummary(node, freshness);
-            const faultDiagnostics = getNodeFaultDiagnostics(node);
-            const faultFlagSummary = faultDiagnostics.flags.join(" · ") || "No active device fault flags";
-            const txFailureSummary = !faultDiagnostics.hasCounters
-              ? "TX failure counter unavailable (requires v2.1.4+ 20-byte payload)"
-              : faultDiagnostics.txFailures === null
-                ? "TX failure counter unavailable"
-                : `${faultDiagnostics.txFailures}${faultDiagnostics.txFailures >= 15 ? "+" : ""} failed transmissions since last successful TX (counter range 0-15)`;
-            const otherCounterSummary = faultDiagnostics.counters.filter((item) => !item.endsWith("transmission failures")).join(" · ");
-            const transportContext = freshness.transportStatus === "live"
-              ? "Current transport is live. The codec does not include the timeout timestamp or a gateway error code."
-              : "The codec does not include the timeout timestamp or a gateway error code.";
-            const sensors = getNodeDetectedSensorNames(node);
             const batteryText = Number.isFinite(node.level)
               ? `${freshness.transportStatus === "offline" ? "Last " : ""}${node.level}%`
               : "Battery unknown";
-            const batteryDetail = Number.isFinite(node.batteryMv) ? `${(node.batteryMv / 1000).toFixed(2)} V` : "";
-            const firmwareDetail = node.firmwareVersion ? `Firmware ${node.firmwareVersion}` : "Firmware unknown";
-            const reportingMode = getNodeReportingModeLabel(node.profile);
-            const compactIdentity = [site.name, zone.name, node.devEui ? `DevEUI ${node.devEui}` : "No DevEUI"];
-            const compactTelemetry = [formatNodeSignal(node), sensors.length ? sensors.join(", ") : "No sensors detected"];
-            const nodeListId = node.devEui || node.id;
-            const isExpanded = expandedNodeListId === nodeListId;
+            const statusLabel = freshness.transportStatus === "offline"
+              ? "Offline"
+              : health.tone === "critical"
+                ? "Fault"
+                : health.tone === "warning"
+                  ? "Watch"
+                  : "Healthy";
+            const statusTone = freshness.transportStatus === "offline" ? "offline" : health.tone;
 
             return `
-              <article class="node-fleet-row node-table-row" data-node-search-value="${escapeAttribute([nodeName, node.id, node.devEui, site.name, zone.name].filter(Boolean).join(" ").toLowerCase())}" data-state="${state === "neutral" ? "optimal" : state}" data-expanded="${String(isExpanded)}">
-                <button type="button" class="node-table-summary" data-node-expand-id="${escapeAttribute(nodeListId)}" aria-expanded="${String(isExpanded)}" aria-controls="node-detail-${escapeAttribute(nodeListId)}">
+              <article class="node-fleet-row node-table-row" data-node-search-value="${escapeAttribute([nodeName, node.id, node.devEui, site.name, zone.name].filter(Boolean).join(" ").toLowerCase())}" data-state="${escapeAttribute(statusTone)}">
+                <button type="button" class="node-table-summary" data-node-open-id="${escapeAttribute(node.id)}" aria-label="Open ${escapeAttribute(nodeName)} details">
                   <span class="node-table-identity"><strong>${escapeHtml(nodeName)}</strong><small>${escapeHtml(node.devEui || node.id)}</small></span>
                   <span class="node-table-location"><strong>${escapeHtml(zone.name)}</strong><small>${escapeHtml(site.name)}</small></span>
-                  <span class="management-chip node-freshness-chip" data-freshness="${escapeAttribute(freshness.transportStatus)}">
-                    <i class="fa-solid ${freshness.transportStatus === "live" ? "fa-circle-check" : freshness.transportStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>${escapeHtml(freshnessLabel)}
+                  <span class="management-chip node-freshness-chip" data-freshness="${escapeAttribute(statusTone)}">
+                    <i class="fa-solid ${statusTone === "offline" ? "fa-link-slash" : statusTone === "optimal" ? "fa-circle-check" : "fa-circle-exclamation"}" aria-hidden="true"></i>${escapeHtml(statusLabel)}
                   </span>
                   <span class="node-table-battery" data-tone="${state === "critical" ? "critical" : state === "warning" ? "warning" : "optimal"}">
                     <i class="fa-solid ${Number(node.level) < 25 ? "fa-battery-quarter" : "fa-battery-three-quarters"}" aria-hidden="true"></i>${escapeHtml(batteryText)}
@@ -7778,30 +7872,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                   <span class="node-table-payload">${escapeHtml(lastPayload.relative)}</span>
                   <i class="fa-solid fa-chevron-right node-table-chevron" aria-hidden="true"></i>
                 </button>
-                <div id="node-detail-${escapeAttribute(nodeListId)}" class="node-table-detail" ${isExpanded ? "" : "hidden"}>
-                  <div><span>Device</span><strong>${escapeHtml(compactIdentity.join(" · "))}</strong></div>
-                  <div><span>Reporting mode</span><strong>${escapeHtml(`${reportingMode} · ${firmwareDetail}`)}</strong></div>
-                  <div><span>Sensors</span><strong>${escapeHtml(compactTelemetry[1])}</strong></div>
-                  <div><span>Connection</span><strong>${escapeHtml(compactTelemetry[0])}</strong></div>
-                  <div><span>Last payload</span><strong>${escapeHtml(`${lastPayload.absolute} · ${lastPayload.relative}`)}</strong></div>
-                  <div class="node-table-fault-summary">
-                    <span>Fault diagnostics</span>
-                    <strong>${escapeHtml(faultFlagSummary)}</strong>
-                    <small>${escapeHtml(txFailureSummary)}</small>
-                    ${otherCounterSummary ? `<small>${escapeHtml(otherCounterSummary)}</small>` : ""}
-                    <small>${escapeHtml(transportContext)}</small>
-                  </div>
-                  <div class="node-table-detail-actions">
-                  <button type="button" class="inline-action actionable" data-tone="primary" data-node-open-block-site-id="${escapeAttribute(site.id)}" data-node-open-block-zone-id="${escapeAttribute(zone.id)}">
-                    <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
-                    Open zone
-                  </button>
-                  <button type="button" class="inline-action actionable" data-node-edit-site-id="${escapeAttribute(site.id)}" data-node-edit-zone-id="${escapeAttribute(zone.id)}" data-node-edit-id="${escapeAttribute(node.id)}">
-                    <i class="fa-solid fa-sliders" aria-hidden="true"></i>
-                    Edit
-                  </button>
-                </div>
-                </div>
               </article>
             `;
           }).join("")
@@ -7826,7 +7896,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             <div><span data-tone="offline"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></span><strong>${offlineNodes}</strong><small>Offline</small></div>
           </section>
 
-          <section id="nodeRegistrationPanel" class="node-register-panel">
+          <section id="nodeRegistrationPanel" class="node-register-panel" ${nodeRegistrationOpen ? "" : "hidden"}>
             <div class="node-register-copy"><p>Register hardware</p><h3>Connect a sensor node</h3><span>Assign its DevEUI to the monitored section that will receive incoming readings.</span></div>
 
             ${renderManagementNotice("nodes")}
@@ -7870,10 +7940,12 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                   </select>
                 </label>
                 <label class="block">
-                  <span class="sr-only">Filter by section</span>
-                  <select name="nodeFilterZoneId">
-                    <option value="all" ${activeNodeFilterZoneId === "all" ? "selected" : ""}>All sections</option>
-                    ${filterZones.map(({ site, zone }) => `<option value="${escapeAttribute(zone.id)}" ${activeNodeFilterZoneId === zone.id ? "selected" : ""}>${escapeHtml(activeNodeFilterSiteId === "all" ? `${site.name} — ${zone.name}` : zone.name)}</option>`).join("")}
+                  <span class="sr-only">Filter by state</span>
+                  <select name="nodeStateFilter">
+                    <option value="all" ${activeNodeStateFilter === "all" ? "selected" : ""}>All states</option>
+                    <option value="healthy" ${activeNodeStateFilter === "healthy" ? "selected" : ""}>Healthy</option>
+                    <option value="fault" ${activeNodeStateFilter === "fault" ? "selected" : ""}>Fault</option>
+                    <option value="offline" ${activeNodeStateFilter === "offline" ? "selected" : ""}>Offline</option>
                   </select>
                 </label>
               </div>
@@ -15019,6 +15091,12 @@ function buildTrendMetricOptions(options) {
         return;
       }
 
+      if (event.target instanceof HTMLSelectElement && event.target.name === "nodeStateFilter") {
+        activeNodeStateFilter = event.target.value || "all";
+        renderDashboard();
+        return;
+      }
+
       syncNodeFormField(event.target);
       if (event.target instanceof HTMLSelectElement && event.target.name === "nodeSiteId") {
         clearManagementNotice("nodes");
@@ -15037,17 +15115,23 @@ function buildTrendMetricOptions(options) {
     elements.nodesManagementSection.addEventListener("click", (event) => {
       const registerJumpButton = event.target.closest("[data-node-register-jump]");
       if (registerJumpButton) {
-        const panel = elements.nodesManagementSection.querySelector("#nodeRegistrationPanel");
-        panel?.scrollIntoView({ behavior: "smooth", block: "center" });
-        window.setTimeout(() => panel?.querySelector('[name="nodeDevEui"]')?.focus(), 280);
+        nodeRegistrationOpen = !nodeRegistrationOpen;
+        renderDashboard();
+        if (nodeRegistrationOpen) {
+          window.setTimeout(() => elements.nodesManagementSection.querySelector('[name="nodeDevEui"]')?.focus(), 80);
+        }
         return;
       }
 
-      const expandNodeButton = event.target.closest("[data-node-expand-id]");
-      if (expandNodeButton) {
-        const nodeId = expandNodeButton.dataset.nodeExpandId;
-        expandedNodeListId = expandedNodeListId === nodeId ? null : nodeId;
-        renderDashboard();
+      const backToNodesButton = event.target.closest("[data-node-list-back]");
+      if (backToNodesButton) {
+        syncTopLevelRoute("/nodes");
+        return;
+      }
+
+      const openNodeButton = event.target.closest("[data-node-open-id]");
+      if (openNodeButton) {
+        syncTopLevelRoute(`/nodes/${encodeURIComponent(openNodeButton.dataset.nodeOpenId)}`);
         return;
       }
 
@@ -16523,6 +16607,7 @@ function buildTrendMetricOptions(options) {
       resetNodeForm();
       const initialDashboardRoute = resolveDashboardRoute(window.location.pathname);
       activePrimaryPage = initialDashboardRoute.page;
+      activeNodeDetailId = initialDashboardRoute.page === "nodes" ? initialDashboardRoute.nodeId || null : null;
       if (activePrimaryPage === "blocks") syncBlocksManagementContext();
       if (initialDashboardRoute.page === "history") {
         activeWorkspaceFocus = "all";

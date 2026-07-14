@@ -88,7 +88,8 @@ for database in "${databases[@]}"; do
   if [[ -n "$RCLONE_REMOTE" ]]; then
     rclone copyto --immutable "$backup_path" "${RCLONE_REMOTE%/}/${base_name}"
     rclone copyto --immutable "$checksum_path" "${RCLONE_REMOTE%/}/${base_name}.sha256"
-    rclone lsf "${RCLONE_REMOTE%/}" --files-only | grep -Fxq "$base_name"
+    remote_listing="$(rclone lsf "${RCLONE_REMOTE%/}" --files-only --include "$base_name")"
+    [[ "$remote_listing" == "$base_name" ]]
     echo "[backup] encrypted R2 copy verified for ${database}"
   fi
 done

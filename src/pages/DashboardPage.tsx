@@ -11,6 +11,10 @@ const supportedRoutes = new Set([
   '/history', '/settings', '/crop-profiles', '/admin',
 ])
 
+function isSupportedRoute(pathname: string) {
+  return supportedRoutes.has(pathname) || /^\/nodes\/[^/]+$/.test(pathname)
+}
+
 function ApprovedDashboard() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -32,7 +36,7 @@ function ApprovedDashboard() {
       if (event.origin !== window.location.origin) return
       const payload = event.data
       if (!payload || payload.type !== 'neurocrop:navigate') return
-      const route = supportedRoutes.has(payload.route) ? payload.route : '/'
+      const route = isSupportedRoute(payload.route) ? payload.route : '/'
       if (route !== window.location.pathname) navigate(route, { replace: Boolean(payload.replace) })
     }
 
@@ -87,5 +91,5 @@ function ApprovedDashboard() {
 
 export default function DashboardPage() {
   const location = useLocation()
-  return supportedRoutes.has(location.pathname) ? <ApprovedDashboard /> : <Navigate to="/" replace />
+  return isSupportedRoute(location.pathname) ? <ApprovedDashboard /> : <Navigate to="/" replace />
 }
