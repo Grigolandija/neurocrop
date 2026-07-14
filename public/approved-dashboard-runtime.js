@@ -4389,35 +4389,26 @@
       }
       const recentActionHistory = (backendActionHistory || []).slice(0, 4);
       if (recentActionHistory.length > 0) {
-        const outcomeLabels = {
-          awaiting_data: diagnosticText("Awaiting a newer reading", "Laukiama naujesnio matavimo"),
-          improving: diagnosticText("Conditions are improving", "Sąlygos gerėja"),
-          target_reached: diagnosticText("Target reached", "Tikslas pasiektas"),
-          not_improving: diagnosticText("No verified improvement", "Pagerėjimas nepatvirtintas"),
-          not_applicable: diagnosticText("No sensor verification", "Sensoriaus patvirtinimas netaikomas")
-        };
         elements.todayPriorityMain.insertAdjacentHTML("beforeend", `
           <section class="today-priority-history" aria-label="${diagnosticText("Recent action results", "Naujausi veiksmų rezultatai")}">
             <div class="today-priority-history-head">
-              <strong>${diagnosticText("Recent action results", "Naujausi veiksmų rezultatai")}</strong>
-              <span>${diagnosticText("Verified from sensor readings", "Tikrinama pagal sensorių rodmenis")}</span>
+              <strong>${diagnosticText("What happened after your actions", "Kas įvyko po jūsų veiksmų")}</strong>
+              <span>${diagnosticText("Sensor result appears after the next reading", "Sensoriaus rezultatas atsiranda po kito matavimo")}</span>
             </div>
             <div class="today-priority-history-list">
               ${recentActionHistory.map((item) => {
-                const outcomeState = item.outcome?.state || "awaiting_data";
+                const presentation = getActionHistoryPresentation(item);
                 const actor = item.createdByName || diagnosticText("Team member", "Komandos narys");
                 const createdAt = new Date(item.createdAt).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" });
-                const currentReading = Number.isFinite(Number(item.outcome?.currentValue))
-                  ? ` · ${Number(item.outcome.currentValue).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { maximumFractionDigits: 2 })} ${item.unit || ""}`
-                  : "";
                 return `
-                  <article class="today-priority-history-row" data-outcome="${escapeAttribute(outcomeState)}">
-                    <span class="today-priority-history-icon"><i class="fa-solid ${outcomeState === "target_reached" ? "fa-check" : outcomeState === "improving" ? "fa-arrow-trend-up" : outcomeState === "not_improving" ? "fa-triangle-exclamation" : "fa-clock"}" aria-hidden="true"></i></span>
+                  <article class="today-priority-history-row" data-outcome="${escapeAttribute(presentation.outcomeState)}" data-feedback-status="${escapeAttribute(presentation.status)}">
+                    <span class="today-priority-history-icon"><i class="fa-solid ${presentation.icon}" aria-hidden="true"></i></span>
                     <span class="today-priority-history-copy">
                       <strong>${escapeHtml(item.title)}</strong>
                       <small>${escapeHtml(`${item.areaName || diagnosticText("Area", "Area")} · ${item.sectionName} · ${actor} · ${createdAt}`)}</small>
+                      <span class="today-priority-history-feedback" data-status="${escapeAttribute(presentation.status)}">${escapeHtml(`${diagnosticText("Recorded", "Užregistruota")}: ${presentation.feedbackLabel}`)}</span>
                     </span>
-                    <span class="today-priority-history-outcome" data-outcome="${escapeAttribute(outcomeState)}">${escapeHtml(`${outcomeLabels[outcomeState] || item.outcome?.label || outcomeState}${currentReading}`)}</span>
+                    <span class="today-priority-history-outcome" data-outcome="${escapeAttribute(presentation.outcomeState)}">${escapeHtml(presentation.sensorLabel)}</span>
                   </article>
                 `;
               }).join("")}
@@ -12625,6 +12616,53 @@ function buildTrendMetricOptions(options) {
       `;
     }
 
+    function getActionHistoryPresentation(item) {
+      const status = ["completed", "deferred", "failed"].includes(item?.status) ? item.status : "unknown";
+      const outcomeState = item?.outcome?.state || "awaiting_data";
+      const feedbackLabels = {
+        completed: diagnosticText("Done", "Atlikta"),
+        deferred: diagnosticText("Deferred", "Atidėta"),
+        failed: diagnosticText("Could not complete", "Nepavyko atlikti"),
+        unknown: diagnosticText("Unknown", "Nežinoma")
+      };
+      const outcomeLabels = {
+        awaiting_data: diagnosticText("Waiting for the next sensor reading", "Laukiama kito sensoriaus matavimo"),
+        improving: diagnosticText("Sensor confirms improvement", "Sensorius patvirtina gerėjimą"),
+        target_reached: diagnosticText("Sensor confirms the target was reached", "Sensorius patvirtina, kad tikslas pasiektas"),
+        not_improving: diagnosticText("Sensor does not confirm improvement yet", "Sensorius dar nepatvirtina gerėjimo"),
+        not_applicable: diagnosticText("Sensor check is not applicable", "Sensoriaus patikra netaikoma")
+      };
+      let sensorLabel = outcomeLabels[outcomeState] || item?.outcome?.label || outcomeState;
+      if (status === "deferred") {
+        sensorLabel = diagnosticText("Not checked: action was deferred", "Netikrinta: veiksmas atidėtas");
+      } else if (status === "failed") {
+        sensorLabel = diagnosticText("Not checked: action was not completed", "Netikrinta: veiksmas neatliktas");
+      }
+
+      const rawCurrentValue = item?.outcome?.currentValue;
+      const hasCurrentValue = rawCurrentValue !== null
+        && rawCurrentValue !== undefined
+        && rawCurrentValue !== ""
+        && Number.isFinite(Number(rawCurrentValue));
+      if (status === "completed" && hasCurrentValue) {
+        const formattedValue = Number(rawCurrentValue).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { maximumFractionDigits: 2 });
+        sensorLabel += ` · ${diagnosticText("Current", "Dabar")} ${formattedValue} ${item.unit || ""}`;
+      }
+
+      const icon = status === "deferred"
+        ? "fa-clock"
+        : status === "failed"
+          ? "fa-xmark"
+          : outcomeState === "target_reached"
+            ? "fa-check"
+            : outcomeState === "improving"
+              ? "fa-arrow-trend-up"
+              : outcomeState === "not_improving"
+                ? "fa-triangle-exclamation"
+                : "fa-clock";
+      return { status, outcomeState, feedbackLabel: feedbackLabels[status], sensorLabel, icon };
+    }
+
     function renderTriageFeedbackControls(action) {
       if (!action) return "";
       const localFeedback = todayPriorityFeedbackState.actionId === action.id ? todayPriorityFeedbackState : null;
@@ -12653,32 +12691,26 @@ function buildTrendMetricOptions(options) {
     function renderTriageActionHistory() {
       const items = (backendActionHistory || []).slice(0, 4);
       if (items.length === 0) return "";
-      const outcomeLabels = {
-        awaiting_data: diagnosticText("Awaiting a newer reading", "Laukiama naujesnio matavimo"),
-        improving: diagnosticText("Conditions are improving", "Sąlygos gerėja"),
-        target_reached: diagnosticText("Target reached", "Tikslas pasiektas"),
-        not_improving: diagnosticText("No verified improvement", "Pagerėjimas nepatvirtintas"),
-        not_applicable: diagnosticText("No sensor verification", "Sensoriaus patvirtinimas netaikomas")
-      };
       return `
         <section class="triage-section triage-history-section">
           <div class="triage-section-heading">
-            <div><span class="triage-eyebrow">${diagnosticText("Action history", "Veiksmų istorija")}</span><h3>${diagnosticText("Recent action results", "Naujausi veiksmų rezultatai")}</h3></div>
-            <span>${diagnosticText("Verified from sensor readings", "Tikrinama pagal sensorių rodmenis")}</span>
+            <div><span class="triage-eyebrow">${diagnosticText("Action history", "Veiksmų istorija")}</span><h3>${diagnosticText("What happened after your actions", "Kas įvyko po jūsų veiksmų")}</h3></div>
+            <span>${diagnosticText("Sensor result appears after the next reading", "Sensoriaus rezultatas atsiranda po kito matavimo")}</span>
           </div>
           <div class="triage-history-list">
             ${items.map((item) => {
-              const outcomeState = item.outcome?.state || "awaiting_data";
+              const presentation = getActionHistoryPresentation(item);
               const actor = item.createdByName || diagnosticText("Team member", "Komandos narys");
               const createdAt = new Date(item.createdAt).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" });
-              const currentValue = Number.isFinite(Number(item.outcome?.currentValue))
-                ? ` · ${Number(item.outcome.currentValue).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { maximumFractionDigits: 2 })} ${item.unit || ""}`
-                : "";
               return `
-                <article class="triage-history-row" data-outcome="${escapeAttribute(outcomeState)}">
-                  <span class="triage-history-icon"><i class="fa-solid ${outcomeState === "target_reached" ? "fa-check" : outcomeState === "improving" ? "fa-arrow-trend-up" : outcomeState === "not_improving" ? "fa-triangle-exclamation" : "fa-clock"}" aria-hidden="true"></i></span>
-                  <span class="triage-history-copy"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(`${item.areaName || diagnosticText("Area", "Area")} · ${item.sectionName} · ${actor} · ${createdAt}`)}</small></span>
-                  <span class="triage-history-outcome" data-outcome="${escapeAttribute(outcomeState)}">${escapeHtml(`${outcomeLabels[outcomeState] || item.outcome?.label || outcomeState}${currentValue}`)}</span>
+                <article class="triage-history-row" data-outcome="${escapeAttribute(presentation.outcomeState)}" data-feedback-status="${escapeAttribute(presentation.status)}">
+                  <span class="triage-history-icon"><i class="fa-solid ${presentation.icon}" aria-hidden="true"></i></span>
+                  <span class="triage-history-copy">
+                    <strong>${escapeHtml(item.title)}</strong>
+                    <small>${escapeHtml(`${item.areaName || diagnosticText("Area", "Area")} · ${item.sectionName} · ${actor} · ${createdAt}`)}</small>
+                    <span class="triage-history-feedback" data-status="${escapeAttribute(presentation.status)}">${escapeHtml(`${diagnosticText("Recorded", "Užregistruota")}: ${presentation.feedbackLabel}`)}</span>
+                  </span>
+                  <span class="triage-history-outcome" data-outcome="${escapeAttribute(presentation.outcomeState)}">${escapeHtml(presentation.sensorLabel)}</span>
                 </article>
               `;
             }).join("")}

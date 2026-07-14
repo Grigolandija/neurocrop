@@ -10077,6 +10077,11 @@
       color: #a05444;
     }
 
+    .today-priority-history-row[data-feedback-status="failed"] .today-priority-history-icon {
+      background: rgba(160, 84, 68, 0.1);
+      color: #a05444;
+    }
+
     .today-priority-history-copy { min-width: 0; }
 
     .today-priority-history-copy strong,
@@ -10095,6 +10100,17 @@
       color: rgba(31, 47, 39, 0.48);
       font-size: 0.66rem;
     }
+
+    .today-priority-history-feedback {
+      display: inline-flex;
+      margin-top: 5px;
+      color: #2f6a4f;
+      font-size: 0.67rem;
+      font-weight: 800;
+    }
+
+    .today-priority-history-feedback[data-status="deferred"] { color: #8c6427; }
+    .today-priority-history-feedback[data-status="failed"] { color: #a05444; }
 
     .today-priority-history-outcome {
       border-radius: 999px;
@@ -12991,6 +13007,11 @@
       color: #984c3d;
     }
 
+    .triage-history-row[data-feedback-status="failed"] .triage-history-icon {
+      background: rgba(152, 76, 61, 0.11);
+      color: #984c3d;
+    }
+
     .triage-history-copy { min-width: 0; }
     .triage-history-copy strong,
     .triage-history-copy small { display: block; }
@@ -13008,6 +13029,17 @@
       color: #59615d;
       font-size: 0.68rem;
     }
+
+    .triage-history-feedback {
+      display: inline-flex;
+      margin-top: 5px;
+      color: #2f7759;
+      font-size: 0.7rem;
+      font-weight: 800;
+    }
+
+    .triage-history-feedback[data-status="deferred"] { color: #8c6427; }
+    .triage-history-feedback[data-status="failed"] { color: #984c3d; }
 
     .triage-history-outcome {
       border-radius: 999px;
