@@ -5163,8 +5163,8 @@
       scrollToSection(action.targetId || "metricsSection");
     }
 
-    async function submitTodayPriorityFeedback(status) {
-      const action = currentTodayPriorityAction?.backendAction;
+    async function submitTodayPriorityFeedback(status, selectedAction = null) {
+      const action = selectedAction || currentTodayPriorityAction?.backendAction;
       if (!action || !window.NeuroCropApi?.submitTodayActionFeedback) return;
 
       todayPriorityFeedbackState = {
@@ -12624,6 +12624,68 @@ function buildTrendMetricOptions(options) {
       `;
     }
 
+    function renderTriageFeedbackControls(action) {
+      if (!action) return "";
+      const localFeedback = todayPriorityFeedbackState.actionId === action.id ? todayPriorityFeedbackState : null;
+      const persistedFeedback = action.feedback || null;
+      const feedbackLabels = {
+        completed: diagnosticText("Done", "Atlikta"),
+        deferred: diagnosticText("Deferred", "Atidėta"),
+        failed: diagnosticText("Could not complete", "Nepavyko atlikti")
+      };
+      const persistedText = persistedFeedback
+        ? `${feedbackLabels[persistedFeedback.status] || persistedFeedback.status} · ${new Date(persistedFeedback.createdAt).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}`
+        : "";
+      return `
+        <div class="triage-feedback" data-saving="${localFeedback?.saving === true}">
+          <span>${diagnosticText("Was this action carried out?", "Ar šis veiksmas atliktas?")}</span>
+          <div class="triage-feedback-actions" role="group" aria-label="${diagnosticText("Record action outcome", "Išsaugoti veiksmo rezultatą")}">
+            <button type="button" data-triage-feedback="completed" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-solid fa-check" aria-hidden="true"></i>${diagnosticText("Done", "Atlikta")}</button>
+            <button type="button" data-triage-feedback="deferred" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-regular fa-clock" aria-hidden="true"></i>${diagnosticText("Defer", "Atidėti")}</button>
+            <button type="button" data-triage-feedback="failed" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-solid fa-xmark" aria-hidden="true"></i>${diagnosticText("Could not complete", "Nepavyko")}</button>
+          </div>
+          ${(localFeedback?.message || persistedText) ? `<small data-error="${localFeedback?.error === true}" role="${localFeedback?.error ? "alert" : "status"}" aria-live="polite"><i class="fa-solid ${localFeedback?.error ? "fa-triangle-exclamation" : localFeedback?.saving ? "fa-circle-notch fa-spin" : "fa-circle-check"}" aria-hidden="true"></i>${escapeHtml(localFeedback?.message || persistedText)}</small>` : ""}
+        </div>
+      `;
+    }
+
+    function renderTriageActionHistory() {
+      const items = (backendActionHistory || []).slice(0, 4);
+      if (items.length === 0) return "";
+      const outcomeLabels = {
+        awaiting_data: diagnosticText("Awaiting a newer reading", "Laukiama naujesnio matavimo"),
+        improving: diagnosticText("Conditions are improving", "Sąlygos gerėja"),
+        target_reached: diagnosticText("Target reached", "Tikslas pasiektas"),
+        not_improving: diagnosticText("No verified improvement", "Pagerėjimas nepatvirtintas"),
+        not_applicable: diagnosticText("No sensor verification", "Sensoriaus patvirtinimas netaikomas")
+      };
+      return `
+        <section class="triage-section triage-history-section">
+          <div class="triage-section-heading">
+            <div><span class="triage-eyebrow">${diagnosticText("Action history", "Veiksmų istorija")}</span><h3>${diagnosticText("Recent action results", "Naujausi veiksmų rezultatai")}</h3></div>
+            <span>${diagnosticText("Verified from sensor readings", "Tikrinama pagal sensorių rodmenis")}</span>
+          </div>
+          <div class="triage-history-list">
+            ${items.map((item) => {
+              const outcomeState = item.outcome?.state || "awaiting_data";
+              const actor = item.createdByName || diagnosticText("Team member", "Komandos narys");
+              const createdAt = new Date(item.createdAt).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" });
+              const currentValue = Number.isFinite(Number(item.outcome?.currentValue))
+                ? ` · ${Number(item.outcome.currentValue).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { maximumFractionDigits: 2 })} ${item.unit || ""}`
+                : "";
+              return `
+                <article class="triage-history-row" data-outcome="${escapeAttribute(outcomeState)}">
+                  <span class="triage-history-icon"><i class="fa-solid ${outcomeState === "target_reached" ? "fa-check" : outcomeState === "improving" ? "fa-arrow-trend-up" : outcomeState === "not_improving" ? "fa-triangle-exclamation" : "fa-clock"}" aria-hidden="true"></i></span>
+                  <span class="triage-history-copy"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(`${item.areaName || diagnosticText("Area", "Area")} · ${item.sectionName} · ${actor} · ${createdAt}`)}</small></span>
+                  <span class="triage-history-outcome" data-outcome="${escapeAttribute(outcomeState)}">${escapeHtml(`${outcomeLabels[outcomeState] || item.outcome?.label || outcomeState}${currentValue}`)}</span>
+                </article>
+              `;
+            }).join("")}
+          </div>
+        </section>
+      `;
+    }
+
     function renderOverviewTriage({
       site,
       zone,
@@ -12638,20 +12700,36 @@ function buildTrendMetricOptions(options) {
       growthResults,
       timestamp
     }) {
-      const prioritySnapshot = allSystemIssues[0] || {
+      const availableBackendActions = Array.isArray(backendTodayActions) ? backendTodayActions : [];
+      const backendPriorityAction = availableBackendActions.find((action) =>
+        action.sectionId === zone.id || allSystemIssues.some((snapshot) => snapshot.zone.id === action.sectionId)
+      ) || null;
+      const backendPrioritySnapshot = backendPriorityAction
+        ? allSystemIssues.find((snapshot) => snapshot.zone.id === backendPriorityAction.sectionId)
+          || (backendPriorityAction.sectionId === zone.id ? { site, zone, profile, results, overall: displayedOverallState } : null)
+        : null;
+      const prioritySnapshot = backendPrioritySnapshot || allSystemIssues[0] || {
         site,
         zone,
         profile,
         results,
         overall: displayedOverallState
       };
-      const priorityResult = prioritySnapshot.results
-        .filter((result) => result.available !== false && isGrowthMetricKey(result.key))
-        .sort((left, right) => {
-          if (left.state !== "optimal" && right.state === "optimal") return -1;
-          if (left.state === "optimal" && right.state !== "optimal") return 1;
-          return right.severity - left.severity;
-        })[0] || null;
+      const priorityResult = backendPriorityAction
+        ? {
+            key: backendPriorityAction.metricId,
+            value: backendPriorityAction.value,
+            state: backendPriorityAction.state,
+            severity: backendPriorityAction.severity,
+            deviationText: backendPriorityAction.reason
+          }
+        : prioritySnapshot.results
+          .filter((result) => result.available !== false && isGrowthMetricKey(result.key))
+          .sort((left, right) => {
+            if (left.state !== "optimal" && right.state === "optimal") return -1;
+            if (left.state === "optimal" && right.state !== "optimal") return 1;
+            return right.severity - left.severity;
+          })[0] || null;
       const priorityDefinition = priorityResult
         ? prioritySnapshot.profile.metrics[priorityResult.key]
         : null;
@@ -12665,9 +12743,9 @@ function buildTrendMetricOptions(options) {
       const selectedPrimaryDefinition = selectedPrimaryResult
         ? profile.metrics[selectedPrimaryResult.key]
         : null;
-      const priorityTitle = priorityResult && priorityDefinition
+      const priorityTitle = backendPriorityAction?.title || (priorityResult && priorityDefinition
         ? `${getDecisionVerb(priorityResult, priorityDefinition)} ${priorityDefinition.label.toLowerCase()}`
-        : "Keep monitoring current conditions";
+        : "Keep monitoring current conditions");
       const actionGuidance = {
         humidity: "Check humidifier output and ventilation rate.",
         airTemp: "Review heating, cooling, and ventilation settings.",
@@ -12676,9 +12754,9 @@ function buildTrendMetricOptions(options) {
         soilTemp: "Inspect root-zone heating and irrigation temperature.",
         waterTemp: "Check the irrigation water temperature before the next cycle."
       };
-      const suggestedAction = priorityResult
+      const suggestedAction = backendPriorityAction?.recommendedAction || (priorityResult
         ? actionGuidance[priorityResult.key] || `Review the source of the ${priorityDefinition.label.toLowerCase()} deviation.`
-        : "No immediate intervention is required.";
+        : "No immediate intervention is required.");
       const preferredMetricOrder = ["humidity", "airTemp", "co2"];
       const readingItems = [...availableResults]
         .sort((left, right) => {
@@ -12724,7 +12802,7 @@ function buildTrendMetricOptions(options) {
               "Patikrinkite mazgų maitinimą, ryšio aprėptį ir paskutinį duomenų siuntimą."
             );
 
-      const actionQueue = [
+      const localActionQueue = [
         {
           tone: hasUsableCurrentData ? priorityResult?.state || "optimal" : awaitingFirstUplink ? "neutral" : "warning",
           title: hasUsableCurrentData
@@ -12775,6 +12853,20 @@ function buildTrendMetricOptions(options) {
             }
           : null
       ].filter(Boolean).slice(0, 3);
+      const backendActionQueue = availableBackendActions.map((action) => {
+        const targetSite = dashboardData.sites.find((candidate) => candidate.zones.some((candidateZone) => candidateZone.id === action.sectionId));
+        return targetSite ? {
+          tone: action.state,
+          title: action.title,
+          note: action.reason,
+          action: "trend",
+          label: diagnosticText("View trend", "Peržiūrėti tendenciją"),
+          metricKey: action.metricId,
+          siteId: targetSite.id,
+          zoneId: action.sectionId
+        } : null;
+      }).filter(Boolean).slice(0, 3);
+      const actionQueue = backendActionQueue.length > 0 ? backendActionQueue : localActionQueue;
 
       elements.overviewTriageSection.dataset.state = scoreCardState;
       elements.overviewTriageSection.innerHTML = `
@@ -12809,6 +12901,7 @@ function buildTrendMetricOptions(options) {
               </button>
               <button type="button" class="triage-secondary-button" data-triage-action="alerts">Review alerts</button>
             </div>
+            ${hasUsableCurrentData ? renderTriageFeedbackControls(backendPriorityAction) : ""}
           </article>
 
           <article class="triage-score-card" data-state="${escapeAttribute(scoreCardState)}">
@@ -12870,7 +12963,7 @@ function buildTrendMetricOptions(options) {
                 <li data-tone="${escapeAttribute(item.tone)}">
                   <span class="triage-action-index">${index + 1}</span>
                   <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.note)}</p></div>
-                  <button type="button" data-triage-action="${escapeAttribute(item.action)}" data-metric-key="${escapeAttribute(metricKey)}">${escapeHtml(item.label)}</button>
+                  <button type="button" data-triage-action="${escapeAttribute(item.action)}" data-metric-key="${escapeAttribute(item.metricKey || metricKey)}" data-site-id="${escapeAttribute(item.siteId || "")}" data-zone-id="${escapeAttribute(item.zoneId || "")}">${escapeHtml(item.label)}</button>
                 </li>
               `).join("")}
             </ol>
@@ -12892,6 +12985,7 @@ function buildTrendMetricOptions(options) {
             </div>
           </section>
         </div>
+        ${renderTriageActionHistory()}
       `;
     }
 
@@ -16243,11 +16337,25 @@ function buildTrendMetricOptions(options) {
     });
 
     elements.overviewTriageSection.addEventListener("click", (event) => {
+      const feedbackButton = event.target.closest("[data-triage-feedback]");
+      if (feedbackButton) {
+        const action = (backendTodayActions || []).find((item) => item.id === feedbackButton.dataset.actionId);
+        submitTodayPriorityFeedback(feedbackButton.dataset.triageFeedback, action);
+        return;
+      }
+
       const actionButton = event.target.closest("[data-triage-action]");
       if (!actionButton) return;
 
       const action = actionButton.dataset.triageAction;
       if (action === "trend") {
+        if (actionButton.dataset.siteId && actionButton.dataset.zoneId) {
+          activeSiteId = actionButton.dataset.siteId;
+          activeZoneId = actionButton.dataset.zoneId;
+          activeViewScope = "zone";
+          normalizeActiveSelection();
+          resetCurrentReadingsFromActiveZone();
+        }
         const metricKey = actionButton.dataset.metricKey;
         if (metricKey) {
           activeTrendMetricKey = metricKey;
