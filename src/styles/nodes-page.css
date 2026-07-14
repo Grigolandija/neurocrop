@@ -916,9 +916,9 @@
 
 .designer-app .node-edit-footer { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--ink-100); margin: 3px -27px -27px; padding: 18px 27px; background: var(--ink-050); }
 .designer-app .node-edit-footer .button-new { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 9px; padding: 0 15px; font-size: 12px; font-weight: 650; transition: .15s ease; }
-.designer-app .node-edit-footer .button-new.primary { background: var(--ink-950); color: white; }
-.designer-app .node-edit-footer .button-new.primary:hover { background: #293631; transform: translateY(-1px); }
-.designer-app .node-edit-footer .button-new.primary i { color: var(--signal); }
+.designer-app .node-edit-footer .button-new.primary { background: #21473b; color: #fff; }
+.designer-app .node-edit-footer .button-new.primary:hover { background: #1c3d33; transform: translateY(-1px); }
+.designer-app .node-edit-footer .button-new.primary i { color: #fff; }
 .designer-app .node-edit-footer .button-new.secondary { border-color: var(--ink-200); background: white; color: var(--ink-800); }
 .designer-app .node-edit-footer .button-new.secondary:hover { border-color: var(--ink-300); background: var(--ink-050); }
 
