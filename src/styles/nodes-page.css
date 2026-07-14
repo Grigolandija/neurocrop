@@ -628,6 +628,22 @@
   width: 180px;
 }
 
+.designer-app #nodesManagementSection .nc-toolbar-selects .nc-select-trigger {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--nc-trial-ink-200);
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.designer-app #nodesManagementSection .nc-toolbar-selects .nc-select-trigger:hover,
+.designer-app #nodesManagementSection .nc-toolbar-selects .nc-select[data-open="true"] .nc-select-trigger {
+  border-color: var(--node-primary);
+  box-shadow: 0 0 0 3px rgba(47, 106, 79, .12);
+}
+
 .designer-app #nodesManagementSection .nc-toolbar-selects label:has(select[name="nodeFilterSiteId"]) .nc-select-menu {
   width: min(280px, calc(100vw - 32px));
 }
