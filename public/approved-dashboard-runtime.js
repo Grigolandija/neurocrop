@@ -2964,10 +2964,10 @@
           await window.NeuroCropApi.deleteNode(devEui);
           await hydrateDashboardFromApi();
           resetNodeForm();
+          activeNodeDetailId = null;
           closeManagementModal();
           setManagementNotice("nodes", `${nodeId} removed from the workspace.`);
           renderDashboard();
-          activeNodeDetailId = null;
           syncTopLevelRoute("/nodes", { replace: true });
         } catch (error) {
           setManagementModalError(error instanceof Error ? error.message : "The node could not be removed.");
@@ -2980,10 +2980,10 @@
         window.NeuroCropStore.deleteNode(nodeId);
         dashboardData = window.NeuroCropStore.getDashboardData();
         resetNodeForm();
+        activeNodeDetailId = null;
         closeManagementModal();
         setManagementNotice("nodes", `${nodeId} removed from the workspace.`);
         renderDashboard();
-        activeNodeDetailId = null;
         syncTopLevelRoute("/nodes", { replace: true });
       } catch (error) {
         setManagementModalError(error instanceof Error ? error.message : "The node could not be removed.");
@@ -7925,6 +7925,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             <div><span data-tone="offline"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></span><strong>${offlineNodes}</strong><small>Offline</small></div>
           </section>
 
+          ${renderManagementNotice("nodes")}
+
           <section class="nc-node-list">
             <div class="nc-list-toolbar">
               <label class="nc-search-field"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input name="nodeSearch" value="${escapeAttribute(activeNodeSearchQuery)}" placeholder="Search name, DevEUI or section"></label>
@@ -7992,6 +7994,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
     async function submitNodeForm() {
       const site = dashboardData.sites.find((item) => item.id === nodeFormState.siteId);
       const zone = (site?.zones || []).find((item) => item.id === nodeFormState.zoneId);
+      const registeredDevEui = nodeFormState.devEui;
       if (!site || !zone) {
         setManagementModalError("Choose the Area and Section where this node is installed.");
         return;
@@ -8027,7 +8030,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         resetCurrentReadingsFromActiveZone();
         resetNodeForm({ siteId: site.id, zoneId: zone.id });
         closeManagementModal();
-        setManagementNotice("nodes", `Node registered in ${zone.name}. It will appear here when sensor readings begin arriving.`);
+        setManagementNotice("nodes", `Node ${registeredDevEui} registered in ${zone.name}. It will appear here when sensor readings begin arriving.`);
         renderDashboard();
       } catch (error) {
         const message = error instanceof Error ? error.message : "The node could not be registered.";
