@@ -14,6 +14,30 @@ previous_file="$deploy_dir/previous-image.env"
 test -f "$compose_file" || { echo "Missing $compose_file" >&2; exit 1; }
 mkdir -p "$deploy_dir"
 
+# Backend images run as node (uid/gid 1000). Bind-mounted Compose secrets keep
+# their host permissions, so grant only the container's group read access.
+prepare_secret() {
+  secret_file=$1
+  test -f "$secret_file" || { echo "Missing secret: $secret_file" >&2; exit 1; }
+  chown root:1000 "$secret_file"
+  chmod 640 "$secret_file"
+}
+
+if test "$environment" = production; then
+  for secret_file in \
+    /opt/neurocrop-backend/.session_secret \
+    /opt/neurocrop-backend/.chirpstack_api_token \
+    /opt/neurocrop-backend/.chirpstack_application_id \
+    /opt/neurocrop-backend/.chirpstack_device_profile_id \
+    /opt/neurocrop-backend/.default_otaa_app_key \
+    /opt/neurocrop-backend/.resend_api_key
+  do
+    prepare_secret "$secret_file"
+  done
+else
+  prepare_secret /opt/neurocrop-deploy/staging/session_secret
+fi
+
 if test -f "$state_file"; then
   cp "$state_file" "$previous_file"
   chmod 600 "$previous_file"
