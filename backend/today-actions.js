@@ -120,3 +120,55 @@ export function buildTodayActions(sectionSnapshots, { limit = 3 } = {}) {
 
   return selected;
 }
+
+function distanceFromTarget(value, target) {
+  if (!Number.isFinite(Number(value)) || !Array.isArray(target) || target.length !== 2) return null;
+  const numeric = Number(value);
+  const low = Number(target[0]);
+  const high = Number(target[1]);
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+  if (numeric < low) return low - numeric;
+  if (numeric > high) return numeric - high;
+  return 0;
+}
+
+export function evaluateActionOutcome(action, feedback, latest = {}) {
+  if (!action || !feedback) return null;
+  if (feedback.status !== 'completed') {
+    return {
+      state: 'not_applicable',
+      label: feedback.status === 'deferred' ? 'Deferred' : 'Could not complete',
+      currentValue: null,
+      observedAt: null
+    };
+  }
+
+  const latestTime = new Date(latest.observedAt || 0).getTime();
+  const feedbackTime = new Date(feedback.createdAt || feedback.created_at || 0).getTime();
+  const currentValue = Number(latest.value);
+  if (!Number.isFinite(currentValue) || !Number.isFinite(latestTime) || latestTime <= feedbackTime) {
+    return { state: 'awaiting_data', label: 'Awaiting a newer reading', currentValue: null, observedAt: null };
+  }
+
+  const baselineDistance = distanceFromTarget(action.value, action.target);
+  const currentDistance = distanceFromTarget(currentValue, action.target);
+  if (baselineDistance === null || currentDistance === null) {
+    return { state: 'awaiting_data', label: 'Outcome cannot be verified', currentValue, observedAt: latest.observedAt };
+  }
+  if (currentDistance === 0) {
+    return { state: 'target_reached', label: 'Target reached', currentValue, observedAt: latest.observedAt };
+  }
+
+  const targetSpan = Math.max(Math.abs(Number(action.target[1]) - Number(action.target[0])), 0.0001);
+  const meaningfulChange = Math.max(targetSpan * 0.02, baselineDistance * 0.05, 0.0001);
+  const improvement = baselineDistance - currentDistance;
+  if (improvement > meaningfulChange) {
+    return { state: 'improving', label: 'Conditions are improving', currentValue, observedAt: latest.observedAt };
+  }
+  return {
+    state: 'not_improving',
+    label: improvement < -meaningfulChange ? 'Conditions moved further from target' : 'No verified improvement yet',
+    currentValue,
+    observedAt: latest.observedAt
+  };
+}

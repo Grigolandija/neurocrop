@@ -26,7 +26,7 @@ import { validateCropProfileMetrics } from './validation.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
 import { runMigrations } from './migrate.js';
 import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
-import { buildTodayActions } from './today-actions.js';
+import { buildTodayActions, evaluateActionOutcome } from './today-actions.js';
 
 const app = express();
 app.use(express.json());
@@ -1029,6 +1029,33 @@ function measurementReportsMetric(measurement, metric) {
   return sensorKey ? sensors[sensorKey]?.present === true : false;
 }
 
+function publicActionFeedback(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    actionId: row.action_id,
+    status: row.status,
+    note: row.note || '',
+    createdBy: row.created_by || null,
+    createdAt: row.created_at
+  };
+}
+
+function latestMetricSnapshot(measurements, metricId) {
+  const values = measurements.flatMap((measurement) => {
+    if (!measurementReportsMetric(measurement, metricId)) return [];
+    const value = metricId === 'vpd'
+      ? calcVPD(measurement.temperature, measurement.humidity)
+      : measurement[METRIC_TO_COLUMN[metricId]];
+    return Number.isFinite(Number(value)) ? [Number(value)] : [];
+  });
+  const observedAt = measurements
+    .filter((measurement) => measurementReportsMetric(measurement, metricId) && measurement.time)
+    .map((measurement) => measurement.time)
+    .sort((left, right) => new Date(right) - new Date(left))[0] || null;
+  return { value: medianValue(values), observedAt };
+}
+
 app.get('/actions/today', requireAuth, async (req, res) => {
   try {
     const organizationId = getOrganizationId(req);
@@ -1103,13 +1130,144 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       };
     });
 
+    const actions = buildTodayActions(snapshots);
+    const actionIds = actions.map((action) => action.id);
+    let feedbackByActionId = new Map();
+    if (actionIds.length > 0) {
+      const { rows } = await query(
+        `SELECT DISTINCT ON (action_id)
+                id, action_id, status, note, created_by, created_at
+         FROM action_feedback
+         WHERE organization_id=$1 AND action_id=ANY($2::text[])
+         ORDER BY action_id, created_at DESC`,
+        [organizationId, actionIds]
+      );
+      feedbackByActionId = new Map(rows.map((row) => [row.action_id, row]));
+    }
+
     res.json({
       generatedAt: new Date().toISOString(),
       sectionId: requestedSectionId || null,
-      actions: buildTodayActions(snapshots)
+      actions: actions.map((action) => {
+        const feedback = feedbackByActionId.get(action.id);
+        const feedbackMatchesReading = feedback
+          && (!action.observedAt || new Date(feedback.created_at) >= new Date(action.observedAt));
+        return { ...action, feedback: feedbackMatchesReading ? publicActionFeedback(feedback) : null };
+      })
     });
   } catch (e) {
     console.error('[api] /actions/today:', e.message);
+    res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  }
+});
+
+app.post(
+  '/actions/today/:actionId/feedback',
+  requireAuth,
+  requireRole('owner', 'admin', 'grower', 'technician'),
+  async (req, res) => {
+    try {
+      const organizationId = getOrganizationId(req);
+      const actionId = String(req.params.actionId || '').trim();
+      const status = String(req.body?.status || '').trim();
+      const note = String(req.body?.note || '').trim();
+      const action = req.body?.action;
+
+      if (!['completed', 'deferred', 'failed'].includes(status)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unknown action feedback status' } });
+      }
+      if (!action || action.id !== actionId || !action.sectionId || !action.metricId) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A matching action snapshot is required' } });
+      }
+      if (actionId.length > 240 || note.length > 500) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Action feedback is too long' } });
+      }
+
+      const section = await getSectionById(action.sectionId, organizationId);
+      if (!section) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Section not found' } });
+      }
+      const expectedPrefix = `${section.id}:${action.metricId}:`;
+      if (!actionId.startsWith(expectedPrefix)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Action identity does not match its section' } });
+      }
+
+      const { rows } = await query(
+        `INSERT INTO action_feedback (
+           id, organization_id, action_id, section_id, metric_id,
+           status, note, action_payload, created_by
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)
+         RETURNING id, action_id, status, note, created_by, created_at`,
+        [
+          randomUUID(), organizationId, actionId, section.id, action.metricId,
+          status, note, JSON.stringify(action), req.user.id
+        ]
+      );
+
+      res.status(201).json({ feedback: publicActionFeedback(rows[0]) });
+    } catch (e) {
+      console.error('[api] POST /actions/today/:actionId/feedback:', e.message);
+      res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+    }
+  }
+);
+
+app.get('/actions/history', requireAuth, async (req, res) => {
+  try {
+    const organizationId = getOrganizationId(req);
+    const limit = Math.max(1, Math.min(Number(req.query.limit) || 20, 50));
+    const { rows: feedbackRows } = await query(
+      `SELECT af.id, af.action_id, af.section_id, af.metric_id, af.status, af.note,
+              af.action_payload, af.created_by, af.created_at,
+              s.name AS section_name, a.name AS area_name, u.display_name AS created_by_name
+       FROM action_feedback af
+       JOIN sections s ON s.id=af.section_id AND s.organization_id=af.organization_id
+       LEFT JOIN areas a ON a.id=s.area_id AND a.organization_id=af.organization_id
+       LEFT JOIN users u ON u.id=af.created_by
+       WHERE af.organization_id=$1
+       ORDER BY af.created_at DESC
+       LIMIT $2`,
+      [organizationId, limit]
+    );
+
+    const sectionIds = [...new Set(feedbackRows.map((row) => row.section_id))];
+    const measurementsBySection = new Map();
+    if (sectionIds.length > 0) {
+      const { rows } = await query(
+        `SELECT DISTINCT ON (n.section_id, m.dev_eui) n.section_id, m.*
+         FROM measurements m
+         JOIN nodes n ON n.dev_eui=m.dev_eui
+         WHERE n.organization_id=$1 AND n.section_id=ANY($2::text[])
+         ORDER BY n.section_id, m.dev_eui, m.time DESC`,
+        [organizationId, sectionIds]
+      );
+      for (const measurement of rows) {
+        if (!measurementsBySection.has(measurement.section_id)) measurementsBySection.set(measurement.section_id, []);
+        measurementsBySection.get(measurement.section_id).push(measurement);
+      }
+    }
+
+    res.json({
+      items: feedbackRows.map((row) => {
+        const feedback = publicActionFeedback(row);
+        const action = row.action_payload || {};
+        const latest = latestMetricSnapshot(measurementsBySection.get(row.section_id) || [], row.metric_id);
+        return {
+          ...feedback,
+          sectionId: row.section_id,
+          sectionName: row.section_name,
+          areaName: row.area_name || '',
+          metricId: row.metric_id,
+          metricLabel: action.metricLabel || row.metric_id,
+          title: action.title || 'Recommended action',
+          unit: action.unit || METRIC_UNITS[row.metric_id] || '',
+          createdByName: row.created_by_name || null,
+          outcome: evaluateActionOutcome(action, feedback, latest)
+        };
+      })
+    });
+  } catch (e) {
+    console.error('[api] GET /actions/history:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
 });

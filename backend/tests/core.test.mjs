@@ -8,7 +8,7 @@ import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
 import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
-import { buildTodayActions } from '../today-actions.js';
+import { buildTodayActions, evaluateActionOutcome } from '../today-actions.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -161,6 +161,16 @@ test('today actions ignore stale measurements and return no work for optimal rea
   }]), []);
 });
 
+test('completed actions are verified only from newer measurements', () => {
+  const action = { value: 88, target: [60, 70] };
+  const feedback = { status: 'completed', createdAt: '2026-07-14T12:00:00Z' };
+  assert.equal(evaluateActionOutcome(action, feedback, { value: 72, observedAt: '2026-07-14T11:59:00Z' }).state, 'awaiting_data');
+  assert.equal(evaluateActionOutcome(action, feedback, { value: 76, observedAt: '2026-07-14T12:10:00Z' }).state, 'improving');
+  assert.equal(evaluateActionOutcome(action, feedback, { value: 68, observedAt: '2026-07-14T12:10:00Z' }).state, 'target_reached');
+  assert.equal(evaluateActionOutcome(action, feedback, { value: 92, observedAt: '2026-07-14T12:10:00Z' }).state, 'not_improving');
+  assert.equal(evaluateActionOutcome(action, { ...feedback, status: 'deferred' }, {}).state, 'not_applicable');
+});
+
 test('historical score snapshots use the same canonical score model', () => {
   const healthy = buildScoreFromMetricValues({ airTemp: 20, humidity: 60, co2: 700 }, {
     airTemp: { optimal: [18, 22] }, humidity: { optimal: [50, 70] }, co2: { optimal: [500, 900] }
@@ -294,4 +304,25 @@ test('password change verifies the current password and revokes other sessions',
   assert.match(route, /newPassword\.length < 12/);
   assert.match(route, /token_hash<>\$2/);
   assert.match(route, /hashSessionToken\(req\.cookies\.neurocrop_session\)/);
+});
+
+test('action feedback is tenant-scoped, role-protected and keeps an immutable snapshot', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.post(\n  '/actions/today/:actionId/feedback'");
+  const route = source.slice(routeStart, source.indexOf("app.get('/readings/latest'", routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /requireRole\('owner', 'admin', 'grower', 'technician'\)/);
+  assert.match(route, /getSectionById\(action\.sectionId, organizationId\)/);
+  assert.match(route, /action_payload/);
+  assert.match(route, /req\.user\.id/);
+});
+
+test('action history is tenant-scoped and verifies outcomes from section measurements', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.get('/actions/history'");
+  const route = source.slice(routeStart, source.indexOf("app.get('/readings/latest'", routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /WHERE af\.organization_id=\$1/);
+  assert.match(route, /n\.organization_id=\$1/);
+  assert.match(route, /evaluateActionOutcome/);
 });

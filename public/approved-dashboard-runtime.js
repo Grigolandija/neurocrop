@@ -1448,7 +1448,7 @@
           renderDashboard();
           return;
         }
-        const [latestReadings, todayActionsResponse] = await Promise.all([
+        const [latestReadings, todayActionsResponse, actionHistoryResponse] = await Promise.all([
           fetchLatestReadingsForZone(nextZone.id, {
             onlyActive: false,
             renderOnComplete: false
@@ -1456,10 +1456,15 @@
           window.NeuroCropApi.getTodayActions().catch((error) => {
             console.warn("NeuroCrop API today actions load failed; using the local fallback.", error);
             return null;
+          }),
+          window.NeuroCropApi.getActionHistory(12).catch((error) => {
+            console.warn("NeuroCrop API action history load failed.", error);
+            return null;
           })
         ]);
         if (!isCurrentRequest() || nextZone.id !== getActiveZone()?.id) return;
         if (Array.isArray(todayActionsResponse?.actions)) backendTodayActions = todayActionsResponse.actions;
+        if (Array.isArray(actionHistoryResponse?.items)) backendActionHistory = actionHistoryResponse.items;
         currentReadings = latestReadings ? readingsFromApiObservations(latestReadings) : {};
         manualOverride = false;
         lastDashboardHydratedAt = Date.now();
@@ -1660,6 +1665,8 @@
       latestReadingsBySectionId = {};
       latestReadingsStatusBySectionId = {};
       backendTodayActions = null;
+      backendActionHistory = [];
+      todayPriorityFeedbackState = { actionId: "", saving: false, error: false, message: "" };
       resetTrendSelectionForContextChange();
       syncTopLevelRoute("/", { replace: true });
       selectPriorityContextAfterLogin = true;
@@ -1731,6 +1738,8 @@
     let latestReadingsBySectionId = {};
     let latestReadingsStatusBySectionId = {};
     let backendTodayActions = null;
+    let backendActionHistory = [];
+    let todayPriorityFeedbackState = { actionId: "", saving: false, error: false, message: "" };
     let dashboardHydrationRequestId = 0;
     let dashboardHydrationInFlight = false;
     let dashboardHydrationOrganizationId = "";
@@ -4313,6 +4322,31 @@
           </ul>
         </div>
       ` : "";
+      const persistedFeedback = action?.backendAction?.feedback || null;
+      const localFeedback = action && todayPriorityFeedbackState.actionId === action.backendAction?.id
+        ? todayPriorityFeedbackState
+        : null;
+      const feedbackStatusLabels = {
+        completed: diagnosticText("Done", "Atlikta"),
+        deferred: diagnosticText("Deferred", "Atidėta"),
+        failed: diagnosticText("Could not complete", "Nepavyko atlikti")
+      };
+      const feedbackControls = action?.backendAction ? `
+        <div class="today-priority-feedback" data-saving="${localFeedback?.saving === true}">
+          <span class="today-priority-feedback-label">${diagnosticText("Was this action carried out?", "Ar šis veiksmas atliktas?")}</span>
+          <div class="today-priority-feedback-actions" role="group" aria-label="${diagnosticText("Record action outcome", "Išsaugoti veiksmo rezultatą")}">
+            <button type="button" data-today-feedback="completed" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-solid fa-check" aria-hidden="true"></i>${diagnosticText("Done", "Atlikta")}</button>
+            <button type="button" data-today-feedback="deferred" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-regular fa-clock" aria-hidden="true"></i>${diagnosticText("Defer", "Atidėti")}</button>
+            <button type="button" data-today-feedback="failed" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-solid fa-xmark" aria-hidden="true"></i>${diagnosticText("Could not complete", "Nepavyko")}</button>
+          </div>
+          ${(localFeedback?.message || persistedFeedback) ? `
+            <div class="today-priority-feedback-status" data-error="${localFeedback?.error === true}" role="${localFeedback?.error ? "alert" : "status"}" aria-live="polite">
+              <i class="fa-solid ${localFeedback?.error ? "fa-triangle-exclamation" : localFeedback?.saving ? "fa-circle-notch fa-spin" : "fa-circle-check"}" aria-hidden="true"></i>
+              ${escapeHtml(localFeedback?.message || `${feedbackStatusLabels[persistedFeedback.status] || persistedFeedback.status} · ${new Date(persistedFeedback.createdAt).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}`)}
+            </div>
+          ` : ""}
+        </div>
+      ` : "";
 
       if (!action) {
         elements.todayPriorityMain.innerHTML = `
@@ -4337,6 +4371,7 @@
             ${whyPanel ? `<button type="button" class="today-priority-why-button" data-today-priority-why aria-expanded="false" aria-controls="todayPriorityWhyPanel">Why? <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>` : ""}
             ${followUpActions.length ? `<div class="today-priority-followups"><span>Next</span>${followUpActions.map((item, index) => `<button type="button" data-today-followup-index="${index + 1}">${escapeHtml(item.title)}</button>`).join("")}</div>` : ""}
           </div>
+          ${feedbackControls}
         `;
       }
 
@@ -4350,6 +4385,44 @@
             <span><strong>${otherIssues.length}</strong> other active ${otherIssues.length === 1 ? "alert" : "alerts"} elsewhere in the system.</span>
             <button type="button" data-today-alerts-page>Review alerts <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
           </div>
+        `);
+      }
+      const recentActionHistory = (backendActionHistory || []).slice(0, 4);
+      if (recentActionHistory.length > 0) {
+        const outcomeLabels = {
+          awaiting_data: diagnosticText("Awaiting a newer reading", "Laukiama naujesnio matavimo"),
+          improving: diagnosticText("Conditions are improving", "Sąlygos gerėja"),
+          target_reached: diagnosticText("Target reached", "Tikslas pasiektas"),
+          not_improving: diagnosticText("No verified improvement", "Pagerėjimas nepatvirtintas"),
+          not_applicable: diagnosticText("No sensor verification", "Sensoriaus patvirtinimas netaikomas")
+        };
+        elements.todayPriorityMain.insertAdjacentHTML("beforeend", `
+          <section class="today-priority-history" aria-label="${diagnosticText("Recent action results", "Naujausi veiksmų rezultatai")}">
+            <div class="today-priority-history-head">
+              <strong>${diagnosticText("Recent action results", "Naujausi veiksmų rezultatai")}</strong>
+              <span>${diagnosticText("Verified from sensor readings", "Tikrinama pagal sensorių rodmenis")}</span>
+            </div>
+            <div class="today-priority-history-list">
+              ${recentActionHistory.map((item) => {
+                const outcomeState = item.outcome?.state || "awaiting_data";
+                const actor = item.createdByName || diagnosticText("Team member", "Komandos narys");
+                const createdAt = new Date(item.createdAt).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" });
+                const currentReading = Number.isFinite(Number(item.outcome?.currentValue))
+                  ? ` · ${Number(item.outcome.currentValue).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { maximumFractionDigits: 2 })} ${item.unit || ""}`
+                  : "";
+                return `
+                  <article class="today-priority-history-row" data-outcome="${escapeAttribute(outcomeState)}">
+                    <span class="today-priority-history-icon"><i class="fa-solid ${outcomeState === "target_reached" ? "fa-check" : outcomeState === "improving" ? "fa-arrow-trend-up" : outcomeState === "not_improving" ? "fa-triangle-exclamation" : "fa-clock"}" aria-hidden="true"></i></span>
+                    <span class="today-priority-history-copy">
+                      <strong>${escapeHtml(item.title)}</strong>
+                      <small>${escapeHtml(`${item.areaName || diagnosticText("Area", "Area")} · ${item.sectionName} · ${actor} · ${createdAt}`)}</small>
+                    </span>
+                    <span class="today-priority-history-outcome" data-outcome="${escapeAttribute(outcomeState)}">${escapeHtml(`${outcomeLabels[outcomeState] || item.outcome?.label || outcomeState}${currentReading}`)}</span>
+                  </article>
+                `;
+              }).join("")}
+            </div>
+          </section>
         `);
       }
     }
@@ -5088,6 +5161,50 @@
       renderDashboard();
       syncTopLevelRoute("/");
       scrollToSection(action.targetId || "metricsSection");
+    }
+
+    async function submitTodayPriorityFeedback(status) {
+      const action = currentTodayPriorityAction?.backendAction;
+      if (!action || !window.NeuroCropApi?.submitTodayActionFeedback) return;
+
+      todayPriorityFeedbackState = {
+        actionId: action.id,
+        saving: true,
+        error: false,
+        message: diagnosticText("Saving action status…", "Saugoma veiksmo būsena…")
+      };
+      renderDashboard();
+
+      try {
+        const response = await window.NeuroCropApi.submitTodayActionFeedback(action.id, { status, action });
+        backendTodayActions = (backendTodayActions || []).map((item) =>
+          item.id === action.id ? { ...item, feedback: response.feedback } : item
+        );
+        const historyResponse = await window.NeuroCropApi.getActionHistory(12).catch((error) => {
+          console.warn("Action was saved, but action history refresh failed.", error);
+          return null;
+        });
+        if (Array.isArray(historyResponse?.items)) backendActionHistory = historyResponse.items;
+        const statusLabel = {
+          completed: diagnosticText("Done", "Atlikta"),
+          deferred: diagnosticText("Deferred", "Atidėta"),
+          failed: diagnosticText("Could not complete", "Nepavyko atlikti")
+        }[status] || status;
+        todayPriorityFeedbackState = {
+          actionId: action.id,
+          saving: false,
+          error: false,
+          message: diagnosticText(`${statusLabel} and saved to the activity history.`, `${statusLabel} ir išsaugota veiksmų istorijoje.`)
+        };
+      } catch (error) {
+        todayPriorityFeedbackState = {
+          actionId: action.id,
+          saving: false,
+          error: true,
+          message: error instanceof Error ? error.message : diagnosticText("Action status could not be saved.", "Veiksmo būsenos išsaugoti nepavyko.")
+        };
+      }
+      renderDashboard();
     }
 
     function buildActionDeck(options) {
@@ -16198,6 +16315,12 @@ function buildTrendMetricOptions(options) {
           whyPanel.hidden = nextHidden;
           whyButton.setAttribute("aria-expanded", String(!nextHidden));
         }
+        return;
+      }
+
+      const feedbackButton = event.target.closest("[data-today-feedback]");
+      if (feedbackButton) {
+        submitTodayPriorityFeedback(feedbackButton.dataset.todayFeedback);
         return;
       }
 
