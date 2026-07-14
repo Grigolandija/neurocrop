@@ -149,7 +149,8 @@
               spreadingFactor: Number.isFinite(spreadingFactor) ? spreadingFactor : null,
               sensorPresence: node.sensorPresence && typeof node.sensorPresence === "object" ? node.sensorPresence : null,
               errorFlags: node.errorFlags && typeof node.errorFlags === "object" ? node.errorFlags : null,
-              errorCounters: node.errorCounters && typeof node.errorCounters === "object" ? node.errorCounters : null
+              errorCounters: node.errorCounters && typeof node.errorCounters === "object" ? node.errorCounters : null,
+              health: node.health && typeof node.health === "object" ? node.health : null
             };
           })
           .sort((left, right) => left.id.localeCompare(right.id));

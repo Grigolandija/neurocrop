@@ -25,6 +25,7 @@ import { getAllowedOrigins, publicError } from './config.js';
 import { validateCropProfileMetrics } from './validation.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
 import { runMigrations } from './migrate.js';
+import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
 
 const app = express();
 app.use(express.json());
@@ -693,22 +694,30 @@ app.get('/dashboard', requireAuth, async (req, res) => {
         const batteryNodes = nodeRows.map((node, index) => {
           const devEui = normalizeDevEui(node.dev_eui);
           const m = latestMeasurements[index];
+          const lastSeen = node.last_received_at || node.last_seen || m?.time || null;
+          const profile = node.last_profile || m?.profile || null;
+          const transportStatus = statusFromMeasurementTime(lastSeen, Date.now(), expectedUplinkIntervalSec(profile));
           return {
             id: node.name || devEui,
             name: node.name || devEui,
             devEui,
             level: node.last_battery_percent ?? m?.battery_percent ?? null,
-            active: statusFromMeasurementTime(node.last_received_at || node.last_seen || m?.time) !== 'offline',
-            lastSeen: node.last_received_at || node.last_seen || m?.time || null,
+            active: transportStatus !== 'offline',
+            lastSeen,
             batteryMv: node.last_battery_mv ?? m?.battery_mv ?? null,
             firmwareVersion: node.last_firmware_version || m?.raw_object?.firmware_version || null,
-            profile: node.last_profile || m?.profile || null,
+            profile,
             rssi: node.last_rssi ?? m?.rssi ?? null,
             snr: node.last_snr ?? m?.snr ?? null,
             spreadingFactor: node.last_spreading_factor ?? m?.spreading_factor ?? null,
             sensorPresence: node.last_sensor_presence || null,
             errorFlags: node.last_error_flags || null,
-            errorCounters: node.last_error_counters || null
+            errorCounters: node.last_error_counters || null,
+            health: buildNodeHealth({
+              transportStatus,
+              errorFlags: node.last_error_flags,
+              errorCounters: node.last_error_counters
+            })
           };
         });
         const profileMetrics = metricsByProfile.get(section.crop_profile) || {};
@@ -1910,6 +1919,7 @@ app.get('/nodes', requireAuth, async (req, res) => {
       nodes: rows.map((row) => {
         const devEui = normalizeDevEui(row.dev_eui);
         const lastSeen = row.last_received_at || row.last_seen || null;
+        const transportStatus = statusFromMeasurementTime(lastSeen, Date.now(), expectedUplinkIntervalSec(row.last_profile));
         return {
           id: row.name || devEui,
           devEui,
@@ -1920,7 +1930,8 @@ app.get('/nodes', requireAuth, async (req, res) => {
           areaName: row.area_name || null,
           sectionId: row.section_id,
           sectionName: row.section_name || null,
-          active: statusFromMeasurementTime(lastSeen) !== 'offline',
+          active: transportStatus !== 'offline',
+          transportStatus,
           lastSeen,
           createdAt: row.created_at,
           level: row.last_battery_percent ?? null,
@@ -1932,7 +1943,12 @@ app.get('/nodes', requireAuth, async (req, res) => {
           spreadingFactor: row.last_spreading_factor ?? null,
           sensorPresence: row.last_sensor_presence || null,
           errorFlags: row.last_error_flags || null,
-          errorCounters: row.last_error_counters || null
+          errorCounters: row.last_error_counters || null,
+          health: buildNodeHealth({
+            transportStatus,
+            errorFlags: row.last_error_flags,
+            errorCounters: row.last_error_counters
+          })
         };
       })
     });

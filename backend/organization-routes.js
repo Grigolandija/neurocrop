@@ -4,6 +4,7 @@ import { sendInvitationEmail } from './email.js';
 import { query, pool } from './db.js';
 import { requirePlatformAdmin, requireSuperAdmin, requireUserAuth } from './auth-users.js';
 import { statusFromMeasurementTime } from './score.js';
+import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
 
 const INVITE_TTL_DAYS = 14;
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://neurocrop.lt';
@@ -312,12 +313,10 @@ export function registerPlatformOrganizationRoutes(app) {
         [organizationId]
       );
       const now = Date.now();
-      const profileIntervals = { normal: 300, intensive: 60, power_save: 900 };
-
       res.json({
         nodes: rows.map((row) => {
           const lastSeen = row.last_received_at || row.last_seen || null;
-          const expectedIntervalSec = profileIntervals[row.last_profile] || 300;
+          const transportStatus = statusFromMeasurementTime(lastSeen, now, expectedUplinkIntervalSec(row.last_profile));
           return {
             id: row.name || row.dev_eui,
             devEui: row.dev_eui,
@@ -328,7 +327,7 @@ export function registerPlatformOrganizationRoutes(app) {
             sectionId: row.section_id,
             sectionName: row.section_name || null,
             lastSeen,
-            transportStatus: statusFromMeasurementTime(lastSeen, now, expectedIntervalSec),
+            transportStatus,
             level: row.last_battery_percent ?? null,
             batteryMv: row.last_battery_mv ?? null,
             firmwareVersion: row.last_firmware_version || null,
@@ -338,7 +337,12 @@ export function registerPlatformOrganizationRoutes(app) {
             spreadingFactor: row.last_spreading_factor ?? null,
             sensorPresence: row.last_sensor_presence || null,
             errorFlags: row.last_error_flags || null,
-            errorCounters: row.last_error_counters || null
+            errorCounters: row.last_error_counters || null,
+            health: buildNodeHealth({
+              transportStatus,
+              errorFlags: row.last_error_flags,
+              errorCounters: row.last_error_counters
+            })
           };
         })
       });

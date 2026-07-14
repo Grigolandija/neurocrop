@@ -1,5 +1,6 @@
 import mqtt from 'mqtt';
 import { query, pool } from './db.js';
+import { normalizeErrorCounters, normalizeErrorFlags } from './node-health.js';
 
 const MQTT_URL = process.env.MQTT_URL || 'mqtt://mosquitto:1883';
 const MQTT_TOPIC = process.env.MQTT_TOPIC || 'application/+/device/+/event/up';
@@ -34,7 +35,8 @@ async function handleUplink(msg) {
   const rx = Array.isArray(msg.rxInfo) && msg.rxInfo.length ? msg.rxInfo[0] : {};
   const sf = msg.txInfo?.modulation?.lora?.spreadingFactor ?? null;
   const adaptive = obj.adaptive || {};
-  const ec = obj.error_counters || {};
+  const errorFlags = normalizeErrorFlags(obj.error_flags);
+  const ec = normalizeErrorCounters(obj.error_counters, errorFlags);
   const sensorPresence = Object.fromEntries(
     Object.entries(obj.sensors || {}).map(([sensor, state]) => [sensor, Boolean(state?.present)])
   );
@@ -63,7 +65,7 @@ async function handleUplink(msg) {
       devEui, n(obj.firmware_build), time, receivedAt, dev.deviceName || null,
       n(obj.battery_mv), n(obj.battery_percent), obj.firmware_version ?? null, adaptive.profile ?? null,
       n(rx.rssi), n(rx.snr), sf, JSON.stringify(sensorPresence),
-      JSON.stringify(obj.error_flags || {}), JSON.stringify(ec)
+      JSON.stringify(errorFlags), JSON.stringify(ec)
     ]
   );
   if (!updatedNodes[0]) {

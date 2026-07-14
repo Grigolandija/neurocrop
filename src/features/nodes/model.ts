@@ -1,6 +1,12 @@
 type Translator = (english: string, lithuanian: string) => string
 
 type NodeHealthInput = {
+  health?: {
+    state?: string
+    label?: string
+    detail?: string
+    reasons?: Array<{ label?: string }>
+  } | null
   sensorPresence?: Record<string, boolean>
   errorFlags?: Record<string, boolean>
   errorCounters?: Record<string, number>
@@ -31,21 +37,35 @@ export function getDetectedSensorNames(node: NodeHealthInput) {
 }
 
 export function getHealthSummary(node: NodeHealthInput, freshness: Freshness) {
+  if (freshness.transportStatus === 'offline') return { label: 'Offline', detail: 'No recent uplink', tone: 'critical' }
+
+  const backendHealth = node.health
+  if (backendHealth && ['healthy', 'watch', 'fault', 'offline'].includes(String(backendHealth.state))) {
+    const toneByState: Record<string, string> = { healthy: 'optimal', watch: 'warning', fault: 'critical', offline: 'critical' }
+    const state = String(backendHealth.state)
+    const primaryReason = backendHealth.reasons?.find((reason) => reason?.label)?.label
+    return {
+      label: primaryReason || backendHealth.label || (state === 'healthy' ? 'Healthy' : state === 'watch' ? 'Watch' : 'Fault'),
+      detail: backendHealth.detail || (state === 'healthy' ? 'No active device faults' : 'Device requires review'),
+      tone: toneByState[state]
+    }
+  }
+
+  // Compatibility fallback for a rolling deployment against an older API.
   const flags = node.errorFlags || {}
-  const counters = node.errorCounters || {}
   const reasons: string[] = []
   if (flags.tx_timeout) reasons.push('Transmission timeout')
   if (flags.last_tx_failed) reasons.push('Last transmission failed')
   if (flags.watchdog_reset) reasons.push('Watchdog reset reported')
   if (flags.join_backoff) reasons.push('Network join backoff')
   if (flags.boot_fault) reasons.push('Boot fault reported')
-  if (Number(counters.read_fail || 0) >= 3) reasons.push(`${counters.read_fail} sensor read failures`)
-  if (Number(counters.tx_fail || 0) >= 3) reasons.push(`${counters.tx_fail} transmission failures`)
-  if (Number(counters.reinit || 0) >= 5) reasons.push(`Sensor reinitialised ${counters.reinit} times`)
+  if (flags.sensor_missing) reasons.push('Expected sensor missing')
+  if (flags.sensor_stale) reasons.push('Sensor reading stale')
+  if (flags.battery_critical) reasons.push('Battery critically low')
+  if (flags.battery_low) reasons.push('Battery low')
 
-  if (freshness.transportStatus === 'offline') return { label: 'Offline', detail: 'No recent uplink', tone: 'critical' }
   if (reasons.length > 0) return { label: reasons[0], detail: reasons.join(' · '), tone: 'warning' }
-  return { label: 'Healthy', detail: 'No device faults reported', tone: 'optimal' }
+  return { label: 'Healthy', detail: 'No active device faults', tone: 'optimal' }
 }
 
 export function formatSignal(node: NodeHealthInput) {

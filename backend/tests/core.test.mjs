@@ -7,6 +7,7 @@ import { buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState
 import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
+import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -41,6 +42,46 @@ test('future timestamps outside clock-skew tolerance are not live', () => {
   const now = Date.parse('2026-07-12T12:00:00Z');
   assert.equal(statusFromMeasurementTime('2026-07-12T12:02:00Z', now, 300), 'live');
   assert.equal(statusFromMeasurementTime('2026-07-12T13:00:00Z', now, 300), 'offline');
+});
+
+test('node health ignores historical counters without an active fault', () => {
+  const health = buildNodeHealth({
+    transportStatus: 'live',
+    errorFlags: { raw: 0, sensor_missing: false },
+    errorCounters: { read_fail: 0, reinit: 9, tx_fail: 0 }
+  });
+  assert.equal(health.state, 'healthy');
+  assert.equal(health.detail, 'No active device faults');
+  assert.equal(health.diagnostics.counters.reinit, 0);
+});
+
+test('node health distinguishes active faults, recovery warnings and offline nodes', () => {
+  const missing = buildNodeHealth({ transportStatus: 'live', errorFlags: { sensor_missing: true } });
+  assert.equal(missing.state, 'fault');
+  assert.equal(missing.reasons[0].code, 'sensor_missing');
+
+  const recovered = buildNodeHealth({ transportStatus: 'live', errorFlags: { tx_timeout: true } });
+  assert.equal(recovered.state, 'watch');
+  assert.equal(recovered.detail, 'Transmission timeout recovery');
+
+  const offline = buildNodeHealth({ transportStatus: 'offline', errorFlags: { sensor_missing: true } });
+  assert.equal(offline.state, 'offline');
+  assert.equal(offline.reasons[0].code, 'offline');
+});
+
+test('node diagnostics normalize decoder values and profile intervals', () => {
+  assert.deepEqual(normalizeErrorFlags({ raw: '4', tx_timeout: 'false', sensor_missing: '1' }), {
+    raw: 4,
+    tx_timeout: false,
+    sensor_missing: true
+  });
+  assert.deepEqual(normalizeErrorCounters({ read_fail: 99, reinit: 8, tx_fail: -2 }, { sensor_stale: true }), {
+    read_fail: 15,
+    reinit: 8,
+    tx_fail: 0
+  });
+  assert.equal(expectedUplinkIntervalSec('power-save'), 900);
+  assert.equal(expectedUplinkIntervalSec('unknown'), 300);
 });
 
 test('profile metric validation rejects malformed and reversed bands', () => {
