@@ -1488,6 +1488,11 @@
     }
 
     async function initializeLoginGate() {
+      if (["127.0.0.1", "localhost"].includes(window.location.hostname) && window.location.port === "4177") {
+        const session = persistLoginSession({ email: "preview@local.neurocrop", organizationId: "local-preview", isPlatformAdmin: false, isSuperAdmin: false });
+        setLoginState(session);
+        return;
+      }
       if (window.NeuroCropApi?.isConnected()) {
         try {
           const response = await window.NeuroCropApi.getCurrentUser();
@@ -1732,6 +1737,7 @@
     let activeBlockFilterSiteId = "all";
     let activeNodeFilterSiteId = "all";
     let activeNodeFilterZoneId = "all";
+    let activeNodeSearchQuery = "";
     let expandedNodeListId = null;
     let expandedCropProfileMetricId = null;
     let activeSettingsProfileKey = activeProfileKey;
@@ -3420,6 +3426,7 @@
     }
 
     function isApiDataMode() {
+      if (["127.0.0.1", "localhost"].includes(window.location.hostname) && window.location.port === "4177") return false;
       return Boolean(window.NeuroCropApi?.isConnected?.());
     }
 
@@ -7707,15 +7714,24 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       if (activeNodeFilterZoneId !== "all" && !filterZones.some(({ zone }) => zone.id === activeNodeFilterZoneId)) {
         activeNodeFilterZoneId = "all";
       }
-      const filteredNodes = nodes.filter(({ site, zone }) =>
-        (activeNodeFilterSiteId === "all" || site.id === activeNodeFilterSiteId)
-        && (activeNodeFilterZoneId === "all" || zone.id === activeNodeFilterZoneId)
-      );
+      const filteredNodes = nodes.filter(({ node, site, zone }) => {
+        const matchesScope = (activeNodeFilterSiteId === "all" || site.id === activeNodeFilterSiteId)
+          && (activeNodeFilterZoneId === "all" || zone.id === activeNodeFilterZoneId);
+        const searchValue = [node.name, node.id, node.devEui, site.name, zone.name].filter(Boolean).join(" ").toLowerCase();
+        return matchesScope && (!activeNodeSearchQuery || searchValue.includes(activeNodeSearchQuery));
+      });
       const lowBatteryNodes = getSystemLowBatteryNodes();
       const activeNodes = nodes.filter(({ node }) => node.active !== false).length;
       const reportingNodes = nodes.filter(({ node }) =>
         freshnessByNodeId.get(node.id)?.transportStatus === "live"
       ).length;
+      const offlineNodes = nodes.filter(({ node }) =>
+        freshnessByNodeId.get(node.id)?.transportStatus === "offline"
+      ).length;
+      const faultNodes = nodes.filter(({ node }) => {
+        const health = getNodeHealthSummary(node, freshnessByNodeId.get(node.id));
+        return health.tone === "critical" || health.tone === "warning";
+      }).length;
       const filteredLowBatteryCount = filteredNodes.filter(({ node, zone }) => {
         const definition = cropProfiles[zone.profile]?.metrics?.batteryLevel;
         return definition && getBatteryNodeState(node.level, definition) !== "optimal";
@@ -7754,24 +7770,19 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             const isExpanded = expandedNodeListId === nodeListId;
 
             return `
-              <article class="node-table-row" data-state="${state === "neutral" ? "optimal" : state}" data-expanded="${String(isExpanded)}">
+              <article class="node-fleet-row node-table-row" data-node-search-value="${escapeAttribute([nodeName, node.id, node.devEui, site.name, zone.name].filter(Boolean).join(" ").toLowerCase())}" data-state="${state === "neutral" ? "optimal" : state}" data-expanded="${String(isExpanded)}">
                 <button type="button" class="node-table-summary" data-node-expand-id="${escapeAttribute(nodeListId)}" aria-expanded="${String(isExpanded)}" aria-controls="node-detail-${escapeAttribute(nodeListId)}">
-                  <span class="node-table-identity"><strong>${escapeHtml(nodeName)}</strong><small>${escapeHtml(site.name)} · ${escapeHtml(zone.name)} · ${escapeHtml(reportingMode)}</small></span>
-                  <span class="node-table-signal"><i class="fa-solid fa-signal" aria-hidden="true"></i>${escapeHtml(freshnessLabel)} · ${escapeHtml(formatNodeSignal(node))}</span>
-                  <span class="node-table-sensors">${escapeHtml(sensors.length ? sensors.join(", ") : "No sensors detected")}</span>
-                  <span class="node-table-payload"><i class="fa-solid fa-clock" aria-hidden="true"></i>Last payload · ${escapeHtml(lastPayload.relative)}</span>
+                  <span class="node-table-identity"><strong>${escapeHtml(nodeName)}</strong><small>${escapeHtml(node.devEui || node.id)}</small></span>
+                  <span class="node-table-location"><strong>${escapeHtml(zone.name)}</strong><small>${escapeHtml(site.name)}</small></span>
                   <span class="management-chip node-freshness-chip" data-freshness="${escapeAttribute(freshness.transportStatus)}">
-                    <i class="fa-solid ${freshness.transportStatus === "live" ? "fa-signal" : freshness.transportStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
-                    ${escapeHtml(freshnessLabel)}
+                    <i class="fa-solid ${freshness.transportStatus === "live" ? "fa-circle-check" : freshness.transportStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>${escapeHtml(freshnessLabel)}
                   </span>
-                  <span class="management-chip node-health-chip" data-tone="${health.tone}" title="${escapeAttribute(health.detail)}">
-                    ${escapeHtml(health.label)}
+                  <span class="node-table-battery" data-tone="${state === "critical" ? "critical" : state === "warning" ? "warning" : "optimal"}">
+                    <i class="fa-solid ${Number(node.level) < 25 ? "fa-battery-quarter" : "fa-battery-three-quarters"}" aria-hidden="true"></i>${escapeHtml(batteryText)}
                   </span>
-                  <span class="management-chip" data-tone="${state === "critical" ? "critical" : state === "warning" ? "warning" : "optimal"}">
-                    <i class="fa-solid fa-battery-half" aria-hidden="true"></i>
-                    ${escapeHtml(batteryText)}${batteryDetail ? ` · ${escapeHtml(batteryDetail)}` : ""}
-                  </span>
-                  <i class="fa-solid fa-chevron-down node-table-chevron" aria-hidden="true"></i>
+                  <span class="node-table-signal"><i class="fa-solid fa-signal" aria-hidden="true"></i>${escapeHtml(formatNodeSignal(node))}</span>
+                  <span class="node-table-payload">${escapeHtml(lastPayload.relative)}</span>
+                  <i class="fa-solid fa-chevron-right node-table-chevron" aria-hidden="true"></i>
                 </button>
                 <div id="node-detail-${escapeAttribute(nodeListId)}" class="node-table-detail" ${isExpanded ? "" : "hidden"}>
                   <div><span>Device</span><strong>${escapeHtml(compactIdentity.join(" · "))}</strong></div>
@@ -7808,90 +7819,75 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           `;
 
       elements.nodesManagementShell.innerHTML = `
-        <div class="space-y-6">
-          <div class="surface rounded-[30px] p-5 md:p-5">
-            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div class="max-w-3xl">
-                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">Register node</p>
-                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">Connect a sensor to a zone</h2>
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">Assign the node to its monitored zone. The generated node ID stays internal; the sensor identifier connects this record to incoming readings.</p>
-              </div>
+        <div class="node-fleet-page">
+          <header class="node-fleet-page-head">
+            <div><p>Device fleet</p><h2>Sensor nodes</h2><span>Hardware availability, battery, signal, installed sensors, and latest uplink freshness.</span></div>
+            <button type="button" class="node-fleet-primary-action actionable" data-node-register-jump><i class="fa-solid fa-plus" aria-hidden="true"></i>Register node</button>
+          </header>
 
-              <div class="flex flex-wrap gap-2.5 xl:max-w-[540px] xl:justify-end">
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Locations</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${dashboardData.sites.length}</div>
-                </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Blocks</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${dashboardData.sites.reduce((sum, site) => sum + (site.zones || []).length, 0)}</div>
-                </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Reporting now</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${reportingNodes}<span class="text-sm text-ink/42">/${activeNodes}</span></div>
-                </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Low battery</div>
-                  <div class="mt-0.5 text-xl font-extrabold ${lowBatteryNodes.length > 0 ? "text-amber" : "text-moss"}">${lowBatteryNodes.length}</div>
-                </div>
-              </div>
-            </div>
+          <section class="node-fleet-stats" aria-label="Node fleet status">
+            <div><span data-tone="optimal"><i class="fa-solid fa-signal" aria-hidden="true"></i></span><strong>${reportingNodes}</strong><small>Online</small></div>
+            <div><span data-tone="warning"><i class="fa-solid fa-battery-quarter" aria-hidden="true"></i></span><strong>${lowBatteryNodes.length}</strong><small>Low battery</small></div>
+            <div><span data-tone="critical"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span><strong>${faultNodes}</strong><small>Faults</small></div>
+            <div><span data-tone="offline"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></span><strong>${offlineNodes}</strong><small>Offline</small></div>
+          </section>
+
+          <section id="nodeRegistrationPanel" class="node-register-panel">
+            <div class="node-register-copy"><p>Register hardware</p><h3>Connect a sensor node</h3><span>Assign its DevEUI to the monitored section that will receive incoming readings.</span></div>
 
             ${renderManagementNotice("nodes")}
 
             ${locations.length > 0
               ? `
-                <form class="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.15fr)_auto] xl:items-end" data-management-form="node">
+                <form class="node-register-form" data-management-form="node">
                   <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">Site</span>
-                    <select name="nodeSiteId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                    <span>Area</span>
+                    <select name="nodeSiteId">
                       ${locations.map((site) => `<option value="${escapeAttribute(site.id)}" ${nodeFormState.siteId === site.id ? "selected" : ""}>${escapeHtml(site.name)}</option>`).join("")}
                     </select>
                   </label>
                   <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">Zone</span>
-                    <select name="nodeZoneId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                    <span>Section</span>
+                    <select name="nodeZoneId">
                       ${selectedBlocks.map((zone) => `<option value="${escapeAttribute(zone.id)}" ${nodeFormState.zoneId === zone.id ? "selected" : ""}>${escapeHtml(zone.name)}</option>`).join("")}
                     </select>
                   </label>
                   <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">DevEUI</span>
-                    <input name="nodeDevEui" value="${escapeAttribute(nodeFormState.devEui)}" placeholder="70B3D57ED006ABCD" maxlength="16" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 font-mono text-sm uppercase text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
+                    <span>DevEUI</span>
+                    <input name="nodeDevEui" value="${escapeAttribute(nodeFormState.devEui)}" placeholder="70B3D57ED006ABCD" maxlength="16" autocomplete="off">
                   </label>
-                  <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Register node</button>
+                  <button type="submit" class="node-fleet-primary-action actionable">Register node</button>
                 </form>
               `
               : `
                 <div class="mt-4 rounded-[20px] bg-[#f8f3ea] px-4 py-2.5 text-sm leading-6 text-ink/66">Create a site and its first zone before registering a node.</div>
               `}
-          </div>
+          </section>
 
-          <div class="surface rounded-[34px] p-6 md:p-7">
-            <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-pine/56">Current nodes</p>
-                <h3 class="mt-2 font-display text-2xl font-bold text-ink">${filteredNodes.length}${filteredNodes.length !== nodes.length ? ` of ${nodes.length}` : ""} node${filteredNodes.length === 1 ? "" : "s"}</h3>
-                <div class="mt-1 text-sm leading-6 text-ink/58">${filteredLowBatteryCount > 0 ? `${filteredLowBatteryCount} need battery attention in this view` : "No low-battery nodes in this view"}</div>
-              </div>
-              <div class="node-list-filters grid gap-2 sm:grid-cols-2">
+          <section class="node-fleet-inventory">
+            <div class="node-fleet-toolbar">
+              <label class="node-fleet-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input name="nodeSearch" value="${escapeAttribute(activeNodeSearchQuery)}" placeholder="Search name, DevEUI or section"></label>
+              <div class="node-list-filters">
                 <label class="block">
-                  <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Filter by Site</span>
-                  <select name="nodeFilterSiteId" class="mt-1 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                    <option value="all" ${activeNodeFilterSiteId === "all" ? "selected" : ""}>All Sites</option>
+                  <span class="sr-only">Filter by area</span>
+                  <select name="nodeFilterSiteId">
+                    <option value="all" ${activeNodeFilterSiteId === "all" ? "selected" : ""}>All areas</option>
                     ${filterLocations.map((site) => `<option value="${escapeAttribute(site.id)}" ${activeNodeFilterSiteId === site.id ? "selected" : ""}>${escapeHtml(site.name)}</option>`).join("")}
                   </select>
                 </label>
                 <label class="block">
-                  <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Filter by Zone</span>
-                  <select name="nodeFilterZoneId" class="mt-1 w-full rounded-[16px] border border-black/10 bg-white px-3.5 py-2 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                    <option value="all" ${activeNodeFilterZoneId === "all" ? "selected" : ""}>All Zones</option>
+                  <span class="sr-only">Filter by section</span>
+                  <select name="nodeFilterZoneId">
+                    <option value="all" ${activeNodeFilterZoneId === "all" ? "selected" : ""}>All sections</option>
                     ${filterZones.map(({ site, zone }) => `<option value="${escapeAttribute(zone.id)}" ${activeNodeFilterZoneId === zone.id ? "selected" : ""}>${escapeHtml(activeNodeFilterSiteId === "all" ? `${site.name} — ${zone.name}` : zone.name)}</option>`).join("")}
                   </select>
                 </label>
               </div>
             </div>
-            ${filteredNodes.length > 0 ? `<article class="management-list-shell mt-5">${nodeRows}</article>` : `<div class="mt-5">${nodeRows}</div>`}
-          </div>
+            <div class="node-fleet-table-head"><span>Node</span><span>Location</span><span>State</span><span>Battery</span><span>Signal</span><span>Last payload</span><span></span></div>
+            ${filteredNodes.length > 0 ? `<div class="node-fleet-table">${nodeRows}</div>` : `<div class="node-fleet-empty">${nodeRows}</div>`}
+            <footer class="node-fleet-footer"><span>${filteredNodes.length}${filteredNodes.length !== nodes.length ? ` of ${nodes.length}` : ""} nodes shown</span><span>${filteredLowBatteryCount > 0 ? `${filteredLowBatteryCount} need battery attention` : "No battery alerts in this view"}</span></footer>
+          </section>
         </div>
       `;
     }
@@ -15001,6 +14997,17 @@ function buildTrendMetricOptions(options) {
     });
 
     elements.nodesManagementSection.addEventListener("input", (event) => {
+      if (event.target instanceof HTMLInputElement && event.target.name === "nodeSearch") {
+        activeNodeSearchQuery = event.target.value.trim().toLowerCase();
+        let visibleCount = 0;
+        elements.nodesManagementSection.querySelectorAll("[data-node-search-value]").forEach((row) => {
+          row.hidden = activeNodeSearchQuery.length > 0 && !String(row.dataset.nodeSearchValue || "").includes(activeNodeSearchQuery);
+          if (!row.hidden) visibleCount += 1;
+        });
+        const countLabel = elements.nodesManagementSection.querySelector(".node-fleet-footer span");
+        if (countLabel) countLabel.textContent = `${visibleCount} nodes shown`;
+        return;
+      }
       syncNodeFormField(event.target);
     });
 
@@ -15034,6 +15041,14 @@ function buildTrendMetricOptions(options) {
     });
 
     elements.nodesManagementSection.addEventListener("click", (event) => {
+      const registerJumpButton = event.target.closest("[data-node-register-jump]");
+      if (registerJumpButton) {
+        const panel = elements.nodesManagementSection.querySelector("#nodeRegistrationPanel");
+        panel?.scrollIntoView({ behavior: "smooth", block: "center" });
+        window.setTimeout(() => panel?.querySelector('[name="nodeDevEui"]')?.focus(), 280);
+        return;
+      }
+
       const expandNodeButton = event.target.closest("[data-node-expand-id]");
       if (expandNodeButton) {
         const nodeId = expandNodeButton.dataset.nodeExpandId;

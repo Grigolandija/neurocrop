@@ -4,6 +4,7 @@ import type { NeuroCropApi } from './services/api/neurocropApi'
 import type { NeuroCropFeatures } from './features/installFeatures'
 import './App.css'
 import './styles/approved-dashboard.css'
+import './styles/nodes-page.css'
 
 declare global {
   interface Window {
