@@ -7757,7 +7757,12 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           : "Device diagnostics require review";
       const readFailures = Number.isFinite(Number(node.errorCounters?.read_fail)) ? Number(node.errorCounters.read_fail) : "Unavailable";
       const transmitFailures = Number.isFinite(Number(node.errorCounters?.tx_fail)) ? Number(node.errorCounters.tx_fail) : "Unavailable";
-      const resetReason = Object.entries(node.errorFlags || {}).filter(([, value]) => value).map(([key]) => key.replace(/_/g, " ")).join(", ") || "No reset fault reported";
+      const resetFlags = node.errorFlags || {};
+      const resetReasons = [];
+      if (resetFlags.watchdog_reset) resetReasons.push("Watchdog reset");
+      if (resetFlags.tx_timeout) resetReasons.push("Transmission timeout recovery");
+      if (resetFlags.boot_fault) resetReasons.push("Boot initialization fault");
+      const resetReason = resetReasons.join(" · ") || "No reset fault detected";
 
       elements.nodesManagementShell.innerHTML = `
         <div class="node-detail-page">
@@ -7792,7 +7797,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
               <header><p>Diagnostics</p><h3>Latest device report</h3></header>
               <dl class="node-detail-diagnostics">
                 <div><dt>Firmware</dt><dd>${escapeHtml(node.firmwareVersion || "Unavailable")}</dd></div>
-                <div><dt>Reset reason</dt><dd>${escapeHtml(resetReason)}</dd></div>
+                <div><dt>Reset status</dt><dd>${escapeHtml(resetReason)}</dd></div>
                 <div><dt>Read failures</dt><dd>${escapeHtml(String(readFailures))}</dd></div>
                 <div><dt>Transmit failures</dt><dd>${escapeHtml(String(transmitFailures))}</dd></div>
                 <div><dt>Last payload</dt><dd>${escapeHtml(lastPayload.absolute)}</dd></div>
