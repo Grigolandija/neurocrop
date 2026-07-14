@@ -2412,6 +2412,123 @@
       error.hidden = !message;
     }
 
+    function getActionExecutionTypeLabel(type) {
+      return {
+        ventilation_increased: diagnosticText("Increased ventilation", "Padidintas vėdinimas"),
+        ventilation_reduced: diagnosticText("Reduced ventilation", "Sumažintas vėdinimas"),
+        vents_opened: diagnosticText("Opened vents or doors", "Atidarytos orlaidės arba durys"),
+        heating_increased: diagnosticText("Increased heating", "Padidintas šildymas"),
+        heating_reduced: diagnosticText("Reduced heating", "Sumažintas šildymas"),
+        cooling_increased: diagnosticText("Increased cooling", "Padidintas vėsinimas"),
+        cooling_reduced: diagnosticText("Reduced cooling", "Sumažintas vėsinimas"),
+        humidification_increased: diagnosticText("Increased humidification", "Padidintas drėkinimas"),
+        humidification_reduced: diagnosticText("Reduced humidification", "Sumažintas drėkinimas"),
+        irrigation_adjusted: diagnosticText("Adjusted irrigation", "Pakoreguotas laistymas"),
+        shading_adjusted: diagnosticText("Adjusted shading", "Pakoreguotas šešėliavimas"),
+        equipment_checked: diagnosticText("Checked equipment", "Patikrinta įranga"),
+        other: diagnosticText("Other action", "Kitas veiksmas")
+      }[type] || diagnosticText("Other action", "Kitas veiksmas");
+    }
+
+    function getActionExecutionTypes(action) {
+      const climateTypes = [
+        "ventilation_increased", "ventilation_reduced", "vents_opened",
+        "heating_increased", "heating_reduced", "cooling_increased", "cooling_reduced",
+        "humidification_increased", "humidification_reduced", "shading_adjusted"
+      ];
+      const rootZoneTypes = ["irrigation_adjusted", "equipment_checked"];
+      const metricTypes = ["soilTemp", "soilMoisture", "ec", "ph", "soilEc", "waterTemp"].includes(action?.metricId)
+        ? rootZoneTypes
+        : climateTypes;
+      return [...metricTypes, "equipment_checked", "other"].filter((type, index, values) => values.indexOf(type) === index);
+    }
+
+    function openActionCompletionModal(action) {
+      if (!action) return;
+      managementModalState = { type: "action-completion", action };
+      const typeOptions = getActionExecutionTypes(action)
+        .map((type) => `<option value="${escapeAttribute(type)}">${escapeHtml(getActionExecutionTypeLabel(type))}</option>`)
+        .join("");
+      elements.managementModalOverlay.innerHTML = `
+        <div class="management-modal-backdrop" data-management-modal-close></div>
+        <section class="management-modal-shell action-completion-modal" role="dialog" aria-modal="true" aria-labelledby="actionCompletionTitle">
+          <header class="management-modal-header">
+            <div>
+              <span class="action-completion-eyebrow">${diagnosticText("Record completed action", "Užregistruoti atliktą veiksmą")}</span>
+              <h2 id="actionCompletionTitle">${escapeHtml(action.title || diagnosticText("Completed action", "Atliktas veiksmas"))}</h2>
+              <p>${diagnosticText("Tell us what actually changed so sensor results can be linked to the right intervention.", "Nurodykite, kas realiai pakeista, kad sensorių rezultatą galėtume susieti su tinkamu veiksmu.")}</p>
+            </div>
+            <button type="button" class="management-modal-close" data-management-modal-close aria-label="${diagnosticText("Close", "Uždaryti")}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+          </header>
+          <form class="management-modal-body action-completion-form" data-management-modal-form="action-completion">
+            <label class="action-completion-field">
+              <span>${diagnosticText("What did you do?", "Ką padarėte?")} *</span>
+              <select name="actionExecutionType" required>
+                <option value="">${diagnosticText("Select an action", "Pasirinkite veiksmą")}</option>
+                ${typeOptions}
+              </select>
+            </label>
+            <label class="action-completion-field">
+              <span>${diagnosticText("What exactly changed?", "Kas konkrečiai pakeista?")}</span>
+              <input name="actionExecutionAdjustment" maxlength="160" placeholder="${diagnosticText("Example: vents opened to 30%", "Pavyzdžiui: orlaidės atidarytos iki 30 %")}">
+            </label>
+            <label class="action-completion-field action-completion-duration">
+              <span>${diagnosticText("Planned duration", "Planuojama trukmė")}</span>
+              <span class="action-completion-duration-control"><input name="actionExecutionDuration" type="number" min="1" max="1440" inputmode="numeric" placeholder="60"><small>${diagnosticText("minutes", "minučių")}</small></span>
+            </label>
+            <label class="action-completion-field">
+              <span>${diagnosticText("Optional note", "Papildoma pastaba")}</span>
+              <textarea name="actionExecutionNote" maxlength="500" rows="3" placeholder="${diagnosticText("Anything the next shift should know", "Ką turėtų žinoti kita pamaina")}"></textarea>
+            </label>
+            <p class="management-modal-error" role="alert" hidden></p>
+            <footer class="action-completion-footer">
+              <button type="button" data-management-modal-close>${diagnosticText("Cancel", "Atšaukti")}</button>
+              <button type="submit" data-action-completion-save><i class="fa-solid fa-check" aria-hidden="true"></i>${diagnosticText("Save as done", "Išsaugoti kaip atliktą")}</button>
+            </footer>
+          </form>
+        </section>
+      `;
+      elements.managementModalOverlay.hidden = false;
+      elements.managementModalOverlay.querySelector('[name="actionExecutionType"]')?.focus();
+    }
+
+    async function submitActionCompletionModal() {
+      const action = managementModalState?.type === "action-completion" ? managementModalState.action : null;
+      const form = elements.managementModalOverlay.querySelector('[data-management-modal-form="action-completion"]');
+      if (!action || !(form instanceof HTMLFormElement)) return;
+      const formData = new FormData(form);
+      const type = String(formData.get("actionExecutionType") || "").trim();
+      const adjustment = String(formData.get("actionExecutionAdjustment") || "").trim();
+      const durationValue = String(formData.get("actionExecutionDuration") || "").trim();
+      const note = String(formData.get("actionExecutionNote") || "").trim();
+      if (!type) {
+        setManagementModalError(diagnosticText("Select what was actually done.", "Pasirinkite, kas realiai buvo padaryta."));
+        return;
+      }
+      if (type === "other" && !adjustment) {
+        setManagementModalError(diagnosticText("Briefly describe the other action.", "Trumpai aprašykite kitą atliktą veiksmą."));
+        return;
+      }
+
+      const saveButton = form.querySelector("[data-action-completion-save]");
+      if (saveButton instanceof HTMLButtonElement) saveButton.disabled = true;
+      setManagementModalError("");
+      const saved = await submitTodayPriorityFeedback("completed", action, {
+        note,
+        executionDetails: {
+          type,
+          adjustment,
+          durationMinutes: durationValue ? Number(durationValue) : null
+        }
+      });
+      if (saved) {
+        closeManagementModal();
+      } else {
+        setManagementModalError(todayPriorityFeedbackState.message || diagnosticText("Could not save the action.", "Veiksmo išsaugoti nepavyko."));
+        if (saveButton instanceof HTMLButtonElement) saveButton.disabled = false;
+      }
+    }
+
     function syncLocationUnassignedChoice() {
       const checkbox = elements.managementModalOverlay.querySelector('[name="modalLocationLeaveUnassigned"]');
       const select = elements.managementModalOverlay.querySelector('[name="modalLocationMoveTarget"]');
@@ -4406,7 +4523,7 @@
                     <span class="today-priority-history-copy">
                       <strong>${escapeHtml(item.title)}</strong>
                       <small>${escapeHtml(`${item.areaName || diagnosticText("Area", "Area")} · ${item.sectionName} · ${actor} · ${createdAt}`)}</small>
-                      <span class="today-priority-history-feedback" data-status="${escapeAttribute(presentation.status)}">${escapeHtml(`${diagnosticText("Recorded", "Užregistruota")}: ${presentation.feedbackLabel}`)}</span>
+                      <span class="today-priority-history-feedback" data-status="${escapeAttribute(presentation.status)}">${escapeHtml(`${diagnosticText("Recorded", "Užregistruota")}: ${presentation.feedbackSummary}`)}</span>
                     </span>
                     <span class="today-priority-history-outcome" data-outcome="${escapeAttribute(presentation.outcomeState)}">${escapeHtml(presentation.sensorLabel)}</span>
                   </article>
@@ -5154,10 +5271,10 @@
       scrollToSection(action.targetId || "metricsSection");
     }
 
-    async function submitTodayPriorityFeedback(status, selectedAction = null) {
+    async function submitTodayPriorityFeedback(status, selectedAction = null, options = {}) {
       const action = selectedAction || currentTodayPriorityAction?.backendAction;
-      if (!action || !window.NeuroCropApi?.submitTodayActionFeedback) return;
-      if (todayPriorityFeedbackState.actionId === action.id && todayPriorityFeedbackState.saving) return;
+      if (!action || !window.NeuroCropApi?.submitTodayActionFeedback) return false;
+      if (todayPriorityFeedbackState.actionId === action.id && todayPriorityFeedbackState.saving) return false;
 
       todayPriorityFeedbackState = {
         actionId: action.id,
@@ -5168,7 +5285,12 @@
       renderDashboard();
 
       try {
-        const response = await window.NeuroCropApi.submitTodayActionFeedback(action.id, { status, action });
+        const response = await window.NeuroCropApi.submitTodayActionFeedback(action.id, {
+          status,
+          action,
+          note: options.note || "",
+          ...(options.executionDetails ? { executionDetails: options.executionDetails } : {})
+        });
         backendTodayActions = (backendTodayActions || []).map((item) =>
           item.id === action.id ? { ...item, feedback: response.feedback } : item
         );
@@ -5188,6 +5310,8 @@
           error: false,
           message: diagnosticText(`${statusLabel} and saved to the activity history.`, `${statusLabel} ir išsaugota veiksmų istorijoje.`)
         };
+        renderDashboard();
+        return true;
       } catch (error) {
         todayPriorityFeedbackState = {
           actionId: action.id,
@@ -5195,8 +5319,19 @@
           error: true,
           message: error instanceof Error ? error.message : diagnosticText("Action status could not be saved.", "Veiksmo būsenos išsaugoti nepavyko.")
         };
+        renderDashboard();
+        return false;
       }
-      renderDashboard();
+    }
+
+    function requestTodayPriorityFeedback(status, selectedAction = null) {
+      const action = selectedAction || currentTodayPriorityAction?.backendAction;
+      if (!action) return;
+      if (status === "completed") {
+        openActionCompletionModal(action);
+        return;
+      }
+      submitTodayPriorityFeedback(status, action);
     }
 
     function buildActionDeck(options) {
@@ -12632,6 +12767,16 @@ function buildTrendMetricOptions(options) {
         not_improving: diagnosticText("Sensor does not confirm improvement yet", "Sensorius dar nepatvirtina gerėjimo"),
         not_applicable: diagnosticText("Sensor check is not applicable", "Sensoriaus patikra netaikoma")
       };
+      const executionDetails = item?.executionDetails;
+      const feedbackSummaryParts = [feedbackLabels[status]];
+      if (status === "completed" && executionDetails?.type) {
+        feedbackSummaryParts.push(getActionExecutionTypeLabel(executionDetails.type));
+        if (executionDetails.adjustment) feedbackSummaryParts.push(executionDetails.adjustment);
+        if (Number.isInteger(Number(executionDetails.durationMinutes)) && Number(executionDetails.durationMinutes) > 0) {
+          feedbackSummaryParts.push(`${Number(executionDetails.durationMinutes)} ${diagnosticText("min", "min.")}`);
+        }
+      }
+      const feedbackSummary = feedbackSummaryParts.filter(Boolean).join(" · ");
       let sensorLabel = outcomeLabels[outcomeState] || item?.outcome?.label || outcomeState;
       if (status === "deferred") {
         sensorLabel = diagnosticText("Not checked: action was deferred", "Netikrinta: veiksmas atidėtas");
@@ -12660,7 +12805,7 @@ function buildTrendMetricOptions(options) {
               : outcomeState === "not_improving"
                 ? "fa-triangle-exclamation"
                 : "fa-clock";
-      return { status, outcomeState, feedbackLabel: feedbackLabels[status], sensorLabel, icon };
+      return { status, outcomeState, feedbackSummary, sensorLabel, icon };
     }
 
     function renderTriageFeedbackControls(action) {
@@ -12708,7 +12853,7 @@ function buildTrendMetricOptions(options) {
                   <span class="triage-history-copy">
                     <strong>${escapeHtml(item.title)}</strong>
                     <small>${escapeHtml(`${item.areaName || diagnosticText("Area", "Area")} · ${item.sectionName} · ${actor} · ${createdAt}`)}</small>
-                    <span class="triage-history-feedback" data-status="${escapeAttribute(presentation.status)}">${escapeHtml(`${diagnosticText("Recorded", "Užregistruota")}: ${presentation.feedbackLabel}`)}</span>
+                    <span class="triage-history-feedback" data-status="${escapeAttribute(presentation.status)}">${escapeHtml(`${diagnosticText("Recorded", "Užregistruota")}: ${presentation.feedbackSummary}`)}</span>
                   </span>
                   <span class="triage-history-outcome" data-outcome="${escapeAttribute(presentation.outcomeState)}">${escapeHtml(presentation.sensorLabel)}</span>
                 </article>
@@ -15953,6 +16098,9 @@ function buildTrendMetricOptions(options) {
       if (form.dataset.managementModalForm === "node-register") {
         submitNodeForm();
       }
+      if (form.dataset.managementModalForm === "action-completion") {
+        submitActionCompletionModal();
+      }
     });
 
     elements.managementModalOverlay.addEventListener("input", (event) => {
@@ -16373,7 +16521,7 @@ function buildTrendMetricOptions(options) {
       const feedbackButton = event.target.closest("[data-triage-feedback]");
       if (feedbackButton) {
         const action = (backendTodayActions || []).find((item) => item.id === feedbackButton.dataset.actionId);
-        submitTodayPriorityFeedback(feedbackButton.dataset.triageFeedback, action);
+        requestTodayPriorityFeedback(feedbackButton.dataset.triageFeedback, action);
         return;
       }
 
@@ -16461,7 +16609,7 @@ function buildTrendMetricOptions(options) {
 
       const feedbackButton = event.target.closest("[data-today-feedback]");
       if (feedbackButton) {
-        submitTodayPriorityFeedback(feedbackButton.dataset.todayFeedback);
+        requestTodayPriorityFeedback(feedbackButton.dataset.todayFeedback);
         return;
       }
 

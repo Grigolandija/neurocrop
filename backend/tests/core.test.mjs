@@ -317,6 +317,9 @@ test('action feedback is tenant-scoped, role-protected and keeps an immutable sn
   assert.match(route, /req\.user\.id/);
   assert.match(route, /pg_advisory_xact_lock/);
   assert.match(route, /deduplicated: true/);
+  assert.match(route, /allowedExecutionTypes/);
+  assert.match(route, /status === 'completed'/);
+  assert.match(route, /execution_details/);
 });
 
 test('action history is tenant-scoped and verifies outcomes from section measurements', () => {

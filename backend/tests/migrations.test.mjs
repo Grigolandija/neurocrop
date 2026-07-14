@@ -50,3 +50,9 @@ test('DevEUI changes cascade to node history and sensor configuration', async ()
   assert.match(sql, /FOREIGN KEY \(dev_eui\) REFERENCES nodes\(dev_eui\) ON UPDATE CASCADE/);
   assert.match(sql, /FOREIGN KEY \(node_dev_eui\) REFERENCES nodes\(dev_eui\) ON UPDATE CASCADE ON DELETE CASCADE/);
 });
+
+test('completed actions can persist structured execution details', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0005_action_execution_details.sql', import.meta.url), 'utf8');
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS execution_details JSONB/);
+  assert.match(sql, /jsonb_typeof\(execution_details\) = 'object'/);
+});

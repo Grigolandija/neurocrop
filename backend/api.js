@@ -1036,6 +1036,7 @@ function publicActionFeedback(row) {
     actionId: row.action_id,
     status: row.status,
     note: row.note || '',
+    executionDetails: row.execution_details || null,
     createdBy: row.created_by || null,
     createdAt: row.created_at
   };
@@ -1136,7 +1137,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
     if (actionIds.length > 0) {
       const { rows } = await query(
         `SELECT DISTINCT ON (action_id)
-                id, action_id, status, note, created_by, created_at
+                id, action_id, status, note, execution_details, created_by, created_at
          FROM action_feedback
          WHERE organization_id=$1 AND action_id=ANY($2::text[])
          ORDER BY action_id, created_at DESC`,
@@ -1173,6 +1174,7 @@ app.post(
       const status = String(req.body?.status || '').trim();
       const note = String(req.body?.note || '').trim();
       const action = req.body?.action;
+      const requestedExecutionDetails = req.body?.executionDetails;
 
       if (!['completed', 'deferred', 'failed'].includes(status)) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unknown action feedback status' } });
@@ -1182,6 +1184,34 @@ app.post(
       }
       if (actionId.length > 240 || note.length > 500) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Action feedback is too long' } });
+      }
+
+      const allowedExecutionTypes = new Set([
+        'ventilation_increased', 'ventilation_reduced', 'vents_opened',
+        'heating_increased', 'heating_reduced', 'cooling_increased', 'cooling_reduced',
+        'humidification_increased', 'humidification_reduced', 'irrigation_adjusted',
+        'shading_adjusted', 'equipment_checked', 'other'
+      ]);
+      let executionDetails = null;
+      if (status === 'completed' && requestedExecutionDetails !== undefined && requestedExecutionDetails !== null) {
+        const type = String(requestedExecutionDetails?.type || '').trim();
+        const adjustment = String(requestedExecutionDetails?.adjustment || '').trim();
+        const durationValue = requestedExecutionDetails?.durationMinutes;
+        const durationMinutes = durationValue === '' || durationValue === null || durationValue === undefined
+          ? null
+          : Number(durationValue);
+        if (!allowedExecutionTypes.has(type)) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Select the action that was actually performed' } });
+        }
+        if (adjustment.length > 160 || (type === 'other' && !adjustment)) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Describe the performed action in 160 characters or less' } });
+        }
+        if (durationMinutes !== null && (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440)) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Action duration must be between 1 and 1440 minutes' } });
+        }
+        executionDetails = { type, adjustment, durationMinutes };
+      } else if (status !== 'completed' && requestedExecutionDetails !== undefined && requestedExecutionDetails !== null) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Execution details are only accepted for completed actions' } });
       }
 
       const section = await getSectionById(action.sectionId, organizationId);
@@ -1201,7 +1231,7 @@ app.post(
         [organizationId, `${actionId}|${observedAt}|${req.user.id}`]
       );
       const { rows: existingRows } = await client.query(
-        `SELECT id, action_id, status, note, created_by, created_at
+        `SELECT id, action_id, status, note, execution_details, created_by, created_at
          FROM action_feedback
          WHERE organization_id=$1 AND action_id=$2 AND status=$3 AND created_by=$4
            AND COALESCE(action_payload->>'observedAt', 'unknown')=$5
@@ -1217,12 +1247,12 @@ app.post(
       const { rows } = await client.query(
         `INSERT INTO action_feedback (
            id, organization_id, action_id, section_id, metric_id,
-           status, note, action_payload, created_by
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)
-         RETURNING id, action_id, status, note, created_by, created_at`,
+           status, note, execution_details, action_payload, created_by
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10)
+         RETURNING id, action_id, status, note, execution_details, created_by, created_at`,
         [
           randomUUID(), organizationId, actionId, section.id, action.metricId,
-          status, note, JSON.stringify(action), req.user.id
+          status, note, executionDetails ? JSON.stringify(executionDetails) : null, JSON.stringify(action), req.user.id
         ]
       );
       await client.query('COMMIT');
@@ -1249,7 +1279,7 @@ app.get('/actions/history', requireAuth, async (req, res) => {
          WHERE organization_id=$1
          ORDER BY action_id, COALESCE(action_payload->>'observedAt', 'unknown'), created_at DESC
        )
-       SELECT af.id, af.action_id, af.section_id, af.metric_id, af.status, af.note,
+       SELECT af.id, af.action_id, af.section_id, af.metric_id, af.status, af.note, af.execution_details,
               af.action_payload, af.created_by, af.created_at,
               s.name AS section_name, a.name AS area_name, u.display_name AS created_by_name
        FROM latest_feedback af
