@@ -7971,7 +7971,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         const site = dashboardData.sites.find((item) => item.id === target.value);
         nodeFormState.siteId = site?.id || "";
         nodeFormState.zoneId = site?.zones?.[0]?.id || "";
-        const form = target.closest('[data-management-form="node"]');
+        const form = target.closest('[data-management-modal-form="node-register"], [data-management-form="node"]');
         const sectionSelect = form?.querySelector('[name="nodeZoneId"]');
         if (sectionSelect instanceof HTMLSelectElement) {
           const sections = site?.zones || [];
