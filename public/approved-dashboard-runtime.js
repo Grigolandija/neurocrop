@@ -1488,11 +1488,6 @@
     }
 
     async function initializeLoginGate() {
-      if (["127.0.0.1", "localhost"].includes(window.location.hostname) && window.location.port === "4177") {
-        const session = persistLoginSession({ email: "preview@local.neurocrop", organizationId: "local-preview", isPlatformAdmin: false, isSuperAdmin: false });
-        setLoginState(session);
-        return;
-      }
       if (window.NeuroCropApi?.isConnected()) {
         try {
           const response = await window.NeuroCropApi.getCurrentUser();
@@ -3426,7 +3421,6 @@
     }
 
     function isApiDataMode() {
-      if (["127.0.0.1", "localhost"].includes(window.location.hostname) && window.location.port === "4177") return false;
       return Boolean(window.NeuroCropApi?.isConnected?.());
     }
 
