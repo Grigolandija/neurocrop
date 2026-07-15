@@ -12876,23 +12876,26 @@ function buildTrendMetricOptions(options) {
       unavailableCount,
       availableResults,
       growthResults,
+      siteSnapshots,
+      isSiteView,
       timestamp
     }) {
       const availableBackendActions = Array.isArray(backendTodayActions) ? backendTodayActions : [];
-      const backendPriorityAction = availableBackendActions.find((action) =>
-        action.sectionId === zone.id || allSystemIssues.some((snapshot) => snapshot.zone.id === action.sectionId)
-      ) || null;
+      const siteZoneIds = new Set((site?.zones || []).map((candidateZone) => candidateZone.id));
+      const scopedBackendActions = availableBackendActions.filter((action) =>
+        isSiteView ? siteZoneIds.has(action.sectionId) : action.sectionId === zone.id
+      );
+      const outsideScopeIssues = allSystemIssues.filter((snapshot) =>
+        isSiteView ? snapshot.site.id !== site.id : snapshot.zone.id !== zone.id
+      );
+      const backendPriorityAction = scopedBackendActions[0] || null;
       const backendPrioritySnapshot = backendPriorityAction
-        ? allSystemIssues.find((snapshot) => snapshot.zone.id === backendPriorityAction.sectionId)
+        ? siteSnapshots.find((snapshot) => snapshot.zone.id === backendPriorityAction.sectionId)
           || (backendPriorityAction.sectionId === zone.id ? { site, zone, profile, results, overall: displayedOverallState } : null)
         : null;
-      const prioritySnapshot = backendPrioritySnapshot || allSystemIssues[0] || {
-        site,
-        zone,
-        profile,
-        results,
-        overall: displayedOverallState
-      };
+      const selectedZoneSnapshot = { site, zone, profile, results, overall: displayedOverallState };
+      const sitePrioritySnapshot = allSystemIssues.find((snapshot) => snapshot.site.id === site.id) || selectedZoneSnapshot;
+      const prioritySnapshot = backendPrioritySnapshot || (isSiteView ? sitePrioritySnapshot : selectedZoneSnapshot);
       const priorityResult = backendPriorityAction
         ? {
             key: backendPriorityAction.metricId,
@@ -12902,28 +12905,25 @@ function buildTrendMetricOptions(options) {
             deviationText: backendPriorityAction.reason
           }
         : prioritySnapshot.results
-          .filter((result) => result.available !== false && isGrowthMetricKey(result.key))
+          .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
           .sort((left, right) => {
-            if (left.state !== "optimal" && right.state === "optimal") return -1;
-            if (left.state === "optimal" && right.state !== "optimal") return 1;
             return right.severity - left.severity;
           })[0] || null;
       const priorityDefinition = priorityResult
         ? prioritySnapshot.profile.metrics[priorityResult.key]
         : null;
-      const selectedPrimaryResult = results
-        .filter((result) => result.available !== false && isGrowthMetricKey(result.key))
+      const scoreScopeResults = isSiteView ? prioritySnapshot.results : results;
+      const selectedPrimaryResult = scoreScopeResults
+        .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
         .sort((left, right) => {
-          if (left.state !== "optimal" && right.state === "optimal") return -1;
-          if (left.state === "optimal" && right.state !== "optimal") return 1;
           return right.severity - left.severity;
         })[0] || null;
       const selectedPrimaryDefinition = selectedPrimaryResult
-        ? profile.metrics[selectedPrimaryResult.key]
+        ? (isSiteView ? prioritySnapshot.profile : profile).metrics[selectedPrimaryResult.key]
         : null;
       const priorityTitle = backendPriorityAction?.title || (priorityResult && priorityDefinition
         ? `${getDecisionVerb(priorityResult, priorityDefinition)} ${priorityDefinition.label.toLowerCase()}`
-        : "Keep monitoring current conditions");
+        : diagnosticText(`No action needed in ${prioritySnapshot.zone.name}`, `Sekcijoje „${prioritySnapshot.zone.name}“ veiksmų nereikia`));
       const actionGuidance = {
         humidity: "Check humidifier output and ventilation rate.",
         airTemp: "Review heating, cooling, and ventilation settings.",
@@ -13012,11 +13012,17 @@ function buildTrendMetricOptions(options) {
               label: "Open nodes"
             }
           : null,
-        allSystemIssues.length > 1
+        outsideScopeIssues.length > 0
           ? {
               tone: globalState,
-              title: `Compare ${allSystemIssues.length} affected sections`,
-              note: "Check whether the main issue is local or visible elsewhere in the system.",
+              title: diagnosticText(
+                `${outsideScopeIssues.length} other section${outsideScopeIssues.length === 1 ? "" : "s"} need attention`,
+                `${outsideScopeIssues.length} ${outsideScopeIssues.length === 1 ? "kitai sekcijai" : "kitoms sekcijoms"} reikia dėmesio`
+              ),
+              note: diagnosticText(
+                `These issues are outside the selected ${isSiteView ? "site" : "section"} and do not affect the score shown above.`,
+                `Šios problemos yra už pasirinkto ${isSiteView ? "objekto" : "sekcijos"} ribų ir neturi įtakos aukščiau rodomam balui.`
+              ),
               action: "alerts",
               label: "Review alerts"
             }
@@ -13031,12 +13037,13 @@ function buildTrendMetricOptions(options) {
             }
           : null
       ].filter(Boolean).slice(0, 3);
-      const backendActionQueue = availableBackendActions.map((action) => {
+      const backendActionQueue = scopedBackendActions.map((action) => {
         const targetSite = dashboardData.sites.find((candidate) => candidate.zones.some((candidateZone) => candidateZone.id === action.sectionId));
+        const targetZone = targetSite?.zones.find((candidateZone) => candidateZone.id === action.sectionId);
         return targetSite ? {
           tone: action.state,
           title: action.title,
-          note: action.reason,
+          note: `${targetSite.name} · ${targetZone?.name || action.sectionId}: ${action.reason}`,
           action: "trend",
           label: diagnosticText("View trend", "Peržiūrėti tendenciją"),
           metricKey: action.metricId,
@@ -13051,7 +13058,7 @@ function buildTrendMetricOptions(options) {
         <div class="triage-priority-score-grid">
           <article class="triage-priority-card" data-state="${escapeAttribute(hasUsableCurrentData ? priorityResult?.state || "optimal" : scoreCardState)}">
             <div class="triage-title-row">
-              <div class="triage-card-kicker">Today’s priority</div>
+              <div class="triage-card-kicker">${diagnosticText(isSiteView ? "Selected site priority" : "Selected section priority", isSiteView ? "Pasirinkto objekto prioritetas" : "Pasirinktos sekcijos prioritetas")}</div>
               <span class="overview-data-status" data-freshness="${escapeAttribute(farmState.dataStatus)}">
                 <i class="fa-solid ${farmState.dataStatus === "live" ? "fa-signal" : farmState.dataStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
                 ${escapeHtml(dataStatusLabel)} · ${nodeSummary.live}/${farmState.coverage.registeredNodes} nodes
@@ -14462,6 +14469,8 @@ function buildTrendMetricOptions(options) {
         unavailableCount,
         availableResults,
         growthResults,
+        siteSnapshots,
+        isSiteView,
         timestamp
       });
       const detailedSnapshot = isSiteView && weakestSiteSnapshot
