@@ -13072,38 +13072,36 @@ function buildTrendMetricOptions(options) {
               </span>
               <span class="overview-area-score" data-state="${escapeAttribute(areaSummary.state)}"><b>${escapeHtml(areaSummary.score)}</b><small>${escapeHtml(areaSummary.label)}</small></span>
             </button>
-            <div class="overview-section-mini-list">
-              ${areaSnapshots.map((snapshot) => {
-                const hasLiveData = snapshotHasLiveGrowthData(snapshot);
-                const sectionScore = getContextScoreSummary(hasLiveData ? snapshot.overall : null);
-                const primaryIssue = snapshot.results
-                  .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
-                  .sort((left, right) => right.severity - left.severity)[0] || null;
-                const issueDefinition = primaryIssue ? snapshot.profile.metrics[primaryIssue.key] : null;
-                const farmState = getZoneFarmState(snapshot.site, snapshot.zone, snapshot.results);
-                const conditionText = !hasLiveData
-                  ? diagnosticText("Waiting for sensor data", "Laukiama sensorių duomenų")
-                  : primaryIssue && issueDefinition
-                    ? `${issueDefinition.label}: ${primaryIssue.deviationText}`
-                    : diagnosticText("All configured targets met", "Visi nustatyti tikslai pasiekti");
-                return `
-                  <button type="button" class="overview-section-mini" data-overview-section-card data-site-id="${escapeAttribute(area.id)}" data-zone-id="${escapeAttribute(snapshot.zone.id)}" data-state="${escapeAttribute(sectionScore.state)}" data-selected="${snapshot.zone.id === zone.id && area.id === site.id}">
-                    <span class="overview-section-mini-main">
-                      <span class="overview-section-state-dot" aria-hidden="true"></span>
-                      <span><strong>${escapeHtml(snapshot.zone.name)}</strong><small>${escapeHtml(conditionText)}</small></span>
-                    </span>
-                    <span class="overview-section-mini-status">
-                      <b>${escapeHtml(sectionScore.score)}</b>
-                      <small data-freshness="${escapeAttribute(farmState.dataStatus)}">${escapeHtml(getFreshnessLabel(farmState.dataStatus))}</small>
-                    </span>
-                  </button>
-                `;
-              }).join("") || `<p class="overview-area-empty">${diagnosticText("No sections configured", "Sekcijų nėra")}</p>`}
-            </div>
             <footer><span>${liveCount}/${areaSnapshots.length} ${diagnosticText("sections reporting", "sekcijų siunčia duomenis")}</span></footer>
           </article>
         `;
       }).join("");
+      const overviewSectionCards = siteSnapshots.map((snapshot) => {
+        const hasLiveData = snapshotHasLiveGrowthData(snapshot);
+        const sectionScore = getContextScoreSummary(hasLiveData ? snapshot.overall : null);
+        const primaryIssue = snapshot.results
+          .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
+          .sort((left, right) => right.severity - left.severity)[0] || null;
+        const issueDefinition = primaryIssue ? snapshot.profile.metrics[primaryIssue.key] : null;
+        const sectionFarmState = getZoneFarmState(snapshot.site, snapshot.zone, snapshot.results);
+        const conditionText = !hasLiveData
+          ? diagnosticText("Waiting for sensor data", "Laukiama sensorių duomenų")
+          : primaryIssue && issueDefinition
+            ? `${issueDefinition.label}: ${primaryIssue.deviationText}`
+            : diagnosticText("All configured targets met", "Visi nustatyti tikslai pasiekti");
+        return `
+          <button type="button" class="overview-section-mini" data-overview-section-card data-site-id="${escapeAttribute(site.id)}" data-zone-id="${escapeAttribute(snapshot.zone.id)}" data-state="${escapeAttribute(sectionScore.state)}" data-selected="${snapshot.zone.id === zone.id}">
+            <span class="overview-section-mini-main">
+              <span class="overview-section-state-dot" aria-hidden="true"></span>
+              <span><strong>${escapeHtml(snapshot.zone.name)}</strong><small>${escapeHtml(conditionText)}</small></span>
+            </span>
+            <span class="overview-section-mini-status">
+              <b>${escapeHtml(sectionScore.score)}</b>
+              <small data-freshness="${escapeAttribute(sectionFarmState.dataStatus)}">${escapeHtml(getFreshnessLabel(sectionFarmState.dataStatus))}</small>
+            </span>
+          </button>
+        `;
+      }).join("") || `<p class="overview-area-empty">${diagnosticText("No sections configured", "Sekcijų nėra")}</p>`;
       const totalSections = globalSnapshots.length;
       const totalAttention = globalSnapshots.filter((snapshot) => snapshotHasLiveGrowthData(snapshot) && snapshot.overall.state !== "optimal").length;
 
@@ -13118,6 +13116,10 @@ function buildTrendMetricOptions(options) {
             ))}</span>
           </header>
           <div class="overview-area-card-grid">${overviewAreaCards}</div>
+          <section class="overview-selected-area-sections" aria-label="${escapeAttribute(diagnosticText(`${site.name} sections`, `Objekto „${site.name}“ sekcijos`))}">
+            <header><div><small>${diagnosticText("Selected area", "Pasirinktas objektas")}</small><strong>${escapeHtml(site.name)}</strong></div><span>${siteSnapshots.length} ${diagnosticText(siteSnapshots.length === 1 ? "section" : "sections", siteSnapshots.length === 1 ? "sekcija" : "sekcijos")}</span></header>
+            <div class="overview-section-mini-list">${overviewSectionCards}</div>
+          </section>
         </section>
 
         <div class="triage-priority-score-grid">

@@ -12767,12 +12767,16 @@
     }
 
     .overview-area-card-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr));
+      display: flex;
       gap: 0.7rem;
+      overflow-x: auto;
+      padding: 0.1rem 0.1rem 0.55rem;
+      scrollbar-color: rgba(47, 106, 79, 0.28) transparent;
+      scrollbar-width: thin;
     }
 
     .overview-area-card {
+      flex: 0 0 220px;
       overflow: hidden;
       border: 1px solid rgba(20, 32, 27, 0.09);
       border-top: 3px solid #4c8b70;
@@ -12863,8 +12867,9 @@
 
     .overview-section-mini-list {
       display: grid;
-      gap: 1px;
-      background: rgba(20, 32, 27, 0.07);
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+      gap: 0.45rem;
+      background: transparent;
     }
 
     .overview-section-mini {
@@ -12872,7 +12877,8 @@
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 0.55rem;
-      border: 0;
+      border: 1px solid rgba(20, 32, 27, 0.08);
+      border-radius: 13px;
       background: #fff;
       padding: 0.57rem 0.68rem;
       color: inherit;
@@ -12971,6 +12977,46 @@
       color: rgba(20, 32, 27, 0.46);
       font-size: 0.57rem;
       font-weight: 700;
+    }
+
+    .overview-selected-area-sections {
+      margin-top: 0.75rem;
+      border-top: 1px solid rgba(20, 32, 27, 0.08);
+      padding-top: 0.75rem;
+    }
+
+    .overview-selected-area-sections > header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.55rem;
+      padding-inline: 0.1rem;
+    }
+
+    .overview-selected-area-sections > header > div {
+      display: flex;
+      align-items: baseline;
+      gap: 0.45rem;
+    }
+
+    .overview-selected-area-sections > header small {
+      color: rgba(20, 32, 27, 0.45);
+      font-size: 0.58rem;
+      font-weight: 850;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .overview-selected-area-sections > header strong {
+      color: #14201b;
+      font-size: 0.78rem;
+    }
+
+    .overview-selected-area-sections > header > span {
+      color: rgba(20, 32, 27, 0.48);
+      font-size: 0.62rem;
+      font-weight: 750;
     }
 
     .overview-area-empty {
@@ -13574,6 +13620,8 @@
       .overview-growing-map { padding: 0.75rem; border-radius: 20px; }
       .overview-growing-map-head { align-items: flex-start; flex-direction: column; }
       .overview-growing-map-summary { white-space: normal; }
+      .overview-area-card { flex-basis: 190px; }
+      .overview-selected-area-sections > header { align-items: flex-start; flex-direction: column; }
       .triage-section-heading {
         align-items: flex-start;
         flex-direction: column;
