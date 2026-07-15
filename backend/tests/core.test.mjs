@@ -117,7 +117,7 @@ test('score crosses the optimal boundary smoothly without a warning cliff', () =
   const scores = values.map((vpd) => buildScoreFromMetricValues({ airTemp: 24, humidity: 65, vpd }, profile).score);
   const rules = buildScoreRules(profile);
 
-  assert.deepEqual(scores, [100, 99, 99, 97, 92, 83]);
+  assert.deepEqual(scores, [100, 99, 99, 99, 97, 94]);
   assert.equal(evaluateMetricValue('vpd', 1.2, rules).severity, 0);
   assert.ok(evaluateMetricValue('vpd', 1.201, rules).severity < 0.001);
   assert.ok(scores.every((score, index) => index === 0 || score <= scores[index - 1]));
@@ -153,7 +153,34 @@ test('agronomic domains give climate and root water more impact than instantaneo
   assert.ok(climateStress.score < carbonStress.score);
   assert.ok(rootWaterStress.score < carbonStress.score);
   assert.equal(climateStress.mainDriver, 'vpd');
-  assert.equal(climateStress.scoreModelVersion, '2.0.0');
+  assert.equal(climateStress.scoreModelVersion, '2.1.0');
+});
+
+test('adding an optimal CO2 sensor does not change a climate-only section score', () => {
+  const profile = {
+    airTemp: { optimal: [19, 21] },
+    humidity: { optimal: [50, 70] },
+    vpd: { optimal: [0.5, 0.8] },
+    co2: { optimal: [350, 2000] }
+  };
+  const climateValues = { airTemp: 19.8, humidity: 54.2, vpd: 1.05 };
+  const withoutCo2 = buildScoreFromMetricValues(climateValues, profile);
+  const withOptimalCo2 = buildScoreFromMetricValues({ ...climateValues, co2: 581 }, profile);
+
+  assert.equal(withOptimalCo2.score, withoutCo2.score);
+  assert.equal(withOptimalCo2.conditionStatus, withoutCo2.conditionStatus);
+  assert.equal(withOptimalCo2.mainDriver, withoutCo2.mainDriver);
+});
+
+test('instantaneous CO2 cannot create a disproportionate limiting-factor penalty', () => {
+  const optimalClimate = { airTemp: 24, humidity: 65, vpd: 1 };
+  const baseline = buildScoreFromMetricValues(optimalClimate);
+  const extremeCo2 = buildScoreFromMetricValues({ ...optimalClimate, co2: 2500 });
+
+  assert.equal(baseline.score, 100);
+  assert.ok(extremeCo2.score >= 90);
+  assert.ok(baseline.score - extremeCo2.score <= 10);
+  assert.equal(extremeCo2.mainDriver, 'co2');
 });
 
 test('correlated climate readings share one score domain', () => {

@@ -6,12 +6,13 @@ The score describes current measured growing conditions on a 0-100 scale. It
 is not a yield prediction. `conditionStatus`, data freshness and measurement
 coverage remain separate signals and must be shown next to the score.
 
-Model version: `2.0.0`.
+Model version: `2.1.0`.
 
 ## Agronomic domains
 
 Default domain weights are product calibration defaults, not universal crop
-constants. Available domains are normalized before aggregation.
+constants. Domain weights remain absolute when some sensors are not installed;
+measurement coverage is reported separately.
 
 | Domain | Weight | Metrics | Rationale |
 | --- | ---: | --- | --- |
@@ -51,11 +52,17 @@ Within a domain, 70% of severity comes from the strongest deviation and 30%
 from the metric-weighted domain mean. This preserves a limiting-factor signal
 without counting correlated readings repeatedly.
 
-The cross-domain score starts with the weighted mean. A nonlinear limiting
-factor penalty activates only after domain severity exceeds `0.25` and can add
-at most 30% of remaining risk. Small warning deviations therefore cannot
-trigger the old 30-40 point cliff, while severe single-factor stress still has
-material impact.
+The cross-domain score starts with the sum of absolute weighted domain risks.
+Missing domains do not increase the relative weight of installed sensors, and
+adding an optimal sensor therefore cannot change the numerical score. Data
+coverage remains the separate indication of how complete that score is.
+
+A nonlinear limiting-factor penalty activates only after domain severity
+exceeds `0.25`. Its maximum is domain-specific: climate `18%`, root water
+`20%`, nutrition `12%`, plant/root temperature `7%`, and instantaneous CO2
+`2%` of remaining risk. This preserves a strong response to severe water or
+climate stress without allowing an 8%-weight CO2 sensor to create a 30-point
+extra penalty.
 
 Warning deviations below severity `0.05` remain visible in monitoring but do
 not create a Today's Priority action. Critical deviations always remain
@@ -86,4 +93,7 @@ stage, intervention and yield data rather than presented as universal biology.
   lower the score below 95.
 - VPD, temperature and RH must produce one climate-domain penalty.
 - Context-only metrics must never change the numerical score.
+- Adding an optimal measured domain must never change the numerical score.
+- An extreme instantaneous CO2 reading must not reduce the score by more than
+  10 points when all other measured domains are optimal.
 - Historical and current endpoints must use the same model version.

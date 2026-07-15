@@ -80,7 +80,7 @@ Minimalus dabartinio dashboard naudojamas pereinamasis atsakymas:
           "name": "Tomato Block A, Rear",
           "profile": "tomato",
           "score": 65,
-          "scoreModelVersion": "2.0.0",
+          "scoreModelVersion": "2.1.0",
           "conditionStatus": "warning",
           "mainDriver": "humidity",
           "computedAt": "2026-07-03T10:00:00Z",
@@ -118,7 +118,7 @@ Minimalus dabartinio dashboard naudojamas pereinamasis atsakymas:
 naudoja kaip pagrindinį Growing Conditions Score ir būsenos šaltinį. Jeigu šių
 laukų nėra, frontend laikinai perskaičiuoja būseną pats iš naujausių rodmenų.
 
-Kanoninis `scoreModelVersion: "2.0.0"` naudoja tęstinę nuokrypio kreivę be
+Kanoninis `scoreModelVersion: "2.1.0"` naudoja tęstinę nuokrypio kreivę be
 šuolio ties optimalia riba, agronominių domenų svorius ir bendrą VPD / oro
 temperatūros / RH klimato grupę. Pilna formulės specifikacija yra
 `backend/SCORING_MODEL.md`.

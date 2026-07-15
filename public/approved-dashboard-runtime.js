@@ -10136,11 +10136,11 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const evaluationByMetric = new Map(activeResults.map((item) => [item.key, item]));
       const resultByMetric = new Map(results.map((item) => [item.key, item]));
       const scoringGroups = [
-        { id: "climate", weight: 0.35, metrics: { vpd: 0.45, airTemp: 0.4, humidity: 0.15 } },
-        { id: "root_water", weight: 0.25, metrics: { soilMoisture: 1 } },
-        { id: "nutrition", weight: 0.2, metrics: { ec: 0.4, ph: 0.4, soilEc: 0.2 } },
-        { id: "plant_temperature", weight: 0.12, metrics: { leafTemp: 0.45, soilTemp: 0.35, waterTemp: 0.2 } },
-        { id: "carbon", weight: 0.08, metrics: { co2: 1 } }
+        { id: "climate", weight: 0.35, limitingCap: 0.18, metrics: { vpd: 0.45, airTemp: 0.4, humidity: 0.15 } },
+        { id: "root_water", weight: 0.25, limitingCap: 0.2, metrics: { soilMoisture: 1 } },
+        { id: "nutrition", weight: 0.2, limitingCap: 0.12, metrics: { ec: 0.4, ph: 0.4, soilEc: 0.2 } },
+        { id: "plant_temperature", weight: 0.12, limitingCap: 0.07, metrics: { leafTemp: 0.45, soilTemp: 0.35, waterTemp: 0.2 } },
+        { id: "carbon", weight: 0.08, limitingCap: 0.02, metrics: { co2: 1 } }
       ];
       const scoreGroups = scoringGroups.map((group) => {
         const configuredMetricWeights = Object.entries(group.metrics).map(([key, agronomicWeight]) => {
@@ -10172,6 +10172,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         return {
           id: group.id,
           weight: group.weight * profileScale,
+          limitingCap: group.limitingCap * profileScale,
           severity: clamp(driver.severity * 0.7 + weightedMeanSeverity * 0.3, 0, 1),
           state: members.some((member) => member.state === "critical")
             ? "critical"
@@ -10190,15 +10191,24 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           riskScore: 0,
           indexScore: null,
           source: "frontend-fallback",
-          scoreModelVersion: "2.0.0"
+          scoreModelVersion: "2.1.0"
         };
       }
 
-      const totalWeight = scoreGroups.reduce((sum, group) => sum + group.weight, 0);
-      const averageSeverity = scoreGroups.reduce((sum, group) => sum + group.severity * group.weight, 0) / totalWeight;
+      const baseRisk = scoreGroups.reduce((sum, group) => sum + group.severity * group.weight, 0);
       const worstGroup = [...scoreGroups].sort((left, right) => right.severity - left.severity)[0];
       const limitingFactorActivation = smoothScoreProgress((worstGroup.severity - 0.25) / 0.75);
-      const risk = clamp(averageSeverity + (1 - averageSeverity) * 0.3 * limitingFactorActivation, 0, 1);
+      const limitingFactorPenalty = (1 - clamp(baseRisk, 0, 1))
+        * worstGroup.limitingCap
+        * limitingFactorActivation;
+      const risk = clamp(baseRisk + limitingFactorPenalty, 0, 1);
+      const scoreGroupsWithImpact = scoreGroups.map((group) => ({
+        ...group,
+        scoreImpact: group.severity * group.weight
+          + (group.id === worstGroup.id ? limitingFactorPenalty : 0)
+      }));
+      const mainImpactGroup = [...scoreGroupsWithImpact]
+        .sort((left, right) => right.scoreImpact - left.scoreImpact)[0];
       const criticalCount = scoreGroups.filter((group) => group.state === "critical").length;
       const warningCount = scoreGroups.filter((group) => group.state === "warning").length;
       const state = criticalCount > 0 ? "critical" : warningCount > 0 ? "warning" : "optimal";
@@ -10213,9 +10223,9 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         stableCount: scoreGroups.length - warningCount - criticalCount,
         riskScore,
         indexScore,
-        mainDriver: state === "optimal" ? null : worstGroup.mainDriver,
+        mainDriver: state === "optimal" ? null : mainImpactGroup.mainDriver,
         source: "frontend-fallback",
-        scoreModelVersion: "2.0.0"
+        scoreModelVersion: "2.1.0"
       };
     }
 

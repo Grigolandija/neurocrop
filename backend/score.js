@@ -135,7 +135,7 @@ export function statusFromMeasurementTime(time, now = Date.now(), expectedInterv
   return 'offline';
 }
 
-export const SCORE_MODEL_VERSION = '2.0.0';
+export const SCORE_MODEL_VERSION = '2.1.0';
 const WARNING_EDGE_SEVERITY = 0.2;
 const CRITICAL_EDGE_SEVERITY = 0.65;
 
@@ -255,13 +255,13 @@ export function buildCurrentMetricEvaluations(nodeRows, measurements, profileMet
 const SCORE_GROUPS = [
   // VPD is derived from temperature and RH, so these correlated readings share
   // one domain instead of being counted as three independent stresses.
-  { id: 'climate', weight: 0.35, metrics: { vpd: 0.45, airTemp: 0.4, humidity: 0.15 } },
-  { id: 'root_water', weight: 0.25, metrics: { soilMoisture: 1 } },
-  { id: 'nutrition', weight: 0.2, metrics: { ec: 0.4, ph: 0.4, soilEc: 0.2 } },
-  { id: 'plant_temperature', weight: 0.12, metrics: { leafTemp: 0.45, soilTemp: 0.35, waterTemp: 0.2 } },
+  { id: 'climate', weight: 0.35, limitingCap: 0.18, metrics: { vpd: 0.45, airTemp: 0.4, humidity: 0.15 } },
+  { id: 'root_water', weight: 0.25, limitingCap: 0.2, metrics: { soilMoisture: 1 } },
+  { id: 'nutrition', weight: 0.2, limitingCap: 0.12, metrics: { ec: 0.4, ph: 0.4, soilEc: 0.2 } },
+  { id: 'plant_temperature', weight: 0.12, limitingCap: 0.07, metrics: { leafTemp: 0.45, soilTemp: 0.35, waterTemp: 0.2 } },
   // Instantaneous CO2 is contextual and receives less weight until the score is
   // photoperiod-aware. Light itself is evaluated through 24 h photoperiod/DLI.
-  { id: 'carbon', weight: 0.08, metrics: { co2: 1 } }
+  { id: 'carbon', weight: 0.08, limitingCap: 0.02, metrics: { co2: 1 } }
 ];
 
 function deriveScoreFromEvaluations(evaluations, scoreRules) {
@@ -307,6 +307,7 @@ function deriveScoreFromEvaluations(evaluations, scoreRules) {
       return {
         id: group.id,
         weight: group.weight * profileScale,
+        limitingCap: group.limitingCap * profileScale,
         severity: clamp01(severity),
         state: members.some((member) => member.state === 'critical')
           ? 'critical'
@@ -329,12 +330,23 @@ function deriveScoreFromEvaluations(evaluations, scoreRules) {
     };
   }
 
-  const totalWeight = groups.reduce((sum, group) => sum + group.weight, 0);
-  const averageSeverity = groups.reduce((sum, group) => sum + group.severity * group.weight, 0) / totalWeight;
+  // Domain weights remain absolute. Missing sensors are reflected in coverage,
+  // not by inflating the weights of whichever sensors happen to be installed.
+  // As a result, adding an optimal sensor cannot change the numerical score.
+  const baseRisk = groups.reduce((sum, group) => sum + group.severity * group.weight, 0);
   const worstGroup = [...groups].sort((left, right) => right.severity - left.severity)[0];
   const limitingFactorActivation = smoothstep((worstGroup.severity - 0.25) / 0.75);
-  const limitingFactorPenalty = (1 - averageSeverity) * 0.3 * limitingFactorActivation;
-  const risk = clamp01(averageSeverity + limitingFactorPenalty);
+  const limitingFactorPenalty = (1 - clamp01(baseRisk))
+    * worstGroup.limitingCap
+    * limitingFactorActivation;
+  const risk = clamp01(baseRisk + limitingFactorPenalty);
+  const groupsWithImpact = groups.map((group) => ({
+    ...group,
+    scoreImpact: group.severity * group.weight
+      + (group.id === worstGroup.id ? limitingFactorPenalty : 0)
+  }));
+  const mainImpactGroup = [...groupsWithImpact]
+    .sort((left, right) => right.scoreImpact - left.scoreImpact)[0];
   const conditionStatus = groups.some((group) => group.state === 'critical')
     ? 'critical'
     : groups.some((group) => group.state === 'warning')
@@ -346,8 +358,8 @@ function deriveScoreFromEvaluations(evaluations, scoreRules) {
   return {
     score,
     conditionStatus,
-    mainDriver: conditionStatus === 'optimal' ? null : worstGroup.mainDriver,
-    scoreGroups: groups,
+    mainDriver: conditionStatus === 'optimal' ? null : mainImpactGroup.mainDriver,
+    scoreGroups: groupsWithImpact,
     scoreModelVersion: SCORE_MODEL_VERSION
   };
 }
