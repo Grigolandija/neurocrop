@@ -12877,6 +12877,7 @@ function buildTrendMetricOptions(options) {
       availableResults,
       growthResults,
       siteSnapshots,
+      globalSnapshots,
       isSiteView,
       timestamp
     }) {
@@ -13052,9 +13053,73 @@ function buildTrendMetricOptions(options) {
         } : null;
       }).filter(Boolean).slice(0, 3);
       const actionQueue = backendActionQueue.length > 0 ? backendActionQueue : localActionQueue;
+      const overviewAreaCards = dashboardData.sites.map((area) => {
+        const areaSnapshots = globalSnapshots.filter((snapshot) => snapshot.site.id === area.id);
+        const areaOverall = deriveSiteOverallState(areaSnapshots);
+        const areaSummary = getContextScoreSummary(areaOverall);
+        const attentionCount = areaSnapshots.filter((snapshot) => snapshotHasLiveGrowthData(snapshot) && snapshot.overall.state !== "optimal").length;
+        const liveCount = areaSnapshots.filter(snapshotHasLiveGrowthData).length;
+        return `
+          <article class="overview-area-card" data-state="${escapeAttribute(areaSummary.state)}" data-selected="${area.id === site.id}">
+            <button type="button" class="overview-area-card-head" data-overview-area-card="${escapeAttribute(area.id)}" aria-label="${escapeAttribute(diagnosticText(`Open ${area.name} overview`, `Atidaryti objekto „${area.name}“ apžvalgą`))}">
+              <span>
+                <small>${diagnosticText("Area", "Objektas")}</small>
+                <strong>${escapeHtml(area.name)}</strong>
+                <em>${escapeHtml(diagnosticText(
+                  `${areaSnapshots.length} section${areaSnapshots.length === 1 ? "" : "s"} · ${attentionCount > 0 ? `${attentionCount} need attention` : "all stable"}`,
+                  `${areaSnapshots.length} ${areaSnapshots.length === 1 ? "sekcija" : "sekcijos"} · ${attentionCount > 0 ? `${attentionCount} reikia dėmesio` : "viskas stabilu"}`
+                ))}</em>
+              </span>
+              <span class="overview-area-score" data-state="${escapeAttribute(areaSummary.state)}"><b>${escapeHtml(areaSummary.score)}</b><small>${escapeHtml(areaSummary.label)}</small></span>
+            </button>
+            <div class="overview-section-mini-list">
+              ${areaSnapshots.map((snapshot) => {
+                const hasLiveData = snapshotHasLiveGrowthData(snapshot);
+                const sectionScore = getContextScoreSummary(hasLiveData ? snapshot.overall : null);
+                const primaryIssue = snapshot.results
+                  .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
+                  .sort((left, right) => right.severity - left.severity)[0] || null;
+                const issueDefinition = primaryIssue ? snapshot.profile.metrics[primaryIssue.key] : null;
+                const farmState = getZoneFarmState(snapshot.site, snapshot.zone, snapshot.results);
+                const conditionText = !hasLiveData
+                  ? diagnosticText("Waiting for sensor data", "Laukiama sensorių duomenų")
+                  : primaryIssue && issueDefinition
+                    ? `${issueDefinition.label}: ${primaryIssue.deviationText}`
+                    : diagnosticText("All configured targets met", "Visi nustatyti tikslai pasiekti");
+                return `
+                  <button type="button" class="overview-section-mini" data-overview-section-card data-site-id="${escapeAttribute(area.id)}" data-zone-id="${escapeAttribute(snapshot.zone.id)}" data-state="${escapeAttribute(sectionScore.state)}" data-selected="${snapshot.zone.id === zone.id && area.id === site.id}">
+                    <span class="overview-section-mini-main">
+                      <span class="overview-section-state-dot" aria-hidden="true"></span>
+                      <span><strong>${escapeHtml(snapshot.zone.name)}</strong><small>${escapeHtml(conditionText)}</small></span>
+                    </span>
+                    <span class="overview-section-mini-status">
+                      <b>${escapeHtml(sectionScore.score)}</b>
+                      <small data-freshness="${escapeAttribute(farmState.dataStatus)}">${escapeHtml(getFreshnessLabel(farmState.dataStatus))}</small>
+                    </span>
+                  </button>
+                `;
+              }).join("") || `<p class="overview-area-empty">${diagnosticText("No sections configured", "Sekcijų nėra")}</p>`}
+            </div>
+            <footer><span>${liveCount}/${areaSnapshots.length} ${diagnosticText("sections reporting", "sekcijų siunčia duomenis")}</span></footer>
+          </article>
+        `;
+      }).join("");
+      const totalSections = globalSnapshots.length;
+      const totalAttention = globalSnapshots.filter((snapshot) => snapshotHasLiveGrowthData(snapshot) && snapshot.overall.state !== "optimal").length;
 
       elements.overviewTriageSection.dataset.state = scoreCardState;
       elements.overviewTriageSection.innerHTML = `
+        <section class="overview-growing-map" aria-labelledby="overviewGrowingMapTitle">
+          <header class="overview-growing-map-head">
+            <div><span class="triage-eyebrow">${diagnosticText("Farm at a glance", "Ūkis vienu žvilgsniu")}</span><h2 id="overviewGrowingMapTitle">${diagnosticText("Growing overview", "Auginimo apžvalga")}</h2></div>
+            <span class="overview-growing-map-summary" data-state="${escapeAttribute(totalAttention > 0 ? globalState : "optimal")}">${escapeHtml(diagnosticText(
+              `${dashboardData.sites.length} areas · ${totalSections} sections · ${totalAttention > 0 ? `${totalAttention} need attention` : "all stable"}`,
+              `${dashboardData.sites.length} objektai · ${totalSections} sekcijos · ${totalAttention > 0 ? `${totalAttention} reikia dėmesio` : "viskas stabilu"}`
+            ))}</span>
+          </header>
+          <div class="overview-area-card-grid">${overviewAreaCards}</div>
+        </section>
+
         <div class="triage-priority-score-grid">
           <article class="triage-priority-card" data-state="${escapeAttribute(hasUsableCurrentData ? priorityResult?.state || "optimal" : scoreCardState)}">
             <div class="triage-title-row">
@@ -14470,6 +14535,7 @@ function buildTrendMetricOptions(options) {
         availableResults,
         growthResults,
         siteSnapshots,
+        globalSnapshots,
         isSiteView,
         timestamp
       });
@@ -16527,6 +16593,40 @@ function buildTrendMetricOptions(options) {
     });
 
     elements.overviewTriageSection.addEventListener("click", (event) => {
+      const sectionCard = event.target.closest("[data-overview-section-card]");
+      if (sectionCard) {
+        activePrimaryPage = "overview";
+        sidebarActionOverride = null;
+        activeSiteId = sectionCard.dataset.siteId;
+        activeZoneId = sectionCard.dataset.zoneId;
+        activeViewScope = "zone";
+        normalizeActiveSelection();
+        persistActiveContext();
+        resetTrendSelectionForContextChange();
+        renderSiteOptions();
+        renderZoneOptions();
+        resetCurrentReadingsFromActiveZone();
+        renderDashboard();
+        syncTopLevelRoute("/");
+        return;
+      }
+
+      const areaCard = event.target.closest("[data-overview-area-card]");
+      if (areaCard) {
+        activePrimaryPage = "overview";
+        sidebarActionOverride = null;
+        activeSiteId = areaCard.dataset.overviewAreaCard;
+        activeViewScope = "site";
+        normalizeActiveSelection({ preferCurrentZone: false });
+        persistActiveContext();
+        renderSiteOptions();
+        renderZoneOptions();
+        resetCurrentReadingsFromActiveZone();
+        renderDashboard();
+        syncTopLevelRoute("/");
+        return;
+      }
+
       const feedbackButton = event.target.closest("[data-triage-feedback]");
       if (feedbackButton) {
         const action = (backendTodayActions || []).find((item) => item.id === feedbackButton.dataset.actionId);
