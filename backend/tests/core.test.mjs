@@ -89,6 +89,8 @@ test('profile metric validation rejects malformed and reversed bands', () => {
   assert.equal(validateCropProfileMetrics({ airTemp: { optimal: [18, 24] } }), null);
   assert.match(validateCropProfileMetrics({ airTemp: { optimal: [24, 18] } }), /increasing/);
   assert.match(validateCropProfileMetrics({ airTemp: { optimal: ['x', 24] } }), /increasing/);
+  assert.equal(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: 1.5 } }), null);
+  assert.match(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: 4 } }), /between 0 and 3/);
 });
 
 test('lighting schedules are validated without exposing hardware assumptions', () => {
@@ -103,6 +105,69 @@ test('score rules use saved optimal ranges and automatic alert bands', () => {
   assert.deepEqual(rules.airTemp.critical, [14, 26]);
   assert.equal(evaluateMetricValue('airTemp', 23, rules).state, 'warning');
   assert.equal(evaluateMetricValue('airTemp', 27, rules).state, 'critical');
+});
+
+test('score crosses the optimal boundary smoothly without a warning cliff', () => {
+  const profile = {
+    airTemp: { optimal: [22, 26] },
+    humidity: { optimal: [60, 70] },
+    vpd: { optimal: [0.8, 1.2] }
+  };
+  const values = [1.2, 1.201, 1.21, 1.25, 1.3, 1.4];
+  const scores = values.map((vpd) => buildScoreFromMetricValues({ airTemp: 24, humidity: 65, vpd }, profile).score);
+  const rules = buildScoreRules(profile);
+
+  assert.deepEqual(scores, [100, 99, 99, 97, 92, 83]);
+  assert.equal(evaluateMetricValue('vpd', 1.2, rules).severity, 0);
+  assert.ok(evaluateMetricValue('vpd', 1.201, rules).severity < 0.001);
+  assert.ok(scores.every((score, index) => index === 0 || score <= scores[index - 1]));
+});
+
+test('severity stays continuous at warning and critical edges on both sides', () => {
+  const rules = {
+    vpd: {
+      optimal: [0.8, 1.2], warning: [0.6, 1.4], critical: [0.4, 1.8],
+      growth: true, scoreWeight: 1
+    }
+  };
+  const severity = (value) => evaluateMetricValue('vpd', value, rules).severity;
+
+  assert.ok(Math.abs(severity(1.4 - 1e-6) - severity(1.4 + 1e-6)) < 0.0001);
+  assert.ok(Math.abs(severity(1.8 - 1e-6) - severity(1.8 + 1e-6)) < 0.0001);
+  assert.ok(Math.abs(severity(0.6 - 1e-6) - severity(0.6 + 1e-6)) < 0.0001);
+  assert.ok(Math.abs(severity(0.4 - 1e-6) - severity(0.4 + 1e-6)) < 0.0001);
+  assert.ok(severity(2) > severity(1.8));
+  assert.ok(severity(0.2) > severity(0.4));
+});
+
+test('agronomic domains give climate and root water more impact than instantaneous CO2', () => {
+  const optimal = {
+    airTemp: 24, humidity: 65, vpd: 1, soilMoisture: 55,
+    ec: 2.3, ph: 6.1, soilEc: 2, leafTemp: 22,
+    soilTemp: 22, waterTemp: 20, co2: 1000
+  };
+  const climateStress = buildScoreFromMetricValues({ ...optimal, vpd: 2.2 });
+  const rootWaterStress = buildScoreFromMetricValues({ ...optimal, soilMoisture: 95 });
+  const carbonStress = buildScoreFromMetricValues({ ...optimal, co2: 1800 });
+
+  assert.ok(climateStress.score < carbonStress.score);
+  assert.ok(rootWaterStress.score < carbonStress.score);
+  assert.equal(climateStress.mainDriver, 'vpd');
+  assert.equal(climateStress.scoreModelVersion, '2.0.0');
+});
+
+test('correlated climate readings share one score domain', () => {
+  const result = buildScoreFromMetricValues({ airTemp: 30, humidity: 80, vpd: 1.7 });
+  assert.equal(result.scoreGroups.length, 1);
+  assert.equal(result.scoreGroups[0].id, 'climate');
+  assert.deepEqual(result.scoreGroups[0].metrics.sort(), ['airTemp', 'humidity', 'vpd']);
+});
+
+test('instantaneous light and air pressure are context metrics, not score penalties', () => {
+  const contextualOnly = buildScoreFromMetricValues({ lux: 0, airPressure: 900 });
+  const withOptimalClimate = buildScoreFromMetricValues({ airTemp: 24, lux: 0, airPressure: 900 });
+  assert.equal(contextualOnly.score, null);
+  assert.equal(withOptimalClimate.score, 100);
 });
 
 test('today actions rank critical live readings and suppress duplicate climate advice', () => {
@@ -161,6 +226,38 @@ test('today actions ignore stale measurements and return no work for optimal rea
   }]), []);
 });
 
+test('today actions exclude context-only light and pressure deviations', () => {
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'North block' },
+    profileMetrics: {},
+    scoreRules: {
+      lux: { growth: false, optimal: [10000, 30000] },
+      airPressure: { growth: false, optimal: [995, 1025] }
+    },
+    evaluations: [
+      { metricId: 'lux', state: 'critical', severity: 1, direction: 'low', value: 0 },
+      { metricId: 'airPressure', state: 'warning', severity: 0.5, direction: 'low', value: 970 }
+    ]
+  }]);
+  assert.deepEqual(actions, []);
+});
+
+test('tiny warning deviations remain visible without creating a priority action', () => {
+  const profileMetrics = { vpd: { optimal: [0.8, 1.2] } };
+  const scoreRules = buildScoreRules(profileMetrics);
+  const evaluation = evaluateMetricValue('vpd', 1.21, scoreRules);
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'North block' },
+    profileMetrics,
+    scoreRules,
+    evaluations: [evaluation]
+  }]);
+
+  assert.equal(evaluation.state, 'warning');
+  assert.ok(evaluation.severity < 0.05);
+  assert.deepEqual(actions, []);
+});
+
 test('completed actions are verified only from newer measurements', () => {
   const action = { value: 88, target: [60, 70] };
   const feedback = { status: 'completed', createdAt: '2026-07-14T12:00:00Z' };
@@ -179,19 +276,21 @@ test('historical score snapshots use the same canonical score model', () => {
     airTemp: { optimal: [18, 22] }, humidity: { optimal: [50, 70] }, co2: { optimal: [500, 900] }
   });
   assert.equal(healthy.score, 100);
+  assert.equal(healthy.mainDriver, null);
   assert.ok(hot.score < healthy.score);
   assert.equal(hot.mainDriver, 'airTemp');
 });
 
-test('all 13 growth parameters have persisted history rules', () => {
-  const growthMetrics = [
+test('all persisted parameters have explicit scoring or context-only rules', () => {
+  const persistedMetrics = [
     'airTemp', 'humidity', 'co2', 'lux', 'soilTemp', 'vpd', 'soilMoisture',
     'ec', 'ph', 'leafTemp', 'soilEc', 'waterTemp', 'airPressure'
   ];
   const rules = buildScoreRules({});
   assert.equal(rules.lux.growth, false);
-  assert.deepEqual(growthMetrics.filter((key) => key !== 'lux' && !rules[key]?.growth), []);
-  assert.deepEqual(growthMetrics.filter((key) => key !== 'vpd' && !METRIC_TO_COLUMN[key]), []);
+  assert.equal(rules.airPressure.growth, false);
+  assert.deepEqual(persistedMetrics.filter((key) => !rules[key]), []);
+  assert.deepEqual(persistedMetrics.filter((key) => key !== 'vpd' && !METRIC_TO_COLUMN[key]), []);
 });
 
 test('rate limiter expires attempts and can reset successful keys', () => {

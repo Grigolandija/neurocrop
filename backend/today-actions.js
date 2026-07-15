@@ -55,6 +55,8 @@ const EFFECTS = {
   ph: 'Nutrient availability moves closer to the configured range.'
 };
 
+const MIN_WARNING_ACTION_SEVERITY = 0.05;
+
 function actionTitle(evaluation, label) {
   const verb = evaluation.direction === 'low' ? 'Increase' : evaluation.direction === 'high' ? 'Reduce' : 'Check';
   return `${verb} ${label.toLowerCase()}`;
@@ -97,7 +99,9 @@ function buildCandidate(snapshot, evaluation) {
 export function buildTodayActions(sectionSnapshots, { limit = 3 } = {}) {
   const candidates = sectionSnapshots.flatMap((snapshot) =>
     (snapshot.evaluations || [])
+      .filter((evaluation) => snapshot.scoreRules?.[evaluation.metricId]?.growth !== false)
       .filter((evaluation) => evaluation.state === 'critical' || evaluation.state === 'warning')
+      .filter((evaluation) => evaluation.state === 'critical' || evaluation.severity >= MIN_WARNING_ACTION_SEVERITY)
       .map((evaluation) => buildCandidate(snapshot, evaluation))
   );
 

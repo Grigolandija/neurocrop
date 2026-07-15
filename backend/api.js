@@ -20,7 +20,7 @@ import {
 } from './auth-users.js';
 import { registerTeamRoutes } from './team-routes.js';
 import { registerPlatformOrganizationRoutes } from './organization-routes.js';
-import { buildCurrentMetricEvaluations, buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, statusFromMeasurementTime } from './score.js';
+import { SCORE_MODEL_VERSION, buildCurrentMetricEvaluations, buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, statusFromMeasurementTime } from './score.js';
 import { getAllowedOrigins, publicError } from './config.js';
 import { validateCropProfileMetrics } from './validation.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
@@ -731,6 +731,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
           conditionStatus: sectionState.conditionStatus,
           mainDriver: sectionState.mainDriver,
           scoreGroups: sectionState.scoreGroups,
+          scoreModelVersion: sectionState.scoreModelVersion,
           coverage: sectionState.coverage,
           nodeSummary: sectionState.nodeSummary,
           computedAt: sectionState.computedAt,
@@ -1881,7 +1882,7 @@ app.get('/analytics/dynamics', requireAuth, async (req, res) => {
       };
     }
 
-    res.json({ sectionId: section.id, from: from.toISOString(), to: to.toISOString(), stepMinutes, score, metrics, lighting });
+    res.json({ sectionId: section.id, from: from.toISOString(), to: to.toISOString(), stepMinutes, scoreModelVersion: SCORE_MODEL_VERSION, score, metrics, lighting });
   } catch (e) {
     console.error('[api] /analytics/dynamics:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });

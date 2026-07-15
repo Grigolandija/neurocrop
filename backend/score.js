@@ -14,7 +14,9 @@ const DEFAULT_SCORE_RULES = {
   soilEc: { column: 'soil_ec', optimal: [1.5, 2.5], warning: [1.2, 2.9], critical: [0.7, 3.5], growth: true },
   leafTemp: { column: 'leaf_temperature', optimal: [20, 25], warning: [18, 27], critical: [15, 30], growth: true },
   waterTemp: { column: 'water_temperature', optimal: [18, 22], warning: [16, 24], critical: [13, 28], growth: true },
-  airPressure: { column: 'air_pressure', optimal: [995, 1025], warning: [989, 1031], critical: [981, 1039], growth: true },
+  // Normal weather-driven pressure changes are diagnostic context, not a direct
+  // crop stress signal at greenhouse elevations.
+  airPressure: { column: 'air_pressure', optimal: [995, 1025], warning: [989, 1031], critical: [981, 1039], growth: false },
   vpd: { column: 'vpd', optimal: [0.8, 1.2], warning: [0.6, 1.5], critical: [0.4, 1.8], growth: true },
   batteryLevel: { column: 'battery_percent', optimal: [55, 100], warning: [35, 100], critical: [0, 100], growth: false }
 };
@@ -112,7 +114,10 @@ export function buildScoreRules(profileMetrics = {}) {
       ...baseRule,
       optimal,
       warning: automaticBands.warning,
-      critical: automaticBands.critical
+      critical: automaticBands.critical,
+      scoreWeight: Number.isFinite(Number(profileMetric.scoreWeight))
+        ? Math.max(0, Math.min(Number(profileMetric.scoreWeight), 3))
+        : 1
     };
   }
 
@@ -130,6 +135,46 @@ export function statusFromMeasurementTime(time, now = Date.now(), expectedInterv
   return 'offline';
 }
 
+export const SCORE_MODEL_VERSION = '2.0.0';
+const WARNING_EDGE_SEVERITY = 0.2;
+const CRITICAL_EDGE_SEVERITY = 0.65;
+
+function clamp01(value) {
+  return Math.max(0, Math.min(Number(value) || 0, 1));
+}
+
+// Smoothstep keeps sensor noise around a target boundary from creating a
+// visible score cliff while preserving monotonic growth toward real stress.
+function smoothstep(value) {
+  const progress = clamp01(value);
+  return progress * progress * (3 - 2 * progress);
+}
+
+function directionalSeverity(numeric, rule, direction) {
+  const side = direction === 'low' ? 0 : 1;
+  const optimalEdge = rule.optimal[side];
+  const warningEdge = rule.warning[side];
+  const criticalEdge = rule.critical[side];
+  const distance = direction === 'low' ? optimalEdge - numeric : numeric - optimalEdge;
+  const warningSpan = Math.max(Math.abs(optimalEdge - warningEdge), 0.0001);
+  const criticalSpan = Math.max(Math.abs(warningEdge - criticalEdge), 0.0001);
+
+  if (distance <= warningSpan) {
+    return WARNING_EDGE_SEVERITY * smoothstep(distance / warningSpan);
+  }
+
+  const distancePastWarning = distance - warningSpan;
+  if (distancePastWarning <= criticalSpan) {
+    return WARNING_EDGE_SEVERITY
+      + (CRITICAL_EDGE_SEVERITY - WARNING_EDGE_SEVERITY) * smoothstep(distancePastWarning / criticalSpan);
+  }
+
+  const distancePastCritical = distancePastWarning - criticalSpan;
+  const extremeSpan = Math.max(criticalSpan, warningSpan);
+  return CRITICAL_EDGE_SEVERITY
+    + (1 - CRITICAL_EDGE_SEVERITY) * smoothstep(distancePastCritical / extremeSpan);
+}
+
 export function evaluateMetricValue(metricId, value, scoreRules) {
   const rule = scoreRules[metricId];
   if (!rule || value === null || value === undefined || !Number.isFinite(Number(value))) return null;
@@ -142,31 +187,19 @@ export function evaluateMetricValue(metricId, value, scoreRules) {
   if (numeric < rule.critical[0]) {
     state = 'critical';
     direction = 'low';
-    severity = 1;
+    severity = directionalSeverity(numeric, rule, direction);
   } else if (numeric > rule.critical[1]) {
     state = 'critical';
     direction = 'high';
-    severity = 1;
-  } else if (numeric < rule.warning[0]) {
-    state = 'warning';
-    direction = 'low';
-    const span = Math.max(rule.warning[0] - rule.critical[0], 0.0001);
-    severity = 0.68 + ((rule.warning[0] - numeric) / span) * 0.32;
-  } else if (numeric > rule.warning[1]) {
-    state = 'warning';
-    direction = 'high';
-    const span = Math.max(rule.critical[1] - rule.warning[1], 0.0001);
-    severity = 0.68 + ((numeric - rule.warning[1]) / span) * 0.32;
+    severity = directionalSeverity(numeric, rule, direction);
   } else if (numeric < rule.optimal[0]) {
     state = 'warning';
     direction = 'low';
-    const span = Math.max(rule.optimal[0] - rule.warning[0], 0.0001);
-    severity = 0.34 + ((rule.optimal[0] - numeric) / span) * 0.33;
+    severity = directionalSeverity(numeric, rule, direction);
   } else if (numeric > rule.optimal[1]) {
     state = 'warning';
     direction = 'high';
-    const span = Math.max(rule.warning[1] - rule.optimal[1], 0.0001);
-    severity = 0.34 + ((numeric - rule.optimal[1]) / span) * 0.33;
+    severity = directionalSeverity(numeric, rule, direction);
   }
 
   return {
@@ -174,7 +207,7 @@ export function evaluateMetricValue(metricId, value, scoreRules) {
     value: numeric,
     state,
     direction,
-    severity: Math.max(0, Math.min(severity, 1))
+    severity: clamp01(severity)
   };
 }
 
@@ -220,14 +253,15 @@ export function buildCurrentMetricEvaluations(nodeRows, measurements, profileMet
 }
 
 const SCORE_GROUPS = [
-  // Climate readings are correlated, so the worst climate deviation is one group,
-  // rather than three independent penalties. Weights are normalized across only
-  // the groups currently measured in a section.
-  { id: 'climate', weight: 0.3, metrics: ['airTemp', 'humidity', 'vpd', 'airPressure'] },
-  { id: 'carbon_light', weight: 0.2, metrics: ['co2', 'lux'] },
-  { id: 'root_zone', weight: 0.2, metrics: ['soilTemp', 'soilMoisture', 'soilEc'] },
-  { id: 'nutrition', weight: 0.2, metrics: ['ec', 'ph', 'waterTemp'] },
-  { id: 'canopy', weight: 0.1, metrics: ['leafTemp'] }
+  // VPD is derived from temperature and RH, so these correlated readings share
+  // one domain instead of being counted as three independent stresses.
+  { id: 'climate', weight: 0.35, metrics: { vpd: 0.45, airTemp: 0.4, humidity: 0.15 } },
+  { id: 'root_water', weight: 0.25, metrics: { soilMoisture: 1 } },
+  { id: 'nutrition', weight: 0.2, metrics: { ec: 0.4, ph: 0.4, soilEc: 0.2 } },
+  { id: 'plant_temperature', weight: 0.12, metrics: { leafTemp: 0.45, soilTemp: 0.35, waterTemp: 0.2 } },
+  // Instantaneous CO2 is contextual and receives less weight until the score is
+  // photoperiod-aware. Light itself is evaluated through 24 h photoperiod/DLI.
+  { id: 'carbon', weight: 0.08, metrics: { co2: 1 } }
 ];
 
 function deriveScoreFromEvaluations(evaluations, scoreRules) {
@@ -239,19 +273,48 @@ function deriveScoreFromEvaluations(evaluations, scoreRules) {
 
   const groups = SCORE_GROUPS
     .map((group) => {
-      const members = group.metrics
-        .map((metricId) => evaluationByMetric.get(metricId))
+      const configuredMetricWeight = Object.entries(group.metrics)
+        .map(([metricId, agronomicWeight]) => ({
+          metricId,
+          agronomicWeight,
+          scoreWeight: scoreRules[metricId]?.scoreWeight ?? 1
+        }));
+      const members = configuredMetricWeight
+        .map(({ metricId, agronomicWeight, scoreWeight }) => {
+          const evaluation = evaluationByMetric.get(metricId);
+          const effectiveWeight = agronomicWeight * scoreWeight;
+          return evaluation && effectiveWeight > 0
+            ? { ...evaluation, agronomicWeight, scoreWeight, effectiveWeight }
+            : null;
+        })
         .filter(Boolean);
       if (!members.length) return null;
 
       const driver = [...members].sort((left, right) => right.severity - left.severity)[0];
+      const memberWeightTotal = members.reduce((sum, member) => sum + member.effectiveWeight, 0);
+      const weightedMeanSeverity = members.reduce(
+        (sum, member) => sum + member.severity * member.effectiveWeight,
+        0
+      ) / memberWeightTotal;
+      const dominantSeverity = driver.severity;
+      const severity = dominantSeverity * 0.7 + weightedMeanSeverity * 0.3;
+      const defaultWeightTotal = configuredMetricWeight.reduce((sum, member) => sum + member.agronomicWeight, 0);
+      const configuredWeightTotal = configuredMetricWeight.reduce(
+        (sum, member) => sum + member.agronomicWeight * member.scoreWeight,
+        0
+      );
+      const profileScale = defaultWeightTotal > 0 ? configuredWeightTotal / defaultWeightTotal : 1;
       return {
         id: group.id,
-        weight: group.weight,
-        severity: driver.severity,
-        state: driver.state,
+        weight: group.weight * profileScale,
+        severity: clamp01(severity),
+        state: members.some((member) => member.state === 'critical')
+          ? 'critical'
+          : members.some((member) => member.state === 'warning') ? 'warning' : 'optimal',
         mainDriver: driver.metricId,
-        metrics: members.map((member) => member.metricId)
+        metrics: members.map((member) => member.metricId),
+        dominantSeverity,
+        weightedMeanSeverity
       };
     })
     .filter(Boolean);
@@ -261,26 +324,31 @@ function deriveScoreFromEvaluations(evaluations, scoreRules) {
       score: null,
       conditionStatus: 'unknown',
       mainDriver: null,
-      scoreGroups: []
+      scoreGroups: [],
+      scoreModelVersion: SCORE_MODEL_VERSION
     };
   }
 
   const totalWeight = groups.reduce((sum, group) => sum + group.weight, 0);
   const averageSeverity = groups.reduce((sum, group) => sum + group.severity * group.weight, 0) / totalWeight;
   const worstGroup = [...groups].sort((left, right) => right.severity - left.severity)[0];
-  const riskIndex = Math.round((averageSeverity * 0.65 + worstGroup.severity * 0.35) * 100);
-  const score = Math.max(0, 100 - riskIndex);
+  const limitingFactorActivation = smoothstep((worstGroup.severity - 0.25) / 0.75);
+  const limitingFactorPenalty = (1 - averageSeverity) * 0.3 * limitingFactorActivation;
+  const risk = clamp01(averageSeverity + limitingFactorPenalty);
   const conditionStatus = groups.some((group) => group.state === 'critical')
     ? 'critical'
     : groups.some((group) => group.state === 'warning')
       ? 'warning'
       : 'optimal';
+  let score = Math.round((1 - risk) * 100);
+  if (conditionStatus !== 'optimal' && score === 100) score = 99;
 
   return {
     score,
     conditionStatus,
-    mainDriver: worstGroup.mainDriver,
-    scoreGroups: groups
+    mainDriver: conditionStatus === 'optimal' ? null : worstGroup.mainDriver,
+    scoreGroups: groups,
+    scoreModelVersion: SCORE_MODEL_VERSION
   };
 }
 

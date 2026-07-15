@@ -3159,6 +3159,10 @@
       return key !== "batteryLevel";
     }
 
+    function isScoreMetricKey(key) {
+      return !["batteryLevel", "lux", "airPressure"].includes(key);
+    }
+
     function getBatteryAlertThreshold(definition) {
       return definition.alertThreshold ?? definition.warning?.[0] ?? 35;
     }
@@ -3690,6 +3694,7 @@
             configuredMetrics,
             backendState,
             backendScore: zone.score ?? zone.indexScore ?? backendState?.score ?? backendState?.indexScore ?? null,
+            backendScoreModelVersion: zone.scoreModelVersion ?? backendState?.scoreModelVersion ?? null,
             backendConditionStatus: zone.conditionStatus ?? backendState?.conditionStatus ?? backendState?.status ?? null,
             backendMainDriver: zone.mainDriver ?? backendState?.mainDriver ?? null,
             backendCoverage: zone.coverage ?? backendState?.coverage ?? null,
@@ -10007,6 +10012,39 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       );
     }
 
+    const scoreWarningEdgeSeverity = 0.2;
+    const scoreCriticalEdgeSeverity = 0.65;
+
+    function smoothScoreProgress(value) {
+      const progress = clamp(value, 0, 1);
+      return progress * progress * (3 - 2 * progress);
+    }
+
+    function getDirectionalScoreSeverity(definition, value, direction) {
+      const side = direction === "low" ? 0 : 1;
+      const optimalEdge = definition.optimal[side];
+      const warningEdge = definition.warning[side];
+      const criticalEdge = definition.critical[side];
+      const distance = direction === "low" ? optimalEdge - value : value - optimalEdge;
+      const warningSpan = Math.max(Math.abs(optimalEdge - warningEdge), 0.0001);
+      const criticalSpan = Math.max(Math.abs(warningEdge - criticalEdge), 0.0001);
+
+      if (distance <= warningSpan) {
+        return scoreWarningEdgeSeverity * smoothScoreProgress(distance / warningSpan);
+      }
+
+      const distancePastWarning = distance - warningSpan;
+      if (distancePastWarning <= criticalSpan) {
+        return scoreWarningEdgeSeverity
+          + (scoreCriticalEdgeSeverity - scoreWarningEdgeSeverity) * smoothScoreProgress(distancePastWarning / criticalSpan);
+      }
+
+      const distancePastCritical = distancePastWarning - criticalSpan;
+      const extremeSpan = Math.max(criticalSpan, warningSpan);
+      return scoreCriticalEdgeSeverity
+        + (1 - scoreCriticalEdgeSeverity) * smoothScoreProgress(distancePastCritical / extremeSpan);
+    }
+
     function evaluateMetric(definition, value) {
       if (definition.behavior === "higherIsBetter") {
         let state = "optimal";
@@ -10052,34 +10090,19 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       if (value < definition.critical[0]) {
         state = "critical";
         direction = "low";
-        severity = 1;
+        severity = getDirectionalScoreSeverity(definition, value, direction);
       } else if (value > definition.critical[1]) {
         state = "critical";
         direction = "high";
-        severity = 1;
-      } else if (value < definition.warning[0]) {
-        state = "warning";
-        direction = "low";
-        const span = Math.max(definition.warning[0] - definition.critical[0], 0.0001);
-        severity = 0.68 + ((definition.warning[0] - value) / span) * 0.32;
-      } else if (value > definition.warning[1]) {
-        state = "warning";
-        direction = "high";
-        const span = Math.max(definition.critical[1] - definition.warning[1], 0.0001);
-        severity = 0.68 + ((value - definition.warning[1]) / span) * 0.32;
+        severity = getDirectionalScoreSeverity(definition, value, direction);
       } else if (value < definition.optimal[0]) {
         state = "warning";
         direction = "low";
-        const span = Math.max(definition.optimal[0] - definition.warning[0], 0.0001);
-        severity = 0.34 + ((definition.optimal[0] - value) / span) * 0.33;
+        severity = getDirectionalScoreSeverity(definition, value, direction);
       } else if (value > definition.optimal[1]) {
         state = "warning";
         direction = "high";
-        const span = Math.max(definition.warning[1] - definition.optimal[1], 0.0001);
-        severity = 0.34 + ((value - definition.optimal[1]) / span) * 0.33;
-      } else {
-        const radius = Math.max((definition.optimal[1] - definition.optimal[0]) / 2, 0.0001);
-        severity = (Math.abs(value - midpoint(definition.optimal)) / radius) * 0.15;
+        severity = getDirectionalScoreSeverity(definition, value, direction);
       }
 
       severity = clamp(severity, 0, 1);
@@ -10109,46 +10132,79 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
     }
 
     function deriveOverallState(results) {
-      const activeResults = results.filter((item) => item.available !== false && isGrowthMetricKey(item.key));
+      const activeResults = results.filter((item) => item.available !== false && isScoreMetricKey(item.key));
       const evaluationByMetric = new Map(activeResults.map((item) => [item.key, item]));
-      const groupedMetricKeys = [
-        ["climate", ["airTemp", "humidity", "vpd"]],
-        ["co2", ["co2"]],
-        ["root_temperature", ["soilTemp"]]
+      const resultByMetric = new Map(results.map((item) => [item.key, item]));
+      const scoringGroups = [
+        { id: "climate", weight: 0.35, metrics: { vpd: 0.45, airTemp: 0.4, humidity: 0.15 } },
+        { id: "root_water", weight: 0.25, metrics: { soilMoisture: 1 } },
+        { id: "nutrition", weight: 0.2, metrics: { ec: 0.4, ph: 0.4, soilEc: 0.2 } },
+        { id: "plant_temperature", weight: 0.12, metrics: { leafTemp: 0.45, soilTemp: 0.35, waterTemp: 0.2 } },
+        { id: "carbon", weight: 0.08, metrics: { co2: 1 } }
       ];
-      const scoreGroups = groupedMetricKeys.map(([id, metricKeys]) => {
-        const members = metricKeys.map((key) => evaluationByMetric.get(key)).filter(Boolean);
+      const scoreGroups = scoringGroups.map((group) => {
+        const configuredMetricWeights = Object.entries(group.metrics).map(([key, agronomicWeight]) => {
+          const configuredWeight = Number(resultByMetric.get(key)?.scoreWeight);
+          return {
+            key,
+            agronomicWeight,
+            scoreWeight: Number.isFinite(configuredWeight) ? clamp(configuredWeight, 0, 3) : 1
+          };
+        });
+        const members = configuredMetricWeights.map(({ key, agronomicWeight, scoreWeight }) => {
+          const result = evaluationByMetric.get(key);
+          const effectiveWeight = agronomicWeight * scoreWeight;
+          return result && effectiveWeight > 0 ? { ...result, effectiveWeight } : null;
+        }).filter(Boolean);
         if (!members.length) return null;
         const driver = [...members].sort((left, right) => right.severity - left.severity)[0];
-        return { id, severity: driver.severity, state: driver.state, mainDriver: driver.key, metrics: members };
+        const memberWeightTotal = members.reduce((sum, member) => sum + member.effectiveWeight, 0);
+        const weightedMeanSeverity = members.reduce(
+          (sum, member) => sum + member.severity * member.effectiveWeight,
+          0
+        ) / memberWeightTotal;
+        const defaultWeightTotal = configuredMetricWeights.reduce((sum, member) => sum + member.agronomicWeight, 0);
+        const configuredWeightTotal = configuredMetricWeights.reduce(
+          (sum, member) => sum + member.agronomicWeight * member.scoreWeight,
+          0
+        );
+        const profileScale = defaultWeightTotal > 0 ? configuredWeightTotal / defaultWeightTotal : 1;
+        return {
+          id: group.id,
+          weight: group.weight * profileScale,
+          severity: clamp(driver.severity * 0.7 + weightedMeanSeverity * 0.3, 0, 1),
+          state: members.some((member) => member.state === "critical")
+            ? "critical"
+            : members.some((member) => member.state === "warning") ? "warning" : "optimal",
+          mainDriver: driver.key,
+          metrics: members
+        };
       }).filter(Boolean);
-      const groupedKeys = new Set(groupedMetricKeys.flatMap(([, metricKeys]) => metricKeys));
-
-      // Every installed growth metric affects the fallback score. Climate stays
-      // grouped to avoid counting temperature, humidity and VPD three times.
-      activeResults
-        .filter((result) => !groupedKeys.has(result.key))
-        .forEach((result) => {
-          scoreGroups.push({
-            id: result.key,
-            severity: result.severity,
-            state: result.state,
-            mainDriver: result.key,
-            metrics: [result]
-          });
-        });
 
       if (!scoreGroups.length) {
-        return { state: "unknown", warningCount: 0, criticalCount: 0, stableCount: 0, riskScore: 0, indexScore: null };
+        return {
+          state: "unknown",
+          warningCount: 0,
+          criticalCount: 0,
+          stableCount: 0,
+          riskScore: 0,
+          indexScore: null,
+          source: "frontend-fallback",
+          scoreModelVersion: "2.0.0"
+        };
       }
 
-      const averageSeverity = scoreGroups.reduce((sum, group) => sum + group.severity, 0) / scoreGroups.length;
+      const totalWeight = scoreGroups.reduce((sum, group) => sum + group.weight, 0);
+      const averageSeverity = scoreGroups.reduce((sum, group) => sum + group.severity * group.weight, 0) / totalWeight;
       const worstGroup = [...scoreGroups].sort((left, right) => right.severity - left.severity)[0];
-      const riskScore = Math.round((averageSeverity * 0.65 + worstGroup.severity * 0.35) * 100);
-      const indexScore = Math.max(0, 100 - riskScore);
+      const limitingFactorActivation = smoothScoreProgress((worstGroup.severity - 0.25) / 0.75);
+      const risk = clamp(averageSeverity + (1 - averageSeverity) * 0.3 * limitingFactorActivation, 0, 1);
       const criticalCount = scoreGroups.filter((group) => group.state === "critical").length;
       const warningCount = scoreGroups.filter((group) => group.state === "warning").length;
       const state = criticalCount > 0 ? "critical" : warningCount > 0 ? "warning" : "optimal";
+      let indexScore = Math.round((1 - risk) * 100);
+      if (state !== "optimal" && indexScore === 100) indexScore = 99;
+      const riskScore = 100 - indexScore;
 
       return {
         state,
@@ -10157,7 +10213,9 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         stableCount: scoreGroups.length - warningCount - criticalCount,
         riskScore,
         indexScore,
-        mainDriver: worstGroup.mainDriver
+        mainDriver: state === "optimal" ? null : worstGroup.mainDriver,
+        source: "frontend-fallback",
+        scoreModelVersion: "2.0.0"
       };
     }
 
@@ -10186,7 +10244,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         mainDriver: zone?.backendMainDriver || null,
         coverage: zone?.backendCoverage || null,
         nodeSummary: zone?.backendNodeSummary || null,
-        computedAt: zone?.backendComputedAt || null
+        computedAt: zone?.backendComputedAt || null,
+        scoreModelVersion: zone?.backendScoreModelVersion || null
       };
     }
 
@@ -12436,6 +12495,7 @@ function buildTrendMetricOptions(options) {
           : availableMetrics;
         return {
           key,
+          scoreWeight: Number.isFinite(Number(definition.scoreWeight)) ? clamp(Number(definition.scoreWeight), 0, 3) : 1,
           configured: isConfigured,
           available: isConfigured && (!isApiDataMode() || hasLiveValue),
           ...(isConfigured
@@ -12900,6 +12960,7 @@ function buildTrendMetricOptions(options) {
       timestamp
     }) {
       const availableBackendActions = Array.isArray(backendTodayActions) ? backendTodayActions : [];
+      const hasBackendActionData = Array.isArray(backendTodayActions);
       const siteZoneIds = new Set((site?.zones || []).map((candidateZone) => candidateZone.id));
       const scopedBackendActions = availableBackendActions.filter((action) =>
         isSiteView ? siteZoneIds.has(action.sectionId) : action.sectionId === zone.id
@@ -12923,7 +12984,9 @@ function buildTrendMetricOptions(options) {
             severity: backendPriorityAction.severity,
             deviationText: backendPriorityAction.reason
           }
-        : prioritySnapshot.results
+        : hasBackendActionData
+          ? null
+          : prioritySnapshot.results
           .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
           .sort((left, right) => {
             return right.severity - left.severity;

@@ -24,6 +24,10 @@ export function validateCropProfileMetrics(metrics, { allowEmpty = true } = {}) 
         return `${metricId}.${bandName} must contain an increasing numeric minimum and maximum`;
       }
     }
+    if (metric.scoreWeight !== undefined
+      && (!Number.isFinite(Number(metric.scoreWeight)) || Number(metric.scoreWeight) < 0 || Number(metric.scoreWeight) > 3)) {
+      return `${metricId}.scoreWeight must be between 0 and 3`;
+    }
     if (metricId === 'lux' && metric.lightingSchedule !== undefined) {
       const schedule = metric.lightingSchedule;
       if (!isPlainObject(schedule)) return 'lux.lightingSchedule must be an object';
