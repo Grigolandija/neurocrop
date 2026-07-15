@@ -3695,6 +3695,9 @@
             backendState,
             backendScore: zone.score ?? zone.indexScore ?? backendState?.score ?? backendState?.indexScore ?? null,
             backendScoreModelVersion: zone.scoreModelVersion ?? backendState?.scoreModelVersion ?? null,
+            backendScoreGroups: Array.isArray(zone.scoreGroups)
+              ? zone.scoreGroups
+              : Array.isArray(backendState?.scoreGroups) ? backendState.scoreGroups : [],
             backendConditionStatus: zone.conditionStatus ?? backendState?.conditionStatus ?? backendState?.status ?? null,
             backendMainDriver: zone.mainDriver ?? backendState?.mainDriver ?? null,
             backendCoverage: zone.coverage ?? backendState?.coverage ?? null,
@@ -10191,7 +10194,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           riskScore: 0,
           indexScore: null,
           source: "frontend-fallback",
-          scoreModelVersion: "2.1.0"
+          scoreModelVersion: "2.1.0",
+          scoreGroups: []
         };
       }
 
@@ -10225,7 +10229,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         indexScore,
         mainDriver: state === "optimal" ? null : mainImpactGroup.mainDriver,
         source: "frontend-fallback",
-        scoreModelVersion: "2.1.0"
+        scoreModelVersion: "2.1.0",
+        scoreGroups: scoreGroupsWithImpact
       };
     }
 
@@ -10255,7 +10260,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         coverage: zone?.backendCoverage || null,
         nodeSummary: zone?.backendNodeSummary || null,
         computedAt: zone?.backendComputedAt || null,
-        scoreModelVersion: zone?.backendScoreModelVersion || null
+        scoreModelVersion: zone?.backendScoreModelVersion || null,
+        scoreGroups: Array.isArray(zone?.backendScoreGroups) ? zone.backendScoreGroups : []
       };
     }
 
@@ -13013,6 +13019,10 @@ function buildTrendMetricOptions(options) {
       const selectedPrimaryDefinition = selectedPrimaryResult
         ? (isSiteView ? prioritySnapshot.profile : profile).metrics[selectedPrimaryResult.key]
         : null;
+      const scoreMainDriverKey = displayedOverallState.mainDriver || selectedPrimaryResult?.key || null;
+      const scoreMainDriverDefinition = scoreMainDriverKey
+        ? (isSiteView ? prioritySnapshot.profile : profile).metrics[scoreMainDriverKey]
+        : null;
       const priorityTitle = backendPriorityAction?.title || (priorityResult && priorityDefinition
         ? `${getDecisionVerb(priorityResult, priorityDefinition)} ${priorityDefinition.label.toLowerCase()}`
         : diagnosticText(`No action needed in ${prioritySnapshot.zone.name}`, `Sekcijoje „${prioritySnapshot.zone.name}“ veiksmų nereikia`));
@@ -13054,6 +13064,36 @@ function buildTrendMetricOptions(options) {
       const scoreTrendText = hasUsableCurrentData
         ? diagnosticText("Score history is not available yet", "Score istorija dar nepasiekiama")
         : diagnosticText("Waiting for live data", "Laukiama gyvų duomenų");
+      const scoreGroupLabels = {
+        climate: diagnosticText("Climate", "Klimatas"),
+        root_water: diagnosticText("Root water", "Šaknų drėgmė"),
+        nutrition: diagnosticText("Nutrition", "Mityba"),
+        plant_temperature: diagnosticText("Plant temperatures", "Augalo temperatūros"),
+        carbon: "CO₂"
+      };
+      const scoreImpactRows = (Array.isArray(displayedOverallState.scoreGroups)
+        ? displayedOverallState.scoreGroups
+        : [])
+        .map((group) => ({
+          id: group.id,
+          label: scoreGroupLabels[group.id] || group.id,
+          points: clamp(Number(group.scoreImpact) * 100, 0, 100)
+        }))
+        .filter((group) => Number.isFinite(group.points) && group.points >= 0.05)
+        .sort((left, right) => right.points - left.points);
+      const maxScoreImpact = Math.max(...scoreImpactRows.map((group) => group.points), 1);
+      const scoreImpactMarkup = scoreImpactRows.length > 0
+        ? scoreImpactRows.map((group) => `
+            <div class="triage-score-impact-row">
+              <span>${escapeHtml(group.label)}</span>
+              <i aria-hidden="true"><b style="width:${clamp((group.points / maxScoreImpact) * 100, 4, 100)}%"></b></i>
+              <strong>-${escapeHtml(formatNumber(group.points, group.points < 10 ? 1 : 0))} p</strong>
+            </div>
+          `).join("")
+        : `<p>${diagnosticText("No points deducted from measured conditions.", "Pagal išmatuotas sąlygas taškai neatimti.")}</p>`;
+      const scoreCoverageText = farmState.coverage.expectedMetrics > 0
+        ? `${farmState.coverage.liveMetrics}/${farmState.coverage.expectedMetrics} ${diagnosticText("live", "aktyvūs")}`
+        : "--";
       const effectivePriorityTitle = hasUsableCurrentData
         ? priorityTitle
         : awaitingFirstUplink
@@ -13254,10 +13294,17 @@ function buildTrendMetricOptions(options) {
               <div class="triage-score-state">${escapeHtml(scoreCardLabel)}</div>
             </div>
             <dl class="triage-score-details">
-              <div><dt>Main drag</dt><dd>${escapeHtml(hasUsableCurrentData ? selectedPrimaryDefinition?.label || "None" : diagnosticText("Data unavailable", "Duomenų nėra"))}</dd></div>
-              <div><dt>Missing metrics</dt><dd>${unavailableCount}</dd></div>
+              <div><dt>Main drag</dt><dd>${escapeHtml(hasUsableCurrentData ? scoreMainDriverDefinition?.label || selectedPrimaryDefinition?.label || "None" : diagnosticText("Data unavailable", "Duomenų nėra"))}</dd></div>
+              <div><dt>Sensor coverage</dt><dd>${escapeHtml(scoreCoverageText)}</dd></div>
               <div><dt>24h trend</dt><dd>${scoreTrendText}</dd></div>
             </dl>
+            <div class="triage-score-impact">
+              <header>
+                <span>${diagnosticText("Points deducted", "Atimti taškai")}</span>
+                <small>GS ${escapeHtml(displayedOverallState.scoreModelVersion || "2.1.0")}</small>
+              </header>
+              <div>${scoreImpactMarkup}</div>
+            </div>
           </article>
         </div>
 
