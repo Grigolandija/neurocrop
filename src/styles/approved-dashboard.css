@@ -12818,7 +12818,7 @@
     }
 
     .overview-area-card-head > span:first-child small {
-      color: rgba(20, 32, 27, 0.45);
+      color: #59635d;
       font-size: 0.57rem;
       font-weight: 850;
       letter-spacing: 0.12em;
@@ -12835,7 +12835,7 @@
 
     .overview-area-card-head > span:first-child em {
       overflow: hidden;
-      color: rgba(20, 32, 27, 0.5);
+      color: #59635d;
       font-size: 0.62rem;
       font-style: normal;
       font-weight: 650;
@@ -12860,7 +12860,7 @@
 
     .overview-area-score small {
       margin-top: 0.16rem;
-      color: rgba(20, 32, 27, 0.47);
+      color: #59635d;
       font-size: 0.55rem;
       font-weight: 750;
     }
@@ -12920,7 +12920,7 @@
 
     .overview-section-mini-main small {
       overflow: hidden;
-      color: rgba(20, 32, 27, 0.5);
+      color: #59635d;
       font-size: 0.59rem;
       font-weight: 600;
       text-overflow: ellipsis;
@@ -12974,7 +12974,7 @@
 
     .overview-area-card footer {
       padding: 0.42rem 0.68rem;
-      color: rgba(20, 32, 27, 0.46);
+      color: #59635d;
       font-size: 0.57rem;
       font-weight: 700;
     }
@@ -13001,7 +13001,7 @@
     }
 
     .overview-selected-area-sections > header small {
-      color: rgba(20, 32, 27, 0.45);
+      color: #59635d;
       font-size: 0.58rem;
       font-weight: 850;
       letter-spacing: 0.1em;
@@ -13014,7 +13014,7 @@
     }
 
     .overview-selected-area-sections > header > span {
-      color: rgba(20, 32, 27, 0.48);
+      color: #59635d;
       font-size: 0.62rem;
       font-weight: 750;
     }
@@ -13023,7 +13023,7 @@
       margin: 0;
       background: #fff;
       padding: 0.8rem;
-      color: rgba(20, 32, 27, 0.48);
+      color: #59635d;
       font-size: 0.66rem;
     }
 
