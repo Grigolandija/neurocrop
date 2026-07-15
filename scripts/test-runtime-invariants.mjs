@@ -37,6 +37,8 @@ assert(
 assert(!runtime.includes("fetchLatestReadingsForAllZones"), "dashboard must not fetch latest readings for every section");
 assert(runtime.includes("if (!nextZone) {") && runtime.includes("renderDashboard();"), "empty areas must render instead of returning during hydration");
 assert(runtime.includes('elements.dashboardShell.setAttribute("aria-busy", "true")') && runtime.includes('elements.dashboardShell.removeAttribute("aria-busy")'), "dashboard hydration must expose its loading state without leaving the UI blank");
+assert(runtime.includes('let dashboardHydrationStatus = isApiDataMode() ? "idle" : "ready";') && runtime.includes('dashboardHydrationStatus = "empty";') && runtime.includes('dashboardHydrationStatus = hasUsableWorkspace ? "ready" : "error";'), "dashboard hydration must distinguish loading, empty and failed workspaces");
+assert(runtime.includes('function renderWorkspaceHydrationState(status = "loading")') && runtime.includes('dashboardHydrationStatus !== "empty"') && runtime.includes('Your data was not reported as empty.'), "initial loading and API failures must never flash the first Area onboarding state");
 assert(runtime.includes("if (isApiDataMode()) {") && runtime.includes("Never infer installed sensors"), "API mode must not fabricate per-node sensor readings");
 assert(runtime.includes("const warningColor = \"#d08a2d\""), "trend warning segments must use amber, not critical red");
 assert(runtime.includes("function renderRuntimeErrorState()"), "render failures must replace stale content with an explicit error state");

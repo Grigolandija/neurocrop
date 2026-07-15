@@ -1411,6 +1411,11 @@
       if (!window.NeuroCropApi?.isConnected()) return;
       const organizationId = getLoginSession()?.organizationId || "";
       if (dashboardHydrationInFlight && dashboardHydrationOrganizationId === organizationId) return;
+      const hasCurrentWorkspace = Array.isArray(dashboardData.sites) && dashboardData.sites.length > 0;
+      if (!hasCurrentWorkspace) {
+        dashboardHydrationStatus = "loading";
+        if (!silent) renderDashboard();
+      }
       dashboardHydrationInFlight = true;
       const requestId = ++dashboardHydrationRequestId;
       dashboardHydrationOrganizationId = organizationId;
@@ -1424,12 +1429,15 @@
         const nextDashboardData = await window.NeuroCropApi.getDashboard();
         if (!isCurrentRequest()) return;
         if (!nextDashboardData || !Array.isArray(nextDashboardData.sites) || nextDashboardData.sites.length === 0) {
+          dashboardHydrationStatus = "empty";
           dashboardData = { sites: [], note: "API returned no dashboard structure." };
           currentReadings = {};
+          lastDashboardHydratedAt = Date.now();
           renderDashboard();
           return;
         }
         dashboardData = normalizeApiDashboardData(nextDashboardData);
+        dashboardHydrationStatus = dashboardData.sites.length > 0 ? "ready" : "empty";
         if (selectPriorityContextAfterLogin) {
           selectPriorityContextAfterLogin = false;
           selectLowestScoreContext();
@@ -1467,14 +1475,21 @@
         if (Array.isArray(actionHistoryResponse?.items)) backendActionHistory = actionHistoryResponse.items;
         currentReadings = latestReadings ? readingsFromApiObservations(latestReadings) : {};
         manualOverride = false;
+        dashboardHydrationStatus = "ready";
         lastDashboardHydratedAt = Date.now();
         renderDashboard();
       } catch (error) {
         console.warn("NeuroCrop API dashboard load failed.", error);
-        if (isCurrentRequest() && !preserveCurrentOnError) {
-          dashboardData = { sites: [], note: "API dashboard load failed." };
-          currentReadings = {};
-          renderDashboard();
+        if (isCurrentRequest()) {
+          const hasUsableWorkspace = Array.isArray(dashboardData.sites) && dashboardData.sites.length > 0;
+          dashboardHydrationStatus = hasUsableWorkspace ? "ready" : "error";
+          if (!preserveCurrentOnError || !hasUsableWorkspace) {
+            if (!hasUsableWorkspace) {
+              dashboardData = { sites: [], note: "API dashboard load failed." };
+              currentReadings = {};
+            }
+            renderDashboard();
+          }
         }
       } finally {
         if (dashboardHydrationInFlightRequestId === requestId) {
@@ -1660,6 +1675,8 @@
       activeWorkbenchLensKey = "all";
       activeSiteId = "";
       activeZoneId = "";
+      if (isApiDataMode()) dashboardData = { sites: [], note: "Waiting for API dashboard data." };
+      dashboardHydrationStatus = "idle";
       currentReadings = {};
       manualOverride = false;
       latestReadingsBySectionId = {};
@@ -1744,6 +1761,7 @@
     let dashboardHydrationInFlight = false;
     let dashboardHydrationOrganizationId = "";
     let dashboardHydrationInFlightRequestId = 0;
+    let dashboardHydrationStatus = isApiDataMode() ? "idle" : "ready";
     let lastDashboardHydratedAt = 0;
     const dashboardRefreshTtlMs = 30 * 1000;
     let unauthorizedStateHandled = false;
@@ -13918,6 +13936,68 @@ function buildTrendMetricOptions(options) {
       document.body.dataset.primaryPage = "overview";
     }
 
+    function renderWorkspaceHydrationState(status = "loading") {
+      const isError = status === "error";
+      renderSiteOptions();
+      renderZoneOptions();
+      updateSidebarActionState();
+
+      elements.siteContextValue.textContent = diagnosticText("Loading areas", "Kraunamos area");
+      elements.siteContextMeta.textContent = diagnosticText("Fetching workspace data", "Gaunami workspace duomenys");
+      elements.siteContextMeta.dataset.state = "neutral";
+      elements.zoneContextCard.dataset.disabled = "true";
+      elements.zoneTrigger.disabled = true;
+      elements.zoneTrigger.setAttribute("aria-disabled", "true");
+      elements.zoneContextValue.textContent = diagnosticText("Loading sections", "Kraunamos sekcijos");
+      elements.zoneContextMeta.textContent = diagnosticText("Waiting for the API", "Laukiama API atsakymo");
+      elements.zoneContextMeta.dataset.state = "neutral";
+
+      elements.experienceModeSection.hidden = true;
+      elements.locationsManagementSection.hidden = true;
+      elements.blocksManagementSection.hidden = true;
+      elements.nodesManagementSection.hidden = true;
+      elements.settingsManagementSection.hidden = true;
+      elements.alertsManagementSection.hidden = true;
+      elements.heroStatusPanel.hidden = true;
+      elements.todayPriorityPanel.hidden = true;
+      elements.metricsSection.hidden = true;
+      elements.historySection.hidden = true;
+      elements.sensorHealthSection.hidden = true;
+      elements.alertsSection.hidden = true;
+      elements.opsDockSection.hidden = true;
+      elements.detailedDiagnosticsSection.hidden = true;
+      elements.zoneImpactSection.hidden = true;
+      if (elements.advancedToolsPanel) {
+        elements.advancedToolsPanel.hidden = true;
+        elements.advancedToolsPanel.open = false;
+      }
+      if (elements.sidebarQuickActions) elements.sidebarQuickActions.hidden = true;
+
+      elements.overviewTriageSection.hidden = false;
+      elements.overviewTriageSection.dataset.state = "neutral";
+      elements.overviewTriageSection.innerHTML = `
+        <section class="empty-area-state" role="${isError ? "alert" : "status"}" aria-live="polite">
+          <p class="triage-eyebrow">${escapeHtml(diagnosticText(isError ? "Connection problem" : "Loading workspace", isError ? "Ryšio problema" : "Kraunamas workspace"))}</p>
+          <h2>${escapeHtml(diagnosticText(isError ? "Workspace could not be loaded" : "Getting your growing areas ready", isError ? "Nepavyko įkelti workspace" : "Ruošiamos jūsų auginimo area"))}</h2>
+          <p>${escapeHtml(diagnosticText(isError ? "Your data was not reported as empty. Retry the API request." : "Fetching Areas, Sections and the latest sensor readings.", isError ? "Jūsų duomenys nelaikomi tuščiais. Pakartokite API užklausą." : "Gaunamos Area, sekcijos ir naujausi sensorių rodmenys."))}</p>
+          ${isError ? `
+            <button type="button" class="inline-action actionable" data-dashboard-retry>
+              <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+              ${escapeHtml(diagnosticText("Retry loading", "Bandyti dar kartą"))}
+            </button>
+          ` : `
+            <span class="inline-action" aria-hidden="true">
+              <i class="fa-solid fa-spinner fa-spin"></i>
+              ${escapeHtml(diagnosticText("Loading", "Kraunama"))}
+            </span>
+          `}
+        </section>
+      `;
+
+      document.body.dataset.dashboardState = "neutral";
+      document.body.dataset.primaryPage = activePrimaryPage;
+    }
+
     function renderEmptyWorkspaceState() {
       const workspaceDependentPages = new Set(["overview", "blocks", "nodes", "readings", "history"]);
       if (workspaceDependentPages.has(activePrimaryPage)) {
@@ -14013,6 +14093,10 @@ function buildTrendMetricOptions(options) {
       const site = getActiveSite();
       const zone = getActiveZone(site);
       if (!site) {
+        if (isApiDataMode() && dashboardHydrationStatus !== "empty") {
+          renderWorkspaceHydrationState(dashboardHydrationStatus);
+          return;
+        }
         renderEmptyWorkspaceState();
         return;
       }
