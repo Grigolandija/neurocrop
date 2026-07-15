@@ -8,7 +8,7 @@ import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
 import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
-import { buildTodayActions, evaluateActionOutcome } from '../today-actions.js';
+import { buildTodayActions, evaluateActionOutcome, getActionVerificationPolicy } from '../today-actions.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -292,14 +292,67 @@ test('tiny warning deviations remain visible without creating a priority action'
   assert.deepEqual(actions, []);
 });
 
-test('completed actions are verified only from newer measurements', () => {
-  const action = { value: 88, target: [60, 70] };
+test('completed actions wait for a metric-specific verification window and enough samples', () => {
+  const action = { metricId: 'humidity', value: 88, target: [60, 70] };
   const feedback = { status: 'completed', createdAt: '2026-07-14T12:00:00Z' };
-  assert.equal(evaluateActionOutcome(action, feedback, { value: 72, observedAt: '2026-07-14T11:59:00Z' }).state, 'awaiting_data');
-  assert.equal(evaluateActionOutcome(action, feedback, { value: 76, observedAt: '2026-07-14T12:10:00Z' }).state, 'improving');
-  assert.equal(evaluateActionOutcome(action, feedback, { value: 68, observedAt: '2026-07-14T12:10:00Z' }).state, 'target_reached');
-  assert.equal(evaluateActionOutcome(action, feedback, { value: 92, observedAt: '2026-07-14T12:10:00Z' }).state, 'not_improving');
+  const samples = [
+    { value: 80, observedAt: '2026-07-14T12:10:00Z' },
+    { value: 76, observedAt: '2026-07-14T12:20:00Z' },
+    { value: 72, observedAt: '2026-07-14T12:30:00Z' }
+  ];
+
+  const tooEarly = evaluateActionOutcome(action, feedback, { samples }, '2026-07-14T12:05:00Z');
+  assert.equal(tooEarly.state, 'awaiting_data');
+  assert.equal(tooEarly.requiredSampleCount, 3);
+
+  const collecting = evaluateActionOutcome(action, feedback, { samples: samples.slice(0, 2) }, '2026-07-14T12:30:00Z');
+  assert.equal(collecting.state, 'awaiting_data');
+  assert.equal(collecting.sampleCount, 2);
+
+  const expired = evaluateActionOutcome(action, feedback, { samples: samples.slice(0, 2) }, '2026-07-14T13:01:00Z');
+  assert.equal(expired.state, 'insufficient_data');
+
+  const improving = evaluateActionOutcome(action, feedback, { samples }, '2026-07-14T12:31:00Z');
+  assert.equal(improving.state, 'improving');
+  assert.equal(improving.baselineValue, 88);
+  assert.equal(improving.currentValue, 76);
+  assert.equal(improving.sampleCount, 3);
   assert.equal(evaluateActionOutcome(action, { ...feedback, status: 'deferred' }, {}).state, 'not_applicable');
+});
+
+test('action verification uses a stable median and ignores later unrelated recovery', () => {
+  const action = { metricId: 'humidity', value: 88, target: [60, 70] };
+  const feedback = { status: 'completed', createdAt: '2026-07-14T12:00:00Z' };
+  const outcome = evaluateActionOutcome(action, feedback, { samples: [
+    { value: 76, observedAt: '2026-07-14T12:10:00Z' },
+    { value: 200, observedAt: '2026-07-14T12:20:00Z' },
+    { value: 72, observedAt: '2026-07-14T12:30:00Z' },
+    { value: 68, observedAt: '2026-07-14T12:40:00Z' }
+  ] }, '2026-07-14T13:30:00Z');
+
+  assert.equal(outcome.state, 'improving');
+  assert.equal(outcome.currentValue, 76);
+  assert.equal(outcome.observedAt, '2026-07-14T12:30:00Z');
+  assert.equal(outcome.method, 'median-first-qualified-samples');
+});
+
+test('action verification separates target reached, sensor noise and worsening', () => {
+  const action = { metricId: 'humidity', value: 88, target: [60, 70] };
+  const feedback = { status: 'completed', createdAt: '2026-07-14T12:00:00Z' };
+  const evidence = (values) => ({ samples: values.map((value, index) => ({
+    value,
+    observedAt: `2026-07-14T12:${10 + index * 10}:00Z`
+  })) });
+
+  assert.equal(evaluateActionOutcome(action, feedback, evidence([69, 68, 67]), '2026-07-14T12:31:00Z').state, 'target_reached');
+  assert.equal(evaluateActionOutcome(action, feedback, evidence([87.5, 88, 88.5]), '2026-07-14T12:31:00Z').state, 'unchanged');
+  assert.equal(evaluateActionOutcome(action, feedback, evidence([90, 92, 94]), '2026-07-14T12:31:00Z').state, 'worsened');
+  assert.deepEqual(getActionVerificationPolicy('vpd'), {
+    delayMinutes: 10,
+    windowMinutes: 60,
+    minSamples: 3,
+    noiseFloor: 0.03
+  });
 });
 
 test('historical score snapshots use the same canonical score model', () => {
@@ -461,7 +514,9 @@ test('action history is tenant-scoped and verifies outcomes from section measure
   const route = source.slice(routeStart, source.indexOf("app.get('/readings/latest'", routeStart));
   assert.ok(routeStart >= 0);
   assert.match(route, /WHERE organization_id=\$1/);
-  assert.match(route, /n\.organization_id=\$1/);
+  assert.match(route, /n\.organization_id=af\.organization_id/);
   assert.match(route, /evaluateActionOutcome/);
+  assert.match(route, /metricSeriesSnapshot/);
+  assert.match(route, /INTERVAL '4 hours'/);
   assert.match(route, /DISTINCT ON \(action_id, COALESCE\(action_payload->>'observedAt'/);
 });

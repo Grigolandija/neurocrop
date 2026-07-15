@@ -10203,7 +10203,8 @@
       color: #2f6a4f;
     }
 
-    .today-priority-history-row[data-outcome="not_improving"] .today-priority-history-icon {
+    .today-priority-history-row[data-outcome="not_improving"] .today-priority-history-icon,
+    .today-priority-history-row[data-outcome="worsened"] .today-priority-history-icon {
       background: rgba(160, 84, 68, 0.1);
       color: #a05444;
     }
@@ -10259,7 +10260,8 @@
       color: #2f6a4f;
     }
 
-    .today-priority-history-outcome[data-outcome="not_improving"] {
+    .today-priority-history-outcome[data-outcome="not_improving"],
+    .today-priority-history-outcome[data-outcome="worsened"] {
       background: rgba(160, 84, 68, 0.1);
       color: #a05444;
     }
@@ -13504,7 +13506,8 @@
       color: #2f7759;
     }
 
-    .triage-history-row[data-outcome="not_improving"] .triage-history-icon {
+    .triage-history-row[data-outcome="not_improving"] .triage-history-icon,
+    .triage-history-row[data-outcome="worsened"] .triage-history-icon {
       background: rgba(152, 76, 61, 0.11);
       color: #984c3d;
     }
@@ -13559,7 +13562,8 @@
       color: #2f7759;
     }
 
-    .triage-history-outcome[data-outcome="not_improving"] {
+    .triage-history-outcome[data-outcome="not_improving"],
+    .triage-history-outcome[data-outcome="worsened"] {
       background: rgba(152, 76, 61, 0.11);
       color: #984c3d;
     }

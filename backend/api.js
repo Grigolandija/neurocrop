@@ -1043,19 +1043,27 @@ function publicActionFeedback(row) {
   };
 }
 
-function latestMetricSnapshot(measurements, metricId) {
-  const values = measurements.flatMap((measurement) => {
-    if (!measurementReportsMetric(measurement, metricId)) return [];
+function metricSeriesSnapshot(measurements, metricId) {
+  const buckets = new Map();
+  for (const measurement of measurements) {
+    if (!measurementReportsMetric(measurement, metricId)) continue;
     const value = metricId === 'vpd'
       ? calcVPD(measurement.temperature, measurement.humidity)
       : measurement[METRIC_TO_COLUMN[metricId]];
-    return Number.isFinite(Number(value)) ? [Number(value)] : [];
-  });
-  const observedAt = measurements
-    .filter((measurement) => measurementReportsMetric(measurement, metricId) && measurement.time)
-    .map((measurement) => measurement.time)
-    .sort((left, right) => new Date(right) - new Date(left))[0] || null;
-  return { value: medianValue(values), observedAt };
+    const observedAtMs = new Date(measurement.time || 0).getTime();
+    if (!Number.isFinite(Number(value)) || !Number.isFinite(observedAtMs)) continue;
+    const bucket = Math.floor(observedAtMs / (5 * 60_000));
+    if (!buckets.has(bucket)) buckets.set(bucket, { values: [], observedAt: measurement.time });
+    const entry = buckets.get(bucket);
+    entry.values.push(Number(value));
+    if (new Date(measurement.time) > new Date(entry.observedAt)) entry.observedAt = measurement.time;
+  }
+  return {
+    samples: [...buckets.values()]
+      .map((entry) => ({ value: medianValue(entry.values), observedAt: entry.observedAt }))
+      .filter((sample) => sample.value !== null)
+      .sort((left, right) => new Date(left.observedAt) - new Date(right.observedAt))
+  };
 }
 
 app.get('/actions/today', requireAuth, async (req, res) => {
@@ -1292,20 +1300,30 @@ app.get('/actions/history', requireAuth, async (req, res) => {
       [organizationId, limit]
     );
 
-    const sectionIds = [...new Set(feedbackRows.map((row) => row.section_id))];
-    const measurementsBySection = new Map();
-    if (sectionIds.length > 0) {
+    const feedbackIds = feedbackRows.map((row) => row.id);
+    const measurementsByFeedback = new Map();
+    if (feedbackIds.length > 0) {
       const { rows } = await query(
-        `SELECT DISTINCT ON (n.section_id, m.dev_eui) n.section_id, m.*
-         FROM measurements m
-         JOIN nodes n ON n.dev_eui=m.dev_eui
-         WHERE n.organization_id=$1 AND n.section_id=ANY($2::text[])
-         ORDER BY n.section_id, m.dev_eui, m.time DESC`,
-        [organizationId, sectionIds]
+        `SELECT af.id AS feedback_id, sample.*
+         FROM action_feedback af
+         JOIN LATERAL (
+           SELECT m.*
+           FROM measurements m
+           JOIN nodes n ON n.dev_eui=m.dev_eui
+           WHERE n.organization_id=af.organization_id
+             AND n.section_id=af.section_id
+             AND m.time>af.created_at
+             AND m.time<=af.created_at + INTERVAL '4 hours'
+           ORDER BY m.time ASC
+           LIMIT 500
+         ) sample ON TRUE
+         WHERE af.organization_id=$1 AND af.id=ANY($2::text[])
+         ORDER BY af.id, sample.time ASC`,
+        [organizationId, feedbackIds]
       );
       for (const measurement of rows) {
-        if (!measurementsBySection.has(measurement.section_id)) measurementsBySection.set(measurement.section_id, []);
-        measurementsBySection.get(measurement.section_id).push(measurement);
+        if (!measurementsByFeedback.has(measurement.feedback_id)) measurementsByFeedback.set(measurement.feedback_id, []);
+        measurementsByFeedback.get(measurement.feedback_id).push(measurement);
       }
     }
 
@@ -1313,7 +1331,7 @@ app.get('/actions/history', requireAuth, async (req, res) => {
       items: feedbackRows.map((row) => {
         const feedback = publicActionFeedback(row);
         const action = row.action_payload || {};
-        const latest = latestMetricSnapshot(measurementsBySection.get(row.section_id) || [], row.metric_id);
+        const evidence = metricSeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id);
         return {
           ...feedback,
           sectionId: row.section_id,
@@ -1324,7 +1342,7 @@ app.get('/actions/history', requireAuth, async (req, res) => {
           title: action.title || 'Recommended action',
           unit: action.unit || METRIC_UNITS[row.metric_id] || '',
           createdByName: row.created_by_name || null,
-          outcome: evaluateActionOutcome(action, feedback, latest)
+          outcome: evaluateActionOutcome(action, feedback, evidence)
         };
       })
     });

@@ -4536,7 +4536,7 @@
           <section class="today-priority-history" aria-label="${diagnosticText("Recent action results", "Naujausi veiksmų rezultatai")}">
             <div class="today-priority-history-head">
               <strong>${diagnosticText("What happened after your actions", "Kas įvyko po jūsų veiksmų")}</strong>
-              <span>${diagnosticText("Sensor result appears after the next reading", "Sensoriaus rezultatas atsiranda po kito matavimo")}</span>
+              <span>${diagnosticText("Result uses at least 3 readings after the response delay", "Rezultatas vertinamas bent iš 3 matavimų po laukimo intervalo")}</span>
             </div>
             <div class="today-priority-history-list">
               ${recentActionHistory.map((item) => {
@@ -12855,9 +12855,12 @@ function buildTrendMetricOptions(options) {
         unknown: diagnosticText("Unknown", "Nežinoma")
       };
       const outcomeLabels = {
-        awaiting_data: diagnosticText("Waiting for the next sensor reading", "Laukiama kito sensoriaus matavimo"),
+        awaiting_data: diagnosticText("Collecting sensor readings", "Renkami sensoriaus matavimai"),
+        insufficient_data: diagnosticText("Not enough readings to verify", "Nepakanka matavimų rezultatui patvirtinti"),
         improving: diagnosticText("Sensor confirms improvement", "Sensorius patvirtina gerėjimą"),
         target_reached: diagnosticText("Sensor confirms the target was reached", "Sensorius patvirtina, kad tikslas pasiektas"),
+        unchanged: diagnosticText("No meaningful change detected", "Reikšmingo pokyčio nenustatyta"),
+        worsened: diagnosticText("Conditions moved further from target", "Sąlygos nutolo nuo tikslo"),
         not_improving: diagnosticText("Sensor does not confirm improvement yet", "Sensorius dar nepatvirtina gerėjimo"),
         not_applicable: diagnosticText("Sensor check is not applicable", "Sensoriaus patikra netaikoma")
       };
@@ -12878,14 +12881,31 @@ function buildTrendMetricOptions(options) {
         sensorLabel = diagnosticText("Not checked: action was not completed", "Netikrinta: veiksmas neatliktas");
       }
 
+      const rawBaselineValue = item?.outcome?.baselineValue;
       const rawCurrentValue = item?.outcome?.currentValue;
+      const hasBaselineValue = rawBaselineValue !== null
+        && rawBaselineValue !== undefined
+        && rawBaselineValue !== ""
+        && Number.isFinite(Number(rawBaselineValue));
       const hasCurrentValue = rawCurrentValue !== null
         && rawCurrentValue !== undefined
         && rawCurrentValue !== ""
         && Number.isFinite(Number(rawCurrentValue));
-      if (status === "completed" && hasCurrentValue) {
+      const displayUnit = item.unit === "degC" ? "°C" : item.unit || "";
+      const sampleCount = Math.max(0, Number(item?.outcome?.sampleCount) || 0);
+      const requiredSampleCount = Math.max(0, Number(item?.outcome?.requiredSampleCount) || 0);
+      if (status === "completed" && hasBaselineValue && hasCurrentValue) {
+        const formattedBaseline = Number(rawBaselineValue).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { maximumFractionDigits: 2 });
         const formattedValue = Number(rawCurrentValue).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { maximumFractionDigits: 2 });
-        sensorLabel += ` · ${diagnosticText("Current", "Dabar")} ${formattedValue} ${item.unit || ""}`;
+        sensorLabel += ` · ${formattedBaseline} → ${formattedValue} ${displayUnit}`;
+      }
+      if (status === "completed" && requiredSampleCount > 0) {
+        sensorLabel += ` · ${sampleCount}/${requiredSampleCount} ${diagnosticText("readings", "mat.")}`;
+      }
+      const eligibleAtMs = new Date(item?.outcome?.eligibleAt || 0).getTime();
+      if (status === "completed" && outcomeState === "awaiting_data" && Number.isFinite(eligibleAtMs) && eligibleAtMs > Date.now()) {
+        const minutes = Math.max(1, Math.ceil((eligibleAtMs - Date.now()) / 60_000));
+        sensorLabel = `${diagnosticText("Verification starts in", "Vertinimas prasidės po")} ${minutes} ${diagnosticText("min", "min.")} · ${sampleCount}/${requiredSampleCount} ${diagnosticText("readings", "mat.")}`;
       }
 
       const icon = status === "deferred"
@@ -12896,8 +12916,12 @@ function buildTrendMetricOptions(options) {
             ? "fa-check"
             : outcomeState === "improving"
               ? "fa-arrow-trend-up"
-              : outcomeState === "not_improving"
+              : outcomeState === "worsened" || outcomeState === "not_improving"
                 ? "fa-triangle-exclamation"
+                : outcomeState === "unchanged"
+                  ? "fa-minus"
+                  : outcomeState === "insufficient_data"
+                    ? "fa-circle-question"
                 : "fa-clock";
       return { status, outcomeState, feedbackSummary, sensorLabel, icon };
     }
@@ -12934,7 +12958,7 @@ function buildTrendMetricOptions(options) {
         <section class="triage-section triage-history-section">
           <div class="triage-section-heading">
             <div><span class="triage-eyebrow">${diagnosticText("Action history", "Veiksmų istorija")}</span><h3>${diagnosticText("What happened after your actions", "Kas įvyko po jūsų veiksmų")}</h3></div>
-            <span>${diagnosticText("Sensor result appears after the next reading", "Sensoriaus rezultatas atsiranda po kito matavimo")}</span>
+            <span>${diagnosticText("Result uses at least 3 readings after the response delay", "Rezultatas vertinamas bent iš 3 matavimų po laukimo intervalo")}</span>
           </div>
           <div class="triage-history-list">
             ${items.map((item) => {
