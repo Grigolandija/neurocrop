@@ -5,8 +5,6 @@ services:
     restart: unless-stopped
     networks:
       - chirpstack
-    ports:
-      - "3000:3000"
     environment:
       NODE_ENV: production
       API_PORT: 3000

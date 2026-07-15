@@ -15,6 +15,13 @@ test('production CORS defaults never trust localhost', () => {
   assert.equal(getAllowedOrigins({ ALLOW_LOCAL_DEV_ORIGINS: 'true' }).includes('http://localhost:4173'), true);
 });
 
+test('production API stays private behind the shared Caddy network', () => {
+  const compose = fs.readFileSync(new URL('../../deploy/production.compose.yml', import.meta.url), 'utf8');
+  assert.equal(/^\s*ports:/m.test(compose), false);
+  assert.match(compose, /external:\s+true/);
+  assert.match(compose, /name:\s+chirpstack_default/);
+});
+
 test('session cookies default to secure SameSite=Lax', () => {
   assert.deepEqual(getSessionCookieOptions({}), { httpOnly: true, secure: true, sameSite: 'lax' });
   assert.throws(
