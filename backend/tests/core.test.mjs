@@ -22,6 +22,18 @@ test('production API stays private behind the shared Caddy network', () => {
   assert.match(compose, /name:\s+chirpstack_default/);
 });
 
+test('production uptime confirms failures and cannot let notification errors mask the probe', () => {
+  const workflow = fs.readFileSync(new URL('../../.github/workflows/uptime.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /--retry 2/);
+  assert.match(workflow, /--retry-all-errors/);
+  assert.match(workflow, /jq -e '\.status == "ok"'/);
+  assert.match(workflow, /https:\/\/neurocrop\.lt\//);
+  assert.match(workflow, /id: frontend/);
+  assert.match(workflow, /name: Send outage email\n\s+if:[\s\S]*?continue-on-error: true/);
+  assert.match(workflow, /name: Fail confirmed outage/);
+  assert.match(workflow, /API=\$API_OUTCOME frontend=\$FRONTEND_OUTCOME/);
+});
+
 test('session cookies default to secure SameSite=Lax', () => {
   assert.deepEqual(getSessionCookieOptions({}), { httpOnly: true, secure: true, sameSite: 'lax' });
   assert.throws(
