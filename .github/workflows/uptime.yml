@@ -5,32 +5,78 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
+concurrency:
+  group: production-uptime
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   health:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - name: Check public API
-        id: health
+        id: api
         continue-on-error: true
-        run: curl --fail --show-error --silent --max-time 15 https://api.neurocrop.lt/health
+        run: |
+          response=$(curl \
+            --fail \
+            --show-error \
+            --silent \
+            --connect-timeout 5 \
+            --max-time 15 \
+            --retry 2 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --retry-max-time 50 \
+            https://api.neurocrop.lt/health)
+          printf '%s' "$response" | jq -e '.status == "ok"' >/dev/null
+      - name: Check public frontend
+        id: frontend
+        continue-on-error: true
+        run: |
+          response=$(curl \
+            --fail \
+            --show-error \
+            --silent \
+            --connect-timeout 5 \
+            --max-time 15 \
+            --retry 2 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --retry-max-time 50 \
+            https://neurocrop.lt/)
+          printf '%s' "$response" | grep -F 'id="root"' >/dev/null
       - name: Send outage email
-        if: steps.health.outcome == 'failure'
+        if: steps.api.outcome == 'failure' || steps.frontend.outcome == 'failure'
+        continue-on-error: true
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MONITOR_EMAIL_TO: ${{ secrets.MONITOR_EMAIL_TO }}
+          API_OUTCOME: ${{ steps.api.outcome }}
+          FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}
         run: |
-          test -n "$RESEND_API_KEY"
-          test -n "$MONITOR_EMAIL_TO"
+          if test -z "$RESEND_API_KEY" || test -z "$MONITOR_EMAIL_TO"; then
+            echo "::warning::Uptime email was not sent because monitor secrets are missing."
+            exit 0
+          fi
           payload=$(jq -n \
             --arg to "$MONITOR_EMAIL_TO" \
             --arg time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{from:"NeuroCrop Monitor <monitor@neurocrop.lt>",to:[$to],subject:"[NeuroCrop] Production API is unreachable",text:("The external monitor could not reach https://api.neurocrop.lt/health at " + $time + ". Check the VPS, network, Caddy, Docker and API container.")}')
+            --arg api "$API_OUTCOME" \
+            --arg frontend "$FRONTEND_OUTCOME" \
+            '{from:"NeuroCrop Monitor <monitor@neurocrop.lt>",to:[$to],subject:"[NeuroCrop] Confirmed production availability failure",text:("Three-attempt external probe failed at " + $time + ". API: " + $api + "; frontend: " + $frontend + ". Check DNS, VPS, Caddy, Docker and application containers.")}')
           curl --fail --show-error --silent https://api.resend.com/emails \
             -H "Authorization: Bearer $RESEND_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$payload"
+      - name: Fail confirmed outage
+        if: steps.api.outcome == 'failure' || steps.frontend.outcome == 'failure'
+        env:
+          API_OUTCOME: ${{ steps.api.outcome }}
+          FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}
+        run: |
+          echo "::error::Confirmed production probe failure. API=$API_OUTCOME frontend=$FRONTEND_OUTCOME"
           exit 1
