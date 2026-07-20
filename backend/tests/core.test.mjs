@@ -24,6 +24,7 @@ test('production API stays private behind the shared Caddy network', () => {
 
 test('production uptime confirms failures and cannot let notification errors mask the probe', () => {
   const workflow = fs.readFileSync(new URL('../../.github/workflows/uptime.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /push:[\s\S]*?paths:[\s\S]*?- \.github\/workflows\/uptime\.yml/);
   assert.match(workflow, /--retry 2/);
   assert.match(workflow, /--retry-all-errors/);
   assert.match(workflow, /jq -e '\.status == "ok"'/);
