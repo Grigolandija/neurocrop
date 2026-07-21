@@ -5,6 +5,7 @@ import type { NeuroCropFeatures } from './features/installFeatures'
 import './App.css'
 import './styles/approved-dashboard.css'
 import './styles/nodes-page.css'
+import './styles/typography-system.css'
 
 declare global {
   interface Window {

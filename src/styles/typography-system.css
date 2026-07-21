@@ -1,0 +1,391 @@
+/* Final typography layer. Keep type decisions here instead of adding more
+   route-specific overrides to the legacy dashboard stylesheet. */
+:root {
+  --nc-type-micro: 0.6875rem;
+  --nc-type-caption: 0.75rem;
+  --nc-type-meta: 0.8125rem;
+  --nc-type-body: 0.875rem;
+  --nc-type-ui: 0.875rem;
+  --nc-type-card-title: 1rem;
+  --nc-type-section-title: clamp(1.25rem, 1.35vw, 1.5rem);
+  --nc-type-page-title: clamp(1.75rem, 2.35vw, 2.5rem);
+  --nc-leading-tight: 1.18;
+  --nc-leading-body: 1.5;
+}
+
+html {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-size: var(--nc-type-body);
+  line-height: var(--nc-leading-body);
+}
+
+button,
+input,
+select,
+textarea {
+  font-size: var(--nc-type-ui);
+}
+
+small {
+  font-size: var(--nc-type-caption);
+  line-height: 1.4;
+}
+
+/* Authentication and account setup */
+.login-screen {
+  font-size: 1rem;
+}
+
+.login-screen .text-xs {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.4 !important;
+}
+
+.login-screen .text-sm,
+.login-screen label > span,
+.login-screen .login-submit,
+.login-screen .login-field {
+  font-size: var(--nc-type-body) !important;
+}
+
+.login-screen .login-aside h1 {
+  font-size: clamp(2rem, 3vw, 2.75rem) !important;
+  line-height: 1.08 !important;
+}
+
+.login-screen .login-form-panel h1,
+.login-screen .login-form-panel h2 {
+  font-size: clamp(1.625rem, 2.1vw, 2rem) !important;
+  line-height: 1.15 !important;
+}
+
+/* Navigation and persistent header */
+.designer-app .nav-link span,
+.designer-app .mobile-dock-button,
+.designer-app .header-account-button,
+.designer-app .header-account-copy strong,
+.designer-app .online-status,
+.designer-app .scope-toggle-button,
+.designer-app .header-context-toggle-button {
+  font-size: var(--nc-type-ui) !important;
+}
+
+.designer-app .header-view-label,
+.designer-app .context-card-label,
+.designer-app .context-menu-label,
+.designer-app .selection-panel-kicker,
+.designer-app .command-palette-item-meta {
+  font-size: var(--nc-type-micro) !important;
+  line-height: 1.35;
+}
+
+.designer-app .context-card-value,
+.designer-app .context-menu-option strong,
+.designer-app .command-palette-item-label {
+  font-size: var(--nc-type-meta) !important;
+}
+
+.designer-app .context-card-meta,
+.designer-app .context-menu-meta,
+.designer-app .selection-panel-summary,
+.designer-app .header-account-copy small {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.4;
+}
+
+/* Page and section hierarchy */
+.designer-app #metricsSectionTitle,
+.designer-app .triage-section-heading h2,
+.designer-app .trend-history-head h2,
+.designer-app .node-fleet-page-head h1,
+.designer-app .node-detail-head h1,
+.designer-app .settings-page-head h1,
+.designer-app .settings-page-head h2,
+.designer-app .admin-page-head h1,
+.designer-app .admin-page-head h2,
+.designer-app .crop-profiles-page-head h2 {
+  font-size: var(--nc-type-page-title) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.035em;
+}
+
+.designer-app .ops-dock-title,
+.designer-app .advanced-tools-title,
+.designer-app .scenario-lab-title,
+.designer-app .impact-board-title,
+.designer-app .decision-brief-title,
+.designer-app .hero-sensor-glance-title,
+.designer-app .settings-form-title,
+.designer-app .node-detail-section h2,
+.designer-app .node-edit-modal-head h2,
+.designer-app .management-modal-header h2,
+.designer-app .diagnostic-drawer-head h2,
+.designer-app .crop-profile-editor-section-head h3 {
+  font-size: var(--nc-type-section-title) !important;
+  line-height: var(--nc-leading-tight) !important;
+}
+
+.designer-app .action-deck-title,
+.designer-app .alert-rail-item-title,
+.designer-app .inspection-route-title,
+.designer-app .site-zone-driver-title,
+.designer-app .overview-area-card h3,
+.designer-app .overview-section-mini strong,
+.designer-app .workbench-empty-title,
+.designer-app .management-list-title,
+.designer-app .crop-profile-metric-group h4,
+.designer-app .node-remove-zone h3 {
+  font-size: var(--nc-type-card-title) !important;
+  line-height: 1.3 !important;
+}
+
+/* Body copy and operational explanations */
+.designer-app .ops-dock-summary,
+.designer-app .advanced-tools-summary-text,
+.designer-app .scenario-lab-summary,
+.designer-app .scenario-manual-summary,
+.designer-app .impact-board-summary,
+.designer-app .impact-board-meta,
+.designer-app .decision-brief-summary,
+.designer-app .hero-sensor-glance-summary,
+.designer-app .action-deck-summary,
+.designer-app .alert-rail-item-summary,
+.designer-app .inspection-route-summary,
+.designer-app .inspection-route-meta,
+.designer-app .power-rail-meta,
+.designer-app .workbench-lens-summary,
+.designer-app .workbench-empty-note,
+.designer-app .trend-history-summary,
+.designer-app .management-list-meta,
+.designer-app .management-list-note,
+.designer-app .settings-head-summary,
+.designer-app .settings-policy-note,
+.designer-app .admin-notice,
+.designer-app .admin-error,
+.designer-app .node-register-empty p {
+  font-size: var(--nc-type-meta) !important;
+  line-height: var(--nc-leading-body) !important;
+}
+
+/* Eyebrows, labels, captions and statuses */
+.designer-app :is(
+  .ops-dock-kicker,
+  .focus-rail-kicker,
+  .indicator-driver-label,
+  .decision-card-kicker,
+  .decision-mini-label,
+  .scenario-button-kicker,
+  .scenario-manual-kicker,
+  .impact-board-card-kicker,
+  .action-deck-kicker,
+  .alert-rail-item-kicker,
+  .inspection-route-kicker,
+  .power-node-kicker,
+  .triage-eyebrow,
+  .triage-card-kicker,
+  .today-priority-kicker,
+  .trend-history-context-kicker,
+  .trend-history-context-field-label,
+  .trend-history-readout-kicker,
+  .trend-history-callout-title,
+  .settings-panel-kicker,
+  .admin-protected-label,
+  .admin-status-label,
+  .node-sensor-row-label
+) {
+  font-size: var(--nc-type-micro) !important;
+  line-height: 1.35 !important;
+}
+
+.designer-app :is(
+  .state-chip,
+  .management-chip,
+  .metric-state-chip,
+  .metric-category-badge,
+  .battery-node-chip,
+  .power-node-badge,
+  .priority-count-chip,
+  .reading-freshness-label,
+  .settings-summary-pill,
+  .settings-role-pill,
+  .admin-status,
+  .diagnostic-table-state,
+  .overview-section-mini-status,
+  .overview-data-status,
+  .node-sensor-status,
+  .node-detail-status
+) {
+  font-size: var(--nc-type-micro) !important;
+  line-height: 1.25 !important;
+}
+
+/* Controls must remain readable even inside dense toolbars and dialogs. */
+.designer-app :is(
+  .settings-primary-button,
+  .settings-secondary-button,
+  .settings-text-button,
+  .admin-button,
+  .admin-link-button,
+  .inline-action,
+  .button-new,
+  .workbench-empty-button,
+  .metric-history-button,
+  .trend-history-export-button,
+  .trend-history-metric-button,
+  .trend-history-presentation-button,
+  .trend-history-scale-button,
+  .trend-history-range-button,
+  .focus-rail-button,
+  .alert-filter-chip,
+  .inspection-filter-chip,
+  .power-filter-chip,
+  .triage-primary-button,
+  .triage-secondary-button,
+  .today-priority-why-button,
+  .diagnostic-primary-button,
+  .diagnostic-secondary-button,
+  .diagnostic-link-button,
+  .node-detail-back,
+  .node-detail-secondary-action,
+  .node-fleet-primary-action
+) {
+  font-size: var(--nc-type-meta) !important;
+  line-height: 1.25 !important;
+}
+
+.designer-app :is(input, select, textarea, .nc-select-trigger) {
+  font-size: var(--nc-type-body) !important;
+  line-height: 1.4;
+}
+
+.designer-app :is(
+  .node-edit-field > span,
+  .profile-target-fields label span,
+  .crop-profile-create-drawer label span,
+  .crop-profile-detail-fields label span,
+  .settings-form-grid label > span,
+  .admin-inline-form label > span
+) {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.35;
+}
+
+/* Tables and dense comparison views */
+.designer-app :is(.nc-data-table, .admin-table, .diagnostic-table, .platform-node-table, .node-fleet-table) {
+  font-size: var(--nc-type-meta) !important;
+}
+
+.designer-app :is(.nc-data-table, .admin-table, .diagnostic-table, .platform-node-table, .node-fleet-table) th,
+.designer-app .live-readings-table-head,
+.designer-app .area-live-matrix-head > span,
+.designer-app .crop-profile-metric-heading {
+  font-size: var(--nc-type-micro) !important;
+  line-height: 1.3 !important;
+}
+
+.designer-app :is(.nc-data-table, .admin-table, .diagnostic-table, .platform-node-table, .node-fleet-table) td,
+.designer-app .node-table-identity strong,
+.designer-app .node-table-location strong,
+.designer-app .node-table-battery,
+.designer-app .node-table-signal,
+.designer-app .node-table-sensors,
+.designer-app .node-table-payload {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.4 !important;
+}
+
+/* Live readings, overview and charts */
+.designer-app .area-live-summary-card span,
+.designer-app .area-live-summary-card small,
+.designer-app .area-live-section-copy small,
+.designer-app .area-live-value small,
+.designer-app .trend-history-metric-meta,
+.designer-app .trend-history-tooltip-time,
+.designer-app .trend-time-card span,
+.designer-app .trend-time-card small {
+  font-size: var(--nc-type-caption) !important;
+}
+
+.designer-app .area-live-section-copy strong,
+.designer-app .area-live-value strong,
+.designer-app .trend-history-context-value,
+.designer-app .trend-history-metric-label {
+  font-size: var(--nc-type-body) !important;
+}
+
+.designer-app .area-live-summary-card strong {
+  font-size: clamp(1.25rem, 1.7vw, 1.5rem) !important;
+}
+
+.designer-app .area-live-score small {
+  font-size: var(--nc-type-micro) !important;
+}
+
+.designer-app .area-live-score strong {
+  font-size: var(--nc-type-caption) !important;
+}
+
+.designer-app .metric-current-value,
+.designer-app .power-node-value,
+.designer-app .trend-time-card strong {
+  font-size: clamp(1.25rem, 1.8vw, 1.75rem) !important;
+  line-height: 1.1 !important;
+}
+
+.designer-app .trend-history-axis,
+.designer-app .trend-history-backend-note,
+.designer-app .trend-history-readout-note,
+.designer-app .trend-history-tooltip-value {
+  font-size: var(--nc-type-caption) !important;
+}
+
+/* Dedicated Nodes surfaces previously contained 8–10px operational text. */
+.designer-app #nodesManagementSection :is(
+  .node-fleet-kicker,
+  .node-stat-label,
+  .node-table-detail span,
+  .node-detail-breadcrumbs,
+  .node-detail-facts p,
+  .node-detail-facts small,
+  .node-detail-muted,
+  .node-move-note,
+  .node-remove-zone p,
+  .node-remove-actions label,
+  .management-modal-error
+) {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.4 !important;
+}
+
+.designer-app #nodesManagementSection :is(
+  .node-fleet-summary,
+  .node-stat-meta,
+  .node-detail-status,
+  .node-detail-diagnostics,
+  .node-sensor-row-main small,
+  .node-table-fault-summary small
+) {
+  font-size: var(--nc-type-meta) !important;
+  line-height: 1.45 !important;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --nc-type-page-title: clamp(1.5rem, 7vw, 2rem);
+    --nc-type-section-title: clamp(1.125rem, 5vw, 1.375rem);
+  }
+
+  .login-screen .login-aside h1 {
+    font-size: clamp(1.75rem, 9vw, 2.25rem) !important;
+  }
+
+  .designer-app .nav-link span,
+  .designer-app .mobile-dock-button {
+    font-size: var(--nc-type-caption) !important;
+  }
+}

@@ -174,6 +174,40 @@ test('primary desktop pages fit the viewport without horizontal overflow', async
   expect(overflows).toEqual([])
 })
 
+test('primary desktop pages keep operational text readable', async ({ page }) => {
+  await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  const unreadable: Array<{ action: string; items: string[] }> = []
+
+  for (const action of ['overview', 'sites', 'zones', 'nodes', 'readings', 'history', 'settings']) {
+    await navigationAction(page, action).click()
+    await page.waitForTimeout(100)
+    const items = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('body *'))
+      .filter((element) => {
+        if (['SCRIPT', 'STYLE', 'I', 'SVG', 'PATH', 'OPTION'].includes(element.tagName)) return false
+        if (element.closest('[hidden], [aria-hidden="true"], .sr-only')) return false
+        const hasDirectText = Array.from(element.childNodes).some((node) =>
+          node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()))
+        if (!hasDirectText) return false
+        const rect = element.getBoundingClientRect()
+        const style = window.getComputedStyle(element)
+        return rect.width > 0
+          && rect.height > 0
+          && style.visibility !== 'hidden'
+          && style.display !== 'none'
+          && Number.parseFloat(style.fontSize) < 10.9
+      })
+      .slice(0, 20)
+      .map((element) => {
+        const style = window.getComputedStyle(element)
+        const identity = element.id ? `#${element.id}` : `.${String(element.className).trim().split(/\s+/).slice(0, 2).join('.')}`
+        return `${element.tagName.toLowerCase()}${identity} ${style.fontSize} “${element.textContent?.trim().slice(0, 45)}”`
+      }))
+    if (items.length > 0) unreadable.push({ action, items })
+  }
+
+  expect(unreadable).toEqual([])
+})
+
 test('destructive Area removal requires explicit confirmation', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
   await navigationAction(page, 'sites').click()
