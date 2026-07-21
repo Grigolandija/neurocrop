@@ -10564,6 +10564,12 @@ function buildTrendMetricOptions(options) {
       const pointCount = seriesItems[0]?.series?.pointCount || seriesItems[0]?.series?.values?.length || 2;
       const pointIntervalMs = (totalHours * 60 * 60 * 1000) / Math.max(pointCount - 1, 1);
       const colors = seriesItems.map((item, index) => getTrendSeriesColor(index, item.option.key));
+      const chartTextColor = readColorToken("--color-text", "#202522");
+      const chartTextSecondary = readColorToken("--color-text-secondary", "#5d655f");
+      const chartBorderColor = readColorToken("--color-border", "#d8dbd7");
+      const chartSurfaceColor = readColorToken("--color-surface", "#ffffff");
+      const chartTooltipColor = readColorToken("--color-primary", "#252b29");
+      const chartTooltipTextColor = readColorToken("--color-on-primary", "#ffffff");
       const displayValuesByItem = new Map(seriesItems.map((item) => [
         item,
         getTrendDisplayValues(item, rangeKey)
@@ -10621,14 +10627,14 @@ function buildTrendMetricOptions(options) {
           axisLabel: {
             color,
             fontSize: 12,
-            fontWeight: 700,
+            fontWeight: 500,
             margin: 12,
             formatter: (value) => formatTrendTickValue(value, definition, item.option.key)
           },
           nameTextStyle: {
             color,
             fontSize: 12,
-            fontWeight: 800
+            fontWeight: 600
           },
           axisPointer: {
             label: {
@@ -10638,7 +10644,7 @@ function buildTrendMetricOptions(options) {
           splitLine: {
             show: index === 0,
             lineStyle: {
-              color: "rgba(24, 33, 29, 0.10)",
+              color: colorWithAlpha(chartBorderColor, 0.72),
               width: 1
             }
           }
@@ -10678,7 +10684,7 @@ function buildTrendMetricOptions(options) {
           return fallback;
         };
         const extremaLabelColor = colorWithAlpha(color, 0.94);
-        const extremaBackground = "rgba(255, 255, 255, 0.94)";
+        const extremaBackground = colorWithAlpha(chartSurfaceColor, 0.94);
         const targetGap = targetIsBelowView
           ? Math.max(0, minimumValue - Number(optimalRange[1]))
           : targetIsAboveView
@@ -10707,7 +10713,7 @@ function buildTrendMetricOptions(options) {
             opacity: 1
           },
           itemStyle: {
-            borderColor: "#ffffff",
+            borderColor: chartSurfaceColor,
             borderWidth: 2,
             opacity: 1
           },
@@ -10734,9 +10740,9 @@ function buildTrendMetricOptions(options) {
               distance: 7,
               color,
               fontSize: 11,
-              fontWeight: 800,
-              backgroundColor: "rgba(255, 255, 255, 0.90)",
-              borderColor: "rgba(24, 33, 29, 0.08)",
+              fontWeight: 600,
+              backgroundColor: colorWithAlpha(chartSurfaceColor, 0.90),
+              borderColor: colorWithAlpha(chartBorderColor, 0.70),
               borderWidth: 1,
               borderRadius: 8,
               padding: [4, 7]
@@ -10779,7 +10785,7 @@ function buildTrendMetricOptions(options) {
               distance: 8,
               color: extremaLabelColor,
               fontSize: 12,
-              fontWeight: 850,
+              fontWeight: 600,
               backgroundColor: extremaBackground,
               borderColor: colorWithAlpha(color, 0.20),
               borderWidth: 1,
@@ -10834,8 +10840,8 @@ function buildTrendMetricOptions(options) {
       return {
         animation: false,
         textStyle: {
-          fontFamily: "Manrope, sans-serif",
-          color: "#18211d"
+          fontFamily: "IBM Plex Sans, sans-serif",
+          color: chartTextColor
         },
         aria: {
           enabled: true,
@@ -10860,9 +10866,9 @@ function buildTrendMetricOptions(options) {
           itemHeight: 3,
           icon: "roundRect",
           textStyle: {
-            color: "rgba(24, 33, 29, 0.72)",
+            color: chartTextSecondary,
             fontSize: 12,
-            fontWeight: 700
+            fontWeight: 500
           },
           data: seriesItems.map((item, index) => ({
             name: translateInterfaceText(item.option.label),
@@ -10873,29 +10879,29 @@ function buildTrendMetricOptions(options) {
           trigger: "axis",
           confine: true,
           renderMode: "html",
-          backgroundColor: "rgba(24, 33, 29, 0.96)",
-          borderColor: "rgba(255, 255, 255, 0.22)",
+          backgroundColor: colorWithAlpha(chartTooltipColor, 0.97),
+          borderColor: colorWithAlpha(chartTooltipTextColor, 0.22),
           borderWidth: 1,
           padding: [10, 12],
           textStyle: {
-            color: "#ffffff",
-            fontFamily: "Manrope, sans-serif",
+            color: chartTooltipTextColor,
+            fontFamily: "IBM Plex Sans, sans-serif",
             fontSize: 12
           },
           axisPointer: {
             type: "cross",
             snap: false,
             lineStyle: {
-              color: "rgba(24, 33, 29, 0.38)",
+              color: colorWithAlpha(chartTextColor, 0.38),
               width: 1
             },
             crossStyle: {
-              color: "rgba(24, 33, 29, 0.38)",
+              color: colorWithAlpha(chartTextColor, 0.38),
               width: 1
             },
             label: {
-              backgroundColor: "#20382f",
-              color: "#ffffff"
+              backgroundColor: chartTooltipColor,
+              color: chartTooltipTextColor
             }
           },
           formatter: (rawParams) => {
@@ -10920,7 +10926,7 @@ function buildTrendMetricOptions(options) {
                 `;
               })
               .join("");
-            return `<div style="font-weight:700;color:rgba(255,255,255,.72);">${escapeHtml(timestamp)}</div>${rows}`;
+            return `<div style="font-weight:500;color:rgba(255,255,255,.72);">${escapeHtml(timestamp)}</div>${rows}`;
           }
           },
           xAxis: {
@@ -10935,19 +10941,19 @@ function buildTrendMetricOptions(options) {
           axisLine: {
             show: true,
             lineStyle: {
-              color: "rgba(24, 33, 29, 0.30)",
+              color: colorWithAlpha(chartTextColor, 0.30),
               width: 1.2
             }
           },
           axisTick: {
             show: true,
-            lineStyle: { color: "rgba(24, 33, 29, 0.30)" }
+            lineStyle: { color: colorWithAlpha(chartTextColor, 0.30) }
           },
           axisLabel: {
             hideOverlap: true,
-            color: "rgba(24, 33, 29, 0.58)",
-            fontSize: 12,
-            fontWeight: 700,
+            color: chartTextSecondary,
+            fontSize: 11,
+            fontWeight: 500,
             formatter: (value) => formatTrendTimeLabel(new Date(value), rangeKey)
           },
           axisPointer: {
@@ -10956,9 +10962,9 @@ function buildTrendMetricOptions(options) {
             }
           },
           nameTextStyle: {
-            color: "rgba(24, 33, 29, 0.46)",
-            fontSize: 12,
-            fontWeight: 800
+            color: chartTextSecondary,
+            fontSize: 11,
+            fontWeight: 600
           },
           splitLine: { show: false }
         },
@@ -11286,8 +11292,9 @@ function buildTrendMetricOptions(options) {
       trendComparisonChartInstance.setOption({
         animation: false,
         color: comparisonChartColors,
+        textStyle: { fontFamily: "IBM Plex Sans, sans-serif", fontSize: 12, fontWeight: 400 },
         grid: { left: 58, right: 24, top: 42, bottom: 34 },
-        legend: { top: 4, type: "scroll", textStyle: { fontSize: 11 } },
+        legend: { top: 4, type: "scroll", textStyle: { fontSize: 12, fontWeight: 500 } },
         tooltip: {
           trigger: "axis",
           formatter: (rawParams) => {
@@ -11301,8 +11308,8 @@ function buildTrendMetricOptions(options) {
             return `<strong>${escapeHtml(timestamp)}</strong><br>${rows}`;
           }
         },
-        xAxis: { type: "time", axisLabel: { fontSize: 12 } },
-        yAxis: { type: "value", scale: true, axisLabel: { formatter: (value) => formatTrendTickValue(value, metricOption.definition, metricOption.key), fontSize: 12 } },
+        xAxis: { type: "time", axisLabel: { fontSize: 11, fontWeight: 500 } },
+        yAxis: { type: "value", scale: true, axisLabel: { formatter: (value) => formatTrendTickValue(value, metricOption.definition, metricOption.key), fontSize: 11, fontWeight: 500 } },
         series: comparisonSeries.map((item) => ({
           name: item.name,
           type: "line",

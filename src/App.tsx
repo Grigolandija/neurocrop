@@ -8,6 +8,7 @@ import './styles/nodes-page.css'
 import './styles/typography-system.css'
 import './styles/redesign-sidebar.css'
 import './styles/neurocrop-color-system.css'
+import './styles/neurocrop-typography-system.css'
 
 declare global {
   interface Window {

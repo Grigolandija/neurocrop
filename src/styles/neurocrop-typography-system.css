@@ -1,0 +1,688 @@
+/* NeuroCrop Precision Type system. This is the authoritative typography layer. */
+:root {
+  --font-ui: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-technical: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --type-display-xl: 3rem;
+  --type-display-l: 2.5rem;
+  --type-display-m: 2rem;
+  --type-h1: 1.75rem;
+  --type-h2: 1.5rem;
+  --type-h3: 1.25rem;
+  --type-h4: 1.125rem;
+  --type-title: 1rem;
+  --type-subtitle: 0.9375rem;
+  --type-section-title: 1.125rem;
+  --type-card-title: 0.9375rem;
+  --type-body-lg: 1rem;
+  --type-body: 0.875rem;
+  --type-body-sm: 0.8125rem;
+  --type-caption: 0.75rem;
+  --type-label: 0.75rem;
+  --type-micro: 0.6875rem;
+  --type-metric: 2rem;
+  --type-metric-lg: 3.5rem;
+
+  --leading-display: 1.08;
+  --leading-heading: 1.2;
+  --leading-title: 1.35;
+  --leading-body: 1.55;
+  --leading-compact: 1.35;
+
+  --tracking-display: -0.035em;
+  --tracking-heading: -0.02em;
+  --tracking-title: -0.01em;
+  --tracking-label: 0.01em;
+  --tracking-overline: 0.09em;
+  --tracking-table: 0.055em;
+
+  --space-4: 0.25rem;
+  --space-8: 0.5rem;
+  --space-12: 0.75rem;
+  --space-16: 1rem;
+  --space-20: 1.25rem;
+  --space-24: 1.5rem;
+  --space-32: 2rem;
+  --space-40: 2.5rem;
+  --space-48: 3rem;
+  --space-64: 4rem;
+
+  --control-height-sm: 2rem;
+  --control-height-md: 2.5rem;
+  --control-height-lg: 3rem;
+  --table-row-height: 2.75rem;
+  --radius-control: 0.625rem;
+
+  /* Compatibility aliases for legacy selectors. */
+  --font-display: var(--font-ui);
+  --font-body: var(--font-ui);
+  --nc-type-micro: var(--type-micro);
+  --nc-type-caption: var(--type-caption);
+  --nc-type-meta: var(--type-body-sm);
+  --nc-type-body: var(--type-body);
+  --nc-type-ui: var(--type-body);
+  --nc-type-card-title: var(--type-card-title);
+  --nc-type-section-title: var(--type-section-title);
+  --nc-type-page-title: var(--type-h1);
+  --nc-leading-tight: var(--leading-heading);
+  --nc-leading-body: var(--leading-body);
+}
+
+html {
+  font-size: 16px !important;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-ui) !important;
+}
+
+body {
+  font-size: var(--type-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-body);
+  letter-spacing: 0;
+}
+
+p,
+li,
+dd,
+td {
+  line-height: var(--leading-body);
+}
+
+.designer-app :is(h1, h2, h3, h4, h5, h6),
+.login-screen :is(h1, h2, h3, h4),
+.designer-app :is(.font-display, .brand-word, .metric-value, .metric-value-shell, .indicator-score-display, .area-live-value strong) {
+  font-family: var(--font-ui) !important;
+}
+
+.designer-app :is(strong, b),
+.login-screen :is(strong, b) {
+  font-weight: var(--weight-semibold) !important;
+}
+
+.designer-app h1,
+.login-screen h1 {
+  font-size: var(--type-h1) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-heading) !important;
+  letter-spacing: var(--tracking-heading) !important;
+}
+
+.designer-app h2,
+.login-screen h2 {
+  font-size: var(--type-h2) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-heading) !important;
+  letter-spacing: var(--tracking-heading) !important;
+}
+
+.designer-app h3,
+.login-screen h3 {
+  font-size: var(--type-h3) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-heading) !important;
+  letter-spacing: var(--tracking-title) !important;
+}
+
+.designer-app h4,
+.login-screen h4 {
+  font-size: var(--type-h4) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-title) !important;
+  letter-spacing: var(--tracking-title) !important;
+}
+
+/* Page and section hierarchy */
+.designer-app :is(
+  .grower-day-header h1,
+  .admin-page-head h1,
+  .settings-page-head h1,
+  .node-fleet-page-head h2,
+  .crop-profiles-page-head h2
+) {
+  max-width: 58rem;
+  font-size: var(--type-display-m) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-display) !important;
+  letter-spacing: var(--tracking-display) !important;
+}
+
+.designer-app :is(
+  .grower-command h2,
+  .management-modal-header h2,
+  .diagnostic-drawer-head h2,
+  .empty-area-state h2
+) {
+  font-size: var(--type-h2) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-heading) !important;
+  letter-spacing: var(--tracking-heading) !important;
+}
+
+.designer-app :is(
+  .section-heading h2,
+  .section-heading h3,
+  .workbench-heading h3,
+  .grower-farm-board > header h2,
+  .grower-route > header h2,
+  .trend-history-head h3,
+  .node-detail-section > header h3
+) {
+  font-size: var(--type-section-title) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-title) !important;
+  letter-spacing: var(--tracking-title) !important;
+}
+
+.designer-app :is(
+  .metric-card h3,
+  .metric-card-title,
+  .management-list-title,
+  .action-deck-card h4,
+  .impact-board-card-title,
+  .ops-dock-card-value,
+  .trend-history-readout-card strong,
+  .area-live-section-copy strong,
+  .node-table-identity strong
+) {
+  font-size: var(--type-card-title) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-title) !important;
+  letter-spacing: var(--tracking-title) !important;
+}
+
+.designer-app :is(
+  .grower-overline,
+  [class$="-kicker"],
+  [class*="-kicker "],
+  .eyebrow,
+  .rail-label,
+  .context-card-label,
+  .settings-section-label
+) {
+  font-size: var(--type-micro) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-compact) !important;
+  letter-spacing: var(--tracking-overline) !important;
+  text-transform: uppercase;
+}
+
+.designer-app :is(
+  .grower-day-header p,
+  .page-description,
+  .admin-page-head p,
+  .settings-page-head p,
+  .node-fleet-page-head p
+) {
+  max-width: 48rem;
+  font-size: var(--type-subtitle) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: 1.6 !important;
+  letter-spacing: 0 !important;
+}
+
+.designer-app :is(
+  .management-list-meta,
+  .management-list-note,
+  .metric-card-footer,
+  .impact-board-card-note,
+  .action-deck-card p,
+  .ops-dock-card-note,
+  .diagnostic-card p,
+  .trend-analytics-card p,
+  .grower-command-instruction p
+) {
+  font-size: var(--type-body-sm) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: var(--leading-body) !important;
+  letter-spacing: 0 !important;
+}
+
+/* Metrics and technical identifiers */
+.designer-app :is(
+  .metric-value,
+  .metric-value-shell,
+  .area-live-value strong,
+  .node-detail-facts strong,
+  .trend-history-readout-value
+) {
+  font-size: var(--type-metric) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.025em !important;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.designer-app :is(
+  #indicatorScore,
+  .grower-pulse-main strong,
+  .conditions-score > strong
+) {
+  font-size: var(--type-metric-lg) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: 0.95 !important;
+  letter-spacing: -0.045em !important;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.designer-app :is(
+  .metric-unit,
+  .metric-card-unit,
+  .indicator-score-label,
+  .trend-history-readout-unit
+) {
+  font-size: var(--type-caption) !important;
+  font-weight: var(--weight-medium) !important;
+  line-height: var(--leading-compact) !important;
+  letter-spacing: 0 !important;
+}
+
+.designer-app :is(
+  .node-table-identity code,
+  .node-detail-identifier,
+  [data-technical-id],
+  input[name*="devEui" i]
+) {
+  font-family: var(--font-technical) !important;
+  font-size: var(--type-caption) !important;
+  font-weight: var(--weight-medium) !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.015em !important;
+}
+
+/* Navigation and persistent chrome */
+.designer-app .dashboard-sidebar.rail .brand-word {
+  font-family: var(--font-ui) !important;
+  font-size: var(--type-title) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.designer-app .dashboard-sidebar.rail .rail-link,
+.designer-app .dashboard-sidebar.rail .rail-link > span {
+  font-size: var(--type-body) !important;
+  font-weight: var(--weight-medium) !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+.designer-app .dashboard-sidebar.rail .rail-link[data-active="true"],
+.designer-app .dashboard-sidebar.rail .rail-link[aria-current="page"] {
+  font-weight: var(--weight-semibold) !important;
+}
+
+.designer-app .dashboard-sidebar.rail :is(.workspace-health strong, .user-tile strong) {
+  font-size: var(--type-body-sm) !important;
+  font-weight: var(--weight-medium) !important;
+  line-height: var(--leading-compact) !important;
+}
+
+.designer-app .dashboard-sidebar.rail :is(.workspace-health small, .user-tile small) {
+  font-size: var(--type-caption) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: var(--leading-compact) !important;
+}
+
+.designer-app #dashboardHeader.global-system-bar :is(
+  .header-view-choice,
+  .scope-toggle-button,
+  .context-card-value,
+  .header-language-select,
+  .header-account-button,
+  .header-connection-status
+) {
+  font-size: var(--type-body-sm) !important;
+  font-weight: var(--weight-medium) !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+}
+
+.designer-app #dashboardHeader.global-system-bar :is(
+  .header-view-label,
+  .context-card-label,
+  .context-card-meta
+) {
+  font-size: var(--type-micro) !important;
+  font-weight: var(--weight-medium) !important;
+  line-height: 1.2 !important;
+}
+
+/* Buttons */
+.designer-app :is(
+  .button-new,
+  .settings-primary-button,
+  .settings-secondary-button,
+  .settings-text-button,
+  .admin-button,
+  .admin-link-button,
+  .diagnostic-primary-button,
+  .diagnostic-secondary-button,
+  .diagnostic-link-button,
+  .grower-command-primary,
+  .grower-command-secondary,
+  .grower-compare-button,
+  .grower-route-open,
+  .grower-route-trend,
+  .workbench-empty-button,
+  .trend-history-export-button
+) {
+  min-height: var(--control-height-md);
+  border-radius: var(--radius-control) !important;
+  padding: 0 var(--space-16) !important;
+  font-size: var(--type-body-sm) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.designer-app :is(.button-small, [data-size="small"]) {
+  min-height: var(--control-height-sm);
+  padding-inline: var(--space-12) !important;
+  font-size: var(--type-caption) !important;
+}
+
+.designer-app :is(.button-large, [data-size="large"]) {
+  min-height: var(--control-height-lg);
+  padding-inline: var(--space-20) !important;
+  font-size: var(--type-body) !important;
+}
+
+/* Forms */
+.designer-app label,
+.login-screen label > span {
+  font-size: var(--type-label) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-compact) !important;
+  letter-spacing: var(--tracking-label) !important;
+}
+
+.designer-app :is(input, select, textarea, .nc-select-trigger),
+.login-screen :is(input, select, textarea) {
+  font-size: var(--type-body) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0 !important;
+}
+
+.designer-app :is(input, select, .nc-select-trigger),
+.login-screen :is(input, select) {
+  min-height: var(--control-height-md) !important;
+  padding-inline: var(--space-12) !important;
+}
+
+.designer-app :is(input, textarea)::placeholder,
+.login-screen :is(input, textarea)::placeholder {
+  font-size: var(--type-body) !important;
+  font-weight: var(--weight-regular) !important;
+  opacity: 0.72;
+}
+
+.designer-app :is(
+  .field-helper,
+  .helper-text,
+  .management-modal-help,
+  .settings-field small,
+  .action-completion-field small
+) {
+  font-size: var(--type-caption) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: var(--leading-compact) !important;
+  letter-spacing: 0 !important;
+}
+
+.designer-app :is(
+  .field-error,
+  .validation-message,
+  .management-modal-error,
+  .settings-password-feedback
+) {
+  font-size: var(--type-caption) !important;
+  font-weight: var(--weight-medium) !important;
+  line-height: var(--leading-compact) !important;
+  letter-spacing: 0 !important;
+}
+
+.designer-app :is(.nc-select-option, .context-menu-option, .dropdown-item) {
+  min-height: 2.25rem;
+  font-size: var(--type-body-sm) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: var(--leading-compact) !important;
+}
+
+/* Tables */
+.designer-app :is(table, .admin-table, .nc-data-table, .diagnostic-table) {
+  font-size: var(--type-body-sm) !important;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.designer-app :is(table, .admin-table, .nc-data-table, .diagnostic-table) th,
+.designer-app .live-readings-table-head {
+  height: 2.5rem;
+  padding: var(--space-8) var(--space-12) !important;
+  font-size: var(--type-micro) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: 1.2 !important;
+  letter-spacing: var(--tracking-table) !important;
+  text-transform: uppercase;
+}
+
+.designer-app :is(table, .admin-table, .nc-data-table, .diagnostic-table) td {
+  height: var(--table-row-height);
+  padding: var(--space-8) var(--space-12) !important;
+  font-size: var(--type-body-sm) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0 !important;
+}
+
+.designer-app :is(table, .admin-table, .nc-data-table, .diagnostic-table) td:has(.tabular-number),
+.designer-app :is(table, .admin-table, .nc-data-table, .diagnostic-table) td[data-type="number"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.designer-app :is(.table-unit, th small) {
+  margin-left: var(--space-4);
+  font-size: var(--type-micro) !important;
+  font-weight: var(--weight-regular) !important;
+  letter-spacing: 0 !important;
+  text-transform: none;
+}
+
+.designer-app :is(.sort-icon, th [class*="fa-sort"]) {
+  margin-left: var(--space-4);
+  font-size: 0.625rem !important;
+}
+
+/* Badges, chips, alerts and empty states */
+.designer-app :is(
+  .state-chip,
+  .metric-state-chip,
+  .management-chip,
+  .nc-status-new,
+  .alert-filter-chip,
+  .power-filter-chip,
+  .inspection-filter-chip,
+  .workbench-lens-button,
+  .area-live-score,
+  .nav-count,
+  [class$="-badge"]
+) {
+  font-size: var(--type-micro) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.015em !important;
+  text-transform: none !important;
+}
+
+.designer-app :is(
+  .alert-rail-item-summary,
+  .alert-rail-item-meta,
+  .today-priority-alerts,
+  .diagnostic-narrative p
+) {
+  font-size: var(--type-body-sm) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: var(--leading-body) !important;
+}
+
+.designer-app :is(
+  .workbench-empty-title,
+  .admin-empty h3,
+  .nc-node-empty h3,
+  .empty-area-state h2
+) {
+  font-size: var(--type-h3) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-heading) !important;
+}
+
+.designer-app :is(
+  .workbench-empty-note,
+  .admin-empty p,
+  .nc-node-empty p,
+  .empty-area-state p
+) {
+  max-width: 36rem;
+  font-size: var(--type-body) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: var(--leading-body) !important;
+}
+
+/* Charts */
+.designer-app :is(.trend-history-title, .trend-analytics-card h3, .chart-title) {
+  font-size: var(--type-body) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-title) !important;
+}
+
+.designer-app :is(.trend-history-metric-button, .trend-history-range-button, .chart-legend) {
+  font-size: var(--type-caption) !important;
+  font-weight: var(--weight-medium) !important;
+  line-height: var(--leading-compact) !important;
+}
+
+.designer-app :is(.trend-history-axis, .chart-axis-label, .chart-axis-value) {
+  font-size: var(--type-micro) !important;
+  font-weight: var(--weight-medium) !important;
+  line-height: var(--leading-compact) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.designer-app .trend-history-tooltip {
+  font-size: var(--type-caption) !important;
+  font-weight: var(--weight-regular) !important;
+  line-height: 1.45 !important;
+}
+
+.designer-app .trend-history-tooltip-value {
+  font-weight: var(--weight-semibold) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Authentication */
+.login-screen .login-aside h1 {
+  font-size: var(--type-display-l) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-display) !important;
+  letter-spacing: var(--tracking-display) !important;
+}
+
+.login-screen .login-form-panel :is(h1, h2) {
+  font-size: var(--type-h1) !important;
+  font-weight: var(--weight-semibold) !important;
+  line-height: var(--leading-heading) !important;
+}
+
+.login-screen :is(p, .login-field, .login-submit) {
+  font-size: var(--type-body) !important;
+}
+
+.login-screen .login-submit {
+  min-height: var(--control-height-lg);
+  border-radius: var(--radius-control) !important;
+  font-weight: var(--weight-semibold) !important;
+}
+
+/* Layout rhythm and density */
+.designer-app .dashboard-main-inner {
+  padding: var(--space-20) var(--space-24) var(--space-48) !important;
+}
+
+.designer-app :is(.grower-overview, .settings-page-shell, .admin-page-shell, .crop-profiles-page) {
+  gap: var(--space-16);
+}
+
+.designer-app .grower-day-header {
+  gap: var(--space-24);
+  padding: var(--space-4) 0 var(--space-12);
+}
+
+.designer-app .grower-command-layout {
+  gap: var(--space-16);
+}
+
+.designer-app :is(.grower-command, .grower-pulse, .grower-route, .grower-farm-board) {
+  padding: var(--space-20);
+}
+
+.designer-app :is(.management-list-row, .area-live-section-row) {
+  min-height: var(--table-row-height);
+}
+
+.designer-app .dashboard-sidebar.rail .rail-nav {
+  padding-block: var(--space-20);
+}
+
+.designer-app .dashboard-sidebar.rail .rail-link {
+  min-height: 2.75rem;
+  gap: var(--space-12);
+  padding-inline: var(--space-12) !important;
+}
+
+@media (min-width: 1800px) {
+  .designer-app .dashboard-main-inner {
+    padding: var(--space-24) var(--space-32) var(--space-64) !important;
+  }
+
+  .designer-app .dashboard-sidebar.rail .rail-link {
+    min-height: 3rem;
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --type-display-xl: 2.5rem;
+    --type-display-l: 2rem;
+    --type-display-m: 1.75rem;
+    --type-h1: 1.5rem;
+    --type-h2: 1.3rem;
+    --type-metric-lg: 2.75rem;
+  }
+
+  .designer-app .dashboard-main-inner {
+    padding: var(--space-16) var(--space-12) var(--space-40) !important;
+  }
+
+  .login-screen .login-aside h1 {
+    font-size: var(--type-display-m) !important;
+  }
+}
