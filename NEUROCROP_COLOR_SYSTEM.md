@@ -49,7 +49,7 @@ The hierarchy is intentional:
 | Strong border | `--color-border-strong` | `#BFC4C0` | Hovered controls, strong separation |
 | Primary text | `--color-text` | `#202522` | Titles, values, body copy |
 | Secondary text | `--color-text-secondary` | `#5D655F` | Supporting labels and metadata |
-| Tertiary text | `--color-text-tertiary` | `#7B837D` | Nonessential hints only |
+| Tertiary text | `--color-text-tertiary` | `#6F7771` | Nonessential hints only |
 | Focus | `--color-focus` | `#527894` | Keyboard focus outline |
 
 ### Neutral Scale
@@ -86,7 +86,7 @@ Dark mode is enabled with `data-theme="dark"` on `html` or `body`.
 | Danger / Critical | `#A33B37` | `#FCECEA` | `#E17B74` | `#3B2927` |
 | Info | `#386282` | `#EAF1F8` | `#8DB1CA` | `#24323C` |
 | Offline | `#5F6862` | `#ECEEEC` | `#A1A8A3` | `#292E2B` |
-| Unknown | `#69716C` | `#EEF0EE` | `#A7ADA8` | `#292E2B` |
+| Unknown | `#626A65` | `#EEF0EE` | `#A7ADA8` | `#292E2B` |
 | Sensor stale | `#566F7E` | `#EDF2F5` | `#9BB0BC` | `#273139` |
 | Calibration needed | `#675B8E` | `#F1EEF8` | `#B2A7D8` | `#312E40` |
 | Disabled | `#8D948F` | `#ECEEEB` | `#737B75` | `#282D2A` |

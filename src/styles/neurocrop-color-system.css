@@ -37,7 +37,7 @@
   --color-border-strong: #bfc4c0;
   --color-text: #202522;
   --color-text-secondary: #5d655f;
-  --color-text-tertiary: #7b837d;
+  --color-text-tertiary: #6f7771;
   --color-text-inverse: #ffffff;
   --color-focus: #527894;
   --color-focus-ring: rgba(82, 120, 148, 0.30);
@@ -64,7 +64,7 @@
   --color-offline-border: #c7cbc8;
   --color-disabled: #8d948f;
   --color-disabled-bg: #eceeeb;
-  --color-unknown: #69716c;
+  --color-unknown: #626a65;
   --color-unknown-soft: #eef0ee;
   --color-stale: #566f7e;
   --color-stale-soft: #edf2f5;
@@ -92,8 +92,8 @@
   --color-sidebar-active: #ffffff;
   --color-sidebar-border: #d5d8d2;
   --color-sidebar-text: #2a302d;
-  --color-sidebar-muted: #68706b;
-  --color-sidebar-subtle: #848c86;
+  --color-sidebar-muted: #5f6762;
+  --color-sidebar-subtle: #626a65;
 
   /* Chart palette: measurements, never status colors. */
   --chart-temperature: #d36c5b;
@@ -706,4 +706,99 @@ body.designer-app {
   border-color: var(--color-border) !important;
   background: var(--color-surface-elevated) !important;
   color: var(--color-text) !important;
+}
+
+/* Authentication surfaces use neutral authority, not a green marketing block. */
+.login-screen {
+  background:
+    radial-gradient(circle at 16% 14%, color-mix(in srgb, var(--color-secondary) 13%, transparent), transparent 29%),
+    radial-gradient(circle at 84% 82%, color-mix(in srgb, var(--color-accent-ai) 10%, transparent), transparent 31%),
+    var(--color-background) !important;
+  color: var(--color-text);
+}
+
+.login-layout {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface) !important;
+  box-shadow: 0 28px 80px var(--color-shadow) !important;
+  backdrop-filter: none !important;
+}
+
+.login-aside {
+  background:
+    radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--color-secondary) 22%, transparent), transparent 38%),
+    linear-gradient(145deg, #2c3230, #202522) !important;
+  color: #ffffff;
+}
+
+.login-aside::after {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 0 0 3rem rgba(255, 255, 255, 0.025), 0 0 0 6rem rgba(255, 255, 255, 0.015) !important;
+}
+
+.login-aside > div:first-child {
+  border-color: color-mix(in srgb, var(--color-accent-plant) 50%, transparent) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: var(--color-accent-plant) !important;
+}
+
+.login-form-panel {
+  background: var(--color-surface) !important;
+  color: var(--color-text);
+}
+
+.login-field {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
+}
+
+.login-field:hover {
+  border-color: var(--color-border-strong) !important;
+}
+
+.login-field:focus {
+  border-color: var(--color-focus) !important;
+  box-shadow: 0 0 0 4px var(--color-focus-ring) !important;
+}
+
+.login-submit {
+  border: 1px solid var(--color-primary) !important;
+  background: var(--color-primary) !important;
+  color: var(--color-on-primary) !important;
+  box-shadow: 0 12px 26px var(--color-shadow) !important;
+}
+
+.login-submit:hover:not(:disabled) {
+  border-color: var(--color-primary-hover) !important;
+  background: var(--color-primary-hover) !important;
+  box-shadow: 0 16px 30px var(--color-shadow) !important;
+}
+
+.login-submit:disabled {
+  border-color: var(--color-border) !important;
+  background: var(--color-disabled-bg) !important;
+  color: var(--color-disabled) !important;
+  box-shadow: none !important;
+}
+
+.login-language-switch button[data-active="true"] {
+  background: var(--color-primary) !important;
+  color: var(--color-on-primary) !important;
+  box-shadow: none !important;
+}
+
+.login-form-panel a,
+.login-form-panel button:not(.login-submit) {
+  color: var(--color-secondary) !important;
+}
+
+#loginError {
+  border: 1px solid var(--color-danger-border) !important;
+  background: var(--color-danger-soft) !important;
+  color: var(--color-danger) !important;
+}
+
+#loginScreen:not([hidden]) ~ .mobile-dock {
+  display: none !important;
 }
