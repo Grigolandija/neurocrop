@@ -13727,6 +13727,19 @@
       }
     }
 
+    @media (max-width: 1179px) {
+      html:has(body[data-primary-page="overview"][data-experience-mode="simple"]),
+      body[data-primary-page="overview"][data-experience-mode="simple"],
+      body[data-primary-page="overview"][data-experience-mode="simple"] .designer-app {
+        overflow-x: hidden !important;
+      }
+
+      body[data-primary-page="overview"][data-experience-mode="simple"] .dashboard-shell {
+        width: 100%;
+        min-width: 0;
+      }
+    }
+
     @media (max-width: 1100px) {
       .grower-command-layout {
         grid-template-columns: 1fr;
