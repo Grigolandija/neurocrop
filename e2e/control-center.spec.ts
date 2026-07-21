@@ -72,8 +72,11 @@ test('Live readings opens an Area-wide Section measurement matrix', async ({ pag
   await expect(page).toHaveURL(/\/readings$/)
   await expect(page.locator('body')).toHaveAttribute('data-view-scope', 'site')
   await expect(page.locator('#zoneContextValue')).toHaveText('All sections')
+  await expect(page.locator('#siteMetricsViewToggle')).toBeHidden()
   await expect(page.locator('#metricsGrid')).toHaveAttribute('data-display', 'area-readings-board')
   await expect(page.locator('.area-live-section-row')).toHaveCount(1)
+  await expect(page.locator('.area-live-section-copy strong')).toHaveText('CI Section A')
+  await expect(page.locator('.area-live-score')).toContainText('GS')
   await expect(page.locator('.area-live-matrix-head')).toContainText('Air temperature')
   await expect(page.locator('.area-live-matrix-head')).toContainText('Relative humidity')
 

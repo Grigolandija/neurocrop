@@ -12464,6 +12464,13 @@ function buildTrendMetricOptions(options) {
       };
     }
 
+    function getAreaLiveUnitLabel(unit) {
+      const normalized = String(unit || "").trim();
+      if (normalized === "degC") return "°C";
+      if (normalized === "percent") return "%";
+      return normalized;
+    }
+
     function renderAreaLiveReadingsBoard(siteSnapshots, site, activeLens) {
       const metricKeys = getAreaLiveMetricKeys(siteSnapshots, activeLens);
       const temperatureSamples = siteSnapshots.flatMap((snapshot) => {
@@ -12523,7 +12530,7 @@ function buildTrendMetricOptions(options) {
           <span role="columnheader">${diagnosticText("Section", "Sekcija")}</span>
           ${metricKeys.map((key) => {
             const definition = metricDefinition(key);
-            return `<span role="columnheader"><b>${escapeHtml(getDiagnosticMetricLabel(definition?.label || key))}</b><small>${escapeHtml(definition?.unit || "")}</small></span>`;
+            return `<span role="columnheader"><b>${escapeHtml(getDiagnosticMetricLabel(definition?.label || key))}</b><small>${escapeHtml(getAreaLiveUnitLabel(definition?.unit))}</small></span>`;
           }).join("")}
           <span role="columnheader">${diagnosticText("Latest data", "Naujausi duomenys")}</span>
           <span aria-hidden="true"></span>
@@ -12555,8 +12562,8 @@ function buildTrendMetricOptions(options) {
           <article class="area-live-matrix-row area-live-section-row" role="row" data-state="${escapeAttribute(score.state)}" data-freshness="${escapeAttribute(freshness.state)}">
             <div class="area-live-section" role="rowheader">
               <span class="overview-section-state-dot" aria-hidden="true"></span>
-              <span><strong>${escapeHtml(snapshot.zone.name)}</strong><small>${escapeHtml(snapshot.profile.name)}</small></span>
-              <b data-state="${escapeAttribute(score.state)}">${escapeHtml(score.text)}</b>
+              <span class="area-live-section-copy"><strong title="${escapeAttribute(snapshot.zone.name)}">${escapeHtml(snapshot.zone.name)}</strong><small title="${escapeAttribute(snapshot.profile.name)}">${escapeHtml(snapshot.profile.name)}</small></span>
+              <span class="area-live-score" data-state="${escapeAttribute(score.state)}" title="${escapeAttribute(score.text)}"><small>GS</small><strong>${escapeHtml(score.score)}</strong></span>
             </div>
             ${cells}
             <div class="area-live-freshness" role="cell" data-freshness="${escapeAttribute(freshness.state)}" title="${escapeAttribute(freshness.detail)}">
@@ -15496,8 +15503,8 @@ function buildTrendMetricOptions(options) {
           : "Metrics";
       elements.metricsSectionTitle.textContent = isReadingsPage
         ? diagnosticText(
-            isSiteView ? `Measurements in every ${site.name} section` : `All live parameters in ${zone.name}`,
-            isSiteView ? `Visų „${site.name}“ sekcijų matavimai` : `Visi dabartiniai rodmenys: ${zone.name}`
+            isSiteView ? `${site.name} section readings` : `Live readings · ${zone.name}`,
+            isSiteView ? `Sekcijų rodmenys · ${site.name}` : `Dabartiniai rodmenys · ${zone.name}`
           )
         : isSiteView
         ? isSimpleExperienceMode
