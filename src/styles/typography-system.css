@@ -108,6 +108,104 @@ small {
   line-height: 1.4;
 }
 
+/* The persistent header is a compact control surface, not a row of headings.
+   Keep labels quiet and let selected values carry the hierarchy. */
+#dashboardHeader.global-system-bar .header-view-control {
+  gap: 0.1rem;
+  border-color: rgba(20, 32, 27, 0.07);
+  background: rgba(20, 32, 27, 0.035);
+}
+
+#dashboardHeader.global-system-bar .header-view-label {
+  font-size: var(--nc-type-caption) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+}
+
+#dashboardHeader.global-system-bar .header-view-choice {
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+}
+
+#dashboardHeader.global-system-bar .header-view-choice[data-active="true"] {
+  font-weight: 600 !important;
+  box-shadow: 0 2px 6px rgba(20, 32, 27, 0.07);
+}
+
+#dashboardHeader.global-system-bar .header-context-selectors .context-card {
+  border-color: rgba(20, 32, 27, 0.07);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+#dashboardHeader.global-system-bar .header-context-selectors .context-card-label {
+  font-size: var(--nc-type-caption) !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.07em !important;
+}
+
+#dashboardHeader.global-system-bar .header-context-selectors .context-card-value {
+  margin-top: 0.1rem;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.01em;
+}
+
+#dashboardHeader.global-system-bar .header-context-selectors .scope-toggle-button {
+  font-size: 0.8rem !important;
+  font-weight: 550 !important;
+  letter-spacing: 0.035em !important;
+}
+
+#dashboardHeader.global-system-bar .header-context-selectors .scope-toggle-button[data-active="true"] {
+  font-weight: 650 !important;
+  box-shadow: 0 3px 8px rgba(33, 71, 59, 0.12);
+}
+
+#dashboardHeader.global-system-bar .header-status-card {
+  gap: 0.7rem;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+}
+
+#dashboardHeader.global-system-bar .header-language-select select {
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+}
+
+#dashboardHeader.global-system-bar .header-connection-status {
+  gap: 0.42rem;
+  min-width: 4.4rem;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+}
+
+#dashboardHeader.global-system-bar .header-connection-dot {
+  width: 0.48rem;
+  height: 0.48rem;
+}
+
+#dashboardHeader.global-system-bar .header-account-button {
+  gap: 0.45rem;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  color: rgba(20, 32, 27, 0.8);
+}
+
+#dashboardHeader.global-system-bar .header-account-button > span:first-child {
+  font-size: var(--nc-type-caption) !important;
+  font-weight: 650 !important;
+}
+
+#dashboardHeader.global-system-bar #headerAccountEmail {
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em;
+}
+
 .designer-app small,
 .designer-app em,
 .designer-app dt {

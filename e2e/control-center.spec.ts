@@ -176,6 +176,31 @@ test('primary desktop pages fit the viewport without horizontal overflow', async
 
 test('primary desktop pages keep operational text readable', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  const headerType = await page.evaluate(() => {
+    const read = (selector: string) => {
+      const element = document.querySelector<HTMLElement>(selector)
+      if (!element) return null
+      const style = window.getComputedStyle(element)
+      return {
+        size: Number.parseFloat(style.fontSize),
+        weight: Number.parseInt(style.fontWeight, 10),
+      }
+    }
+    return {
+      label: read('#dashboardHeader .context-card-label'),
+      value: read('#dashboardHeader .context-card-value'),
+      account: read('#headerAccountEmail'),
+    }
+  })
+
+  expect(headerType.label).not.toBeNull()
+  expect(headerType.value).not.toBeNull()
+  expect(headerType.account).not.toBeNull()
+  expect(headerType.label!.weight).toBeLessThanOrEqual(600)
+  expect(headerType.value!.weight).toBeLessThanOrEqual(650)
+  expect(headerType.account!.weight).toBeLessThanOrEqual(650)
+  expect(headerType.value!.size).toBeGreaterThan(headerType.label!.size)
+
   const unreadable: Array<{ action: string; items: string[] }> = []
 
   for (const action of ['overview', 'sites', 'zones', 'nodes', 'readings', 'history', 'settings']) {
