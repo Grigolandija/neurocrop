@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
+import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
 import { installNeuroCropApi } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
 
@@ -20,6 +22,7 @@ function ApprovedDashboard() {
   const location = useLocation()
   const hostRef = useRef<HTMLDivElement>(null)
   const runtimeReady = useRef(false)
+  const [readingsMount, setReadingsMount] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     installNeuroCropApi()
@@ -27,6 +30,7 @@ function ApprovedDashboard() {
     if (hostRef.current && !hostRef.current.childElementCount) {
       hostRef.current.innerHTML = approvedMarkup
     }
+    setReadingsMount(hostRef.current?.querySelector<HTMLElement>('#readingsWorkspaceMount') || null)
 
     document.body.classList.add('designer-app')
     document.body.dataset.dashboardState = 'optimal'
@@ -78,6 +82,7 @@ function ApprovedDashboard() {
     return () => {
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
+      setReadingsMount(null)
     }
   }, [navigate])
 
@@ -86,7 +91,12 @@ function ApprovedDashboard() {
     window.postMessage({ type: 'neurocrop:route', route: location.pathname }, window.location.origin)
   }, [location.pathname])
 
-  return <div ref={hostRef} />
+  return <>
+    <div ref={hostRef} />
+    {location.pathname === '/readings' && readingsMount
+      ? createPortal(<ReadingsWorkspace />, readingsMount)
+      : null}
+  </>
 }
 
 export default function DashboardPage() {

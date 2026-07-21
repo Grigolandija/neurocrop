@@ -70,31 +70,27 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page).toHaveURL(/\/history$/)
 })
 
-test('Live readings opens an Area-wide Section measurement matrix', async ({ page }) => {
+test('Live readings opens the API-backed cross-section measurement workspace', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
   await navigationAction(page, 'readings').click()
 
   await expect(page).toHaveURL(/\/readings$/)
   await expect(page.locator('body')).toHaveAttribute('data-view-scope', 'site')
   await expect(page.locator('#zoneContextValue')).toHaveText('All sections')
-  await expect(page.locator('#siteMetricsViewToggle')).toBeHidden()
-  await expect(page.locator('#metricsGrid')).toHaveAttribute('data-display', 'area-readings-board')
-  await expect(page.locator('[data-workbench-lens="essential"]')).toHaveAttribute('data-active', 'true')
-  await expect(page.locator('[data-workbench-lens="all"]')).toContainText('All parameters')
-  await expect(page.locator('.area-live-section-row')).toHaveCount(1)
-  await expect(page.locator('.area-live-section-copy strong')).toHaveText('CI Section A')
-  await expect(page.locator('.area-live-section-copy small')).toHaveCount(0)
-  await expect(page.locator('.area-live-score')).not.toContainText('GS')
-  await expect(page.locator('.area-live-value small')).toHaveCount(0)
-  await expect(page.locator('.area-live-matrix-head')).toContainText('Air temperature')
-  await expect(page.locator('.area-live-matrix-head')).toContainText('Relative humidity')
+  await expect(page.locator('#metricsSection')).toBeHidden()
+  await expect(page.locator('.nc-readings-workspace')).toBeVisible()
+  await expect(page.locator('.nc-reading-presets button').filter({ hasText: 'Essential' })).toHaveClass(/active/)
+  await expect(page.locator('.nc-readings-row:not(.nc-readings-row-head)')).toHaveCount(1)
+  await expect(page.locator('.nc-reading-section strong')).toHaveText('CI Section A')
+  await expect(page.locator('.nc-readings-row-head')).toContainText('Temperature')
+  await expect(page.locator('.nc-readings-row-head')).toContainText('Humidity')
 
-  const visibleMetricColumns = await page.locator('.area-live-matrix-head > span').count() - 3
+  const visibleMetricColumns = await page.locator('.nc-readings-row-head > span').count() - 3
   expect(visibleMetricColumns).toBeLessThanOrEqual(6)
 
-  await page.locator('[data-area-reading-section]').click()
-  await expect(page.locator('body')).toHaveAttribute('data-view-scope', 'zone')
-  await expect(page.locator('#zoneContextValue')).toHaveText('CI Section A')
+  await page.locator('.nc-reading-section button').first().click()
+  await expect(page.locator('.nc-readings-drawer')).toBeVisible()
+  await expect(page.locator('.nc-readings-drawer')).toContainText('CI Section A')
 })
 
 test('successful API traffic restores the connection indicator without a refresh', async ({ page }) => {

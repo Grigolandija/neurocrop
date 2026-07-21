@@ -11,6 +11,7 @@ import './styles/neurocrop-color-system.css'
 import './styles/neurocrop-typography-system.css'
 import './styles/redesign-profiles.css'
 import './styles/redesign-alerts.css'
+import './styles/readings-workspace.css'
 
 declare global {
   interface Window {

@@ -18,6 +18,8 @@ const nodeStyles = await fs.readFile(path.join(root, "src/styles/nodes-page.css"
 const apiClient = await fs.readFile(path.join(root, "src/services/api/client.ts"), "utf8");
 const apiFacade = await fs.readFile(path.join(root, "src/services/api/neurocropApi.ts"), "utf8");
 const dashboardPage = await fs.readFile(path.join(root, "src/pages/DashboardPage.tsx"), "utf8");
+const readingsWorkspace = await fs.readFile(path.join(root, "src/features/readings/ReadingsWorkspace.tsx"), "utf8");
+const readingsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/readings-workspace.css"), "utf8");
 const registerPage = await fs.readFile(path.join(root, "src/pages/RegisterPage.tsx"), "utf8");
 const invitePage = await fs.readFile(path.join(root, "src/pages/AcceptInvitePage.tsx"), "utf8");
 const authLayout = await fs.readFile(path.join(root, "src/features/auth/AuthLayout.tsx"), "utf8");
@@ -42,6 +44,7 @@ assert(
 assert(runtime.includes("function fetchLatestReadingsForArea(siteId") && runtime.includes("latestReadingsCacheTtlMs = 60 * 1000") && runtime.includes("latestReadingsAreaInFlight.has(siteId)"), "Area Live readings must load only the selected Area with cache and in-flight protection");
 assert(runtime.includes("latestReadingsRequestIdBySectionId[zoneId]") && !runtime.includes("let latestReadingsRequestId = 0;"), "parallel Area readings must track stale requests independently for every Section");
 assert(runtime.includes("function renderAreaLiveReadingsBoard(") && runtime.includes('"area-readings-board"') && runtime.includes("data-area-reading-section"), "Live readings must provide an Area Section-by-metric matrix and a Section detail drill-down");
+assert(markup.includes('id="readingsWorkspaceMount"') && dashboardPage.includes('createPortal(<ReadingsWorkspace />') && readingsWorkspace.includes('neurocropApi.getLatestReadings') && readingsWorkspace.includes('const presets = [') && readingsWorkspace.includes('exportCsv()') && readingsWorkspaceStyles.includes('body[data-primary-page="readings"] #metricsSection'), "Readings must use the API-backed redesign workspace with presets, export, drill-down and a legacy fallback boundary");
 assert(runtime.includes("if (!nextZone) {") && runtime.includes("renderDashboard();"), "empty areas must render instead of returning during hydration");
 assert(runtime.includes('elements.dashboardShell.setAttribute("aria-busy", "true")') && runtime.includes('elements.dashboardShell.removeAttribute("aria-busy")'), "dashboard hydration must expose its loading state without leaving the UI blank");
 assert(runtime.includes('let dashboardHydrationStatus = isApiDataMode() ? "idle" : "ready";') && runtime.includes('dashboardHydrationStatus = "empty";') && runtime.includes('dashboardHydrationStatus = hasUsableWorkspace ? "ready" : "error";'), "dashboard hydration must distinguish loading, empty and failed workspaces");
