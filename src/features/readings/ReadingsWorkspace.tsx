@@ -320,13 +320,20 @@ export default function ReadingsWorkspace() {
       setRefreshing(true)
       setError('')
       try {
-        const [dashboardPayload, profilesPayload, areasPayload, sectionsPayload] = await Promise.all([
+        const [dashboardResult, profilesResult, areasResult, sectionsResult] = await Promise.allSettled([
           neurocropApi.getDashboard(),
-          neurocropApi.getCropProfiles().catch(() => ({ profiles: [] })),
-          neurocropApi.getAreas().catch(() => ({ areas: [] })),
-          neurocropApi.getSections().catch(() => ({ sections: [] })),
-        ]) as [JsonRecord, JsonRecord, JsonRecord, JsonRecord]
+          neurocropApi.getCropProfiles(),
+          neurocropApi.getAreas(),
+          neurocropApi.getSections(),
+        ])
         if (cancelled) return
+        if (dashboardResult.status === 'rejected' && sectionsResult.status === 'rejected') {
+          throw dashboardResult.reason
+        }
+        const dashboardPayload = dashboardResult.status === 'fulfilled' ? dashboardResult.value as JsonRecord : {}
+        const profilesPayload = profilesResult.status === 'fulfilled' ? profilesResult.value as JsonRecord : { profiles: [] }
+        const areasPayload = areasResult.status === 'fulfilled' ? areasResult.value as JsonRecord : { areas: [] }
+        const sectionsPayload = sectionsResult.status === 'fulfilled' ? sectionsResult.value as JsonRecord : { sections: [] }
         const profileMap = new Map<string, JsonRecord>()
         asArray(profilesPayload?.profiles).forEach((profile) => {
           const id = String(profile.id || profile.key || profile.slug || '')
@@ -456,6 +463,7 @@ export default function ReadingsWorkspace() {
     else counts.live += 1
     return counts
   }, { live: 0, stale: 0, offline: 0 })
+  const readingsUnavailable = status === 'error' && !sections.length
   const selectedSection = sections.find((section) => section.id === drawerId)
   const pinnedSections = pinned.map((id) => sections.find((section) => section.id === id)).filter((section): section is SectionReading => Boolean(section))
   const lensMetric = metrics.find((metric) => metric.key === lensMetricKey) || metrics[0]
@@ -493,11 +501,11 @@ export default function ReadingsWorkspace() {
   return <main className="nc-readings-workspace" aria-busy={status === 'loading'}>
     <header className="nc-readings-hero">
       <div><p className="nc-overline">Live workspace</p><h1>Live readings, section by section.</h1><p>Compare current measurements across the operation. Cell color shows crop status; the small marker shows whether the reading can be trusted.</p></div>
-      <div className="nc-readings-actions"><span><strong>{sections.length} sections monitored</strong><small>{refreshing ? 'Refreshing current measurements…' : 'Updated from live node packets'}</small></span><button type="button" onClick={() => setRefreshToken((value) => value + 1)} disabled={refreshing}><i className="fa-solid fa-rotate" />Refresh</button><button type="button" onClick={exportCsv} disabled={!visibleSections.length}><i className="fa-solid fa-download" />Export</button></div>
+      <div className="nc-readings-actions"><span><strong>{readingsUnavailable ? 'Sections unavailable' : `${sections.length} sections monitored`}</strong><small>{refreshing ? 'Refreshing current measurements…' : readingsUnavailable ? 'Live data could not be loaded' : 'Updated from live node packets'}</small></span><button type="button" onClick={() => setRefreshToken((value) => value + 1)} disabled={refreshing}><i className="fa-solid fa-rotate" />Refresh</button><button type="button" onClick={exportCsv} disabled={!visibleSections.length}><i className="fa-solid fa-download" />Export</button></div>
     </header>
 
     {status === 'error' ? <section className="nc-readings-state" role="alert"><i className="fa-solid fa-triangle-exclamation" /><div><strong>Readings could not be loaded</strong><p>{error}</p></div><button type="button" onClick={() => setRefreshToken((value) => value + 1)}>Try again</button></section> : null}
-    <section className="nc-readings-health" aria-label="Live data availability"><div><b>{freshness.live}</b><span><strong>Current</strong><small>Arriving on schedule</small></span></div><div data-state="stale"><b>{freshness.stale}</b><span><strong>Delayed</strong><small>Usable, clearly marked</small></span></div><div data-state="offline"><b>{freshness.offline}</b><span><strong>Interrupted</strong><small>No current aggregate</small></span></div><p><i className="fa-solid fa-circle-info" /> Missing, stale and uninstalled sensors are never converted to zero.</p></section>
+    <section className="nc-readings-health" aria-label="Live data availability"><div><b>{readingsUnavailable ? '—' : freshness.live}</b><span><strong>Current</strong><small>Arriving on schedule</small></span></div><div data-state="stale"><b>{readingsUnavailable ? '—' : freshness.stale}</b><span><strong>Delayed</strong><small>Usable, clearly marked</small></span></div><div data-state="offline"><b>{readingsUnavailable ? '—' : freshness.offline}</b><span><strong>Interrupted</strong><small>No current aggregate</small></span></div><p><i className="fa-solid fa-circle-info" /> Missing, stale and uninstalled sensors are never converted to zero.</p></section>
 
     <section className="nc-readings-matrix" aria-labelledby="nc-readings-title">
       <header><div><p className="nc-overline">Live section matrix</p><h2 id="nc-readings-title">Every current reading in one place</h2><span>Choose a working set instead of forcing all 13 parameters onto every screen.</span></div><div className="nc-segmented" role="group" aria-label="Reading display"><button className={mode === 'value' ? 'active' : ''} onClick={() => setMode('value')}>Values</button><button className={mode === 'target' ? 'active' : ''} onClick={() => setMode('target')}>Against target</button><button className={mode === 'change' ? 'active' : ''} onClick={() => setMode('change')}>1h change</button></div></header>
