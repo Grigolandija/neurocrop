@@ -11417,7 +11417,7 @@ function buildTrendMetricOptions(options) {
               show: true,
               distance: 8,
               color: extremaLabelColor,
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 850,
               backgroundColor: extremaBackground,
               borderColor: colorWithAlpha(color, 0.20),
@@ -12046,8 +12046,8 @@ function buildTrendMetricOptions(options) {
             return `<strong>${escapeHtml(timestamp)}</strong><br>${rows}`;
           }
         },
-        xAxis: { type: "time", axisLabel: { fontSize: 10 } },
-        yAxis: { type: "value", scale: true, axisLabel: { formatter: (value) => formatTrendTickValue(value, metricOption.definition, metricOption.key), fontSize: 10 } },
+        xAxis: { type: "time", axisLabel: { fontSize: 12 } },
+        yAxis: { type: "value", scale: true, axisLabel: { formatter: (value) => formatTrendTickValue(value, metricOption.definition, metricOption.key), fontSize: 12 } },
         series: comparisonSeries.map((item) => ({
           name: item.name,
           type: "line",

@@ -1,7 +1,7 @@
 /* Final typography layer. Keep type decisions here instead of adding more
    route-specific overrides to the legacy dashboard stylesheet. */
 :root {
-  --nc-type-micro: 0.6875rem;
+  --nc-type-micro: 0.75rem;
   --nc-type-caption: 0.75rem;
   --nc-type-meta: 0.8125rem;
   --nc-type-body: 0.875rem;
@@ -75,6 +75,16 @@ small {
   font-size: var(--nc-type-ui) !important;
 }
 
+.designer-app .header-view-choice,
+.designer-app .header-account-button > span:first-child,
+.designer-app .text-xs,
+.designer-app .text-\[10px\],
+.designer-app .text-\[11px\],
+.designer-app .text-\[0\.68rem\] {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.35 !important;
+}
+
 .designer-app .header-view-label,
 .designer-app .context-card-label,
 .designer-app .context-menu-label,
@@ -96,6 +106,13 @@ small {
 .designer-app .header-account-copy small {
   font-size: var(--nc-type-caption) !important;
   line-height: 1.4;
+}
+
+.designer-app small,
+.designer-app em,
+.designer-app dt {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.4 !important;
 }
 
 /* Page and section hierarchy */
@@ -330,6 +347,28 @@ small {
   font-size: var(--nc-type-caption) !important;
 }
 
+.designer-app .workbench-lens-button-label,
+.designer-app .workbench-lens-count,
+.designer-app .overview-growing-map-summary,
+.designer-app .overview-area-card-head > span:first-child em,
+.designer-app .overview-area-card footer,
+.designer-app .overview-selected-area-sections > header > span,
+.designer-app .overview-section-mini-main strong,
+.designer-app .overview-section-mini-status small,
+.designer-app .overview-section-mini-status span,
+.designer-app .triage-score-details dt,
+.designer-app .triage-reading-state,
+.designer-app #trendHistoryRangeMeta,
+.designer-app .trend-analytics-card header span,
+.designer-app .trend-time-card span {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.4 !important;
+}
+
+.designer-app svg text {
+  font-size: var(--nc-type-micro) !important;
+}
+
 .designer-app .metric-current-value,
 .designer-app .power-node-value,
 .designer-app .trend-time-card strong {
@@ -372,6 +411,35 @@ small {
 ) {
   font-size: var(--nc-type-meta) !important;
   line-height: 1.45 !important;
+}
+
+.designer-app #nodesManagementSection :is(
+  .node-fleet-page-head p,
+  .node-fleet-stats small,
+  .node-table-identity strong,
+  .node-table-location strong,
+  .nc-status-new
+) {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.4 !important;
+}
+
+.designer-app .settings-section-nav button small,
+.designer-app .settings-section-nav button b,
+.designer-app .crop-profile-metric-boundary b,
+.designer-app .crop-profile-boundaries b {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.3 !important;
+}
+
+.designer-app .triage-score-card {
+  grid-template-columns: minmax(110px, 0.6fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.designer-app .triage-score-details,
+.designer-app .triage-score-details > div {
+  min-width: 0;
 }
 
 @media (max-width: 760px) {
