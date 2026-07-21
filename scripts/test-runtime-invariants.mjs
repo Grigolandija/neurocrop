@@ -34,7 +34,9 @@ assert(
   "Detected light hardware must expose Lux in API-backed metric availability"
 );
 
-assert(!runtime.includes("fetchLatestReadingsForAllZones"), "dashboard must not fetch latest readings for every section");
+assert(runtime.includes("function fetchLatestReadingsForArea(siteId") && runtime.includes("latestReadingsCacheTtlMs = 60 * 1000") && runtime.includes("latestReadingsAreaInFlight.has(siteId)"), "Area Live readings must load only the selected Area with cache and in-flight protection");
+assert(runtime.includes("latestReadingsRequestIdBySectionId[zoneId]") && !runtime.includes("let latestReadingsRequestId = 0;"), "parallel Area readings must track stale requests independently for every Section");
+assert(runtime.includes("function renderAreaLiveReadingsBoard(") && runtime.includes('"area-readings-board"') && runtime.includes("data-area-reading-section"), "Live readings must provide an Area Section-by-metric matrix and a Section detail drill-down");
 assert(runtime.includes("if (!nextZone) {") && runtime.includes("renderDashboard();"), "empty areas must render instead of returning during hydration");
 assert(runtime.includes('elements.dashboardShell.setAttribute("aria-busy", "true")') && runtime.includes('elements.dashboardShell.removeAttribute("aria-busy")'), "dashboard hydration must expose its loading state without leaving the UI blank");
 assert(runtime.includes('let dashboardHydrationStatus = isApiDataMode() ? "idle" : "ready";') && runtime.includes('dashboardHydrationStatus = "empty";') && runtime.includes('dashboardHydrationStatus = hasUsableWorkspace ? "ready" : "error";'), "dashboard hydration must distinguish loading, empty and failed workspaces");

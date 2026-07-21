@@ -1681,6 +1681,8 @@
       manualOverride = false;
       latestReadingsBySectionId = {};
       latestReadingsStatusBySectionId = {};
+      latestReadingsRequestIdBySectionId = {};
+      latestReadingsAreaInFlight.clear();
       backendTodayActions = null;
       backendActionHistory = [];
       todayPriorityFeedbackState = { actionId: "", saving: false, error: false, message: "" };
@@ -1751,9 +1753,12 @@
     let trendComparisonZoneIds = [];
     const trendHistoryCacheTtlMs = 60 * 1000;
     const trendHistoryRetryDelayMs = 10 * 1000;
-    let latestReadingsRequestId = 0;
+    let latestReadingsRequestIdBySectionId = {};
     let latestReadingsBySectionId = {};
     let latestReadingsStatusBySectionId = {};
+    const latestReadingsCacheTtlMs = 60 * 1000;
+    const latestReadingsRetryDelayMs = 10 * 1000;
+    const latestReadingsAreaInFlight = new Set();
     let backendTodayActions = null;
     let backendActionHistory = [];
     let todayPriorityFeedbackState = { actionId: "", saving: false, error: false, message: "" };
@@ -2055,7 +2060,7 @@
       closeContextMenus();
 
       if (activePrimaryPage === "history" || activePrimaryPage === "readings") {
-        activeViewScope = "zone";
+        activeViewScope = activePrimaryPage === "readings" ? "site" : "zone";
         activeWorkspaceFocus = "all";
         if (activePrimaryPage === "readings") activeWorkbenchLensKey = "all";
         setExperienceMode("detailed", { render: false, force: true });
@@ -2067,6 +2072,7 @@
       }
 
       renderDashboard();
+      if (activePrimaryPage === "readings") fetchLatestReadingsForArea(getActiveSite()?.id);
       refreshDataForActivePage();
 
       const targetByPage = {
@@ -3769,14 +3775,15 @@
 
     async function fetchLatestReadingsForZone(zoneId, options = {}) {
       if (!isApiDataMode() || !zoneId) return;
-      const requestId = ++latestReadingsRequestId;
+      const requestId = (latestReadingsRequestIdBySectionId[zoneId] || 0) + 1;
+      latestReadingsRequestIdBySectionId[zoneId] = requestId;
       latestReadingsStatusBySectionId[zoneId] = { status: "loading", error: "" };
 
       try {
         const response = await window.NeuroCropApi.getLatestReadings(zoneId);
-        if (requestId !== latestReadingsRequestId && options.onlyActive !== false) return;
+        if (requestId !== latestReadingsRequestIdBySectionId[zoneId]) return;
         latestReadingsBySectionId[zoneId] = response;
-        latestReadingsStatusBySectionId[zoneId] = { status: "ready", error: "" };
+        latestReadingsStatusBySectionId[zoneId] = { status: "ready", error: "", fetchedAt: Date.now() };
         if (zoneId === getActiveZone()?.id) {
           currentReadings = readingsFromApiObservations(response);
           manualOverride = false;
@@ -3786,7 +3793,8 @@
       } catch (error) {
         latestReadingsStatusBySectionId[zoneId] = {
           status: "error",
-          error: error instanceof Error ? error.message : "Latest readings could not be loaded."
+          error: error instanceof Error ? error.message : "Latest readings could not be loaded.",
+          failedAt: Date.now()
         };
         if (zoneId === getActiveZone()?.id) {
           currentReadings = {};
@@ -3794,6 +3802,39 @@
           if (options.renderOnComplete !== false) renderDashboard();
         }
         return null;
+      }
+    }
+
+    async function fetchLatestReadingsForArea(siteId, options = {}) {
+      if (!isApiDataMode() || !siteId || latestReadingsAreaInFlight.has(siteId)) return;
+      const site = dashboardData.sites.find((item) => item.id === siteId);
+      if (!site) return;
+      const now = Date.now();
+      const zonesToFetch = (site.zones || []).filter((zone) => {
+        const status = latestReadingsStatusBySectionId[zone.id];
+        if (status?.status === "loading") return false;
+        if (options.force === true) return true;
+        if (status?.status === "ready" && now - (status.fetchedAt || 0) < latestReadingsCacheTtlMs) return false;
+        if (status?.status === "error" && now - (status.failedAt || 0) < latestReadingsRetryDelayMs) return false;
+        return true;
+      });
+      if (zonesToFetch.length === 0) return;
+
+      latestReadingsAreaInFlight.add(siteId);
+      try {
+        await Promise.all(zonesToFetch.map((zone) => fetchLatestReadingsForZone(zone.id, {
+          onlyActive: false,
+          renderOnComplete: false
+        })));
+      } finally {
+        latestReadingsAreaInFlight.delete(siteId);
+      }
+
+      if (options.renderOnComplete !== false
+        && activePrimaryPage === "readings"
+        && activeViewScope === "site"
+        && getActiveSite()?.id === siteId) {
+        renderDashboard();
       }
     }
 
@@ -4754,12 +4795,13 @@
         case "readings":
           activePrimaryPage = "readings";
           sidebarActionOverride = null;
-          activeViewScope = "zone";
+          activeViewScope = "site";
           activeWorkspaceFocus = "all";
           activeWorkbenchLensKey = "all";
           setExperienceMode("detailed", { render: false });
           closeContextMenus();
           renderDashboard();
+          fetchLatestReadingsForArea(site?.id);
           syncTopLevelRoute("/readings");
           scrollToSection("metricsSection", { behavior: "auto", highlight: false });
           return;
@@ -12339,6 +12381,203 @@ function buildTrendMetricOptions(options) {
       `;
     }
 
+    const areaLiveMetricPriority = [
+      "airTemp",
+      "humidity",
+      "vpd",
+      "co2",
+      "lux",
+      "soilTemp",
+      "soilMoisture",
+      "waterTemp",
+      "ec",
+      "ph",
+      "airPressure"
+    ];
+
+    function getAreaLiveMetricKeys(siteSnapshots, activeLens) {
+      let metricKeys = [...new Set(siteSnapshots.flatMap((snapshot) =>
+        snapshot.results
+          .filter((result) => result.key !== "batteryLevel" && result.configured !== false)
+          .map((result) => result.key)
+      ))];
+
+      if (activeLens?.kind === "group") {
+        metricKeys = metricKeys.filter((key) => getMetricWorkbenchGroup(key).key === activeLens.groupKey);
+      } else if (activeLens?.key === "focus") {
+        metricKeys = metricKeys.filter((key) => siteSnapshots.some((snapshot) => {
+          const result = snapshot.results.find((item) => item.key === key);
+          return result && (result.available === false || result.state !== "optimal");
+        }));
+      } else if (activeLens?.key === "coverage") {
+        metricKeys = metricKeys.filter((key) => siteSnapshots.some((snapshot) => {
+          const result = snapshot.results.find((item) => item.key === key);
+          return !result || result.available === false;
+        }));
+      }
+
+      return metricKeys.sort((left, right) => {
+        const leftPriority = areaLiveMetricPriority.indexOf(left);
+        const rightPriority = areaLiveMetricPriority.indexOf(right);
+        const leftRank = leftPriority < 0 ? areaLiveMetricPriority.length : leftPriority;
+        const rightRank = rightPriority < 0 ? areaLiveMetricPriority.length : rightPriority;
+        return leftRank - rightRank || left.localeCompare(right);
+      });
+    }
+
+    function getAreaSectionReadingFreshness(snapshot) {
+      if (!isApiDataMode()) {
+        return { state: "live", label: diagnosticText("Live", "Dabar"), detail: diagnosticText("Demo data", "Demonstraciniai duomenys") };
+      }
+      const response = latestReadingsBySectionId[snapshot.zone.id];
+      const requestStatus = latestReadingsStatusBySectionId[snapshot.zone.id];
+      if (requestStatus?.status === "loading") {
+        return { state: "loading", label: diagnosticText("Loading", "Kraunama"), detail: diagnosticText("Fetching latest readings", "Gaunami naujausi rodmenys") };
+      }
+      if (!response?.lastReceivedAt) {
+        return {
+          state: requestStatus?.status === "error" ? "offline" : "stale",
+          label: requestStatus?.status === "error" ? diagnosticText("Unavailable", "Nepasiekiama") : diagnosticText("No data", "Nėra duomenų"),
+          detail: requestStatus?.error || diagnosticText("No sensor reading received yet", "Sensoriaus rodmenų dar negauta")
+        };
+      }
+
+      const receivedAtMs = new Date(response.lastReceivedAt).getTime();
+      if (!Number.isFinite(receivedAtMs)) {
+        return {
+          state: "stale",
+          label: diagnosticText("Invalid time", "Neteisingas laikas"),
+          detail: diagnosticText("The latest sensor timestamp is invalid", "Naujausio sensoriaus rodmens laikas yra neteisingas")
+        };
+      }
+      const ageSec = Math.max(0, Math.round((Date.now() - receivedAtMs) / 1000));
+      const expectedIntervalSec = Math.max(30, Number(response.expectedUplinkIntervalSec) || 600);
+      const state = ageSec <= expectedIntervalSec * 2.5
+        ? "live"
+        : ageSec <= expectedIntervalSec * 6
+          ? "delayed"
+          : "stale";
+      return {
+        state,
+        label: formatFreshnessAge(ageSec),
+        detail: diagnosticText(`Last section uplink ${formatFreshnessAge(ageSec)}`, `Paskutinis sekcijos ryšys: ${formatFreshnessAge(ageSec)}`)
+      };
+    }
+
+    function renderAreaLiveReadingsBoard(siteSnapshots, site, activeLens) {
+      const metricKeys = getAreaLiveMetricKeys(siteSnapshots, activeLens);
+      const temperatureSamples = siteSnapshots.flatMap((snapshot) => {
+        const result = snapshot.results.find((item) => item.key === "airTemp");
+        const definition = snapshot.profile.metrics.airTemp;
+        return result?.available !== false && definition
+          ? [{ snapshot, result, definition }]
+          : [];
+      }).sort((left, right) => left.result.value - right.result.value);
+      const coolest = temperatureSamples[0] || null;
+      const warmest = temperatureSamples[temperatureSamples.length - 1] || null;
+      const temperatureRange = coolest && warmest
+        ? `${formatValue(coolest.result.value, coolest.definition)}–${formatValue(warmest.result.value, warmest.definition)}`
+        : "—";
+      const attentionCount = siteSnapshots.filter((snapshot) => snapshotHasLiveGrowthData(snapshot) && snapshot.overall.state !== "optimal").length;
+      const reportingCount = siteSnapshots.filter((snapshot) => snapshot.results.some((result) =>
+        result.key !== "batteryLevel" && result.available !== false
+      )).length;
+      const loadingCount = siteSnapshots.filter((snapshot) => latestReadingsStatusBySectionId[snapshot.zone.id]?.status === "loading").length;
+      const metricDefinition = (key) => siteSnapshots.find((snapshot) => snapshot.profile.metrics[key])?.profile.metrics[key] || null;
+
+      const summaryHtml = `
+        <div class="area-live-summary" aria-label="${escapeAttribute(diagnosticText(`${site.name} live summary`, `${site.name} dabartinių rodmenų santrauka`))}">
+          <article class="area-live-summary-card area-live-temperature">
+            <span>${diagnosticText("Temperature across sections", "Temperatūra sekcijose")}</span>
+            <strong>${escapeHtml(temperatureRange)}</strong>
+            <small>${coolest && warmest
+              ? escapeHtml(diagnosticText(`Coolest ${coolest.snapshot.zone.name} · warmest ${warmest.snapshot.zone.name}`, `Vėsiausia ${coolest.snapshot.zone.name} · šilčiausia ${warmest.snapshot.zone.name}`))
+              : escapeHtml(diagnosticText("Waiting for temperature readings", "Laukiama temperatūros rodmenų"))}</small>
+          </article>
+          <article class="area-live-summary-card" data-tone="${attentionCount > 0 ? "warning" : "optimal"}">
+            <span>${diagnosticText("Sections needing attention", "Sekcijos, kurioms reikia dėmesio")}</span>
+            <strong>${attentionCount}</strong>
+            <small>${attentionCount > 0
+              ? escapeHtml(diagnosticText(`${attentionCount} of ${siteSnapshots.length} outside target`, `${attentionCount} iš ${siteSnapshots.length} už tikslinių ribų`))
+              : escapeHtml(diagnosticText("All reporting sections are in target", "Visos duomenis siunčiančios sekcijos yra normoje"))}</small>
+          </article>
+          <article class="area-live-summary-card" data-tone="${reportingCount === siteSnapshots.length ? "optimal" : "neutral"}">
+            <span>${diagnosticText("Data coverage", "Duomenų aprėptis")}</span>
+            <strong>${reportingCount}/${siteSnapshots.length}</strong>
+            <small>${loadingCount > 0
+              ? escapeHtml(diagnosticText(`Refreshing ${loadingCount} sections`, `Atnaujinama sekcijų: ${loadingCount}`))
+              : escapeHtml(diagnosticText("Sections with current measurements", "Sekcijos su dabartiniais matavimais"))}</small>
+          </article>
+        </div>`;
+
+      if (metricKeys.length === 0) {
+        return `${summaryHtml}${renderWorkbenchEmptyState(
+          diagnosticText("No measurements match this filter.", "Šio filtro neatitinka nė vienas matavimas."),
+          diagnosticText("Choose All parameters or another metric group.", "Pasirinkite visus parametrus arba kitą metrikų grupę."),
+          "all"
+        )}`;
+      }
+
+      const tableHead = `
+        <div class="area-live-matrix-row area-live-matrix-head" role="row">
+          <span role="columnheader">${diagnosticText("Section", "Sekcija")}</span>
+          ${metricKeys.map((key) => {
+            const definition = metricDefinition(key);
+            return `<span role="columnheader"><b>${escapeHtml(getDiagnosticMetricLabel(definition?.label || key))}</b><small>${escapeHtml(definition?.unit || "")}</small></span>`;
+          }).join("")}
+          <span role="columnheader">${diagnosticText("Latest data", "Naujausi duomenys")}</span>
+          <span aria-hidden="true"></span>
+        </div>`;
+
+      const rows = siteSnapshots.map((snapshot) => {
+        const freshness = getAreaSectionReadingFreshness(snapshot);
+        const score = getContextScoreSummary(snapshotHasLiveGrowthData(snapshot) ? snapshot.overall : null);
+        const cells = metricKeys.map((key) => {
+          const result = snapshot.results.find((item) => item.key === key);
+          const definition = snapshot.profile.metrics[key] || metricDefinition(key);
+          const isConfigured = Boolean(result && result.configured !== false && definition);
+          const isAvailable = isConfigured && result.available !== false;
+          const state = isAvailable ? result.state : "unavailable";
+          const value = isAvailable ? formatValue(result.value, definition) : "—";
+          const status = !isConfigured
+            ? diagnosticText("Not installed", "Neįdiegta")
+            : freshness.state === "loading"
+              ? diagnosticText("Loading", "Kraunama")
+              : diagnosticText("No current data", "Nėra dabartinių duomenų");
+          return `
+            <div class="area-live-value" role="cell" data-state="${escapeAttribute(state)}" data-freshness="${escapeAttribute(freshness.state)}" title="${escapeAttribute(isAvailable ? result.deviationText : status)}">
+              <strong>${escapeHtml(value)}</strong>
+              <small>${escapeHtml(isAvailable ? (result.statusLabel || stateConfig[result.state]?.label || "") : status)}</small>
+            </div>`;
+        }).join("");
+
+        return `
+          <article class="area-live-matrix-row area-live-section-row" role="row" data-state="${escapeAttribute(score.state)}" data-freshness="${escapeAttribute(freshness.state)}">
+            <div class="area-live-section" role="rowheader">
+              <span class="overview-section-state-dot" aria-hidden="true"></span>
+              <span><strong>${escapeHtml(snapshot.zone.name)}</strong><small>${escapeHtml(snapshot.profile.name)}</small></span>
+              <b data-state="${escapeAttribute(score.state)}">${escapeHtml(score.text)}</b>
+            </div>
+            ${cells}
+            <div class="area-live-freshness" role="cell" data-freshness="${escapeAttribute(freshness.state)}" title="${escapeAttribute(freshness.detail)}">
+              <span class="reading-freshness-label" data-observation="${escapeAttribute(freshness.state)}">${escapeHtml(freshness.label)}</span>
+            </div>
+            <button type="button" class="area-live-open" data-area-reading-section="${escapeAttribute(snapshot.zone.id)}" data-area-reading-site="${escapeAttribute(snapshot.site.id)}" aria-label="${escapeAttribute(diagnosticText(`Open ${snapshot.zone.name} readings`, `Atidaryti sekcijos „${snapshot.zone.name}“ rodmenis`))}">
+              <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+            </button>
+          </article>`;
+      }).join("");
+
+      return `
+        ${summaryHtml}
+        <div class="area-live-matrix-scroll">
+          <div class="area-live-matrix" role="table" aria-label="${escapeAttribute(diagnosticText(`Live readings by section in ${site.name}`, `${site.name} sekcijų dabartiniai rodmenys`))}" style="--area-live-metric-count:${metricKeys.length};--area-live-min-width:${Math.max(880, 320 + metricKeys.length * 145)}px;--area-live-wide-min-width:${Math.max(980, 350 + metricKeys.length * 160)}px">
+            ${tableHead}
+            ${rows}
+          </div>
+        </div>`;
+    }
+
     function renderMetricCard(key, definition, result) {
       const category = getMetricCategory(key);
       const sliderScale = key === "batteryLevel" ? "descending" : "ascending";
@@ -14365,6 +14604,9 @@ function buildTrendMetricOptions(options) {
       const weakestSiteSnapshot = getWeakestSiteSnapshot(siteSnapshots);
       const siteOverallState = deriveSiteOverallState(siteSnapshots);
       const isSiteView = activeViewScope === "site";
+      if (isReadingsPage && isSiteView && isApiDataMode()) {
+        queueMicrotask(() => fetchLatestReadingsForArea(site.id));
+      }
       if (activeWorkspaceFocus === "route" && isSiteView && activeSiteDetailView === "zones") {
         activeSiteDetailView = "averages";
       }
@@ -14545,7 +14787,30 @@ function buildTrendMetricOptions(options) {
         siteAverageSummaries
       });
       currentWorkbenchLenses = isReadingsPage
-        ? workbenchConfig.lenses.filter((lens) => lens.key !== "focus")
+        ? workbenchConfig.lenses.filter((lens) => lens.key !== "focus").map((lens) => {
+            if (!isSiteView) return lens;
+            if (lens.key === "all") {
+              return {
+                ...lens,
+                label: diagnosticText("All parameters", "Visi parametrai"),
+                description: diagnosticText(
+                  `Comparing every configured parameter across ${site.name} sections.`,
+                  `Lyginami visi sukonfigūruoti parametrai visose „${site.name}“ sekcijose.`
+                )
+              };
+            }
+            if (lens.key === "coverage") {
+              return {
+                ...lens,
+                label: diagnosticText("Missing data", "Trūkstami duomenys"),
+                description: diagnosticText(
+                  `Showing parameters missing from at least one ${site.name} section.`,
+                  `Rodomi parametrai, kurių trūksta bent vienoje „${site.name}“ sekcijoje.`
+                )
+              };
+            }
+            return lens;
+          })
         : workbenchConfig.lenses;
       if (isReadingsPage && activeWorkbenchLensKey === "focus") {
         activeWorkbenchLensKey = "all";
@@ -14841,7 +15106,7 @@ function buildTrendMetricOptions(options) {
       elements.zoneScopeButton.setAttribute("aria-pressed", String(!isSiteView));
       elements.siteScopeButton.dataset.active = String(isSiteView);
       elements.siteScopeButton.setAttribute("aria-pressed", String(isSiteView));
-      elements.siteMetricsViewToggle.hidden = !isSiteView || isSimpleExperienceMode;
+      elements.siteMetricsViewToggle.hidden = !isSiteView || isSimpleExperienceMode || isReadingsPage;
       elements.siteAveragesButton.dataset.active = String(activeSiteDetailView === "averages");
       elements.siteAveragesButton.setAttribute("aria-pressed", String(activeSiteDetailView === "averages"));
       elements.siteZonesButton.dataset.active = String(activeSiteDetailView === "zones");
@@ -15231,8 +15496,8 @@ function buildTrendMetricOptions(options) {
           : "Metrics";
       elements.metricsSectionTitle.textContent = isReadingsPage
         ? diagnosticText(
-            `All live parameters in ${isSiteView ? site.name : zone.name}`,
-            `Visi dabartiniai rodmenys: ${isSiteView ? site.name : zone.name}`
+            isSiteView ? `Measurements in every ${site.name} section` : `All live parameters in ${zone.name}`,
+            isSiteView ? `Visų „${site.name}“ sekcijų matavimai` : `Visi dabartiniai rodmenys: ${zone.name}`
           )
         : isSiteView
         ? isSimpleExperienceMode
@@ -15252,8 +15517,12 @@ function buildTrendMetricOptions(options) {
         ? ""
         : isReadingsPage
         ? diagnosticText(
-            "Choose a metric group or open its trend for the full history.",
-            "Pasirinkite rodiklių grupę arba atidarykite grafiką išsamiai istorijai."
+            isSiteView
+              ? "Each row is a Section. Compare values directly, then open one Section for sensor-level detail."
+              : "Choose a metric group or open its trend for the full history.",
+            isSiteView
+              ? "Kiekviena eilutė yra Section. Palyginkite reikšmes ir atidarykite sekciją sensorių detalėms."
+              : "Pasirinkite rodiklių grupę arba atidarykite grafiką išsamiai istorijai."
           )
         : isSimpleExperienceMode
         ? "Only the most relevant live readings are shown here."
@@ -15296,9 +15565,13 @@ function buildTrendMetricOptions(options) {
       currentTrendMetricOptions = trendMetricOptions;
 
       if (!skipMetricsGrid) {
-        elements.metricsGrid.dataset.display = isReadingsPage && !isSiteView ? "readings-board" : "cards";
+        elements.metricsGrid.dataset.display = isReadingsPage
+          ? isSiteView ? "area-readings-board" : "readings-board"
+          : "cards";
         if (isSiteView) {
-          if (isSiteHotspotsView) {
+          if (isReadingsPage) {
+            elements.metricsGrid.innerHTML = renderAreaLiveReadingsBoard(siteSnapshots, site, activeWorkbenchLens);
+          } else if (isSiteHotspotsView) {
             const filteredHotspots = filterSiteHotspotsByWorkbenchLens(siteSnapshots, activeWorkbenchLens);
             elements.metricsGrid.innerHTML = filteredHotspots.length > 0
               ? renderSiteZoneCards(filteredHotspots)
@@ -15604,6 +15877,7 @@ function buildTrendMetricOptions(options) {
       activeViewScope = "site";
       closeContextMenus();
       renderDashboard();
+      if (activePrimaryPage === "readings") fetchLatestReadingsForArea(getActiveSite()?.id);
     });
 
     elements.siteAveragesButton.addEventListener("click", () => {
@@ -15641,6 +15915,7 @@ function buildTrendMetricOptions(options) {
       closeContextMenus();
       renderSiteOptions();
       scheduleDashboardRender();
+      if (activePrimaryPage === "readings") fetchLatestReadingsForArea(activeSiteId);
     });
 
     elements.zoneMenu.addEventListener("click", (event) => {
@@ -17027,6 +17302,20 @@ function buildTrendMetricOptions(options) {
     });
 
     elements.metricsGrid.addEventListener("click", (event) => {
+      const areaSectionButton = event.target.closest("[data-area-reading-section]");
+      if (areaSectionButton) {
+        activeSiteId = areaSectionButton.dataset.areaReadingSite;
+        activeZoneId = areaSectionButton.dataset.areaReadingSection;
+        activeViewScope = "zone";
+        normalizeActiveSelection();
+        resetTrendSelectionForContextChange();
+        resetCurrentReadingsFromActiveZone();
+        renderSiteOptions();
+        renderZoneOptions();
+        renderDashboard();
+        return;
+      }
+
       const expandButton = event.target.closest("[data-live-reading-expand]");
       if (expandButton) {
         const metricKey = expandButton.dataset.liveReadingExpand;

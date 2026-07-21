@@ -65,6 +65,23 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page).toHaveURL(/\/history$/)
 })
 
+test('Live readings opens an Area-wide Section measurement matrix', async ({ page }) => {
+  await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  await navigationAction(page, 'readings').click()
+
+  await expect(page).toHaveURL(/\/readings$/)
+  await expect(page.locator('body')).toHaveAttribute('data-view-scope', 'site')
+  await expect(page.locator('#zoneContextValue')).toHaveText('All sections')
+  await expect(page.locator('#metricsGrid')).toHaveAttribute('data-display', 'area-readings-board')
+  await expect(page.locator('.area-live-section-row')).toHaveCount(1)
+  await expect(page.locator('.area-live-matrix-head')).toContainText('Air temperature')
+  await expect(page.locator('.area-live-matrix-head')).toContainText('Relative humidity')
+
+  await page.locator('[data-area-reading-section]').click()
+  await expect(page.locator('body')).toHaveAttribute('data-view-scope', 'zone')
+  await expect(page.locator('#zoneContextValue')).toHaveText('CI Section A')
+})
+
 test('successful API traffic restores the connection indicator without a refresh', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
   await page.evaluate(() => {
