@@ -13815,6 +13815,11 @@
       padding: 1rem;
     }
 
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card > div:first-child {
+      width: 100%;
+      min-width: 0;
+    }
+
     body[data-experience-mode="simple"] #overviewTriageSection .triage-score-location {
       max-width: 100%;
       font-size: 0.68rem;
@@ -13921,15 +13926,35 @@
       }
 
       body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card {
+        display: block;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card > div:first-child {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
-        gap: 12px;
+        gap: 2px 12px;
+        width: 100%;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card .triage-card-kicker,
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card .triage-score-location {
+        grid-column: 1;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card .triage-score-value {
+        grid-column: 2;
+        grid-row: 1 / span 2;
       }
 
       body[data-experience-mode="simple"] #overviewTriageSection .triage-score-value,
       body[data-experience-mode="simple"] #overviewTriageSection .triage-score-state {
         margin-top: 0;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-state {
+        grid-column: 1 / -1;
+        margin-top: 0.25rem;
       }
 
       body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list {
@@ -13951,13 +13976,6 @@
         grid-template-columns: 1fr;
       }
 
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card {
-        grid-template-columns: minmax(0, 1fr) auto;
-      }
-
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-state {
-        grid-column: 1 / -1;
-      }
     }
 
     /* Keep the primary Overview workspace fully static on lower-power GPUs. */
