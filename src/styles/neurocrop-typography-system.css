@@ -617,9 +617,17 @@ td {
 }
 
 .login-screen .login-submit {
+  height: var(--control-height-lg);
   min-height: var(--control-height-lg);
   border-radius: var(--radius-control) !important;
+  padding: 0 var(--space-20) !important;
   font-weight: var(--weight-semibold) !important;
+}
+
+.login-screen .login-field {
+  height: var(--control-height-lg);
+  min-height: var(--control-height-lg) !important;
+  padding: 0 var(--space-16) !important;
 }
 
 /* Layout rhythm and density */
