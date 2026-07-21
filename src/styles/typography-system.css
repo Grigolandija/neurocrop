@@ -356,6 +356,8 @@ small {
 .designer-app .overview-section-mini-main strong,
 .designer-app .overview-section-mini-status small,
 .designer-app .overview-section-mini-status span,
+.designer-app .triage-guidance span,
+.designer-app .triage-score-impact > header > span,
 .designer-app .triage-score-details dt,
 .designer-app .triage-reading-state,
 .designer-app #trendHistoryRangeMeta,
