@@ -12,6 +12,7 @@ const styles = await fs.readFile(path.join(root, "src/styles/approved-dashboard.
 const sidebarStyles = await fs.readFile(path.join(root, "src/styles/redesign-sidebar.css"), "utf8");
 const colorSystemStyles = await fs.readFile(path.join(root, "src/styles/neurocrop-color-system.css"), "utf8");
 const typographySystemStyles = await fs.readFile(path.join(root, "src/styles/neurocrop-typography-system.css"), "utf8");
+const profileStyles = await fs.readFile(path.join(root, "src/styles/redesign-profiles.css"), "utf8");
 const nodeStyles = await fs.readFile(path.join(root, "src/styles/nodes-page.css"), "utf8");
 const apiClient = await fs.readFile(path.join(root, "src/services/api/client.ts"), "utf8");
 const apiFacade = await fs.readFile(path.join(root, "src/services/api/neurocropApi.ts"), "utf8");
@@ -77,6 +78,9 @@ assert(!runtime.includes('name="modalNodeReportingMode"') && !runtime.includes('
 assert(runtime.includes("function getNodeReportingModeLabel(profile)") && nodesModel.includes("power_save: 'Power save'"), "Node reporting modes must be presented with clear labels from the Node feature model");
 assert(nodesModel.includes("['healthy', 'watch', 'fault', 'offline']") && nodesModel.includes('Compatibility fallback for a rolling deployment') && !nodesModel.includes('Number(counters.reinit') && runtime.includes('<dt>Fault flags</dt>'), "Node health must prefer the backend state, ignore historical counters and retain full diagnostics");
 assert(runtime.includes('class="crop-profile-metric-row"') && runtime.includes('data-profile-alert-limit="warning"'), "Crop profile targets must retain visible automatic alert boundaries");
+assert(runtime.includes('class="profile-layout"') && runtime.includes('class="profile-guide"') && runtime.includes('class="profile-list-new"') && runtime.includes('profile-editor-new"'), "Crop profiles must retain the frontend-redesign list and editor information architecture");
+assert(runtime.includes('if (!isAdminPage && activeSettingsPanelKey === "profiles")') && runtime.includes('class="crop-profile-standalone"') && runtime.includes('isCropProfileCreateOpen ?'), "Crop profiles must render outside the legacy Settings shell and open creation only on demand");
+assert(appSource.includes("import './styles/redesign-profiles.css'") && profileStyles.includes('.designer-app .profile-layout') && profileStyles.includes('.designer-app .profile-editor-new'), "Crop profiles must load their dedicated frontend-redesign component styles");
 assert(runtime.includes("await hydrateDashboardFromApi();") && runtime.includes("Scores are calculated by the backend from the saved profile ranges."), "saving a crop profile must immediately refresh canonical backend scores");
 assert(runtime.includes('class="settings-local-notice"'), "non-API settings must be clearly identified as browser-local");
 assert(runtime.includes('snapshot?.overall?.source === "backend"') && runtime.includes("Number.isFinite(snapshot.overall.indexScore)"), "Area and Section selectors must display backend scores before local readings load");

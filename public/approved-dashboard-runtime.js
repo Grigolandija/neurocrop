@@ -1849,6 +1849,7 @@
     let activeSettingsProfileKey = activeProfileKey;
     let activeSettingsPanelKey = "profiles";
     let isCropProfileEditorOpen = false;
+    let isCropProfileCreateOpen = false;
     let settingsProfileEditorDrafts = {};
     let profileSaveFeedback = { profileKey: "", profileName: "", tone: "optimal" };
     let managementNotice = { page: "", tone: "optimal", text: "" };
@@ -4730,6 +4731,7 @@
           activePrimaryPage = "settings";
           activeSettingsPanelKey = "profiles";
           isCropProfileEditorOpen = false;
+          isCropProfileCreateOpen = false;
           if (cropProfiles[activeProfileKey]) activeSettingsProfileKey = activeProfileKey;
           sidebarActionOverride = "crop-profiles";
           closeContextMenus();
@@ -8436,7 +8438,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         ? getCompleteCropProfile(cropProfiles[activeSettingsProfileKey])
         : getCompleteCropProfile(cropProfiles[activeProfileKey]);
       const profileUsageCounts = getProfileUsageCounts();
-      const totalSections = dashboardData.sites.reduce((sum, site) => sum + (site.zones || []).length, 0);
       const activeAlertCount = globalSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal").length;
 
       if (!isVisibleSettingsCropProfile(settingsProfileFormState.sourceProfile)) {
@@ -8459,7 +8460,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           <aside class="profile-guide">
             <p class="profile-eyebrow">Profile logic</p>
             <h3>One source of truth for every crop stage.</h3>
-            <p>Profiles define ideal ranges, automatic warning boundaries, critical limits, lighting schedules, and expected sensor coverage.</p>
+            <p>Profiles define ideal ranges, warning boundaries, critical limits, photoperiod, and sensor coverage expectations.</p>
             <ol><li><span>1</span>Set targets</li><li><span>2</span>Assign sections</li><li><span>3</span>Monitor score</li></ol>
           </aside>
           <section class="profile-list-new" aria-label="Available crop profiles">
@@ -8477,17 +8478,19 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           </section>
         </div>`;
 
-      const createProfileMarkup = `
-        <details class="crop-profile-create-drawer" ${settingsProfileFormState.name ? "open" : ""}>
-          <summary><span><i class="fa-solid fa-plus" aria-hidden="true"></i>Create crop profile</span><small>Start from a complete target set</small></summary>
+      const createProfileMarkup = isCropProfileCreateOpen ? `
+        <div class="profile-create-backdrop" role="presentation">
+          <section class="crop-profile-create-drawer" role="dialog" aria-modal="true" aria-labelledby="createCropProfileTitle">
+            <header><div><p>New agronomic program</p><h3 id="createCropProfileTitle">Create crop profile</h3><span>Start from a complete target set, then adjust it for this crop stage.</span></div><button type="button" data-settings-create-profile-close aria-label="Close create profile"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></header>
           <form data-management-form="settings-profile">
             <label><span>Profile name</span><input name="settingsProfileName" value="${escapeAttribute(settingsProfileFormState.name)}" placeholder="Cucumbers, fruiting" autocomplete="off"></label>
             <label><span>Crop</span><input name="settingsProfileHeroName" value="${escapeAttribute(settingsProfileFormState.heroName)}" placeholder="Cucumber" autocomplete="off"></label>
             <label><span>Growth stage</span><input name="settingsProfileStage" value="${escapeAttribute(settingsProfileFormState.stage)}" placeholder="Fruiting" autocomplete="off"></label>
             <label><span>Copy targets from</span><select name="settingsProfileSource">${sourceProfileOptions}</select></label>
-            <button type="submit" class="settings-primary-button">Create profile</button>
+            <footer><button type="button" class="settings-secondary-button" data-settings-create-profile-close>Cancel</button><button type="submit" class="settings-primary-button">Create profile</button></footer>
           </form>
-        </details>`;
+          </section>
+        </div>` : "";
 
       const profilePanel = `
         <section class="crop-profiles-page" aria-labelledby="settingsProfilesTitle">
@@ -8503,6 +8506,11 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           </header>${profileListMarkup}${createProfileMarkup}` : activeSettingsProfile ? renderCropProfileEditor(activeSettingsProfileKey, activeSettingsProfile) : ""}
         </section>
       `;
+
+      if (!isAdminPage && activeSettingsPanelKey === "profiles") {
+        elements.settingsManagementShell.innerHTML = `<div class="crop-profile-standalone">${renderManagementNotice("settings")}${profilePanel}</div>`;
+        return;
+      }
 
       const alertsPanel = `
         <section class="settings-content-panel" aria-labelledby="settingsAlertsTitle">
@@ -8986,6 +8994,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             await hydrateCropProfilesFromApi();
             activeSettingsProfileKey = normalizeCropProfileKey(response?.profile?.id || response?.profile?.key || nextProfileId);
             isCropProfileEditorOpen = true;
+            isCropProfileCreateOpen = false;
             settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: activeSettingsProfileKey, mode: "template" };
             setManagementNotice(
               "settings",
@@ -9014,6 +9023,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       persistCropProfileOverrides();
       activeSettingsProfileKey = nextProfileKey;
       isCropProfileEditorOpen = true;
+      isCropProfileCreateOpen = false;
       settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: nextProfileKey, mode: "template" };
       setManagementNotice(
         "settings",
@@ -15342,7 +15352,10 @@ function buildTrendMetricOptions(options) {
       const settingsPanelButton = event.target.closest("[data-settings-panel-key]");
       if (settingsPanelButton) {
         activeSettingsPanelKey = settingsPanelButton.dataset.settingsPanelKey || "profiles";
-        if (activeSettingsPanelKey === "profiles") isCropProfileEditorOpen = false;
+        if (activeSettingsPanelKey === "profiles") {
+          isCropProfileEditorOpen = false;
+          isCropProfileCreateOpen = false;
+        }
         clearManagementNotice("settings");
         renderDashboard();
         return;
@@ -15572,6 +15585,7 @@ function buildTrendMetricOptions(options) {
           mode: "template"
         };
         isCropProfileEditorOpen = false;
+        isCropProfileCreateOpen = true;
         renderDashboard();
         return;
       }
@@ -15579,6 +15593,7 @@ function buildTrendMetricOptions(options) {
       const backToProfilesButton = event.target.closest("[data-settings-profile-back]");
       if (backToProfilesButton) {
         isCropProfileEditorOpen = false;
+        isCropProfileCreateOpen = false;
         clearManagementNotice("settings");
         renderDashboard();
         return;
@@ -15586,11 +15601,17 @@ function buildTrendMetricOptions(options) {
 
       const createProfileButton = event.target.closest("[data-settings-create-profile-open]");
       if (createProfileButton) {
-        const drawer = elements.settingsManagementSection.querySelector(".crop-profile-create-drawer");
-        if (drawer instanceof HTMLDetailsElement) {
-          drawer.open = true;
-          drawer.querySelector("input")?.focus();
-        }
+        isCropProfileCreateOpen = true;
+        renderDashboard();
+        elements.settingsManagementSection.querySelector('.crop-profile-create-drawer input')?.focus();
+        return;
+      }
+
+      const closeCreateProfileButton = event.target.closest("[data-settings-create-profile-close]");
+      if (closeCreateProfileButton) {
+        isCropProfileCreateOpen = false;
+        settingsProfileFormState = { ...settingsProfileFormState, name: "", heroName: "", stage: "" };
+        renderDashboard();
         return;
       }
 
@@ -15616,6 +15637,7 @@ function buildTrendMetricOptions(options) {
               await hydrateCropProfilesFromApi();
               activeSettingsProfileKey = Object.keys(cropProfiles)[0] || activeProfileKey;
               isCropProfileEditorOpen = false;
+              isCropProfileCreateOpen = false;
               settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
               setManagementNotice("settings", `${profile.name} deleted.`);
               renderDashboard();
@@ -15632,6 +15654,7 @@ function buildTrendMetricOptions(options) {
         persistCropProfileOverrides();
         activeSettingsProfileKey = Object.keys(cropProfiles)[0] || activeProfileKey;
         isCropProfileEditorOpen = false;
+        isCropProfileCreateOpen = false;
         settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
         setManagementNotice("settings", `${profile.name} deleted.`);
         renderDashboard();
@@ -15643,6 +15666,7 @@ function buildTrendMetricOptions(options) {
 
       activeSettingsProfileKey = profileButton.dataset.settingsProfileKey || activeSettingsProfileKey;
       isCropProfileEditorOpen = true;
+      isCropProfileCreateOpen = false;
       clearManagementNotice("settings");
       renderDashboard();
     });
