@@ -1,7 +1,7 @@
-/* Exact frontend-redesign rail, integrated with the existing dashboard runtime. */
+/* Frontend-redesign rail geometry and behavior, using the NeuroCrop palette. */
 .designer-app .dashboard-sidebar.rail {
-  --rail-bg: #17493a;
-  --rail-bg-deep: #10382c;
+  --rail-bg: #184b3c;
+  --rail-bg-deep: #123a2f;
   --rail-text: #f4f1e8;
   --rail-text-muted: #b8c9c1;
   --rail-text-subtle: #85a095;
@@ -226,7 +226,136 @@
   color: var(--rail-text-subtle);
 }
 
+.designer-app .workspace-health[data-state="attention"] .pulse-dot {
+  background: var(--rail-accent-light);
+  box-shadow: 0 0 0 4px rgba(193, 137, 44, 0.16);
+}
+
+.designer-app .workspace-health[data-state="unknown"] .pulse-dot {
+  background: var(--rail-text-subtle);
+  box-shadow: 0 0 0 4px rgba(133, 160, 149, 0.14);
+}
+
+.designer-app .rail-close,
+.designer-app .sidebar-mobile-open {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+}
+
+.designer-app .rail-close {
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--rail-text);
+}
+
+.designer-app .rail-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.designer-app .sidebar-user-wrap {
+  position: relative;
+}
+
+.designer-app .sidebar-account-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 2;
+  padding: 5px;
+  border: 1px solid rgba(244, 241, 232, 0.12);
+  border-radius: 10px;
+  background: #f3efe6;
+  box-shadow: 0 14px 34px rgba(7, 30, 23, 0.24);
+}
+
+.designer-app .sidebar-account-menu[hidden] {
+  display: none;
+}
+
+.designer-app .sidebar-account-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: transparent;
+  color: #214f40;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.designer-app .sidebar-account-menu button:hover {
+  background: rgba(193, 137, 44, 0.12);
+}
+
+.designer-app .rail-scrim[hidden] {
+  display: none;
+}
+
+@media (max-width: 1279px) {
+  .designer-app .dashboard-sidebar.rail {
+    display: flex !important;
+    width: 260px !important;
+    flex-basis: 260px !important;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+  }
+
+  .designer-app .dashboard-sidebar.rail.rail-open {
+    transform: translateX(0);
+    box-shadow: 18px 0 48px rgba(15, 43, 34, 0.22) !important;
+  }
+
+  .designer-app .rail-close,
+  .designer-app .sidebar-mobile-open {
+    display: inline-flex;
+  }
+
+  .designer-app .sidebar-mobile-open {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border: 1px solid rgba(33, 79, 64, 0.14);
+    border-radius: 10px;
+    background: #f6f2e9;
+    color: #214f40;
+    font-size: 13px;
+  }
+
+  .designer-app .rail-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 305;
+    border: 0;
+    background: rgba(14, 35, 28, 0.46);
+    cursor: pointer;
+  }
+
+  .designer-app[data-sidebar-open="true"],
+  body[data-sidebar-open="true"] {
+    overflow: hidden;
+  }
+}
+
 @media (min-width: 1280px) {
+  .designer-app .rail-scrim,
+  .designer-app .sidebar-mobile-open,
+  .designer-app .rail-close {
+    display: none !important;
+  }
+
   .designer-app .dashboard-shell {
     gap: 0 !important;
     padding: 0 !important;

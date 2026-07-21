@@ -1137,6 +1137,20 @@
       loginSubmit: document.getElementById("loginSubmit"),
       loginError: document.getElementById("loginError"),
       appHeader: document.getElementById("dashboardHeader"),
+      dashboardSidebar: document.getElementById("dashboardSidebar"),
+      sidebarMobileOpen: document.getElementById("sidebarMobileOpen"),
+      sidebarMobileClose: document.getElementById("sidebarMobileClose"),
+      sidebarScrim: document.getElementById("sidebarScrim"),
+      sidebarAlertCount: document.getElementById("sidebarAlertCount"),
+      sidebarWorkspaceHealth: document.getElementById("sidebarWorkspaceHealth"),
+      sidebarWorkspaceHealthLabel: document.getElementById("sidebarWorkspaceHealthLabel"),
+      sidebarWorkspaceHealthMeta: document.getElementById("sidebarWorkspaceHealthMeta"),
+      sidebarUserTile: document.getElementById("sidebarUserTile"),
+      sidebarUserInitials: document.getElementById("sidebarUserInitials"),
+      sidebarUserName: document.getElementById("sidebarUserName"),
+      sidebarUserRole: document.getElementById("sidebarUserRole"),
+      sidebarAccountMenu: document.getElementById("sidebarAccountMenu"),
+      sidebarSignOutButton: document.getElementById("sidebarSignOutButton"),
       experienceModeSection: document.getElementById("experienceModeSection"),
       experienceModeTitle: document.getElementById("experienceModeTitle"),
       experienceModeSummary: document.getElementById("experienceModeSummary"),
@@ -1386,11 +1400,63 @@
       return normalized;
     }
 
+    function getSidebarUserPresentation(session) {
+      const email = String(session?.email || "").trim();
+      const rawName = String(session?.name || session?.displayName || email.split("@")[0] || "NeuroCrop user")
+        .replace(/[._-]+/g, " ")
+        .trim();
+      const words = rawName.split(/\s+/).filter(Boolean);
+      const name = words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ") || "NeuroCrop user";
+      const initials = words.slice(0, 2).map((word) => word.charAt(0).toUpperCase()).join("") || "NC";
+      const role = session?.isPlatformAdmin ? "Platform admin" : session?.isSuperAdmin ? "Organization admin" : "Workspace member";
+      return { name, initials, role };
+    }
+
+    function updateSidebarUser(session) {
+      const user = getSidebarUserPresentation(session);
+      elements.sidebarUserInitials.textContent = user.initials;
+      elements.sidebarUserName.textContent = user.name;
+      elements.sidebarUserRole.textContent = user.role;
+    }
+
+    function setSidebarAccountMenuOpen(isOpen) {
+      const nextOpen = Boolean(isOpen);
+      elements.sidebarAccountMenu.hidden = !nextOpen;
+      elements.sidebarUserTile.setAttribute("aria-expanded", String(nextOpen));
+    }
+
+    function setSidebarOpen(isOpen) {
+      const nextOpen = Boolean(isOpen);
+      elements.dashboardSidebar.classList.toggle("rail-open", nextOpen);
+      elements.sidebarScrim.hidden = !nextOpen;
+      elements.sidebarMobileOpen.setAttribute("aria-expanded", String(nextOpen));
+      document.body.dataset.sidebarOpen = String(nextOpen);
+      if (!nextOpen) setSidebarAccountMenuOpen(false);
+    }
+
+    function updateSidebarWorkspaceStatus(alertCount = 0) {
+      const nodes = dashboardData.sites.flatMap((site) =>
+        (site.zones || []).flatMap((zone) =>
+          (zone.batteryNodes || []).map((node) => ({ node, zone }))
+        )
+      );
+      const onlineCount = nodes.filter(({ node, zone }) => getNodeFreshness(node, zone).transportStatus === "live").length;
+      const totalCount = nodes.length;
+      const allOnline = totalCount > 0 && onlineCount === totalCount;
+
+      elements.sidebarAlertCount.textContent = String(alertCount);
+      elements.sidebarAlertCount.hidden = alertCount === 0;
+      elements.sidebarWorkspaceHealth.dataset.state = allOnline ? "online" : totalCount > 0 ? "attention" : "unknown";
+      elements.sidebarWorkspaceHealthLabel.textContent = allOnline ? "Systems online" : totalCount > 0 ? "System attention" : "No nodes configured";
+      elements.sidebarWorkspaceHealthMeta.textContent = totalCount > 0 ? `${onlineCount} of ${totalCount} nodes` : "Register a node to begin";
+    }
+
     function setLoginState(session, options = {}) {
       const normalizedSession = normalizeLoginSession(session);
       const signedIn = Boolean(normalizedSession?.email);
       elements.loginScreen.hidden = signedIn;
       elements.dashboardShell.hidden = !signedIn;
+      updateSidebarUser(normalizedSession);
       if (signedIn) {
         unauthorizedStateHandled = false;
         elements.headerAccountEmail.textContent = normalizedSession.email;
@@ -1562,6 +1628,8 @@
         resetTeamAccessState();
         resetPlatformOrganizationState();
         setHeaderAccountMenuOpen(false);
+        setSidebarAccountMenuOpen(false);
+        setSidebarOpen(false);
         setLoginState(null);
         elements.loginPassword.value = "";
         elements.loginError.hidden = true;
@@ -13466,6 +13534,7 @@ function buildTrendMetricOptions(options) {
               : "This block needs attention."
           };
         });
+      updateSidebarWorkspaceStatus(allSystemIssues.length);
       const criticalSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "critical");
       const warningSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "warning");
       const currentSiteSystemIssues = allSystemIssues.filter((snapshot) => snapshot.site.id === site.id);
@@ -15681,8 +15750,20 @@ function buildTrendMetricOptions(options) {
 
         event.preventDefault();
         runDashboardAction(action);
+        setSidebarOpen(false);
       });
     });
+
+    elements.sidebarMobileOpen.addEventListener("click", () => setSidebarOpen(true));
+    elements.sidebarMobileClose.addEventListener("click", () => setSidebarOpen(false));
+    elements.sidebarScrim.addEventListener("click", () => setSidebarOpen(false));
+
+    elements.sidebarUserTile.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setSidebarAccountMenuOpen(elements.sidebarAccountMenu.hidden);
+    });
+
+    elements.sidebarSignOutButton.addEventListener("click", signOut);
 
     mobileCommandButtons.forEach((button) => {
       button.addEventListener("click", () => {
@@ -15896,6 +15977,14 @@ function buildTrendMetricOptions(options) {
         setHeaderAccountMenuOpen(false);
       }
 
+      if (
+        !elements.sidebarAccountMenu.hidden &&
+        !event.target.closest("#sidebarAccountMenu") &&
+        !event.target.closest("#sidebarUserTile")
+      ) {
+        setSidebarAccountMenuOpen(false);
+      }
+
       if (event.target.closest(".context-card")) return;
       closeContextMenus();
     });
@@ -15953,6 +16042,9 @@ function buildTrendMetricOptions(options) {
     window.addEventListener("storage", refreshDashboardDataFromStore);
     window.addEventListener("focus", refreshDashboardDataFromStore);
     window.addEventListener("resize", scheduleViewportSync, { passive: true });
+    window.addEventListener("resize", () => {
+      if (window.innerWidth >= 1280) setSidebarOpen(false);
+    }, { passive: true });
 
     elements.headerBatteryIndicator.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -16413,6 +16505,18 @@ function buildTrendMetricOptions(options) {
           event.preventDefault();
           closeCommandPalette();
         }
+        return;
+      }
+
+      if (event.key === "Escape" && elements.dashboardSidebar.classList.contains("rail-open")) {
+        event.preventDefault();
+        setSidebarOpen(false);
+        return;
+      }
+
+      if (event.key === "Escape" && !elements.sidebarAccountMenu.hidden) {
+        event.preventDefault();
+        setSidebarAccountMenuOpen(false);
         return;
       }
 

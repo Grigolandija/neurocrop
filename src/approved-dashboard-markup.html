@@ -30,6 +30,7 @@
   <div id="dashboardShell" class="dashboard-shell flex min-h-screen" hidden>
     <header id="dashboardHeader" class="global-system-bar">
       <div class="global-system-bar-actions">
+        <button id="sidebarMobileOpen" class="sidebar-mobile-open" type="button" aria-label="Open navigation" aria-controls="dashboardSidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
         <div class="header-context-tools">
           <div id="experienceModeControl" class="header-view-control" role="group" aria-label="Dashboard view">
             <span class="header-view-label">View</span>
@@ -81,10 +82,11 @@
         </div>
       </div>
     </header>
-    <aside class="dashboard-sidebar rail hidden shrink-0 xl:flex xl:flex-col" aria-label="Primary navigation">
+    <aside id="dashboardSidebar" class="dashboard-sidebar rail hidden shrink-0 xl:flex xl:flex-col" aria-label="Primary navigation">
       <div class="rail-brand">
         <span class="brand-mark" aria-hidden="true"><i class="fa-solid fa-seedling"></i></span>
         <span class="brand-word"><strong>Neuro</strong>Crop</span>
+        <button id="sidebarMobileClose" class="rail-close" type="button" aria-label="Close navigation"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
 
       <nav class="rail-nav">
@@ -116,7 +118,7 @@
         <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="alerts" data-active="false">
           <i class="fa-solid fa-bell" aria-hidden="true"></i>
           <span>Alerts</span>
-          <b class="nav-count">3</b>
+          <b id="sidebarAlertCount" class="nav-count">0</b>
         </button>
         <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="crop-profiles" data-active="false">
           <i class="fa-solid fa-sliders" aria-hidden="true"></i>
@@ -135,14 +137,18 @@
       </nav>
 
       <div class="rail-foot">
-        <div class="workspace-health"><span class="pulse-dot"></span><div><strong>Systems online</strong><small>21 of 22 nodes</small></div></div>
-        <button class="user-tile" type="button"><span>AG</span><div><strong>Andrius G.</strong><small>Workspace admin</small></div><i class="fa-solid fa-ellipsis"></i></button>
+        <div id="sidebarWorkspaceHealth" class="workspace-health"><span class="pulse-dot"></span><div><strong id="sidebarWorkspaceHealthLabel">Checking systems</strong><small id="sidebarWorkspaceHealthMeta">Loading node status</small></div></div>
+        <div class="sidebar-user-wrap">
+          <button id="sidebarUserTile" class="user-tile" type="button" aria-expanded="false" aria-controls="sidebarAccountMenu"><span id="sidebarUserInitials">NC</span><div><strong id="sidebarUserName">NeuroCrop user</strong><small id="sidebarUserRole">Workspace member</small></div><i class="fa-solid fa-ellipsis"></i></button>
+          <div id="sidebarAccountMenu" class="sidebar-account-menu" hidden><button id="sidebarSignOutButton" type="button"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Sign out</button></div>
+        </div>
       </div>
 
       <div hidden aria-hidden="true">
         <button id="commandPaletteButton" type="button" aria-label="Open quick jump"></button>
       </div>
     </aside>
+    <button id="sidebarScrim" type="button" class="rail-scrim" aria-label="Close navigation" hidden></button>
 
     <main id="dashboardMain" class="min-w-0 flex-1" tabindex="-1">
       <div class="dashboard-main-inner px-3 py-2 md:px-4 md:py-3 lg:px-4 lg:py-3">
