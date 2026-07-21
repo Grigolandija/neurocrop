@@ -3101,7 +3101,6 @@
     }
 
     const nodeFreshnessStateCache = new Map();
-    const scopeFarmStateCache = new Map();
     let apiTransportConnected = true;
 
     function getDemoFreshnessOffsetSec(node) {
@@ -3168,10 +3167,6 @@
       );
       nodeFreshnessStateCache.set(node.id, { sourceVersion, result });
       return result;
-    }
-
-    function getFreshnessLabel(status) {
-      return window.NeuroCropFeatures.nodes.getFreshnessLabel(status, diagnosticText);
     }
 
     function formatFreshnessAge(ageSec) {
@@ -3439,65 +3434,6 @@
         outsideCount: outsideReadings.length,
         localOutliers
       };
-    }
-
-    function getConditionStatusFromResults(results) {
-      const available = (results || []).filter((result) => result.available !== false && isGrowthMetricKey(result.key));
-      if (available.length === 0) return "unknown";
-      if (available.some((result) => result.state === "critical")) return "critical";
-      if (available.some((result) => result.state === "warning")) return "warning";
-      return "optimal";
-    }
-
-    function getZoneFarmState(site, zone, results, now = Date.now()) {
-      const engine = window.NeuroCropStateEngine;
-      const growthResults = (results || []).filter((result) => isGrowthMetricKey(result.key) && result.configured !== false);
-      const availableResults = growthResults.filter((result) => result.available !== false);
-      const conditionStatus = getConditionStatusFromResults(results);
-      const nodeInputs = (zone?.batteryNodes || []).map((node) => ({
-        ...getNodeFreshnessInput(node, zone, now),
-        freshness: getNodeFreshness(node, zone, now)
-      }));
-      const fallback = {
-        scope: { type: "section", id: zone?.id || "", name: zone?.name || "" },
-        conditionStatus,
-        dataStatus: nodeInputs.length ? "live" : "offline",
-        coverage: {
-          liveMetrics: availableResults.length,
-          expectedMetrics: growthResults.length,
-          reportingNodes: nodeInputs.length,
-          registeredNodes: nodeInputs.length
-        },
-        nodeSummary: { live: nodeInputs.length, delayed: 0, stale: 0, offline: 0 },
-        lastKnownCondition: conditionStatus === "unknown" ? null : {
-          status: conditionStatus,
-          asOf: new Date(now).toISOString(),
-          reasons: []
-        },
-        reasons: []
-      };
-      if (!engine?.deriveFarmState) return fallback;
-
-      const previousState = scopeFarmStateCache.get(zone.id);
-      const state = engine.deriveFarmState({
-        scope: { type: "section", id: zone.id, name: zone.name },
-        nodes: nodeInputs,
-        condition: {
-          status: conditionStatus,
-          reasons: availableResults
-            .filter((result) => result.state !== "optimal")
-            .map((result) => ({ code: `CONDITION_${result.state.toUpperCase()}`, metricId: result.key, value: result.value }))
-        },
-        conditionAsOf: now,
-        previousState,
-        coverage: {
-          liveMetrics: availableResults.filter((result) => getZoneMetricFreshness(zone, result.key, now) === "live").length,
-          expectedMetrics: growthResults.length
-        },
-        stateTtlSec: 120
-      }, now);
-      scopeFarmStateCache.set(zone.id, state);
-      return state;
     }
 
     function updateClientConnectionStatus() {
@@ -12264,24 +12200,31 @@ function buildTrendMetricOptions(options) {
       results,
       displayedOverallState,
       globalState,
-      allSystemIssues,
       systemLowBatteryNodes,
-      unavailableCount,
-      availableResults,
-      siteSnapshots,
-      globalSnapshots,
-      isSiteView
+      globalSnapshots
     }) {
       const availableBackendActions = Array.isArray(backendTodayActions) ? backendTodayActions : [];
-      const hasBackendActionData = Array.isArray(backendTodayActions);
+      const snapshotsByZoneId = new Map(globalSnapshots.map((snapshot) => [snapshot.zone.id, snapshot]));
+      const liveSnapshots = globalSnapshots.filter(snapshotHasLiveGrowthData);
+      const attentionSnapshots = liveSnapshots
+        .filter((snapshot) => snapshot.overall.state !== "optimal")
+        .sort((left, right) => left.overall.indexScore - right.overall.indexScore);
+      const stableSnapshots = liveSnapshots.filter((snapshot) => snapshot.overall.state === "optimal");
+      const unverifiedSnapshots = globalSnapshots.filter((snapshot) => !snapshotHasLiveGrowthData(snapshot));
+      const criticalCount = attentionSnapshots.filter((snapshot) => snapshot.overall.state === "critical").length;
+      const selectedSnapshot = snapshotsByZoneId.get(zone.id)
+        || { site, zone, profile, results, overall: displayedOverallState };
       const backendPriorityAction = availableBackendActions[0] || null;
       const backendPrioritySnapshot = backendPriorityAction
-        ? globalSnapshots.find((snapshot) => snapshot.zone.id === backendPriorityAction.sectionId)
-          || (backendPriorityAction.sectionId === zone.id ? { site, zone, profile, results, overall: displayedOverallState } : null)
+        ? snapshotsByZoneId.get(backendPriorityAction.sectionId)
         : null;
-      const selectedZoneSnapshot = { site, zone, profile, results, overall: displayedOverallState };
-      const prioritySnapshot = backendPrioritySnapshot || allSystemIssues[0] || selectedZoneSnapshot;
-      const additionalFarmIssues = allSystemIssues.filter((snapshot) => snapshot.zone.id !== prioritySnapshot.zone.id);
+      const prioritySnapshot = backendPrioritySnapshot
+        || attentionSnapshots[0]
+        || liveSnapshots[0]
+        || selectedSnapshot;
+      const getPrimaryIssue = (snapshot) => snapshot.results
+        .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
+        .sort((left, right) => right.severity - left.severity)[0] || null;
       const priorityResult = backendPriorityAction
         ? {
             key: backendPriorityAction.metricId,
@@ -12290,404 +12233,288 @@ function buildTrendMetricOptions(options) {
             severity: backendPriorityAction.severity,
             deviationText: backendPriorityAction.reason
           }
-        : hasBackendActionData
-          ? null
-          : prioritySnapshot.results
-          .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
-          .sort((left, right) => {
-            return right.severity - left.severity;
-          })[0] || null;
+        : getPrimaryIssue(prioritySnapshot);
       const priorityDefinition = priorityResult
         ? prioritySnapshot.profile.metrics[priorityResult.key]
         : null;
-      const scoreScopeResults = isSiteView
-        ? siteSnapshots.flatMap((snapshot) => snapshot.results)
-        : results;
-      const selectedPrimaryResult = scoreScopeResults
-        .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
-        .sort((left, right) => {
-          return right.severity - left.severity;
-        })[0] || null;
-      const selectedPrimaryDefinition = selectedPrimaryResult
-        ? profile.metrics[selectedPrimaryResult.key]
-        : null;
-      const scoreMainDriverKey = displayedOverallState.mainDriver || selectedPrimaryResult?.key || null;
-      const scoreMainDriverDefinition = scoreMainDriverKey
-        ? profile.metrics[scoreMainDriverKey]
-        : null;
-      const priorityTitle = backendPriorityAction?.title || (priorityResult && priorityDefinition
-        ? `${getDecisionVerb(priorityResult, priorityDefinition)} ${priorityDefinition.label.toLowerCase()}`
-        : diagnosticText(`No action needed in ${prioritySnapshot.zone.name}`, `Sekcijoje „${prioritySnapshot.zone.name}“ veiksmų nereikia`));
-      const actionGuidance = {
-        humidity: "Check humidifier output and ventilation rate.",
-        airTemp: "Review heating, cooling, and ventilation settings.",
-        co2: "Check CO2 supply and ventilation timing.",
-        vpd: "Review temperature and humidity together before adjusting the climate.",
-        soilTemp: "Inspect root-zone heating and irrigation temperature.",
-        waterTemp: "Check the irrigation water temperature before the next cycle."
-      };
-      const suggestedAction = backendPriorityAction?.recommendedAction || (priorityResult
-        ? actionGuidance[priorityResult.key] || `Review the source of the ${priorityDefinition.label.toLowerCase()} deviation.`
-        : "No immediate intervention is required.");
-      const preferredMetricOrder = ["humidity", "airTemp", "co2"];
-      const readingItems = [...availableResults]
-        .sort((left, right) => {
-          const leftIssue = left.state === "optimal" ? 1 : 0;
-          const rightIssue = right.state === "optimal" ? 1 : 0;
-          if (leftIssue !== rightIssue) return leftIssue - rightIssue;
-          return preferredMetricOrder.indexOf(left.key) - preferredMetricOrder.indexOf(right.key);
-        })
-        .slice(0, 3);
+      const priorityHasLiveData = snapshotHasLiveGrowthData(prioritySnapshot);
       const priorityMetricKey = priorityResult?.key || "humidity";
-      const selectedMetricKey = selectedPrimaryResult?.key || readingItems[0]?.key || "humidity";
-      const farmState = getZoneFarmState(site, zone, results);
-      const priorityFarmState = getZoneFarmState(
-        prioritySnapshot.site,
-        prioritySnapshot.zone,
-        prioritySnapshot.results
-      );
-      updateClientConnectionStatus();
-      const nodeSummary = farmState.nodeSummary || { live: 0, delayed: 0, stale: 0, offline: 0 };
-      const priorityNodeSummary = priorityFarmState.nodeSummary || { live: 0, delayed: 0, stale: 0, offline: 0 };
-      const dataStatusLabel = getFreshnessLabel(farmState.dataStatus);
-      const priorityDataStatusLabel = getFreshnessLabel(priorityFarmState.dataStatus);
-      const hasUsableCurrentData = farmState.coverage.reportingNodes > 0
-        && farmState.coverage.liveMetrics > 0;
-      const priorityHasUsableCurrentData = priorityFarmState.coverage.reportingNodes > 0
-        && priorityFarmState.coverage.liveMetrics > 0;
-      const hasNoRegisteredNodes = Number(farmState.coverage.registeredNodes || 0) === 0;
-      const registeredSectionNodes = Array.isArray(zone?.batteryNodes) ? zone.batteryNodes : [];
-      const awaitingFirstUplink = hasNoRegisteredNodes || registeredSectionNodes.every((node) => !node.lastSeen && !node.lastReceivedAt);
-      const priorityHasNoRegisteredNodes = Number(priorityFarmState.coverage.registeredNodes || 0) === 0;
-      const prioritySectionNodes = Array.isArray(prioritySnapshot.zone?.batteryNodes) ? prioritySnapshot.zone.batteryNodes : [];
-      const priorityAwaitingFirstUplink = priorityHasNoRegisteredNodes
-        || prioritySectionNodes.every((node) => !node.lastSeen && !node.lastReceivedAt);
-      const scoreCardState = hasUsableCurrentData ? displayedOverallState.state : awaitingFirstUplink ? "neutral" : "critical";
-      const scoreCardValue = hasUsableCurrentData ? `${displayedOverallState.indexScore}` : "--";
-      const scoreCardLabel = hasUsableCurrentData
-        ? getHealthStateLabel(displayedOverallState.state)
-        : diagnosticText("No data", "Nėra duomenų");
-      const scoreTrendText = hasUsableCurrentData
-        ? diagnosticText("Score history is not available yet", "Score istorija dar nepasiekiama")
-        : diagnosticText("Waiting for live data", "Laukiama gyvų duomenų");
-      const scoreGroupLabels = {
-        climate: diagnosticText("Climate", "Klimatas"),
-        root_water: diagnosticText("Root water", "Šaknų drėgmė"),
-        nutrition: diagnosticText("Nutrition", "Mityba"),
-        plant_temperature: diagnosticText("Plant temperatures", "Augalo temperatūros"),
-        carbon: "CO₂"
-      };
-      const scoreImpactRows = (Array.isArray(displayedOverallState.scoreGroups)
-        ? displayedOverallState.scoreGroups
-        : [])
-        .map((group) => ({
-          id: group.id,
-          label: scoreGroupLabels[group.id] || group.id,
-          points: clamp(Number(group.scoreImpact) * 100, 0, 100)
-        }))
-        .filter((group) => Number.isFinite(group.points) && group.points >= 0.05)
-        .sort((left, right) => right.points - left.points);
-      const maxScoreImpact = Math.max(...scoreImpactRows.map((group) => group.points), 1);
-      const scoreImpactMarkup = scoreImpactRows.length > 0
-        ? scoreImpactRows.map((group) => `
-            <div class="triage-score-impact-row">
-              <span>${escapeHtml(group.label)}</span>
-              <i aria-hidden="true"><b style="width:${clamp((group.points / maxScoreImpact) * 100, 4, 100)}%"></b></i>
-              <strong>-${escapeHtml(formatNumber(group.points, group.points < 10 ? 1 : 0))} p</strong>
-            </div>
-          `).join("")
-        : `<p>${diagnosticText("No points deducted from measured conditions.", "Pagal išmatuotas sąlygas taškai neatimti.")}</p>`;
-      const scoreCoverageText = farmState.coverage.expectedMetrics > 0
-        ? `${farmState.coverage.liveMetrics}/${farmState.coverage.expectedMetrics} ${diagnosticText("live", "aktyvūs")}`
-        : "--";
-      const effectivePriorityTitle = priorityHasUsableCurrentData
-        ? priorityTitle
-        : priorityAwaitingFirstUplink
-          ? priorityHasNoRegisteredNodes
-            ? diagnosticText("Add the first sensor node", "Pridėkite pirmą sensoriaus mazgą")
-            : diagnosticText("Waiting for first sensor data", "Laukiama pirmų sensorių duomenų")
-          : diagnosticText("Restore sensor data", "Atkurkite sensorių duomenis");
-      const effectiveSuggestedAction = priorityHasUsableCurrentData
-        ? suggestedAction
-        : priorityAwaitingFirstUplink
-          ? priorityHasNoRegisteredNodes
-            ? diagnosticText("Register a node before assessing growing conditions.", "Prieš vertinant auginimo sąlygas, užregistruokite mazgą.")
-            : diagnosticText("The node is registered. Waiting for its first sensor reading.", "Mazgas užregistruotas. Laukiama pirmo jo sensorių rodmens.")
-          : diagnosticText(
-              "Check node power, gateway coverage, and the latest uplink.",
-              "Patikrinkite mazgų maitinimą, ryšio aprėptį ir paskutinį duomenų siuntimą."
-            );
+      const priorityTone = priorityHasLiveData
+        ? priorityResult?.state || "optimal"
+        : "neutral";
+      const priorityTitle = !priorityHasLiveData
+        ? diagnosticText("Restore current data before changing the climate", "Prieš keisdami klimatą atkurkite dabartinius duomenis")
+        : backendPriorityAction?.title
+          || (priorityResult && priorityDefinition
+            ? getDiagnosticActionTitle(priorityResult, priorityDefinition, priorityDefinition.label)
+            : diagnosticText("No intervention is needed right now", "Šiuo metu įsikišti nereikia"));
+      const priorityGuidance = !priorityHasLiveData
+        ? diagnosticText(
+            "Check node power and the latest connection before making a growing decision.",
+            "Prieš priimdami auginimo sprendimą patikrinkite mazgo maitinimą ir paskutinį ryšį."
+          )
+        : backendPriorityAction?.recommendedAction
+          || (priorityResult && priorityDefinition
+            ? getDiagnosticAction(priorityResult.key, priorityDefinition.label)
+            : diagnosticText(
+                "Keep the current routine and check again during the next walk.",
+                "Tęskite dabartinę rutiną ir dar kartą patikrinkite per kitą apėjimą."
+              ));
+      const priorityAction = priorityHasLiveData ? "trend" : "nodes";
+      const priorityActionLabel = priorityHasLiveData
+        ? diagnosticText("See what changed", "Peržiūrėti pokytį")
+        : diagnosticText("Check sensor nodes", "Patikrinti sensorių mazgus");
+      const attentionCount = attentionSnapshots.length;
+      const totalSections = globalSnapshots.length;
+      const headline = criticalCount > 0
+        ? diagnosticText(
+            `${criticalCount} urgent section${criticalCount === 1 ? "" : "s"} need a visit`,
+            `${criticalCount} ${criticalCount === 1 ? "sekciją reikia aplankyti skubiai" : "sekcijas reikia aplankyti skubiai"}`
+          )
+        : attentionCount > 0
+          ? diagnosticText(
+              `${attentionCount} section${attentionCount === 1 ? "" : "s"} need a check today`,
+              `${attentionCount} ${attentionCount === 1 ? "sekciją šiandien reikia patikrinti" : "sekcijas šiandien reikia patikrinti"}`
+            )
+          : unverifiedSnapshots.length > 0
+            ? diagnosticText(
+                `${unverifiedSnapshots.length} section${unverifiedSnapshots.length === 1 ? "" : "s"} cannot be verified`,
+                `${unverifiedSnapshots.length} ${unverifiedSnapshots.length === 1 ? "sekcijos būklės negalima patvirtinti" : "sekcijų būklės negalima patvirtinti"}`
+              )
+            : diagnosticText("Everything is on track", "Viskas vyksta pagal planą");
+      const intro = attentionCount > 0
+        ? diagnosticText(
+            `Start in ${prioritySnapshot.site.name}, ${prioritySnapshot.zone.name}. The rest can wait.`,
+            `Pradėkite nuo ${prioritySnapshot.site.name}, ${prioritySnapshot.zone.name}. Visa kita gali palaukti.`
+          )
+        : diagnosticText(
+            "No growing intervention is required. Keep the normal walk and routine.",
+            "Auginimo sąlygų keisti nereikia. Tęskite įprastą apėjimą ir rutiną."
+          );
 
-      const localActionQueue = [
-        {
-          tone: priorityHasUsableCurrentData ? priorityResult?.state || "optimal" : priorityAwaitingFirstUplink ? "neutral" : "warning",
-          title: priorityHasUsableCurrentData
-            ? priorityResult && priorityDefinition ? priorityTitle : "Continue monitoring"
-            : effectivePriorityTitle,
-          note: priorityHasUsableCurrentData
-            ? priorityResult ? priorityResult.deviationText : "All installed growth metrics are inside target."
-            : priorityFarmState.lastKnownCondition
-              ? `Last known condition: ${priorityFarmState.lastKnownCondition.status}.`
-              : "Current growing conditions cannot be verified.",
-          action: priorityHasUsableCurrentData ? "trend" : "nodes",
-          label: priorityHasUsableCurrentData ? "View trend" : priorityHasNoRegisteredNodes ? "Register node" : "Open nodes",
-          metricKey: priorityMetricKey,
-          siteId: prioritySnapshot.site.id,
-          zoneId: prioritySnapshot.zone.id
-        },
-        !awaitingFirstUplink && farmState.dataStatus !== "live"
+      const seenRouteZones = new Set();
+      const routeEntries = [];
+      availableBackendActions.forEach((action) => {
+        const snapshot = snapshotsByZoneId.get(action.sectionId);
+        if (!snapshot || seenRouteZones.has(snapshot.zone.id)) return;
+        seenRouteZones.add(snapshot.zone.id);
+        routeEntries.push({ snapshot, backendAction: action });
+      });
+      attentionSnapshots.forEach((snapshot) => {
+        if (seenRouteZones.has(snapshot.zone.id)) return;
+        seenRouteZones.add(snapshot.zone.id);
+        routeEntries.push({ snapshot, backendAction: null });
+      });
+      const visibleRouteEntries = routeEntries.slice(0, 5);
+      const remainingRouteCount = Math.max(routeEntries.length - visibleRouteEntries.length, 0);
+      const routeMarkup = visibleRouteEntries.map(({ snapshot, backendAction }, index) => {
+        const result = backendAction
           ? {
-              tone: "warning",
-              title: `${dataStatusLabel} sensor delivery`,
-              note: `${nodeSummary.live} of ${farmState.coverage.registeredNodes} nodes report on time. ${nodeSummary.delayed} delayed, ${nodeSummary.stale} stale, ${nodeSummary.offline} offline.`,
-              action: "nodes",
-              label: "Check nodes"
+              key: backendAction.metricId,
+              value: backendAction.value,
+              state: backendAction.state,
+              severity: backendAction.severity,
+              deviationText: backendAction.reason
             }
-          : null,
-        systemLowBatteryNodes.length > 0
-          ? {
-              tone: "warning",
-              title: `Check ${systemLowBatteryNodes.length} low-battery node${systemLowBatteryNodes.length === 1 ? "" : "s"}`,
-              note: `Lowest battery: ${systemLowBatteryNodes[0].id} at ${systemLowBatteryNodes[0].level}%.`,
-              action: "nodes",
-              label: "Open nodes"
-            }
-          : null,
-        additionalFarmIssues.length > 0
-          ? {
-              tone: globalState,
-              title: diagnosticText(
-                `${additionalFarmIssues.length} other section${additionalFarmIssues.length === 1 ? "" : "s"} need attention`,
-                `${additionalFarmIssues.length} ${additionalFarmIssues.length === 1 ? "kitai sekcijai" : "kitoms sekcijoms"} reikia dėmesio`
-              ),
-              note: diagnosticText(
-                "Compare all sections to decide the next inspection order.",
-                "Palyginkite visas sekcijas ir pasirinkite tolesnę patikros eilę."
-              ),
-              action: "readings",
-              label: diagnosticText("Compare sections", "Palyginti sekcijas")
-            }
-          : null,
-        !awaitingFirstUplink && unavailableCount > 0
-          ? {
-              tone: "warning",
-              title: `Review ${unavailableCount} missing metric${unavailableCount === 1 ? "" : "s"}`,
-              note: "Missing readings reduce confidence in the selected section summary.",
-              action: "nodes",
-              label: "Check sensors"
-            }
-          : null
-      ].filter(Boolean).slice(0, 3);
-      const backendActionQueue = availableBackendActions.map((action) => {
-        const targetSite = dashboardData.sites.find((candidate) => candidate.zones.some((candidateZone) => candidateZone.id === action.sectionId));
-        const targetZone = targetSite?.zones.find((candidateZone) => candidateZone.id === action.sectionId);
-        return targetSite ? {
-          tone: action.state,
-          title: action.title,
-          note: `${targetSite.name} · ${targetZone?.name || action.sectionId}: ${action.reason}`,
-          action: "trend",
-          label: diagnosticText("View trend", "Peržiūrėti tendenciją"),
-          metricKey: action.metricId,
-          siteId: targetSite.id,
-          zoneId: action.sectionId
-        } : null;
-      }).filter(Boolean).slice(0, 3);
-      const actionQueue = backendActionQueue.length > 0 ? backendActionQueue : localActionQueue;
-      const overviewAreaCards = dashboardData.sites.map((area) => {
-        const areaSnapshots = globalSnapshots.filter((snapshot) => snapshot.site.id === area.id);
-        const areaOverall = deriveSiteOverallState(areaSnapshots);
-        const areaSummary = getContextScoreSummary(areaOverall);
-        const attentionCount = areaSnapshots.filter((snapshot) => snapshotHasLiveGrowthData(snapshot) && snapshot.overall.state !== "optimal").length;
-        const liveCount = areaSnapshots.filter(snapshotHasLiveGrowthData).length;
+          : getPrimaryIssue(snapshot);
+        const definition = result ? snapshot.profile.metrics[result.key] : null;
+        const title = backendAction?.title
+          || (result && definition
+            ? getDiagnosticActionTitle(result, definition, definition.label)
+            : diagnosticText("Check this section", "Patikrinkite šią sekciją"));
+        const evidence = result && definition
+          ? `${formatValue(result.value, definition)} · ${getDiagnosticDeviationText(result)}`
+          : diagnosticText("Review current conditions", "Peržiūrėkite dabartines sąlygas");
         return `
-          <article class="overview-area-card" data-state="${escapeAttribute(areaSummary.state)}" data-selected="${area.id === site.id}">
-            <button type="button" class="overview-area-card-head" data-overview-area-card="${escapeAttribute(area.id)}" aria-label="${escapeAttribute(diagnosticText(`Open ${area.name} overview`, `Atidaryti objekto „${area.name}“ apžvalgą`))}">
-              <span>
-                <small>${diagnosticText("Area", "Objektas")}</small>
-                <strong>${escapeHtml(area.name)}</strong>
-                <em>${escapeHtml(diagnosticText(
-                  `${areaSnapshots.length} section${areaSnapshots.length === 1 ? "" : "s"} · ${attentionCount > 0 ? `${attentionCount} need attention` : "all stable"}`,
-                  `${areaSnapshots.length} ${areaSnapshots.length === 1 ? "sekcija" : "sekcijos"} · ${attentionCount > 0 ? `${attentionCount} reikia dėmesio` : "viskas stabilu"}`
-                ))}</em>
-              </span>
-              <span class="overview-area-score" data-state="${escapeAttribute(areaSummary.state)}"><b>${escapeHtml(areaSummary.score)}</b><small>${escapeHtml(areaSummary.label)}</small></span>
+          <li class="grower-route-item" data-state="${escapeAttribute(result?.state || snapshot.overall.state)}">
+            <span class="grower-route-number">${index + 1}</span>
+            <span class="grower-route-copy">
+              <small>${escapeHtml(snapshot.site.name)} <i aria-hidden="true">/</i> ${escapeHtml(snapshot.zone.name)}</small>
+              <strong>${escapeHtml(title)}</strong>
+              <span>${escapeHtml(evidence)}</span>
+            </span>
+            <span class="grower-route-actions">
+              <button type="button" class="grower-route-open" data-overview-section-card data-site-id="${escapeAttribute(snapshot.site.id)}" data-zone-id="${escapeAttribute(snapshot.zone.id)}">
+                ${diagnosticText("Open section", "Atidaryti sekciją")}
+              </button>
+              <button type="button" class="grower-route-trend" data-triage-action="trend" data-metric-key="${escapeAttribute(result?.key || "humidity")}" data-site-id="${escapeAttribute(snapshot.site.id)}" data-zone-id="${escapeAttribute(snapshot.zone.id)}" aria-label="${escapeAttribute(diagnosticText(`Open trend for ${snapshot.zone.name}`, `Atidaryti sekcijos „${snapshot.zone.name}“ grafiką`))}">
+                <i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i>
+              </button>
+            </span>
+          </li>
+        `;
+      }).join("");
+
+      const areaBands = dashboardData.sites.map((area) => {
+        const areaSnapshots = globalSnapshots.filter((snapshot) => snapshot.site.id === area.id);
+        const liveAreaSnapshots = areaSnapshots.filter(snapshotHasLiveGrowthData);
+        const areaAttention = liveAreaSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal");
+        const areaUnverified = areaSnapshots.filter((snapshot) => !snapshotHasLiveGrowthData(snapshot));
+        const areaState = areaAttention.some((snapshot) => snapshot.overall.state === "critical")
+          ? "critical"
+          : areaAttention.length > 0
+            ? "warning"
+            : areaUnverified.length > 0
+              ? "neutral"
+              : "optimal";
+        const areaStatus = areaAttention.length > 0
+          ? diagnosticText(
+              `${areaAttention.length} need attention`,
+              `${areaAttention.length} reikia dėmesio`
+            )
+          : areaUnverified.length > 0
+            ? diagnosticText(
+                `${areaUnverified.length} without current data`,
+                `${areaUnverified.length} be dabartinių duomenų`
+              )
+            : diagnosticText("All sections on target", "Visos sekcijos atitinka tikslą");
+        const sectionRows = areaSnapshots.map((snapshot) => {
+          const hasLiveData = snapshotHasLiveGrowthData(snapshot);
+          const issue = hasLiveData ? getPrimaryIssue(snapshot) : null;
+          const definition = issue ? snapshot.profile.metrics[issue.key] : null;
+          const condition = !hasLiveData
+            ? diagnosticText("No current data", "Nėra dabartinių duomenų")
+            : issue && definition
+              ? `${getDiagnosticMetricLabel(definition.label)}: ${getDiagnosticDeviationText(issue)}`
+              : diagnosticText("On target", "Atitinka tikslą");
+          const state = !hasLiveData ? "neutral" : issue?.state || "optimal";
+          return `
+            <button type="button" class="grower-section-line" data-overview-section-card data-site-id="${escapeAttribute(area.id)}" data-zone-id="${escapeAttribute(snapshot.zone.id)}" data-state="${escapeAttribute(state)}" data-selected="${snapshot.zone.id === zone.id}">
+              <span class="grower-section-state" aria-hidden="true"></span>
+              <strong>${escapeHtml(snapshot.zone.name)}</strong>
+              <span>${escapeHtml(condition)}</span>
+              <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
             </button>
-            <footer><span>${liveCount}/${areaSnapshots.length} ${diagnosticText("sections reporting", "sekcijų siunčia duomenis")}</span></footer>
+          `;
+        }).join("") || `<p class="grower-area-empty">${diagnosticText("No sections configured", "Sekcijų nėra")}</p>`;
+        return `
+          <article class="grower-area-band" data-state="${escapeAttribute(areaState)}" data-selected="${area.id === site.id}">
+            <header>
+              <button type="button" data-overview-area-card="${escapeAttribute(area.id)}">
+                <span>
+                  <small>${diagnosticText("Growing area", "Auginimo objektas")}</small>
+                  <strong>${escapeHtml(area.name)}</strong>
+                </span>
+                <span class="grower-area-status" data-state="${escapeAttribute(areaState)}">${escapeHtml(areaStatus)}</span>
+              </button>
+              <span>${liveAreaSnapshots.length}/${areaSnapshots.length} ${diagnosticText("verified", "patvirtinta")}</span>
+            </header>
+            <div class="grower-section-lines">${sectionRows}</div>
           </article>
         `;
       }).join("");
-      const overviewSectionCards = siteSnapshots.map((snapshot) => {
-        const hasLiveData = snapshotHasLiveGrowthData(snapshot);
-        const sectionScore = getContextScoreSummary(hasLiveData ? snapshot.overall : null);
-        const primaryIssue = snapshot.results
-          .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
-          .sort((left, right) => right.severity - left.severity)[0] || null;
-        const issueDefinition = primaryIssue ? snapshot.profile.metrics[primaryIssue.key] : null;
-        const sectionFarmState = getZoneFarmState(snapshot.site, snapshot.zone, snapshot.results);
-        const conditionText = !hasLiveData
-          ? diagnosticText("Waiting for sensor data", "Laukiama sensorių duomenų")
-          : primaryIssue && issueDefinition
-            ? `${issueDefinition.label}: ${primaryIssue.deviationText}`
-            : diagnosticText("All configured targets met", "Visi nustatyti tikslai pasiekti");
-        return `
-          <button type="button" class="overview-section-mini" data-overview-section-card data-site-id="${escapeAttribute(site.id)}" data-zone-id="${escapeAttribute(snapshot.zone.id)}" data-state="${escapeAttribute(sectionScore.state)}" data-selected="${snapshot.zone.id === zone.id}">
-            <span class="overview-section-mini-main">
-              <span class="overview-section-state-dot" aria-hidden="true"></span>
-              <span><strong>${escapeHtml(snapshot.zone.name)}</strong><small>${escapeHtml(conditionText)}</small></span>
+
+      const systemNote = unverifiedSnapshots.length > 0 || systemLowBatteryNodes.length > 0
+        ? `
+          <div class="grower-system-note" data-state="warning">
+            <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
+            <span>
+              <strong>${diagnosticText("Before the next round", "Prieš kitą apėjimą")}</strong>
+              <small>${escapeHtml(diagnosticText(
+                `${unverifiedSnapshots.length} unverified sections · ${systemLowBatteryNodes.length} low-battery nodes`,
+                `${unverifiedSnapshots.length} nepatvirtintos sekcijos · ${systemLowBatteryNodes.length} mazgai su silpna baterija`
+              ))}</small>
             </span>
-            <span class="overview-section-mini-status">
-              <b>${escapeHtml(sectionScore.score)}</b>
-              <small data-freshness="${escapeAttribute(sectionFarmState.dataStatus)}">${escapeHtml(getFreshnessLabel(sectionFarmState.dataStatus))}</small>
-            </span>
-          </button>
+            <button type="button" data-triage-action="nodes">${diagnosticText("Check system", "Patikrinti sistemą")}</button>
+          </div>
+        `
+        : `
+          <div class="grower-system-note" data-state="optimal">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span><strong>${diagnosticText("System is not blocking today's work", "Sistema netrukdo šiandienos darbams")}</strong><small>${diagnosticText("Current data is available across every section.", "Visose sekcijose yra dabartiniai duomenys.")}</small></span>
+          </div>
         `;
-      }).join("") || `<p class="overview-area-empty">${diagnosticText("No sections configured", "Sekcijų nėra")}</p>`;
-      const totalSections = globalSnapshots.length;
-      const totalAttention = globalSnapshots.filter((snapshot) => snapshotHasLiveGrowthData(snapshot) && snapshot.overall.state !== "optimal").length;
 
-      elements.overviewTriageSection.dataset.state = scoreCardState;
+      elements.overviewTriageSection.dataset.state = globalState;
       elements.overviewTriageSection.innerHTML = `
-        <section class="overview-growing-map" aria-labelledby="overviewGrowingMapTitle">
-          <header class="overview-growing-map-head">
-            <div><span class="triage-eyebrow">${diagnosticText("Today's farm brief", "Šiandienos ūkio suvestinė")}</span><h2 id="overviewGrowingMapTitle">${diagnosticText("Where attention is needed", "Kur reikia dėmesio")}</h2></div>
-            <span class="overview-growing-map-summary" data-state="${escapeAttribute(totalAttention > 0 ? globalState : "optimal")}">${escapeHtml(diagnosticText(
-              `${dashboardData.sites.length} areas · ${totalSections} sections · ${totalAttention > 0 ? `${totalAttention} need attention` : "all stable"}`,
-              `${dashboardData.sites.length} objektai · ${totalSections} sekcijos · ${totalAttention > 0 ? `${totalAttention} reikia dėmesio` : "viskas stabilu"}`
-            ))}</span>
-          </header>
-          <div class="overview-area-card-grid">${overviewAreaCards}</div>
-          <section class="overview-selected-area-sections" aria-label="${escapeAttribute(diagnosticText(`${site.name} sections`, `Objekto „${site.name}“ sekcijos`))}">
-            <header><div><small>${diagnosticText("Selected area", "Pasirinktas objektas")}</small><strong>${escapeHtml(site.name)}</strong></div><span>${siteSnapshots.length} ${diagnosticText(siteSnapshots.length === 1 ? "section" : "sections", siteSnapshots.length === 1 ? "sekcija" : "sekcijos")}</span></header>
-            <div class="overview-section-mini-list">${overviewSectionCards}</div>
-          </section>
-        </section>
-
-        <div class="triage-priority-score-grid">
-          <article class="triage-priority-card" data-state="${escapeAttribute(priorityHasUsableCurrentData ? priorityResult?.state || "optimal" : priorityAwaitingFirstUplink ? "neutral" : "critical")}">
-            <div class="triage-title-row">
-              <div class="triage-card-kicker">${diagnosticText("Farm priority", "Ūkio prioritetas")}</div>
-              <span class="overview-data-status" data-freshness="${escapeAttribute(priorityFarmState.dataStatus)}">
-                <i class="fa-solid ${priorityFarmState.dataStatus === "live" ? "fa-signal" : priorityFarmState.dataStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
-                ${escapeHtml(priorityDataStatusLabel)} · ${priorityNodeSummary.live}/${priorityFarmState.coverage.registeredNodes} nodes
-              </span>
-            </div>
-            <div class="triage-location-line">
-              <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
-              ${escapeHtml(prioritySnapshot.site.name)} <span>›</span> ${escapeHtml(prioritySnapshot.zone.name)}
-            </div>
-            <h2>${escapeHtml(effectivePriorityTitle)}</h2>
-            ${priorityHasUsableCurrentData && priorityResult && priorityDefinition ? `
-              <div class="triage-priority-facts">
-                <div><span>Current</span><strong>${escapeHtml(formatValue(priorityResult.value, priorityDefinition))}</strong></div>
-                <div><span>Target</span><strong>${escapeHtml(formatRange(priorityDefinition.optimal, priorityDefinition))}</strong></div>
-                <div><span>Gap</span><strong>${escapeHtml(priorityResult.deviationText)}</strong></div>
-              </div>
-            ` : ""}
-            <div class="triage-guidance">
-              <span>Suggested action</span>
-              <strong>${escapeHtml(effectiveSuggestedAction)}</strong>
-            </div>
-            <div class="triage-button-row">
-              <button type="button" class="triage-primary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(priorityMetricKey)}" data-site-id="${escapeAttribute(prioritySnapshot.site.id)}" data-zone-id="${escapeAttribute(prioritySnapshot.zone.id)}">
-                View trend <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-              </button>
-              <button type="button" class="triage-secondary-button" data-triage-action="readings" data-site-id="${escapeAttribute(prioritySnapshot.site.id)}">${diagnosticText("Compare sections", "Palyginti sekcijas")}</button>
-            </div>
-            ${priorityHasUsableCurrentData ? renderTriageFeedbackControls(backendPriorityAction) : ""}
-          </article>
-
-          <article class="triage-score-card" data-state="${escapeAttribute(scoreCardState)}">
+        <div class="grower-overview">
+          <header class="grower-day-header">
             <div>
-              <div class="triage-card-kicker">${diagnosticText(isSiteView ? "Selected area score" : "Selected section score", isSiteView ? "Pasirinkto objekto balas" : "Pasirinktos sekcijos balas")}</div>
-              <div class="triage-score-location">${escapeHtml(isSiteView ? site.name : `${site.name} · ${zone.name}`)}</div>
-              <div class="triage-score-value">${escapeHtml(scoreCardValue)}</div>
-              <div class="triage-score-state">${escapeHtml(scoreCardLabel)}</div>
+              <span class="grower-overline">${diagnosticText("Today's growing plan", "Šiandienos auginimo planas")}</span>
+              <h1>${escapeHtml(headline)}</h1>
+              <p>${escapeHtml(intro)}</p>
             </div>
-            <dl class="triage-score-details">
-              <div><dt>Main drag</dt><dd>${escapeHtml(hasUsableCurrentData ? scoreMainDriverDefinition?.label || selectedPrimaryDefinition?.label || "None" : diagnosticText("Data unavailable", "Duomenų nėra"))}</dd></div>
-              <div><dt>Sensor coverage</dt><dd>${escapeHtml(scoreCoverageText)}</dd></div>
-              <div><dt>24h trend</dt><dd>${scoreTrendText}</dd></div>
-            </dl>
-            <div class="triage-score-impact">
+            <button type="button" class="grower-compare-button" data-triage-action="readings">
+              ${diagnosticText("Compare all sections", "Palyginti visas sekcijas")}
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+          </header>
+
+          <div class="grower-command-layout">
+            <article class="grower-command" data-state="${escapeAttribute(priorityTone)}">
               <header>
-                <span>${diagnosticText("Points deducted", "Atimti taškai")}</span>
-                <small>${diagnosticText("Measured factors", "Išmatuoti veiksniai")}</small>
+                <span><i class="fa-solid fa-location-dot" aria-hidden="true"></i>${escapeHtml(prioritySnapshot.site.name)} · ${escapeHtml(prioritySnapshot.zone.name)}</span>
+                <small>${diagnosticText("Do this first", "Pirmiausia padarykite tai")}</small>
               </header>
-              <div>${scoreImpactMarkup}</div>
-            </div>
-          </article>
-        </div>
+              <h2>${escapeHtml(priorityTitle)}</h2>
+              ${priorityHasLiveData && priorityResult && priorityDefinition ? `
+                <div class="grower-command-evidence">
+                  <span><small>${diagnosticText("Now", "Dabar")}</small><strong>${escapeHtml(formatValue(priorityResult.value, priorityDefinition))}</strong></span>
+                  <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
+                  <span><small>${diagnosticText("Aim for", "Tikslas")}</small><strong>${escapeHtml(formatRange(priorityDefinition.optimal, priorityDefinition))}</strong></span>
+                </div>
+              ` : ""}
+              <div class="grower-command-instruction">
+                <span>${diagnosticText("Action", "Veiksmas")}</span>
+                <p>${escapeHtml(priorityGuidance)}</p>
+              </div>
+              <div class="grower-command-buttons">
+                <button type="button" class="grower-command-primary" data-triage-action="${escapeAttribute(priorityAction)}" data-metric-key="${escapeAttribute(priorityMetricKey)}" data-site-id="${escapeAttribute(prioritySnapshot.site.id)}" data-zone-id="${escapeAttribute(prioritySnapshot.zone.id)}">
+                  ${escapeHtml(priorityActionLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="grower-command-secondary" data-overview-section-card data-site-id="${escapeAttribute(prioritySnapshot.site.id)}" data-zone-id="${escapeAttribute(prioritySnapshot.zone.id)}">
+                  ${diagnosticText("Open section", "Atidaryti sekciją")}
+                </button>
+              </div>
+              ${priorityHasLiveData ? renderTriageFeedbackControls(backendPriorityAction) : ""}
+            </article>
 
-        <section class="triage-section">
-          <div class="triage-section-heading">
-            <div><span class="triage-eyebrow">${diagnosticText("Selected section", "Pasirinkta sekcija")}</span><h3>${diagnosticText("Current readings", "Dabartiniai rodmenys")}</h3></div>
-            <span>${escapeHtml(site.name)} · ${escapeHtml(zone.name)}</span>
+            <aside class="grower-pulse" aria-label="${escapeAttribute(diagnosticText("Farm status", "Ūkio būsena"))}">
+              <span class="grower-overline">${diagnosticText("Right now", "Dabar")}</span>
+              <div class="grower-pulse-main" data-state="${escapeAttribute(attentionCount > 0 ? globalState : "optimal")}">
+                <strong>${attentionCount}</strong>
+                <span>${diagnosticText("sections to check", "sekcijos patikrai")}</span>
+              </div>
+              <dl>
+                <div><dt>${diagnosticText("On target", "Atitinka tikslą")}</dt><dd>${stableSnapshots.length}</dd></div>
+                <div><dt>${diagnosticText("Current data", "Dabartiniai duomenys")}</dt><dd>${liveSnapshots.length}/${totalSections}</dd></div>
+                <div><dt>${diagnosticText("Urgent", "Skubiai")}</dt><dd>${criticalCount}</dd></div>
+              </dl>
+              ${systemNote}
+            </aside>
           </div>
-          <div class="triage-readings-grid">
-            ${readingItems.map((result) => {
-              const definition = profile.metrics[result.key];
-              const readingFreshness = getZoneMetricFreshness(zone, result.key);
-              const observation = getObservationPresentation(zone, result.key, result, readingFreshness);
-              const metricSummary = getNodeMetricSummary(zone, result.key, definition, result);
-              const range = metricSummary.min === null || metricSummary.max === null
-                ? "—"
-                : `${formatValue(metricSummary.min, definition)}–${formatValue(metricSummary.max, definition)}`;
-              const exceptionLabel = metricSummary.localOutliers.length > 0
-                ? diagnosticText(
-                    `${metricSummary.localOutliers.length} local exception${metricSummary.localOutliers.length === 1 ? "" : "s"}`,
-                    `${metricSummary.localOutliers.length} ${metricSummary.localOutliers.length === 1 ? "lokali išimtis" : "lokalios išimtys"}`
-                  )
-                : "";
-              const reportingSummary = diagnosticText(
-                `${metricSummary.reportingCount}/${metricSummary.installedCount} reporting`,
-                `${metricSummary.reportingCount}/${metricSummary.installedCount} siunčia`
-              );
-              return `
-                <article class="triage-reading" data-state="${escapeAttribute(metricSummary.medianResult.state)}" data-observation="${escapeAttribute(observation.state)}">
-                  <div><span>${escapeHtml(definition.label)}</span><strong>${metricSummary.medianValue !== null ? escapeHtml(formatValue(metricSummary.medianValue, definition)) : "—"}</strong></div>
-                  <span class="triage-reading-state">${escapeHtml(exceptionLabel || (["offline", "missing", "not-installed"].includes(observation.state) ? observation.label : stateConfig[metricSummary.medianResult.state]?.label || "Unavailable"))}</span>
-                  <small>${escapeHtml(reportingSummary)} · ${escapeHtml(range)} · <b class="reading-freshness-label" data-observation="${escapeAttribute(observation.state)}" title="${escapeAttribute(observation.detail)}">${escapeHtml(observation.label)}</b></small>
-                </article>
-              `;
-            }).join("")}
-          </div>
-        </section>
 
-        <div class="triage-bottom-grid">
-          <section class="triage-section triage-action-section">
-            <div class="triage-section-heading">
-              <div><span class="triage-eyebrow">${diagnosticText("Farm action queue", "Ūkio veiksmų eilė")}</span><h3>${diagnosticText("Next three actions", "Kiti trys veiksmai")}</h3></div>
-            </div>
-            <ol class="triage-action-list">
-              ${actionQueue.map((item, index) => `
-                <li data-tone="${escapeAttribute(item.tone)}">
-                  <span class="triage-action-index">${index + 1}</span>
-                  <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.note)}</p></div>
-                  <button type="button" data-triage-action="${escapeAttribute(item.action)}" data-metric-key="${escapeAttribute(item.metricKey || priorityMetricKey)}" data-site-id="${escapeAttribute(item.siteId || "")}" data-zone-id="${escapeAttribute(item.zoneId || "")}">${escapeHtml(item.label)}</button>
-                </li>
-              `).join("")}
-            </ol>
+          <section class="grower-route" aria-labelledby="growerRouteTitle">
+            <header>
+              <div>
+                <span class="grower-overline">${diagnosticText("Inspection route", "Apėjimo maršrutas")}</span>
+                <h2 id="growerRouteTitle">${attentionCount > 0 ? diagnosticText("Walk these sections in this order", "Aplankykite sekcijas šia tvarka") : diagnosticText("No corrective walk is needed", "Korekcinio apėjimo nereikia")}</h2>
+              </div>
+              ${remainingRouteCount > 0 ? `<span>+${remainingRouteCount} ${diagnosticText("more in comparison", "dar palyginime")}</span>` : ""}
+            </header>
+            ${visibleRouteEntries.length > 0
+              ? `<ol>${routeMarkup}</ol>`
+              : `
+                <div class="grower-route-clear">
+                  <i class="fa-solid fa-seedling" aria-hidden="true"></i>
+                  <div><strong>${diagnosticText("Conditions are inside the configured targets", "Sąlygos atitinka nustatytus tikslus")}</strong><span>${diagnosticText("Use the time for the normal crop walk instead.", "Skirkite laiką įprastai augalų apžiūrai.")}</span></div>
+                </div>
+              `}
           </section>
 
-          <section class="triage-section triage-reliability-section">
-            <div class="triage-section-heading">
-              <div><span class="triage-eyebrow">Data and hardware</span><h3>${escapeHtml(dataStatusLabel)} data</h3></div>
-            </div>
-            <div class="triage-reliability-score" data-freshness="${escapeAttribute(farmState.dataStatus)}"><strong>${farmState.coverage.liveMetrics}/${farmState.coverage.expectedMetrics}</strong><span>${diagnosticText("configured metrics reporting", "sukonfigūruoti rodikliai siunčia duomenis")}</span></div>
-            <div class="triage-reliability-facts">
-              <span><i class="fa-solid fa-signal" aria-hidden="true"></i>${nodeSummary.live} live · ${nodeSummary.delayed} delayed</span>
-              <span><i class="fa-solid fa-clock" aria-hidden="true"></i>${nodeSummary.stale} stale · ${nodeSummary.offline} offline</span>
-              <span><i class="fa-solid fa-battery-half" aria-hidden="true"></i>${systemLowBatteryNodes.length} low-battery nodes</span>
-            </div>
-            <div class="triage-button-row">
-              <button type="button" class="triage-secondary-button" data-triage-action="nodes">Open nodes</button>
-              <button type="button" class="triage-secondary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(selectedMetricKey)}">Open trends</button>
-            </div>
+          <section class="grower-farm-board" aria-labelledby="growerFarmBoardTitle">
+            <header>
+              <div>
+                <span class="grower-overline">${diagnosticText("Whole farm", "Visas ūkis")}</span>
+                <h2 id="growerFarmBoardTitle">${diagnosticText("Every growing area, one scan", "Visi auginimo objektai vienu žvilgsniu")}</h2>
+              </div>
+              <p>${diagnosticText("Open a section only when you need its detail.", "Sekciją atidarykite tik tada, kai reikia detalių.")}</p>
+            </header>
+            <div class="grower-area-list">${areaBands}</div>
           </section>
         </div>
       `;
     }
-
     function diagnosticText(english, lithuanian) {
       return interfaceLanguage === "lt" ? lithuanian : english;
     }

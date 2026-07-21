@@ -9014,11 +9014,6 @@
       }
     }
 
-    .designer-app .triage-action-list p,
-    .designer-app .triage-reliability-score > span {
-      color: #59615d;
-    }
-
     @media (min-width: 1180px) and (max-width: 1399px) {
       body[data-primary-page="readings"] #metricsGrid[data-display="readings-board"] {
         min-width: 0;
@@ -12686,450 +12681,27 @@
       display: none !important;
     }
 
-    .triage-priority-card,
-    .triage-score-card,
     .triage-section {
-      border: 1px solid rgba(20, 32, 27, 0.10);
+      border: 1px solid rgba(20, 32, 27, 0.1);
+      border-radius: 24px;
       background: rgba(255, 255, 255, 0.94);
+      padding: 1rem 1.15rem;
       box-shadow: 0 8px 22px rgba(20, 32, 27, 0.045);
     }
 
-    .triage-eyebrow,
-    .triage-card-kicker {
-      color: rgba(20, 32, 27, 0.48);
+    .triage-eyebrow {
+      color: #59615d;
       font-size: 0.68rem;
       font-weight: 850;
       letter-spacing: 0.14em;
       text-transform: uppercase;
     }
 
-    .triage-title-row,
-    .diagnostic-head-status {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-    }
-
-    .diagnostic-head-status {
-      flex-direction: column;
-      align-items: flex-end;
-    }
-
     .overview-updated-time {
-      color: rgba(20, 32, 27, 0.44);
+      color: #59615d;
       font-size: 0.68rem;
       font-weight: 750;
       white-space: nowrap;
-    }
-
-    .overview-growing-map {
-      margin-bottom: 16px;
-      border: 1px solid rgba(20, 32, 27, 0.09);
-      border-radius: 24px;
-      background: rgba(255, 255, 255, 0.78);
-      padding: 1rem;
-      box-shadow: 0 8px 22px rgba(20, 32, 27, 0.035);
-    }
-
-    .overview-growing-map-head {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 0.8rem;
-      padding: 0 0.15rem 0.8rem;
-    }
-
-    .overview-growing-map-head h2 {
-      margin: 0.18rem 0 0;
-      color: #14201b;
-      font-family: "Space Grotesk", sans-serif;
-      font-size: 1.15rem;
-      letter-spacing: -0.035em;
-    }
-
-    .overview-growing-map-summary {
-      border-radius: 999px;
-      background: #edf5f0;
-      padding: 0.38rem 0.65rem;
-      color: #2f6a4f;
-      font-size: 0.68rem;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .overview-growing-map-summary[data-state="warning"] {
-      background: #fbf2e4;
-      color: #94641f;
-    }
-
-    .overview-growing-map-summary[data-state="critical"] {
-      background: #f9ebe7;
-      color: #984c3d;
-    }
-
-    .overview-area-card-grid {
-      display: flex;
-      gap: 0.7rem;
-      overflow-x: auto;
-      padding: 0.1rem 0.1rem 0.55rem;
-      scrollbar-color: rgba(47, 106, 79, 0.28) transparent;
-      scrollbar-width: thin;
-    }
-
-    .overview-area-card {
-      flex: 0 0 220px;
-      overflow: hidden;
-      border: 1px solid rgba(20, 32, 27, 0.09);
-      border-top: 3px solid #4c8b70;
-      border-radius: 18px;
-      background: #fff;
-    }
-
-    .overview-area-card[data-state="warning"] { border-top-color: #c18426; }
-    .overview-area-card[data-state="critical"] { border-top-color: #a64d3d; }
-
-    .overview-area-card[data-selected="true"] {
-      border-color: rgba(33, 79, 64, 0.34);
-      box-shadow: 0 0 0 2px rgba(33, 79, 64, 0.07);
-    }
-
-    .overview-area-card-head {
-      display: flex;
-      width: 100%;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.65rem;
-      border: 0;
-      background: #f8f6f0;
-      padding: 0.72rem 0.75rem;
-      color: inherit;
-      text-align: left;
-    }
-
-    .overview-area-card-head:hover,
-    .overview-area-card-head:focus-visible {
-      background: #f2f0e8;
-      outline: none;
-    }
-
-    .overview-area-card-head > span:first-child {
-      display: grid;
-      min-width: 0;
-      gap: 0.08rem;
-    }
-
-    .overview-area-card-head > span:first-child small {
-      color: #59635d;
-      font-size: 0.57rem;
-      font-weight: 850;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    .overview-area-card-head > span:first-child strong {
-      overflow: hidden;
-      color: #14201b;
-      font-size: 0.82rem;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .overview-area-card-head > span:first-child em {
-      overflow: hidden;
-      color: #59635d;
-      font-size: 0.62rem;
-      font-style: normal;
-      font-weight: 650;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .overview-area-score {
-      display: grid;
-      min-width: 42px;
-      justify-items: end;
-    }
-
-    .overview-area-score b {
-      color: #2f6a4f;
-      font-size: 1.05rem;
-      line-height: 1;
-    }
-
-    .overview-area-score[data-state="warning"] b { color: #a56b1d; }
-    .overview-area-score[data-state="critical"] b { color: #984c3d; }
-
-    .overview-area-score small {
-      margin-top: 0.16rem;
-      color: #59635d;
-      font-size: 0.55rem;
-      font-weight: 750;
-    }
-
-    .overview-section-mini-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
-      gap: 0.45rem;
-      background: transparent;
-    }
-
-    .overview-section-mini {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 0.55rem;
-      border: 1px solid rgba(20, 32, 27, 0.08);
-      border-radius: 13px;
-      background: #fff;
-      padding: 0.57rem 0.68rem;
-      color: inherit;
-      text-align: left;
-    }
-
-    .overview-section-mini:hover,
-    .overview-section-mini:focus-visible {
-      background: #faf8f2;
-      outline: none;
-    }
-
-    .overview-section-mini[data-selected="true"] {
-      background: #edf5f0;
-      box-shadow: inset 3px 0 #2f7759;
-    }
-
-    .overview-section-mini-main {
-      display: grid;
-      min-width: 0;
-      grid-template-columns: 8px minmax(0, 1fr);
-      align-items: center;
-      gap: 0.48rem;
-    }
-
-    .overview-section-mini-main > span:last-child {
-      display: grid;
-      min-width: 0;
-      gap: 0.08rem;
-    }
-
-    .overview-section-mini-main strong {
-      overflow: hidden;
-      color: #1d2c25;
-      font-size: 0.72rem;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .overview-section-mini-main small {
-      overflow: hidden;
-      color: #59635d;
-      font-size: 0.59rem;
-      font-weight: 600;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .overview-section-state-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #4c8b70;
-      box-shadow: 0 0 0 3px rgba(76, 139, 112, 0.1);
-    }
-
-    .overview-section-mini[data-state="warning"] .overview-section-state-dot {
-      background: #c18426;
-      box-shadow: 0 0 0 3px rgba(193, 132, 38, 0.1);
-    }
-
-    .overview-section-mini[data-state="critical"] .overview-section-state-dot {
-      background: #a64d3d;
-      box-shadow: 0 0 0 3px rgba(166, 77, 61, 0.1);
-    }
-
-    .overview-section-mini[data-state="neutral"] .overview-section-state-dot {
-      background: #929b96;
-      box-shadow: 0 0 0 3px rgba(146, 155, 150, 0.1);
-    }
-
-    .overview-section-mini-status {
-      display: grid;
-      min-width: 40px;
-      justify-items: end;
-      gap: 0.08rem;
-    }
-
-    .overview-section-mini-status b {
-      color: #14201b;
-      font-size: 0.8rem;
-    }
-
-    .overview-section-mini-status small {
-      color: #2f7759;
-      font-size: 0.55rem;
-      font-weight: 800;
-    }
-
-    .overview-section-mini-status small[data-freshness="delayed"] { color: #a56b1d; }
-    .overview-section-mini-status small[data-freshness="stale"],
-    .overview-section-mini-status small[data-freshness="offline"] { color: #984c3d; }
-
-    .overview-area-card footer {
-      padding: 0.42rem 0.68rem;
-      color: #59635d;
-      font-size: 0.57rem;
-      font-weight: 700;
-    }
-
-    .overview-selected-area-sections {
-      margin-top: 0.75rem;
-      border-top: 1px solid rgba(20, 32, 27, 0.08);
-      padding-top: 0.75rem;
-    }
-
-    .overview-selected-area-sections > header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      margin-bottom: 0.55rem;
-      padding-inline: 0.1rem;
-    }
-
-    .overview-selected-area-sections > header > div {
-      display: flex;
-      align-items: baseline;
-      gap: 0.45rem;
-    }
-
-    .overview-selected-area-sections > header small {
-      color: #59635d;
-      font-size: 0.58rem;
-      font-weight: 850;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    .overview-selected-area-sections > header strong {
-      color: #14201b;
-      font-size: 0.78rem;
-    }
-
-    .overview-selected-area-sections > header > span {
-      color: #59635d;
-      font-size: 0.62rem;
-      font-weight: 750;
-    }
-
-    .overview-area-empty {
-      margin: 0;
-      background: #fff;
-      padding: 0.8rem;
-      color: #59635d;
-      font-size: 0.66rem;
-    }
-
-    .triage-priority-score-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.65fr);
-      gap: 16px;
-    }
-
-    .triage-priority-card,
-    .triage-score-card,
-    .triage-section {
-      border-radius: 28px;
-    }
-
-    .triage-priority-card {
-      padding: 1.25rem 1.35rem;
-      border-top: 4px solid #2f7759;
-    }
-
-    .triage-priority-card[data-state="warning"] {
-      border-top-color: #c18426;
-    }
-
-    .triage-priority-card[data-state="critical"] {
-      border-top-color: #a64d3d;
-    }
-
-    .triage-priority-card[data-state="neutral"] {
-      border-top-color: #929b96;
-    }
-
-    .triage-location-line {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      margin-top: 0.5rem;
-      color: rgba(20, 32, 27, 0.58);
-      font-size: 0.82rem;
-      font-weight: 700;
-    }
-
-    .triage-location-line i {
-      color: #2f7759;
-    }
-
-    .triage-priority-card h2 {
-      margin: 0.45rem 0 0;
-      color: #14201b !important;
-      background: none !important;
-      -webkit-background-clip: initial !important;
-      background-clip: initial !important;
-      -webkit-text-fill-color: #14201b !important;
-      font-family: "Space Grotesk", sans-serif;
-      font-size: clamp(1.65rem, 2.1vw, 2.35rem);
-      line-height: 1.05;
-      opacity: 1 !important;
-    }
-
-    .triage-priority-facts {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 1rem;
-    }
-
-    .triage-priority-facts div {
-      display: grid;
-      gap: 3px;
-      padding-left: 12px;
-      border-left: 2px solid rgba(20, 32, 27, 0.10);
-    }
-
-    .triage-priority-facts span,
-    .triage-guidance span {
-      color: rgba(20, 32, 27, 0.48);
-      font-size: 0.72rem;
-      font-weight: 750;
-    }
-
-    .triage-priority-facts strong {
-      color: #14201b;
-      font-size: 0.95rem;
-    }
-
-    .triage-guidance {
-      display: grid;
-      gap: 2px;
-      margin-top: 0.9rem;
-      padding: 0.75rem 0.9rem;
-      border-radius: 16px;
-      background: #f5f2e9;
-    }
-
-    .triage-guidance strong {
-      color: #294b40;
-      font-size: 0.88rem;
-    }
-
-    .triage-button-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 9px;
-      margin-top: 0.9rem;
     }
 
     .triage-feedback {
@@ -13173,7 +12745,10 @@
       outline: none;
     }
 
-    .triage-feedback-actions button:disabled { cursor: wait; opacity: 0.48; }
+    .triage-feedback-actions button:disabled {
+      cursor: wait;
+      opacity: 0.48;
+    }
 
     .triage-feedback small {
       display: inline-flex;
@@ -13184,210 +12759,8 @@
       font-weight: 750;
     }
 
-    .triage-feedback small[data-error="true"] { color: #984c3d; }
-
-    .triage-primary-button,
-    .triage-secondary-button,
-    .triage-action-list button {
-      border-radius: 999px;
-      padding: 0.65rem 0.9rem;
-      font-size: 0.78rem;
-      font-weight: 800;
-    }
-
-    .triage-primary-button {
-      color: #fff;
-      background: #214f40;
-    }
-
-    .triage-secondary-button,
-    .triage-action-list button {
-      color: #294b40;
-      border: 1px solid rgba(20, 32, 27, 0.12);
-      background: #fff;
-    }
-
-    .triage-score-card {
-      display: grid;
-      grid-template-columns: minmax(120px, 0.65fr) minmax(170px, 1fr);
-      align-items: center;
-      gap: 18px;
-      padding: 1.25rem;
-      color: #fff;
-      border-color: rgba(255, 255, 255, 0.12);
-      background: linear-gradient(145deg, #1d4b3b, #2c6b52);
-    }
-
-    .triage-score-card[data-state="warning"] {
-      background: linear-gradient(145deg, #79551f, #a87829);
-    }
-
-    .triage-score-card[data-state="critical"] {
-      background: linear-gradient(145deg, #70382e, #984c3d);
-    }
-
-    .triage-score-card[data-state="neutral"] {
-      background: linear-gradient(145deg, #5d6862, #7a8580);
-    }
-
-    .empty-area-state {
-      border: 1px solid rgba(20, 32, 27, 0.12);
-      border-radius: 28px;
-      background: linear-gradient(145deg, #f2f3f1, #fafaf8);
-      padding: 2rem;
-    }
-
-    .empty-area-state h2 {
-      margin: 0.45rem 0 0;
-      color: #26312c;
-      font-family: "Space Grotesk", sans-serif;
-      font-size: clamp(1.5rem, 3vw, 2.1rem);
-      font-weight: 750;
-    }
-
-    .empty-area-state p:not(.triage-eyebrow) {
-      max-width: 44rem;
-      margin: 0.65rem 0 1.25rem;
-      color: rgba(20, 32, 27, 0.64);
-      line-height: 1.6;
-    }
-
-    .triage-score-card .triage-card-kicker {
-      color: rgba(255, 255, 255, 0.70);
-    }
-
-    .triage-score-location {
-      overflow: hidden;
-      margin-top: 0.45rem;
-      color: rgba(255, 255, 255, 0.72);
-      font-size: 0.8rem;
-      font-weight: 650;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .triage-score-value {
-      margin-top: 0.3rem;
-      font-family: "Space Grotesk", sans-serif;
-      font-size: clamp(3.8rem, 5vw, 5.8rem);
-      font-weight: 750;
-      letter-spacing: -0.06em;
-      line-height: 0.9;
-    }
-
-    .triage-score-state {
-      margin-top: 0.55rem;
-      color: rgba(255, 255, 255, 0.82);
-      font-size: 0.78rem;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-
-    .triage-score-details {
-      display: grid;
-      gap: 10px;
-      margin: 0;
-    }
-
-    .triage-score-details div {
-      display: grid;
-      gap: 2px;
-      padding-bottom: 9px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
-    }
-
-    .triage-score-details div:last-child {
-      padding-bottom: 0;
-      border-bottom: 0;
-    }
-
-    .triage-score-details dt {
-      color: rgba(255, 255, 255, 0.60);
-      font-size: 0.68rem;
-      font-weight: 750;
-    }
-
-    .triage-score-details dd {
-      margin: 0;
-      color: #fff;
-      font-size: 0.9rem;
-      font-weight: 800;
-    }
-
-    .triage-score-details dd span {
-      display: block;
-      margin-top: 2px;
-      color: rgba(255, 255, 255, 0.72);
-      font-size: 0.74rem;
-    }
-
-    .triage-score-impact {
-      grid-column: 1 / -1;
-      padding-top: 0.85rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.18);
-    }
-
-    .triage-score-impact > header,
-    .triage-score-impact-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .triage-score-impact > header span {
-      font-size: 0.72rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .triage-score-impact > header small {
-      color: rgba(255, 255, 255, 0.62);
-      font-size: 0.68rem;
-      font-weight: 750;
-    }
-
-    .triage-score-impact > div {
-      display: grid;
-      gap: 7px;
-      margin-top: 0.65rem;
-    }
-
-    .triage-score-impact > div > p {
-      margin: 0;
-      color: rgba(255, 255, 255, 0.74);
-      font-size: 0.74rem;
-    }
-
-    .triage-score-impact-row {
-      display: grid;
-      grid-template-columns: minmax(105px, auto) minmax(70px, 1fr) auto;
-      font-size: 0.72rem;
-      font-weight: 750;
-    }
-
-    .triage-score-impact-row i {
-      height: 5px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.16);
-    }
-
-    .triage-score-impact-row i b {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: rgba(255, 255, 255, 0.78);
-    }
-
-    .triage-score-impact-row strong {
-      min-width: 44px;
-      text-align: right;
-    }
-
-    .triage-section {
-      padding: 1rem 1.15rem;
+    .triage-feedback small[data-error="true"] {
+      color: #984c3d;
     }
 
     .triage-section-heading {
@@ -13407,78 +12780,6 @@
       color: rgba(20, 32, 27, 0.50);
       font-size: 0.76rem;
       font-weight: 700;
-    }
-
-    .triage-readings-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 0.8rem;
-    }
-
-    .triage-reading {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 4px 12px;
-      padding: 0.8rem 0.9rem;
-      border: 1px solid rgba(20, 32, 27, 0.09);
-      border-radius: 17px;
-      background: #fbfcfa;
-    }
-
-    .triage-reading[data-state="warning"] {
-      border-color: rgba(193, 132, 38, 0.24);
-      background: #fdf8ef;
-    }
-
-    .triage-reading[data-state="critical"] {
-      border-color: rgba(166, 77, 61, 0.24);
-      background: #fdf3f0;
-    }
-
-    .triage-reading div {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-    }
-
-    .triage-reading div span {
-      color: rgba(20, 32, 27, 0.62);
-      font-size: 0.78rem;
-      font-weight: 700;
-    }
-
-    .triage-reading div strong {
-      color: #14201b;
-      font-size: 1.2rem;
-    }
-
-    .triage-reading-state {
-      color: #2f7759;
-      font-size: 0.68rem;
-      font-weight: 850;
-      text-transform: uppercase;
-    }
-
-    .triage-reading[data-state="warning"] .triage-reading-state {
-      color: #a56b1d;
-    }
-
-    .triage-reading[data-state="critical"] .triage-reading-state {
-      color: #984c3d;
-    }
-
-    .triage-reading small {
-      grid-column: 1 / -1;
-      color: rgba(20, 32, 27, 0.48);
-      font-size: 0.7rem;
-    }
-
-    .triage-bottom-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(310px, 0.7fr);
-      gap: 16px;
     }
 
     .triage-history-section { margin-top: 16px; }
@@ -13584,398 +12885,1045 @@
     #dashboardHeader.global-system-bar .header-context-selectors .context-card-label,
     .language-switch button:not([data-active="true"]),
     .triage-eyebrow,
-    .triage-card-kicker,
-    .triage-location-line,
-    .triage-priority-facts span,
-    .triage-guidance span,
-    .triage-section-heading > span,
-    .triage-reading small,
-    .overview-updated-time {
+    .triage-section-heading > span {
       color: #59615d;
-    }
-
-    .triage-action-list p,
-    .triage-reliability-score > span {
-      color: #59615d;
-    }
-
-    .triage-action-list {
-      display: grid;
-      gap: 8px;
-      margin: 0.8rem 0 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .triage-action-list li {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 12px;
-      padding: 0.65rem 0.75rem;
-      border-radius: 16px;
-      background: #f7f5ef;
-    }
-
-    .triage-action-index {
-      display: grid;
-      place-items: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 10px;
-      color: #fff;
-      background: #315d4e;
-      font-size: 0.74rem;
-      font-weight: 850;
-    }
-
-    .triage-action-list li[data-tone="warning"] .triage-action-index {
-      background: #b47a24;
-    }
-
-    .triage-action-list li[data-tone="critical"] .triage-action-index {
-      background: #984c3d;
-    }
-
-    .triage-action-list strong {
-      color: #14201b;
-      font-size: 0.83rem;
-    }
-
-    .triage-action-list p {
-      margin: 2px 0 0;
-      color: rgba(20, 32, 27, 0.55);
-      font-size: 0.73rem;
-    }
-
-    .triage-reliability-score {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      margin-top: 0.8rem;
-    }
-
-    .triage-reliability-score strong {
-      color: #214f40;
-      font-size: 2.15rem;
-      line-height: 1;
-    }
-
-    .triage-reliability-score span {
-      color: rgba(20, 32, 27, 0.52);
-      font-size: 0.78rem;
-      font-weight: 700;
-    }
-
-    .triage-reliability-facts {
-      display: grid;
-      gap: 7px;
-      margin-top: 0.85rem;
-      color: rgba(20, 32, 27, 0.66);
-      font-size: 0.76rem;
-      font-weight: 700;
-    }
-
-    .triage-reliability-facts span {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .triage-reliability-facts i {
-      width: 16px;
-      color: #a9782d;
-      text-align: center;
-    }
-
-    @media (max-width: 1100px) {
-      .triage-priority-score-grid,
-      .triage-bottom-grid {
-        grid-template-columns: 1fr;
-      }
     }
 
     @media (max-width: 760px) {
-      .overview-growing-map { padding: 0.75rem; border-radius: 20px; }
-      .overview-growing-map-head { align-items: flex-start; flex-direction: column; }
-      .overview-growing-map-summary { white-space: normal; }
-      .overview-area-card { flex-basis: 190px; }
-      .overview-selected-area-sections > header { align-items: flex-start; flex-direction: column; }
       .triage-section-heading {
         align-items: flex-start;
         flex-direction: column;
-      }
-
-      .triage-priority-facts,
-      .triage-readings-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .triage-action-list li {
-        grid-template-columns: auto minmax(0, 1fr);
-      }
-
-      .triage-action-list button {
-        grid-column: 2;
-        justify-self: start;
       }
 
       .triage-history-row { grid-template-columns: 30px minmax(0, 1fr); }
       .triage-history-outcome { grid-column: 2; justify-self: start; white-space: normal; }
     }
 
-    /* Simple mode is an operational scan, not a shortened diagnostics report. */
-    body[data-experience-mode="simple"] #overviewTriageSection {
+    /* Simple Overview: a grower's work plan, deliberately separate from diagnostics. */
+    body[data-primary-page="overview"][data-experience-mode="simple"] #overviewTriageSection {
+      display: block;
+      color: #17251f;
+    }
+
+    .grower-overview {
+      --grower-green: #164c3b;
+      --grower-green-deep: #0f382c;
+      --grower-mint: #dfece5;
+      --grower-cream: #f4efe4;
+      --grower-amber: #b87920;
+      --grower-red: #a54d3d;
       display: grid;
-      gap: 12px;
+      gap: 18px;
+      width: 100%;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .overview-growing-map {
-      margin-bottom: 0;
+    .grower-overview button {
+      font: inherit;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-score-grid {
-      grid-template-columns: minmax(0, 1fr) 180px;
-      gap: 12px;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-card,
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card,
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-section {
-      border-radius: 20px;
-      box-shadow: 0 6px 16px rgba(20, 32, 27, 0.035);
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-card {
-      padding: 0.9rem 1rem;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-card h2 {
-      margin-top: 0.32rem;
-      font-size: clamp(1.25rem, 1.8vw, 1.7rem);
-      line-height: 1.08;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-location-line {
-      margin-top: 0.32rem;
-      font-size: 0.72rem;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .overview-data-status {
-      max-width: 190px;
-      overflow: hidden;
+    .grower-overline {
+      display: block;
+      color: #657069;
       font-size: 0.65rem;
+      font-weight: 850;
+      letter-spacing: 0.15em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .grower-day-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 28px;
+      padding: 6px 2px 10px;
+    }
+
+    .grower-day-header > div {
+      min-width: 0;
+    }
+
+    .grower-day-header h1 {
+      max-width: 760px;
+      margin: 0.4rem 0 0;
+      color: #14201b;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(2rem, 3.25vw, 3.55rem);
+      font-weight: 680;
+      letter-spacing: -0.055em;
+      line-height: 0.98;
+    }
+
+    .grower-day-header p {
+      max-width: 680px;
+      margin: 0.7rem 0 0;
+      color: #59655f;
+      font-size: 0.9rem;
+      font-weight: 600;
+      line-height: 1.55;
+    }
+
+    .grower-compare-button,
+    .grower-command-primary,
+    .grower-command-secondary,
+    .grower-route-open,
+    .grower-route-trend,
+    .grower-system-note button {
+      border: 0;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 820;
+    }
+
+    .grower-compare-button {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(22, 76, 59, 0.18);
+      background: rgba(255, 255, 255, 0.74);
+      padding: 0.7rem 0.9rem;
+      color: var(--grower-green);
+    }
+
+    .grower-compare-button:hover,
+    .grower-compare-button:focus-visible {
+      border-color: rgba(22, 76, 59, 0.42);
+      background: #fff;
+      outline: none;
+    }
+
+    .grower-command-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.62fr);
+      gap: 14px;
+    }
+
+    .grower-command {
+      position: relative;
+      overflow: hidden;
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 88% 18%, rgba(223, 236, 229, 0.17), transparent 28%),
+        linear-gradient(132deg, var(--grower-green-deep), var(--grower-green));
+      padding: clamp(1.25rem, 2.2vw, 2rem);
+      color: #fff;
+      box-shadow: 0 18px 40px rgba(15, 56, 44, 0.14);
+    }
+
+    .grower-command::after {
+      position: absolute;
+      right: -58px;
+      bottom: -84px;
+      width: 260px;
+      height: 260px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 46% 54% 62% 38%;
+      content: "";
+      pointer-events: none;
+      transform: rotate(24deg);
+    }
+
+    .grower-command[data-state="warning"] {
+      background:
+        radial-gradient(circle at 88% 18%, rgba(255, 244, 215, 0.16), transparent 28%),
+        linear-gradient(132deg, #5e4219, #93621e);
+    }
+
+    .grower-command[data-state="critical"] {
+      background:
+        radial-gradient(circle at 88% 18%, rgba(255, 233, 225, 0.14), transparent 28%),
+        linear-gradient(132deg, #5a2d26, #874236);
+    }
+
+    .grower-command[data-state="neutral"] {
+      background:
+        radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.13), transparent 28%),
+        linear-gradient(132deg, #3f4b45, #5d6a64);
+    }
+
+    .grower-command > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .grower-command > header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .grower-command > header span {
+      display: inline-flex;
+      min-width: 0;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 0.73rem;
+      font-weight: 720;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-facts {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      margin-top: 0.65rem;
+    .grower-command > header small {
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 0.61rem;
+      font-weight: 850;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-facts > div:nth-child(3),
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-details,
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-impact,
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading-state,
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading small,
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list p,
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-reliability-section {
-      display: none;
+    .grower-command h2 {
+      max-width: 780px;
+      margin: 1rem 0 0;
+      color: #fff;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(1.65rem, 2.55vw, 2.8rem);
+      font-weight: 650;
+      letter-spacing: -0.045em;
+      line-height: 1.03;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-guidance {
-      display: block;
-      margin-top: 0.65rem;
-      padding: 0.58rem 0.7rem;
-      border-radius: 12px;
+    .grower-command-evidence {
+      display: flex;
+      max-width: 600px;
+      align-items: center;
+      gap: 18px;
+      margin-top: 1.25rem;
+      border-block: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 0.85rem 0;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-guidance span {
-      display: none;
+    .grower-command-evidence > span {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-guidance strong {
+    .grower-command-evidence small {
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .grower-command-evidence strong {
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 760;
+    }
+
+    .grower-command-evidence > i {
+      color: rgba(255, 255, 255, 0.42);
       font-size: 0.8rem;
-      line-height: 1.35;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-button-row,
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-feedback {
-      margin-top: 0.65rem;
+    .grower-command-instruction {
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr);
+      gap: 14px;
+      max-width: 760px;
+      margin-top: 1rem;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card {
+    .grower-command-instruction > span {
+      color: rgba(255, 255, 255, 0.56);
+      font-size: 0.62rem;
+      font-weight: 850;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .grower-command-instruction p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.88rem;
+      font-weight: 650;
+      line-height: 1.5;
+    }
+
+    .grower-command-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 1.15rem;
+    }
+
+    .grower-command-primary,
+    .grower-command-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0.68rem 0.9rem;
+    }
+
+    .grower-command-primary {
+      background: #fff;
+      color: var(--grower-green-deep);
+    }
+
+    .grower-command-secondary {
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .grower-command-primary:hover,
+    .grower-command-primary:focus-visible {
+      background: #f0f5f2;
+      outline: none;
+    }
+
+    .grower-command-secondary:hover,
+    .grower-command-secondary:focus-visible {
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+    }
+
+    .grower-command .triage-feedback {
+      border-top-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .grower-command .triage-feedback > span,
+    .grower-command .triage-feedback small {
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .grower-command .triage-feedback-actions button {
+      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .grower-pulse {
       display: flex;
       min-width: 0;
       flex-direction: column;
-      align-items: flex-start;
-      justify-content: center;
+      border: 1px solid rgba(85, 68, 41, 0.1);
+      border-radius: 28px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.48), transparent 58%),
+        var(--grower-cream);
+      padding: 1.25rem;
+    }
+
+    .grower-pulse-main {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      margin-top: 1.1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(75, 62, 43, 0.12);
+    }
+
+    .grower-pulse-main strong {
+      color: var(--grower-green);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 3.7rem;
+      font-weight: 680;
+      letter-spacing: -0.07em;
+      line-height: 0.8;
+    }
+
+    .grower-pulse-main[data-state="warning"] strong {
+      color: #9b651d;
+    }
+
+    .grower-pulse-main[data-state="critical"] strong {
+      color: var(--grower-red);
+    }
+
+    .grower-pulse-main span {
+      max-width: 100px;
+      color: #5d625d;
+      font-size: 0.72rem;
+      font-weight: 760;
+      line-height: 1.25;
+    }
+
+    .grower-pulse dl {
+      display: grid;
       gap: 0;
-      padding: 1rem;
+      margin: 0.6rem 0 0;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card > div:first-child {
-      width: 100%;
-      min-width: 0;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-location {
-      max-width: 100%;
-      font-size: 0.68rem;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-value {
-      margin-top: 0.45rem;
-      font-size: 3rem;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-state {
-      margin-top: 0.35rem;
-      font-size: 0.68rem;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-section {
-      padding: 0.78rem 0.9rem;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-section-heading {
+    .grower-pulse dl div {
+      display: flex;
       align-items: center;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-section-heading h3 {
-      font-size: 0.9rem;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-section-heading > span {
-      display: none;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-readings-grid {
-      gap: 7px;
-      margin-top: 0.55rem;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading {
-      display: block;
-      min-width: 0;
-      padding: 0.6rem 0.7rem;
-      border-radius: 13px;
-    }
-
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading div {
       justify-content: space-between;
-      gap: 8px;
+      gap: 12px;
+      padding: 0.52rem 0;
+      border-bottom: 1px solid rgba(75, 62, 43, 0.08);
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading div span {
+    .grower-pulse dt {
+      color: #68716c;
+      font-size: 0.69rem;
+      font-weight: 700;
+    }
+
+    .grower-pulse dd {
+      margin: 0;
+      color: #1e2d26;
+      font-size: 0.82rem;
+      font-weight: 820;
+    }
+
+    .grower-system-note {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      margin-top: auto;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.62);
+      padding: 0.65rem;
+    }
+
+    .grower-system-note > i {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border-radius: 9px;
+      background: #e3eee7;
+      color: var(--grower-green);
+      font-size: 0.68rem;
+    }
+
+    .grower-system-note[data-state="warning"] > i {
+      background: #f5e5c9;
+      color: #9b651d;
+    }
+
+    .grower-system-note > span {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    .grower-system-note strong {
+      color: #26332d;
+      font-size: 0.68rem;
+    }
+
+    .grower-system-note small {
       overflow: hidden;
-      font-size: 0.7rem;
+      color: #707872;
+      font-size: 0.59rem;
+      font-weight: 650;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading div strong {
-      font-size: 1rem;
+    .grower-system-note button {
+      background: transparent;
+      padding: 0.35rem;
+      color: var(--grower-green);
       white-space: nowrap;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-bottom-grid {
-      display: block;
+    .grower-route,
+    .grower-farm-board {
+      border: 1px solid rgba(20, 32, 27, 0.09);
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 10px 28px rgba(20, 32, 27, 0.035);
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 7px;
-      margin-top: 0.55rem;
+    .grower-route {
+      padding: 1.1rem 1.2rem 0.7rem;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list li {
-      grid-template-columns: 24px minmax(0, 1fr);
-      align-content: center;
-      gap: 8px;
-      padding: 0.55rem 0.62rem;
+    .grower-route > header,
+    .grower-farm-board > header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-index {
-      width: 24px;
-      height: 24px;
-      border-radius: 8px;
-      font-size: 0.66rem;
+    .grower-route > header {
+      padding-bottom: 0.8rem;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list strong {
-      display: -webkit-box;
+    .grower-route h2,
+    .grower-farm-board h2 {
+      margin: 0.22rem 0 0;
+      color: #17251f;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.035em;
+    }
+
+    .grower-route > header > span {
+      color: #8b6427;
+      font-size: 0.68rem;
+      font-weight: 780;
+    }
+
+    .grower-route ol {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .grower-route-item {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 62px;
+      border-top: 1px solid rgba(20, 32, 27, 0.075);
+      padding: 0.62rem 0.15rem;
+    }
+
+    .grower-route-number {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border-radius: 50%;
+      background: #e3eee7;
+      color: var(--grower-green);
+      font-size: 0.68rem;
+      font-weight: 850;
+    }
+
+    .grower-route-item[data-state="warning"] .grower-route-number {
+      background: #f7ead3;
+      color: #98631f;
+    }
+
+    .grower-route-item[data-state="critical"] .grower-route-number {
+      background: #f5dfda;
+      color: var(--grower-red);
+    }
+
+    .grower-route-copy {
+      display: grid;
+      min-width: 0;
+      grid-template-columns: minmax(180px, 0.7fr) minmax(180px, 1fr);
+      align-items: center;
+      gap: 3px 16px;
+    }
+
+    .grower-route-copy small {
+      grid-column: 1;
+      color: #727a75;
+      font-size: 0.61rem;
+      font-weight: 680;
+    }
+
+    .grower-route-copy small i {
+      margin-inline: 4px;
+      font-style: normal;
+      color: #a0a7a2;
+    }
+
+    .grower-route-copy strong {
+      grid-column: 1;
       overflow: hidden;
-      font-size: 0.74rem;
-      line-height: 1.25;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
+      color: #1c2a24;
+      font-size: 0.78rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list button {
+    .grower-route-copy > span {
       grid-column: 2;
-      justify-self: start;
-      padding: 0.42rem 0.62rem;
+      grid-row: 1 / span 2;
+      color: #606b65;
+      font-size: 0.7rem;
+      font-weight: 650;
+      text-align: right;
+    }
+
+    .grower-route-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .grower-route-open {
+      border: 1px solid rgba(22, 76, 59, 0.14);
+      background: #f6f8f6;
+      padding: 0.5rem 0.68rem;
+      color: var(--grower-green);
+    }
+
+    .grower-route-trend {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      background: var(--grower-green);
+      color: #fff;
+    }
+
+    .grower-route-open:hover,
+    .grower-route-open:focus-visible {
+      border-color: rgba(22, 76, 59, 0.38);
+      background: #fff;
+      outline: none;
+    }
+
+    .grower-route-trend:hover,
+    .grower-route-trend:focus-visible {
+      background: var(--grower-green-deep);
+      outline: none;
+    }
+
+    .grower-route-clear {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      border-top: 1px solid rgba(20, 32, 27, 0.075);
+      padding: 1rem 0.2rem 0.4rem;
+    }
+
+    .grower-route-clear > i {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border-radius: 14px;
+      background: #e3eee7;
+      color: var(--grower-green);
+    }
+
+    .grower-route-clear > div {
+      display: grid;
+      gap: 2px;
+    }
+
+    .grower-route-clear strong {
+      font-size: 0.8rem;
+    }
+
+    .grower-route-clear span {
+      color: #68716c;
+      font-size: 0.7rem;
+    }
+
+    .grower-farm-board {
+      overflow: hidden;
+    }
+
+    .grower-farm-board > header {
+      padding: 1.05rem 1.2rem 0.9rem;
+    }
+
+    .grower-farm-board > header p {
+      max-width: 320px;
+      margin: 0;
+      color: #68716c;
+      font-size: 0.68rem;
+      font-weight: 650;
+      text-align: right;
+    }
+
+    .grower-area-list {
+      border-top: 1px solid rgba(20, 32, 27, 0.08);
+    }
+
+    .grower-area-band + .grower-area-band {
+      border-top: 8px solid #f4f1e9;
+    }
+
+    .grower-area-band > header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      background: #f8f7f3;
+      padding: 0.62rem 1.15rem;
+    }
+
+    .grower-area-band[data-selected="true"] > header {
+      background: #edf3ef;
+    }
+
+    .grower-area-band > header > button {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      color: inherit;
+      text-align: left;
+    }
+
+    .grower-area-band > header > button:focus-visible {
+      border-radius: 8px;
+      outline: 2px solid rgba(22, 76, 59, 0.35);
+      outline-offset: 4px;
+    }
+
+    .grower-area-band > header > button > span:first-child {
+      display: grid;
+      min-width: 0;
+      gap: 1px;
+    }
+
+    .grower-area-band > header small {
+      color: #7a817d;
+      font-size: 0.54rem;
+      font-weight: 820;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+
+    .grower-area-band > header strong {
+      overflow: hidden;
+      color: #1b2923;
+      font-size: 0.82rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .grower-area-band > header > span {
+      color: #7a817d;
+      font-size: 0.61rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .grower-area-status {
+      border-radius: 999px;
+      background: #e2eee7;
+      padding: 0.36rem 0.55rem;
+      color: var(--grower-green);
+      font-size: 0.63rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .grower-area-status[data-state="warning"] {
+      background: #f7ead3;
+      color: #98631f;
+    }
+
+    .grower-area-status[data-state="critical"] {
+      background: #f5dfda;
+      color: var(--grower-red);
+    }
+
+    .grower-area-status[data-state="neutral"] {
+      background: #e9ebe9;
+      color: #67706b;
+    }
+
+    .grower-section-lines {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grower-section-line {
+      display: grid;
+      min-width: 0;
+      grid-template-columns: 8px minmax(110px, 0.6fr) minmax(140px, 1fr) 12px;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      border-top: 1px solid rgba(20, 32, 27, 0.065);
+      background: #fff;
+      padding: 0.7rem 1rem;
+      color: inherit;
+      text-align: left;
+    }
+
+    .grower-section-line:nth-child(even) {
+      border-left: 1px solid rgba(20, 32, 27, 0.065);
+    }
+
+    .grower-section-line:hover,
+    .grower-section-line:focus-visible {
+      position: relative;
+      z-index: 1;
+      background: #f8faf8;
+      outline: none;
+    }
+
+    .grower-section-line[data-selected="true"] {
+      background: #edf5f0;
+      box-shadow: inset 3px 0 var(--grower-green);
+    }
+
+    .grower-section-state {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #3e8766;
+      box-shadow: 0 0 0 3px rgba(62, 135, 102, 0.11);
+    }
+
+    .grower-section-line[data-state="warning"] .grower-section-state {
+      background: #c07c20;
+      box-shadow: 0 0 0 3px rgba(192, 124, 32, 0.11);
+    }
+
+    .grower-section-line[data-state="critical"] .grower-section-state {
+      background: var(--grower-red);
+      box-shadow: 0 0 0 3px rgba(165, 77, 61, 0.11);
+    }
+
+    .grower-section-line[data-state="neutral"] .grower-section-state {
+      background: #929b96;
+      box-shadow: 0 0 0 3px rgba(146, 155, 150, 0.11);
+    }
+
+    .grower-section-line strong {
+      overflow: hidden;
+      color: #223029;
+      font-size: 0.72rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .grower-section-line > span:nth-of-type(2) {
+      overflow: hidden;
+      color: #68716c;
+      font-size: 0.65rem;
+      font-weight: 630;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .grower-section-line > i {
+      color: #9aa29d;
+      font-size: 0.58rem;
+    }
+
+    .grower-area-empty {
+      margin: 0;
+      padding: 0.8rem 1rem;
+      color: #68716c;
       font-size: 0.68rem;
     }
 
-    @media (max-width: 900px) {
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-score-grid {
-        grid-template-columns: 1fr;
+    @media (min-width: 1800px) {
+      .grower-command-layout {
+        grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.55fr);
       }
 
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card {
-        display: block;
+      .grower-section-lines {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card > div:first-child {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: center;
-        gap: 2px 12px;
-        width: 100%;
+      .grower-section-line:nth-child(even) {
+        border-left: 0;
       }
 
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card .triage-card-kicker,
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card .triage-score-location {
-        grid-column: 1;
-      }
-
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card .triage-score-value {
-        grid-column: 2;
-        grid-row: 1 / span 2;
-      }
-
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-value,
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-state {
-        margin-top: 0;
-      }
-
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-state {
-        grid-column: 1 / -1;
-        margin-top: 0.25rem;
-      }
-
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list {
-        grid-template-columns: 1fr;
+      .grower-section-line:not(:nth-child(3n + 1)) {
+        border-left: 1px solid rgba(20, 32, 27, 0.065);
       }
     }
 
-    @media (max-width: 620px) {
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-title-row {
-        align-items: flex-start;
-      }
-
-      body[data-experience-mode="simple"] #overviewTriageSection .overview-data-status {
-        max-width: 115px;
-      }
-
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-facts,
-      body[data-experience-mode="simple"] #overviewTriageSection .triage-readings-grid {
+    @media (max-width: 1100px) {
+      .grower-command-layout {
         grid-template-columns: 1fr;
       }
 
+      .grower-pulse {
+        display: grid;
+        grid-template-columns: minmax(150px, 0.55fr) minmax(220px, 1fr);
+        gap: 0 22px;
+      }
+
+      .grower-pulse > .grower-overline {
+        grid-column: 1 / -1;
+      }
+
+      .grower-pulse-main {
+        grid-row: 2 / span 2;
+        margin-top: 0.9rem;
+        border-right: 1px solid rgba(75, 62, 43, 0.12);
+        border-bottom: 0;
+        padding-right: 18px;
+      }
+
+      .grower-pulse dl {
+        margin-top: 0.65rem;
+      }
+
+      .grower-system-note {
+        margin-top: 0.55rem;
+      }
+
+      .grower-route-copy {
+        grid-template-columns: minmax(150px, 0.8fr) minmax(150px, 1fr);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .grower-overview {
+        gap: 12px;
+      }
+
+      .grower-day-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .grower-day-header h1 {
+        font-size: clamp(1.85rem, 10vw, 2.55rem);
+      }
+
+      .grower-day-header p {
+        font-size: 0.82rem;
+      }
+
+      .grower-command,
+      .grower-pulse,
+      .grower-route,
+      .grower-farm-board {
+        border-radius: 21px;
+      }
+
+      .grower-command > header {
+        align-items: flex-start;
+        flex-direction: column-reverse;
+        gap: 7px;
+      }
+
+      .grower-command h2 {
+        margin-top: 0.7rem;
+        font-size: 1.65rem;
+      }
+
+      .grower-command-evidence {
+        gap: 12px;
+      }
+
+      .grower-command-instruction {
+        grid-template-columns: 1fr;
+        gap: 5px;
+      }
+
+      .grower-pulse {
+        display: block;
+      }
+
+      .grower-pulse-main {
+        border-right: 0;
+        border-bottom: 1px solid rgba(75, 62, 43, 0.12);
+        padding-right: 0;
+      }
+
+      .grower-system-note {
+        margin-top: 0.75rem;
+      }
+
+      .grower-route,
+      .grower-farm-board > header {
+        padding-inline: 0.85rem;
+      }
+
+      .grower-route-item {
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 9px;
+      }
+
+      .grower-route-copy {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .grower-route-copy small,
+      .grower-route-copy strong,
+      .grower-route-copy > span {
+        grid-column: 1;
+        grid-row: auto;
+        text-align: left;
+      }
+
+      .grower-route-actions {
+        grid-column: 2;
+        justify-content: flex-start;
+      }
+
+      .grower-farm-board > header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .grower-farm-board > header p {
+        text-align: left;
+      }
+
+      .grower-area-band > header {
+        grid-template-columns: 1fr;
+        gap: 5px;
+        padding-inline: 0.85rem;
+      }
+
+      .grower-area-band > header > button {
+        gap: 10px;
+      }
+
+      .grower-area-band > header > span {
+        padding-left: 0;
+      }
+
+      .grower-section-lines {
+        grid-template-columns: 1fr;
+      }
+
+      .grower-section-line {
+        grid-template-columns: 8px minmax(100px, 0.7fr) minmax(120px, 1fr) 10px;
+        padding-inline: 0.8rem;
+      }
+
+      .grower-section-line:nth-child(even) {
+        border-left: 0;
+      }
+    }
+
+    @media (max-width: 460px) {
+      .grower-command-buttons,
+      .grower-command-primary,
+      .grower-command-secondary,
+      .grower-compare-button {
+        width: 100%;
+      }
+
+      .grower-command-primary,
+      .grower-command-secondary,
+      .grower-compare-button {
+        justify-content: center;
+      }
+
+      .grower-system-note {
+        grid-template-columns: 28px minmax(0, 1fr);
+      }
+
+      .grower-system-note button {
+        grid-column: 2;
+        justify-self: start;
+      }
+
+      .grower-section-line {
+        grid-template-columns: 8px minmax(0, 1fr) 10px;
+      }
+
+      .grower-section-line > span:nth-of-type(2) {
+        grid-column: 2;
+      }
+
+      .grower-section-line > i {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+      }
     }
 
     /* Keep the primary Overview workspace fully static on lower-power GPUs. */
@@ -15542,45 +15490,30 @@
       color: #85837d;
     }
 
-    .triage-reading[data-observation="cached"],
     .live-reading-row[data-observation="cached"] {
       border-color: rgba(80, 91, 85, 0.16);
       background: #fcfdfb;
       opacity: 1;
     }
 
-    .triage-reading[data-observation="failed"],
     .live-reading-row[data-observation="failed"] {
       border-color: rgba(185, 125, 36, 0.28);
       background: #fffaf0;
     }
 
-    .triage-reading[data-observation="missing"],
-    .triage-reading[data-observation="offline"],
     .live-reading-row[data-observation="missing"],
     .live-reading-row[data-observation="offline"] {
       opacity: 0.58;
       filter: grayscale(0.6);
     }
 
-    .triage-reading[data-freshness="stale"],
     .live-reading-row[data-freshness="stale"] {
       opacity: 0.7;
     }
 
-    .triage-reading[data-freshness="offline"],
     .live-reading-row[data-freshness="offline"] {
       opacity: 0.54;
       filter: grayscale(0.65);
-    }
-
-    .triage-reliability-score[data-freshness="delayed"] strong,
-    .triage-reliability-score[data-freshness="stale"] strong {
-      color: #a96d16;
-    }
-
-    .triage-reliability-score[data-freshness="offline"] strong {
-      color: #a14537;
     }
 
     /* Shared operational foundation: applied across every route. */
@@ -15758,8 +15691,6 @@
 .designer-app .management-list-row,
 .designer-app .node-fleet-row,
 .designer-app .live-reading-group,
-.designer-app .overview-area-card,
-.designer-app .overview-section-mini,
 .designer-app .triage-history-row {
   contain: layout paint style;
 }
@@ -15782,24 +15713,6 @@
     grid-template-columns: minmax(180px, 0.9fr) minmax(240px, 1.2fr) minmax(210px, 1fr) auto;
   }
 
-  .designer-app .overview-area-card {
-    flex-basis: 240px;
-  }
-
-  .designer-app .overview-section-mini-list {
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  }
-
-  .designer-app .triage-priority-score-grid {
-    grid-template-columns: minmax(0, 1.7fr) minmax(380px, 0.7fr);
-    gap: 20px;
-  }
-
-  .designer-app .triage-bottom-grid {
-    grid-template-columns: minmax(0, 1.6fr) minmax(360px, 0.65fr);
-    gap: 20px;
-  }
-
   .designer-app .settings-page-shell,
   .designer-app .admin-page-shell,
   .designer-app .crop-profiles-page {
@@ -15818,13 +15731,6 @@
     flex-basis: 15.5rem !important;
   }
 
-  .designer-app .overview-section-mini-list {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  }
-
-  .designer-app .triage-readings-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
 }
 
 /* Area-wide Live readings: Sections stay on rows so operators can compare

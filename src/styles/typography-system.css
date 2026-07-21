@@ -263,8 +263,6 @@ small {
 .designer-app .alert-rail-item-title,
 .designer-app .inspection-route-title,
 .designer-app .site-zone-driver-title,
-.designer-app .overview-area-card h3,
-.designer-app .overview-section-mini strong,
 .designer-app .workbench-empty-title,
 .designer-app .management-list-title,
 .designer-app .crop-profile-metric-group h4,
@@ -316,7 +314,6 @@ small {
   .inspection-route-kicker,
   .power-node-kicker,
   .triage-eyebrow,
-  .triage-card-kicker,
   .today-priority-kicker,
   .trend-history-context-kicker,
   .trend-history-context-field-label,
@@ -344,7 +341,6 @@ small {
   .settings-role-pill,
   .admin-status,
   .diagnostic-table-state,
-  .overview-section-mini-status,
   .overview-data-status,
   .node-sensor-status,
   .node-detail-status
@@ -455,17 +451,6 @@ small {
 
 .designer-app .workbench-lens-button-label,
 .designer-app .workbench-lens-count,
-.designer-app .overview-growing-map-summary,
-.designer-app .overview-area-card-head > span:first-child em,
-.designer-app .overview-area-card footer,
-.designer-app .overview-selected-area-sections > header > span,
-.designer-app .overview-section-mini-main strong,
-.designer-app .overview-section-mini-status small,
-.designer-app .overview-section-mini-status span,
-.designer-app .triage-guidance span,
-.designer-app .triage-score-impact > header > span,
-.designer-app .triage-score-details dt,
-.designer-app .triage-reading-state,
 .designer-app #trendHistoryRangeMeta,
 .designer-app .trend-analytics-card header span,
 .designer-app .trend-time-card span {
@@ -543,25 +528,6 @@ small {
 .designer-app .crop-profile-boundaries b {
   font-size: var(--nc-type-caption) !important;
   line-height: 1.3 !important;
-}
-
-.designer-app .triage-score-card {
-  grid-template-columns: minmax(110px, 0.6fr) minmax(0, 1fr);
-  min-width: 0;
-}
-
-.designer-app .triage-priority-card h2 {
-  font-size: clamp(1.6rem, 2vw, 2rem) !important;
-  line-height: 1.1 !important;
-}
-
-.designer-app .triage-score-value {
-  font-size: clamp(3.5rem, 4.8vw, 5rem) !important;
-}
-
-.designer-app .triage-score-details,
-.designer-app .triage-score-details > div {
-  min-width: 0;
 }
 
 @media (max-width: 760px) {
