@@ -10,6 +10,7 @@ import './styles/redesign-sidebar.css'
 import './styles/neurocrop-color-system.css'
 import './styles/neurocrop-typography-system.css'
 import './styles/redesign-profiles.css'
+import './styles/redesign-alerts.css'
 
 declare global {
   interface Window {

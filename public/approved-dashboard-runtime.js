@@ -1161,6 +1161,8 @@
       blocksManagementShell: document.getElementById("blocksManagementShell"),
       nodesManagementSection: document.getElementById("nodesManagementSection"),
       nodesManagementShell: document.getElementById("nodesManagementShell"),
+      alertsManagementSection: document.getElementById("alertsManagementSection"),
+      alertsManagementShell: document.getElementById("alertsManagementShell"),
       settingsManagementSection: document.getElementById("settingsManagementSection"),
       settingsManagementShell: document.getElementById("settingsManagementShell"),
       sidebarQuickActions: document.getElementById("sidebarQuickActions"),
@@ -1796,6 +1798,11 @@
     let currentWorkbenchLenses = [];
     let dashboardRenderTimeoutId = null;
     let activeAlertRailFilterKey = "all";
+    let activeAlertsPageFilterKey = "open";
+    let currentAlertsPageItems = [];
+    let alertsPageFeedback = { tone: "", text: "" };
+    const alertsPagePendingIds = new Set();
+    const reviewedAlertsStorageKey = "neurocrop-reviewed-alerts-v1";
     let activeSensorHealthFilterKey = "focus";
     let activeInspectionRouteFilterKey = "focus";
     let activeWorkspaceFocus = "all";
@@ -1863,7 +1870,7 @@
       nodes: { page: "nodes", route: "/nodes" },
       readings: { page: "readings", route: "/readings" },
       history: { page: "history", route: "/history" },
-      alerts: { page: "overview", route: "/alerts", sidebarAction: "alerts" },
+      alerts: { page: "alerts", route: "/alerts" },
       settings: { page: "settings", route: "/settings" },
       admin: { page: "admin", route: "/admin" },
       "crop-profiles": { page: "settings", route: "/crop-profiles", sidebarAction: "crop-profiles" }
@@ -2113,9 +2120,8 @@
       sidebarActionOverride = nextRoute.sidebarAction || null;
       closeContextMenus();
 
-      if (sidebarActionOverride === "alerts") {
-        activeWorkspaceFocus = "alerts";
-        setExperienceMode("detailed", { render: false, force: true });
+      if (activePrimaryPage === "alerts") {
+        activeWorkspaceFocus = "all";
       } else if (activePrimaryPage === "history" || activePrimaryPage === "readings") {
         activeViewScope = activePrimaryPage === "readings" ? "site" : "zone";
         activeWorkspaceFocus = "all";
@@ -2137,6 +2143,7 @@
         locations: "locationsManagementSection",
         blocks: "blocksManagementSection",
         nodes: "nodesManagementSection",
+        alerts: "alertsManagementSection",
         readings: "metricsSection",
         history: "historySection",
         settings: "settingsManagementSection",
@@ -4622,6 +4629,8 @@
         activeAction = "readings";
       } else if (activePrimaryPage === "history") {
         activeAction = "history";
+      } else if (activePrimaryPage === "alerts") {
+        activeAction = "alerts";
       } else if (activePrimaryPage === "settings") {
         activeAction = sidebarActionOverride === "crop-profiles" ? "crop-profiles" : "settings";
       } else if (activePrimaryPage === "admin") {
@@ -4719,14 +4728,13 @@
           scrollToSection("historySection", { behavior: "auto", highlight: false });
           return;
         case "alerts":
-          activePrimaryPage = "overview";
-          sidebarActionOverride = "alerts";
-          activeWorkspaceFocus = "alerts";
-          setExperienceMode("detailed", { render: false, force: true });
+          activePrimaryPage = "alerts";
+          sidebarActionOverride = null;
+          activeWorkspaceFocus = "all";
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/alerts");
-          scrollToSection("detailedDiagnosticsSection", { behavior: "auto", highlight: false });
+          scrollToSection("alertsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "crop-profiles":
           activePrimaryPage = "settings";
@@ -7961,6 +7969,274 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           </div>
         </div>
       `;
+    }
+
+    function loadReviewedAlertRecords() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(reviewedAlertsStorageKey) || "{}");
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+        const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        return Object.fromEntries(Object.entries(parsed).filter(([, record]) =>
+          record && Number(new Date(record.acknowledgedAt)) >= cutoff
+        ));
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function saveReviewedAlertRecords(records) {
+      try {
+        localStorage.setItem(reviewedAlertsStorageKey, JSON.stringify(records));
+      } catch (error) {
+        // Review still applies to the current render when storage is unavailable.
+      }
+    }
+
+    function isSameLocalDay(timestamp, reference = new Date()) {
+      const value = new Date(timestamp);
+      return Number.isFinite(value.getTime())
+        && value.getFullYear() === reference.getFullYear()
+        && value.getMonth() === reference.getMonth()
+        && value.getDate() === reference.getDate();
+    }
+
+    function isAlertsPageItemReviewed(item, records = loadReviewedAlertRecords()) {
+      const record = records[item.id];
+      if (!record?.acknowledgedAt) return false;
+      return Date.now() - new Date(record.acknowledgedAt).getTime() < 24 * 60 * 60 * 1000;
+    }
+
+    function getAlertsPageLocationTimestamp(zone) {
+      const timestamps = (zone?.batteryNodes || [])
+        .flatMap((node) => [node.lastReceivedAt, node.lastSeen])
+        .map((value) => new Date(value).getTime())
+        .filter(Number.isFinite);
+      return timestamps.length > 0 ? new Date(Math.max(...timestamps)).toISOString() : null;
+    }
+
+    function formatAlertsPageTimestamp(timestamp) {
+      if (!timestamp) return diagnosticText("Current", "Dabar");
+      const date = new Date(timestamp);
+      if (!Number.isFinite(date.getTime())) return diagnosticText("Current", "Dabar");
+      const time = new Intl.DateTimeFormat(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", {
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(date);
+      if (isSameLocalDay(date)) return `${diagnosticText("Today", "Šiandien")} · ${time}`;
+      return new Intl.DateTimeFormat(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(date);
+    }
+
+    function buildAlertsPageItems(globalSnapshots = []) {
+      const metricItems = globalSnapshots.flatMap((snapshot) => {
+        const timestamp = getAlertsPageLocationTimestamp(snapshot.zone);
+        return snapshot.results
+          .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
+          .map((result) => {
+            const definition = snapshot.profile.metrics[result.key];
+            const optimal = Array.isArray(definition?.optimal) ? definition.optimal : [];
+            const belowTarget = Number.isFinite(result.value) && Number.isFinite(optimal[0]) && result.value < optimal[0];
+            const aboveTarget = Number.isFinite(result.value) && Number.isFinite(optimal[1]) && result.value > optimal[1];
+            const direction = belowTarget
+              ? diagnosticText("below target", "žemiau tikslo")
+              : aboveTarget
+                ? diagnosticText("above target", "virš tikslo")
+                : diagnosticText("outside target", "už tikslo ribų");
+            const tone = result.state === "critical" ? "critical" : "warning";
+            return {
+              id: `metric:${snapshot.site.id}:${snapshot.zone.id}:${result.key}`,
+              source: "snapshot",
+              kind: "metric",
+              tone,
+              siteId: snapshot.site.id,
+              siteName: snapshot.site.name,
+              zoneId: snapshot.zone.id,
+              zoneName: snapshot.zone.name,
+              metricKey: result.key,
+              title: `${definition?.label || result.key} ${direction}`,
+              detail: Number.isFinite(result.value)
+                ? `${snapshot.zone.name} · ${formatValue(result.value, definition)}`
+                : snapshot.zone.name,
+              timestamp,
+              sortTime: timestamp ? new Date(timestamp).getTime() : 0,
+              icon: "fa-triangle-exclamation"
+            };
+          });
+      });
+
+      const offlineItems = dashboardData.sites.flatMap((site) =>
+        (site.zones || []).flatMap((zone) =>
+          (zone.batteryNodes || []).flatMap((node) => {
+            const freshness = getNodeFreshness(node, zone);
+            if (freshness.transportStatus !== "offline") return [];
+            const nodeName = node.name && node.name !== node.id ? node.name : node.id;
+            const timestamp = node.lastReceivedAt || node.lastSeen || null;
+            return [{
+              id: `offline:${site.id}:${zone.id}:${node.id}`,
+              source: "snapshot",
+              kind: "offline",
+              tone: "offline",
+              siteId: site.id,
+              siteName: site.name,
+              zoneId: zone.id,
+              zoneName: zone.name,
+              nodeId: node.id,
+              title: diagnosticText("Node has stopped reporting", "Node nebesiunčia duomenų"),
+              detail: `${nodeName} · ${Number.isFinite(freshness.ageSec) ? `${formatFreshnessAge(freshness.ageSec)} ${diagnosticText("silent", "be ryšio")}` : diagnosticText("No recent uplink", "Nėra naujo uplink")}`,
+              timestamp,
+              sortTime: timestamp ? new Date(timestamp).getTime() : 0,
+              icon: "fa-link-slash"
+            }];
+          })
+        )
+      );
+
+      const toneRank = { critical: 0, warning: 1, offline: 2 };
+      return [...metricItems, ...offlineItems].sort((left, right) =>
+        (toneRank[left.tone] ?? 3) - (toneRank[right.tone] ?? 3)
+        || right.sortTime - left.sortTime
+      );
+    }
+
+    function getAlertsPageView(items = currentAlertsPageItems) {
+      const records = loadReviewedAlertRecords();
+      const open = items.filter((item) => !isAlertsPageItemReviewed(item, records));
+      const resolved = Object.values(records)
+        .filter((record) => record?.item && isSameLocalDay(record.acknowledgedAt))
+        .map((record) => ({ ...record.item, acknowledgedAt: record.acknowledgedAt, resolved: true }))
+        .sort((left, right) => new Date(right.acknowledgedAt).getTime() - new Date(left.acknowledgedAt).getTime());
+      const filters = [
+        { key: "open", label: diagnosticText("Open alerts", "Aktyvūs įspėjimai"), count: open.length },
+        { key: "critical", label: diagnosticText("Critical", "Kritiniai"), count: open.filter((item) => item.tone === "critical").length },
+        { key: "warning", label: diagnosticText("Warnings", "Įspėjimai"), count: open.filter((item) => item.tone === "warning").length },
+        { key: "offline", label: diagnosticText("Device offline", "Node be ryšio"), count: open.filter((item) => item.tone === "offline").length },
+        { key: "resolved", label: diagnosticText("Resolved today", "Išspręsta šiandien"), count: resolved.length }
+      ];
+      const visible = activeAlertsPageFilterKey === "resolved"
+        ? resolved
+        : activeAlertsPageFilterKey === "open"
+          ? open
+          : open.filter((item) => item.tone === activeAlertsPageFilterKey);
+      return { records, open, resolved, filters, visible };
+    }
+
+    function renderAlertsPageCard(item) {
+      const toneLabel = item.resolved
+        ? diagnosticText("Reviewed", "Peržiūrėta")
+        : item.tone === "critical"
+          ? diagnosticText("Critical", "Kritinis")
+          : item.tone === "warning"
+            ? diagnosticText("Warning", "Įspėjimas")
+            : diagnosticText("Offline", "Be ryšio");
+      const pending = alertsPagePendingIds.has(item.id);
+      return `
+        <article class="nc-alert-card" data-tone="${escapeAttribute(item.resolved ? "resolved" : item.tone)}">
+          <span class="nc-alert-card-icon" aria-hidden="true"><i class="fa-solid ${escapeAttribute(item.resolved ? "fa-check" : item.icon)}"></i></span>
+          <div class="nc-alert-card-body">
+            <div class="nc-alert-card-meta">
+              <span class="nc-alert-status" data-tone="${escapeAttribute(item.resolved ? "resolved" : item.tone)}"><i class="fa-solid fa-circle" aria-hidden="true"></i>${escapeHtml(toneLabel)}</span>
+              <time>${escapeHtml(formatAlertsPageTimestamp(item.resolved ? item.acknowledgedAt : item.timestamp))}</time>
+            </div>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.detail)}</p>
+            <div class="nc-alert-location"><span>${escapeHtml(item.siteName)}</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i><span>${escapeHtml(item.zoneName)}</span></div>
+          </div>
+          <div class="nc-alert-card-actions">
+            <button type="button" class="nc-alert-secondary-action" data-alerts-view-context="${escapeAttribute(item.id)}">${escapeHtml(diagnosticText("View context", "Atidaryti vietą"))}</button>
+            ${item.resolved ? "" : `<button type="button" class="nc-alert-primary-action" data-alerts-acknowledge="${escapeAttribute(item.id)}" ${pending ? "disabled" : ""}>${pending ? `<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>` : ""}${escapeHtml(diagnosticText("Acknowledge", "Patvirtinti"))}</button>`}
+          </div>
+        </article>
+      `;
+    }
+
+    function renderAlertsManagementPage(globalSnapshots = []) {
+      currentAlertsPageItems = buildAlertsPageItems(globalSnapshots);
+      const view = getAlertsPageView(currentAlertsPageItems);
+      const activeFilter = view.filters.find((filter) => filter.key === activeAlertsPageFilterKey) || view.filters[0];
+      if (!view.filters.some((filter) => filter.key === activeAlertsPageFilterKey)) activeAlertsPageFilterKey = "open";
+      const emptyTitle = activeAlertsPageFilterKey === "resolved"
+        ? diagnosticText("Nothing has been reviewed today", "Šiandien dar niekas neperžiūrėta")
+        : diagnosticText("No alerts in this view", "Šiame vaizde įspėjimų nėra");
+      const emptyText = activeAlertsPageFilterKey === "open"
+        ? diagnosticText("Current growing conditions and device reporting are within the configured limits.", "Dabartinės auginimo sąlygos ir node ryšys atitinka nustatytas ribas.")
+        : diagnosticText("Choose another filter to review the rest of the operational queue.", "Pasirinkite kitą filtrą, kad peržiūrėtumėte likusius įrašus.");
+
+      elements.alertsManagementShell.innerHTML = `
+        <div class="nc-alerts-page">
+          <header class="nc-alerts-head">
+            <div>
+              <p class="nc-alerts-eyebrow">${escapeHtml(diagnosticText("Operational attention", "Operacinis dėmesys"))}</p>
+              <h1>${escapeHtml(diagnosticText("Alerts", "Įspėjimai"))}</h1>
+              <p class="nc-alerts-description">${escapeHtml(diagnosticText("Prioritized environmental and device events. Acknowledge only after the physical condition has been checked.", "Prioritetiniai aplinkos ir įrenginių įvykiai. Patvirtinkite tik fiziškai patikrinę situaciją."))}</p>
+            </div>
+            <button type="button" class="nc-alerts-review-all" data-alerts-mark-reviewed ${view.open.length === 0 || activeAlertsPageFilterKey === "resolved" ? "disabled" : ""}><i class="fa-solid fa-check-double" aria-hidden="true"></i>${escapeHtml(diagnosticText("Mark reviewed", "Pažymėti peržiūrėta"))}</button>
+          </header>
+          ${alertsPageFeedback.text ? `<div class="nc-alerts-feedback" data-tone="${escapeAttribute(alertsPageFeedback.tone || "info")}" role="status">${escapeHtml(alertsPageFeedback.text)}</div>` : ""}
+          <div class="nc-alerts-layout">
+            <aside class="nc-alerts-filters" aria-label="${escapeAttribute(diagnosticText("Alert views", "Įspėjimų filtrai"))}">
+              <p>${escapeHtml(diagnosticText("View", "Vaizdas"))}</p>
+              <div role="list">
+                ${view.filters.map((filter, index) => `${index === 4 ? `<span class="nc-alert-filter-divider" aria-hidden="true"></span>` : ""}<button type="button" data-alerts-page-filter="${escapeAttribute(filter.key)}" data-active="${String(filter.key === activeAlertsPageFilterKey)}" aria-pressed="${String(filter.key === activeAlertsPageFilterKey)}"><span>${escapeHtml(filter.label)}</span><strong>${filter.count}</strong></button>`).join("")}
+              </div>
+            </aside>
+            <section class="nc-alerts-stream" aria-label="${escapeAttribute(activeFilter.label)}">
+              ${view.visible.length > 0 ? view.visible.map(renderAlertsPageCard).join("") : `<div class="nc-alerts-empty"><span><i class="fa-solid fa-check" aria-hidden="true"></i></span><h2>${escapeHtml(emptyTitle)}</h2><p>${escapeHtml(emptyText)}</p></div>`}
+            </section>
+          </div>
+        </div>
+      `;
+    }
+
+    function storeReviewedAlertItem(item) {
+      const records = loadReviewedAlertRecords();
+      records[item.id] = {
+        acknowledgedAt: new Date().toISOString(),
+        item: {
+          id: item.id,
+          kind: item.kind,
+          tone: item.tone,
+          siteId: item.siteId,
+          siteName: item.siteName,
+          zoneId: item.zoneId,
+          zoneName: item.zoneName,
+          nodeId: item.nodeId || "",
+          title: item.title,
+          detail: item.detail,
+          timestamp: item.timestamp,
+          icon: item.icon
+        }
+      };
+      saveReviewedAlertRecords(records);
+    }
+
+    async function acknowledgeAlertsPageItems(items) {
+      const pendingItems = items.filter((item) => item && !alertsPagePendingIds.has(item.id));
+      if (pendingItems.length === 0) return;
+      pendingItems.forEach((item) => alertsPagePendingIds.add(item.id));
+      renderDashboard();
+      try {
+        await Promise.all(pendingItems.map(async (item) => {
+          if (item.source === "backend" && item.backendId && window.NeuroCropApi?.isConnected?.()) {
+            await window.NeuroCropApi.acknowledgeAlert(item.backendId);
+          }
+          storeReviewedAlertItem(item);
+        }));
+        alertsPageFeedback = {
+          tone: "success",
+          text: pendingItems.length === 1
+            ? diagnosticText("Alert marked as reviewed.", "Įspėjimas pažymėtas peržiūrėtu.")
+            : diagnosticText(`${pendingItems.length} alerts marked as reviewed.`, `${pendingItems.length} įspėjimai pažymėti peržiūrėtais.`)
+        };
+      } catch (error) {
+        alertsPageFeedback = { tone: "danger", text: error?.message || diagnosticText("Alert could not be acknowledged.", "Nepavyko patvirtinti įspėjimo.") };
+      } finally {
+        pendingItems.forEach((item) => alertsPagePendingIds.delete(item.id));
+        renderDashboard();
+      }
     }
 
     function renderNodesManagementPage() {
@@ -13286,6 +13562,35 @@ function buildTrendMetricOptions(options) {
       renderZoneOptions();
       updateSidebarActionState();
 
+      if (activePrimaryPage === "alerts") {
+        const snapshots = dashboardData.sites.flatMap((systemSite) =>
+          (systemSite.zones || []).map((systemZone) => evaluateZoneSnapshot(systemSite, systemZone))
+        );
+        elements.experienceModeSection.hidden = true;
+        elements.locationsManagementSection.hidden = true;
+        elements.blocksManagementSection.hidden = true;
+        elements.nodesManagementSection.hidden = true;
+        elements.alertsManagementSection.hidden = false;
+        elements.settingsManagementSection.hidden = true;
+        elements.overviewTriageSection.hidden = true;
+        elements.heroStatusPanel.hidden = true;
+        elements.todayPriorityPanel.hidden = true;
+        elements.metricsSection.hidden = true;
+        elements.historySection.hidden = true;
+        elements.sensorHealthSection.hidden = true;
+        elements.alertsSection.hidden = true;
+        elements.opsDockSection.hidden = true;
+        elements.detailedDiagnosticsSection.hidden = true;
+        elements.zoneImpactSection.hidden = true;
+        renderAlertsManagementPage(snapshots);
+        updateSidebarWorkspaceStatus(getAlertsPageView(currentAlertsPageItems).open.length);
+        document.body.dataset.dashboardState = "neutral";
+        document.body.dataset.primaryPage = "alerts";
+        return;
+      }
+
+      elements.alertsManagementSection.hidden = true;
+
       if (activePrimaryPage === "blocks") {
         activeBlockFilterSiteId = site.id;
         blockFormState = {
@@ -13360,6 +13665,7 @@ function buildTrendMetricOptions(options) {
       elements.locationsManagementSection.hidden = true;
       elements.blocksManagementSection.hidden = true;
       elements.nodesManagementSection.hidden = true;
+      elements.alertsManagementSection.hidden = true;
       elements.settingsManagementSection.hidden = true;
       elements.heroStatusPanel.hidden = true;
       elements.todayPriorityPanel.hidden = true;
@@ -13417,9 +13723,10 @@ function buildTrendMetricOptions(options) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
       const isNodesPage = activePrimaryPage === "nodes";
+      const isAlertsPage = activePrimaryPage === "alerts";
       const isSettingsPage = activePrimaryPage === "settings";
       const isAdminPage = activePrimaryPage === "admin";
-      const showWorkspaceSetup = !isLocationsPage && !isBlocksPage && !isNodesPage && !isSettingsPage && !isAdminPage;
+      const showWorkspaceSetup = !isLocationsPage && !isBlocksPage && !isNodesPage && !isAlertsPage && !isSettingsPage && !isAdminPage;
 
       elements.siteContextValue.textContent = diagnosticText("No areas", "Nėra area");
       elements.siteContextMeta.textContent = diagnosticText("Create the first area", "Sukurkite pirmą area");
@@ -13437,6 +13744,7 @@ function buildTrendMetricOptions(options) {
       elements.locationsManagementSection.hidden = !isLocationsPage;
       elements.blocksManagementSection.hidden = !isBlocksPage;
       elements.nodesManagementSection.hidden = !isNodesPage;
+      elements.alertsManagementSection.hidden = !isAlertsPage;
       elements.settingsManagementSection.hidden = !(isSettingsPage || isAdminPage);
       elements.overviewTriageSection.hidden = !showWorkspaceSetup;
       elements.heroStatusPanel.hidden = true;
@@ -13457,6 +13765,7 @@ function buildTrendMetricOptions(options) {
       if (isLocationsPage) renderLocationsManagementPage([]);
       if (isBlocksPage) renderBlocksManagementPage([]);
       if (isNodesPage) renderNodesManagementPage([]);
+      if (isAlertsPage) renderAlertsManagementPage([]);
       if (isSettingsPage || isAdminPage) renderSettingsManagementPage([]);
 
       if (showWorkspaceSetup) {
@@ -13483,11 +13792,12 @@ function buildTrendMetricOptions(options) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
       const isNodesPage = activePrimaryPage === "nodes";
+      const isAlertsPage = activePrimaryPage === "alerts";
       const isReadingsPage = activePrimaryPage === "readings";
       const isHistoryPage = activePrimaryPage === "history";
       const isSettingsPage = activePrimaryPage === "settings";
       const isAdminPage = activePrimaryPage === "admin";
-      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isSettingsPage || isAdminPage;
+      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isAlertsPage || isSettingsPage || isAdminPage;
       const isPrimaryWorkspacePage = isManagementPage || isHistoryPage || isReadingsPage;
       const site = getActiveSite();
       const zone = getActiveZone(site);
@@ -13600,7 +13910,10 @@ function buildTrendMetricOptions(options) {
               : "This block needs attention."
           };
         });
-      updateSidebarWorkspaceStatus(allSystemIssues.length);
+      currentAlertsPageItems = buildAlertsPageItems(globalSnapshots);
+      const alertsPageView = getAlertsPageView(currentAlertsPageItems);
+      updateSidebarWorkspaceStatus(alertsPageView.open.length);
+      if (isAlertsPage) renderAlertsManagementPage(globalSnapshots);
       const criticalSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "critical");
       const warningSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "warning");
       const currentSiteSystemIssues = allSystemIssues.filter((snapshot) => snapshot.site.id === site.id);
@@ -14167,6 +14480,7 @@ function buildTrendMetricOptions(options) {
       elements.locationsManagementSection.hidden = !isLocationsPage;
       elements.blocksManagementSection.hidden = !isBlocksPage;
       elements.nodesManagementSection.hidden = !isNodesPage;
+      elements.alertsManagementSection.hidden = !isAlertsPage;
       elements.settingsManagementSection.hidden = !(isSettingsPage || isAdminPage);
       elements.overviewTriageSection.hidden = isPrimaryWorkspacePage || isDetailedExperienceMode;
       elements.detailedDiagnosticsSection.hidden = !isDetailedOverview;
@@ -15102,6 +15416,47 @@ function buildTrendMetricOptions(options) {
       const openLiveButton = event.target.closest("[data-block-open-live-site-id]");
       if (openLiveButton) {
         openZoneDetail(openLiveButton.dataset.blockOpenLiveSiteId, openLiveButton.dataset.blockOpenLiveZoneId);
+      }
+    });
+
+    elements.alertsManagementSection.addEventListener("click", (event) => {
+      const filterButton = event.target.closest("[data-alerts-page-filter]");
+      if (filterButton) {
+        activeAlertsPageFilterKey = filterButton.dataset.alertsPageFilter || "open";
+        alertsPageFeedback = { tone: "", text: "" };
+        renderDashboard();
+        return;
+      }
+
+      const contextButton = event.target.closest("[data-alerts-view-context]");
+      if (contextButton) {
+        const view = getAlertsPageView(currentAlertsPageItems);
+        const item = [...view.open, ...view.resolved].find((candidate) => candidate.id === contextButton.dataset.alertsViewContext);
+        if (!item) return;
+        if (item.nodeId) {
+          activePrimaryPage = "nodes";
+          activeNodeDetailId = item.nodeId;
+          sidebarActionOverride = null;
+          closeContextMenus();
+          renderDashboard();
+          syncTopLevelRoute(`/nodes/${encodeURIComponent(item.nodeId)}`);
+          scrollToSection("nodesManagementSection", { behavior: "auto", highlight: false });
+          return;
+        }
+        openZoneDetail(item.siteId, item.zoneId, { behavior: "auto", highlight: false });
+        return;
+      }
+
+      const acknowledgeButton = event.target.closest("[data-alerts-acknowledge]");
+      if (acknowledgeButton) {
+        const item = currentAlertsPageItems.find((candidate) => candidate.id === acknowledgeButton.dataset.alertsAcknowledge);
+        acknowledgeAlertsPageItems(item ? [item] : []);
+        return;
+      }
+
+      const markReviewedButton = event.target.closest("[data-alerts-mark-reviewed]");
+      if (markReviewedButton) {
+        acknowledgeAlertsPageItems(getAlertsPageView(currentAlertsPageItems).open);
       }
     });
 
