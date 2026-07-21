@@ -133,7 +133,8 @@ CREATE TABLE IF NOT EXISTS nodes (
     last_spreading_factor SMALLINT,
     last_sensor_presence  JSONB,
     last_error_flags      JSONB,
-    last_error_counters   JSONB
+    last_error_counters   JSONB,
+    archived_at           TIMESTAMPTZ
 );
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_received_at TIMESTAMPTZ;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_battery_mv INTEGER;
@@ -146,6 +147,8 @@ ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_spreading_factor SMALLINT;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_sensor_presence JSONB;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_error_flags JSONB;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_error_counters JSONB;
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_nodes_active_org_section ON nodes (organization_id, section_id) WHERE archived_at IS NULL;
 CREATE TABLE IF NOT EXISTS measurements (
     time             TIMESTAMPTZ NOT NULL,
     dev_eui          TEXT NOT NULL REFERENCES nodes(dev_eui) ON UPDATE CASCADE,

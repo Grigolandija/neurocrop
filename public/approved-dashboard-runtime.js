@@ -2926,8 +2926,13 @@
             <p class="node-move-note field-wide">Moving a node keeps its Node ID. Future readings will belong to the selected area and section.</p>
             <p class="management-modal-error field-wide" role="alert" hidden></p>
             <section class="node-remove-zone field-wide" aria-labelledby="remove-node-title">
-              <div><h3 id="remove-node-title">Remove node</h3><p>Removes it from this workspace. This action cannot be undone.</p></div>
-              <div class="node-remove-actions"><label><input name="modalNodeDeleteConfirm" type="checkbox"><span>Confirm removal</span></label><button type="button" data-modal-node-delete="${escapeAttribute(node.id)}" disabled><i class="fa-solid fa-trash-can" aria-hidden="true"></i>Remove</button></div>
+              <div class="node-remove-head"><h3 id="remove-node-title">Remove node</h3><p>Choose what should happen to the measurements already collected by this node.</p></div>
+              <fieldset class="node-delete-history-options">
+                <legend>Measurement history</legend>
+                <label><input name="modalNodeHistory" type="radio" value="keep" checked><span><strong>Keep measurement history</strong><small>Remove the node from the workspace while retaining its historical data for trends and exports.</small></span></label>
+                <label data-danger><input name="modalNodeHistory" type="radio" value="delete"><span><strong>Delete measurement history</strong><small>Permanently delete every measurement collected by this node. This cannot be undone.</small></span></label>
+              </fieldset>
+              <div class="node-remove-actions"><label><input name="modalNodeDeleteConfirm" type="checkbox"><span>I understand and want to remove this node</span></label><button type="button" data-modal-node-delete="${escapeAttribute(node.id)}" disabled><i class="fa-solid fa-trash-can" aria-hidden="true"></i>Remove node</button></div>
             </section>
             <footer class="node-edit-footer field-wide"><button type="button" class="button-new secondary" data-management-modal-close>Cancel</button><button type="submit" class="button-new primary" data-node-save><i class="fa-solid fa-check" aria-hidden="true"></i>Save changes</button></footer>
           </form>
@@ -3108,17 +3113,20 @@
     async function deleteNodeFromModal(nodeId) {
       const confirmation = elements.managementModalOverlay.querySelector('[name="modalNodeDeleteConfirm"]');
       if (!confirmation?.checked) return setManagementModalError("Confirm that you want to remove this node.");
+      const historyPolicy = elements.managementModalOverlay.querySelector('[name="modalNodeHistory"]:checked')?.value === "delete" ? "delete" : "keep";
       if (isApiDataMode()) {
         const record = findNodeRecordById(nodeId);
         const devEui = record?.node?.devEui || nodeId;
         if (!window.NeuroCropApi?.deleteNode) return setManagementModalError("Node deletion API is not available yet.");
         try {
-          await window.NeuroCropApi.deleteNode(devEui);
+          await window.NeuroCropApi.deleteNode(devEui, { history: historyPolicy });
           await hydrateDashboardFromApi();
           resetNodeForm();
           activeNodeDetailId = null;
           closeManagementModal();
-          setManagementNotice("nodes", `${nodeId} removed from the workspace.`);
+          setManagementNotice("nodes", historyPolicy === "delete"
+            ? `${nodeId} and its measurement history were permanently deleted.`
+            : `${nodeId} removed. Its measurement history was retained.`);
           renderDashboard();
           syncTopLevelRoute("/nodes", { replace: true });
         } catch (error) {

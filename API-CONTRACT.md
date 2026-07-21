@@ -282,7 +282,7 @@ DELETE /sections/:sectionId
 GET    /nodes?sectionId=...
 POST   /nodes/register
 PATCH  /nodes/:devEui
-DELETE /nodes/:devEui
+DELETE /nodes/:devEui?history=keep|delete
 GET    /nodes/:devEui/sensors
 PATCH  /nodes/:devEui/sensors/:port
 
@@ -297,9 +297,11 @@ DELETE /crop-profiles/:profileId
 `devEui`, matavimų istorija ir sensorių konfigūracija perkeliama kartu, o
 ChirpStack registracija atnaujinama į naują įrenginio identitetą.
 
-`DELETE /nodes/:devEui` grąžina `409 NODE_HAS_HISTORY`, jeigu Node jau turi
-matavimų. Istorija nėra automatiškai ištrinama; ilgalaikiam pašalinimui reikalinga
-atskira archyvavimo arba duomenų išvalymo politika.
+`DELETE /nodes/:devEui?history=keep` pašalina Node iš aktyvaus workspace ir
+ChirpStack, tačiau palieka jo matavimų istoriją Trends bei eksportams. Tai saugus
+numatytasis režimas. `history=delete` vienoje DB transakcijoje visam laikui ištrina
+Node ir visus jo matavimus. Pakartotinai užregistravus archyvuotą DevEUI, Node
+atkuriamas, o išsaugota istorija lieka susieta su juo.
 
 Crop profiles endpoint'ai turi aptarnauti tą patį modelį, kurį šiandien naudoja
 Settings puslapis. Frontend'as dirba su profile `id` kaip su kanoniniu raktu,

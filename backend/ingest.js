@@ -59,6 +59,7 @@ async function handleUplink(msg) {
        last_error_flags=$14::jsonb,
        last_error_counters=$15::jsonb
      WHERE lower(dev_eui)=lower($1)
+       AND archived_at IS NULL
        AND (last_received_at IS NULL OR last_received_at <= $4)
      RETURNING dev_eui`,
     [
@@ -70,11 +71,15 @@ async function handleUplink(msg) {
   );
   if (!updatedNodes[0]) {
     const { rows: knownNodes } = await query(
-      'SELECT 1 FROM nodes WHERE lower(dev_eui)=lower($1)',
+      'SELECT archived_at FROM nodes WHERE lower(dev_eui)=lower($1)',
       [devEui]
     );
     if (!knownNodes[0]) {
       console.warn(`[ingest] ignored unregistered device ${devEui}`);
+      return;
+    }
+    if (knownNodes[0].archived_at) {
+      console.warn(`[ingest] ignored archived device ${devEui}`);
       return;
     }
   }

@@ -59,7 +59,7 @@ test('all tenant data routes derive organization scope from the authenticated re
 test('tenant ownership helpers require and apply organizationId', () => {
   for (const signature of [
     'async function getSectionById(sectionId, organizationId)',
-    'async function getSectionDevEuis(sectionId, organizationId)',
+    'async function getSectionDevEuis(sectionId, organizationId, { includeArchived = false } = {})',
     'async function cropProfileExists(profileId, organizationId)',
     'async function getNodeSensorPayload(devEui, organizationId)'
   ]) {
@@ -73,6 +73,21 @@ test('legacy global tenant constants cannot return', () => {
   assert.equal(apiSource.includes('DEV_USER'), false);
 });
 
+test('node deletion supports explicit history retention and permanent purge', () => {
+  const block = routeBlock(apiSource, "app.delete('/nodes/:devEui'");
+  assert.match(block, /historyPolicy/);
+  assert.match(block, /UPDATE nodes SET archived_at=now\(\)/);
+  assert.match(block, /DELETE FROM measurements WHERE lower\(dev_eui\)=\$1/);
+  assert.match(block, /await client\.query\('BEGIN'\)/);
+  assert.match(block, /await client\.query\('COMMIT'\)/);
+  assert.doesNotMatch(block, /NODE_HAS_HISTORY/);
+});
+
+test('active node surfaces exclude archived inventory while history can retain it', () => {
+  assert.match(apiSource, /FROM nodes WHERE organization_id=\$1 AND archived_at IS NULL ORDER BY created_at ASC/);
+  assert.match(apiSource, /getSectionDevEuis\(section\.id, getOrganizationId\(req\), \{ includeArchived: true \}\)/);
+});
+
 test('team and invitation queries are scoped to the active session organization', () => {
   for (const signature of [
     "app.get('/team'",
@@ -84,4 +99,3 @@ test('team and invitation queries are scoped to the active session organization'
     assert.match(block, /organizationId\(req\)/, `${signature} has no active-organization scope`);
   }
 });
-

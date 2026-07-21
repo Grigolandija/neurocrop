@@ -150,18 +150,30 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-pinned-value-row { justify-content: space-between; gap: var(--space-12); margin-top: var(--space-16); }
 .nc-pinned-value-row > strong { font-family: var(--font-technical); font-size: var(--type-h2); font-weight: var(--weight-medium) !important; }
 .nc-pinned-value-row > strong small, .nc-pinned-value-row > span { color: var(--color-text-tertiary); font-size: var(--type-caption); }
-.nc-pinned-sparkline { display: block; width: 100%; height: 4.5rem; margin: var(--space-12) 0; overflow: visible; }
+.nc-pinned-chart { --nc-chart-color: var(--chart-growth); display: grid; grid-template-columns: 1rem 2.4rem minmax(0,1fr); grid-template-rows: 4.75rem 2rem; width: 100%; margin: var(--space-12) 0; }
+.nc-pinned-chart figcaption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.nc-pinned-chart[data-metric="airTemp"], .nc-pinned-chart[data-metric="leafTemp"], .nc-pinned-chart[data-metric="soilTemp"] { --nc-chart-color: var(--chart-temperature); }
+.nc-pinned-chart[data-metric="humidity"] { --nc-chart-color: var(--chart-humidity); }
+.nc-pinned-chart[data-metric="vpd"] { --nc-chart-color: var(--chart-vpd); }
+.nc-pinned-chart[data-metric="co2"] { --nc-chart-color: var(--chart-co2); }
+.nc-pinned-chart[data-metric="lux"] { --nc-chart-color: var(--chart-light); }
+.nc-pinned-chart[data-metric="ec"] { --nc-chart-color: var(--chart-ec); }
+.nc-pinned-chart[data-metric="ph"] { --nc-chart-color: var(--chart-ph); }
+.nc-pinned-chart[data-metric="waterTemp"], .nc-pinned-chart[data-metric="soilMoisture"] { --nc-chart-color: var(--chart-water); }
+.nc-pinned-chart[data-metric="batteryLevel"] { --nc-chart-color: var(--chart-battery); }
+.nc-pinned-chart[data-metric="airPressure"] { --nc-chart-color: var(--chart-pressure); }
+.nc-pinned-y-title { display: grid; grid-column: 1; grid-row: 1; place-items: center; color: var(--color-text-tertiary); font-size: var(--type-micro); line-height: 1; text-align: center; transform: rotate(-90deg); white-space: nowrap; }
+.nc-pinned-y-scale { display: flex; grid-column: 2; grid-row: 1; flex-direction: column; justify-content: space-between; padding: 0 var(--space-4) 0 0; color: var(--color-text-tertiary); font-family: var(--font-technical); font-size: var(--type-micro); line-height: 1; text-align: right; }
+.nc-pinned-sparkline { display: block; width: 100%; height: 4.75rem; grid-column: 3; grid-row: 1; overflow: visible; }
 .nc-pinned-chart-grid { stroke: var(--color-border); stroke-dasharray: 3 4; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .nc-pinned-chart-target { fill: color-mix(in srgb,var(--color-success) 11%,transparent); }
-.nc-pinned-chart-area { fill: color-mix(in srgb,var(--color-success) 10%,transparent); }
-.nc-pinned-chart-line { fill: none; stroke: var(--color-success); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
-.nc-pinned-chart-point { fill: var(--color-surface); stroke: var(--color-success); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.nc-pinned-sparkline[data-tone="watch"] :is(.nc-pinned-chart-line,.nc-pinned-chart-point) { stroke: var(--color-warning); }
-.nc-pinned-sparkline[data-tone="watch"] .nc-pinned-chart-area { fill: color-mix(in srgb,var(--color-warning) 10%,transparent); }
-.nc-pinned-sparkline[data-tone="critical"] :is(.nc-pinned-chart-line,.nc-pinned-chart-point) { stroke: var(--color-danger); }
-.nc-pinned-sparkline[data-tone="critical"] .nc-pinned-chart-area { fill: color-mix(in srgb,var(--color-danger) 9%,transparent); }
-.nc-pinned-sparkline[data-tone="neutral"] :is(.nc-pinned-chart-line,.nc-pinned-chart-point) { stroke: var(--color-info); }
-.nc-pinned-chart-state { display: grid; height: 4.5rem; place-items: center; margin: var(--space-12) 0; border-radius: .45rem; background: var(--color-surface-subtle); color: var(--color-text-tertiary); font-size: var(--type-caption); text-align: center; }
+.nc-pinned-chart-area { fill: color-mix(in srgb,var(--nc-chart-color) 12%,transparent); }
+.nc-pinned-chart-line { fill: none; stroke: var(--nc-chart-color); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.nc-pinned-chart-point { fill: var(--color-surface); stroke: var(--nc-chart-color); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.nc-pinned-x-axis { display: grid; grid-column: 3; grid-row: 2; grid-template-columns: repeat(3,1fr); grid-template-rows: 1fr 1fr; align-items: end; color: var(--color-text-tertiary); font-family: var(--font-technical); font-size: var(--type-micro); line-height: 1; }
+.nc-pinned-x-axis span:nth-of-type(1) { grid-column: 1; grid-row: 1; text-align: left; }.nc-pinned-x-axis span:nth-of-type(2) { grid-column: 2; grid-row: 1; text-align: center; }.nc-pinned-x-axis span:nth-of-type(3) { grid-column: 3; grid-row: 1; text-align: right; }
+.nc-pinned-x-axis strong { grid-column: 1 / -1; grid-row: 2; align-self: end; color: var(--color-text-secondary); font-family: var(--font-ui); font-size: var(--type-micro); font-weight: var(--weight-medium); text-align: center; }
+.nc-pinned-chart-state { display: grid; height: 6.75rem; place-items: center; margin: var(--space-12) 0; border-radius: .45rem; background: var(--color-surface-subtle); color: var(--color-text-tertiary); font-size: var(--type-caption); text-align: center; }
 .nc-pinned-chart-state[data-state="loading"] { background: linear-gradient(90deg,var(--color-surface-subtle),var(--color-surface),var(--color-surface-subtle)); background-size: 200% 100%; animation: nc-readings-skeleton 1.2s linear infinite; }
 .nc-pinned-card-footer { justify-content: space-between; gap: var(--space-12); border-top: 1px solid var(--color-border); padding-top: var(--space-12); }
 .nc-pinned-card-footer > span { display: grid; }

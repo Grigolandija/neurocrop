@@ -487,6 +487,7 @@ small {
   .node-detail-muted,
   .node-move-note,
   .node-remove-zone p,
+  .node-delete-history-options small,
   .node-remove-actions label,
   .management-modal-error
 ) {

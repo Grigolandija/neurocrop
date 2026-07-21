@@ -250,14 +250,18 @@ function ReadingCell({ section, metric, profile, mode }: { section: SectionReadi
   </div>
 }
 
-function PinnedSparkline({ points, target, tone, label }: { points: HistoryPoint[]; target: [number, number] | null; tone: ReadingTone; label: string }) {
+function PinnedSparkline({ points, target, metric, label }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; label: string }) {
   const width = 320
   const height = 72
   const padding = 4
   const values = points.map((point) => point.value)
   const domainValues = target ? [...values, ...target] : values
-  const domainMin = Math.min(...domainValues)
-  const domainMax = Math.max(...domainValues)
+  const rawMin = Math.min(...domainValues)
+  const rawMax = Math.max(...domainValues)
+  const rawSpan = Math.max(0.001, rawMax - rawMin)
+  const domainPadding = Math.max(rawSpan * 0.08, 10 ** -metric.decimals)
+  const domainMin = rawMin - domainPadding
+  const domainMax = rawMax + domainPadding
   const domainSpan = Math.max(0.001, domainMax - domainMin)
   const x = (index: number) => padding + (index / Math.max(1, points.length - 1)) * (width - padding * 2)
   const y = (value: number) => padding + ((domainMax - value) / domainSpan) * (height - padding * 2)
@@ -266,14 +270,26 @@ function PinnedSparkline({ points, target, tone, label }: { points: HistoryPoint
   const targetTop = target ? Math.min(y(target[0]), y(target[1])) : 0
   const targetHeight = target ? Math.max(2, Math.abs(y(target[0]) - y(target[1]))) : 0
   const lastPoint = points.at(-1)
+  const middlePoint = points[Math.floor((points.length - 1) / 2)]
+  const formatTime = (point: HistoryPoint | undefined) => point?.observedAt
+    ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(point.observedAt))
+    : '—'
 
-  return <svg className="nc-pinned-sparkline" data-tone={tone} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`${label}, 24 hour history`}>
-    <line className="nc-pinned-chart-grid" x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} />
-    {target ? <rect className="nc-pinned-chart-target" x={padding} y={targetTop} width={width - padding * 2} height={targetHeight} rx="2" /> : null}
-    <polygon className="nc-pinned-chart-area" points={area} />
-    <polyline className="nc-pinned-chart-line" points={line} />
-    {lastPoint ? <circle className="nc-pinned-chart-point" cx={x(points.length - 1)} cy={y(lastPoint.value)} r="3.5" /> : null}
-  </svg>
+  return <figure className="nc-pinned-chart" data-metric={metric.key} aria-label={`${label}, 24 hour history`}>
+    <figcaption>{metric.label} over the last 24 hours</figcaption>
+    <span className="nc-pinned-y-title">{metric.short} ({metric.unit})</span>
+    <div className="nc-pinned-y-scale"><span>{formatValue(domainMax, metric)}</span><span>{formatValue((domainMin + domainMax) / 2, metric)}</span><span>{formatValue(domainMin, metric)}</span></div>
+    <svg className="nc-pinned-sparkline" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-hidden="true">
+      <line className="nc-pinned-chart-grid" x1={padding} y1={padding} x2={width - padding} y2={padding} />
+      <line className="nc-pinned-chart-grid" x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} />
+      <line className="nc-pinned-chart-grid" x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
+      {target ? <rect className="nc-pinned-chart-target" x={padding} y={targetTop} width={width - padding * 2} height={targetHeight} rx="2" /> : null}
+      <polygon className="nc-pinned-chart-area" points={area} />
+      <polyline className="nc-pinned-chart-line" points={line} />
+      {lastPoint ? <circle className="nc-pinned-chart-point" cx={x(points.length - 1)} cy={y(lastPoint.value)} r="3.5" /> : null}
+    </svg>
+    <div className="nc-pinned-x-axis"><span>{formatTime(points[0])}</span><strong>Time (24h)</strong><span>{formatTime(middlePoint)}</span><span>{formatTime(lastPoint)}</span></div>
+  </figure>
 }
 
 export default function ReadingsWorkspace() {
@@ -509,7 +525,7 @@ export default function ReadingsWorkspace() {
       return <article data-tone={tone} key={section.id}>
         <div className="nc-pinned-card-head"><span><i /><span><small>{section.areaName}</small><h3>{section.name}</h3></span></span><button type="button" onClick={() => togglePin(section.id)} aria-label={`Unpin ${section.name}`}><i className="fa-solid fa-xmark" /></button></div>
         <div className="nc-pinned-value-row"><strong>{formatValue(value, lensMetric)} <small>{lensMetric.unit}</small></strong><span>{historyDelta === null ? '24h change pending' : `${historyDelta > 0 ? '+' : ''}${formatValue(historyDelta, lensMetric)} ${lensMetric.unit} / 24h`}</span></div>
-        {history.status === 'ready' ? <PinnedSparkline points={history.points} target={target} tone={tone} label={`${section.name} ${lensMetric.label}`} /> : <div className="nc-pinned-chart-state" data-state={history.status}>{history.status === 'loading' ? 'Loading 24h history…' : history.status === 'unsupported' ? `24h history is unavailable for ${lensMetric.label.toLowerCase()}` : history.status === 'error' ? 'History could not be loaded' : 'Not enough history for a graph yet'}</div>}
+        {history.status === 'ready' ? <PinnedSparkline points={history.points} target={target} metric={lensMetric} label={`${section.name} ${lensMetric.label}`} /> : <div className="nc-pinned-chart-state" data-state={history.status}>{history.status === 'loading' ? 'Loading 24h history…' : history.status === 'unsupported' ? `24h history is unavailable for ${lensMetric.label.toLowerCase()}` : history.status === 'error' ? 'History could not be loaded' : 'Not enough history for a graph yet'}</div>}
         <div className="nc-pinned-card-footer"><span><small>Crop target</small><strong>{target?.map((bound) => formatValue(bound, lensMetric)).join('–') || 'Not set'} {target ? lensMetric.unit : ''}</strong></span><button type="button" onClick={() => setDrawerId(section.id)}>Inspect <i className="fa-solid fa-arrow-right" /></button></div>
       </article>
     })}</div></section> : null}

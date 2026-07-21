@@ -351,10 +351,11 @@ async function getSectionById(sectionId, organizationId) {
   return rows[0] || null;
 }
 
-async function getSectionDevEuis(sectionId, organizationId) {
+async function getSectionDevEuis(sectionId, organizationId, { includeArchived = false } = {}) {
   const { rows } = await query(
     `SELECT dev_eui FROM nodes
      WHERE organization_id=$1 AND section_id=$2
+       ${includeArchived ? '' : 'AND archived_at IS NULL'}
      ORDER BY created_at ASC`,
     [organizationId, sectionId]
   );
@@ -657,7 +658,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
                 last_firmware_version, last_profile, last_rssi, last_snr,
                 last_spreading_factor, last_sensor_presence,
                 last_error_flags, last_error_counters
-         FROM nodes WHERE organization_id=$1 ORDER BY created_at ASC`,
+         FROM nodes WHERE organization_id=$1 AND archived_at IS NULL ORDER BY created_at ASC`,
         [organizationId]
       ),
       query(`SELECT id, metrics FROM crop_profiles WHERE organization_id=$1`, [organizationId]),
@@ -665,7 +666,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
         `SELECT DISTINCT ON (m.dev_eui) m.*
          FROM measurements m
          JOIN nodes n ON n.dev_eui=m.dev_eui
-         WHERE n.organization_id=$1
+         WHERE n.organization_id=$1 AND n.archived_at IS NULL
          ORDER BY m.dev_eui, m.time DESC`,
         [organizationId]
       )
@@ -759,7 +760,7 @@ app.get('/areas', requireAuth, async (req, res) => {
         COUNT(DISTINCT n.dev_eui)::int AS nodes
        FROM areas a
        LEFT JOIN sections s ON s.area_id=a.id
-       LEFT JOIN nodes n ON n.area_id=a.id
+       LEFT JOIN nodes n ON n.area_id=a.id AND n.archived_at IS NULL
        WHERE a.organization_id=$1
        GROUP BY a.id
        ORDER BY a.created_at ASC`,
@@ -837,7 +838,7 @@ app.delete('/areas/:areaId', requireAuth, requireRole('owner', 'admin', 'grower'
         await client.query(
         `UPDATE nodes
          SET area_id=NULL
-         WHERE organization_id=$1
+         WHERE organization_id=$1 AND archived_at IS NULL
            AND section_id IN (
              SELECT id FROM sections WHERE organization_id=$1 AND area_id=$2
            )`,
@@ -890,7 +891,7 @@ app.get('/sections', requireAuth, async (req, res) => {
         COUNT(n.dev_eui)::int AS nodes
        FROM sections s
        LEFT JOIN areas a ON a.id=s.area_id AND a.organization_id=s.organization_id
-       LEFT JOIN nodes n ON n.section_id=s.id AND n.organization_id=s.organization_id
+       LEFT JOIN nodes n ON n.section_id=s.id AND n.organization_id=s.organization_id AND n.archived_at IS NULL
        WHERE ${where}
        GROUP BY s.id, a.name
        ORDER BY s.created_at ASC`,
@@ -976,7 +977,7 @@ app.patch('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'gr
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Section not found' } });
     }
     await client.query(
-      `UPDATE nodes SET area_id=$1 WHERE organization_id=$2 AND section_id=$3`,
+      `UPDATE nodes SET area_id=$1 WHERE organization_id=$2 AND section_id=$3 AND archived_at IS NULL`,
       [areaId, organizationId, req.params.sectionId]
     );
     await client.query('COMMIT');
@@ -993,7 +994,7 @@ app.patch('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'gr
 app.delete('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'grower'), async (req, res) => {
   try {
     const { rows: nodeRows } = await query(
-      `SELECT COUNT(*)::int AS count FROM nodes WHERE organization_id=$1 AND section_id=$2`,
+      `SELECT COUNT(*)::int AS count FROM nodes WHERE organization_id=$1 AND section_id=$2 AND archived_at IS NULL`,
       [getOrganizationId(req), req.params.sectionId]
     );
     if (nodeRows[0]?.count > 0) {
@@ -1081,7 +1082,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       ),
       query(
         `SELECT dev_eui, section_id, last_seen, last_received_at, last_sensor_presence
-         FROM nodes WHERE organization_id=$1 ORDER BY created_at ASC`,
+         FROM nodes WHERE organization_id=$1 AND archived_at IS NULL ORDER BY created_at ASC`,
         [organizationId]
       ),
       query(`SELECT id, metrics FROM crop_profiles WHERE organization_id=$1`, [organizationId]),
@@ -1089,7 +1090,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
         `SELECT DISTINCT ON (m.dev_eui) m.*
          FROM measurements m
          JOIN nodes n ON n.dev_eui=m.dev_eui
-         WHERE n.organization_id=$1
+         WHERE n.organization_id=$1 AND n.archived_at IS NULL
          ORDER BY m.dev_eui, m.time DESC`,
         [organizationId]
       )
@@ -1360,7 +1361,7 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     const { rows: nodeRows } = await query(
       `SELECT dev_eui, name
        FROM nodes
-       WHERE organization_id=$1 AND section_id=$2
+       WHERE organization_id=$1 AND section_id=$2 AND archived_at IS NULL
        ORDER BY created_at ASC`,
       [getOrganizationId(req), section.id]
     );
@@ -1495,7 +1496,7 @@ app.get('/history', requireAuth, async (req, res) => {
   const bucketSeconds = stepMinutes * 60;
 
   try {
-    const devEuis = await getSectionDevEuis(section.id, getOrganizationId(req));
+    const devEuis = await getSectionDevEuis(section.id, getOrganizationId(req), { includeArchived: true });
     if (!devEuis.length) {
       return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
     }
@@ -1713,7 +1714,7 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
     );
     const rule = metricAnalyticsRule(metric, profileRows[0]?.metrics || {});
     if (!rule) return res.status(400).json({ error: { code: 'UNCONFIGURED_METRIC', message: 'This metric has no profile ranges' } });
-    const devEuis = await getSectionDevEuis(section.id, organizationId);
+    const devEuis = await getSectionDevEuis(section.id, organizationId, { includeArchived: true });
     if (!devEuis.length) return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
 
     const [points, heatmapPoints, events] = await Promise.all([
@@ -1929,7 +1930,7 @@ app.get('/analytics/site-comparison', requireAuth, async (req, res) => {
     if (!sectionRows.length) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No matching zones found' } });
     const devEuisBySection = await Promise.all(sectionRows.map(async (section) => ({
       section,
-      devEuis: await getSectionDevEuis(section.id, organizationId)
+      devEuis: await getSectionDevEuis(section.id, organizationId, { includeArchived: true })
     })));
     const series = await Promise.all(devEuisBySection.filter((item) => item.devEuis.length).map(async ({ section, devEuis }) => ({
       sectionId: section.id,
@@ -2178,7 +2179,7 @@ async function getNodeSensorPayload(devEui, organizationId) {
   const { rows: nodeRows } = await query(
     `SELECT dev_eui, name, organization_id, area_id, section_id, last_received_at
      FROM nodes
-     WHERE lower(dev_eui)=$1 AND organization_id=$2`,
+     WHERE lower(dev_eui)=$1 AND organization_id=$2 AND archived_at IS NULL`,
     [devEui, organizationId]
   );
   const node = nodeRows[0];
@@ -2209,7 +2210,7 @@ async function getNodeSensorPayload(devEui, organizationId) {
 app.get('/nodes', requireAuth, async (req, res) => {
   try {
     const params = [getOrganizationId(req)];
-    const where = ['n.organization_id=$1'];
+    const where = ['n.organization_id=$1', 'n.archived_at IS NULL'];
 
     const areaId = String(req.query.areaId || '').trim();
     const sectionId = String(req.query.sectionId || '').trim();
@@ -2377,7 +2378,7 @@ app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technici
       `INSERT INTO nodes (dev_eui, organization_id, area_id, section_id, name, node_type)
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (dev_eui)
-       DO UPDATE SET area_id=EXCLUDED.area_id, section_id=EXCLUDED.section_id, name=EXCLUDED.name
+       DO UPDATE SET area_id=EXCLUDED.area_id, section_id=EXCLUDED.section_id, name=EXCLUDED.name, archived_at=NULL
        WHERE nodes.organization_id=EXCLUDED.organization_id
        RETURNING dev_eui, organization_id, area_id, section_id, name, node_type, created_at, last_seen`,
       [devEui, organizationId, section.area_id, section.id, name || devEui, 'air']
@@ -2423,7 +2424,7 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
   let createdChirpStackDevice = false;
   try {
     const { rows: currentRows } = await query(
-      `SELECT dev_eui FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2`,
+      `SELECT dev_eui FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2 AND archived_at IS NULL`,
       [devEui, organizationId]
     );
     if (!currentRows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });
@@ -2459,7 +2460,7 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
            section_id=COALESCE($3, section_id),
            area_id=COALESCE($4, area_id),
            organization_id=$5
-       WHERE lower(dev_eui)=$6 AND organization_id=$5
+       WHERE lower(dev_eui)=$6 AND organization_id=$5 AND archived_at IS NULL
        RETURNING dev_eui, name, node_type, area_id, section_id, created_at, last_seen`,
       [nextDevEui, name, section?.id || null, section?.area_id || null, organizationId, devEui]
     );
@@ -2493,58 +2494,88 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
 
 app.delete('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technician'), async (req, res) => {
   const devEui = normalizeDevEui(req.params.devEui);
+  const historyPolicy = String(req.query.history || 'keep').trim().toLowerCase();
 
   if (!/^[0-9a-f]{16}$/.test(devEui)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'DevEUI must be 16 hexadecimal characters' } });
   }
+  if (!['keep', 'delete'].includes(historyPolicy)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'history must be either keep or delete' } });
+  }
 
+  let client;
   try {
+    client = await pool.connect();
     const organizationId = getOrganizationId(req);
-    const { rows: ownedRows } = await query(
-      `SELECT dev_eui FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2`,
+    await client.query('BEGIN');
+    const { rows: ownedRows } = await client.query(
+      `SELECT dev_eui, name, node_type, created_at, last_seen
+       FROM nodes
+       WHERE lower(dev_eui)=$1 AND organization_id=$2 AND archived_at IS NULL
+       FOR UPDATE`,
       [devEui, organizationId]
     );
     if (!ownedRows[0]) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });
     }
 
-    const { rows: historyRows } = await query(
-      `SELECT EXISTS (
-         SELECT 1 FROM measurements WHERE lower(dev_eui)=$1
-       ) AS has_history`,
+    const { rows: historyRows } = await client.query(
+      `SELECT COUNT(*)::int AS count FROM measurements WHERE lower(dev_eui)=$1`,
       [devEui]
     );
-    if (historyRows[0]?.has_history) {
-      return res.status(409).json({
-        error: {
-          code: 'NODE_HAS_HISTORY',
-          message: 'This node has measurement history and cannot be permanently deleted.'
-        }
-      });
+    const measurementCount = Number(historyRows[0]?.count || 0);
+    let measurementsDeleted = 0;
+
+    if (historyPolicy === 'delete') {
+      const measurementResult = await client.query(
+        `DELETE FROM measurements WHERE lower(dev_eui)=$1`,
+        [devEui]
+      );
+      measurementsDeleted = measurementResult.rowCount;
+      await client.query(
+        `DELETE FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2`,
+        [devEui, organizationId]
+      );
+    } else {
+      await client.query(
+        `UPDATE nodes SET archived_at=now()
+         WHERE lower(dev_eui)=$1 AND organization_id=$2`,
+        [devEui, organizationId]
+      );
     }
 
-    await deleteChirpStackDevice(devEui);
+    await client.query('COMMIT');
 
-    const { rows } = await query(
-      `DELETE FROM nodes
-       WHERE lower(dev_eui)=$1 AND organization_id=$2
-       RETURNING dev_eui, name, node_type, created_at, last_seen`,
-      [devEui, organizationId]
-    );
+    let chirpStackDeleted = true;
+    try {
+      await deleteChirpStackDevice(devEui);
+    } catch (chirpStackError) {
+      chirpStackDeleted = false;
+      console.error('[api] ChirpStack node cleanup:', devEui, chirpStackError.message);
+    }
 
+    const node = ownedRows[0];
     res.json({
-      deleted: Boolean(rows[0]),
-      node: rows[0] ? {
-        devEui: rows[0].dev_eui,
-        name: rows[0].name,
-        nodeType: rows[0].node_type,
-        createdAt: rows[0].created_at,
-        lastSeen: rows[0].last_seen,
-      } : null,
+      deleted: true,
+      historyPolicy,
+      measurementsRetained: historyPolicy === 'keep' ? measurementCount : 0,
+      measurementsDeleted,
+      chirpStackDeleted,
+      node: {
+        devEui: node.dev_eui,
+        name: node.name,
+        nodeType: node.node_type,
+        createdAt: node.created_at,
+        lastSeen: node.last_seen,
+      },
     });
   } catch (e) {
+    await client?.query('ROLLBACK').catch(() => {});
     console.error('[api] DELETE /nodes/:devEui:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  } finally {
+    client?.release();
   }
 });
 
