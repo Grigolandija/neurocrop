@@ -13724,6 +13724,242 @@
       .triage-history-outcome { grid-column: 2; justify-self: start; white-space: normal; }
     }
 
+    /* Simple mode is an operational scan, not a shortened diagnostics report. */
+    body[data-experience-mode="simple"] #overviewTriageSection {
+      display: grid;
+      gap: 12px;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .overview-growing-map {
+      margin-bottom: 0;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-score-grid {
+      grid-template-columns: minmax(0, 1fr) 180px;
+      gap: 12px;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-card,
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card,
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-section {
+      border-radius: 20px;
+      box-shadow: 0 6px 16px rgba(20, 32, 27, 0.035);
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-card {
+      padding: 0.9rem 1rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-card h2 {
+      margin-top: 0.32rem;
+      font-size: clamp(1.25rem, 1.8vw, 1.7rem);
+      line-height: 1.08;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-location-line {
+      margin-top: 0.32rem;
+      font-size: 0.72rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .overview-data-status {
+      max-width: 190px;
+      overflow: hidden;
+      font-size: 0.65rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-facts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 0.65rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-facts > div:nth-child(3),
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-details,
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-impact,
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading-state,
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading small,
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list p,
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-reliability-section {
+      display: none;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-guidance {
+      display: block;
+      margin-top: 0.65rem;
+      padding: 0.58rem 0.7rem;
+      border-radius: 12px;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-guidance span {
+      display: none;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-guidance strong {
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-button-row,
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-feedback {
+      margin-top: 0.65rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0;
+      padding: 1rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-location {
+      max-width: 100%;
+      font-size: 0.68rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-value {
+      margin-top: 0.45rem;
+      font-size: 3rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-score-state {
+      margin-top: 0.35rem;
+      font-size: 0.68rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-section {
+      padding: 0.78rem 0.9rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-section-heading {
+      align-items: center;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-section-heading h3 {
+      font-size: 0.9rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-section-heading > span {
+      display: none;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-readings-grid {
+      gap: 7px;
+      margin-top: 0.55rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading {
+      display: block;
+      min-width: 0;
+      padding: 0.6rem 0.7rem;
+      border-radius: 13px;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading div {
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading div span {
+      overflow: hidden;
+      font-size: 0.7rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-reading div strong {
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-bottom-grid {
+      display: block;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+      margin-top: 0.55rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list li {
+      grid-template-columns: 24px minmax(0, 1fr);
+      align-content: center;
+      gap: 8px;
+      padding: 0.55rem 0.62rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-index {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      font-size: 0.66rem;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list strong {
+      display: -webkit-box;
+      overflow: hidden;
+      font-size: 0.74rem;
+      line-height: 1.25;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list button {
+      grid-column: 2;
+      justify-self: start;
+      padding: 0.42rem 0.62rem;
+      font-size: 0.68rem;
+    }
+
+    @media (max-width: 900px) {
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-score-grid {
+        grid-template-columns: 1fr;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 12px;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-value,
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-state {
+        margin-top: 0;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-action-list {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-title-row {
+        align-items: flex-start;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .overview-data-status {
+        max-width: 115px;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-priority-facts,
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-readings-grid {
+        grid-template-columns: 1fr;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-card {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      body[data-experience-mode="simple"] #overviewTriageSection .triage-score-state {
+        grid-column: 1 / -1;
+      }
+    }
+
     /* Keep the primary Overview workspace fully static on lower-power GPUs. */
     #heroStatusPanel,
     #heroStatusPanel *,

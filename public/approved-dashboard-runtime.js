@@ -12685,7 +12685,6 @@ function buildTrendMetricOptions(options) {
             </div>
           </section>
         </div>
-        ${renderTriageActionHistory()}
       `;
     }
 
@@ -13290,6 +13289,7 @@ function buildTrendMetricOptions(options) {
             ${selectedLowBatteryNodes.length > 0 ? `<button type="button" class="diagnostic-secondary-button" data-triage-action="nodes">${diagnosticText("Check node batteries", "Patikrinti mazgų baterijas")}</button>` : ""}
           </div>
         </section>
+        ${renderTriageActionHistory()}
       `;
     }
 
