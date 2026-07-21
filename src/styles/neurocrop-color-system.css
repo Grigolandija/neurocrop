@@ -1,0 +1,709 @@
+/* NeuroCrop Precision Neutral color system. This file is the authoritative color layer. */
+:root {
+  color-scheme: light;
+
+  /* Brand */
+  --color-primary: #252b29;
+  --color-primary-hover: #171c1a;
+  --color-primary-active: #0f1311;
+  --color-on-primary: #ffffff;
+  --color-secondary: #536b78;
+  --color-secondary-hover: #405a68;
+  --color-accent-plant: #3f7d65;
+  --color-accent-plant-soft: #e7f1ec;
+  --color-accent-ai: #675f93;
+  --color-accent-ai-soft: #f0eef7;
+
+  /* Neutral scale */
+  --color-neutral-950: #202522;
+  --color-neutral-900: #2a302d;
+  --color-neutral-800: #3b423e;
+  --color-neutral-700: #4e5651;
+  --color-neutral-600: #626b65;
+  --color-neutral-500: #7b847e;
+  --color-neutral-400: #9ca39e;
+  --color-neutral-300: #bfc4c0;
+  --color-neutral-200: #d8dbd7;
+  --color-neutral-100: #e9eae7;
+  --color-neutral-050: #f5f5f2;
+
+  /* Foundations */
+  --color-background: #f6f6f3;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f1f1ed;
+  --color-surface-inset: #e9eae6;
+  --color-surface-elevated: #ffffff;
+  --color-border: #d8dbd7;
+  --color-border-strong: #bfc4c0;
+  --color-text: #202522;
+  --color-text-secondary: #5d655f;
+  --color-text-tertiary: #7b837d;
+  --color-text-inverse: #ffffff;
+  --color-focus: #527894;
+  --color-focus-ring: rgba(82, 120, 148, 0.30);
+  --color-overlay: rgba(24, 29, 26, 0.52);
+  --color-shadow: rgba(32, 37, 34, 0.08);
+
+  /* Semantic */
+  --color-success: #286b51;
+  --color-success-hover: #205a43;
+  --color-success-soft: #e8f3ed;
+  --color-success-border: #a8d2bd;
+  --color-warning: #895a06;
+  --color-warning-soft: #fff4d9;
+  --color-warning-border: #e8c77b;
+  --color-danger: #a33b37;
+  --color-danger-hover: #87302d;
+  --color-danger-soft: #fcecea;
+  --color-danger-border: #e6aca8;
+  --color-info: #386282;
+  --color-info-soft: #eaf1f8;
+  --color-info-border: #aec5db;
+  --color-offline: #5f6862;
+  --color-offline-soft: #eceeec;
+  --color-offline-border: #c7cbc8;
+  --color-disabled: #8d948f;
+  --color-disabled-bg: #eceeeb;
+  --color-unknown: #69716c;
+  --color-unknown-soft: #eef0ee;
+  --color-stale: #566f7e;
+  --color-stale-soft: #edf2f5;
+  --color-calibration: #675b8e;
+  --color-calibration-soft: #f1eef8;
+
+  /* Component surfaces */
+  --color-card-info: #ffffff;
+  --color-card-recommendation: #f3f1f8;
+  --color-card-recommendation-border: #c9c3dc;
+  --color-card-critical: #fcecea;
+  --color-card-completed: #e8f3ed;
+  --color-card-inactive: #f0f1ee;
+  --color-card-selected: #edf2f5;
+  --color-card-selected-border: #6f8d9d;
+  --color-card-hover: #fafaf8;
+  --color-row-stripe: #fafaf8;
+  --color-row-hover: #f1f4f3;
+  --color-row-selected: #eaf0f3;
+
+  /* Sidebar */
+  --color-sidebar-bg: #ebece8;
+  --color-sidebar-surface: #f7f7f4;
+  --color-sidebar-hover: #e2e5e1;
+  --color-sidebar-active: #ffffff;
+  --color-sidebar-border: #d5d8d2;
+  --color-sidebar-text: #2a302d;
+  --color-sidebar-muted: #68706b;
+  --color-sidebar-subtle: #848c86;
+
+  /* Chart palette: measurements, never status colors. */
+  --chart-temperature: #d36c5b;
+  --chart-humidity: #4c82b8;
+  --chart-vpd: #8a6bbe;
+  --chart-co2: #7a6f64;
+  --chart-light: #d6a436;
+  --chart-ec: #b45f87;
+  --chart-ph: #6c70c9;
+  --chart-water: #2c91a3;
+  --chart-battery: #738e95;
+  --chart-pressure: #66788e;
+  --chart-growth: #3f7d65;
+
+  /* Compatibility aliases while the legacy renderer is decomposed. */
+  --ink: var(--color-text);
+  --muted: var(--color-text-secondary);
+  --pine: var(--color-primary);
+  --pine-2: var(--color-secondary);
+  --amber: var(--color-warning);
+  --amber-dark: var(--color-warning);
+  --paper: var(--color-surface);
+  --cream: var(--color-background);
+  --line: var(--color-border);
+  --nc-canvas: var(--color-background);
+  --nc-surface: var(--color-surface);
+  --nc-surface-muted: var(--color-surface-subtle);
+  --nc-border: var(--color-border);
+  --nc-text: var(--color-text);
+  --nc-text-muted: var(--color-text-secondary);
+  --nc-primary: var(--color-primary);
+  --nc-primary-hover: var(--color-primary-hover);
+  --nc-focus: var(--color-focus-ring);
+  --nc-success: var(--color-success);
+  --nc-warning: var(--color-warning);
+  --nc-critical: var(--color-danger);
+  --designer-bg: var(--color-background);
+  --designer-surface: var(--color-surface);
+  --designer-surface-soft: var(--color-surface-subtle);
+  --designer-border: var(--color-border);
+  --designer-border-strong: var(--color-border-strong);
+  --designer-ink: var(--color-text);
+  --designer-ink-soft: var(--color-text-secondary);
+  --designer-muted: var(--color-text-tertiary);
+  --designer-primary: var(--color-primary);
+  --designer-primary-deep: var(--color-primary-hover);
+  --designer-accent: var(--color-secondary);
+  --designer-accent-soft: var(--color-info-soft);
+  --designer-ok: var(--color-success);
+  --designer-ok-soft: var(--color-success-soft);
+  --designer-warn: var(--color-warning);
+  --designer-warn-soft: var(--color-warning-soft);
+  --designer-danger: var(--color-danger);
+  --designer-danger-soft: var(--color-danger-soft);
+  --grower-green: var(--color-primary);
+  --grower-green-deep: var(--color-primary-hover);
+  --grower-mint: var(--color-accent-plant-soft);
+  --grower-amber: var(--color-warning);
+  --grower-cream: var(--color-background);
+  --grower-red: var(--color-danger);
+}
+
+:root[data-theme="dark"],
+body[data-theme="dark"] {
+  color-scheme: dark;
+  --color-primary: #f1f2ee;
+  --color-primary-hover: #ffffff;
+  --color-primary-active: #dfe2dd;
+  --color-on-primary: #1b1f1d;
+  --color-secondary: #8ba3b0;
+  --color-secondary-hover: #a6bac4;
+  --color-accent-plant: #72ad91;
+  --color-accent-plant-soft: #263a31;
+  --color-accent-ai: #aaa0d1;
+  --color-accent-ai-soft: #302d3e;
+  --color-background: #161918;
+  --color-surface: #1e2220;
+  --color-surface-subtle: #242927;
+  --color-surface-inset: #191d1b;
+  --color-surface-elevated: #2a2f2c;
+  --color-border: #3a413d;
+  --color-border-strong: #505a54;
+  --color-text: #f3f4f1;
+  --color-text-secondary: #bdc3be;
+  --color-text-tertiary: #909890;
+  --color-text-inverse: #171a18;
+  --color-focus: #8db1ca;
+  --color-focus-ring: rgba(141, 177, 202, 0.38);
+  --color-overlay: rgba(5, 7, 6, 0.72);
+  --color-shadow: rgba(0, 0, 0, 0.28);
+  --color-success: #72ad91;
+  --color-success-hover: #83bea1;
+  --color-success-soft: #24372f;
+  --color-success-border: #3c6955;
+  --color-warning: #e0b45d;
+  --color-warning-soft: #3b321f;
+  --color-warning-border: #745f32;
+  --color-danger: #e17b74;
+  --color-danger-hover: #ee918b;
+  --color-danger-soft: #3b2927;
+  --color-danger-border: #754640;
+  --color-info: #8db1ca;
+  --color-info-soft: #24323c;
+  --color-info-border: #46647a;
+  --color-offline: #a1a8a3;
+  --color-offline-soft: #292e2b;
+  --color-offline-border: #505752;
+  --color-disabled: #737b75;
+  --color-disabled-bg: #282d2a;
+  --color-unknown: #a7ada8;
+  --color-unknown-soft: #292e2b;
+  --color-stale: #9bb0bc;
+  --color-stale-soft: #273139;
+  --color-calibration: #b2a7d8;
+  --color-calibration-soft: #312e40;
+  --color-card-info: #1e2220;
+  --color-card-recommendation: #2c2938;
+  --color-card-recommendation-border: #554f70;
+  --color-card-critical: #3b2927;
+  --color-card-completed: #24372f;
+  --color-card-inactive: #242927;
+  --color-card-selected: #253139;
+  --color-card-selected-border: #6f8d9d;
+  --color-card-hover: #292e2b;
+  --color-row-stripe: #202422;
+  --color-row-hover: #292f2c;
+  --color-row-selected: #26343b;
+  --color-sidebar-bg: #1b1f1d;
+  --color-sidebar-surface: #242927;
+  --color-sidebar-hover: #292f2c;
+  --color-sidebar-active: #303633;
+  --color-sidebar-border: #353c38;
+  --color-sidebar-text: #f0f2ee;
+  --color-sidebar-muted: #b2b9b3;
+  --color-sidebar-subtle: #858e87;
+  --chart-temperature: #f08b77;
+  --chart-humidity: #72a7d8;
+  --chart-vpd: #b08adb;
+  --chart-co2: #a4978a;
+  --chart-light: #e7bd58;
+  --chart-ec: #d981ab;
+  --chart-ph: #9196e3;
+  --chart-water: #56b5c5;
+  --chart-battery: #98abb1;
+  --chart-pressure: #8ca0b6;
+  --chart-growth: #72ad91;
+}
+
+body,
+.designer-app,
+body.designer-app {
+  background: var(--color-background) !important;
+  color: var(--color-text) !important;
+}
+
+.designer-app #dashboardMain,
+.designer-app .dashboard-main-inner {
+  background: var(--color-background);
+}
+
+/* Sidebar: neutral navigation, not a green brand block. */
+.designer-app .dashboard-sidebar.rail {
+  --rail-bg: var(--color-sidebar-bg);
+  --rail-bg-deep: var(--color-sidebar-surface);
+  --rail-text: var(--color-sidebar-text);
+  --rail-text-muted: var(--color-sidebar-muted);
+  --rail-text-subtle: var(--color-sidebar-subtle);
+  --rail-accent: var(--color-accent-plant);
+  --rail-accent-light: var(--color-secondary);
+  --rail-online: var(--color-success);
+  border-color: var(--color-sidebar-border) !important;
+  background: var(--color-sidebar-bg) !important;
+}
+
+.designer-app .dashboard-sidebar.rail .brand-mark {
+  background: var(--color-accent-plant-soft);
+  color: var(--color-accent-plant);
+}
+
+.designer-app .dashboard-sidebar.rail .rail-label,
+.designer-app .dashboard-sidebar.rail .rail-link > i,
+.designer-app .dashboard-sidebar.rail .user-tile > i {
+  color: var(--color-sidebar-subtle);
+}
+
+.designer-app .dashboard-sidebar.rail .rail-link:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-sidebar-text);
+}
+
+.designer-app .dashboard-sidebar.rail .rail-link[data-active="true"],
+.designer-app .dashboard-sidebar.rail .rail-link[aria-current="page"] {
+  background: var(--color-sidebar-active);
+  color: var(--color-sidebar-text);
+  box-shadow: 0 1px 2px var(--color-shadow), 0 5px 16px var(--color-shadow) !important;
+}
+
+.designer-app .dashboard-sidebar.rail .rail-link[data-active="true"] > i,
+.designer-app .dashboard-sidebar.rail .rail-link[aria-current="page"] > i {
+  color: var(--color-secondary) !important;
+}
+
+.designer-app .dashboard-sidebar.rail .rail-link[data-active="true"]::before,
+.designer-app .dashboard-sidebar.rail .rail-link[aria-current="page"]::before {
+  background: var(--color-secondary);
+}
+
+.designer-app .dashboard-sidebar.rail .nav-count {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.designer-app .dashboard-sidebar.rail .rail-brand,
+.designer-app .dashboard-sidebar.rail .rail-foot {
+  border-color: var(--color-sidebar-border);
+}
+
+.designer-app .dashboard-sidebar.rail .user-tile {
+  border: 1px solid var(--color-sidebar-border);
+  background: var(--color-sidebar-surface);
+  color: var(--color-sidebar-text);
+}
+
+.designer-app .dashboard-sidebar.rail .user-tile > span {
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+}
+
+@media (min-width: 1280px) {
+  .designer-app .dashboard-shell {
+    background: linear-gradient(90deg, var(--color-sidebar-bg) 0 244px, var(--color-background) 244px 262px, transparent 262px) !important;
+  }
+}
+
+@media (min-width: 1800px) {
+  .designer-app .dashboard-shell {
+    background: linear-gradient(90deg, var(--color-sidebar-bg) 0 304px, var(--color-background) 304px 322px, transparent 322px) !important;
+  }
+}
+
+/* Global chrome and surfaces */
+.designer-app #dashboardHeader.global-system-bar {
+  border-color: var(--color-border) !important;
+  background: color-mix(in srgb, var(--color-surface) 96%, transparent) !important;
+  box-shadow: 0 1px 0 var(--color-border), 0 8px 22px var(--color-shadow) !important;
+}
+
+.designer-app .surface,
+.designer-app .panel,
+.designer-app .management-list-shell,
+.designer-app .management-list-row,
+.designer-app .context-card,
+.designer-app .metric-card,
+.designer-app .diagnostic-card,
+.designer-app .trend-analytics-card,
+.designer-app .trend-history-readout-card,
+.designer-app .settings-form-card,
+.designer-app .action-deck-card,
+.designer-app .impact-board-card,
+.designer-app .inspection-route-card,
+.designer-app .power-node-card,
+.designer-app .site-zone-driver-card,
+.designer-app .ops-dock-card,
+.designer-app .area-live-summary-card,
+.designer-app .area-live-section-row,
+.designer-app .grower-farm-board,
+.designer-app .grower-route,
+.designer-app .grower-pulse {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  box-shadow: 0 1px 2px var(--color-shadow), 0 10px 28px var(--color-shadow) !important;
+}
+
+.designer-app .management-list-row:hover,
+.designer-app .metric-card:hover,
+.designer-app .area-live-section-row:hover,
+.designer-app .grower-section-line:hover {
+  border-color: var(--color-border-strong) !important;
+  background: var(--color-card-hover) !important;
+}
+
+/* Recommendation and decision cards */
+.designer-app .grower-command,
+.designer-app .grower-command[data-state="warning"],
+.designer-app .grower-command[data-state="neutral"] {
+  border: 1px solid var(--color-card-recommendation-border);
+  background: var(--color-card-recommendation) !important;
+  color: var(--color-text) !important;
+  box-shadow: 0 14px 36px var(--color-shadow) !important;
+}
+
+.designer-app .grower-command[data-state="critical"] {
+  border-color: var(--color-danger-border);
+  background: var(--color-card-critical) !important;
+}
+
+.designer-app .grower-command::after {
+  border-color: color-mix(in srgb, var(--color-accent-ai) 18%, transparent);
+}
+
+.designer-app .grower-command > header span,
+.designer-app .grower-command > header small,
+.designer-app .grower-command h2,
+.designer-app .grower-command-evidence strong,
+.designer-app .grower-command-instruction p {
+  color: var(--color-text) !important;
+}
+
+.designer-app .grower-command > header small,
+.designer-app .grower-command-evidence small,
+.designer-app .grower-command-instruction > span {
+  color: var(--color-accent-ai) !important;
+}
+
+.designer-app .grower-command-evidence {
+  border-color: var(--color-card-recommendation-border) !important;
+}
+
+.designer-app .grower-command-evidence > i {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* Buttons */
+.designer-app .button-new.primary,
+.designer-app .settings-primary-button,
+.designer-app .admin-button-primary,
+.designer-app .diagnostic-primary-button,
+.designer-app .grower-command-primary,
+.designer-app .resolve-button {
+  border-color: var(--color-primary) !important;
+  background: var(--color-primary) !important;
+  color: var(--color-on-primary) !important;
+}
+
+.designer-app .button-new.primary:hover,
+.designer-app .settings-primary-button:hover,
+.designer-app .admin-button-primary:hover,
+.designer-app .diagnostic-primary-button:hover,
+.designer-app .grower-command-primary:hover {
+  border-color: var(--color-primary-hover) !important;
+  background: var(--color-primary-hover) !important;
+}
+
+.designer-app .button-new.secondary,
+.designer-app .settings-secondary-button,
+.designer-app .admin-button,
+.designer-app .diagnostic-secondary-button,
+.designer-app .grower-command-secondary,
+.designer-app .grower-compare-button,
+.designer-app .grower-route-open,
+.designer-app .trend-history-export-button {
+  border-color: var(--color-border-strong) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
+}
+
+.designer-app .button-new.secondary:hover,
+.designer-app .settings-secondary-button:hover,
+.designer-app .admin-button:hover,
+.designer-app .diagnostic-secondary-button:hover,
+.designer-app .grower-command-secondary:hover,
+.designer-app .grower-compare-button:hover {
+  border-color: var(--color-secondary) !important;
+  background: var(--color-surface-subtle) !important;
+  color: var(--color-secondary) !important;
+}
+
+.designer-app .admin-link-danger,
+.designer-app .crop-profile-delete-button {
+  color: var(--color-danger) !important;
+}
+
+.designer-app button:disabled,
+.designer-app input:disabled,
+.designer-app select:disabled,
+.designer-app textarea:disabled,
+.designer-app [aria-disabled="true"] {
+  border-color: var(--color-border) !important;
+  background: var(--color-disabled-bg) !important;
+  color: var(--color-disabled) !important;
+  opacity: 1 !important;
+}
+
+/* Inputs and selectors */
+.designer-app input:not([type="checkbox"]):not([type="radio"]),
+.designer-app select,
+.designer-app textarea,
+.designer-app .nc-select-trigger,
+.designer-app .context-card,
+.designer-app .header-language-select {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
+}
+
+.designer-app input:not([type="checkbox"]):not([type="radio"]):hover,
+.designer-app select:hover,
+.designer-app textarea:hover,
+.designer-app .nc-select-trigger:hover {
+  border-color: var(--color-border-strong) !important;
+}
+
+.designer-app button:focus-visible,
+.designer-app a:focus-visible,
+.designer-app input:focus-visible,
+.designer-app select:focus-visible,
+.designer-app textarea:focus-visible,
+.designer-app summary:focus-visible {
+  outline-color: var(--color-focus) !important;
+  box-shadow: 0 0 0 3px var(--color-focus-ring) !important;
+}
+
+.designer-app [aria-invalid="true"],
+.designer-app .field-error input,
+.designer-app .field-error select,
+.designer-app .field-error textarea {
+  border-color: var(--color-danger) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 16%, transparent) !important;
+}
+
+.designer-app .context-menu,
+.designer-app .nc-select-menu,
+.designer-app .header-account-menu,
+.designer-app .header-battery-dropdown,
+.designer-app .sidebar-account-menu,
+.designer-app .popover-card {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface-elevated) !important;
+  color: var(--color-text) !important;
+  box-shadow: 0 18px 48px var(--color-shadow) !important;
+}
+
+/* Tables */
+.designer-app table,
+.designer-app .admin-table,
+.designer-app .nc-data-table,
+.designer-app .diagnostic-table {
+  color: var(--color-text) !important;
+}
+
+.designer-app table thead,
+.designer-app .admin-table thead,
+.designer-app .nc-data-table thead,
+.designer-app .diagnostic-table thead,
+.designer-app .live-readings-table-head {
+  background: var(--color-surface-subtle) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+.designer-app table th,
+.designer-app table td,
+.designer-app .admin-table th,
+.designer-app .admin-table td,
+.designer-app .nc-data-table th,
+.designer-app .nc-data-table td,
+.designer-app .diagnostic-table th,
+.designer-app .diagnostic-table td {
+  border-color: var(--color-border) !important;
+}
+
+.designer-app table tbody tr:nth-child(even),
+.designer-app .admin-table tbody tr:nth-child(even),
+.designer-app .nc-data-table tbody tr:nth-child(even) {
+  background: var(--color-row-stripe);
+}
+
+.designer-app table tbody tr:hover,
+.designer-app .admin-table tbody tr:hover,
+.designer-app .nc-data-table tbody tr:hover {
+  background: var(--color-row-hover) !important;
+}
+
+.designer-app table tbody tr[aria-selected="true"],
+.designer-app table tbody tr[data-selected="true"],
+.designer-app .grower-section-line[data-selected="true"],
+.designer-app .grower-area-band[data-selected="true"] > header {
+  background: var(--color-row-selected) !important;
+  box-shadow: inset 3px 0 var(--color-secondary) !important;
+}
+
+/* Semantic status system */
+.designer-app [data-state="optimal"] .overview-section-state-dot,
+.designer-app .state-chip[data-state="optimal"]::before,
+.designer-app .grower-section-line[data-state="optimal"] .grower-section-state,
+.designer-app .pulse-dot {
+  background: var(--color-success) !important;
+}
+
+.designer-app .state-chip[data-state="optimal"],
+.designer-app .metric-state-chip[data-state="optimal"],
+.designer-app .nc-status-new.healthy,
+.designer-app .node-detail-status[data-tone="optimal"],
+.designer-app .diagnostic-status[data-state="optimal"] {
+  border-color: var(--color-success-border) !important;
+  background: var(--color-success-soft) !important;
+  color: var(--color-success) !important;
+}
+
+.designer-app .state-chip[data-state="warning"],
+.designer-app .metric-state-chip[data-state="warning"],
+.designer-app .nc-status-new.watch,
+.designer-app .diagnostic-status[data-state="warning"],
+.designer-app .grower-area-status[data-state="warning"] {
+  border-color: var(--color-warning-border) !important;
+  background: var(--color-warning-soft) !important;
+  color: var(--color-warning) !important;
+}
+
+.designer-app .state-chip[data-state="critical"],
+.designer-app .metric-state-chip[data-state="critical"],
+.designer-app .nc-status-new.fault,
+.designer-app .diagnostic-status[data-state="critical"],
+.designer-app .grower-area-status[data-state="critical"] {
+  border-color: var(--color-danger-border) !important;
+  background: var(--color-danger-soft) !important;
+  color: var(--color-danger) !important;
+}
+
+.designer-app .state-chip[data-state="unknown"],
+.designer-app .state-chip[data-state="neutral"],
+.designer-app .metric-state-chip[data-state="unknown"],
+.designer-app .metric-state-chip[data-state="neutral"] {
+  border-color: var(--color-offline-border) !important;
+  background: var(--color-unknown-soft) !important;
+  color: var(--color-unknown) !important;
+}
+
+.designer-app [data-state="offline"],
+.designer-app [data-freshness="offline"] {
+  --status-color: var(--color-offline);
+}
+
+.designer-app .platform-node-status[data-state="offline"],
+.designer-app .live-reading-status[data-state="unavailable"],
+.designer-app .nc-status-new.offline {
+  border-color: var(--color-offline-border) !important;
+  background: var(--color-offline-soft) !important;
+  color: var(--color-offline) !important;
+}
+
+.designer-app [data-freshness="stale"],
+.designer-app .platform-node-status[data-state="stale"],
+.designer-app .platform-node-status[data-state="delayed"] {
+  border-color: color-mix(in srgb, var(--color-stale) 40%, transparent) !important;
+  background: var(--color-stale-soft) !important;
+  color: var(--color-stale) !important;
+}
+
+.designer-app [data-state="calibration"],
+.designer-app [data-status="calibration-needed"] {
+  border-color: color-mix(in srgb, var(--color-calibration) 40%, transparent) !important;
+  background: var(--color-calibration-soft) !important;
+  color: var(--color-calibration) !important;
+}
+
+.designer-app .management-list-row[data-state="optimal"],
+.designer-app .area-live-summary-card[data-tone="optimal"] {
+  border-color: var(--color-success-border) !important;
+  background: var(--color-card-completed) !important;
+}
+
+.designer-app .management-list-row[data-state="warning"],
+.designer-app .area-live-summary-card[data-tone="warning"] {
+  border-color: var(--color-warning-border) !important;
+  background: var(--color-warning-soft) !important;
+}
+
+.designer-app .management-list-row[data-state="critical"] {
+  border-color: var(--color-danger-border) !important;
+  background: var(--color-card-critical) !important;
+}
+
+/* Alerts and AI recommendations */
+.designer-app .alert-rail-item[data-state="warning"],
+.designer-app .today-priority-alerts {
+  border-color: var(--color-warning-border) !important;
+  background: var(--color-warning-soft) !important;
+}
+
+.designer-app .alert-rail-item[data-state="critical"] {
+  border-color: var(--color-danger-border) !important;
+  background: var(--color-danger-soft) !important;
+}
+
+.designer-app .decision-mini-card,
+.designer-app .diagnostic-narrative,
+.designer-app .ops-dock-card[data-tone="recommendation"] {
+  border-color: var(--color-card-recommendation-border) !important;
+  background: var(--color-card-recommendation) !important;
+}
+
+.designer-app .decision-card-kicker,
+.designer-app .diagnostic-card-kicker,
+.designer-app .today-priority-why-button {
+  color: var(--color-accent-ai) !important;
+}
+
+/* Overlays */
+.designer-app .command-palette-backdrop,
+.designer-app .management-modal-backdrop,
+.designer-app .diagnostic-drawer-backdrop,
+.designer-app .rail-scrim {
+  background: var(--color-overlay) !important;
+}
+
+.designer-app .command-palette-shell,
+.designer-app .management-modal-shell,
+.designer-app .diagnostic-evidence-drawer {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface-elevated) !important;
+  color: var(--color-text) !important;
+}

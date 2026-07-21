@@ -10483,8 +10483,34 @@ function buildTrendMetricOptions(options) {
       return color;
     }
 
-    function getTrendSeriesColor(index) {
-      return ["#356b53", "#af7b2c", "#3d6f8f", "#8b5d7a", "#a05444", "#5b6f3d"][index % 6];
+    const metricChartColorTokens = Object.freeze({
+      airTemp: ["--chart-temperature", "#d36c5b"],
+      leafTemp: ["--chart-temperature", "#d36c5b"],
+      soilTemp: ["--chart-temperature", "#d36c5b"],
+      humidity: ["--chart-humidity", "#4c82b8"],
+      vpd: ["--chart-vpd", "#8a6bbe"],
+      co2: ["--chart-co2", "#7a6f64"],
+      lux: ["--chart-light", "#d6a436"],
+      ec: ["--chart-ec", "#b45f87"],
+      soilEc: ["--chart-ec", "#b45f87"],
+      ph: ["--chart-ph", "#6c70c9"],
+      waterTemp: ["--chart-water", "#2c91a3"],
+      soilMoisture: ["--chart-water", "#2c91a3"],
+      batteryLevel: ["--chart-battery", "#738e95"],
+      airPressure: ["--chart-pressure", "#66788e"],
+      growth: ["--chart-growth", "#3f7d65"]
+    });
+    const comparisonChartColors = ["#536b78", "#8a6bbe", "#d36c5b", "#2c91a3", "#b45f87", "#7a6f64"];
+
+    function readColorToken(tokenName, fallback) {
+      const value = window.getComputedStyle?.(document.documentElement).getPropertyValue(tokenName).trim();
+      return value || fallback;
+    }
+
+    function getTrendSeriesColor(index, metricKey = "") {
+      const [tokenName, fallback] = metricChartColorTokens[metricKey] || [];
+      if (tokenName) return readColorToken(tokenName, fallback);
+      return comparisonChartColors[index % comparisonChartColors.length];
     }
 
     function getTrendAxisDomain(values, definition, optimalRange, scaleMode = activeTrendScaleMode) {
@@ -10524,30 +10550,6 @@ function buildTrendMetricOptions(options) {
       return [axisMin, axisMax];
     }
 
-    function buildTrendValueColorPieces(item, optimalColor) {
-      const definition = item.option.definition;
-      const optimalRange = item.option.optimalRange || definition.optimal;
-      const warningRange = definition.warning || optimalRange;
-      const criticalColor = "#b13d32";
-      const warningColor = "#d08a2d";
-
-      if (definition.behavior === "higherIsBetter") {
-        return [
-          { lt: warningRange[0], color: criticalColor },
-          { gte: warningRange[0], lt: optimalRange[0], color: warningColor },
-          { gte: optimalRange[0], color: optimalColor }
-        ];
-      }
-
-      return [
-        { lt: warningRange[0], color: criticalColor },
-        { gte: warningRange[0], lt: optimalRange[0], color: warningColor },
-        { gte: optimalRange[0], lte: optimalRange[1], color: optimalColor },
-        { gt: optimalRange[1], lte: warningRange[1], color: warningColor },
-        { gt: warningRange[1], color: criticalColor }
-      ];
-    }
-
     function buildTrendEChartsOption(state) {
       const {
         seriesItems,
@@ -10561,7 +10563,7 @@ function buildTrendMetricOptions(options) {
       const rangeEnd = rangeStart + (totalHours * 60 * 60 * 1000);
       const pointCount = seriesItems[0]?.series?.pointCount || seriesItems[0]?.series?.values?.length || 2;
       const pointIntervalMs = (totalHours * 60 * 60 * 1000) / Math.max(pointCount - 1, 1);
-      const colors = seriesItems.map((_, index) => getTrendSeriesColor(index));
+      const colors = seriesItems.map((item, index) => getTrendSeriesColor(index, item.option.key));
       const displayValuesByItem = new Map(seriesItems.map((item) => [
         item,
         getTrendDisplayValues(item, rangeKey)
@@ -10829,14 +10831,6 @@ function buildTrendMetricOptions(options) {
         return seriesOption;
       });
 
-      const trendValueVisualMaps = seriesItems.map((item, index) => ({
-        show: false,
-        type: "piecewise",
-        seriesIndex: index,
-        dimension: 1,
-        pieces: buildTrendValueColorPieces(item, colors[index])
-      }));
-
       return {
         animation: false,
         textStyle: {
@@ -10848,7 +10842,9 @@ function buildTrendMetricOptions(options) {
           label: { description: ariaLabel }
         },
         color: colors,
-        visualMap: isMultiMetric ? [] : trendValueVisualMaps,
+        // Measurement series keep their sensor identity color. Status remains in
+        // target bands and labels instead of borrowing warning/danger chart colors.
+        visualMap: [],
         grid: {
           top: 34,
           right: isMultiMetric ? 88 : 36,
@@ -11289,7 +11285,7 @@ function buildTrendMetricOptions(options) {
       });
       trendComparisonChartInstance.setOption({
         animation: false,
-        color: ["#356b53", "#af7b2c", "#3d6f8f", "#8b5d7a", "#a05444", "#5b6f3d"],
+        color: comparisonChartColors,
         grid: { left: 58, right: 24, top: 42, bottom: 34 },
         legend: { top: 4, type: "scroll", textStyle: { fontSize: 11 } },
         tooltip: {
