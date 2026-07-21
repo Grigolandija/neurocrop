@@ -8498,7 +8498,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             <div>
               <p class="profile-page-eyebrow">Agronomic configuration</p>
               <h2 id="settingsProfilesTitle">Crop profiles</h2>
-              <p>Reusable target ranges that turn sensor readings into crop-specific status, alerts, and growing scores.</p>
+              <p>Reusable target ranges that turn sensor readings into crop-specific status and scores.</p>
             </div>
             <div class="crop-profiles-page-actions">
               <button type="button" class="settings-primary-button" data-settings-create-profile-open><i class="fa-solid fa-plus" aria-hidden="true"></i>Create profile</button>

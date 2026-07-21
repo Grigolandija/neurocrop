@@ -2,13 +2,13 @@
    All colors resolve through the current NeuroCrop design tokens. */
 
 .designer-app .crop-profiles-page {
-  width: min(100%, 1540px);
+  width: min(100%, 1920px);
   margin: 0 auto;
 }
 
 .designer-app .crop-profile-standalone {
   min-height: calc(100vh - var(--dashboard-header-height, 44px) - 2rem);
-  padding: var(--space-5, 1.25rem) 0 var(--space-10, 2.5rem);
+  padding: 2.75rem 1rem var(--space-10, 2.5rem);
 }
 
 .designer-app .crop-profiles-page-head,
@@ -17,7 +17,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-6, 1.5rem);
-  margin-bottom: var(--space-8, 2rem);
+  margin-bottom: 3.5rem;
 }
 
 .designer-app .profile-page-eyebrow,
@@ -27,7 +27,7 @@
 .designer-app .crop-profile-editor-section-head > div > p {
   margin: 0 0 var(--space-2, .5rem);
   color: var(--color-text-tertiary);
-  font-size: .75rem;
+  font-size: .875rem;
   font-weight: 600;
   letter-spacing: .1em;
   line-height: 1.25;
@@ -38,7 +38,7 @@
 .designer-app .profile-detail-heading h2 {
   margin: 0;
   color: var(--color-text);
-  font-size: clamp(2rem, 3vw, 3rem);
+  font-size: clamp(3rem, 4vw, 4.5rem);
   font-weight: 600;
   letter-spacing: -.035em;
   line-height: 1.05;
@@ -47,10 +47,10 @@
 .designer-app .crop-profiles-page-head > div > p:last-child,
 .designer-app .profile-detail-heading > span {
   display: block;
-  max-width: 46rem;
-  margin-top: var(--space-3, .75rem);
+  max-width: 58rem;
+  margin-top: 1.25rem;
   color: var(--color-text-secondary);
-  font-size: .9375rem;
+  font-size: 1.0625rem;
   line-height: 1.55;
 }
 
@@ -62,18 +62,26 @@
   gap: var(--space-2, .5rem);
 }
 
+.designer-app .crop-profiles-page-actions .settings-primary-button {
+  min-width: 11rem;
+  min-height: 3.5rem;
+  justify-content: center;
+  border-radius: 1rem;
+  font-size: 1rem;
+}
+
 .designer-app .profile-layout {
   display: grid;
-  grid-template-columns: minmax(15rem, 17.5rem) minmax(0, 1fr);
-  gap: var(--space-8, 2rem);
+  grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+  gap: 2.125rem;
   align-items: start;
 }
 
 .designer-app .profile-guide {
-  min-height: 20rem;
+  min-height: 24rem;
   border: 1px solid var(--color-neutral-800);
-  border-radius: .875rem;
-  padding: var(--space-6, 1.5rem);
+  border-radius: 1.25rem;
+  padding: 2rem;
   background: var(--color-neutral-950);
   color: var(--color-text-inverse);
   box-shadow: 0 16px 40px var(--color-shadow);
@@ -86,26 +94,26 @@
 .designer-app .profile-guide h3 {
   margin: 0;
   color: var(--color-text-inverse);
-  font-size: 1.375rem;
+  font-size: 2.25rem;
   font-weight: 600;
   letter-spacing: -.025em;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 .designer-app .profile-guide > p:not(.profile-eyebrow) {
   margin: var(--space-4, 1rem) 0 0;
   color: var(--color-neutral-300);
-  font-size: .875rem;
-  line-height: 1.6;
+  font-size: 1rem;
+  line-height: 1.7;
 }
 
 .designer-app .profile-guide ol {
   display: grid;
-  gap: var(--space-4, 1rem);
-  margin: var(--space-8, 2rem) 0 0;
+  gap: 1.5rem;
+  margin: 2.75rem 0 0;
   padding: 0;
   color: var(--color-neutral-100);
-  font-size: .875rem;
+  font-size: 1rem;
   font-weight: 500;
   list-style: none;
 }
@@ -113,18 +121,18 @@
 .designer-app .profile-guide li {
   display: flex;
   align-items: center;
-  gap: var(--space-3, .75rem);
+  gap: 1rem;
 }
 
 .designer-app .profile-guide li span {
   display: grid;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2.25rem;
+  height: 2.25rem;
   place-items: center;
   border: 1px solid var(--color-neutral-700);
   border-radius: 50%;
   color: var(--color-accent-plant);
-  font-size: .75rem;
+  font-size: .875rem;
   font-weight: 600;
 }
 
@@ -135,14 +143,14 @@
 .designer-app .profile-list-new .crop-profile-switcher-option {
   display: grid;
   width: 100%;
-  min-height: 4.75rem;
-  grid-template-columns: 2.75rem minmax(0, 1fr) 7.5rem auto .75rem;
+  min-height: 5.625rem;
+  grid-template-columns: 3rem minmax(0, 1fr) 8.5rem auto 1rem;
   align-items: center;
-  gap: var(--space-4, 1rem);
+  gap: 1.25rem;
   border: 0;
   border-bottom: 1px solid var(--color-border);
   border-radius: 0;
-  padding: var(--space-3, .75rem) var(--space-2, .5rem);
+  padding: 1rem 0;
   background: transparent;
   color: var(--color-text);
   box-shadow: none;
@@ -157,19 +165,19 @@
 
 .designer-app .profile-list-new .crop-profile-switcher-option[data-active="true"] {
   border-color: var(--color-border);
-  background: var(--color-row-selected);
-  box-shadow: inset 3px 0 0 var(--color-secondary);
+  background: transparent;
+  box-shadow: none;
 }
 
 .designer-app .crop-monogram {
   display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 3rem;
+  height: 3rem;
   place-items: center;
-  border-radius: .625rem;
+  border-radius: .875rem;
   background: var(--color-info-soft);
   color: var(--color-secondary);
-  font-size: .8125rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: .03em;
 }
@@ -182,7 +190,7 @@
 .designer-app .profile-list-identity strong {
   overflow: hidden;
   color: var(--color-text);
-  font-size: .9375rem;
+  font-size: 1.125rem;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -192,28 +200,37 @@
   margin-top: .25rem;
   overflow: hidden;
   color: var(--color-text-tertiary);
-  font-size: .8125rem;
+  font-size: .875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .designer-app .profile-list-assignment {
   color: var(--color-text-secondary);
-  font-size: .8125rem;
+  font-size: .875rem;
   white-space: nowrap;
 }
 
 .designer-app .profile-list-status {
   display: inline-flex;
-  min-height: 1.75rem;
+  min-height: 2.25rem;
   align-items: center;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  padding: 0 .625rem;
+  padding: 0 .875rem;
   background: var(--color-unknown-soft);
   color: var(--color-unknown);
-  font-size: .75rem;
+  font-size: .875rem;
   font-weight: 600;
+}
+
+.designer-app .profile-list-status::before {
+  width: .5rem;
+  height: .5rem;
+  margin-right: .5rem;
+  border-radius: 50%;
+  background: var(--color-neutral-300);
+  content: "";
 }
 
 .designer-app .profile-list-status[data-tone="active"] {
@@ -222,9 +239,13 @@
   color: var(--color-success);
 }
 
+.designer-app .profile-list-status[data-tone="active"]::before {
+  background: var(--color-success);
+}
+
 .designer-app .profile-list-new .crop-profile-switcher-option > i {
   color: var(--color-neutral-400);
-  font-size: .75rem;
+  font-size: 1rem;
 }
 
 .designer-app .profile-create-backdrop {
