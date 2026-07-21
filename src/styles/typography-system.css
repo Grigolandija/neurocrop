@@ -14,7 +14,7 @@
 }
 
 html {
-  font-size: 16px !important;
+  font-size: 15px !important;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -440,6 +440,15 @@ small {
 .designer-app .triage-score-card {
   grid-template-columns: minmax(110px, 0.6fr) minmax(0, 1fr);
   min-width: 0;
+}
+
+.designer-app .triage-priority-card h2 {
+  font-size: clamp(1.6rem, 2vw, 2rem) !important;
+  line-height: 1.1 !important;
+}
+
+.designer-app .triage-score-value {
+  font-size: clamp(3.5rem, 4.8vw, 5rem) !important;
 }
 
 .designer-app .triage-score-details,
