@@ -417,8 +417,6 @@ small {
 /* Live readings, overview and charts */
 .designer-app .area-live-summary-card span,
 .designer-app .area-live-summary-card small,
-.designer-app .area-live-section-copy small,
-.designer-app .area-live-value small,
 .designer-app .trend-history-metric-meta,
 .designer-app .trend-history-tooltip-time,
 .designer-app .trend-time-card span,
@@ -435,10 +433,6 @@ small {
 
 .designer-app .area-live-summary-card strong {
   font-size: clamp(1.25rem, 1.7vw, 1.5rem) !important;
-}
-
-.designer-app .area-live-score small {
-  font-size: var(--nc-type-micro) !important;
 }
 
 .designer-app .area-live-score strong {

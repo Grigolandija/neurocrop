@@ -12545,16 +12545,16 @@ function buildTrendMetricOptions(options) {
           const isConfigured = Boolean(result && result.configured !== false && definition);
           const isAvailable = isConfigured && result.available !== false;
           const state = isAvailable ? result.state : "unavailable";
-          const value = isAvailable ? formatValue(result.value, definition) : "—";
           const status = !isConfigured
             ? diagnosticText("Not installed", "Neįdiegta")
             : freshness.state === "loading"
               ? diagnosticText("Loading", "Kraunama")
               : diagnosticText("No current data", "Nėra dabartinių duomenų");
+          const value = isAvailable ? formatValue(result.value, definition) : status;
+          const stateLabel = isAvailable ? (result.statusLabel || stateConfig[result.state]?.label || "") : status;
           return `
-            <div class="area-live-value" role="cell" data-state="${escapeAttribute(state)}" data-freshness="${escapeAttribute(freshness.state)}" title="${escapeAttribute(isAvailable ? result.deviationText : status)}">
+            <div class="area-live-value" role="cell" data-state="${escapeAttribute(state)}" data-freshness="${escapeAttribute(freshness.state)}" title="${escapeAttribute(isAvailable ? result.deviationText : status)}" aria-label="${escapeAttribute(`${value}${stateLabel ? `, ${stateLabel}` : ""}`)}">
               <strong>${escapeHtml(value)}</strong>
-              <small>${escapeHtml(isAvailable ? (result.statusLabel || stateConfig[result.state]?.label || "") : status)}</small>
             </div>`;
         }).join("");
 
@@ -12562,8 +12562,8 @@ function buildTrendMetricOptions(options) {
           <article class="area-live-matrix-row area-live-section-row" role="row" data-state="${escapeAttribute(score.state)}" data-freshness="${escapeAttribute(freshness.state)}">
             <div class="area-live-section" role="rowheader">
               <span class="overview-section-state-dot" aria-hidden="true"></span>
-              <span class="area-live-section-copy"><strong title="${escapeAttribute(snapshot.zone.name)}">${escapeHtml(snapshot.zone.name)}</strong><small title="${escapeAttribute(snapshot.profile.name)}">${escapeHtml(snapshot.profile.name)}</small></span>
-              <span class="area-live-score" data-state="${escapeAttribute(score.state)}" title="${escapeAttribute(score.text)}"><small>GS</small><strong>${escapeHtml(score.score)}</strong></span>
+              <span class="area-live-section-copy"><strong title="${escapeAttribute(snapshot.zone.name)}">${escapeHtml(snapshot.zone.name)}</strong></span>
+              <span class="area-live-score" data-state="${escapeAttribute(score.state)}" title="${escapeAttribute(score.text)}" aria-label="${escapeAttribute(diagnosticText(`Growing conditions score ${score.score}`, `Auginimo sąlygų įvertis ${score.score}`))}"><strong>${escapeHtml(score.score)}</strong></span>
             </div>
             ${cells}
             <div class="area-live-freshness" role="cell" data-freshness="${escapeAttribute(freshness.state)}" title="${escapeAttribute(freshness.detail)}">
