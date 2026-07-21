@@ -1792,9 +1792,10 @@
       nodes: { page: "nodes", route: "/nodes" },
       readings: { page: "readings", route: "/readings" },
       history: { page: "history", route: "/history" },
+      alerts: { page: "overview", route: "/alerts", sidebarAction: "alerts" },
       settings: { page: "settings", route: "/settings" },
       admin: { page: "admin", route: "/admin" },
-      "crop-profiles": { page: "settings", route: "/crop-profiles" }
+      "crop-profiles": { page: "settings", route: "/crop-profiles", sidebarAction: "crop-profiles" }
     };
     let locationFormState = { mode: "create", siteId: "", name: "" };
     let blockFormState = { mode: "create", siteId: activeSiteId, zoneId: "", name: "", profile: activeProfileKey, sensorCount: "4" };
@@ -2022,6 +2023,7 @@
     function applyDashboardRoute(rawRoute) {
       const nextRoute = resolveDashboardRoute(rawRoute);
       const pageAlreadyActive = nextRoute.page === activePrimaryPage
+        && (nextRoute.sidebarAction || null) === sidebarActionOverride
         && (nextRoute.page !== "nodes" || (nextRoute.nodeId || null) === activeNodeDetailId);
 
       if (nextRoute.page === "admin" && !getLoginSession()?.isPlatformAdmin) {
@@ -2037,10 +2039,13 @@
       if (activePrimaryPage === "settings" && !pageAlreadyActive && cropProfiles[activeProfileKey]) {
         activeSettingsProfileKey = activeProfileKey;
       }
-      sidebarActionOverride = null;
+      sidebarActionOverride = nextRoute.sidebarAction || null;
       closeContextMenus();
 
-      if (activePrimaryPage === "history" || activePrimaryPage === "readings") {
+      if (sidebarActionOverride === "alerts") {
+        activeWorkspaceFocus = "alerts";
+        setExperienceMode("detailed", { render: false, force: true });
+      } else if (activePrimaryPage === "history" || activePrimaryPage === "readings") {
         activeViewScope = activePrimaryPage === "readings" ? "site" : "zone";
         activeWorkspaceFocus = "all";
         if (activePrimaryPage === "readings") activeWorkbenchLensKey = "essential";
@@ -4547,7 +4552,7 @@
       } else if (activePrimaryPage === "history") {
         activeAction = "history";
       } else if (activePrimaryPage === "settings") {
-        activeAction = "settings";
+        activeAction = sidebarActionOverride === "crop-profiles" ? "crop-profiles" : "settings";
       } else if (activePrimaryPage === "admin") {
         activeAction = "admin";
       } else if (sidebarActionOverride) {
@@ -4641,6 +4646,26 @@
           renderDashboard();
           syncTopLevelRoute("/history");
           scrollToSection("historySection", { behavior: "auto", highlight: false });
+          return;
+        case "alerts":
+          activePrimaryPage = "overview";
+          sidebarActionOverride = "alerts";
+          activeWorkspaceFocus = "alerts";
+          setExperienceMode("detailed", { render: false, force: true });
+          closeContextMenus();
+          renderDashboard();
+          syncTopLevelRoute("/alerts");
+          scrollToSection("detailedDiagnosticsSection", { behavior: "auto", highlight: false });
+          return;
+        case "crop-profiles":
+          activePrimaryPage = "settings";
+          activeSettingsPanelKey = "profiles";
+          if (cropProfiles[activeProfileKey]) activeSettingsProfileKey = activeProfileKey;
+          sidebarActionOverride = "crop-profiles";
+          closeContextMenus();
+          renderDashboard();
+          syncTopLevelRoute("/crop-profiles");
+          scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "settings":
           activePrimaryPage = "settings";

@@ -81,49 +81,63 @@
         </div>
       </div>
     </header>
-    <aside class="dashboard-sidebar dashboard-sidebar--redesign hidden shrink-0 xl:flex xl:flex-col">
-      <div class="sidebar-rail-brand">
-        <span class="sidebar-brand-mark" aria-hidden="true"><i class="fa-solid fa-seedling"></i></span>
-        <span class="sidebar-brand-word"><strong>Neuro</strong>Crop</span>
+    <aside class="dashboard-sidebar rail hidden shrink-0 xl:flex xl:flex-col" aria-label="Primary navigation">
+      <div class="rail-brand">
+        <span class="brand-mark" aria-hidden="true"><i class="fa-solid fa-seedling"></i></span>
+        <span class="brand-word"><strong>Neuro</strong>Crop</span>
       </div>
 
-      <nav class="sidebar-rail-nav" aria-label="Primary navigation">
-        <p class="nav-group-label">Daily work</p>
-        <button type="button" class="nav-link nav-link-button" data-sidebar-action="overview" data-active="true" aria-current="page">
+      <nav class="rail-nav">
+        <p class="rail-label">Monitor</p>
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="overview" data-active="true" aria-current="page">
           <i class="fa-solid fa-chart-pie" aria-hidden="true"></i>
           <span>Overview</span>
         </button>
-        <button type="button" class="nav-link nav-link-button" data-sidebar-action="sites" data-active="false">
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="sites" data-active="false">
           <i class="fa-solid fa-map" aria-hidden="true"></i>
-          <span class="text-[1.02rem]">Areas</span>
+          <span>Areas</span>
         </button>
-        <button type="button" class="nav-link nav-link-button" data-sidebar-action="zones" data-active="false">
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="zones" data-active="false">
           <i class="fa-solid fa-border-all" aria-hidden="true"></i>
-          <span class="text-[1.02rem]">Sections</span>
+          <span>Sections</span>
         </button>
-        <button type="button" class="nav-link nav-link-button" data-sidebar-action="nodes" data-active="false">
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="nodes" data-active="false">
           <i class="fa-solid fa-microchip" aria-hidden="true"></i>
-          <span>Sensor nodes</span>
+          <span>Nodes</span>
         </button>
-        <button type="button" class="nav-link nav-link-button" data-sidebar-action="readings" data-active="false">
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="readings" data-active="false">
           <i class="fa-solid fa-wave-square" aria-hidden="true"></i>
-          <span>Live readings</span>
+          <span>Readings</span>
         </button>
-        <button type="button" class="nav-link nav-link-button" data-sidebar-action="history" data-active="false">
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="history" data-active="false">
           <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
           <span>Trends</span>
         </button>
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="alerts" data-active="false">
+          <i class="fa-solid fa-bell" aria-hidden="true"></i>
+          <span>Alerts</span>
+          <b class="nav-count">3</b>
+        </button>
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="crop-profiles" data-active="false">
+          <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+          <span>Profiles</span>
+        </button>
 
-        <p class="nav-group-label nav-group-label-spaced">System setup</p>
-        <button type="button" class="nav-link nav-link-button" data-sidebar-action="settings" data-active="false">
+        <p class="rail-label rail-label-second">Manage</p>
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="settings" data-active="false">
           <i class="fa-solid fa-gear" aria-hidden="true"></i>
           <span>Settings</span>
         </button>
-        <button type="button" class="nav-link nav-link-button" data-sidebar-action="admin" data-active="false" hidden>
+        <button type="button" class="rail-link nav-link nav-link-button" data-sidebar-action="admin" data-active="false" hidden>
           <i class="fa-solid fa-building" aria-hidden="true"></i>
-          <span>Platform admin</span>
+          <span>Organization</span>
         </button>
       </nav>
+
+      <div class="rail-foot">
+        <div class="workspace-health"><span class="pulse-dot"></span><div><strong>Systems online</strong><small>21 of 22 nodes</small></div></div>
+        <button class="user-tile" type="button"><span>AG</span><div><strong>Andrius G.</strong><small>Workspace admin</small></div><i class="fa-solid fa-ellipsis"></i></button>
+      </div>
 
       <div hidden aria-hidden="true">
         <button id="commandPaletteButton" type="button" aria-label="Open quick jump"></button>

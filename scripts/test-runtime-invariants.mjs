@@ -49,11 +49,10 @@ assert(runtime.includes("function renderEmptyAreaState(site)") && runtime.includ
 assert(runtime.includes('const hasAnotherArea = (dashboardData.sites || []).some') && runtime.includes('activePrimaryPage = "locations";') && runtime.includes('syncTopLevelRoute("/areas", { replace: true });') && runtime.includes('elements.zoneImpactSection.hidden = true;'), "all empty-workspace entry points must use the single canonical Areas onboarding state");
 assert(runtime.includes("const { preferCurrentZone = false } = options;"), "the selected Area must take precedence over a stale Section context");
 assert(
-  !runtime.includes('route: "/alerts"')
-    && !runtime.includes("alertsManagementSection")
-    && !runtime.includes("alertActionStorageKey")
-    && !markup.includes('data-sidebar-action="alerts"'),
-  "Unreleased Alerts lifecycle must not ship as dormant frontend code"
+  runtime.includes('alerts: { page: "overview", route: "/alerts", sidebarAction: "alerts" }')
+    && runtime.includes('case "alerts":')
+    && markup.includes('data-sidebar-action="alerts"'),
+  "The redesign Alerts navigation must open the existing alert diagnostics instead of shipping as a dormant link"
 );
 assert(runtime.includes('const aggregationName = isPeak ? "Section peak" : "Section median";'), "Light history must identify peak aggregation instead of pretending it is a median");
 assert(runtime.includes("const dataValues = values.map(Number).filter(Number.isFinite);") && runtime.includes("A nearby target line provides useful context; a distant target must not flatten the real curve."), "trend Y axes must prioritize real measurement ranges over wide display ranges");
@@ -121,7 +120,7 @@ assert(runtime.includes('function openActionCompletionModal(') && runtime.includ
 assert(runtime.includes('const backendPriorityAction = availableBackendActions[0] || null') && runtime.includes('snapshotsByZoneId.get(backendPriorityAction.sectionId)') && runtime.includes('Do this first') && runtime.includes('Inspection route') && runtime.includes('data-site-id="${escapeAttribute(prioritySnapshot.site.id)}"'), "Simple Today must keep one farm-wide first action and preserve its Area and Section route context");
 assert(runtime.includes('class="grower-area-list"') && runtime.includes('class="grower-area-band"') && runtime.includes('class="grower-section-line"') && runtime.includes('data-overview-section-card') && runtime.includes('const sectionCard = event.target.closest("[data-overview-section-card]")') && styles.includes('.grower-area-list') && styles.includes('.grower-area-band + .grower-area-band'), "Simple Today must scale many Areas vertically and keep every Section directly reachable");
 assert(runtime.includes('const areaLiveEssentialMetricKeys = [') && runtime.includes('activeWorkbenchLensKey = "essential"') && runtime.includes('label: diagnosticText("Key readings", "Svarbiausi rodmenys")'), "Compare Sections must default to a bounded key-reading lens instead of opening every installed parameter");
-assert(markup.includes('class="nav-group-label">Daily work</p>') && markup.includes('class="nav-group-label nav-group-label-spaced">System setup</p>') && !markup.includes('data-sidebar-action="alerts"'), "Primary navigation must separate daily work from setup and omit the unreleased Alerts route");
+assert(markup.includes('class="rail-label">Monitor</p>') && markup.includes('class="rail-label rail-label-second">Manage</p>') && markup.includes('data-sidebar-action="alerts"') && markup.includes('data-sidebar-action="crop-profiles"'), "Primary navigation must match the frontend-redesign rail information architecture");
 assert(apiFacade.includes('changePassword:') && runtime.includes('data-settings-form="password"') && runtime.includes('data-password-feedback'), "Workspace settings must expose the authenticated password-change API with inline feedback");
 assert(dashboardPage.includes('installNeuroCropFeatures()') && runtime.includes('window.NeuroCropFeatures.areas') && runtime.includes('window.NeuroCropFeatures.sections'), "Area and Section feature models must be installed before the legacy renderer uses them");
 assert(areasModel.includes('export function buildAreasSummary') && areasModel.includes('export function getAreaFormCopy'), "Area counts and UI copy must live in the Area feature model");
@@ -137,7 +136,7 @@ assert(runtime.includes('const totalGrowthCount = (zone.configuredMetrics || zon
 assert(!runtime.includes('data-settings-form="platform-admin"'), "Admin access must not use a separate email form outside the Users table");
 assert(markup.includes('class="skip-to-content"') && markup.includes('id="dashboardMain"') && markup.includes('tabindex="-1"'), "the application shell must provide a keyboard-accessible skip link and focus target");
 assert(markup.includes('id="loginError"') && markup.includes('aria-live="assertive"') && !markup.includes('id="loginError" class="hidden'), "login failures must become visibly and accessibly announced instead of remaining hidden by CSS");
-assert(markup.includes('<span class="text-[1.02rem]">Areas</span>') && markup.includes('<span class="text-[1.02rem]">Sections</span>'), "primary navigation must use consistent Area and Section terminology");
+assert(markup.includes('<span>Areas</span>') && markup.includes('<span>Sections</span>'), "primary navigation must use consistent Area and Section terminology");
 assert(styles.includes("Commercial UI consolidation") && styles.includes(".management-list-row") && styles.includes("min-height: 58px"), "management lists must retain the compact commercial layout for large workspaces");
 assert(styles.includes('.state-chip[data-state="unknown"]') && styles.includes('background: #ecefec'), "No data and unknown states must remain visually neutral rather than critical red");
 assert(styles.includes("@media (max-width: 760px)") && styles.includes(".admin-table-wrap"), "the consolidated UI must preserve mobile and wide-table fallbacks");
