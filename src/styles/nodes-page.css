@@ -862,13 +862,15 @@
   border: 1px solid rgba(255, 255, 255, .68);
   border-radius: 18px;
   background: var(--white);
-  box-shadow: 0 34px 100px rgba(5, 14, 10, .28);
+  box-shadow: 0 24px 56px rgba(5, 14, 10, .24);
   animation: modal-panel-in .22s cubic-bezier(.2, .8, .2, 1) both;
+  contain: layout paint;
 }
 
 .designer-app .node-edit-backdrop-surface {
-  background: rgba(10, 18, 15, .58);
-  backdrop-filter: blur(7px);
+  background: rgba(10, 18, 15, .62);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   animation: modal-backdrop-in .18s ease both;
 }
 
@@ -968,7 +970,7 @@
 .designer-app .node-edit-footer .button-new.secondary:hover { border-color: var(--ink-300); background: var(--ink-050); }
 
 @keyframes modal-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes modal-panel-in { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes modal-panel-in { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
 
 @media (max-width: 620px) {
   .designer-app .management-modal-overlay:has(.node-edit-modal) { align-items: end; padding: 10px; }
