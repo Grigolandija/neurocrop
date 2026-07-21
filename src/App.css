@@ -47,8 +47,7 @@
   height: 56px;
   padding: 0 26px;
   border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, .88);
-  backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, .97);
 }
 
 .language-switch,
@@ -163,9 +162,8 @@
   overflow: auto;
   border: 1px solid rgba(255, 255, 255, .9);
   border-radius: 0 42px 42px 42px;
-  background: rgba(255, 255, 255, .72);
+  background: rgba(255, 255, 255, .97);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
 }
 
 .control-brand {
@@ -701,8 +699,7 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(20, 32, 27, .38);
-  backdrop-filter: blur(8px);
+  background: rgba(20, 32, 27, .48);
 }
 
 .edit-modal {

@@ -6422,6 +6422,17 @@
       document.documentElement.style.setProperty("--dashboard-header-height", `${headerHeight}px`);
     }
 
+    let viewportSyncFrame = 0;
+
+    function scheduleViewportSync() {
+      if (viewportSyncFrame) return;
+      viewportSyncFrame = window.requestAnimationFrame(() => {
+        viewportSyncFrame = 0;
+        syncStickyOffsets();
+        trendHistoryChartInstance?.resize();
+      });
+    }
+
     function resetOpsDockView() {
       sidebarActionOverride = null;
       activeWorkbenchLensKey = "focus";
@@ -16807,8 +16818,7 @@ function buildTrendMetricOptions(options) {
 
     window.addEventListener("storage", refreshDashboardDataFromStore);
     window.addEventListener("focus", refreshDashboardDataFromStore);
-    window.addEventListener("resize", syncStickyOffsets);
-    window.addEventListener("resize", () => trendHistoryChartInstance?.resize());
+    window.addEventListener("resize", scheduleViewportSync, { passive: true });
 
     elements.headerBatteryIndicator.addEventListener("click", (event) => {
       event.stopPropagation();
