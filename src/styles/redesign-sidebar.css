@@ -1,7 +1,7 @@
 /* Frontend-redesign rail geometry and behavior, using the NeuroCrop palette. */
 .designer-app .dashboard-sidebar.rail {
-  --rail-bg: #184b3c;
-  --rail-bg-deep: #123a2f;
+  --rail-bg: #173f34;
+  --rail-bg-deep: #102f28;
   --rail-text: #f4f1e8;
   --rail-text-muted: #b8c9c1;
   --rail-text-subtle: #85a095;
@@ -127,7 +127,7 @@
 
 .designer-app .dashboard-sidebar.rail .rail-link[data-active="true"],
 .designer-app .dashboard-sidebar.rail .rail-link[aria-current="page"] {
-  background: #285a49;
+  background: #255145;
   color: #fffaf0;
   box-shadow: none !important;
 }
@@ -366,8 +366,8 @@
     background:
       linear-gradient(
         90deg,
-        #184b3c 0,
-        #184b3c 244px,
+        #173f34 0,
+        #173f34 244px,
         #f3efe6 244px,
         #f3efe6 262px,
         transparent 262px
@@ -397,8 +397,8 @@
     background:
       linear-gradient(
         90deg,
-        #184b3c 0,
-        #184b3c 304px,
+        #173f34 0,
+        #173f34 304px,
         #f3efe6 304px,
         #f3efe6 322px,
         transparent 322px
