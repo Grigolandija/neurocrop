@@ -1763,7 +1763,8 @@
     let dashboardHydrationInFlightRequestId = 0;
     let dashboardHydrationStatus = isApiDataMode() ? "idle" : "ready";
     let lastDashboardHydratedAt = 0;
-    const dashboardRefreshTtlMs = 30 * 1000;
+    const dashboardRefreshTtlMs = 60 * 1000;
+    const dashboardRefreshIntervalMs = 60 * 1000;
     let unauthorizedStateHandled = false;
     let selectPriorityContextAfterLogin = false;
     let activeBlockFilterSiteId = "all";
@@ -14747,48 +14748,56 @@ function buildTrendMetricOptions(options) {
       currentDecisionBriefPayload = decisionBriefPayload;
       currentImpactBoardCards = impactBoardState.cards;
       impactBoardAction = impactBoardState.action;
-      renderLocationsManagementPage(globalSnapshots);
-      renderBlocksManagementPage(globalSnapshots);
-      renderNodesManagementPage();
-      renderSettingsManagementPage(globalSnapshots);
-      renderAlertsManagementPage(alertRecords);
-      renderOverviewTriage({
-        site,
-        zone,
-        profile,
-        results,
-        displayedOverallState,
-        globalState,
-        allSystemIssues,
-        systemLowBatteryNodes,
-        unavailableCount,
-        availableResults,
-        growthResults,
-        siteSnapshots,
-        globalSnapshots,
-        isSiteView,
-        timestamp
-      });
-      const detailedSnapshot = isSiteView && weakestSiteSnapshot
-        ? weakestSiteSnapshot
-        : { zone, profile, results };
-      const detailedGrowthResults = detailedSnapshot.results.filter((item) => isGrowthMetricKey(item.key) && item.configured !== false);
-      renderDetailedDiagnostics({
-        site,
-        zone: detailedSnapshot.zone,
-        profile: detailedSnapshot.profile,
-        results: detailedSnapshot.results,
-        growthResults: detailedGrowthResults,
-        availableResults: detailedGrowthResults.filter((item) => item.available !== false),
-        unavailableResults: detailedGrowthResults.filter((item) => item.available === false),
-        displayedOverallState,
-        siteSnapshots,
-        alertRecords,
-        zoneBatteryNodes: isSiteView ? siteBatteryNodes : zoneBatteryNodes,
-        coverageOverride: isSiteView ? getCoverageStatsFromSiteSnapshots(siteSnapshots) : null,
-        isSiteView,
-        timestamp
-      });
+      // Building every hidden workspace on each live refresh caused large DOM and
+      // style-recalculation spikes on lower-end PCs. Render only the active route.
+      if (isLocationsPage) renderLocationsManagementPage(globalSnapshots);
+      if (isBlocksPage) renderBlocksManagementPage(globalSnapshots);
+      if (isNodesPage) renderNodesManagementPage();
+      if (isSettingsPage || isAdminPage) renderSettingsManagementPage(globalSnapshots);
+      if (isAlertsPage) renderAlertsManagementPage(alertRecords);
+
+      if (!isPrimaryWorkspacePage && isSimpleExperienceMode) {
+        renderOverviewTriage({
+          site,
+          zone,
+          profile,
+          results,
+          displayedOverallState,
+          globalState,
+          allSystemIssues,
+          systemLowBatteryNodes,
+          unavailableCount,
+          availableResults,
+          growthResults,
+          siteSnapshots,
+          globalSnapshots,
+          isSiteView,
+          timestamp
+        });
+      }
+
+      if (isDetailedOverview) {
+        const detailedSnapshot = isSiteView && weakestSiteSnapshot
+          ? weakestSiteSnapshot
+          : { zone, profile, results };
+        const detailedGrowthResults = detailedSnapshot.results.filter((item) => isGrowthMetricKey(item.key) && item.configured !== false);
+        renderDetailedDiagnostics({
+          site,
+          zone: detailedSnapshot.zone,
+          profile: detailedSnapshot.profile,
+          results: detailedSnapshot.results,
+          growthResults: detailedGrowthResults,
+          availableResults: detailedGrowthResults.filter((item) => item.available !== false),
+          unavailableResults: detailedGrowthResults.filter((item) => item.available === false),
+          displayedOverallState,
+          siteSnapshots,
+          alertRecords,
+          zoneBatteryNodes: isSiteView ? siteBatteryNodes : zoneBatteryNodes,
+          coverageOverride: isSiteView ? getCoverageStatsFromSiteSnapshots(siteSnapshots) : null,
+          isSiteView,
+          timestamp
+        });
+      }
 
       elements.experienceModeTitle.textContent = isDetailedExperienceMode ? "Detailed analysis view" : "Simple client view";
       elements.experienceModeSummary.textContent = isDetailedExperienceMode
@@ -17413,7 +17422,7 @@ function buildTrendMetricOptions(options) {
       if (!document.hidden) refreshLiveDashboardData();
     });
     window.setInterval(updateClientConnectionStatus, 15000);
-    window.setInterval(refreshLiveDashboardData, 30000);
+    window.setInterval(refreshLiveDashboardData, dashboardRefreshIntervalMs);
 
       renderSiteOptions();
       renderZoneOptions();
