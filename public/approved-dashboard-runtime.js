@@ -8483,10 +8483,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           <section class="crop-profile-create-drawer" role="dialog" aria-modal="true" aria-labelledby="createCropProfileTitle">
             <header><div><p>New agronomic program</p><h3 id="createCropProfileTitle">Create crop profile</h3><span>Start from a complete target set, then adjust it for this crop stage.</span></div><button type="button" data-settings-create-profile-close aria-label="Close create profile"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></header>
           <form data-management-form="settings-profile">
-            <label><span>Profile name</span><input name="settingsProfileName" value="${escapeAttribute(settingsProfileFormState.name)}" placeholder="Cucumbers, fruiting" autocomplete="off"></label>
-            <label><span>Crop</span><input name="settingsProfileHeroName" value="${escapeAttribute(settingsProfileFormState.heroName)}" placeholder="Cucumber" autocomplete="off"></label>
-            <label><span>Growth stage</span><input name="settingsProfileStage" value="${escapeAttribute(settingsProfileFormState.stage)}" placeholder="Fruiting" autocomplete="off"></label>
-            <label><span>Copy targets from</span><select name="settingsProfileSource">${sourceProfileOptions}</select></label>
+            <label class="profile-create-field profile-create-field-wide"><span>Profile name</span><small>A clear name shown when assigning this profile to Sections.</small><input name="settingsProfileName" value="${escapeAttribute(settingsProfileFormState.name)}" placeholder="Cucumbers, fruiting" autocomplete="off"></label>
+            <label class="profile-create-field"><span>Crop</span><input name="settingsProfileHeroName" value="${escapeAttribute(settingsProfileFormState.heroName)}" placeholder="Cucumber" autocomplete="off"></label>
+            <label class="profile-create-field"><span>Growth stage</span><input name="settingsProfileStage" value="${escapeAttribute(settingsProfileFormState.stage)}" placeholder="Fruiting" autocomplete="off"></label>
+            <label class="profile-create-field profile-create-field-wide profile-create-source"><span>Copy targets from</span><small>The new profile starts with these optimal ranges. You can edit every value before assigning it.</small><span class="profile-create-select-wrap"><select name="settingsProfileSource">${sourceProfileOptions}</select><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></span></label>
             <footer><button type="button" class="settings-secondary-button" data-settings-create-profile-close>Cancel</button><button type="submit" class="settings-primary-button">Create profile</button></footer>
           </form>
           </section>
