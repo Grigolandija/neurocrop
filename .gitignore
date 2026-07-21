@@ -13,6 +13,10 @@ dist-ssr
 public/vendor/
 *.local
 
+# Generated test output and deployment bundles
+test-results/
+*.zip
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

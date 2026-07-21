@@ -30,7 +30,7 @@ export default defineConfig([
       'no-undef': 'error',
       'no-redeclare': 'error',
       'no-dupe-keys': 'error',
-      'no-unused-vars': 'off',
+      'no-unused-vars': ['error', { caughtErrors: 'none' }],
     },
   },
 ])

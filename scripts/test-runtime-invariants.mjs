@@ -48,7 +48,13 @@ assert(runtime.includes('role="alert"') && runtime.includes("data-dashboard-retr
 assert(runtime.includes("function renderEmptyAreaState(site)") && runtime.includes("empty-area-state"), "empty areas must render a neutral dedicated state");
 assert(runtime.includes('const hasAnotherArea = (dashboardData.sites || []).some') && runtime.includes('activePrimaryPage = "locations";') && runtime.includes('syncTopLevelRoute("/areas", { replace: true });') && runtime.includes('elements.zoneImpactSection.hidden = true;'), "all empty-workspace entry points must use the single canonical Areas onboarding state");
 assert(runtime.includes("const { preferCurrentZone = false } = options;"), "the selected Area must take precedence over a stale Section context");
-assert(runtime.includes("const alertsModuleEnabled = false;") && runtime.includes('nextRoute.page === "alerts" && !alertsModuleEnabled'), "Alerts must remain unavailable until the module is released");
+assert(
+  !runtime.includes('route: "/alerts"')
+    && !runtime.includes("alertsManagementSection")
+    && !runtime.includes("alertActionStorageKey")
+    && !markup.includes('data-sidebar-action="alerts"'),
+  "Unreleased Alerts lifecycle must not ship as dormant frontend code"
+);
 assert(runtime.includes('const aggregationName = isPeak ? "Section peak" : "Section median";'), "Light history must identify peak aggregation instead of pretending it is a median");
 assert(runtime.includes("const dataValues = values.map(Number).filter(Number.isFinite);") && runtime.includes("A nearby target line provides useful context; a distant target must not flatten the real curve."), "trend Y axes must prioritize real measurement ranges over wide display ranges");
 assert(runtime.includes('const filteredSites = blockSites.filter((site) => site.id === activeSiteId);'), "Sections must always follow the Area selected in the global header");

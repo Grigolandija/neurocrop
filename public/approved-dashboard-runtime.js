@@ -1149,8 +1149,6 @@
       nodesManagementShell: document.getElementById("nodesManagementShell"),
       settingsManagementSection: document.getElementById("settingsManagementSection"),
       settingsManagementShell: document.getElementById("settingsManagementShell"),
-      alertsManagementSection: document.getElementById("alertsManagementSection"),
-      alertsManagementShell: document.getElementById("alertsManagementShell"),
       sidebarQuickActions: document.getElementById("sidebarQuickActions"),
       heroStatusPanel: document.getElementById("heroStatusPanel"),
       overviewTriageSection: document.getElementById("overviewTriageSection"),
@@ -1702,7 +1700,6 @@
     let activeProfileKey = "tomato";
     let activeScenarioKey = "optimal";
     let activeViewScope = "zone";
-    const alertsModuleEnabled = false;
     let activePrimaryPage = "overview";
     let activeSiteDetailView = "averages";
     let activeExperienceMode = "simple";
@@ -1714,7 +1711,6 @@
     let currentActionDeckCards = [];
     let currentTodayPriorityAction = null;
     let currentTodayPriorityActions = [];
-    let currentAlertRecords = [];
     let actionDeckShortcutMap = new Map();
     let highlightedJumpTarget = null;
     let zoneImpactAction = null;
@@ -1735,14 +1731,12 @@
     let activeSensorHealthFilterKey = "focus";
     let activeInspectionRouteFilterKey = "focus";
     let activeWorkspaceFocus = "all";
-    let activeAlertsPageFilter = "active";
     let activeTrendMetricKey = "";
     let activeTrendMetricKeys = [];
     let activeTrendRangeKey = "24h";
     let activeTrendPresentation = "smoothed";
     let activeTrendScaleMode = "detail";
     let expandedLiveMetricKey = "";
-    let currentTrendMetricOptions = [];
     let currentTrendHistoryPoints = [];
     let trendHistoryChartInstance = null;
     let trendComparisonChartInstance = null;
@@ -1786,7 +1780,6 @@
     let expandedCropProfileMetricId = null;
     let activeSettingsProfileKey = activeProfileKey;
     let activeSettingsPanelKey = "profiles";
-    let activeCropProfileView = "mine";
     let settingsProfileEditorDrafts = {};
     let profileSaveFeedback = { profileKey: "", profileName: "", tone: "optimal" };
     let managementNotice = { page: "", tone: "optimal", text: "" };
@@ -1799,22 +1792,10 @@
       nodes: { page: "nodes", route: "/nodes" },
       readings: { page: "readings", route: "/readings" },
       history: { page: "history", route: "/history" },
-      alerts: { page: "alerts", route: "/alerts" },
       settings: { page: "settings", route: "/settings" },
       admin: { page: "admin", route: "/admin" },
       "crop-profiles": { page: "settings", route: "/crop-profiles" }
     };
-    const alertActionStorageKey = "neurocrop-dashboard-alert-actions-v1";
-    let alertActionState = {};
-
-    try {
-      const savedAlertActions = JSON.parse(window.localStorage.getItem(alertActionStorageKey) || "{}");
-      if (savedAlertActions && typeof savedAlertActions === "object" && !Array.isArray(savedAlertActions)) {
-        alertActionState = savedAlertActions;
-      }
-    } catch (error) {
-      // Alert actions are optional while the dashboard is running without a backend.
-    }
     let locationFormState = { mode: "create", siteId: "", name: "" };
     let blockFormState = { mode: "create", siteId: activeSiteId, zoneId: "", name: "", profile: activeProfileKey, sensorCount: "4" };
     let nodeFormState = { siteId: activeSiteId, zoneId: activeZoneId, devEui: "" };
@@ -2040,11 +2021,6 @@
 
     function applyDashboardRoute(rawRoute) {
       const nextRoute = resolveDashboardRoute(rawRoute);
-      if (nextRoute.page === "alerts" && !alertsModuleEnabled) {
-        activePrimaryPage = "overview";
-        syncTopLevelRoute("/", { replace: true });
-        return;
-      }
       const pageAlreadyActive = nextRoute.page === activePrimaryPage
         && (nextRoute.page !== "nodes" || (nextRoute.nodeId || null) === activeNodeDetailId);
 
@@ -2087,7 +2063,6 @@
         nodes: "nodesManagementSection",
         readings: "metricsSection",
         history: "historySection",
-        alerts: "alertsManagementSection",
         settings: "settingsManagementSection",
         admin: "settingsManagementSection"
       };
@@ -2242,44 +2217,6 @@
       return new Set((data.sites || []).flatMap((site) => (site.zones || []).map((zone) => zone.id)));
     }
 
-    function getNextNodeIdFromData(data) {
-      if (!isApiDataMode() && window.NeuroCropStore?.getNextNodeId) {
-        return window.NeuroCropStore.getNextNodeId(data);
-      }
-
-      const maxId = (data.sites || [])
-        .flatMap((site) => site.zones || [])
-        .flatMap((zone) => zone.batteryNodes || [])
-        .reduce((highest, node) => {
-          const match = String(node.id || "").match(/^NS-(\d{1,6})$/);
-          return match ? Math.max(highest, Number(match[1])) : highest;
-        }, 0);
-
-      return `NS-${String(maxId + 1).padStart(6, "0")}`;
-    }
-
-    function getDefaultNodeBatteryLevel(index) {
-      const defaults = [78, 72, 67, 61, 56, 51, 46, 41];
-      return defaults[index % defaults.length];
-    }
-
-    function resizeZoneBatteryNodes(data, zone, desiredCount) {
-      const nextCount = clamp(Math.round(Number(desiredCount) || 0), 0, 48);
-      zone.batteryNodes = Array.isArray(zone.batteryNodes) ? zone.batteryNodes.slice(0, nextCount) : [];
-
-      while (zone.batteryNodes.length < nextCount) {
-        const nextId = getNextNodeIdFromData(data);
-        zone.batteryNodes.push({
-          id: nextId,
-          name: nextId,
-          level: getDefaultNodeBatteryLevel(zone.batteryNodes.length),
-          active: true
-        });
-      }
-
-      zone.sensorCount = zone.batteryNodes.length;
-    }
-
     function persistDashboardData(nextData, options = {}) {
       if (isApiDataMode()) {
         const noticePage = activePrimaryPage === "locations"
@@ -2352,18 +2289,7 @@
       };
     }
 
-    function openLocationEditor(siteId) {
-      const site = dashboardData.sites.find((item) => item.id === siteId);
-      if (!site) return;
 
-      locationFormState = {
-        mode: "edit",
-        siteId: site.id,
-        name: site.name
-      };
-      clearManagementNotice("locations");
-      renderDashboard();
-    }
 
     function resetBlockForm(options = {}) {
       const filteredLocationId = activeBlockFilterSiteId !== "all" && !isUnassignedLocation(
@@ -2411,23 +2337,7 @@
       };
     }
 
-    function openBlockEditor(siteId, zoneId) {
-      const site = dashboardData.sites.find((item) => item.id === siteId);
-      const zone = (site?.zones || []).find((item) => item.id === zoneId);
-      if (!site || !zone) return;
 
-      activeBlockFilterSiteId = site.id;
-      blockFormState = {
-        mode: "edit",
-        siteId: site.id,
-        zoneId: zone.id,
-        name: zone.name,
-        profile: zone.profile,
-        sensorCount: String((zone.batteryNodes || []).length || zone.sensorCount || 0)
-      };
-      clearManagementNotice("blocks");
-      renderDashboard();
-    }
 
     function closeManagementModal() {
       managementModalState = null;
@@ -2574,7 +2484,7 @@
       if (!site) return;
 
       managementModalState = { type: "location", siteId };
-      const otherSites = dashboardData.sites.filter((item) => item.id !== site.id && !isUnassignedLocation(item));
+
       const blockCount = (site.zones || []).length;
       const nodeCount = getSiteNodeCount(site);
       const profiles = getSiteProfileNames(site);
@@ -3008,14 +2918,7 @@
         : `<span class="node-sensor-empty">No sensors detected in the latest uplink.</span>`;
     }
 
-    async function loadNodeSensorsIntoModal(devEui) {
-      try {
-        const payload = await window.NeuroCropApi.getNodeSensors(devEui);
-        renderNodeSensorPanel(payload);
-      } catch (error) {
-        renderNodeSensorPanel(null, error instanceof Error ? error.message : "Sensor information could not be loaded.");
-      }
-    }
+
 
     async function saveNodeSensorPurpose(button) {
       const card = button.closest(".node-sensor-card");
@@ -3989,16 +3892,7 @@
       ).sort((left, right) => left.level - right.level);
     }
 
-    function renderSensorHealthList(zone, definition) {
-      const lowNodes = getLowBatteryNodes(zone, definition);
-      if (lowNodes.length === 0) {
-        return `<div class="battery-node-empty">No slave nodes are below ${getBatteryAlertThreshold(definition)}% in this block.</div>`;
-      }
 
-      return lowNodes
-        .map((node) => `<span class="battery-node-chip"><strong>${escapeHtml(node.id)}</strong> ${escapeHtml(node.level)}%</span>`)
-        .join("");
-    }
 
     function getZoneBatteryNodeDetails(zone, definition, site = null) {
       if (!(zone?.availableMetrics || []).includes("batteryLevel")) {
@@ -4716,8 +4610,6 @@
         activeAction = "readings";
       } else if (activePrimaryPage === "history") {
         activeAction = "history";
-      } else if (activePrimaryPage === "alerts") {
-        activeAction = "alerts";
       } else if (activePrimaryPage === "settings") {
         activeAction = "settings";
       } else if (activePrimaryPage === "admin") {
@@ -4727,13 +4619,6 @@
       }
 
       sidebarActionButtons.forEach((button) => {
-        if (button.dataset.sidebarAction === "alerts") {
-          button.disabled = !alertsModuleEnabled;
-          button.setAttribute("aria-disabled", String(!alertsModuleEnabled));
-          button.style.opacity = alertsModuleEnabled ? "" : "0.42";
-          button.style.pointerEvents = alertsModuleEnabled ? "" : "none";
-          button.title = alertsModuleEnabled ? "" : diagnosticText("Coming soon", "Netrukus");
-        }
         if (button.dataset.sidebarAction === "admin") {
           const showAdmin = getLoginSession()?.isPlatformAdmin === true;
           button.hidden = !showAdmin;
@@ -4840,15 +4725,6 @@
           syncTopLevelRoute("/admin");
           scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
           return;
-        case "alerts":
-          if (!alertsModuleEnabled) return;
-          activePrimaryPage = "alerts";
-          sidebarActionOverride = null;
-          closeContextMenus();
-          renderDashboard();
-          syncTopLevelRoute("/alerts");
-          scrollToSection("alertsManagementSection", { behavior: "auto", highlight: false });
-          return;
         case "analytics":
           runDashboardAction("history");
           return;
@@ -4860,13 +4736,6 @@
     function buildCommandPaletteItems() {
       const activeSite = getActiveSite();
       const activeZone = getActiveZone(activeSite);
-      const systemAlertSnapshots = dashboardData.sites.flatMap((site) =>
-        site.zones.map((zone) => evaluateZoneSnapshot(site, zone))
-      ).filter((snapshot) => snapshot.overall.state !== "optimal");
-      const criticalAlertCount = systemAlertSnapshots.filter((snapshot) => snapshot.overall.state === "critical").length;
-      const currentSiteAlertCount = activeSite
-        ? systemAlertSnapshots.filter((snapshot) => snapshot.site.id === activeSite.id).length
-        : 0;
       const items = [];
 
       if (activeZone && activeSite) {
@@ -5033,15 +4902,6 @@
         },
         {
           pinned: true,
-          kind: "Alert",
-          icon: "fa-triangle-exclamation",
-          label: "System alerts",
-          meta: "Open system-wide status and active warnings",
-          keywords: "alerts warning critical system",
-          run: () => runDashboardAction("alerts")
-        },
-        {
-          pinned: true,
           kind: "Analytics",
           icon: "fa-chart-line",
           label: "Metrics workbench",
@@ -5106,36 +4966,6 @@
         );
       }
 
-      if (criticalAlertCount > 0) {
-        items.push({
-          pinned: false,
-          kind: "Alert",
-          icon: "fa-triangle-exclamation",
-          label: `Critical incidents (${criticalAlertCount})`,
-          meta: "Open the alert rail filtered to critical blocks",
-          keywords: "critical alerts incidents urgent system queue",
-          run: () => {
-            activeAlertRailFilterKey = "critical";
-            runDashboardAction("alerts");
-          }
-        });
-      }
-
-      if (activeSite && currentSiteAlertCount > 0) {
-        items.push({
-          pinned: false,
-          kind: "Alert",
-          icon: "fa-location-dot",
-          label: `Incidents in ${activeSite.name}`,
-          meta: `${currentSiteAlertCount} active blocks in the current location alert rail`,
-          keywords: `current site alerts ${activeSite.name} incidents`,
-          run: () => {
-            activeAlertRailFilterKey = "site";
-            runDashboardAction("alerts");
-          }
-        });
-      }
-
       items.push({
         pinned: false,
         kind: "Scenario",
@@ -5195,8 +5025,7 @@
         });
       });
 
-      return items.filter((item) => alertsModuleEnabled
-        || (item.kind !== "Alert" && !item.label.toLowerCase().includes("alert")));
+      return items;
     }
 
     function getCommandPaletteResults(query) {
@@ -5737,15 +5566,7 @@
       ).sort((left, right) => left.level - right.level);
     }
 
-    function renderSiteSensorHealthList(lowNodes, threshold) {
-      if (lowNodes.length === 0) {
-        return `<div class="battery-node-empty">No slave nodes are below ${threshold}% in this location.</div>`;
-      }
 
-      return lowNodes
-        .map((node) => `<span class="battery-node-chip"><strong>${escapeHtml(node.id)}</strong> ${escapeHtml(node.level)}% &middot; ${escapeHtml(node.zoneName)}</span>`)
-        .join("");
-    }
 
     function renderSensorHealthFilters(filters, activeKey) {
       return filters.map((filter) => `
@@ -6094,7 +5915,6 @@
         displayedOverallState,
         siteSnapshots,
         manualOverride,
-        manualOverrideDiffs,
         scenarioDefinition
       } = options;
 
@@ -6779,47 +6599,7 @@
       };
     }
 
-    function renderSiteAverageCards(siteSnapshots) {
-      const metricKeys = [...new Set(siteSnapshots.flatMap((snapshot) =>
-        Object.keys(snapshot.profile.metrics).filter((key) => isGrowthMetricKey(key))
-      ))];
 
-      return metricKeys
-        .map((key) => summarizeSiteMetric(siteSnapshots, key))
-        .filter(Boolean)
-        .sort((left, right) => left.averageIndex - right.averageIndex)
-        .map((summary) => {
-          const category = getMetricCategory(summary.key);
-          const siteStateText = summary.criticalCount > 0
-            ? `${summary.criticalCount} critical block${summary.criticalCount === 1 ? "" : "s"}`
-            : summary.warningCount > 0
-              ? `${summary.warningCount} warning block${summary.warningCount === 1 ? "" : "s"}`
-              : `Stable across ${summary.coverage}/${summary.totalZones} blocks`;
-
-          return `
-            <article class="metric-card p-4" data-state="${summary.state}">
-              <div class="metric-card-head flex items-start justify-between gap-3">
-                <div>
-                  <div class="metric-category-badge"><i class="fa-solid ${category.icon}"></i>${category.label}</div>
-                  <p class="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink/42">${formatRange(summary.averageOptimal, summary.definition)}</p>
-                </div>
-                <div class="flex flex-col items-end gap-2 text-right">
-                  <span class="state-chip metric-state-chip" data-state="${summary.state}">${stateConfig[summary.state].label}</span>
-                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink/40">Location avg · ${summary.coverage}/${summary.totalZones} blocks</p>
-                </div>
-              </div>
-              <div class="metric-value-row mt-2" data-has-deviation="true">
-                <div class="metric-deviation font-semibold text-ink/54">${siteStateText}</div>
-                <div class="metric-value-shell">
-                  <div class="metric-current-value font-extrabold text-ink">${formatValue(summary.averageValue, summary.definition)}</div>
-                </div>
-              </div>
-              ${renderMetricHistoryButton(summary.key)}
-            </article>
-          `;
-        })
-        .join("");
-    }
 
 function buildSiteAverageSummaries(siteSnapshots, options = {}) {
   const includeNonGrowthMetrics = options.includeNonGrowthMetrics === true;
@@ -6875,7 +6655,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         isSiteHotspotsView,
         site,
         zone,
-        growthResults,
         availableResults,
         unavailableResults,
         siteSnapshots,
@@ -8204,7 +7983,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         return matchesScope && matchesState && (!activeNodeSearchQuery || searchValue.includes(activeNodeSearchQuery));
       });
       const lowBatteryNodes = getSystemLowBatteryNodes();
-      const activeNodes = nodes.filter(({ node }) => node.active !== false).length;
+
       const reportingNodes = nodes.filter(({ node }) =>
         freshnessByNodeId.get(node.id)?.transportStatus === "live"
       ).length;
@@ -8215,10 +7994,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         const health = getNodeHealthSummary(node, freshnessByNodeId.get(node.id));
         return health.tone === "critical" || health.tone === "warning";
       }).length;
-      const filteredLowBatteryCount = filteredNodes.filter(({ node, zone }) => {
-        const definition = cropProfiles[zone.profile]?.metrics?.batteryLevel;
-        return definition && getBatteryNodeState(node.level, definition) !== "optimal";
-      }).length;
+
       const nodeRows = filteredNodes.length > 0
         ? filteredNodes.map(({ node, site, zone }) => {
             const definition = cropProfiles[zone.profile]?.metrics?.batteryLevel;
@@ -8395,40 +8171,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       }, {});
     }
 
-    function getSettingsMetricRows(profile) {
-      const completeProfile = getCompleteCropProfile(profile);
-      return Object.keys(completeProfile.metrics || {})
-        .filter((metricKey) => isGrowthMetricKey(metricKey))
-        .map((metricKey) => {
-          const metric = completeProfile.metrics[metricKey];
-          const alertMeta = metricKey === "batteryLevel"
-            ? `Alert below ${getBatteryAlertThreshold(metric)}%`
-            : getWarningStartLabel(metric);
-
-          return `
-            <div class="border-b border-black/6 px-1 py-3.5 last:border-b-0">
-              <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                <div class="min-w-0">
-                  <div class="font-bold text-ink">${escapeHtml(metric.label)}</div>
-                  <div class="mt-1 text-sm text-ink/52">${escapeHtml(metric.aggregation || "Block avg")}</div>
-                </div>
-
-                <div class="flex flex-wrap gap-2 xl:justify-end">
-                  <span class="rounded-full bg-[#eef4ec] px-3 py-1.5 text-xs font-bold text-moss">
-                    Target ${escapeHtml(formatRange(metric.optimal, metric))}
-                  </span>
-                  <span class="rounded-full bg-[#f8ead5] px-3 py-1.5 text-xs font-bold text-amber">
-                    ${escapeHtml(alertMeta)}
-                  </span>
-                </div>
-              </div>
-
-              <div class="mt-2 text-sm leading-6 text-ink/58">${escapeHtml(metric.action || "Used in growth score.")}</div>
-            </div>
-          `;
-        }).join("");
-    }
-
     function loadSettingsState() {
       try {
         const saved = JSON.parse(window.localStorage.getItem(settingsStorageKey) || "null");
@@ -8476,10 +8218,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         .map((zone) => ({ areaName: site.name, sectionName: zone.name })));
     }
 
-    function getCompactBoundarySummary(metric) {
-      if (metric.metricKey === "batteryLevel") return `Alert below ${formatValue(metric.warning?.[0], metric)}`;
-      return `Warning ${formatRange(metric.warning, metric)} · Critical ${formatRange(metric.critical, metric)}`;
-    }
+
 
     function getProfileSaveFeedbackText(feedback) {
       const profileName = feedback.profileKey === "default"
@@ -8624,200 +8363,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       settingsState[group][key] = value;
     }
 
-    function renderSettingsManagementPageLegacy(globalSnapshots) {
-      const profileEntries = Object.entries(cropProfiles);
-      if (!cropProfiles[activeSettingsProfileKey]) {
-        activeSettingsProfileKey = profileEntries[0]?.[0] || activeProfileKey;
-      }
 
-      const activeSettingsProfile = cropProfiles[activeSettingsProfileKey] || cropProfiles[activeProfileKey];
-      const profileUsageCounts = getProfileUsageCounts();
-      const totalBlocks = dashboardData.sites.reduce((sum, site) => sum + (site.zones || []).length, 0);
-      const activeAlertCount = globalSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal").length;
-      const metricCount = activeSettingsProfile ? Object.keys(activeSettingsProfile.metrics || {}).length : 0;
-      const sourceProfileOptions = profileEntries.map(([profileKey, profile]) => `
-        <option value="${escapeAttribute(profileKey)}" ${settingsProfileFormState.sourceProfile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>
-      `).join("");
-      if (!isVisibleSettingsCropProfile(settingsProfileFormState.sourceProfile)) {
-        settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
-      }
-
-      elements.settingsManagementShell.innerHTML = `
-        <div class="space-y-6">
-          <div class="surface rounded-[30px] p-5 md:p-5">
-            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div class="max-w-3xl">
-                <p class="text-[11px] uppercase tracking-[0.28em] text-pine/56">System settings</p>
-                <h2 class="mt-1.5 font-display text-[1.65rem] font-bold leading-tight text-ink">Growth logic and account setup</h2>
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/66">Settings define crop targets, alert thresholds, team access, notifications, and workspace preferences used by the dashboard.</p>
-              </div>
-
-              <div class="flex flex-wrap gap-2.5 xl:max-w-[540px] xl:justify-end">
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Profiles</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${profileEntries.length}</div>
-                </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Blocks</div>
-                  <div class="mt-0.5 text-xl font-extrabold text-ink">${totalBlocks}</div>
-                </div>
-                <div class="panel min-w-[112px] rounded-[18px] px-3.5 py-2.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine/56">Alerts</div>
-                  <div class="mt-0.5 text-xl font-extrabold ${activeAlertCount > 0 ? "text-amber" : "text-moss"}">${activeAlertCount}</div>
-                </div>
-              </div>
-            </div>
-
-            ${renderManagementNotice("settings")}
-          </div>
-
-          <div class="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <div class="surface rounded-[30px] p-5">
-              <p class="text-[11px] uppercase tracking-[0.24em] text-pine/56">Crop profiles</p>
-              <h3 class="mt-1.5 font-display text-xl font-bold text-ink">Profiles used by sections</h3>
-
-              <div class="mt-4 space-y-2.5">
-                ${profileEntries.map(([profileKey, profile]) => `
-                  <button type="button" class="actionable w-full rounded-[18px] border px-4 py-3 text-left ${activeSettingsProfileKey === profileKey ? "border-pine/30 bg-pine text-white" : "border-black/8 bg-white text-ink"}" data-settings-profile-key="${escapeAttribute(profileKey)}">
-                    <div class="flex items-center justify-between gap-3">
-                      <span class="font-bold">${escapeHtml(profile.name)}</span>
-                      <span class="rounded-full ${activeSettingsProfileKey === profileKey ? "bg-white/14 text-white" : "bg-[#f4ead9] text-ink/60"} px-2.5 py-1 text-xs font-semibold">${profileUsageCounts[profileKey] || 0} sections</span>
-                    </div>
-                    <div class="mt-1 text-sm ${activeSettingsProfileKey === profileKey ? "text-white/76" : "text-ink/54"}">${escapeHtml(profile.hint || `${Object.keys(profile.metrics || {}).length} metric targets`)}</div>
-                  </button>
-                `).join("")}
-              </div>
-
-              <form class="mt-5 rounded-[22px] bg-[#f8f3ea] p-4" data-management-form="settings-profile">
-                <p class="text-[11px] uppercase tracking-[0.20em] text-pine/56">Create profile</p>
-                <div class="mt-3 grid gap-3">
-                  <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">Profile name</span>
-                    <input name="settingsProfileName" value="${escapeAttribute(settingsProfileFormState.name)}" placeholder="Cucumbers, fruiting" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                  </label>
-                  <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">Short crop name</span>
-                    <input name="settingsProfileHeroName" value="${escapeAttribute(settingsProfileFormState.heroName)}" placeholder="Cucumber" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                  </label>
-                  <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">Growth stage</span>
-                    <input name="settingsProfileStage" value="${escapeAttribute(settingsProfileFormState.stage)}" placeholder="Fruiting" autocomplete="off" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                  </label>
-                  <label class="block">
-                    <span class="text-sm font-semibold text-ink/72">Copy targets from</span>
-                    <select name="settingsProfileSource" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine/35 focus:ring-2 focus:ring-pine/12">
-                      ${sourceProfileOptions}
-                    </select>
-                  </label>
-                  <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Create crop profile</button>
-                </div>
-              </form>
-            </div>
-
-            <div class="space-y-6">
-              <div class="surface rounded-[30px] p-5">
-                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p class="text-[11px] uppercase tracking-[0.24em] text-pine/56">Active profile</p>
-                    <h3 class="mt-1.5 font-display text-2xl font-bold text-ink">${escapeHtml(activeSettingsProfile?.name || "No profile selected")}</h3>
-                    <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/62">${escapeHtml(activeSettingsProfile?.hint || "Create a crop profile to define target ranges.")}</p>
-                    ${activeSettingsProfile?.stage ? `<span class="mt-3 inline-flex rounded-full bg-[#f4ead9] px-3 py-1.5 text-xs font-bold text-ink/64">Stage: ${escapeHtml(activeSettingsProfile.stage)}</span>` : ""}
-                  </div>
-                  <div class="flex flex-wrap gap-2">
-                    <span class="management-chip" data-tone="neutral">${metricCount} metrics</span>
-                    <span class="management-chip" data-tone="optimal">${profileUsageCounts[activeSettingsProfileKey] || 0} sections using it</span>
-                    <button type="button" class="inline-action actionable" data-settings-profile-duplicate="${escapeAttribute(activeSettingsProfileKey)}">Duplicate</button>
-                  </div>
-                </div>
-
-                <div class="mt-5 rounded-[24px] border border-black/8 bg-white/72 p-4">
-                  ${activeSettingsProfile ? getSettingsMetricRows(activeSettingsProfile) : ""}
-                </div>
-                ${activeSettingsProfile ? renderCropProfileEditor(activeSettingsProfileKey, activeSettingsProfile) : ""}
-              </div>
-
-              <div class="grid gap-4 lg:grid-cols-2">
-                <form class="surface rounded-[26px] p-5" data-settings-form="alerts">
-                  <p class="text-[11px] uppercase tracking-[0.22em] text-pine/56">Alert rules</p>
-                  <h3 class="mt-1.5 font-display text-xl font-bold text-ink">Escalation timing</h3>
-                  <p class="mt-2 text-sm leading-6 text-ink/62">Metric bands are defined by crop profiles. Here you decide how long a deviation must persist before it becomes an alert.</p>
-                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                    ${settingsInput("Warning after (min)", "alerts.warningAfterMinutes", settingsState.alerts.warningAfterMinutes, { type: "number", min: "1", max: "1440" })}
-                    ${settingsInput("Critical after (min)", "alerts.criticalAfterMinutes", settingsState.alerts.criticalAfterMinutes, { type: "number", min: "1", max: "1440" })}
-                  </div>
-                  <div class="mt-3">${settingsInput("Alert recipients", "alerts.recipients", settingsState.alerts.recipients, { type: "text", placeholder: "grower@example.com, manager@example.com" })}</div>
-                  <button type="submit" class="actionable mt-4 rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save alert rules</button>
-                </form>
-
-                <form class="surface rounded-[26px] p-5" data-settings-form="notifications">
-                  <p class="text-[11px] uppercase tracking-[0.22em] text-pine/56">Notifications</p>
-                  <h3 class="mt-1.5 font-display text-xl font-bold text-ink">Delivery and quiet hours</h3>
-                  <div class="mt-4 space-y-2.5">
-                    ${settingsToggle("Email alerts", "notifications.emailEnabled", settingsState.notifications.emailEnabled, "Send active alerts to the listed recipients.")}
-                    ${settingsToggle("SMS alerts", "notifications.smsEnabled", settingsState.notifications.smsEnabled, "Prepared for a future SMS provider connection.")}
-                    ${settingsToggle("Critical alerts bypass quiet hours", "notifications.criticalOverride", settingsState.notifications.criticalOverride, "Critical conditions are never silenced.")}
-                  </div>
-                  <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                    ${settingsInput("Quiet hours start", "notifications.quietStart", settingsState.notifications.quietStart, { type: "time" })}
-                    ${settingsInput("Quiet hours end", "notifications.quietEnd", settingsState.notifications.quietEnd, { type: "time" })}
-                  </div>
-                  <button type="submit" class="actionable mt-4 rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save notifications</button>
-                </form>
-
-                <form class="surface rounded-[26px] p-5" data-settings-form="organization">
-                  <p class="text-[11px] uppercase tracking-[0.22em] text-pine/56">Organization</p>
-                  <h3 class="mt-1.5 font-display text-xl font-bold text-ink">Account identity</h3>
-                  <div class="mt-4 grid gap-3">
-                    ${settingsInput("Farm or organization name", "organization.name", settingsState.organization.name)}
-                    ${settingsInput("Primary contact email", "organization.contactEmail", settingsState.organization.contactEmail, { type: "email" })}
-                  </div>
-                  <button type="submit" class="actionable mt-4 rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save organization</button>
-                </form>
-
-                <form class="surface rounded-[26px] p-5" data-settings-form="preferences">
-                  <p class="text-[11px] uppercase tracking-[0.22em] text-pine/56">Units & time</p>
-                  <h3 class="mt-1.5 font-display text-xl font-bold text-ink">Display preferences</h3>
-                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                    ${settingsSelect("Temperature", "preferences.temperatureUnit", settingsState.preferences.temperatureUnit, [{ value: "C", label: "Celsius (°C)" }, { value: "F", label: "Fahrenheit (°F)" }])}
-                    ${settingsSelect("Clock", "preferences.timeFormat", settingsState.preferences.timeFormat, [{ value: "24h", label: "24-hour" }, { value: "12h", label: "12-hour" }])}
-                    ${settingsSelect("Time zone", "preferences.timezone", settingsState.preferences.timezone, [{ value: "Europe/Vilnius", label: "Europe/Vilnius" }, { value: "Europe/Riga", label: "Europe/Riga" }, { value: "Europe/Warsaw", label: "Europe/Warsaw" }])}
-                    ${settingsSelect("Language / dates", "preferences.locale", settingsState.preferences.locale, [{ value: "lt-LT", label: "Lithuanian" }, { value: "en-GB", label: "English (UK)" }, { value: "en-US", label: "English (US)" }])}
-                  </div>
-                  <button type="submit" class="actionable mt-4 rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save preferences</button>
-                </form>
-
-                <form class="surface rounded-[26px] p-5" data-settings-form="retention">
-                  <p class="text-[11px] uppercase tracking-[0.22em] text-pine/56">Data retention</p>
-                  <h3 class="mt-1.5 font-display text-xl font-bold text-ink">Trend storage policy</h3>
-                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                    ${settingsInput("Raw readings (days)", "retention.rawDays", settingsState.retention.rawDays, { type: "number", min: "1", max: "3650" })}
-                    ${settingsInput("Aggregated trends (months)", "retention.aggregateMonths", settingsState.retention.aggregateMonths, { type: "number", min: "1", max: "240" })}
-                  </div>
-                  <p class="mt-3 text-xs leading-5 text-ink/54">This is a policy setting for the future database job. It does not delete browser prototype data.</p>
-                  <button type="submit" class="actionable mt-4 rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Save retention policy</button>
-                </form>
-              </div>
-
-              <div class="surface rounded-[30px] p-5">
-                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div><p class="text-[11px] uppercase tracking-[0.22em] text-pine/56">Team & access</p><h3 class="mt-1.5 font-display text-xl font-bold text-ink">People who can use this workspace</h3></div>
-                  <span class="management-chip" data-tone="neutral">${settingsState.team.length} users</span>
-                </div>
-                <div class="mt-4 space-y-2.5">
-                  ${settingsState.team.map((member) => `<div class="management-list-row"><div><div class="font-bold text-ink">${escapeHtml(member.name)}</div><div class="mt-1 text-sm text-ink/56">${escapeHtml(member.email)}</div></div><div class="management-list-actions"><span class="management-chip" data-tone="neutral">${escapeHtml(member.role)}</span><button type="button" class="inline-action" data-team-remove="${escapeAttribute(member.id)}" ${settingsState.team.length <= 1 ? "disabled" : ""}>Remove</button></div></div>`).join("")}
-                </div>
-                <form class="mt-4 grid gap-3 rounded-[22px] bg-[#f8f3ea] p-4 md:grid-cols-[1fr_1fr_170px_auto]" data-settings-form="team">
-                  <input name="teamName" placeholder="Name" class="rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm outline-none">
-                  <input name="teamEmail" type="email" placeholder="Email" class="rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm outline-none">
-                  <select name="teamRole" class="rounded-[16px] border border-black/10 bg-white px-3.5 py-2.5 text-sm outline-none"><option>Grower</option><option>Technician</option><option>Admin</option><option>Viewer</option></select>
-                  <button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Add user</button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
 
     function renderSettingsManagementPage(globalSnapshots) {
       const currentSession = getLoginSession();
@@ -8848,7 +8394,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const profileUsageCounts = getProfileUsageCounts();
       const totalSections = dashboardData.sites.reduce((sum, site) => sum + (site.zones || []).length, 0);
       const activeAlertCount = globalSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal").length;
-      const metricCount = activeSettingsProfile ? Object.keys(activeSettingsProfile.metrics || {}).filter(isGrowthMetricKey).length : 0;
+
       if (!isVisibleSettingsCropProfile(settingsProfileFormState.sourceProfile)) {
         settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
       }
@@ -9441,10 +8987,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       return Math.min(Math.max(value, bounds.min), bounds.max);
     }
 
-    function getPositiveGap(outerValue, innerValue) {
-      const gap = Number(outerValue) - Number(innerValue);
-      return Number.isFinite(gap) && gap > 0 ? gap : null;
-    }
+
 
     const AUTOMATIC_ALERT_BOUNDARY_RULES = {
       airTemp: { warning: [2, 2], critical: [4, 4] },
@@ -9576,14 +9119,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       if (!Number.isFinite(value)) return "";
       const precision = Number.isFinite(Number(decimals)) ? Math.min(Math.max(Number(decimals), 0), 3) : 2;
       return precision === 0 ? String(Math.round(value)) : String(Number(value.toFixed(precision)));
-    }
-
-    function getWarningStartLabel(metric) {
-      return `Warning below ${formatValue(metric.optimal?.[0], metric)} or above ${formatValue(metric.optimal?.[1], metric)}`;
-    }
-
-    function getCriticalBoundaryLabel(metric) {
-      return `Critical below ${formatValue(metric.critical?.[0], metric)} or above ${formatValue(metric.critical?.[1], metric)}`;
     }
 
     function captureOptimalRangeBaseline(target) {
@@ -10325,43 +9860,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       };
     }
 
-    function buildCopy(profile, nonOptimalResults, overallStateKey) {
-      const labels = nonOptimalResults.map((item) => profile.metrics[item.key].label.toLowerCase());
 
-      if (overallStateKey === "optimal") {
-        return {
-          headline: `${profile.heroName}: optimal`,
-          description: "Core metrics match the selected profile.",
-          indicatorSummary: "All key metrics are within the target range.",
-          priorities: [
-            "Keep the current setup.",
-            "Monitor the overall trend."
-          ]
-        };
-      }
-
-      if (overallStateKey === "warning") {
-        return {
-          headline: `${profile.heroName}: attention needed`,
-          description: `${joinLabels(labels)} moved away from target.`,
-          indicatorSummary: `Main drivers of the index: ${joinLabels(labels)}.`,
-          priorities: [
-            `Check these parameters first: ${joinLabels(labels)}.`,
-            "Watch whether the deviation repeats."
-          ]
-        };
-      }
-
-      return {
-        headline: `${profile.heroName}: critical`,
-        description: "At least one metric reached a critical threshold.",
-        indicatorSummary: `Critical deviations: ${joinLabels(labels)}.`,
-        priorities: [
-          `Prioritize blocks related to: ${joinLabels(labels)}.`,
-          "Check the sensor and uplink."
-        ]
-      };
-    }
 
     function getMetricCategory(key) {
       const categories = {
@@ -10585,11 +10084,7 @@ function buildTrendMetricOptions(options) {
       currentTrendHistoryPoints = [];
     }
 
-    function getTrendToneColor(state) {
-      if (state === "critical") return "#a05444";
-      if (state === "warning") return "#af7b2c";
-      return "#356b53";
-    }
+
 
     function buildTrendSeries(option, rangeKey, scopeSeed, historyResponse = null) {
       const rangeConfig = trendRangeConfig[rangeKey] || trendRangeConfig["24h"];
@@ -10766,7 +10261,7 @@ function buildTrendMetricOptions(options) {
           class="trend-history-metric-button"
           data-trend-metric="${escapeAttribute(option.key)}"
           data-active="${String(isActive)}"
-          data-tone="${escapeAttribute(option.tone || "neutral")}" 
+          data-tone="${escapeAttribute(option.tone || "neutral")}"
           aria-pressed="${String(isActive)}"
         >
           <span>${escapeHtml(getTrendMetricDisplayLabel(option))}</span>
@@ -10957,177 +10452,6 @@ function buildTrendMetricOptions(options) {
         }
       }
       return color;
-    }
-
-    function buildTrendTimeTicks(rangeKey, totalHours) {
-      const now = new Date();
-      return [0, 0.25, 0.5, 0.75, 1].map((progress) => {
-        const date = new Date(now.getTime() - ((1 - progress) * totalHours * 60 * 60 * 1000));
-        return {
-          progress,
-          label: formatTrendTimeLabel(date, rangeKey)
-        };
-      });
-    }
-
-    function renderTrendChartSvg(state) {
-      const width = 980;
-      const height = 390;
-      const padding = { top: 30, right: 36, bottom: 82, left: 88 };
-      const chartWidth = width - padding.left - padding.right;
-      const chartHeight = height - padding.top - padding.bottom;
-      const snap = (value) => Math.round(value) + 0.5;
-      const { domain, optimalRange, values, definition, metricLabel, rangeKey, rangeLabel, totalHours } = state;
-      const warningRange = definition.warning || optimalRange;
-      const referenceValues = definition.behavior === "higherIsBetter"
-        ? [...values, optimalRange[0], optimalRange[1], warningRange[0]]
-        : [...values, ...optimalRange, ...warningRange];
-      const referenceMin = Math.min(...referenceValues);
-      const referenceMax = Math.max(...referenceValues);
-      const referenceSpan = Math.max(referenceMax - referenceMin, (domain[1] - domain[0]) * 0.12, 0.01);
-      const axisPadding = referenceSpan * 0.14;
-      const displayRange = definition.displayRange || null;
-      const axisDomain = [
-        displayRange ? Math.max(displayRange[0], referenceMin - axisPadding) : referenceMin - axisPadding,
-        displayRange ? Math.min(displayRange[1], referenceMax + axisPadding) : referenceMax + axisPadding
-      ];
-      const denominator = Math.max(axisDomain[1] - axisDomain[0], 0.0001);
-      const mapX = (index) => padding.left + ((chartWidth * index) / Math.max(values.length - 1, 1));
-      const mapY = (value) => padding.top + ((axisDomain[1] - value) / denominator) * chartHeight;
-      const points = values.map((value, index) => ({
-        x: mapX(index),
-        y: mapY(value),
-        value
-      }));
-      const bandTop = mapY(optimalRange[1]);
-      const bandBottom = mapY(optimalRange[0]);
-      const yTicks = [0, 0.25, 0.5, 0.75, 1].map((step) => {
-        const value = axisDomain[1] - ((axisDomain[1] - axisDomain[0]) * step);
-        return {
-          y: padding.top + (chartHeight * step),
-          value
-        };
-      });
-      const xTicks = buildTrendTimeTicks(rangeKey, totalHours);
-      const finalPoint = points[points.length - 1];
-      const axisColor = "rgba(24, 33, 29, 0.30)";
-      const gridColor = "rgba(24, 33, 29, 0.10)";
-      const tickColor = "rgba(24, 33, 29, 0.56)";
-      const metricColor = state.seriesColor || getTrendSeriesColor(0);
-      const valueUnit = formatUnit(definition.unit);
-      const currentValueLabel = `${formatNumber(values[values.length - 1], definition.decimals)} ${valueUnit}`;
-      const stateColor = { optimal: "#356b53", warning: "#af7b2c", critical: "#a05444" };
-      const getPointState = (value) => evaluateMetric(definition, value).state;
-      const finalState = getPointState(values[values.length - 1]);
-      const lineSegments = points.slice(1).map((point, index) => {
-        const previous = points[index];
-        const segmentState = getPointState((previous.value + point.value) / 2);
-        return `<path d="M ${previous.x.toFixed(2)} ${previous.y.toFixed(2)} L ${point.x.toFixed(2)} ${point.y.toFixed(2)}" fill="none" stroke="${stateColor[segmentState] || stateColor.optimal}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>`;
-      }).join("");
-      const shortMetricLabel = metricLabel
-        .replace("Air temperature", "Temperature")
-        .replace("Relative humidity", "Humidity");
-      const optimalMaxLabelY = Math.max(padding.top + 14, Math.min(bandTop + 16, padding.top + chartHeight - 20));
-      const optimalMinLabelY = Math.max(padding.top + 14, Math.min(bandBottom + 16, padding.top + chartHeight - 8));
-
-      return `
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(state.ariaLabel)}" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
-          <rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" rx="18" fill="rgba(255, 255, 255, 0.62)"></rect>
-          <line x1="${snap(padding.left)}" y1="${snap(padding.top)}" x2="${snap(padding.left)}" y2="${snap(padding.top + chartHeight)}" stroke="${metricColor}" stroke-width="1.5" opacity="0.72" vector-effect="non-scaling-stroke"></line>
-          <line x1="${snap(padding.left)}" y1="${snap(padding.top + chartHeight)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(padding.top + chartHeight)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
-          ${yTicks.map((tick) => `
-            <line
-              x1="${snap(padding.left)}"
-              y1="${snap(tick.y)}"
-              x2="${snap(padding.left + chartWidth)}"
-              y2="${snap(tick.y)}"
-              stroke="${gridColor}"
-              stroke-width="1"
-              vector-effect="non-scaling-stroke"
-            ></line>
-            <line
-              x1="${snap(padding.left - 8)}"
-              y1="${snap(tick.y)}"
-              x2="${snap(padding.left)}"
-              y2="${snap(tick.y)}"
-              stroke="${metricColor}"
-              stroke-width="1.5"
-              opacity="0.72"
-              vector-effect="non-scaling-stroke"
-            ></line>
-            <text
-              x="${Math.round(padding.left - 14)}"
-              y="${Math.round(tick.y + 4)}"
-              text-anchor="end"
-              font-size="12"
-              font-weight="700"
-              fill="${metricColor}"
-            >${escapeHtml(formatTrendTickValue(tick.value, definition))}</text>
-          `).join("")}
-          ${xTicks.map((tick) => {
-            const x = padding.left + (chartWidth * tick.progress);
-            return `
-              <line
-                x1="${snap(x)}"
-                y1="${snap(padding.top + chartHeight)}"
-                x2="${snap(x)}"
-                y2="${snap(padding.top + chartHeight + 8)}"
-                stroke="${axisColor}"
-                stroke-width="1.5"
-                vector-effect="non-scaling-stroke"
-              ></line>
-              <text
-                x="${Math.round(x)}"
-                y="${Math.round(padding.top + chartHeight + 24)}"
-                text-anchor="middle"
-                font-size="12"
-                font-weight="700"
-                fill="${tickColor}"
-              >${escapeHtml(tick.label)}</text>
-            `;
-          }).join("")}
-          <line x1="${snap(padding.left)}" y1="${snap(bandTop)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(bandTop)}" stroke="${metricColor}" stroke-width="1.35" stroke-dasharray="7 6" opacity="0.62" vector-effect="non-scaling-stroke"></line>
-          <line x1="${snap(padding.left)}" y1="${snap(bandBottom)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(bandBottom)}" stroke="${metricColor}" stroke-width="1.35" stroke-dasharray="7 6" opacity="0.62" vector-effect="non-scaling-stroke"></line>
-          <text x="${Math.round(padding.left + 12)}" y="${Math.round(optimalMaxLabelY)}" font-size="10.5" font-weight="850" fill="${metricColor}" opacity="0.78">${escapeHtml(`${shortMetricLabel} optimal max`)}</text>
-          <text x="${Math.round(padding.left + 12)}" y="${Math.round(optimalMinLabelY)}" font-size="10.5" font-weight="850" fill="${metricColor}" opacity="0.78">${escapeHtml(`${shortMetricLabel} optimal min`)}</text>
-          ${lineSegments}
-          <circle cx="${Math.round(finalPoint.x)}" cy="${Math.round(finalPoint.y)}" r="4.8" fill="#ffffff" stroke="${stateColor[finalState] || stateColor.optimal}" stroke-width="2" vector-effect="non-scaling-stroke"></circle>
-          <rect
-            x="${Math.round(Math.max(padding.left + 16, finalPoint.x - 46))}"
-            y="${Math.round(Math.max(padding.top + 10, finalPoint.y - 34))}"
-            width="96"
-            height="24"
-            rx="12"
-            fill="rgba(255, 255, 255, 0.92)"
-            stroke="rgba(24, 33, 29, 0.10)"
-          ></rect>
-          <text
-            x="${Math.round(Math.max(padding.left + 64, finalPoint.x + 2))}"
-            y="${Math.round(Math.max(padding.top + 26, finalPoint.y - 18))}"
-            text-anchor="middle"
-            font-size="12"
-            font-weight="800"
-            fill="${stateColor[finalState] || stateColor.optimal}"
-          >${escapeHtml(currentValueLabel)}</text>
-          <text
-            x="${Math.round(padding.left + (chartWidth / 2))}"
-            y="${Math.round(height - 18)}"
-            text-anchor="middle"
-            font-size="13"
-            font-weight="800"
-            fill="${axisColor}"
-          >${escapeHtml(`Time (${rangeLabel})`)}</text>
-          <text
-            x="22"
-            y="${Math.round(padding.top + (chartHeight / 2))}"
-            text-anchor="middle"
-            font-size="13"
-            font-weight="800"
-            fill="${metricColor}"
-            transform="rotate(-90 22 ${Math.round(padding.top + (chartHeight / 2))})"
-          >${escapeHtml(`${metricLabel} (${valueUnit})`)}</text>
-        </svg>
-      `;
     }
 
     function getTrendSeriesColor(index) {
@@ -11618,103 +10942,7 @@ function buildTrendMetricOptions(options) {
       };
     }
 
-    function renderDualTrendChartSvg(state) {
-      const width = 980;
-      const height = 390;
-      const padding = { top: 30, right: 88, bottom: 82, left: 88 };
-      const chartWidth = width - padding.left - padding.right;
-      const chartHeight = height - padding.top - padding.bottom;
-      const snap = (value) => Math.round(value) + 0.5;
-      const { seriesItems, rangeKey, rangeLabel, totalHours } = state;
-      const leftItem = seriesItems[0];
-      const rightItem = seriesItems[1];
-      const leftColor = getTrendSeriesColor(0);
-      const rightColor = getTrendSeriesColor(1);
-      const mapX = (index, length) => padding.left + ((chartWidth * index) / Math.max(length - 1, 1));
-      const leftOptimalRange = leftItem.option.optimalRange || leftItem.option.definition.optimal;
-      const rightOptimalRange = rightItem.option.optimalRange || rightItem.option.definition.optimal;
-      const leftAxisDomain = getTrendAxisDomain(leftItem.series.values, leftItem.option.definition, leftOptimalRange);
-      const rightAxisDomain = getTrendAxisDomain(rightItem.series.values, rightItem.option.definition, rightOptimalRange);
-      const mapLeftY = (value) => padding.top + ((leftAxisDomain[1] - value) / Math.max(leftAxisDomain[1] - leftAxisDomain[0], 0.0001)) * chartHeight;
-      const mapRightY = (value) => padding.top + ((rightAxisDomain[1] - value) / Math.max(rightAxisDomain[1] - rightAxisDomain[0], 0.0001)) * chartHeight;
-      const yTicks = [0, 0.25, 0.5, 0.75, 1].map((step) => ({
-        y: padding.top + (chartHeight * step),
-        leftValue: leftAxisDomain[1] - ((leftAxisDomain[1] - leftAxisDomain[0]) * step),
-        rightValue: rightAxisDomain[1] - ((rightAxisDomain[1] - rightAxisDomain[0]) * step)
-      }));
-      const xTicks = buildTrendTimeTicks(rangeKey, totalHours);
-      const axisColor = "rgba(24, 33, 29, 0.30)";
-      const gridColor = "rgba(24, 33, 29, 0.10)";
-      const tickColor = "rgba(24, 33, 29, 0.56)";
-      const buildTargetBand = (item, mapY, color, side) => {
-        const optimalRange = item.option.optimalRange || item.option.definition.optimal;
-        const yTop = mapY(Math.max(optimalRange[0], optimalRange[1]));
-        const yBottom = mapY(Math.min(optimalRange[0], optimalRange[1]));
-        const isLeft = side === "left";
-        const labelX = isLeft ? padding.left + 12 : padding.left + chartWidth - 12;
-        const textAnchor = isLeft ? "start" : "end";
-        const dashPattern = "7 6";
-        const shortLabel = item.option.label
-          .replace("Air temperature", "Temperature")
-          .replace("Relative humidity", "Humidity");
-        const topLabelY = Math.max(padding.top + 14, Math.min(yTop + 16, padding.top + chartHeight - 20));
-        const bottomLabelY = Math.max(padding.top + 14, Math.min(yBottom + 16, padding.top + chartHeight - 8));
-        return `
-          <line x1="${snap(padding.left)}" y1="${snap(yTop)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(yTop)}" stroke="${color}" stroke-width="1.35" stroke-dasharray="${dashPattern}" opacity="0.62" vector-effect="non-scaling-stroke"></line>
-          <line x1="${snap(padding.left)}" y1="${snap(yBottom)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(yBottom)}" stroke="${color}" stroke-width="1.35" stroke-dasharray="${dashPattern}" opacity="0.62" vector-effect="non-scaling-stroke"></line>
-          <text x="${labelX.toFixed(2)}" y="${topLabelY.toFixed(2)}" text-anchor="${textAnchor}" font-size="10.5" font-weight="850" fill="${color}" opacity="0.78">${escapeHtml(`${shortLabel} optimal max`)}</text>
-          <text x="${labelX.toFixed(2)}" y="${bottomLabelY.toFixed(2)}" text-anchor="${textAnchor}" font-size="10.5" font-weight="850" fill="${color}" opacity="0.78">${escapeHtml(`${shortLabel} optimal min`)}</text>
-        `;
-      };
-      const targetBands = `${buildTargetBand(leftItem, mapLeftY, leftColor, "left")}${buildTargetBand(rightItem, mapRightY, rightColor, "right")}`;
-      const lines = seriesItems.map((item, seriesIndex) => {
-        const color = getTrendSeriesColor(seriesIndex);
-        const mapY = seriesIndex === 0 ? mapLeftY : mapRightY;
-        const points = item.series.values.map((value, index) => ({
-          x: mapX(index, item.series.values.length),
-          y: mapY(value),
-          value
-        }));
-        const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
-        const finalPoint = points[points.length - 1];
-        return `
-          <path d="${path}" fill="none" stroke="${color}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
-          <circle cx="${Math.round(finalPoint.x)}" cy="${Math.round(finalPoint.y)}" r="4.4" fill="#ffffff" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"></circle>
-        `;
-      }).join("");
-      const legend = seriesItems.map((item, index) => `
-        <g transform="translate(${padding.left + (index * 168)} ${height - 34})">
-          <circle cx="0" cy="0" r="5" fill="${getTrendSeriesColor(index)}"></circle>
-          <text x="12" y="4" font-size="12" font-weight="800" fill="rgba(24, 33, 29, 0.70)">${escapeHtml(`${item.option.label} (${index === 0 ? "left" : "right"} axis)`)}</text>
-        </g>
-      `).join("");
-      return `
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(state.ariaLabel)}" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
-          <rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" rx="10" fill="rgba(255, 255, 255, 0.62)"></rect>
-          <line x1="${snap(padding.left)}" y1="${snap(padding.top)}" x2="${snap(padding.left)}" y2="${snap(padding.top + chartHeight)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
-          <line x1="${snap(padding.left + chartWidth)}" y1="${snap(padding.top)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(padding.top + chartHeight)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
-          <line x1="${snap(padding.left)}" y1="${snap(padding.top + chartHeight)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(padding.top + chartHeight)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
-          ${yTicks.map((tick) => `
-            <line x1="${snap(padding.left)}" y1="${snap(tick.y)}" x2="${snap(padding.left + chartWidth)}" y2="${snap(tick.y)}" stroke="${gridColor}" stroke-width="1" vector-effect="non-scaling-stroke"></line>
-            <text x="${Math.round(padding.left - 14)}" y="${Math.round(tick.y + 4)}" text-anchor="end" font-size="12" font-weight="700" fill="${leftColor}">${escapeHtml(formatTrendTickValue(tick.leftValue, leftItem.option.definition))}</text>
-            <text x="${Math.round(padding.left + chartWidth + 14)}" y="${Math.round(tick.y + 4)}" text-anchor="start" font-size="12" font-weight="700" fill="${rightColor}">${escapeHtml(formatTrendTickValue(tick.rightValue, rightItem.option.definition))}</text>
-          `).join("")}
-          ${xTicks.map((tick) => {
-            const x = padding.left + (chartWidth * tick.progress);
-            return `
-              <line x1="${snap(x)}" y1="${snap(padding.top + chartHeight)}" x2="${snap(x)}" y2="${snap(padding.top + chartHeight + 8)}" stroke="${axisColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
-              <text x="${Math.round(x)}" y="${Math.round(padding.top + chartHeight + 24)}" text-anchor="middle" font-size="12" font-weight="700" fill="${tickColor}">${escapeHtml(tick.label)}</text>
-            `;
-          }).join("")}
-          ${targetBands}
-          ${lines}
-          <text x="${Math.round(padding.left + (chartWidth / 2))}" y="${Math.round(height - 18)}" text-anchor="middle" font-size="13" font-weight="800" fill="${axisColor}">${escapeHtml(`Time (${rangeLabel})`)}</text>
-          <text x="22" y="${Math.round(padding.top + (chartHeight / 2))}" text-anchor="middle" font-size="13" font-weight="800" fill="${leftColor}" transform="rotate(-90 22 ${Math.round(padding.top + (chartHeight / 2))})">${escapeHtml(`${leftItem.option.label} (${formatUnit(leftItem.option.definition.unit)})`)}</text>
-          <text x="${width - 22}" y="${Math.round(padding.top + (chartHeight / 2))}" text-anchor="middle" font-size="13" font-weight="800" fill="${rightColor}" transform="rotate(90 ${width - 22} ${Math.round(padding.top + (chartHeight / 2))})">${escapeHtml(`${rightItem.option.label} (${formatUnit(rightItem.option.definition.unit)})`)}</text>
-          ${legend}
-        </svg>
-      `;
-    }
+
 
     function getTrendAggregationLabel(response) {
       const stepMinutes = Number(response?.stepMinutes);
@@ -11864,11 +11092,7 @@ function buildTrendMetricOptions(options) {
       }
 
       const series = seriesItems[0].series;
-      const startValue = series.values[0];
       const currentValue = series.values[series.values.length - 1];
-      const deltaValue = roundValue(currentValue - startValue, selectedMetric.definition.decimals);
-      const historyLow = Math.min(...series.values);
-      const historyHigh = Math.max(...series.values);
       const recentReference = series.values[Math.max(0, series.values.length - Math.min(5, series.values.length))];
       const recentDelta = currentValue - recentReference;
       const optimalRange = selectedMetric.optimalRange || selectedMetric.definition.optimal;
@@ -12149,7 +11373,7 @@ function buildTrendMetricOptions(options) {
     function openCsvExportModal() {
       const site = getActiveSite();
       const zone = getActiveZone(site);
-      const rangeConfig = trendRangeConfig[activeTrendRangeKey] || trendRangeConfig["24h"];
+
       if (!isApiDataMode() || activeViewScope === "site" || !zone?.id) return;
       const metricKeys = getCsvExportMetricKeys(zone);
       const profile = cropProfiles[zone.profile] || getDefaultCropProfileTemplate();
@@ -12729,47 +11953,9 @@ function buildTrendMetricOptions(options) {
       }
     }
 
-    function renderZoneCards(profile, results) {
-      const nonOptimalResults = results.filter((item) => item.available !== false && isGrowthMetricKey(item.key) && item.state !== "optimal");
 
-      if (nonOptimalResults.length === 0) {
-        return `
-          <article class="zone-card p-5" data-state="optimal">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-sm font-semibold text-moss">Stable block</p>
-                <h4 class="mt-2 text-lg font-bold text-ink">All key blocks are stable</h4>
-              </div>
-              <span class="state-chip" data-state="optimal">Optimal</span>
-            </div>
-            <p class="mt-3 text-sm leading-6 text-ink/64">No urgent intervention is needed.</p>
-          </article>
-        `;
-      }
 
-      return nonOptimalResults.map((item) => {
-        const definition = profile.metrics[item.key];
-        return `
-          <article class="zone-card p-5" data-state="${item.state}">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-sm font-semibold ${item.state === "critical" ? "text-ember" : "text-amber"}">${item.state === "critical" ? "High priority" : "Medium priority"}</p>
-                <h4 class="mt-2 text-lg font-bold text-ink">${definition.zone}</h4>
-              </div>
-              <span class="state-chip" data-state="${item.state}">${stateConfig[item.state].label}</span>
-            </div>
-            <p class="mt-3 text-sm leading-6 text-ink/66">${definition.action}</p>
-            <div class="mt-4 rounded-[20px] bg-white/70 px-4 py-3 text-sm text-ink/66">
-              <strong>${definition.label}</strong> | <strong>${formatValue(item.value, definition)}</strong>
-            </div>
-          </article>
-        `;
-      }).join("");
-    }
 
-    function renderPriorities(items) {
-      return items.map((item) => `<div class="rounded-[22px] border border-black/6 bg-[#f7f2e8] px-4 py-3 leading-6">${escapeHtml(item)}</div>`).join("");
-    }
 
     function evaluateZoneSnapshot(site, zone, readingsOverride = null) {
       const profile = cropProfiles[zone.profile];
@@ -12828,189 +12014,6 @@ function buildTrendMetricOptions(options) {
         default:
           return items;
       }
-    }
-
-    function persistAlertActionState() {
-      try {
-        window.localStorage.setItem(alertActionStorageKey, JSON.stringify(alertActionState));
-      } catch (error) {
-        // The prototype remains usable if browser storage is unavailable.
-      }
-    }
-
-    function formatAlertDuration(timestamp) {
-      if (!timestamp || !Number.isFinite(new Date(timestamp).getTime())) {
-        return diagnosticText("Time unavailable", "Laikas dar nežinomas");
-      }
-      const minutes = Math.max(1, Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000));
-      if (minutes < 60) return `${minutes} min`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours} h ${minutes % 60} min`;
-      return `${Math.floor(hours / 24)} d ${hours % 24} h`;
-    }
-
-    function buildAlertRecords(issues) {
-      let changed = false;
-      const records = issues.map((issue) => {
-        const primaryResult = issue.results
-          .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
-          .sort((left, right) => right.severity - left.severity)[0];
-        if (!primaryResult) return null;
-
-        const definition = issue.profile.metrics[primaryResult.key];
-        const id = `${issue.site.id}:${issue.zone.id}:${primaryResult.key}`;
-        if (!alertActionState[id]) {
-          alertActionState[id] = {
-            status: "open",
-            // API alert events will provide the real detectedAt timestamp.
-            detectedAt: null,
-            updatedAt: null,
-            updatedBy: null,
-            snapshot: {
-              siteId: issue.site.id,
-              zoneId: issue.zone.id,
-              metricKey: primaryResult.key,
-              metricLabel: definition.label,
-              value: formatValue(primaryResult.value, definition),
-              deviation: primaryResult.deviationText,
-              state: primaryResult.state
-            }
-          };
-          changed = true;
-        }
-
-        const action = alertActionState[id];
-        return {
-          id,
-          site: issue.site,
-          zone: issue.zone,
-          state: primaryResult.state,
-          metricKey: primaryResult.key,
-          metricLabel: definition.label,
-          value: formatValue(primaryResult.value, definition),
-          deviation: primaryResult.deviationText,
-          detectedAt: action.detectedAt,
-          status: action.status || "open",
-          updatedAt: action.updatedAt || null,
-          updatedBy: action.updatedBy || null
-        };
-      }).filter(Boolean);
-
-      Object.entries(alertActionState).forEach(([id, action]) => {
-        if (action.status !== "resolved" || records.some((record) => record.id === id) || !action.snapshot) return;
-        const site = dashboardData.sites.find((item) => item.id === action.snapshot.siteId);
-        const zone = site?.zones?.find((item) => item.id === action.snapshot.zoneId);
-        if (!site || !zone) return;
-        records.push({
-          id,
-          site,
-          zone,
-          state: action.snapshot.state || "optimal",
-          metricKey: action.snapshot.metricKey,
-          metricLabel: action.snapshot.metricLabel,
-          value: action.snapshot.value,
-          deviation: action.snapshot.deviation,
-          detectedAt: action.detectedAt,
-          status: "resolved",
-          updatedAt: action.updatedAt || null,
-          updatedBy: action.updatedBy || null
-        });
-      });
-
-      if (changed) persistAlertActionState();
-      return records;
-    }
-
-    function renderAlertsManagementPage(records) {
-      currentAlertRecords = records;
-      const statusOrder = ["critical", "warning", "acknowledged", "snoozed", "resolved"];
-      const filters = [
-        { key: "active", label: "Active", count: records.filter((record) => record.status !== "resolved").length },
-        { key: "critical", label: "Critical", count: records.filter((record) => record.status !== "resolved" && record.state === "critical").length },
-        { key: "warning", label: "Warning", count: records.filter((record) => record.status !== "resolved" && record.state === "warning").length },
-        { key: "acknowledged", label: "Acknowledged", count: records.filter((record) => record.status === "acknowledged").length },
-        { key: "snoozed", label: "Snoozed", count: records.filter((record) => record.status === "snoozed").length },
-        { key: "resolved", label: "Resolved", count: records.filter((record) => record.status === "resolved").length }
-      ];
-      const selectedFilter = filters.some((filter) => filter.key === activeAlertsPageFilter) ? activeAlertsPageFilter : "active";
-      activeAlertsPageFilter = selectedFilter;
-      const visibleRecords = records.filter((record) => {
-        if (selectedFilter === "active") return record.status !== "resolved";
-        if (statusOrder.includes(selectedFilter)) {
-          if (selectedFilter === "critical" || selectedFilter === "warning") return record.status !== "resolved" && record.state === selectedFilter;
-          return record.status === selectedFilter;
-        }
-        return true;
-      });
-      const criticalCount = filters.find((filter) => filter.key === "critical").count;
-      const warningCount = filters.find((filter) => filter.key === "warning").count;
-      const resolvedCount = filters.find((filter) => filter.key === "resolved").count;
-
-      elements.alertsManagementShell.innerHTML = `
-        <div class="surface rounded-[34px] p-6 md:p-8">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.28em] text-pine/56">Alerts</p>
-              <h2 class="mt-2 font-display text-3xl font-bold text-ink">Work the issues that need attention</h2>
-              <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/62">Each alert is tied to an Area, Section and live sensor reading. Actions are recorded locally until the backend is connected.</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <span class="state-chip" data-state="critical">${criticalCount} critical</span>
-              <span class="state-chip" data-state="warning">${warningCount} warning</span>
-              <span class="state-chip" data-state="optimal">${resolvedCount} resolved</span>
-            </div>
-          </div>
-
-          <div class="mt-6 flex flex-wrap gap-2" role="toolbar" aria-label="Alert status filters">
-            ${filters.map((filter) => `<button type="button" data-alert-page-filter="${filter.key}" data-active="${String(filter.key === selectedFilter)}" class="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-ink/68 transition data-[active=true]:border-pine/20 data-[active=true]:bg-pine data-[active=true]:text-white">${escapeHtml(filter.label)} <span class="ml-1 opacity-70">${filter.count}</span></button>`).join("")}
-          </div>
-
-          <div class="mt-6 grid gap-3">
-            ${visibleRecords.length ? visibleRecords.map((record) => `
-              <article class="rounded-[24px] border border-black/8 bg-white p-5 shadow-[0_12px_28px_rgba(20,32,27,0.04)]" data-alert-record="${escapeAttribute(record.id)}">
-                <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="state-chip" data-state="${record.state}">${stateConfig[record.state].label}</span>
-                      ${record.status !== "open" ? `<span class="rounded-full bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink/60">${escapeHtml(record.status)}</span>` : ""}
-                      <span class="text-xs font-semibold text-ink/46">Open for ${formatAlertDuration(record.detectedAt)}</span>
-                    </div>
-                    <h3 class="mt-3 text-lg font-bold text-ink">${escapeHtml(record.metricLabel)}: ${escapeHtml(record.value)}</h3>
-                    <p class="mt-1 text-sm text-ink/64">${escapeHtml(record.site.name)} · ${escapeHtml(record.zone.name)} · ${escapeHtml(record.deviation)}</p>
-                    ${record.updatedAt ? `<p class="mt-2 text-xs text-ink/46">${escapeHtml(record.status)} by ${escapeHtml(record.updatedBy || "team member")} · ${new Date(record.updatedAt).toLocaleString("lt-LT", { dateStyle: "medium", timeStyle: "short" })}</p>` : ""}
-                  </div>
-                  <div class="flex flex-wrap items-center gap-2 xl:justify-end">
-                    <button type="button" data-alert-history="${escapeAttribute(record.id)}" class="rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm font-semibold text-ink/72">View trend</button>
-                    ${record.status === "open" ? `<button type="button" data-alert-action="acknowledged" data-alert-id="${escapeAttribute(record.id)}" class="rounded-xl border border-pine/18 bg-pine/8 px-3.5 py-2.5 text-sm font-semibold text-pine">Acknowledge</button>` : ""}
-                    ${record.status !== "resolved" ? `<button type="button" data-alert-action="snoozed" data-alert-id="${escapeAttribute(record.id)}" class="rounded-xl border border-amber/18 bg-amber/8 px-3.5 py-2.5 text-sm font-semibold text-amber">Snooze</button><button type="button" data-alert-action="resolved" data-alert-id="${escapeAttribute(record.id)}" class="rounded-xl bg-pine px-3.5 py-2.5 text-sm font-semibold text-white">Resolve</button>` : ""}
-                  </div>
-                </div>
-              </article>
-            `).join("") : `
-              <div class="rounded-[24px] border border-dashed border-black/12 bg-[#fbfaf7] p-8 text-center">
-                <div class="text-lg font-bold text-ink">No ${escapeHtml(selectedFilter)} alerts</div>
-                <p class="mt-2 text-sm text-ink/58">There is nothing to action in this list right now.</p>
-              </div>
-            `}
-          </div>
-        </div>
-      `;
-    }
-
-    function openAlertHistory(record) {
-      activeSiteId = record.site.id;
-      activeZoneId = record.zone.id;
-      activeProfileKey = record.zone.profile;
-      activeViewScope = "zone";
-      activeTrendMetricKey = record.metricKey;
-      activeTrendMetricKeys = [record.metricKey];
-      activePrimaryPage = "history";
-      sidebarActionOverride = null;
-      renderZoneOptions();
-      resetCurrentReadingsFromActiveZone();
-      renderDashboard();
-      syncTopLevelRoute("/history");
-      scrollToSection("historySection");
     }
 
     function renderGlobalSystemList(items, options = {}) {
@@ -13265,11 +12268,9 @@ function buildTrendMetricOptions(options) {
       systemLowBatteryNodes,
       unavailableCount,
       availableResults,
-      growthResults,
       siteSnapshots,
       globalSnapshots,
-      isSiteView,
-      timestamp
+      isSiteView
     }) {
       const availableBackendActions = Array.isArray(backendTodayActions) ? backendTodayActions : [];
       const hasBackendActionData = Array.isArray(backendTodayActions);
@@ -13897,12 +12898,9 @@ function buildTrendMetricOptions(options) {
       zone,
       profile,
       results,
-      growthResults,
       availableResults,
-      unavailableResults,
       displayedOverallState,
       siteSnapshots,
-      alertRecords,
       zoneBatteryNodes,
       coverageOverride = null,
       isSiteView = false,
@@ -13916,13 +12914,6 @@ function buildTrendMetricOptions(options) {
       const primaryResult = rankedGrowthResults[0] || null;
       const primaryDefinition = primaryResult ? profile.metrics[primaryResult.key] : null;
       const coverage = coverageOverride || getCoverageStatsFromResults(results);
-      const primaryAlert = primaryResult
-        ? alertRecords.find((record) =>
-            record.site.id === site.id
-            && record.zone.id === zone.id
-            && record.metricKey === primaryResult.key
-          )
-        : null;
       const primaryTrend = primaryResult && primaryDefinition
         ? getDiagnosticTrend(primaryResult, primaryDefinition, `${site.id}:${zone.id}:diagnostic`)
         : null;
@@ -13990,11 +12981,9 @@ function buildTrendMetricOptions(options) {
           visual: getDiagnosticDeviationVisual(item.result, item.definition),
           impact: getDiagnosticImpact(item.result),
           trend: item.trend.direction,
-          duration: item.result.key === primaryResult?.key && primaryAlert
-            ? getDiagnosticDurationText(formatAlertDuration(primaryAlert.detectedAt))
-            : item.result.state === "optimal"
-              ? diagnosticText("In range", "Normoje")
-              : diagnosticText("Latest cycle", "Naujausias ciklas")
+          duration: item.result.state === "optimal"
+            ? diagnosticText("In range", "Normoje")
+            : diagnosticText("Latest reading", "Naujausias matavimas")
         })),
         {
           label: diagnosticText("Data coverage", "Duomenų aprėptis"),
@@ -14101,7 +13090,7 @@ function buildTrendMetricOptions(options) {
             <div class="diagnostic-command-fact">
               <span>${diagnosticText("24h direction", "24 val. kryptis")}</span>
               <strong>${primaryTrend ? escapeHtml(primaryTrend.direction) : diagnosticText("Stable", "Stabili")}</strong>
-              <small>${primaryTrend ? `${formatSignedValue(primaryTrend.delta, primaryDefinition)} · ${primaryAlert ? escapeHtml(getDiagnosticDurationText(formatAlertDuration(primaryAlert.detectedAt))) : diagnosticText("latest reading", "naujausias matavimas")}` : diagnosticText("No active deviation", "Aktyvaus nuokrypio nėra")}</small>
+              <small>${primaryTrend ? `${formatSignedValue(primaryTrend.delta, primaryDefinition)} · ${diagnosticText("latest reading", "naujausias matavimas")}` : diagnosticText("No active deviation", "Aktyvaus nuokrypio nėra")}</small>
             </div>
             <div class="diagnostic-command-fact">
               <span>${diagnosticText("Data coverage", "Duomenų aprėptis")}</span>
@@ -14386,7 +13375,6 @@ function buildTrendMetricOptions(options) {
       elements.blocksManagementSection.hidden = true;
       elements.nodesManagementSection.hidden = true;
       elements.settingsManagementSection.hidden = true;
-      elements.alertsManagementSection.hidden = true;
       elements.heroStatusPanel.hidden = true;
       elements.todayPriorityPanel.hidden = true;
       elements.metricsSection.hidden = true;
@@ -14445,8 +13433,7 @@ function buildTrendMetricOptions(options) {
       const isNodesPage = activePrimaryPage === "nodes";
       const isSettingsPage = activePrimaryPage === "settings";
       const isAdminPage = activePrimaryPage === "admin";
-      const isAlertsPage = activePrimaryPage === "alerts";
-      const showWorkspaceSetup = !isLocationsPage && !isBlocksPage && !isNodesPage && !isSettingsPage && !isAdminPage && !isAlertsPage;
+      const showWorkspaceSetup = !isLocationsPage && !isBlocksPage && !isNodesPage && !isSettingsPage && !isAdminPage;
 
       elements.siteContextValue.textContent = diagnosticText("No areas", "Nėra area");
       elements.siteContextMeta.textContent = diagnosticText("Create the first area", "Sukurkite pirmą area");
@@ -14465,7 +13452,6 @@ function buildTrendMetricOptions(options) {
       elements.blocksManagementSection.hidden = !isBlocksPage;
       elements.nodesManagementSection.hidden = !isNodesPage;
       elements.settingsManagementSection.hidden = !(isSettingsPage || isAdminPage);
-      elements.alertsManagementSection.hidden = !isAlertsPage;
       elements.overviewTriageSection.hidden = !showWorkspaceSetup;
       elements.heroStatusPanel.hidden = true;
       elements.todayPriorityPanel.hidden = true;
@@ -14486,7 +13472,6 @@ function buildTrendMetricOptions(options) {
       if (isBlocksPage) renderBlocksManagementPage([]);
       if (isNodesPage) renderNodesManagementPage([]);
       if (isSettingsPage || isAdminPage) renderSettingsManagementPage([]);
-      if (isAlertsPage) renderAlertsManagementPage([]);
 
       if (showWorkspaceSetup) {
         elements.overviewTriageSection.dataset.state = "neutral";
@@ -14516,8 +13501,7 @@ function buildTrendMetricOptions(options) {
       const isHistoryPage = activePrimaryPage === "history";
       const isSettingsPage = activePrimaryPage === "settings";
       const isAdminPage = activePrimaryPage === "admin";
-      const isAlertsPage = activePrimaryPage === "alerts";
-      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isSettingsPage || isAdminPage || isAlertsPage;
+      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isSettingsPage || isAdminPage;
       const isPrimaryWorkspacePage = isManagementPage || isHistoryPage || isReadingsPage;
       const site = getActiveSite();
       const zone = getActiveZone(site);
@@ -14633,7 +13617,6 @@ function buildTrendMetricOptions(options) {
       const criticalSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "critical");
       const warningSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "warning");
       const currentSiteSystemIssues = allSystemIssues.filter((snapshot) => snapshot.site.id === site.id);
-      const alertRecords = buildAlertRecords(allSystemIssues);
       const siteSnapshots = globalSnapshots.filter((snapshot) => snapshot.site.id === site.id);
       const weakestSiteSnapshot = getWeakestSiteSnapshot(siteSnapshots);
       const siteOverallState = deriveSiteOverallState(siteSnapshots);
@@ -14986,12 +13969,9 @@ function buildTrendMetricOptions(options) {
           ? `${site.name} is in hotspot ranking mode`
           : `${site.name} is in location-average mode`
         : `${zone.name} is open inside ${site.name}`;
-      const opsAlertSummary = alertsModuleEnabled
-        ? `, ${activeAlertRailFilter.label.toLowerCase()} alerts`
-        : "";
       const opsDockSummary = manualOverride
-        ? `${opsScopeSummary}. Manual branch is active with ${opsRouteSummary}, ${(activeWorkbenchLens?.label || "focus").toLowerCase()} workbench lens${opsAlertSummary}, and ${opsPowerSummary}.`
-        : `${opsScopeSummary}. ${scenarioDefinition.shortLabel} scenario is active with ${opsRouteSummary}, ${(activeWorkbenchLens?.label || "focus").toLowerCase()} workbench lens${opsAlertSummary}, and ${opsPowerSummary}.`;
+        ? `${opsScopeSummary}. Manual branch is active with ${opsRouteSummary}, ${(activeWorkbenchLens?.label || "focus").toLowerCase()} workbench lens, and ${opsPowerSummary}.`
+        : `${opsScopeSummary}. ${scenarioDefinition.shortLabel} scenario is active with ${opsRouteSummary}, ${(activeWorkbenchLens?.label || "focus").toLowerCase()} workbench lens, and ${opsPowerSummary}.`;
       const opsDockCards = [
         {
           action: "scenario",
@@ -15022,14 +14002,6 @@ function buildTrendMetricOptions(options) {
           cta: "Open analytics"
         },
         {
-          action: "alerts",
-          tone: activeAlertRailFilter.tone || globalState,
-          kicker: "Alerts",
-          value: filteredAlertRailItems.length > 0 ? `${filteredAlertRailItems.length} active` : "Clear",
-          note: `${criticalSystemIssues.length} critical, ${warningSystemIssues.length} warning, ${allSystemIssues.length} active incidents in total.`,
-          cta: "Review alerts"
-        },
-        {
           action: "power",
           tone: powerCardTone,
           kicker: "Power triage",
@@ -15037,7 +14009,7 @@ function buildTrendMetricOptions(options) {
           note: powerCardNote,
           cta: "Open power board"
         }
-      ].filter((card) => alertsModuleEnabled || card.action !== "alerts");
+      ];
       const isOpsDockResetDisabled = activeWorkbenchLensKey === "focus"
         && activeInspectionRouteFilterKey === "focus"
         && activeAlertRailFilterKey === "all"
@@ -15082,7 +14054,6 @@ function buildTrendMetricOptions(options) {
       if (isBlocksPage) renderBlocksManagementPage(globalSnapshots);
       if (isNodesPage) renderNodesManagementPage();
       if (isSettingsPage || isAdminPage) renderSettingsManagementPage(globalSnapshots);
-      if (isAlertsPage) renderAlertsManagementPage(alertRecords);
 
       if (!isPrimaryWorkspacePage && isSimpleExperienceMode) {
         renderOverviewTriage({
@@ -15119,7 +14090,6 @@ function buildTrendMetricOptions(options) {
           unavailableResults: detailedGrowthResults.filter((item) => item.available === false),
           displayedOverallState,
           siteSnapshots,
-          alertRecords,
           zoneBatteryNodes: isSiteView ? siteBatteryNodes : zoneBatteryNodes,
           coverageOverride: isSiteView ? getCoverageStatsFromSiteSnapshots(siteSnapshots) : null,
           isSiteView,
@@ -15211,7 +14181,6 @@ function buildTrendMetricOptions(options) {
       elements.blocksManagementSection.hidden = !isBlocksPage;
       elements.nodesManagementSection.hidden = !isNodesPage;
       elements.settingsManagementSection.hidden = !(isSettingsPage || isAdminPage);
-      elements.alertsManagementSection.hidden = !isAlertsPage;
       elements.overviewTriageSection.hidden = isPrimaryWorkspacePage || isDetailedExperienceMode;
       elements.detailedDiagnosticsSection.hidden = !isDetailedOverview;
       if (elements.sidebarQuickActions) elements.sidebarQuickActions.hidden = true;
@@ -15405,9 +14374,6 @@ function buildTrendMetricOptions(options) {
         const priorityDelta = prioritySeries
           ? roundValue(prioritySeries.values[prioritySeries.values.length - 1] - prioritySeries.values[0], priorityDefinition.decimals)
           : 0;
-        const priorityAlert = priorityResult
-          ? alertRecords.find((record) => record.site.id === prioritySnapshot.site.id && record.zone.id === prioritySnapshot.zone.id && record.metricKey === priorityResult.key)
-          : null;
         const priorityTrend = firstBackendPriority
           ? "Latest live reading"
           : !priorityDefinition
@@ -15432,7 +14398,7 @@ function buildTrendMetricOptions(options) {
           definition: priorityDefinition,
           result: priorityResult,
           trend: priorityTrend,
-          duration: firstBackendPriority ? "Latest reading" : priorityAlert ? formatAlertDuration(priorityAlert.detectedAt) : "Latest reading",
+          duration: "Latest reading",
           scopeLabel: prioritySnapshot.zone.name,
           siteId: prioritySnapshot.site.id,
           zoneId: prioritySnapshot.zone.id,
@@ -15614,8 +14580,6 @@ function buildTrendMetricOptions(options) {
             metricResults: results,
             siteAverageSummaries
           });
-      currentTrendMetricOptions = trendMetricOptions;
-
       if (!skipMetricsGrid) {
         elements.metricsGrid.dataset.display = isReadingsPage
           ? isSiteView ? "area-readings-board" : "readings-board"
@@ -16400,14 +15364,6 @@ function buildTrendMetricOptions(options) {
         return;
       }
 
-      const profileViewButton = event.target.closest("[data-settings-profile-view]");
-      if (profileViewButton) {
-        activeCropProfileView = profileViewButton.dataset.settingsProfileView === "library" ? "library" : "mine";
-        clearManagementNotice("settings");
-        renderDashboard();
-        return;
-      }
-
       const createModeButton = event.target.closest("[data-settings-create-mode]");
       if (createModeButton) {
         settingsProfileFormState.mode = createModeButton.dataset.settingsCreateMode === "blank" ? "blank" : "template";
@@ -16426,7 +15382,6 @@ function buildTrendMetricOptions(options) {
           sourceProfile: template.sourceProfile || activeSettingsProfileKey,
           mode: template.status === "available" ? "template" : "blank"
         };
-        activeCropProfileView = "mine";
         clearManagementNotice("settings");
         renderDashboard();
         return;
@@ -17244,9 +16199,6 @@ function buildTrendMetricOptions(options) {
         runDashboardAction("nodes");
         return;
       }
-      if (action === "alerts") {
-        runDashboardAction("alerts");
-      }
     });
 
     elements.detailedDiagnosticsSection.addEventListener("click", (event) => {
@@ -17293,9 +16245,6 @@ function buildTrendMetricOptions(options) {
         runDashboardAction("nodes");
         return;
       }
-      if (action === "alerts") {
-        runDashboardAction("alerts");
-      }
     });
 
     elements.todayPriorityPanel.addEventListener("click", (event) => {
@@ -17335,36 +16284,6 @@ function buildTrendMetricOptions(options) {
       const alert = event.target.closest("[data-today-alert-site-id]");
       if (!alert) return;
       openZoneDetail(alert.dataset.todayAlertSiteId, alert.dataset.todayAlertZoneId);
-    });
-
-    elements.alertsManagementSection.addEventListener("click", (event) => {
-      const filterButton = event.target.closest("[data-alert-page-filter]");
-      if (filterButton) {
-        activeAlertsPageFilter = filterButton.dataset.alertPageFilter || "active";
-        renderDashboard();
-        return;
-      }
-
-      const historyButton = event.target.closest("[data-alert-history]");
-      if (historyButton) {
-        const record = currentAlertRecords.find((item) => item.id === historyButton.dataset.alertHistory);
-        if (record) openAlertHistory(record);
-        return;
-      }
-
-      const actionButton = event.target.closest("[data-alert-action]");
-      if (!actionButton) return;
-      const id = actionButton.dataset.alertId;
-      const status = actionButton.dataset.alertAction;
-      if (!id || !status || !alertActionState[id]) return;
-      alertActionState[id] = {
-        ...alertActionState[id],
-        status,
-        updatedAt: new Date().toISOString(),
-        updatedBy: "admin@neurocrop.com"
-      };
-      persistAlertActionState();
-      renderDashboard();
     });
 
     elements.metricsGrid.addEventListener("click", (event) => {
