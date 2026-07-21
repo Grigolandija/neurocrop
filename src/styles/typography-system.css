@@ -424,6 +424,11 @@ small {
   line-height: 1.4 !important;
 }
 
+.designer-app #nodesManagementSection .nc-data-table td strong {
+  font-size: var(--nc-type-caption) !important;
+  line-height: 1.4 !important;
+}
+
 .designer-app .settings-section-nav button small,
 .designer-app .settings-section-nav button b,
 .designer-app .crop-profile-metric-boundary b,
