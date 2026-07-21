@@ -81,72 +81,48 @@
         </div>
       </div>
     </header>
-    <aside class="dashboard-sidebar hidden w-72 shrink-0 border-r border-black/6 bg-[#f6f0e4]/88 xl:flex xl:flex-col">
-      <div class="border-b border-black/6 px-5 py-4">
-        <div class="flex items-start gap-3">
-          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-pine text-white shadow-lg shadow-pine/15">
-            <i class="fa-solid fa-seedling text-base"></i>
-          </div>
-          <div class="min-w-0 flex-1">
-            <p class="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-pine/58">NeuroCrop</p>
-            <h1 class="font-display text-[1.65rem] font-bold leading-[0.94] text-ink">Control Center</h1>
-          </div>
-        </div>
+    <aside class="dashboard-sidebar dashboard-sidebar--redesign hidden shrink-0 xl:flex xl:flex-col">
+      <div class="sidebar-rail-brand">
+        <span class="sidebar-brand-mark" aria-hidden="true"><i class="fa-solid fa-seedling"></i></span>
+        <span class="sidebar-brand-word"><strong>Neuro</strong>Crop</span>
       </div>
 
-      <nav class="flex-1 px-4 py-5">
-        <div class="space-y-2">
-          <p class="nav-group-label">Daily work</p>
-          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="overview" data-active="true" aria-current="page">
-            <span class="flex items-center gap-3">
-              <i class="fa-solid fa-list-check w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem] font-semibold">Today</span>
-            </span>
-          </button>
-          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="readings" data-active="false">
-            <span class="flex items-center gap-3">
-              <i class="fa-solid fa-table-columns w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Compare sections</span>
-            </span>
-          </button>
-          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="history" data-active="false">
-            <span class="flex items-center gap-3">
-              <i class="fa-solid fa-chart-line w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Trends</span>
-            </span>
-          </button>
-          <p class="nav-group-label nav-group-label-spaced">System setup</p>
-          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="sites" data-active="false">
-            <span class="flex items-center gap-3">
-              <i class="fa-solid fa-location-dot w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Areas</span>
-            </span>
-          </button>
-          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="zones" data-active="false">
-            <span class="flex items-center gap-3">
-              <i class="fa-solid fa-border-all w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Sections</span>
-            </span>
-          </button>
-          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="nodes" data-active="false">
-            <span class="flex items-center gap-3">
-              <i class="fa-solid fa-microchip w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Sensor nodes</span>
-            </span>
-          </button>
-          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="settings" data-active="false">
-            <span class="flex items-center gap-3">
-              <i class="fa-solid fa-sliders w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Settings</span>
-            </span>
-          </button>
-          <button type="button" class="nav-link nav-link-button flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-ink/56" data-sidebar-action="admin" data-active="false" hidden>
-            <span class="flex items-center gap-3">
-              <i class="fa-solid fa-user-shield w-5 text-center text-amber"></i>
-              <span class="text-[1.02rem]">Admin</span>
-            </span>
-          </button>
-        </div>
+      <nav class="sidebar-rail-nav" aria-label="Primary navigation">
+        <p class="nav-group-label">Daily work</p>
+        <button type="button" class="nav-link nav-link-button" data-sidebar-action="overview" data-active="true" aria-current="page">
+          <i class="fa-solid fa-chart-pie" aria-hidden="true"></i>
+          <span>Overview</span>
+        </button>
+        <button type="button" class="nav-link nav-link-button" data-sidebar-action="sites" data-active="false">
+          <i class="fa-solid fa-map" aria-hidden="true"></i>
+          <span class="text-[1.02rem]">Areas</span>
+        </button>
+        <button type="button" class="nav-link nav-link-button" data-sidebar-action="zones" data-active="false">
+          <i class="fa-solid fa-border-all" aria-hidden="true"></i>
+          <span class="text-[1.02rem]">Sections</span>
+        </button>
+        <button type="button" class="nav-link nav-link-button" data-sidebar-action="nodes" data-active="false">
+          <i class="fa-solid fa-microchip" aria-hidden="true"></i>
+          <span>Sensor nodes</span>
+        </button>
+        <button type="button" class="nav-link nav-link-button" data-sidebar-action="readings" data-active="false">
+          <i class="fa-solid fa-wave-square" aria-hidden="true"></i>
+          <span>Live readings</span>
+        </button>
+        <button type="button" class="nav-link nav-link-button" data-sidebar-action="history" data-active="false">
+          <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+          <span>Trends</span>
+        </button>
+
+        <p class="nav-group-label nav-group-label-spaced">System setup</p>
+        <button type="button" class="nav-link nav-link-button" data-sidebar-action="settings" data-active="false">
+          <i class="fa-solid fa-gear" aria-hidden="true"></i>
+          <span>Settings</span>
+        </button>
+        <button type="button" class="nav-link nav-link-button" data-sidebar-action="admin" data-active="false" hidden>
+          <i class="fa-solid fa-building" aria-hidden="true"></i>
+          <span>Platform admin</span>
+        </button>
       </nav>
 
       <div hidden aria-hidden="true">

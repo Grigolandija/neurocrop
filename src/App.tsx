@@ -6,6 +6,7 @@ import './App.css'
 import './styles/approved-dashboard.css'
 import './styles/nodes-page.css'
 import './styles/typography-system.css'
+import './styles/redesign-sidebar.css'
 
 declare global {
   interface Window {
