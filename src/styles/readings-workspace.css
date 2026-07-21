@@ -30,8 +30,8 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-readings-health { display: grid; grid-template-columns: repeat(3,minmax(9rem,.55fr)) minmax(19rem,1.5fr); margin-bottom: var(--space-32); border-block: 1px solid var(--color-border); }
 .nc-readings-health > div { display: flex; align-items: center; gap: var(--space-12); border-right: 1px solid var(--color-border); padding: var(--space-12) var(--space-20); }
 .nc-readings-health b { color: var(--color-success); font-size: var(--type-h2); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-heading); }
-.nc-readings-health [data-state="stale"] b { color: var(--color-stale); }
-.nc-readings-health [data-state="offline"] b { color: var(--color-offline); }
+.nc-readings-health [data-state="stale"] b { color: var(--color-warning); }
+.nc-readings-health [data-state="offline"] b { color: var(--color-danger); }
 .nc-readings-health span { display: grid; gap: 1px; }
 .nc-readings-health strong { font-size: var(--type-body-sm); }
 .nc-readings-health small { color: var(--color-text-tertiary); font-size: var(--type-caption); }
@@ -70,14 +70,19 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-column-menu label span { font-size: var(--type-caption); }
 .nc-column-menu label small { color: var(--color-text-tertiary); font-size: var(--type-micro); }
 
-.nc-readings-controls { display: flex; align-items: flex-end; gap: var(--space-8); padding: var(--space-12) 0; }
+.nc-readings-controls { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-20); padding: var(--space-12) 0; }
+.nc-area-tabs { display: flex; min-width: 0; align-items: center; gap: var(--space-4); overflow-x: auto; scrollbar-width: thin; }
+.nc-area-tabs button { min-height: 2.75rem; flex: 0 0 auto; border: 0; border-bottom: 3px solid transparent; padding: 0 var(--space-12); background: transparent; color: var(--color-text-tertiary); font-size: var(--type-caption); font-weight: var(--weight-medium); white-space: nowrap; }
+.nc-area-tabs button:hover { color: var(--color-text); }
+.nc-area-tabs button.active { border-bottom-color: var(--color-secondary); color: var(--color-text); }
+.nc-area-tabs button b { margin-left: var(--space-4); color: inherit; font-size: var(--type-micro); }
+.nc-readings-control-actions { display: flex; flex: 0 0 auto; align-items: flex-end; gap: var(--space-12); }
 .nc-readings-controls label { display: grid; gap: var(--space-4); }
 .nc-readings-controls label > span { color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-medium); }
 .nc-readings-controls select { min-height: var(--control-height-sm); border: 1px solid var(--color-border); border-radius: .5rem; padding: 0 2rem 0 var(--space-8); background: var(--color-surface); color: var(--color-text); font-size: var(--type-caption); }
-.nc-readings-controls > button { min-height: var(--control-height-sm); border: 1px solid var(--color-border); border-radius: .5rem; padding: 0 var(--space-12); background: var(--color-surface); color: var(--color-text-secondary); font-size: var(--type-caption); font-weight: var(--weight-medium); }
-.nc-readings-controls > button i { margin-right: var(--space-8); }
-.nc-readings-controls > button.active { border-color: var(--color-warning-border); background: var(--color-warning-soft); color: var(--color-warning); }
-.nc-readings-controls .nc-sort { margin-left: auto; }
+.nc-readings-control-actions > button { min-height: var(--control-height-sm); border: 1px solid var(--color-border); border-radius: .5rem; padding: 0 var(--space-12); background: var(--color-surface); color: var(--color-text-secondary); font-size: var(--type-caption); font-weight: var(--weight-medium); }
+.nc-readings-control-actions > button i { margin-right: var(--space-8); }
+.nc-readings-control-actions > button.active { border-color: var(--color-warning-border); background: var(--color-warning-soft); color: var(--color-warning); }
 .nc-reading-legend { display: flex; min-height: 2rem; align-items: center; justify-content: flex-end; gap: var(--space-16); color: var(--color-text-tertiary); font-size: var(--type-micro); }
 .nc-reading-legend span { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 .nc-reading-legend i { width: 1.25rem; height: .35rem; border-radius: 99px; background: var(--color-success-soft); }
@@ -191,7 +196,7 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
   .nc-readings-hero h1 { font-size: var(--type-h1) !important; }.nc-readings-actions { flex-wrap: wrap; }.nc-readings-actions > span { width: 100%; border: 0; padding-right: 0; }
   .nc-readings-health { grid-template-columns: 1fr; }.nc-readings-health > div { border-right: 0; border-bottom: 1px solid var(--color-border); }.nc-readings-health > p { grid-column: auto; border-top: 0; }
   .nc-readings-matrix > header { grid-template-columns: 1fr; align-items: start; }.nc-segmented { width: 100%; overflow-x: auto; }.nc-segmented button { flex: 1; white-space: nowrap; }
-  .nc-readings-viewbar, .nc-readings-controls { align-items: stretch; flex-direction: column; }.nc-column-control > button { width: 100%; }.nc-column-menu { right: auto; left: 0; }.nc-readings-controls .nc-sort { margin-left: 0; }.nc-readings-controls select { width: 100%; }
+  .nc-readings-viewbar, .nc-readings-controls { align-items: stretch; flex-direction: column; }.nc-column-control > button { width: 100%; }.nc-column-menu { right: auto; left: 0; }.nc-area-tabs { width: 100%; }.nc-readings-control-actions { align-items: stretch; flex-direction: column; }.nc-readings-controls select { width: 100%; }
   .nc-reading-legend { justify-content: flex-start; overflow-x: auto; }.nc-pinned-comparison > header, .nc-signal-lens-content > header { align-items: stretch; flex-direction: column; }
   .nc-distribution-row { grid-template-columns: minmax(10rem,1fr) 6rem 2rem; gap: var(--space-8); }.nc-distribution-row > div { display: none; }
   .nc-readings-drawer { width: 100%; }.nc-readings-drawer > footer { flex-direction: column; }.nc-readings-drawer > footer button { width: 100%; }

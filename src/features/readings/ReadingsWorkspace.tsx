@@ -240,6 +240,7 @@ export default function ReadingsWorkspace() {
   const [areaOptions, setAreaOptions] = useState<Array<[string, string]>>([])
   const [profiles, setProfiles] = useState<Map<string, JsonRecord>>(new Map())
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [areaFilter, setAreaFilter] = useState('all')
   const [attentionOnly, setAttentionOnly] = useState(false)
@@ -258,6 +259,7 @@ export default function ReadingsWorkspace() {
     let cancelled = false
     async function load() {
       setStatus('loading')
+      setRefreshing(true)
       setError('')
       try {
         const [dashboardPayload, profilesPayload, areasPayload, sectionsPayload] = await Promise.all([
@@ -295,28 +297,40 @@ export default function ReadingsWorkspace() {
             return { site: { ...sourceArea, id: areaId, name: areaLabel(sourceArea) }, zone }
           })
         }
-        const latestResults = await Promise.allSettled(flatSections.map(({ zone }) => neurocropApi.getLatestReadings(String(zone.id))))
-        if (cancelled) return
-        const nextSections = flatSections.map(({ site, zone }, index): SectionReading => {
-          const result = latestResults[index]
+        const baseSections = flatSections.map(({ site, zone }): SectionReading => {
           const profileId = String(zone.profile?.id || zone.profile || zone.profileId || zone.profile_id || zone.cropProfile || zone.crop_profile || 'default')
           const profile = profileMap.get(profileId)
           return {
             id: String(zone.id), name: String(zone.name || zone.id), areaId: String(site.id), areaName: String(site.name || site.id),
             profileId, profileName: String(profile?.name || zone.profileName || profileId || 'No profile'),
             availableMetrics: new Set(asArray<string>(zone.availableMetrics)), configuredMetrics: new Set(asArray<string>(zone.configuredMetrics)),
-            nodes: asArray(zone.batteryNodes), latest: result.status === 'fulfilled' ? result.value as JsonRecord : null,
-            loadFailed: result.status === 'rejected',
+            nodes: asArray(zone.batteryNodes), latest: null, loadFailed: false,
           }
         })
         setProfiles(profileMap)
-        setSections(nextSections)
-        setPinned((current) => current.filter((id) => nextSections.some((section) => section.id === id)))
+        setSections((current) => baseSections.map((section) => {
+          const previous = current.find((item) => item.id === section.id)
+          return previous ? { ...section, latest: previous.latest, loadFailed: previous.loadFailed } : section
+        }))
+        setPinned((current) => current.filter((id) => baseSections.some((section) => section.id === id)))
         setStatus('ready')
+
+        await Promise.allSettled(baseSections.map(async (section) => {
+          try {
+            const latest = await neurocropApi.getLatestReadings(section.id) as JsonRecord
+            if (cancelled) return
+            setSections((current) => current.map((item) => item.id === section.id ? { ...item, latest, loadFailed: false } : item))
+          } catch {
+            if (cancelled) return
+            setSections((current) => current.map((item) => item.id === section.id ? { ...item, loadFailed: true } : item))
+          }
+        }))
       } catch (loadError) {
         if (cancelled) return
         setStatus('error')
         setError(loadError instanceof Error ? loadError.message : 'Live readings could not be loaded.')
+      } finally {
+        if (!cancelled) setRefreshing(false)
       }
     }
     load()
@@ -389,7 +403,7 @@ export default function ReadingsWorkspace() {
   return <main className="nc-readings-workspace" aria-busy={status === 'loading'}>
     <header className="nc-readings-hero">
       <div><p className="nc-overline">Live workspace</p><h1>Live readings, section by section.</h1><p>Compare current measurements across the operation. Cell color shows crop status; the small marker shows whether the reading can be trusted.</p></div>
-      <div className="nc-readings-actions"><span><strong>{sections.length} sections monitored</strong><small>{status === 'loading' ? 'Refreshing current measurements…' : 'Updated from live node packets'}</small></span><button type="button" onClick={() => setRefreshToken((value) => value + 1)} disabled={status === 'loading'}><i className="fa-solid fa-rotate" />Refresh</button><button type="button" onClick={exportCsv} disabled={!visibleSections.length}><i className="fa-solid fa-download" />Export</button></div>
+      <div className="nc-readings-actions"><span><strong>{sections.length} sections monitored</strong><small>{refreshing ? 'Refreshing current measurements…' : 'Updated from live node packets'}</small></span><button type="button" onClick={() => setRefreshToken((value) => value + 1)} disabled={refreshing}><i className="fa-solid fa-rotate" />Refresh</button><button type="button" onClick={exportCsv} disabled={!visibleSections.length}><i className="fa-solid fa-download" />Export</button></div>
     </header>
 
     {status === 'error' ? <section className="nc-readings-state" role="alert"><i className="fa-solid fa-triangle-exclamation" /><div><strong>Readings could not be loaded</strong><p>{error}</p></div><button type="button" onClick={() => setRefreshToken((value) => value + 1)}>Try again</button></section> : null}
@@ -398,7 +412,7 @@ export default function ReadingsWorkspace() {
     <section className="nc-readings-matrix" aria-labelledby="nc-readings-title">
       <header><div><p className="nc-overline">Live section matrix</p><h2 id="nc-readings-title">Every current reading in one place</h2><span>Choose a working set instead of forcing all 13 parameters onto every screen.</span></div><div className="nc-segmented" role="group" aria-label="Reading display"><button className={mode === 'value' ? 'active' : ''} onClick={() => setMode('value')}>Values</button><button className={mode === 'target' ? 'active' : ''} onClick={() => setMode('target')}>Against target</button><button className={mode === 'change' ? 'active' : ''} onClick={() => setMode('change')}>1h change</button></div></header>
       <div className="nc-readings-viewbar"><div className="nc-reading-presets">{presets.map((preset) => <button type="button" className={activePreset === preset.key ? 'active' : ''} onClick={() => selectPreset(preset)} key={preset.key}><i className={`fa-solid ${preset.icon}`} />{preset.label}<b>{preset.keys.length}</b></button>)}</div><div className="nc-column-control"><button type="button" className={columnsOpen ? 'active' : ''} onClick={() => setColumnsOpen(!columnsOpen)}><i className="fa-solid fa-table-columns" />Columns <b>{visibleMetrics.length}/13</b></button>{columnsOpen ? <div className="nc-column-menu"><header><strong>Visible parameters</strong><button onClick={() => setColumnsOpen(false)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header>{(['climate', 'root', 'lighting', 'system'] as const).map((group) => <fieldset key={group}><legend>{group === 'root' ? 'Root zone' : group}</legend>{metrics.filter((metric) => metric.group === group).map((metric) => <label key={metric.key}><input type="checkbox" checked={visibleKeys.includes(metric.key)} onChange={() => toggleMetric(metric.key)} /><i className={`fa-solid ${metric.icon}`} /><span>{metric.label}</span><small>{metric.unit}</small></label>)}</fieldset>)}</div> : null}</div></div>
-      <div className="nc-readings-controls"><label><span>Area</span><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}><option value="all">All areas</option>{areaOptions.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label><button type="button" className={attentionOnly ? 'active' : ''} onClick={() => setAttentionOnly(!attentionOnly)}><i className="fa-solid fa-filter" />Needs attention</button><label className="nc-sort"><span>Sort</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="severity">Most outside target</option><option value="freshest">Freshest data</option><option value="oldest">Oldest data</option><option value="area">Area</option><option value="section">Section</option></select></label></div>
+      <div className="nc-readings-controls"><div className="nc-area-tabs" role="tablist" aria-label="Filter by Area"><button type="button" role="tab" aria-selected={areaFilter === 'all'} className={areaFilter === 'all' ? 'active' : ''} onClick={() => setAreaFilter('all')}>All areas <b>{sections.length}</b></button>{areaOptions.map(([id, name]) => <button type="button" role="tab" aria-selected={areaFilter === id} className={areaFilter === id ? 'active' : ''} onClick={() => setAreaFilter(id)} key={id}>{name} <b>{sections.filter((section) => section.areaId === id).length}</b></button>)}</div><div className="nc-readings-control-actions"><button type="button" className={attentionOnly ? 'active' : ''} onClick={() => setAttentionOnly(!attentionOnly)}><i className="fa-solid fa-filter" />Needs attention</button><label className="nc-sort"><span>Sort</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="severity">Most outside target</option><option value="freshest">Freshest data</option><option value="oldest">Oldest data</option><option value="area">Area</option><option value="section">Section</option></select></label></div></div>
       <div className="nc-reading-legend"><span><i data-state="good" />Within crop target</span><span><i data-state="watch" />Outside target</span><span><i data-state="critical" />Critical</span><span><b />Data quality marker</span></div>
       <div className="nc-readings-matrix-scroll">
         <div className="nc-readings-row nc-readings-row-head" style={matrixStyle}><span>Section</span>{visibleMetrics.map((metric) => <span key={metric.key}>{metric.short}<small>{metric.unit}</small></span>)}<span>Latest data</span><span /></div>
