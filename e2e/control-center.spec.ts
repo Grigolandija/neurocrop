@@ -57,7 +57,7 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(navigationAction(page, 'overview')).toHaveAttribute('data-active', 'true')
   await expect(navigationAction(page, 'overview')).toContainText('Today')
   await expect(navigationAction(page, 'readings')).toContainText('Compare sections')
-  await expect(navigationAction(page, 'alerts')).toBeHidden()
+  await expect(navigationAction(page, 'alerts')).toHaveCount(0)
   await expect(page.locator('.triage-priority-card')).toContainText('Farm priority')
   await expect(page.locator('.triage-score-card')).toContainText('Selected section score')
   await expect(page.locator('#headerContextSelectors')).not.toContainText('All sections')
