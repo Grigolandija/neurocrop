@@ -11,6 +11,9 @@
   position: fixed !important;
   inset: 0 auto 0 0 !important;
   z-index: 310;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
   width: 244px !important;
   max-height: none !important;
   flex-basis: 244px !important;
@@ -19,6 +22,7 @@
   border-right: 1px solid rgba(14, 46, 37, 0.72) !important;
   border-radius: 0 !important;
   overflow: hidden;
+  overscroll-behavior: contain;
   background: var(--rail-bg) !important;
   box-shadow: none !important;
   color: var(--rail-text);
@@ -359,16 +363,25 @@
   .designer-app .dashboard-shell {
     gap: 0 !important;
     padding: 0 !important;
+    background:
+      linear-gradient(
+        90deg,
+        #184b3c 0,
+        #184b3c 244px,
+        #f3efe6 244px,
+        #f3efe6 262px,
+        transparent 262px
+      );
   }
 
   .designer-app #dashboardHeader.global-system-bar {
-    left: 244px;
-    width: calc(100vw - 244px);
+    left: 262px;
+    width: calc(100vw - 262px);
   }
 
   .designer-app #dashboardMain {
-    width: calc(100% - 244px);
-    margin-left: 244px;
+    width: calc(100% - 262px);
+    margin-left: 262px;
     padding-top: var(--dashboard-header-height, 44px);
   }
 }
@@ -378,6 +391,18 @@
   .designer-app .dashboard-sidebar.rail {
     width: 304px !important;
     flex-basis: 304px !important;
+  }
+
+  .designer-app .dashboard-shell {
+    background:
+      linear-gradient(
+        90deg,
+        #184b3c 0,
+        #184b3c 304px,
+        #f3efe6 304px,
+        #f3efe6 322px,
+        transparent 322px
+      );
   }
 
   .designer-app .rail-brand {
@@ -475,12 +500,12 @@
   }
 
   .designer-app #dashboardHeader.global-system-bar {
-    left: 304px;
-    width: calc(100vw - 304px);
+    left: 322px;
+    width: calc(100vw - 322px);
   }
 
   .designer-app #dashboardMain {
-    width: calc(100% - 304px);
-    margin-left: 304px;
+    width: calc(100% - 322px);
+    margin-left: 322px;
   }
 }
