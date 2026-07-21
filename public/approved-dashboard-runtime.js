@@ -1846,6 +1846,7 @@
     let activeNodeSearchQuery = "";
     let activeNodeDetailId = null;
     let expandedCropProfileMetricId = null;
+    let activeCropProfileEditorSection = "climate";
     let activeSettingsProfileKey = activeProfileKey;
     let activeSettingsPanelKey = "profiles";
     let isCropProfileEditorOpen = false;
@@ -4732,6 +4733,7 @@
           activeSettingsPanelKey = "profiles";
           isCropProfileEditorOpen = false;
           isCropProfileCreateOpen = false;
+          activeCropProfileEditorSection = "climate";
           if (cropProfiles[activeProfileKey]) activeSettingsProfileKey = activeProfileKey;
           sidebarActionOverride = "crop-profiles";
           closeContextMenus();
@@ -8239,10 +8241,11 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       `;
     }
 
-    const CROP_PROFILE_METRIC_GROUPS = [
-      { id: "climate", label: "Climate", note: "Air environment and light", metrics: ["airTemp", "humidity", "co2", "lux", "airPressure"] },
-      { id: "root-zone", label: "Root zone", note: "Substrate and nutrient solution", metrics: ["soilTemp", "soilMoisture", "ec", "soilEc", "ph"] },
-      { id: "plant-irrigation", label: "Plant & irrigation", note: "Plant response and water circuit", metrics: ["vpd", "leafTemp", "waterTemp"] }
+    const CROP_PROFILE_EDITOR_SECTIONS = [
+      { id: "climate", label: "Climate", kicker: "Climate targets", title: "Operating envelope", note: "The target range is ideal. Warning and critical limits control status severity outside that range.", metrics: ["airTemp", "humidity", "co2", "vpd", "airPressure", "leafTemp"] },
+      { id: "root-zone", label: "Root zone", kicker: "Root-zone targets", title: "Root-zone envelope", note: "Set the preferred substrate and nutrient-solution ranges used by scoring and alerts.", metrics: ["soilTemp", "soilMoisture", "ec", "soilEc", "ph", "waterTemp"] },
+      { id: "lighting", label: "Lighting", kicker: "Lighting targets", title: "Lighting program", note: "Define the target light range and the schedule used to distinguish daylight from a genuine low-light condition.", metrics: ["lux"] },
+      { id: "alert-boundaries", label: "Alert boundaries", kicker: "Automatic severity", title: "Alert boundaries", note: "Warning and critical limits are calculated from each optimal target using NeuroCrop’s approved metric policy.", metrics: [] }
     ];
 
     function getProfileAssignments(profileKey) {
@@ -8272,6 +8275,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const saveFeedback = profileSaveFeedback.profileKey === profileKey
         ? profileSaveFeedback
         : null;
+      const activeEditorSection = CROP_PROFILE_EDITOR_SECTIONS.find((section) => section.id === activeCropProfileEditorSection) || CROP_PROFILE_EDITOR_SECTIONS[0];
       const metricRows = (metricKeys) => metricKeys
         .filter((metricKey) => metricKey !== "batteryLevel" && profile.metrics[metricKey])
         .map((metricKey) => {
@@ -8281,8 +8285,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           const automaticRanges = deriveAutomaticAlertRanges({ ...(metricDraft || metric), metricKey }, [rangeValues.optimalMin, rangeValues.optimalMax]);
           const step = metric.decimals === 0 ? "1" : "0.01";
           const optimalInput = (label, value, bound) => `
-            <label class="block min-w-0">
-              <span class="sr-only">${escapeHtml(`${metric.label} ${label}`)}</span>
+            <label class="range-editor-field">
+              <span>${escapeHtml(label)}</span>
               <input type="number" step="${step}" value="${escapeAttribute(value)}" data-profile-range data-metric-key="${escapeAttribute(metricKey)}" data-range-key="optimal" data-bound="${bound}" aria-label="${escapeAttribute(`${metric.label} ${label}`)}" class="profile-target-input">
             </label>
           `;
@@ -8295,84 +8299,83 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
               <label><span>${diagnosticText("Dark threshold", "Tamsos riba")}</span><input type="number" min="0" step="10" value="${escapeAttribute(lightingSchedule.darkThresholdLux ?? 100)}" data-lighting-schedule="darkThresholdLux"><small>lx</small></label>
             </div>
           ` : "";
-          return `
-          <div class="crop-profile-metric-row" data-profile-metric-row="${escapeAttribute(metricKey)}">
+          const isExpanded = expandedCropProfileMetricId === metricKey;
+          return `<div class="range-editor crop-profile-metric-row" data-profile-metric-row="${escapeAttribute(metricKey)}" data-expanded="${String(isExpanded)}">
             <div class="crop-profile-metric-name"><strong>${escapeHtml(metric.label)}</strong><span>${escapeHtml(formatUnit(metric.unit))}</span></div>
-            <div class="crop-profile-optimal-inputs">
-              ${optimalInput("Optimal minimum", rangeValues.optimalMin, 0)}
-              <span>to</span>
-              ${optimalInput("Optimal maximum", rangeValues.optimalMax, 1)}
+            ${optimalInput("Minimum", rangeValues.optimalMin, 0)}
+            ${optimalInput("Target maximum", rangeValues.optimalMax, 1)}
+            <label class="range-editor-field range-editor-derived"><span>Critical maximum</span><input type="text" value="${escapeAttribute(formatProfileRangeInput(automaticRanges.critical[1], metric.decimals))}" data-profile-critical-output readonly aria-label="${escapeAttribute(`${metric.label} calculated critical maximum`)}"></label>
+            <button type="button" class="range-editor-more" data-profile-metric-expand="${escapeAttribute(metricKey)}" aria-expanded="${String(isExpanded)}" aria-label="More options for ${escapeAttribute(metric.label)}"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></button>
+            <div class="range-editor-advanced" ${isExpanded ? "" : "hidden"}>
+              <div class="crop-profile-metric-boundary crop-profile-metric-warning" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}"><b>Warning</b>${escapeHtml(formatRange(automaticRanges.warning, metric))}</div>
+              <div class="crop-profile-metric-boundary crop-profile-metric-critical" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}"><b>Critical</b>${escapeHtml(formatRange(automaticRanges.critical, metric))}</div>
+              <p>These boundaries follow the saved optimal range and update automatically.</p>
             </div>
-            <div class="crop-profile-metric-boundary crop-profile-metric-warning" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}"><b>Warning</b>${escapeHtml(formatRange(automaticRanges.warning, metric))}</div>
-            <div class="crop-profile-metric-boundary crop-profile-metric-critical" data-profile-alert-limit="critical" data-metric-key="${escapeAttribute(metricKey)}"><b>Critical</b>${escapeHtml(formatRange(automaticRanges.critical, metric))}</div>
-            ${lightingScheduleMarkup}
-          </div>
-        `;
+            ${metricKey === "lux" ? lightingScheduleMarkup : ""}
+          </div>`;
         }).join("");
 
-      const groupMarkup = CROP_PROFILE_METRIC_GROUPS.map((group, groupIndex) => {
-        const rows = metricRows(group.metrics);
-        if (!rows) return "";
-        return `<section class="crop-profile-metric-group range-editor-list" id="profileGroup-${group.id}" aria-labelledby="profileGroupTitle-${group.id}">
-          <header><div><p class="profile-section-index">0${groupIndex + 1}</p><div><h4 id="profileGroupTitle-${group.id}">${group.label}</h4><p>${group.note}</p></div></div><span>${group.metrics.filter((key) => profile.metrics[key]).length} metrics</span></header>
-          <div class="crop-profile-metric-heading"><span>Parameter</span><span>Optimal range</span><span>Warning limits</span><span>Critical limits</span></div>
-          ${rows}
-        </section>`;
+      const allProfileMetricKeys = [...new Set(CROP_PROFILE_EDITOR_SECTIONS.flatMap((section) => section.metrics))]
+        .filter((metricKey) => profile.metrics[metricKey]);
+      const alertBoundaryRows = allProfileMetricKeys.map((metricKey) => {
+        const metric = draftMetrics[metricKey] || profile.metrics[metricKey];
+        const rangeValues = getProfileEditorRangeValues(metric);
+        const automaticRanges = deriveAutomaticAlertRanges({ ...metric, metricKey }, [rangeValues.optimalMin, rangeValues.optimalMax]);
+        return `<div class="profile-boundary-row"><span><strong>${escapeHtml(metric.label)}</strong><small>${escapeHtml(formatUnit(metric.unit))}</small></span><span><small>Optimal</small><b>${escapeHtml(formatRange([rangeValues.optimalMin, rangeValues.optimalMax], metric))}</b></span><span><small>Warning</small><b>${escapeHtml(formatRange(automaticRanges.warning, metric))}</b></span><span><small>Critical</small><b>${escapeHtml(formatRange(automaticRanges.critical, metric))}</b></span></div>`;
       }).join("");
+
+      const profileManagementMarkup = `<section class="profile-support-grid">
+        <div class="crop-profile-side-section profile-identity-section">
+          <header><p>Profile details</p><span>Edit profile identity</span></header>
+          <div class="crop-profile-detail-fields">
+            <label><span>Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}"></label>
+            <label><span>Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}"></label>
+            <label><span>Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative"></label>
+          </div>
+        </div>
+        <div class="crop-profile-side-section">
+          <header><p>Assignments</p><span>${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"}</span></header>
+          ${assignments.length ? `<ul class="crop-profile-assignment-list">${assignments.slice(0, 6).map((assignment) => `<li><span>${escapeHtml(assignment.sectionName)}</span><small>${escapeHtml(assignment.areaName)}</small></li>`).join("")}${assignments.length > 6 ? `<li class="crop-profile-more-assignments">+${assignments.length - 6} more sections</li>` : ""}</ul>` : '<p class="crop-profile-side-empty">This profile is not assigned to a section yet.</p>'}
+          <p class="crop-profile-side-note">Saved targets apply to every assigned section.</p>
+        </div>
+        <div class="crop-profile-side-section crop-profile-management">
+          <header><p>Profile management</p><span>${profileKey === "default" ? "Protected default" : "Custom profile"}</span></header>
+          <button type="button" class="crop-profile-delete-button" data-settings-profile-delete="${escapeAttribute(profileKey)}" ${profileUsageCount > 0 || profileKey === "default" ? "disabled" : ""}>Delete profile</button>
+          <p>${profileKey === "default" ? "The default profile remains available as a safe starting point." : profileUsageCount > 0 ? "Move assigned sections before deleting this profile." : "Deletion cannot be undone."}</p>
+        </div>
+      </section>`;
+
+      const activeSectionContent = activeEditorSection.id === "alert-boundaries"
+        ? `<div class="profile-boundary-list">${alertBoundaryRows}</div>${profileManagementMarkup}`
+        : `<div class="range-editor-list">${metricRows(activeEditorSection.metrics)}</div>`;
 
       return `
         <form class="crop-profile-editor" data-settings-form="crop-profile-editor" data-profile-key="${escapeAttribute(profileKey)}" data-dirty="false">
           <header class="profile-detail-header">
             <div class="profile-detail-heading">
-              <button type="button" class="profile-back-button" data-settings-profile-back><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Crop profiles</button>
-              <p>${escapeHtml((draft?.heroName ?? profile.heroName) || "Crop")} <span>·</span> ${escapeHtml((draft?.stage ?? profile.stage) || "Growth stage not set")}</p>
+              <button type="button" class="profile-detail-eyebrow" data-settings-profile-back title="Back to crop profiles">${escapeHtml((draft?.heroName ?? profile.heroName) || "Crop")} <span>·</span> ${escapeHtml((draft?.stage ?? profile.stage) || "Growth stage not set")}</button>
               <h2>${escapeHtml(draft?.name ?? profile.name)}</h2>
-              <span>Used by ${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"}. Saved changes update future scores and alerts.</span>
+              <span>Used by ${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"}. Changes affect future scoring and alerts after saving.</span>
             </div>
             <div class="profile-detail-actions">
               <button type="button" class="settings-secondary-button" data-settings-profile-duplicate="${escapeAttribute(profileKey)}"><i class="fa-regular fa-copy" aria-hidden="true"></i>Duplicate</button>
+              <button type="button" class="crop-profile-discard-button" data-settings-profile-discard="${escapeAttribute(profileKey)}" disabled>Discard</button>
               <button type="submit" class="settings-primary-button" data-profile-save disabled><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>Save changes</button>
             </div>
           </header>
+          <span class="sr-only" data-profile-save-state>${diagnosticText("All changes saved", "Visi pakeitimai išsaugoti")}</span>
+          ${saveFeedback ? `<p class="crop-profile-save-feedback profile-detail-feedback" data-tone="${escapeAttribute(saveFeedback.tone)}" role="status">${escapeHtml(getProfileSaveFeedbackText(saveFeedback))}</p>` : ""}
           <div class="crop-profile-editor-grid profile-editor-new">
             <aside class="profile-editor-navigation" aria-label="Profile sections">
               <p>Profile sections</p>
-              ${CROP_PROFILE_METRIC_GROUPS.map((group, index) => `<a href="#profileGroup-${group.id}"><span>${index + 1}</span>${group.label}<i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>`).join("")}
-              <a href="#profileDetails"><span>4</span>Profile details<i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+              ${CROP_PROFILE_EDITOR_SECTIONS.map((section, index) => `<button type="button" data-profile-editor-section="${escapeAttribute(section.id)}" data-active="${String(section.id === activeEditorSection.id)}"><span>${index + 1}</span>${section.label}<i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>`).join("")}
             </aside>
             <main class="crop-profile-editor-main">
-              <header class="crop-profile-editor-section-head"><div><p>Growing targets</p><h3>Operating envelope</h3></div><span>The target range is ideal. NeuroCrop calculates warning and critical limits automatically.</span></header>
-              ${groupMarkup}
-              <section class="profile-support-grid" id="profileDetails">
-                <div class="crop-profile-side-section profile-identity-section">
-                  <header><p>Profile details</p><span>Edit profile identity</span></header>
-                  <div class="crop-profile-detail-fields">
-                    <label><span>Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}"></label>
-                    <label><span>Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}"></label>
-                    <label><span>Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative"></label>
-                  </div>
-                </div>
-                <div class="crop-profile-side-section">
-                  <header><p>Assignments</p><span>${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"}</span></header>
-                  ${assignments.length ? `<ul class="crop-profile-assignment-list">${assignments.slice(0, 6).map((assignment) => `<li><span>${escapeHtml(assignment.sectionName)}</span><small>${escapeHtml(assignment.areaName)}</small></li>`).join("")}${assignments.length > 6 ? `<li class="crop-profile-more-assignments">+${assignments.length - 6} more sections</li>` : ""}</ul>` : '<p class="crop-profile-side-empty">This profile is not assigned to a section yet.</p>'}
-                  <p class="crop-profile-side-note">Saved targets apply to every assigned section.</p>
-                </div>
-                <div class="crop-profile-side-section crop-profile-management">
-                  <header><p>Profile management</p><span>${profileKey === "default" ? "Protected default" : "Custom profile"}</span></header>
-                  <p>NeuroCrop evaluates ${Object.keys(profile.metrics).filter(isGrowthMetricKey).length} active metrics against this operating envelope.</p>
-                  <button type="button" class="crop-profile-delete-button" data-settings-profile-delete="${escapeAttribute(profileKey)}" ${profileUsageCount > 0 || profileKey === "default" ? "disabled" : ""}>Delete profile</button>
-                  <p>${profileKey === "default" ? "The default profile remains available as a safe starting point." : profileUsageCount > 0 ? "Move assigned sections before deleting this profile." : "Deletion cannot be undone."}</p>
-                </div>
-              </section>
+              <header class="crop-profile-editor-section-head"><div><p>${escapeHtml(activeEditorSection.kicker)}</p><h3>${escapeHtml(activeEditorSection.title)}</h3></div></header>
+              <p class="profile-editor-intro">${escapeHtml(activeEditorSection.note)}</p>
+              ${activeSectionContent}
             </main>
           </div>
-          <footer class="crop-profile-save-bar">
-            <div><strong data-profile-save-state>${diagnosticText("All changes saved", "Visi pakeitimai išsaugoti")}</strong><span>${diagnosticText("Targets are stored in the workspace and used for scoring.", "Ribos saugomos darbo erdvėje ir naudojamos auginimo įverčiui.")}</span></div>
-            <div class="crop-profile-save-feedback-slot">${saveFeedback ? `<p class="crop-profile-save-feedback" data-tone="${escapeAttribute(saveFeedback.tone)}" role="status">${escapeHtml(getProfileSaveFeedbackText(saveFeedback))}</p>` : ""}</div>
-            <div class="crop-profile-save-actions">
-              <div><button type="button" class="crop-profile-discard-button" data-settings-profile-discard="${escapeAttribute(profileKey)}" disabled>Discard changes</button></div>
-            </div>
-          </footer>
         </form>
       `;
     }
@@ -8995,6 +8998,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             activeSettingsProfileKey = normalizeCropProfileKey(response?.profile?.id || response?.profile?.key || nextProfileId);
             isCropProfileEditorOpen = true;
             isCropProfileCreateOpen = false;
+            activeCropProfileEditorSection = "climate";
             settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: activeSettingsProfileKey, mode: "template" };
             setManagementNotice(
               "settings",
@@ -9024,6 +9028,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       activeSettingsProfileKey = nextProfileKey;
       isCropProfileEditorOpen = true;
       isCropProfileCreateOpen = false;
+      activeCropProfileEditorSection = "climate";
       settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: nextProfileKey, mode: "template" };
       setManagementNotice(
         "settings",
@@ -9236,8 +9241,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       metric.critical = automaticRanges.critical.map((value) => formatProfileRangeInput(value, decimals));
       const warningLabel = row.querySelector('[data-profile-alert-limit="warning"]');
       const criticalLabel = row.querySelector('[data-profile-alert-limit="critical"]');
+      const criticalOutput = row.querySelector('[data-profile-critical-output]');
       if (warningLabel) warningLabel.innerHTML = `<b>Warning</b> ${escapeHtml(formatRange(metric.warning, metric))}`;
       if (criticalLabel) criticalLabel.innerHTML = `<b>Critical</b> ${escapeHtml(formatRange(metric.critical, metric))}`;
+      if (criticalOutput instanceof HTMLInputElement) criticalOutput.value = formatProfileRangeInput(automaticRanges.critical[1], decimals);
       delete target.dataset.optimalRangeBaseline;
     }
 
@@ -9314,7 +9321,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         return;
       }
 
-      const nextMetrics = getCompleteCropProfileMetrics(profile.metrics || {});
+      const nextMetrics = getCompleteCropProfileMetrics(draft.metrics || profile.metrics || {});
       const metricRows = [...form.querySelectorAll("[data-profile-metric-row]")];
       for (const row of metricRows) {
         const metricKey = row.dataset.profileMetricRow;
@@ -15318,6 +15325,14 @@ function buildTrendMetricOptions(options) {
     });
 
     elements.settingsManagementSection.addEventListener("click", async (event) => {
+      const profileEditorSectionButton = event.target.closest("[data-profile-editor-section]");
+      if (profileEditorSectionButton) {
+        activeCropProfileEditorSection = profileEditorSectionButton.dataset.profileEditorSection || "climate";
+        expandedCropProfileMetricId = null;
+        renderDashboard();
+        return;
+      }
+
       const expandMetricButton = event.target.closest("[data-profile-metric-expand]");
       if (expandMetricButton) {
         const metricId = expandMetricButton.dataset.profileMetricExpand;
@@ -15586,6 +15601,7 @@ function buildTrendMetricOptions(options) {
         };
         isCropProfileEditorOpen = false;
         isCropProfileCreateOpen = true;
+        activeCropProfileEditorSection = "climate";
         renderDashboard();
         return;
       }
@@ -15594,6 +15610,7 @@ function buildTrendMetricOptions(options) {
       if (backToProfilesButton) {
         isCropProfileEditorOpen = false;
         isCropProfileCreateOpen = false;
+        activeCropProfileEditorSection = "climate";
         clearManagementNotice("settings");
         renderDashboard();
         return;
@@ -15667,6 +15684,7 @@ function buildTrendMetricOptions(options) {
       activeSettingsProfileKey = profileButton.dataset.settingsProfileKey || activeSettingsProfileKey;
       isCropProfileEditorOpen = true;
       isCropProfileCreateOpen = false;
+      activeCropProfileEditorSection = "climate";
       clearManagementNotice("settings");
       renderDashboard();
     });
