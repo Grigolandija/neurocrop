@@ -131,15 +131,44 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-pinned-comparison > header label span { color: var(--color-text-tertiary); font-size: var(--type-micro); }
 .nc-pinned-comparison select, .nc-signal-lens-content select { min-height: var(--control-height-sm); border: 1px solid var(--color-border); border-radius: .5rem; padding: 0 2rem 0 var(--space-8); background: var(--color-surface); color: var(--color-text); font-size: var(--type-caption); }
 .nc-pinned-comparison > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
-.nc-pinned-comparison article { position: relative; min-height: 8.5rem; border-right: 1px solid var(--color-border); padding: var(--space-20); }
+.nc-pinned-comparison article { min-width: 0; min-height: 15rem; border-right: 1px solid var(--color-border); padding: var(--space-16) var(--space-20); }
 .nc-pinned-comparison article:last-child { border-right: 0; }
 .nc-pinned-comparison article[data-tone="watch"] { box-shadow: inset 0 3px var(--color-warning); }
 .nc-pinned-comparison article[data-tone="critical"] { box-shadow: inset 0 3px var(--color-danger); }
-.nc-pinned-comparison article > button { position: absolute; top: var(--space-12); right: var(--space-12); display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border: 0; border-radius: .45rem; background: transparent; color: var(--color-text-tertiary); }
-.nc-pinned-comparison article p { margin: 0; color: var(--color-text-tertiary); font-size: var(--type-caption); }
-.nc-pinned-comparison article h3 { margin: var(--space-4) 0 var(--space-16); font-size: var(--type-title) !important; }
-.nc-pinned-comparison article > strong { display: block; font-family: var(--font-technical); font-size: var(--type-h2); font-weight: var(--weight-medium) !important; }
-.nc-pinned-comparison article > strong small, .nc-pinned-comparison article > span { color: var(--color-text-tertiary); font-size: var(--type-caption); }
+.nc-pinned-card-head, .nc-pinned-card-head > span, .nc-pinned-value-row, .nc-pinned-card-footer { display: flex; align-items: center; }
+.nc-pinned-card-head { justify-content: space-between; gap: var(--space-12); }
+.nc-pinned-card-head > span { min-width: 0; gap: var(--space-8); }
+.nc-pinned-card-head > span > i { width: .55rem; height: .55rem; flex: 0 0 auto; border-radius: 50%; background: var(--color-success); }
+.nc-pinned-comparison article[data-tone="watch"] .nc-pinned-card-head > span > i { background: var(--color-warning); }
+.nc-pinned-comparison article[data-tone="critical"] .nc-pinned-card-head > span > i { background: var(--color-danger); }
+.nc-pinned-comparison article[data-tone="neutral"] .nc-pinned-card-head > span > i { background: var(--color-offline); }
+.nc-pinned-card-head > span > span { display: grid; min-width: 0; }
+.nc-pinned-card-head small { overflow: hidden; color: var(--color-text-tertiary); font-size: var(--type-micro); text-overflow: ellipsis; white-space: nowrap; }
+.nc-pinned-card-head h3 { overflow: hidden; margin: 0; font-size: var(--type-body) !important; text-overflow: ellipsis; white-space: nowrap; }
+.nc-pinned-card-head > button { display: grid; width: 1.75rem; height: 1.75rem; flex: 0 0 auto; place-items: center; border: 0; border-radius: .45rem; background: transparent; color: var(--color-text-tertiary); }
+.nc-pinned-card-head > button:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.nc-pinned-value-row { justify-content: space-between; gap: var(--space-12); margin-top: var(--space-16); }
+.nc-pinned-value-row > strong { font-family: var(--font-technical); font-size: var(--type-h2); font-weight: var(--weight-medium) !important; }
+.nc-pinned-value-row > strong small, .nc-pinned-value-row > span { color: var(--color-text-tertiary); font-size: var(--type-caption); }
+.nc-pinned-sparkline { display: block; width: 100%; height: 4.5rem; margin: var(--space-12) 0; overflow: visible; }
+.nc-pinned-chart-grid { stroke: var(--color-border); stroke-dasharray: 3 4; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.nc-pinned-chart-target { fill: color-mix(in srgb,var(--color-success) 11%,transparent); }
+.nc-pinned-chart-area { fill: color-mix(in srgb,var(--color-success) 10%,transparent); }
+.nc-pinned-chart-line { fill: none; stroke: var(--color-success); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.nc-pinned-chart-point { fill: var(--color-surface); stroke: var(--color-success); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.nc-pinned-sparkline[data-tone="watch"] :is(.nc-pinned-chart-line,.nc-pinned-chart-point) { stroke: var(--color-warning); }
+.nc-pinned-sparkline[data-tone="watch"] .nc-pinned-chart-area { fill: color-mix(in srgb,var(--color-warning) 10%,transparent); }
+.nc-pinned-sparkline[data-tone="critical"] :is(.nc-pinned-chart-line,.nc-pinned-chart-point) { stroke: var(--color-danger); }
+.nc-pinned-sparkline[data-tone="critical"] .nc-pinned-chart-area { fill: color-mix(in srgb,var(--color-danger) 9%,transparent); }
+.nc-pinned-sparkline[data-tone="neutral"] :is(.nc-pinned-chart-line,.nc-pinned-chart-point) { stroke: var(--color-info); }
+.nc-pinned-chart-state { display: grid; height: 4.5rem; place-items: center; margin: var(--space-12) 0; border-radius: .45rem; background: var(--color-surface-subtle); color: var(--color-text-tertiary); font-size: var(--type-caption); text-align: center; }
+.nc-pinned-chart-state[data-state="loading"] { background: linear-gradient(90deg,var(--color-surface-subtle),var(--color-surface),var(--color-surface-subtle)); background-size: 200% 100%; animation: nc-readings-skeleton 1.2s linear infinite; }
+.nc-pinned-card-footer { justify-content: space-between; gap: var(--space-12); border-top: 1px solid var(--color-border); padding-top: var(--space-12); }
+.nc-pinned-card-footer > span { display: grid; }
+.nc-pinned-card-footer small { color: var(--color-text-tertiary); font-size: var(--type-micro); }
+.nc-pinned-card-footer strong { font-size: var(--type-caption); }
+.nc-pinned-card-footer > button { border: 0; background: transparent; color: var(--color-info); font-size: var(--type-caption); font-weight: var(--weight-medium); }
+.nc-pinned-card-footer > button i { margin-left: var(--space-4); }
 
 .nc-signal-lens { margin-bottom: var(--space-24); border: 1px solid var(--color-border); border-radius: .75rem; background: var(--color-surface); }
 .nc-signal-lens > button { display: flex; width: 100%; min-height: 4rem; align-items: center; justify-content: space-between; gap: var(--space-20); border: 0; padding: var(--space-12) var(--space-16); background: transparent; color: var(--color-text); text-align: left; }

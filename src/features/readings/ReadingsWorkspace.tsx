@@ -32,6 +32,16 @@ type SectionReading = {
   loadFailed: boolean
 }
 
+type HistoryPoint = {
+  observedAt: string
+  value: number
+}
+
+type PinnedHistoryState = {
+  status: 'loading' | 'ready' | 'empty' | 'error' | 'unsupported'
+  points: HistoryPoint[]
+}
+
 const metrics: Metric[] = [
   { key: 'airTemp', label: 'Air temperature', short: 'Temperature', unit: '°C', decimals: 1, group: 'climate', icon: 'fa-temperature-half' },
   { key: 'humidity', label: 'Relative humidity', short: 'Humidity', unit: '%', decimals: 0, group: 'climate', icon: 'fa-droplet' },
@@ -60,6 +70,11 @@ const qualityLabels: Record<ReadingQuality, string> = {
   live: 'Live', stale: 'Delayed', offline: 'Offline', 'no-data': 'No data',
   'not-installed': 'Not installed', calibration: 'Calibration needed',
 }
+
+const historySupportedMetricKeys = new Set([
+  'airTemp', 'humidity', 'vpd', 'co2', 'leafTemp', 'airPressure',
+  'soilMoisture', 'soilTemp', 'ec', 'ph', 'waterTemp', 'lux',
+])
 
 function asArray<T = JsonRecord>(value: unknown): T[] {
   return Array.isArray(value) ? value : []
@@ -235,6 +250,32 @@ function ReadingCell({ section, metric, profile, mode }: { section: SectionReadi
   </div>
 }
 
+function PinnedSparkline({ points, target, tone, label }: { points: HistoryPoint[]; target: [number, number] | null; tone: ReadingTone; label: string }) {
+  const width = 320
+  const height = 72
+  const padding = 4
+  const values = points.map((point) => point.value)
+  const domainValues = target ? [...values, ...target] : values
+  const domainMin = Math.min(...domainValues)
+  const domainMax = Math.max(...domainValues)
+  const domainSpan = Math.max(0.001, domainMax - domainMin)
+  const x = (index: number) => padding + (index / Math.max(1, points.length - 1)) * (width - padding * 2)
+  const y = (value: number) => padding + ((domainMax - value) / domainSpan) * (height - padding * 2)
+  const line = points.map((point, index) => `${x(index)},${y(point.value)}`).join(' ')
+  const area = `${padding},${height - padding} ${line} ${width - padding},${height - padding}`
+  const targetTop = target ? Math.min(y(target[0]), y(target[1])) : 0
+  const targetHeight = target ? Math.max(2, Math.abs(y(target[0]) - y(target[1]))) : 0
+  const lastPoint = points.at(-1)
+
+  return <svg className="nc-pinned-sparkline" data-tone={tone} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`${label}, 24 hour history`}>
+    <line className="nc-pinned-chart-grid" x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} />
+    {target ? <rect className="nc-pinned-chart-target" x={padding} y={targetTop} width={width - padding * 2} height={targetHeight} rx="2" /> : null}
+    <polygon className="nc-pinned-chart-area" points={area} />
+    <polyline className="nc-pinned-chart-line" points={line} />
+    {lastPoint ? <circle className="nc-pinned-chart-point" cx={x(points.length - 1)} cy={y(lastPoint.value)} r="3.5" /> : null}
+  </svg>
+}
+
 export default function ReadingsWorkspace() {
   const [sections, setSections] = useState<SectionReading[]>([])
   const [areaOptions, setAreaOptions] = useState<Array<[string, string]>>([])
@@ -253,6 +294,7 @@ export default function ReadingsWorkspace() {
   const [drawerId, setDrawerId] = useState<string | null>(null)
   const [lensOpen, setLensOpen] = useState(false)
   const [lensMetricKey, setLensMetricKey] = useState('humidity')
+  const [pinnedHistory, setPinnedHistory] = useState<Record<string, PinnedHistoryState>>({})
   const [refreshToken, setRefreshToken] = useState(0)
 
   useEffect(() => {
@@ -345,6 +387,38 @@ export default function ReadingsWorkspace() {
     return () => document.removeEventListener('keydown', close)
   }, [drawerId])
 
+  useEffect(() => {
+    if (!pinned.length) return
+    let cancelled = false
+    if (!historySupportedMetricKeys.has(lensMetricKey)) return
+
+    const to = new Date()
+    const from = new Date(to.getTime() - 24 * 60 * 60 * 1000)
+    pinned.forEach(async (sectionId) => {
+      const key = `${sectionId}:${lensMetricKey}`
+      try {
+        const payload = await neurocropApi.getHistory({
+          sectionId,
+          metric: lensMetricKey,
+          from: from.toISOString(),
+          to: to.toISOString(),
+          stepMinutes: 60,
+        }) as JsonRecord
+        if (cancelled) return
+        const points = asArray(payload?.points).map((point) => ({
+          observedAt: String(point.observedAt || point.receivedAt || ''),
+          value: numeric(point.value),
+        })).filter((point): point is HistoryPoint => Boolean(point.observedAt) && point.value !== null)
+        setPinnedHistory((current) => ({ ...current, [key]: { status: points.length >= 2 ? 'ready' : 'empty', points } }))
+      } catch {
+        if (cancelled) return
+        setPinnedHistory((current) => ({ ...current, [key]: { status: 'error', points: [] } }))
+      }
+    })
+
+    return () => { cancelled = true }
+  }, [pinned, lensMetricKey, refreshToken])
+
   const visibleMetrics = useMemo(() => visibleKeys.map((key) => metrics.find((metric) => metric.key === key)).filter((metric): metric is Metric => Boolean(metric)), [visibleKeys])
   const visibleSections = useMemo(() => sections.filter((section) => {
     if (areaFilter !== 'all' && section.areaId !== areaFilter) return false
@@ -421,7 +495,24 @@ export default function ReadingsWorkspace() {
       </div>
     </section>
 
-    {pinnedSections.length ? <section className="nc-pinned-comparison"><header><div><p className="nc-overline">Pinned comparison · {pinnedSections.length}/3</p><h2>Keep the sections you are managing together</h2></div><label><span>Compare</span><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></label></header><div>{pinnedSections.map((section) => { const value = getValue(section, lensMetric); const tone = getTone(section, lensMetric, profiles.get(section.profileId)); return <article data-tone={tone} key={section.id}><button onClick={() => togglePin(section.id)} aria-label={`Unpin ${section.name}`}><i className="fa-solid fa-xmark" /></button><p>{section.areaName}</p><h3>{section.name}</h3><strong>{formatValue(value, lensMetric)} <small>{lensMetric.unit}</small></strong><span>{getRange(profiles.get(section.profileId), lensMetric)?.map((bound) => formatValue(bound, lensMetric)).join('–') || 'No target'} {lensMetric.unit}</span></article> })}</div></section> : null}
+    {pinnedSections.length ? <section className="nc-pinned-comparison"><header><div><p className="nc-overline">Pinned comparison · {pinnedSections.length}/3</p><h2>Keep the sections you are managing together</h2></div><label><span>Compare</span><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></label></header><div>{pinnedSections.map((section) => {
+      const value = getValue(section, lensMetric)
+      const profile = profiles.get(section.profileId)
+      const target = getRange(profile, lensMetric)
+      const tone = getTone(section, lensMetric, profile)
+      const history = historySupportedMetricKeys.has(lensMetricKey)
+        ? pinnedHistory[`${section.id}:${lensMetricKey}`] || { status: 'loading', points: [] }
+        : { status: 'unsupported' as const, points: [] }
+      const firstPoint = history.points[0]
+      const lastPoint = history.points.at(-1)
+      const historyDelta = firstPoint && lastPoint ? lastPoint.value - firstPoint.value : null
+      return <article data-tone={tone} key={section.id}>
+        <div className="nc-pinned-card-head"><span><i /><span><small>{section.areaName}</small><h3>{section.name}</h3></span></span><button type="button" onClick={() => togglePin(section.id)} aria-label={`Unpin ${section.name}`}><i className="fa-solid fa-xmark" /></button></div>
+        <div className="nc-pinned-value-row"><strong>{formatValue(value, lensMetric)} <small>{lensMetric.unit}</small></strong><span>{historyDelta === null ? '24h change pending' : `${historyDelta > 0 ? '+' : ''}${formatValue(historyDelta, lensMetric)} ${lensMetric.unit} / 24h`}</span></div>
+        {history.status === 'ready' ? <PinnedSparkline points={history.points} target={target} tone={tone} label={`${section.name} ${lensMetric.label}`} /> : <div className="nc-pinned-chart-state" data-state={history.status}>{history.status === 'loading' ? 'Loading 24h history…' : history.status === 'unsupported' ? `24h history is unavailable for ${lensMetric.label.toLowerCase()}` : history.status === 'error' ? 'History could not be loaded' : 'Not enough history for a graph yet'}</div>}
+        <div className="nc-pinned-card-footer"><span><small>Crop target</small><strong>{target?.map((bound) => formatValue(bound, lensMetric)).join('–') || 'Not set'} {target ? lensMetric.unit : ''}</strong></span><button type="button" onClick={() => setDrawerId(section.id)}>Inspect <i className="fa-solid fa-arrow-right" /></button></div>
+      </article>
+    })}</div></section> : null}
 
     <section className="nc-signal-lens"><button type="button" onClick={() => setLensOpen(!lensOpen)} aria-expanded={lensOpen}><span><i className="fa-solid fa-chart-simple" /><span><strong>Profile-normalized signal lens</strong><small>Compare one parameter across different crop targets when you need deeper analysis.</small></span></span><i className={`fa-solid fa-chevron-${lensOpen ? 'up' : 'down'}`} /></button>{lensOpen ? <div className="nc-signal-lens-content"><header><h2>{lensMetric.label} across sections</h2><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></header>{visibleSections.map((section) => { const value = getValue(section, lensMetric); const visual = getDistributionVisual(section, lensMetric, profiles.get(section.profileId)); return <div className="nc-distribution-row" key={section.id}><span><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></span><div className="nc-distribution-track">{visual.zones.map((zone, index) => <span data-tone={zone.tone} style={{ left: `${zone.left}%`, width: `${zone.width}%` }} key={index} />)}<i style={{ left: `${visual.marker}%` }} data-tone={getTone(section, lensMetric, profiles.get(section.profileId))} /></div><strong>{formatValue(value, lensMetric)} <small>{lensMetric.unit}</small></strong><button onClick={() => togglePin(section.id)} disabled={!pinned.includes(section.id) && pinned.length >= 3}><i className="fa-solid fa-thumbtack" /></button></div>})}</div> : null}</section>
 
