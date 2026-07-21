@@ -399,6 +399,11 @@
       "Sign out": "Atsijungti",
       "Control Center": "Valdymo centras",
       "Overview": "Apžvalga",
+      "Daily work": "Kasdienis darbas",
+      "System setup": "Sistemos paruošimas",
+      "Compare sections": "Palyginti sekcijas",
+      "Compare": "Palyginti",
+      "Sensor nodes": "Sensorių mazgai",
       "Sites": "Vietos",
       "Site": "Vieta",
       "Zones": "Zonos",
@@ -2062,7 +2067,7 @@
       if (activePrimaryPage === "history" || activePrimaryPage === "readings") {
         activeViewScope = activePrimaryPage === "readings" ? "site" : "zone";
         activeWorkspaceFocus = "all";
-        if (activePrimaryPage === "readings") activeWorkbenchLensKey = "all";
+        if (activePrimaryPage === "readings") activeWorkbenchLensKey = "essential";
         setExperienceMode("detailed", { render: false, force: true });
       }
 
@@ -4568,7 +4573,7 @@
         elements.todayPriorityMain.insertAdjacentHTML("beforeend", `
           <div class="today-priority-system-note">
             <span><strong>${otherIssues.length}</strong> other active ${otherIssues.length === 1 ? "alert" : "alerts"} elsewhere in the system.</span>
-            <button type="button" data-today-alerts-page>Review alerts <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+            <button type="button" data-today-compare-page>${diagnosticText("Compare sections", "Palyginti sekcijas")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
           </div>
         `);
       }
@@ -4797,7 +4802,7 @@
           sidebarActionOverride = null;
           activeViewScope = "site";
           activeWorkspaceFocus = "all";
-          activeWorkbenchLensKey = "all";
+          activeWorkbenchLensKey = "essential";
           setExperienceMode("detailed", { render: false });
           closeContextMenus();
           renderDashboard();
@@ -5190,7 +5195,8 @@
         });
       });
 
-      return items;
+      return items.filter((item) => alertsModuleEnabled
+        || (item.kind !== "Alert" && !item.label.toLowerCase().includes("alert")));
     }
 
     function getCommandPaletteResults(query) {
@@ -12394,6 +12400,12 @@ function buildTrendMetricOptions(options) {
       "ph",
       "airPressure"
     ];
+    const areaLiveEssentialMetricKeys = [
+      "airTemp",
+      "humidity",
+      "vpd",
+      "co2"
+    ];
 
     function getAreaLiveMetricKeys(siteSnapshots, activeLens) {
       let metricKeys = [...new Set(siteSnapshots.flatMap((snapshot) =>
@@ -12404,6 +12416,8 @@ function buildTrendMetricOptions(options) {
 
       if (activeLens?.kind === "group") {
         metricKeys = metricKeys.filter((key) => getMetricWorkbenchGroup(key).key === activeLens.groupKey);
+      } else if (activeLens?.key === "essential") {
+        metricKeys = metricKeys.filter((key) => areaLiveEssentialMetricKeys.includes(key));
       } else if (activeLens?.key === "focus") {
         metricKeys = metricKeys.filter((key) => siteSnapshots.some((snapshot) => {
           const result = snapshot.results.find((item) => item.key === key);
@@ -13259,21 +13273,14 @@ function buildTrendMetricOptions(options) {
     }) {
       const availableBackendActions = Array.isArray(backendTodayActions) ? backendTodayActions : [];
       const hasBackendActionData = Array.isArray(backendTodayActions);
-      const siteZoneIds = new Set((site?.zones || []).map((candidateZone) => candidateZone.id));
-      const scopedBackendActions = availableBackendActions.filter((action) =>
-        isSiteView ? siteZoneIds.has(action.sectionId) : action.sectionId === zone.id
-      );
-      const outsideScopeIssues = allSystemIssues.filter((snapshot) =>
-        isSiteView ? snapshot.site.id !== site.id : snapshot.zone.id !== zone.id
-      );
-      const backendPriorityAction = scopedBackendActions[0] || null;
+      const backendPriorityAction = availableBackendActions[0] || null;
       const backendPrioritySnapshot = backendPriorityAction
-        ? siteSnapshots.find((snapshot) => snapshot.zone.id === backendPriorityAction.sectionId)
+        ? globalSnapshots.find((snapshot) => snapshot.zone.id === backendPriorityAction.sectionId)
           || (backendPriorityAction.sectionId === zone.id ? { site, zone, profile, results, overall: displayedOverallState } : null)
         : null;
       const selectedZoneSnapshot = { site, zone, profile, results, overall: displayedOverallState };
-      const sitePrioritySnapshot = allSystemIssues.find((snapshot) => snapshot.site.id === site.id) || selectedZoneSnapshot;
-      const prioritySnapshot = backendPrioritySnapshot || (isSiteView ? sitePrioritySnapshot : selectedZoneSnapshot);
+      const prioritySnapshot = backendPrioritySnapshot || allSystemIssues[0] || selectedZoneSnapshot;
+      const additionalFarmIssues = allSystemIssues.filter((snapshot) => snapshot.zone.id !== prioritySnapshot.zone.id);
       const priorityResult = backendPriorityAction
         ? {
             key: backendPriorityAction.metricId,
@@ -13292,18 +13299,20 @@ function buildTrendMetricOptions(options) {
       const priorityDefinition = priorityResult
         ? prioritySnapshot.profile.metrics[priorityResult.key]
         : null;
-      const scoreScopeResults = isSiteView ? prioritySnapshot.results : results;
+      const scoreScopeResults = isSiteView
+        ? siteSnapshots.flatMap((snapshot) => snapshot.results)
+        : results;
       const selectedPrimaryResult = scoreScopeResults
         .filter((result) => result.available !== false && isGrowthMetricKey(result.key) && result.state !== "optimal")
         .sort((left, right) => {
           return right.severity - left.severity;
         })[0] || null;
       const selectedPrimaryDefinition = selectedPrimaryResult
-        ? (isSiteView ? prioritySnapshot.profile : profile).metrics[selectedPrimaryResult.key]
+        ? profile.metrics[selectedPrimaryResult.key]
         : null;
       const scoreMainDriverKey = displayedOverallState.mainDriver || selectedPrimaryResult?.key || null;
       const scoreMainDriverDefinition = scoreMainDriverKey
-        ? (isSiteView ? prioritySnapshot.profile : profile).metrics[scoreMainDriverKey]
+        ? profile.metrics[scoreMainDriverKey]
         : null;
       const priorityTitle = backendPriorityAction?.title || (priorityResult && priorityDefinition
         ? `${getDecisionVerb(priorityResult, priorityDefinition)} ${priorityDefinition.label.toLowerCase()}`
@@ -13328,16 +13337,30 @@ function buildTrendMetricOptions(options) {
           return preferredMetricOrder.indexOf(left.key) - preferredMetricOrder.indexOf(right.key);
         })
         .slice(0, 3);
-      const metricKey = priorityResult?.key || readingItems[0]?.key || "humidity";
+      const priorityMetricKey = priorityResult?.key || "humidity";
+      const selectedMetricKey = selectedPrimaryResult?.key || readingItems[0]?.key || "humidity";
       const farmState = getZoneFarmState(site, zone, results);
+      const priorityFarmState = getZoneFarmState(
+        prioritySnapshot.site,
+        prioritySnapshot.zone,
+        prioritySnapshot.results
+      );
       updateClientConnectionStatus();
       const nodeSummary = farmState.nodeSummary || { live: 0, delayed: 0, stale: 0, offline: 0 };
+      const priorityNodeSummary = priorityFarmState.nodeSummary || { live: 0, delayed: 0, stale: 0, offline: 0 };
       const dataStatusLabel = getFreshnessLabel(farmState.dataStatus);
+      const priorityDataStatusLabel = getFreshnessLabel(priorityFarmState.dataStatus);
       const hasUsableCurrentData = farmState.coverage.reportingNodes > 0
         && farmState.coverage.liveMetrics > 0;
+      const priorityHasUsableCurrentData = priorityFarmState.coverage.reportingNodes > 0
+        && priorityFarmState.coverage.liveMetrics > 0;
       const hasNoRegisteredNodes = Number(farmState.coverage.registeredNodes || 0) === 0;
       const registeredSectionNodes = Array.isArray(zone?.batteryNodes) ? zone.batteryNodes : [];
       const awaitingFirstUplink = hasNoRegisteredNodes || registeredSectionNodes.every((node) => !node.lastSeen && !node.lastReceivedAt);
+      const priorityHasNoRegisteredNodes = Number(priorityFarmState.coverage.registeredNodes || 0) === 0;
+      const prioritySectionNodes = Array.isArray(prioritySnapshot.zone?.batteryNodes) ? prioritySnapshot.zone.batteryNodes : [];
+      const priorityAwaitingFirstUplink = priorityHasNoRegisteredNodes
+        || prioritySectionNodes.every((node) => !node.lastSeen && !node.lastReceivedAt);
       const scoreCardState = hasUsableCurrentData ? displayedOverallState.state : awaitingFirstUplink ? "neutral" : "critical";
       const scoreCardValue = hasUsableCurrentData ? `${displayedOverallState.indexScore}` : "--";
       const scoreCardLabel = hasUsableCurrentData
@@ -13376,17 +13399,17 @@ function buildTrendMetricOptions(options) {
       const scoreCoverageText = farmState.coverage.expectedMetrics > 0
         ? `${farmState.coverage.liveMetrics}/${farmState.coverage.expectedMetrics} ${diagnosticText("live", "aktyvūs")}`
         : "--";
-      const effectivePriorityTitle = hasUsableCurrentData
+      const effectivePriorityTitle = priorityHasUsableCurrentData
         ? priorityTitle
-        : awaitingFirstUplink
-          ? hasNoRegisteredNodes
+        : priorityAwaitingFirstUplink
+          ? priorityHasNoRegisteredNodes
             ? diagnosticText("Add the first sensor node", "Pridėkite pirmą sensoriaus mazgą")
             : diagnosticText("Waiting for first sensor data", "Laukiama pirmų sensorių duomenų")
           : diagnosticText("Restore sensor data", "Atkurkite sensorių duomenis");
-      const effectiveSuggestedAction = hasUsableCurrentData
+      const effectiveSuggestedAction = priorityHasUsableCurrentData
         ? suggestedAction
-        : awaitingFirstUplink
-          ? hasNoRegisteredNodes
+        : priorityAwaitingFirstUplink
+          ? priorityHasNoRegisteredNodes
             ? diagnosticText("Register a node before assessing growing conditions.", "Prieš vertinant auginimo sąlygas, užregistruokite mazgą.")
             : diagnosticText("The node is registered. Waiting for its first sensor reading.", "Mazgas užregistruotas. Laukiama pirmo jo sensorių rodmens.")
           : diagnosticText(
@@ -13396,17 +13419,20 @@ function buildTrendMetricOptions(options) {
 
       const localActionQueue = [
         {
-          tone: hasUsableCurrentData ? priorityResult?.state || "optimal" : awaitingFirstUplink ? "neutral" : "warning",
-          title: hasUsableCurrentData
+          tone: priorityHasUsableCurrentData ? priorityResult?.state || "optimal" : priorityAwaitingFirstUplink ? "neutral" : "warning",
+          title: priorityHasUsableCurrentData
             ? priorityResult && priorityDefinition ? priorityTitle : "Continue monitoring"
             : effectivePriorityTitle,
-          note: hasUsableCurrentData
+          note: priorityHasUsableCurrentData
             ? priorityResult ? priorityResult.deviationText : "All installed growth metrics are inside target."
-            : farmState.lastKnownCondition
-              ? `Last known condition: ${farmState.lastKnownCondition.status}.`
+            : priorityFarmState.lastKnownCondition
+              ? `Last known condition: ${priorityFarmState.lastKnownCondition.status}.`
               : "Current growing conditions cannot be verified.",
-          action: hasUsableCurrentData ? "trend" : "nodes",
-          label: hasUsableCurrentData ? "View trend" : hasNoRegisteredNodes ? "Register node" : "Open nodes"
+          action: priorityHasUsableCurrentData ? "trend" : "nodes",
+          label: priorityHasUsableCurrentData ? "View trend" : priorityHasNoRegisteredNodes ? "Register node" : "Open nodes",
+          metricKey: priorityMetricKey,
+          siteId: prioritySnapshot.site.id,
+          zoneId: prioritySnapshot.zone.id
         },
         !awaitingFirstUplink && farmState.dataStatus !== "live"
           ? {
@@ -13426,19 +13452,19 @@ function buildTrendMetricOptions(options) {
               label: "Open nodes"
             }
           : null,
-        outsideScopeIssues.length > 0
+        additionalFarmIssues.length > 0
           ? {
               tone: globalState,
               title: diagnosticText(
-                `${outsideScopeIssues.length} other section${outsideScopeIssues.length === 1 ? "" : "s"} need attention`,
-                `${outsideScopeIssues.length} ${outsideScopeIssues.length === 1 ? "kitai sekcijai" : "kitoms sekcijoms"} reikia dėmesio`
+                `${additionalFarmIssues.length} other section${additionalFarmIssues.length === 1 ? "" : "s"} need attention`,
+                `${additionalFarmIssues.length} ${additionalFarmIssues.length === 1 ? "kitai sekcijai" : "kitoms sekcijoms"} reikia dėmesio`
               ),
               note: diagnosticText(
-                `These issues are outside the selected ${isSiteView ? "site" : "section"} and do not affect the score shown above.`,
-                `Šios problemos yra už pasirinkto ${isSiteView ? "objekto" : "sekcijos"} ribų ir neturi įtakos aukščiau rodomam balui.`
+                "Compare all sections to decide the next inspection order.",
+                "Palyginkite visas sekcijas ir pasirinkite tolesnę patikros eilę."
               ),
-              action: "alerts",
-              label: "Review alerts"
+              action: "readings",
+              label: diagnosticText("Compare sections", "Palyginti sekcijas")
             }
           : null,
         !awaitingFirstUplink && unavailableCount > 0
@@ -13451,7 +13477,7 @@ function buildTrendMetricOptions(options) {
             }
           : null
       ].filter(Boolean).slice(0, 3);
-      const backendActionQueue = scopedBackendActions.map((action) => {
+      const backendActionQueue = availableBackendActions.map((action) => {
         const targetSite = dashboardData.sites.find((candidate) => candidate.zones.some((candidateZone) => candidateZone.id === action.sectionId));
         const targetZone = targetSite?.zones.find((candidateZone) => candidateZone.id === action.sectionId);
         return targetSite ? {
@@ -13522,7 +13548,7 @@ function buildTrendMetricOptions(options) {
       elements.overviewTriageSection.innerHTML = `
         <section class="overview-growing-map" aria-labelledby="overviewGrowingMapTitle">
           <header class="overview-growing-map-head">
-            <div><span class="triage-eyebrow">${diagnosticText("Farm at a glance", "Ūkis vienu žvilgsniu")}</span><h2 id="overviewGrowingMapTitle">${diagnosticText("Growing overview", "Auginimo apžvalga")}</h2></div>
+            <div><span class="triage-eyebrow">${diagnosticText("Today's farm brief", "Šiandienos ūkio suvestinė")}</span><h2 id="overviewGrowingMapTitle">${diagnosticText("Where attention is needed", "Kur reikia dėmesio")}</h2></div>
             <span class="overview-growing-map-summary" data-state="${escapeAttribute(totalAttention > 0 ? globalState : "optimal")}">${escapeHtml(diagnosticText(
               `${dashboardData.sites.length} areas · ${totalSections} sections · ${totalAttention > 0 ? `${totalAttention} need attention` : "all stable"}`,
               `${dashboardData.sites.length} objektai · ${totalSections} sekcijos · ${totalAttention > 0 ? `${totalAttention} reikia dėmesio` : "viskas stabilu"}`
@@ -13536,12 +13562,12 @@ function buildTrendMetricOptions(options) {
         </section>
 
         <div class="triage-priority-score-grid">
-          <article class="triage-priority-card" data-state="${escapeAttribute(hasUsableCurrentData ? priorityResult?.state || "optimal" : scoreCardState)}">
+          <article class="triage-priority-card" data-state="${escapeAttribute(priorityHasUsableCurrentData ? priorityResult?.state || "optimal" : priorityAwaitingFirstUplink ? "neutral" : "critical")}">
             <div class="triage-title-row">
-              <div class="triage-card-kicker">${diagnosticText(isSiteView ? "Selected site priority" : "Selected section priority", isSiteView ? "Pasirinkto objekto prioritetas" : "Pasirinktos sekcijos prioritetas")}</div>
-              <span class="overview-data-status" data-freshness="${escapeAttribute(farmState.dataStatus)}">
-                <i class="fa-solid ${farmState.dataStatus === "live" ? "fa-signal" : farmState.dataStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
-                ${escapeHtml(dataStatusLabel)} · ${nodeSummary.live}/${farmState.coverage.registeredNodes} nodes
+              <div class="triage-card-kicker">${diagnosticText("Farm priority", "Ūkio prioritetas")}</div>
+              <span class="overview-data-status" data-freshness="${escapeAttribute(priorityFarmState.dataStatus)}">
+                <i class="fa-solid ${priorityFarmState.dataStatus === "live" ? "fa-signal" : priorityFarmState.dataStatus === "offline" ? "fa-link-slash" : "fa-clock"}" aria-hidden="true"></i>
+                ${escapeHtml(priorityDataStatusLabel)} · ${priorityNodeSummary.live}/${priorityFarmState.coverage.registeredNodes} nodes
               </span>
             </div>
             <div class="triage-location-line">
@@ -13549,7 +13575,7 @@ function buildTrendMetricOptions(options) {
               ${escapeHtml(prioritySnapshot.site.name)} <span>›</span> ${escapeHtml(prioritySnapshot.zone.name)}
             </div>
             <h2>${escapeHtml(effectivePriorityTitle)}</h2>
-            ${hasUsableCurrentData && priorityResult && priorityDefinition ? `
+            ${priorityHasUsableCurrentData && priorityResult && priorityDefinition ? `
               <div class="triage-priority-facts">
                 <div><span>Current</span><strong>${escapeHtml(formatValue(priorityResult.value, priorityDefinition))}</strong></div>
                 <div><span>Target</span><strong>${escapeHtml(formatRange(priorityDefinition.optimal, priorityDefinition))}</strong></div>
@@ -13561,17 +13587,18 @@ function buildTrendMetricOptions(options) {
               <strong>${escapeHtml(effectiveSuggestedAction)}</strong>
             </div>
             <div class="triage-button-row">
-              <button type="button" class="triage-primary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(metricKey)}">
+              <button type="button" class="triage-primary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(priorityMetricKey)}" data-site-id="${escapeAttribute(prioritySnapshot.site.id)}" data-zone-id="${escapeAttribute(prioritySnapshot.zone.id)}">
                 View trend <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
               </button>
-              <button type="button" class="triage-secondary-button" data-triage-action="alerts">Review alerts</button>
+              <button type="button" class="triage-secondary-button" data-triage-action="readings" data-site-id="${escapeAttribute(prioritySnapshot.site.id)}">${diagnosticText("Compare sections", "Palyginti sekcijas")}</button>
             </div>
-            ${hasUsableCurrentData ? renderTriageFeedbackControls(backendPriorityAction) : ""}
+            ${priorityHasUsableCurrentData ? renderTriageFeedbackControls(backendPriorityAction) : ""}
           </article>
 
           <article class="triage-score-card" data-state="${escapeAttribute(scoreCardState)}">
             <div>
-              <div class="triage-card-kicker">Growing conditions score</div>
+              <div class="triage-card-kicker">${diagnosticText(isSiteView ? "Selected area score" : "Selected section score", isSiteView ? "Pasirinkto objekto balas" : "Pasirinktos sekcijos balas")}</div>
+              <div class="triage-score-location">${escapeHtml(isSiteView ? site.name : `${site.name} · ${zone.name}`)}</div>
               <div class="triage-score-value">${escapeHtml(scoreCardValue)}</div>
               <div class="triage-score-state">${escapeHtml(scoreCardLabel)}</div>
             </div>
@@ -13583,7 +13610,7 @@ function buildTrendMetricOptions(options) {
             <div class="triage-score-impact">
               <header>
                 <span>${diagnosticText("Points deducted", "Atimti taškai")}</span>
-                <small>GS ${escapeHtml(displayedOverallState.scoreModelVersion || "2.1.0")}</small>
+                <small>${diagnosticText("Measured factors", "Išmatuoti veiksniai")}</small>
               </header>
               <div>${scoreImpactMarkup}</div>
             </div>
@@ -13592,7 +13619,7 @@ function buildTrendMetricOptions(options) {
 
         <section class="triage-section">
           <div class="triage-section-heading">
-            <div><span class="triage-eyebrow">Live readings</span><h3>Current section snapshot</h3></div>
+            <div><span class="triage-eyebrow">${diagnosticText("Selected section", "Pasirinkta sekcija")}</span><h3>${diagnosticText("Current readings", "Dabartiniai rodmenys")}</h3></div>
             <span>${escapeHtml(site.name)} · ${escapeHtml(zone.name)}</span>
           </div>
           <div class="triage-readings-grid">
@@ -13628,14 +13655,14 @@ function buildTrendMetricOptions(options) {
         <div class="triage-bottom-grid">
           <section class="triage-section triage-action-section">
             <div class="triage-section-heading">
-              <div><span class="triage-eyebrow">Action queue</span><h3>Next three actions</h3></div>
+              <div><span class="triage-eyebrow">${diagnosticText("Farm action queue", "Ūkio veiksmų eilė")}</span><h3>${diagnosticText("Next three actions", "Kiti trys veiksmai")}</h3></div>
             </div>
             <ol class="triage-action-list">
               ${actionQueue.map((item, index) => `
                 <li data-tone="${escapeAttribute(item.tone)}">
                   <span class="triage-action-index">${index + 1}</span>
                   <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.note)}</p></div>
-                  <button type="button" data-triage-action="${escapeAttribute(item.action)}" data-metric-key="${escapeAttribute(item.metricKey || metricKey)}" data-site-id="${escapeAttribute(item.siteId || "")}" data-zone-id="${escapeAttribute(item.zoneId || "")}">${escapeHtml(item.label)}</button>
+                  <button type="button" data-triage-action="${escapeAttribute(item.action)}" data-metric-key="${escapeAttribute(item.metricKey || priorityMetricKey)}" data-site-id="${escapeAttribute(item.siteId || "")}" data-zone-id="${escapeAttribute(item.zoneId || "")}">${escapeHtml(item.label)}</button>
                 </li>
               `).join("")}
             </ol>
@@ -13653,7 +13680,7 @@ function buildTrendMetricOptions(options) {
             </div>
             <div class="triage-button-row">
               <button type="button" class="triage-secondary-button" data-triage-action="nodes">Open nodes</button>
-              <button type="button" class="triage-secondary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(metricKey)}">Open trends</button>
+              <button type="button" class="triage-secondary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(selectedMetricKey)}">Open trends</button>
             </div>
           </section>
         </div>
@@ -14270,7 +14297,7 @@ function buildTrendMetricOptions(options) {
           </div>
           <div class="diagnostic-button-row">
             <button type="button" class="diagnostic-primary-button" data-triage-action="trend" data-metric-key="${escapeAttribute(primaryResult?.key || "humidity")}">${diagnosticText("Verify in Trends", "Patikrinti grafike")}</button>
-            <button type="button" class="diagnostic-secondary-button" data-triage-action="alerts">${diagnosticText("Review active alerts", "Peržiūrėti aktyvius perspėjimus")}</button>
+            <button type="button" class="diagnostic-secondary-button" data-triage-action="readings" data-site-id="${escapeAttribute(site.id)}">${diagnosticText("Compare sections", "Palyginti sekcijas")}</button>
             ${selectedLowBatteryNodes.length > 0 ? `<button type="button" class="diagnostic-secondary-button" data-triage-action="nodes">${diagnosticText("Check node batteries", "Patikrinti mazgų baterijas")}</button>` : ""}
           </div>
         </section>
@@ -14793,8 +14820,7 @@ function buildTrendMetricOptions(options) {
         siteSnapshots,
         siteAverageSummaries
       });
-      currentWorkbenchLenses = isReadingsPage
-        ? workbenchConfig.lenses.filter((lens) => lens.key !== "focus").map((lens) => {
+      const readingsWorkbenchLenses = workbenchConfig.lenses.filter((lens) => lens.key !== "focus").map((lens) => {
             if (!isSiteView) return lens;
             if (lens.key === "all") {
               return {
@@ -14817,10 +14843,26 @@ function buildTrendMetricOptions(options) {
               };
             }
             return lens;
-          })
-        : workbenchConfig.lenses;
+          });
+      if (isReadingsPage && isSiteView) {
+        const essentialCount = getAreaLiveMetricKeys(siteSnapshots, { key: "essential" }).length;
+        if (essentialCount > 0) {
+          readingsWorkbenchLenses.unshift({
+            key: "essential",
+            label: diagnosticText("Key readings", "Svarbiausi rodmenys"),
+            icon: "fa-star",
+            tone: "neutral",
+            count: essentialCount,
+            description: diagnosticText(
+              `Showing the ${essentialCount} readings most useful for a quick section comparison.`,
+              `Rodomi ${essentialCount} rodikliai, naudingiausi greitam sekcijų palyginimui.`
+            )
+          });
+        }
+      }
+      currentWorkbenchLenses = isReadingsPage ? readingsWorkbenchLenses : workbenchConfig.lenses;
       if (isReadingsPage && activeWorkbenchLensKey === "focus") {
-        activeWorkbenchLensKey = "all";
+        activeWorkbenchLensKey = "essential";
       }
       if (isSimpleExperienceMode && currentWorkbenchLenses.some((lens) => lens.key === "focus")) {
         activeWorkbenchLensKey = "focus";
@@ -14944,9 +14986,12 @@ function buildTrendMetricOptions(options) {
           ? `${site.name} is in hotspot ranking mode`
           : `${site.name} is in location-average mode`
         : `${zone.name} is open inside ${site.name}`;
+      const opsAlertSummary = alertsModuleEnabled
+        ? `, ${activeAlertRailFilter.label.toLowerCase()} alerts`
+        : "";
       const opsDockSummary = manualOverride
-        ? `${opsScopeSummary}. Manual branch is active with ${opsRouteSummary}, ${(activeWorkbenchLens?.label || "focus").toLowerCase()} workbench lens, ${activeAlertRailFilter.label.toLowerCase()} alerts, and ${opsPowerSummary}.`
-        : `${opsScopeSummary}. ${scenarioDefinition.shortLabel} scenario is active with ${opsRouteSummary}, ${(activeWorkbenchLens?.label || "focus").toLowerCase()} workbench lens, ${activeAlertRailFilter.label.toLowerCase()} alerts, and ${opsPowerSummary}.`;
+        ? `${opsScopeSummary}. Manual branch is active with ${opsRouteSummary}, ${(activeWorkbenchLens?.label || "focus").toLowerCase()} workbench lens${opsAlertSummary}, and ${opsPowerSummary}.`
+        : `${opsScopeSummary}. ${scenarioDefinition.shortLabel} scenario is active with ${opsRouteSummary}, ${(activeWorkbenchLens?.label || "focus").toLowerCase()} workbench lens${opsAlertSummary}, and ${opsPowerSummary}.`;
       const opsDockCards = [
         {
           action: "scenario",
@@ -14992,7 +15037,7 @@ function buildTrendMetricOptions(options) {
           note: powerCardNote,
           cta: "Open power board"
         }
-      ];
+      ].filter((card) => alertsModuleEnabled || card.action !== "alerts");
       const isOpsDockResetDisabled = activeWorkbenchLensKey === "focus"
         && activeInspectionRouteFilterKey === "focus"
         && activeAlertRailFilterKey === "all"
@@ -17147,7 +17192,7 @@ function buildTrendMetricOptions(options) {
         activePrimaryPage = "overview";
         sidebarActionOverride = null;
         activeSiteId = areaCard.dataset.overviewAreaCard;
-        activeViewScope = "site";
+        activeViewScope = "zone";
         normalizeActiveSelection({ preferCurrentZone: false });
         persistActiveContext();
         renderSiteOptions();
@@ -17169,6 +17214,16 @@ function buildTrendMetricOptions(options) {
       if (!actionButton) return;
 
       const action = actionButton.dataset.triageAction;
+      if (action === "readings") {
+        if (actionButton.dataset.siteId) {
+          activeSiteId = actionButton.dataset.siteId;
+          normalizeActiveSelection({ preferCurrentZone: false });
+          renderSiteOptions();
+          renderZoneOptions();
+        }
+        runDashboardAction("readings");
+        return;
+      }
       if (action === "trend") {
         if (actionButton.dataset.siteId && actionButton.dataset.zoneId) {
           activeSiteId = actionButton.dataset.siteId;
@@ -17217,6 +17272,14 @@ function buildTrendMetricOptions(options) {
       if (!actionButton) return;
 
       const action = actionButton.dataset.triageAction;
+      if (action === "readings") {
+        if (actionButton.dataset.siteId) {
+          activeSiteId = actionButton.dataset.siteId;
+          normalizeActiveSelection({ preferCurrentZone: false });
+        }
+        runDashboardAction("readings");
+        return;
+      }
       if (action === "trend") {
         const metricKey = actionButton.dataset.metricKey;
         if (metricKey) {
@@ -17264,12 +17327,8 @@ function buildTrendMetricOptions(options) {
         return;
       }
 
-      if (event.target.closest("[data-today-alerts-page]")) {
-        activePrimaryPage = "alerts";
-        sidebarActionOverride = null;
-        renderDashboard();
-        syncTopLevelRoute("/alerts");
-        scrollToSection("alertsManagementSection");
+      if (event.target.closest("[data-today-compare-page]")) {
+        runDashboardAction("readings");
         return;
       }
 

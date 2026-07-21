@@ -13256,6 +13256,16 @@
       color: rgba(255, 255, 255, 0.70);
     }
 
+    .triage-score-location {
+      overflow: hidden;
+      margin-top: 0.45rem;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 0.72rem;
+      font-weight: 650;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .triage-score-value {
       margin-top: 0.3rem;
       font-family: "Space Grotesk", sans-serif;

@@ -55,6 +55,11 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await login(page, 'tenant-a@ci.neurocrop.test')
   await expect(page.locator('#headerAccountEmail')).toHaveText('tenant-a@ci.neurocrop.test')
   await expect(navigationAction(page, 'overview')).toHaveAttribute('data-active', 'true')
+  await expect(navigationAction(page, 'overview')).toContainText('Today')
+  await expect(navigationAction(page, 'readings')).toContainText('Compare sections')
+  await expect(navigationAction(page, 'alerts')).toBeHidden()
+  await expect(page.locator('.triage-priority-card')).toContainText('Farm priority')
+  await expect(page.locator('.triage-score-card')).toContainText('Selected section score')
   await expect(page.locator('#headerContextSelectors')).not.toContainText('All sections')
 
   await navigationAction(page, 'sites').click()
@@ -74,6 +79,8 @@ test('Live readings opens an Area-wide Section measurement matrix', async ({ pag
   await expect(page.locator('#zoneContextValue')).toHaveText('All sections')
   await expect(page.locator('#siteMetricsViewToggle')).toBeHidden()
   await expect(page.locator('#metricsGrid')).toHaveAttribute('data-display', 'area-readings-board')
+  await expect(page.locator('[data-workbench-lens="essential"]')).toHaveAttribute('data-active', 'true')
+  await expect(page.locator('[data-workbench-lens="all"]')).toContainText('All parameters')
   await expect(page.locator('.area-live-section-row')).toHaveCount(1)
   await expect(page.locator('.area-live-section-copy strong')).toHaveText('CI Section A')
   await expect(page.locator('.area-live-section-copy small')).toHaveCount(0)
@@ -81,6 +88,9 @@ test('Live readings opens an Area-wide Section measurement matrix', async ({ pag
   await expect(page.locator('.area-live-value small')).toHaveCount(0)
   await expect(page.locator('.area-live-matrix-head')).toContainText('Air temperature')
   await expect(page.locator('.area-live-matrix-head')).toContainText('Relative humidity')
+
+  const visibleMetricColumns = await page.locator('.area-live-matrix-head > span').count() - 3
+  expect(visibleMetricColumns).toBeLessThanOrEqual(6)
 
   await page.locator('[data-area-reading-section]').click()
   await expect(page.locator('body')).toHaveAttribute('data-view-scope', 'zone')
