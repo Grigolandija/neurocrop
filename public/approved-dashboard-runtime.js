@@ -8299,19 +8299,27 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           `;
           const lightingSchedule = (metricDraft || metric).lightingSchedule || {};
           const lightingScheduleMarkup = metricKey === "lux" ? `
-            <div class="crop-profile-lighting-schedule">
-              <label><input type="checkbox" data-lighting-schedule="enabled" ${lightingSchedule.enabled === true ? "checked" : ""}> <span>${diagnosticText("Use lighting schedule", "Naudoti apšvietimo grafiką")}</span></label>
-              <label><span>${diagnosticText("Lights on", "Šviesos pradžia")}</span><input type="time" value="${escapeAttribute(lightingSchedule.start || "06:00")}" data-lighting-schedule="start"></label>
-              <label><span>${diagnosticText("Lights off", "Šviesos pabaiga")}</span><input type="time" value="${escapeAttribute(lightingSchedule.end || "22:00")}" data-lighting-schedule="end"></label>
-              <label><span>${diagnosticText("Dark threshold", "Tamsos riba")}</span><input type="number" min="0" step="10" value="${escapeAttribute(lightingSchedule.darkThresholdLux ?? 100)}" data-lighting-schedule="darkThresholdLux"><small>lx</small></label>
+            <div class="crop-profile-lighting-schedule" data-enabled="${String(lightingSchedule.enabled === true)}">
+              <div class="lighting-schedule-head">
+                <div><strong>${diagnosticText("Lighting schedule", "Apšvietimo grafikas")}</strong><span>${diagnosticText("Use scheduled hours to distinguish expected darkness from a lighting fault.", "Pagal grafiką sistema atskiria numatytą tamsą nuo apšvietimo gedimo.")}</span></div>
+                <label class="lighting-schedule-toggle">
+                  <input type="checkbox" data-lighting-schedule="enabled" ${lightingSchedule.enabled === true ? "checked" : ""}>
+                  <span class="lighting-toggle-track" aria-hidden="true"><i></i></span>
+                  <span>${diagnosticText("Use schedule", "Naudoti grafiką")}</span>
+                </label>
+              </div>
+              <div class="lighting-schedule-fields">
+                <label><span>${diagnosticText("Lights on", "Šviesos pradžia")}</span><input type="time" value="${escapeAttribute(lightingSchedule.start || "06:00")}" data-lighting-schedule="start"></label>
+                <label><span>${diagnosticText("Lights off", "Šviesos pabaiga")}</span><input type="time" value="${escapeAttribute(lightingSchedule.end || "22:00")}" data-lighting-schedule="end"></label>
+                <label><span>${diagnosticText("Dark threshold", "Tamsos riba")}</span><div class="lighting-threshold-input"><input type="number" min="0" step="10" value="${escapeAttribute(lightingSchedule.darkThresholdLux ?? 100)}" data-lighting-schedule="darkThresholdLux"><small>lx</small></div></label>
+              </div>
             </div>
           ` : "";
           const isExpanded = expandedCropProfileMetricId === metricKey;
           return `<div class="range-editor crop-profile-metric-row" data-profile-metric-row="${escapeAttribute(metricKey)}" data-expanded="${String(isExpanded)}">
             <div class="crop-profile-metric-name"><strong>${escapeHtml(metric.label)}</strong><span>${escapeHtml(formatUnit(metric.unit))}</span></div>
-            ${optimalInput("Minimum", rangeValues.optimalMin, 0)}
-            ${optimalInput("Target maximum", rangeValues.optimalMax, 1)}
-            <label class="range-editor-field range-editor-derived"><span>Critical maximum</span><input type="text" value="${escapeAttribute(formatProfileRangeInput(automaticRanges.critical[1], metric.decimals))}" data-profile-critical-output readonly aria-label="${escapeAttribute(`${metric.label} calculated critical maximum`)}"></label>
+            ${optimalInput("Optimal minimum", rangeValues.optimalMin, 0)}
+            ${optimalInput("Optimal maximum", rangeValues.optimalMax, 1)}
             <button type="button" class="range-editor-more" data-profile-metric-expand="${escapeAttribute(metricKey)}" aria-expanded="${String(isExpanded)}" aria-label="More options for ${escapeAttribute(metric.label)}"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></button>
             <div class="range-editor-advanced" ${isExpanded ? "" : "hidden"}>
               <div class="crop-profile-metric-boundary crop-profile-metric-warning" data-profile-alert-limit="warning" data-metric-key="${escapeAttribute(metricKey)}"><b>Warning</b>${escapeHtml(formatRange(automaticRanges.warning, metric))}</div>
@@ -9253,10 +9261,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       metric.critical = automaticRanges.critical.map((value) => formatProfileRangeInput(value, decimals));
       const warningLabel = row.querySelector('[data-profile-alert-limit="warning"]');
       const criticalLabel = row.querySelector('[data-profile-alert-limit="critical"]');
-      const criticalOutput = row.querySelector('[data-profile-critical-output]');
       if (warningLabel) warningLabel.innerHTML = `<b>Warning</b> ${escapeHtml(formatRange(metric.warning, metric))}`;
       if (criticalLabel) criticalLabel.innerHTML = `<b>Critical</b> ${escapeHtml(formatRange(metric.critical, metric))}`;
-      if (criticalOutput instanceof HTMLInputElement) criticalOutput.value = formatProfileRangeInput(automaticRanges.critical[1], decimals);
       delete target.dataset.optimalRangeBaseline;
     }
 
