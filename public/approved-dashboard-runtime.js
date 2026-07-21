@@ -8270,6 +8270,13 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       profile = getCompleteCropProfile(profile);
       const draft = settingsProfileEditorDrafts[profileKey] || null;
       const draftMetrics = draft?.metrics || {};
+      const displayProfileName = String((draft?.name ?? profile.name) || "Crop profile").trim() || "Crop profile";
+      const normalizeProfileIdentity = (value, fallback) => {
+        const text = String(value || "").trim();
+        return !text || /^[-–—.\s]+$/.test(text) ? fallback : text;
+      };
+      const displayCrop = normalizeProfileIdentity(draft?.heroName ?? profile.heroName, displayProfileName);
+      const displayStage = normalizeProfileIdentity(draft?.stage ?? profile.stage, "Custom program");
       const profileUsageCount = getProfileUsageCounts()[profileKey] || 0;
       const assignments = getProfileAssignments(profileKey);
       const saveFeedback = profileSaveFeedback.profileKey === profileKey
@@ -8351,10 +8358,15 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
 
       return `
         <form class="crop-profile-editor" data-settings-form="crop-profile-editor" data-profile-key="${escapeAttribute(profileKey)}" data-dirty="false">
+          <nav class="profile-detail-breadcrumb" aria-label="Breadcrumb">
+            <button type="button" data-settings-profile-back>Crop profiles</button>
+            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+            <span>${escapeHtml(displayProfileName)}</span>
+          </nav>
           <header class="profile-detail-header">
             <div class="profile-detail-heading">
-              <button type="button" class="profile-detail-eyebrow" data-settings-profile-back title="Back to crop profiles">${escapeHtml((draft?.heroName ?? profile.heroName) || "Crop")} <span>·</span> ${escapeHtml((draft?.stage ?? profile.stage) || "Growth stage not set")}</button>
-              <h2>${escapeHtml(draft?.name ?? profile.name)}</h2>
+              <p class="profile-detail-eyebrow">${escapeHtml(displayCrop)} <span>·</span> ${escapeHtml(displayStage)}</p>
+              <h2>${escapeHtml(displayProfileName)}</h2>
               <span>Used by ${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"}. Changes affect future scoring and alerts after saving.</span>
             </div>
             <div class="profile-detail-actions">
