@@ -9,6 +9,7 @@ import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
 import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
 import { buildTodayActions, evaluateActionOutcome, getActionVerificationPolicy } from '../today-actions.js';
+import { invitationState } from '../invitation-state.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -53,6 +54,17 @@ test('server errors do not expose internal details', () => {
     message: 'Internal server error'
   });
   assert.equal(publicError(Object.assign(new Error('Invalid range'), { status: 400 })).message, 'Invalid range');
+});
+
+test('invitation links preserve revoked, expired and accepted states', () => {
+  const now = new Date('2026-07-22T10:00:00Z');
+  const pending = { expires_at: '2026-07-23T10:00:00Z', organization_status: 'active' };
+  assert.equal(invitationState(pending, now), 'pending');
+  assert.equal(invitationState({ ...pending, revoked_at: '2026-07-22T09:00:00Z' }, now), 'revoked');
+  assert.equal(invitationState({ ...pending, accepted_at: '2026-07-22T09:00:00Z' }, now), 'accepted');
+  assert.equal(invitationState({ ...pending, expires_at: '2026-07-22T09:59:59Z' }, now), 'expired');
+  assert.equal(invitationState({ ...pending, organization_status: 'archived' }, now), 'unavailable');
+  assert.equal(invitationState(null, now), 'invalid');
 });
 
 test('climate calculations reject impossible sensor values', () => {

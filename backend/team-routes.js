@@ -14,6 +14,7 @@ import {
   verifyUserPassword
 } from './auth-users.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
+import { invitationState } from './invitation-state.js';
 
 const INVITE_TTL_DAYS = 7;
 const INVITABLE_ROLES = new Set(['admin', 'grower', 'technician', 'viewer']);
@@ -57,6 +58,17 @@ function invitationResponse(row) {
     createdAt: row.created_at,
     invitedBy: row.invited_by_name || null
   };
+}
+
+function invitationStateError(state) {
+  const errors = {
+    revoked: { status: 410, code: 'INVITATION_REVOKED', message: 'This invitation was cancelled by the organization administrator.' },
+    expired: { status: 410, code: 'INVITATION_EXPIRED', message: 'This invitation has expired. Ask the organization administrator for a new invitation.' },
+    accepted: { status: 409, code: 'INVITATION_ACCEPTED', message: 'This invitation has already been accepted.' },
+    unavailable: { status: 410, code: 'INVITATION_UNAVAILABLE', message: 'This organization is no longer available.' },
+    invalid: { status: 404, code: 'INVITATION_INVALID', message: 'This invitation link is not valid.' }
+  };
+  return errors[state] || errors.invalid;
 }
 
 export function registerTeamRoutes(app) {
@@ -398,6 +410,45 @@ export function registerTeamRoutes(app) {
     }
   });
 
+  app.get('/auth/invitations/:token', async (req, res, next) => {
+    try {
+      const token = String(req.params.token || '').trim();
+      if (!token) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invitation token is required' } });
+      }
+
+      const { rows } = await query(
+        `SELECT i.id, i.email, i.role, i.expires_at, i.accepted_at, i.revoked_at,
+                o.name AS organization_name, o.status AS organization_status,
+                EXISTS (SELECT 1 FROM users u WHERE lower(u.email)=lower(i.email)) AS account_exists
+         FROM invitations i
+         JOIN organizations o ON o.id=i.organization_id
+         WHERE i.token_hash=$1
+         LIMIT 1`,
+        [hashToken(token)]
+      );
+      const invitation = rows[0];
+      const status = invitationState(invitation);
+      if (!invitation) {
+        const error = invitationStateError(status);
+        return res.status(error.status).json({ error: { code: error.code, message: error.message } });
+      }
+
+      res.json({
+        invitation: {
+          status,
+          email: invitation.email,
+          role: invitation.role,
+          organizationName: invitation.organization_name,
+          expiresAt: invitation.expires_at,
+          accountExists: invitation.account_exists === true
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post('/auth/accept-invite', async (req, res, next) => {
     const client = await pool.connect();
     try {
@@ -414,23 +465,22 @@ export function registerTeamRoutes(app) {
       await client.query('BEGIN');
       const execute = client.query.bind(client);
       const { rows: inviteRows } = await client.query(
-        `SELECT i.id, i.organization_id, i.email, i.role, o.name AS organization_name
+        `SELECT i.id, i.organization_id, i.email, i.role, i.expires_at,
+                i.accepted_at, i.revoked_at, o.name AS organization_name,
+                o.status AS organization_status
          FROM invitations i
-         JOIN organizations o ON o.id=i.organization_id AND o.status='active'
+         JOIN organizations o ON o.id=i.organization_id
          WHERE i.token_hash=$1
-           AND i.accepted_at IS NULL
-           AND i.revoked_at IS NULL
-           AND i.expires_at > now()
          LIMIT 1
          FOR UPDATE`,
         [hashToken(token)]
       );
       const invitation = inviteRows[0];
-      if (!invitation) {
+      const status = invitationState(invitation);
+      if (status !== 'pending') {
         await client.query('ROLLBACK');
-        return res.status(400).json({
-          error: { code: 'INVITATION_INVALID', message: 'This invitation is invalid, expired, or has already been used' }
-        });
+        const error = invitationStateError(status);
+        return res.status(error.status).json({ error: { code: error.code, message: error.message } });
       }
 
       let account = await findUserForLogin(invitation.email, execute);

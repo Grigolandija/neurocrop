@@ -310,7 +310,6 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
           ['notifications', 'fa-bell', 'Notifications', 'Delivery and escalation'], ['security', 'fa-shield-halved', 'Security', 'Password and sessions'],
           ['audit', 'fa-clock-rotate-left', 'Activity', 'Settings changes'],
         ] as Array<[SettingsSection, string, string, string]>).map(([key, icon, label, note]) => <button key={key} className={section === key ? 'active' : ''} onClick={() => setSection(key)}><i className={`fa-solid ${icon}`} /><span><strong>{label}</strong><small>{note}</small></span><i className="fa-solid fa-chevron-right" /></button>)}
-        {user?.isPlatformAdmin ? <><p>Platform admin</p><button onClick={() => navigate('/admin')}><i className="fa-solid fa-briefcase" /><span><strong>Customers</strong><small>Organizations and users</small></span><i className="fa-solid fa-arrow-up-right-from-square" /></button><button onClick={() => navigate('/admin/integrations')}><i className="fa-solid fa-plug" /><span><strong>Integrations</strong><small>Technical connections</small></span><i className="fa-solid fa-arrow-up-right-from-square" /></button></> : null}
       </aside>
       <div className="nc-settings-main">
         <header className="nc-settings-panel-head"><div><p>{meta.eyebrow}</p><h2>{meta.title}</h2><span>{meta.description}</span></div>{section === 'audit' ? <button className="nc-settings-button secondary" onClick={exportAudit}><i className="fa-solid fa-download" />Export</button> : null}</header>

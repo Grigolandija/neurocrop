@@ -8,6 +8,7 @@ const encoded = (value: string) => encodeURIComponent(value)
 export const neurocropApi = {
   isConnected: isApiConnected,
   register: (payload: Payload) => request('/auth/register', { method: 'POST', body: json(payload) }),
+  getInvitationStatus: (token: string) => request(`/auth/invitations/${encoded(token)}`),
   acceptInvitation: (payload: Payload) => request('/auth/accept-invite', { method: 'POST', body: json(payload) }),
   login: (email: string, password: string) => request('/auth/login', { method: 'POST', body: json({ email, password }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
