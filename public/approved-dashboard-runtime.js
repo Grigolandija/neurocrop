@@ -8773,6 +8773,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             </div>
             <div class="profile-detail-actions">
               <button type="button" class="settings-secondary-button" data-settings-profile-duplicate="${escapeAttribute(profileKey)}"><i class="fa-regular fa-copy" aria-hidden="true"></i>Duplicate</button>
+              <button type="button" class="settings-secondary-button crop-profile-header-delete" data-settings-profile-delete="${escapeAttribute(profileKey)}"><i class="fa-regular fa-trash-can" aria-hidden="true"></i>Delete</button>
               <button type="button" class="crop-profile-discard-button" data-settings-profile-discard="${escapeAttribute(profileKey)}" disabled>Discard</button>
               <button type="submit" class="settings-primary-button" data-profile-save disabled><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>Save changes</button>
             </div>

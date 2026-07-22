@@ -831,6 +831,17 @@
   min-width: 7rem;
 }
 
+.designer-app .profile-detail-actions .crop-profile-header-delete {
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.designer-app .profile-detail-actions .crop-profile-header-delete:hover {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger-hover);
+}
+
 .designer-app .profile-detail-actions .settings-primary-button {
   min-width: 8.25rem;
 }
