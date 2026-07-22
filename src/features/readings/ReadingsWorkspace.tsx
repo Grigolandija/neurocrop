@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 // API records are intentionally open because dashboard and sensor payloads evolve independently.
@@ -43,6 +43,17 @@ type PinnedHistoryState = {
   points: HistoryPoint[]
 }
 
+type EChartsInstance = {
+  setOption: (option: JsonRecord, notMerge?: boolean) => void
+  resize: () => void
+  dispose: () => void
+}
+
+type EChartsApi = {
+  init: (element: HTMLElement, theme?: string | null, options?: JsonRecord) => EChartsInstance
+  graphic?: { LinearGradient: new (x: number, y: number, x2: number, y2: number, colorStops: JsonRecord[]) => unknown }
+}
+
 const metrics: Metric[] = [
   { key: 'airTemp', label: 'Air temperature', short: 'Temperature', unit: '°C', decimals: 1, group: 'climate', icon: 'fa-temperature-half' },
   { key: 'humidity', label: 'Relative humidity', short: 'Humidity', unit: '%', decimals: 0, group: 'climate', icon: 'fa-droplet' },
@@ -81,6 +92,14 @@ const trendRanges: Record<TrendRangeKey, { hours: number; stepMinutes: number }>
   '24h': { hours: 24, stepMinutes: 60 },
   '7d': { hours: 24 * 7, stepMinutes: 240 },
   '30d': { hours: 24 * 30, stepMinutes: 240 },
+}
+
+const chartColorTokens: Record<string, [string, string]> = {
+  airTemp: ['--chart-temperature', '#d36c5b'], leafTemp: ['--chart-temperature', '#d36c5b'], soilTemp: ['--chart-temperature', '#d36c5b'],
+  humidity: ['--chart-humidity', '#4c82b8'], vpd: ['--chart-vpd', '#8a6bbe'], co2: ['--chart-co2', '#7a6f64'],
+  lux: ['--chart-light', '#d6a436'], ec: ['--chart-ec', '#b45f87'], ph: ['--chart-ph', '#6c70c9'],
+  waterTemp: ['--chart-water', '#2c91a3'], soilMoisture: ['--chart-water', '#2c91a3'], batteryLevel: ['--chart-battery', '#738e95'],
+  airPressure: ['--chart-pressure', '#66788e'],
 }
 
 function asArray<T = JsonRecord>(value: unknown): T[] {
@@ -315,6 +334,122 @@ function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }:
     </svg>
     <div className="nc-pinned-x-axis"><span>{formatTime(points[0])}</span><strong>Time ({periodLabel})</strong><span>{formatTime(middlePoint)}</span><span>{formatTime(lastPoint)}</span></div>
   </figure>
+}
+
+function TrendPreviewChart({ points, target, metric, periodLabel }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; periodLabel: TrendRangeKey }) {
+  const chartRef = useRef<HTMLDivElement>(null)
+  const targetMinimum = target?.[0] ?? null
+  const targetMaximum = target?.[1] ?? null
+
+  useEffect(() => {
+    const echarts = window.echarts as EChartsApi | undefined
+    const element = chartRef.current
+    if (!echarts || !element || points.length < 2) return
+
+    const styles = getComputedStyle(document.documentElement)
+    const readToken = (token: string, fallback: string) => styles.getPropertyValue(token).trim() || fallback
+    const [colorToken, colorFallback] = chartColorTokens[metric.key] || ['--chart-growth', '#3f7d65']
+    const color = readToken(colorToken, colorFallback)
+    const textColor = readToken('--color-text-secondary', '#5d655f')
+    const borderColor = readToken('--color-border', '#d8dbd7')
+    const surfaceColor = readToken('--color-surface', '#ffffff')
+    const tooltipColor = readToken('--color-primary', '#252b29')
+    const tooltipTextColor = readToken('--color-on-primary', '#ffffff')
+    const values = points.map((point) => point.value)
+    const dataMinimum = Math.min(...values)
+    const dataMaximum = Math.max(...values)
+    const precisionStep = 10 ** -metric.decimals
+    const dataSpan = Math.max(dataMaximum - dataMinimum, precisionStep * 4, Math.max(Math.abs(dataMinimum), Math.abs(dataMaximum), 1) * .02)
+    let axisMinimum = dataMinimum - dataSpan * .18
+    let axisMaximum = dataMaximum + dataSpan * .18
+    for (const boundary of [targetMinimum, targetMaximum]) {
+      if (boundary !== null && boundary >= dataMinimum - dataSpan * .75 && boundary <= dataMaximum + dataSpan * .75) {
+        axisMinimum = Math.min(axisMinimum, boundary - dataSpan * .08)
+        axisMaximum = Math.max(axisMaximum, boundary + dataSpan * .08)
+      }
+    }
+    const formatNumber = (value: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: metric.decimals }).format(value)
+    const formatDate = (value: number) => new Intl.DateTimeFormat(undefined, periodLabel === '24h'
+      ? { hour: '2-digit', minute: '2-digit' }
+      : { day: '2-digit', month: 'short', hour: '2-digit' }).format(new Date(value))
+    const chart = echarts.init(element, null, { renderer: 'svg' })
+    const areaColor = echarts.graphic?.LinearGradient
+      ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: `${color}30` }, { offset: 1, color: `${color}05` }])
+      : color
+    chart.setOption({
+      animation: false,
+      aria: { enabled: true, description: `${metric.label} trend over ${periodLabel}` },
+      grid: { left: 78, right: 28, top: 30, bottom: points.length > 40 ? 78 : 58, containLabel: false },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: tooltipColor,
+        borderWidth: 0,
+        textStyle: { color: tooltipTextColor, fontSize: 12 },
+        axisPointer: { type: 'line', lineStyle: { color, width: 1, type: 'dashed' } },
+        formatter: (items: JsonRecord[]) => {
+          const item = Array.isArray(items) ? items[0] : items
+          const timestamp = Number(item?.value?.[0])
+          const value = Number(item?.value?.[1])
+          return `<strong>${formatDate(timestamp)}</strong><br>${metric.label}: <strong>${formatNumber(value)} ${metric.unit}</strong>`
+        },
+      },
+      xAxis: {
+        type: 'time',
+        name: `Time (${periodLabel})`,
+        nameLocation: 'middle',
+        nameGap: points.length > 40 ? 54 : 36,
+        axisLine: { lineStyle: { color: textColor } },
+        axisTick: { lineStyle: { color: textColor } },
+        axisLabel: { color: textColor, fontSize: 11, hideOverlap: true, formatter: (value: number) => formatDate(value) },
+        nameTextStyle: { color: textColor, fontSize: 11, fontWeight: 600 },
+        splitLine: { show: false },
+      },
+      yAxis: {
+        type: 'value',
+        min: axisMinimum,
+        max: axisMaximum,
+        splitNumber: 5,
+        name: `${metric.label} (${metric.unit})`,
+        nameLocation: 'middle',
+        nameGap: 58,
+        axisLine: { show: true, lineStyle: { color } },
+        axisTick: { show: true, lineStyle: { color } },
+        axisLabel: { color, fontSize: 11, formatter: (value: number) => formatNumber(value) },
+        nameTextStyle: { color, fontSize: 11, fontWeight: 600 },
+        splitLine: { lineStyle: { color, opacity: .12 } },
+      },
+      dataZoom: points.length > 40 ? [
+        { type: 'inside', xAxisIndex: 0, filterMode: 'none' },
+        { type: 'slider', xAxisIndex: 0, height: 18, bottom: 12, borderColor, fillerColor: `${color}20`, handleStyle: { color, borderColor: surfaceColor }, textStyle: { color: textColor } },
+      ] : [],
+      series: [{
+        name: metric.label,
+        type: 'line',
+        data: points.map((point) => [new Date(point.observedAt).getTime(), point.value]),
+        showSymbol: false,
+        symbol: 'circle',
+        symbolSize: 7,
+        smooth: .32,
+        smoothMonotone: 'x',
+        connectNulls: false,
+        lineStyle: { color, width: 2.5, cap: 'round', join: 'round' },
+        itemStyle: { color, borderColor: surfaceColor, borderWidth: 2 },
+        areaStyle: { color: areaColor, opacity: .45 },
+        markArea: targetMinimum !== null && targetMaximum !== null ? {
+          silent: true,
+          itemStyle: { color: readToken('--color-success-soft', '#e6f2eb'), opacity: .72 },
+          label: { show: true, color: readToken('--color-success', '#2f7d59'), fontSize: 11, formatter: 'Crop target' },
+          data: [[{ yAxis: targetMinimum }, { yAxis: targetMaximum }]],
+        } : undefined,
+      }],
+    }, true)
+
+    const observer = new ResizeObserver(() => chart.resize())
+    observer.observe(element)
+    return () => { observer.disconnect(); chart.dispose() }
+  }, [metric, periodLabel, points, targetMinimum, targetMaximum])
+
+  return <div ref={chartRef} className="nc-trend-echart" role="img" aria-label={`${metric.label} ${periodLabel} trend chart`} />
 }
 
 export default function ReadingsWorkspace() {
@@ -614,7 +749,7 @@ export default function ReadingsWorkspace() {
 
     <section className="nc-signal-lens"><button type="button" onClick={() => setLensOpen(!lensOpen)} aria-expanded={lensOpen}><span><i className="fa-solid fa-chart-simple" /><span><strong>Profile-normalized signal lens</strong><small>Compare one parameter across different crop targets when you need deeper analysis.</small></span></span><i className={`fa-solid fa-chevron-${lensOpen ? 'up' : 'down'}`} /></button>{lensOpen ? <div className="nc-signal-lens-content"><header><h2>{lensMetric.label} across sections</h2><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></header>{visibleSections.map((section) => { const value = getValue(section, lensMetric); const visual = getDistributionVisual(section, lensMetric, profiles.get(section.profileId)); return <div className="nc-distribution-row" key={section.id}><span><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></span><div className="nc-distribution-track">{visual.zones.map((zone, index) => <span data-tone={zone.tone} style={{ left: `${zone.left}%`, width: `${zone.width}%` }} key={index} />)}<i style={{ left: `${visual.marker}%` }} data-tone={getTone(section, lensMetric, profiles.get(section.profileId))} /></div><strong>{formatValue(value, lensMetric)} <small>{lensMetric.unit}</small></strong><button onClick={() => togglePin(section.id)} disabled={!pinned.includes(section.id) && pinned.length >= 3}><i className="fa-solid fa-thumbtack" /></button></div>})}</div> : null}</section>
 
-    {trendPreviewSection && trendPreviewMetric ? <div className="nc-readings-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setTrendPreview(null) }}><aside className="nc-readings-drawer nc-trend-preview" role="dialog" aria-modal="true" aria-label={`${trendPreviewSection.name} ${trendPreviewMetric.label} trend`}><header><div><p className="nc-overline">Measurement trend</p><h2>{trendPreviewMetric.label}</h2><span>{trendPreviewSection.areaName} · {trendPreviewSection.name}</span></div><button type="button" onClick={() => setTrendPreview(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header><div className="nc-trend-preview-body"><div className="nc-trend-current" data-tone={getTone(trendPreviewSection, trendPreviewMetric, profiles.get(trendPreviewSection.profileId))}><span><small>Current reading</small><strong>{formatValue(getValue(trendPreviewSection, trendPreviewMetric), trendPreviewMetric)} <em>{trendPreviewMetric.unit}</em></strong></span><span><small>Crop target</small><strong>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)?.map((bound) => formatValue(bound, trendPreviewMetric)).join('–') || 'Not set'} <em>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric) ? trendPreviewMetric.unit : ''}</em></strong></span></div><div className="nc-trend-range" role="group" aria-label="Trend period">{(Object.keys(trendRanges) as TrendRangeKey[]).map((range) => <button type="button" className={trendRange === range ? 'active' : ''} onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setTrendRange(range) }} key={range}>{range}</button>)}</div>{trendPreviewHistory.status === 'ready' ? <PinnedSparkline points={trendPreviewHistory.points} target={getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)} metric={trendPreviewMetric} label={`${trendPreviewSection.name} ${trendPreviewMetric.label}`} periodLabel={trendRange} /> : <div className="nc-trend-preview-state" data-state={trendPreviewHistory.status}>{trendPreviewHistory.status === 'loading' ? 'Loading measurement history…' : trendPreviewHistory.status === 'error' ? 'History could not be loaded' : 'Not enough measurements for this period'}</div>}<p className="nc-trend-preview-note"><i className="fa-solid fa-circle-info" /> Chart values are aggregated from this Section's sensor history.</p></div><footer><button type="button" onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setRefreshToken((value) => value + 1) }}><i className="fa-solid fa-rotate" />Refresh</button><button type="button" className="primary" onClick={() => { setTrendPreview(null); openMetricTrend(trendPreviewSection, trendPreviewMetric) }}>Open full Trends <i className="fa-solid fa-arrow-right" /></button></footer></aside></div> : null}
+    {trendPreviewSection && trendPreviewMetric ? <div className="nc-readings-drawer-backdrop nc-trend-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setTrendPreview(null) }}><aside className="nc-readings-drawer nc-trend-preview" role="dialog" aria-modal="true" aria-label={`${trendPreviewSection.name} ${trendPreviewMetric.label} trend`}><header><div><p className="nc-overline">Measurement trend</p><h2>{trendPreviewMetric.label}</h2><span>{trendPreviewSection.areaName} · {trendPreviewSection.name}</span></div><button type="button" onClick={() => setTrendPreview(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header><div className="nc-trend-preview-body"><div className="nc-trend-current" data-tone={getTone(trendPreviewSection, trendPreviewMetric, profiles.get(trendPreviewSection.profileId))}><span><small>Current reading</small><strong>{formatValue(getValue(trendPreviewSection, trendPreviewMetric), trendPreviewMetric)} <em>{trendPreviewMetric.unit}</em></strong></span><span><small>Crop target</small><strong>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)?.map((bound) => formatValue(bound, trendPreviewMetric)).join('–') || 'Not set'} <em>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric) ? trendPreviewMetric.unit : ''}</em></strong></span></div><div className="nc-trend-range" role="group" aria-label="Trend period">{(Object.keys(trendRanges) as TrendRangeKey[]).map((range) => <button type="button" className={trendRange === range ? 'active' : ''} onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setTrendRange(range) }} key={range}>{range}</button>)}</div>{trendPreviewHistory.status === 'ready' ? <TrendPreviewChart points={trendPreviewHistory.points} target={getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)} metric={trendPreviewMetric} periodLabel={trendRange} /> : <div className="nc-trend-preview-state" data-state={trendPreviewHistory.status}>{trendPreviewHistory.status === 'loading' ? 'Loading measurement history…' : trendPreviewHistory.status === 'error' ? 'History could not be loaded' : 'Not enough measurements for this period'}</div>}<p className="nc-trend-preview-note"><i className="fa-solid fa-circle-info" /> Chart values are aggregated from this Section's sensor history. Drag or scroll the chart to inspect dense periods.</p></div><footer><button type="button" onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setRefreshToken((value) => value + 1) }}><i className="fa-solid fa-rotate" />Refresh</button><button type="button" className="primary" onClick={() => { setTrendPreview(null); openMetricTrend(trendPreviewSection, trendPreviewMetric) }}>Open full Trends <i className="fa-solid fa-arrow-right" /></button></footer></aside></div> : null}
 
     {selectedSection ? <div className="nc-readings-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setDrawerId(null) }}><aside className="nc-readings-drawer" role="dialog" aria-modal="true" aria-label={`${selectedSection.name} readings`}><header><div><p className="nc-overline">Section detail</p><h2>{selectedSection.name}</h2><span>{selectedSection.areaName} · {selectedSection.profileName}</span></div><button onClick={() => setDrawerId(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header><div className="nc-drawer-summary"><i className="fa-solid fa-tower-broadcast" /><span><strong>{formatAge(selectedSection)}</strong><small>{selectedSection.nodes.length} configured nodes</small></span></div><div className="nc-drawer-metrics">{metrics.map((metric) => <div className="nc-drawer-metric" data-tone={getTone(selectedSection, metric, profiles.get(selectedSection.profileId))} key={metric.key}><span><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{qualityLabels[getQuality(selectedSection, metric)]}</small></span></span><span><strong>{formatValue(getValue(selectedSection, metric), metric)} {getValue(selectedSection, metric) === null ? '' : metric.unit}</strong><small>{getRange(profiles.get(selectedSection.profileId), metric)?.map((bound) => formatValue(bound, metric)).join('–') || 'No target'} {metric.unit}</small></span></div>)}</div><footer><button onClick={() => togglePin(selectedSection.id)} disabled={!pinned.includes(selectedSection.id) && pinned.length >= 3}><i className="fa-solid fa-thumbtack" />{pinned.includes(selectedSection.id) ? 'Unpin section' : 'Pin comparison'}</button><button className="primary" onClick={() => { window.postMessage({ type: 'neurocrop:navigate', route: '/sections' }, window.location.origin); setDrawerId(null) }}>Open Sections</button></footer></aside></div> : null}
   </main>
