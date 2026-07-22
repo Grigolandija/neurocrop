@@ -2260,8 +2260,29 @@
 
     window.addEventListener("message", (event) => {
       if (event.origin !== window.location.origin) return;
-      if (!event.data || event.data.type !== "neurocrop:route") return;
-      applyDashboardRoute(event.data.route);
+      if (!event.data) return;
+      if (event.data.type === "neurocrop:route") {
+        applyDashboardRoute(event.data.route);
+        return;
+      }
+      if (event.data.type !== "neurocrop:open-trend") return;
+
+      const sectionId = String(event.data.sectionId || "");
+      const requestedAreaId = String(event.data.areaId || "");
+      const site = dashboardData.sites.find((item) =>
+        item.id === requestedAreaId || (item.zones || []).some((zone) => zone.id === sectionId)
+      );
+      const zone = site?.zones?.find((item) => item.id === sectionId);
+      if (!site || !zone) return;
+
+      activeSiteId = site.id;
+      activeZoneId = zone.id;
+      activeProfileKey = zone.profile || activeProfileKey;
+      persistActiveContext();
+      renderSiteOptions();
+      renderZoneOptions();
+      resetCurrentReadingsFromActiveZone();
+      openTrendHistory(String(event.data.metricKey || ""));
     });
 
     function isDetailedExperience() {

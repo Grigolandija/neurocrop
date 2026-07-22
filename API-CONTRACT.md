@@ -158,6 +158,8 @@ laiko:
   "expectedUplinkIntervalSec": 600,
   "observations": {
     "airTemp": {
+      "value": 20.4,
+      "change1h": -0.3,
       "lastObservedAt": "2026-07-03T09:50:00Z",
       "expectedIntervalSec": 600
     },
@@ -171,6 +173,8 @@ laiko:
 
 - `lastReceivedAt` yra backend serverio laikas, kada gautas uplink.
 - `lastObservedAt` yra konkretaus matavimo laikas.
+- `change1h` yra to paties node dabartinės ir artimiausios 40–80 minučių
+  senumo reikšmės skirtumų mediana; kai tinkamo baseline nėra, grąžinama `null`.
 - Šviežumas skaičiuojamas kiekvienai metrikai atskirai.
 - Transporto būsena gali būti `live`, nors konkretus rodmuo jau `stale`.
 - Būsenų atsistatymui taikoma histerezė. Blogėjimas registruojamas iškart,

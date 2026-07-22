@@ -100,6 +100,8 @@ function areaLabel(area: JsonRecord) {
 }
 
 function numeric(value: unknown): number | null {
+  if (value === null || value === undefined || typeof value === 'boolean') return null
+  if (typeof value === 'string' && !value.trim()) return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
 }
@@ -241,7 +243,7 @@ function getDistributionVisual(section: SectionReading, metric: Metric, profile:
   }
 }
 
-function ReadingCell({ section, metric, profile, mode }: { section: SectionReading; metric: Metric; profile?: JsonRecord; mode: ReadingMode }) {
+function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section: SectionReading; metric: Metric; profile?: JsonRecord; mode: ReadingMode; onOpenTrend: () => void }) {
   const value = getValue(section, metric)
   const quality = getQuality(section, metric)
   const tone = getTone(section, metric, profile)
@@ -261,9 +263,9 @@ function ReadingCell({ section, metric, profile, mode }: { section: SectionReadi
   } else if (value !== null && min !== null && max !== null && min !== max) {
     secondary = `${metric.unit} · ${formatValue(min, metric)}–${formatValue(max, metric)}`
   }
-  return <div className="nc-reading-cell" data-tone={tone} data-quality={quality} title={`${metric.label}: ${qualityLabels[quality]}`}>
+  return <button type="button" className="nc-reading-cell" data-tone={tone} data-quality={quality} onClick={onOpenTrend} title={`Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={`Open ${section.name} ${metric.label} trend`}>
     <strong>{primary}</strong><small>{secondary}</small><i aria-label={qualityLabels[quality]} />
-  </div>
+  </button>
 }
 
 function PinnedSparkline({ points, target, metric, label }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; label: string }) {
@@ -495,6 +497,15 @@ export default function ReadingsWorkspace() {
     setPinned((current) => current.includes(id) ? current.filter((item) => item !== id) : current.length < 3 ? [...current, id] : current)
   }
 
+  function openMetricTrend(section: SectionReading, metric: Metric) {
+    window.postMessage({
+      type: 'neurocrop:open-trend',
+      areaId: section.areaId,
+      sectionId: section.id,
+      metricKey: metric.key,
+    }, window.location.origin)
+  }
+
   function exportCsv() {
     const header = ['Section', 'Area', 'Crop profile', ...visibleMetrics.map((metric) => `${metric.label} (${metric.unit})`), 'Latest data']
     const rows = visibleSections.map((section) => [section.name, section.areaName, section.profileName, ...visibleMetrics.map((metric) => {
@@ -526,7 +537,7 @@ export default function ReadingsWorkspace() {
       <div className="nc-reading-legend"><span><i data-state="good" />Within crop target</span><span><i data-state="watch" />Outside target</span><span><i data-state="critical" />Critical</span><span><b />Data quality marker</span></div>
       <div className="nc-readings-matrix-scroll">
         <div className="nc-readings-row nc-readings-row-head" style={matrixStyle}><span>Section</span>{visibleMetrics.map((metric) => <span key={metric.key}>{metric.short}<small>{metric.unit}</small></span>)}<span>Latest data</span><span /></div>
-        {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)}><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)}</strong><small>{section.nodes.length || 'No'} nodes</small></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
+        {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)}><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openMetricTrend(section, metric)} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)}</strong><small>{section.nodes.length || 'No'} nodes</small></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
         {status === 'ready' && !visibleSections.length ? <div className="nc-readings-empty">No sections match the selected filters.</div> : null}
       </div>
     </section>

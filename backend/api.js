@@ -1558,43 +1558,92 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
       return status === 'live' || status === 'delayed';
     });
 
-    const sourcesByMetric = {};
-    const addSource = (metric, sample, value) => {
-      const numericValue = normalizeTelemetryNumber(value);
-      if (numericValue === null) return;
-      if (!sourcesByMetric[metric]) sourcesByMetric[metric] = [];
-      sourcesByMetric[metric].push({
-        value: numericValue,
-        observedAt: sample.measurement.time,
-        expectedIntervalSec: metric === 'batteryLevel'
-          ? Math.max(METRIC_INTERVAL_SEC[metric] || 600, expectedIntervalForSample(sample))
-          : expectedIntervalForSample(sample),
-        devEui: normalizeDevEui(sample.node.dev_eui),
-        nodeName: sample.node.name || sample.node.dev_eui
+    const currentDevEuis = currentSamples.map((sample) => normalizeDevEui(sample.node.dev_eui));
+    const { rows: oneHourBaselineRows } = currentDevEuis.length
+      ? await query(
+        `WITH latest AS (
+           SELECT DISTINCT ON (dev_eui) dev_eui, time
+           FROM measurements
+           WHERE dev_eui = ANY($1::text[])
+           ORDER BY dev_eui, time DESC
+         )
+         SELECT baseline.*
+         FROM latest
+         JOIN LATERAL (
+           SELECT measurement.*
+           FROM measurements measurement
+           WHERE measurement.dev_eui=latest.dev_eui
+             AND measurement.time BETWEEN latest.time - INTERVAL '80 minutes'
+                                      AND latest.time - INTERVAL '40 minutes'
+           ORDER BY ABS(EXTRACT(EPOCH FROM (measurement.time - (latest.time - INTERVAL '1 hour'))))
+           LIMIT 1
+         ) baseline ON TRUE`,
+        [currentDevEuis]
+      )
+      : { rows: [] };
+    const oneHourBaselineByDevEui = new Map(
+      oneHourBaselineRows.map((row) => [normalizeDevEui(row.dev_eui), row])
+    );
+    const oneHourBaselineSamples = currentSamples
+      .map((sample) => ({
+        node: sample.node,
+        measurement: oneHourBaselineByDevEui.get(normalizeDevEui(sample.node.dev_eui)) || null
+      }))
+      .filter((sample) => sample.measurement);
+
+    const collectSourcesByMetric = (metricSamples) => {
+      const collected = {};
+      const addSource = (metric, sample, value) => {
+        const numericValue = normalizeTelemetryNumber(value);
+        if (numericValue === null) return;
+        if (!collected[metric]) collected[metric] = [];
+        collected[metric].push({
+          value: numericValue,
+          observedAt: sample.measurement.time,
+          expectedIntervalSec: metric === 'batteryLevel'
+            ? Math.max(METRIC_INTERVAL_SEC[metric] || 600, expectedIntervalForSample(sample))
+            : expectedIntervalForSample(sample),
+          devEui: normalizeDevEui(sample.node.dev_eui),
+          nodeName: sample.node.name || sample.node.dev_eui
+        });
+      };
+
+      metricSamples.forEach((sample) => {
+        for (const [column, metric] of Object.entries(METRIC_MAP)) {
+          if (measurementReportsMetric(sample.measurement, metric)) {
+            addSource(metric, sample, sample.measurement[column]);
+          }
+        }
+        if (measurementReportsMetric(sample.measurement, 'airTemp') && measurementReportsMetric(sample.measurement, 'humidity')) {
+          addSource('vpd', sample, calcVPD(sample.measurement.temperature, sample.measurement.humidity));
+        }
       });
+      return collected;
     };
 
-    currentSamples.forEach((sample) => {
-      for (const [column, metric] of Object.entries(METRIC_MAP)) {
-        if (measurementReportsMetric(sample.measurement, metric)) {
-          addSource(metric, sample, sample.measurement[column]);
-        }
-      }
-      if (measurementReportsMetric(sample.measurement, 'airTemp') && measurementReportsMetric(sample.measurement, 'humidity')) {
-        addSource('vpd', sample, calcVPD(sample.measurement.temperature, sample.measurement.humidity));
-      }
-    });
+    const sourcesByMetric = collectSourcesByMetric(currentSamples);
+    const oneHourBaselineSourcesByMetric = collectSourcesByMetric(oneHourBaselineSamples);
 
     const observations = Object.fromEntries(
       Object.entries(sourcesByMetric).map(([metric, sources]) => {
         const values = sources.map((source) => source.value);
+        const value = medianValue(values);
+        const oneHourBaselineSources = oneHourBaselineSourcesByMetric[metric] || [];
+        const oneHourBaselineByNode = new Map(
+          oneHourBaselineSources.map((source) => [source.devEui, source.value])
+        );
+        const oneHourChange = medianValue(sources.flatMap((source) => {
+          const baseline = oneHourBaselineByNode.get(source.devEui);
+          return Number.isFinite(baseline) ? [source.value - baseline] : [];
+        }));
         const leastFreshSource = [...sources].sort((a, b) => {
           const aAgeRatio = (Date.now() - new Date(a.observedAt).getTime()) / (a.expectedIntervalSec * 1000);
           const bAgeRatio = (Date.now() - new Date(b.observedAt).getTime()) / (b.expectedIntervalSec * 1000);
           return bAgeRatio - aAgeRatio;
         })[0];
         return [metric, {
-          value: medianValue(values),
+          value,
+          change1h: oneHourChange === null ? null : Number(oneHourChange.toFixed(6)),
           lastObservedAt: leastFreshSource.observedAt,
           expectedIntervalSec: leastFreshSource.expectedIntervalSec,
           unit: METRIC_UNITS[metric] || '',

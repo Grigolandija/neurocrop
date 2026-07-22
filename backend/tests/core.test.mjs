@@ -113,8 +113,9 @@ test('session cookies default to secure SameSite=Lax', () => {
 });
 
 test('logout cookie options expire the cookie instead of extending it', () => {
-  assert.equal(sessionCookieOptions().maxAge > 0, true);
-  assert.deepEqual(sessionCookieClearOptions(), getSessionCookieOptions({}));
+  const { maxAge, ...expectedClearOptions } = sessionCookieOptions();
+  assert.equal(maxAge > 0, true);
+  assert.deepEqual(sessionCookieClearOptions(), expectedClearOptions);
   assert.equal('maxAge' in sessionCookieClearOptions(), false);
 });
 
@@ -743,4 +744,16 @@ test('action history is tenant-scoped and verifies outcomes from section measure
   assert.match(route, /metricSeriesSnapshot/);
   assert.match(route, /INTERVAL '4 hours'/);
   assert.match(route, /DISTINCT ON \(action_id, COALESCE\(action_payload->>'observedAt'/);
+});
+
+test('latest readings expose a one-hour change from a bounded historical baseline', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.get('/readings/latest'");
+  const route = source.slice(routeStart, source.indexOf("function historicalSensorPresenceCondition", routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /INTERVAL '1 hour'/);
+  assert.match(route, /INTERVAL '80 minutes'/);
+  assert.match(route, /INTERVAL '40 minutes'/);
+  assert.match(route, /oneHourBaselineSourcesByMetric/);
+  assert.match(route, /change1h:/);
 });
