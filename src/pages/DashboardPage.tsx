@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
 import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
 import SettingsWorkspace from '../features/settings/SettingsWorkspace'
+import OrganizationWorkspace from '../features/settings/OrganizationWorkspace'
 import AdminWorkspace from '../features/settings/AdminWorkspace'
 import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
 import { installNeuroCropApi } from '../services/api/neurocropApi'
@@ -28,6 +29,7 @@ function ApprovedDashboard() {
   const runtimeReady = useRef(false)
   const [readingsMount, setReadingsMount] = useState<HTMLElement | null>(null)
   const [settingsMount, setSettingsMount] = useState<HTMLElement | null>(null)
+  const [organizationMount, setOrganizationMount] = useState<HTMLElement | null>(null)
   const [adminMount, setAdminMount] = useState<HTMLElement | null>(null)
   const [adminIntegrationsMount, setAdminIntegrationsMount] = useState<HTMLElement | null>(null)
 
@@ -39,6 +41,7 @@ function ApprovedDashboard() {
     }
     setReadingsMount(hostRef.current?.querySelector<HTMLElement>('#readingsWorkspaceMount') || null)
     setSettingsMount(hostRef.current?.querySelector<HTMLElement>('#settingsWorkspaceMount') || null)
+    setOrganizationMount(hostRef.current?.querySelector<HTMLElement>('#organizationWorkspaceMount') || null)
     setAdminMount(hostRef.current?.querySelector<HTMLElement>('#adminWorkspaceMount') || null)
     setAdminIntegrationsMount(hostRef.current?.querySelector<HTMLElement>('#adminIntegrationsMount') || null)
 
@@ -94,6 +97,7 @@ function ApprovedDashboard() {
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
       setSettingsMount(null)
+      setOrganizationMount(null)
       setAdminMount(null)
       setAdminIntegrationsMount(null)
     }
@@ -109,8 +113,11 @@ function ApprovedDashboard() {
     {location.pathname === '/readings' && readingsMount
       ? createPortal(<ReadingsWorkspace />, readingsMount)
       : null}
-    {(location.pathname === '/settings' || location.pathname === '/organization') && settingsMount
-      ? createPortal(<SettingsWorkspace key={location.pathname} initialSection={location.pathname === '/organization' ? 'team' : 'workspace'} />, settingsMount)
+    {location.pathname === '/settings' && settingsMount
+      ? createPortal(<SettingsWorkspace />, settingsMount)
+      : null}
+    {location.pathname === '/organization' && organizationMount
+      ? createPortal(<OrganizationWorkspace />, organizationMount)
       : null}
     {location.pathname === '/admin' && adminMount
       ? createPortal(<AdminWorkspace />, adminMount)
