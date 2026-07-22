@@ -12,6 +12,7 @@ import './styles/neurocrop-typography-system.css'
 import './styles/redesign-profiles.css'
 import './styles/redesign-alerts.css'
 import './styles/readings-workspace.css'
+import './styles/sections-workspace.css'
 import './styles/settings-workspace.css'
 
 declare global {

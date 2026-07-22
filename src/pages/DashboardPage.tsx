@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
 import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
+import SectionsWorkspace from '../features/sections/SectionsWorkspace'
 import SettingsWorkspace from '../features/settings/SettingsWorkspace'
 import OrganizationWorkspace from '../features/settings/OrganizationWorkspace'
 import AdminWorkspace from '../features/settings/AdminWorkspace'
@@ -28,6 +29,7 @@ function ApprovedDashboard() {
   const hostRef = useRef<HTMLDivElement>(null)
   const runtimeReady = useRef(false)
   const [readingsMount, setReadingsMount] = useState<HTMLElement | null>(null)
+  const [sectionsMount, setSectionsMount] = useState<HTMLElement | null>(null)
   const [settingsMount, setSettingsMount] = useState<HTMLElement | null>(null)
   const [organizationMount, setOrganizationMount] = useState<HTMLElement | null>(null)
   const [adminMount, setAdminMount] = useState<HTMLElement | null>(null)
@@ -40,6 +42,7 @@ function ApprovedDashboard() {
       hostRef.current.innerHTML = approvedMarkup
     }
     setReadingsMount(hostRef.current?.querySelector<HTMLElement>('#readingsWorkspaceMount') || null)
+    setSectionsMount(hostRef.current?.querySelector<HTMLElement>('#sectionsWorkspaceMount') || null)
     setSettingsMount(hostRef.current?.querySelector<HTMLElement>('#settingsWorkspaceMount') || null)
     setOrganizationMount(hostRef.current?.querySelector<HTMLElement>('#organizationWorkspaceMount') || null)
     setAdminMount(hostRef.current?.querySelector<HTMLElement>('#adminWorkspaceMount') || null)
@@ -96,6 +99,7 @@ function ApprovedDashboard() {
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
+      setSectionsMount(null)
       setSettingsMount(null)
       setOrganizationMount(null)
       setAdminMount(null)
@@ -112,6 +116,9 @@ function ApprovedDashboard() {
     <div ref={hostRef} />
     {location.pathname === '/readings' && readingsMount
       ? createPortal(<ReadingsWorkspace />, readingsMount)
+      : null}
+    {location.pathname === '/sections' && sectionsMount
+      ? createPortal(<SectionsWorkspace />, sectionsMount)
       : null}
     {location.pathname === '/settings' && settingsMount
       ? createPortal(<SettingsWorkspace />, settingsMount)
