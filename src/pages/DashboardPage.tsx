@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
 import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
 import SettingsWorkspace from '../features/settings/SettingsWorkspace'
+import AdminWorkspace from '../features/settings/AdminWorkspace'
 import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
 import { installNeuroCropApi } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
@@ -27,6 +28,7 @@ function ApprovedDashboard() {
   const runtimeReady = useRef(false)
   const [readingsMount, setReadingsMount] = useState<HTMLElement | null>(null)
   const [settingsMount, setSettingsMount] = useState<HTMLElement | null>(null)
+  const [adminMount, setAdminMount] = useState<HTMLElement | null>(null)
   const [adminIntegrationsMount, setAdminIntegrationsMount] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
@@ -37,6 +39,7 @@ function ApprovedDashboard() {
     }
     setReadingsMount(hostRef.current?.querySelector<HTMLElement>('#readingsWorkspaceMount') || null)
     setSettingsMount(hostRef.current?.querySelector<HTMLElement>('#settingsWorkspaceMount') || null)
+    setAdminMount(hostRef.current?.querySelector<HTMLElement>('#adminWorkspaceMount') || null)
     setAdminIntegrationsMount(hostRef.current?.querySelector<HTMLElement>('#adminIntegrationsMount') || null)
 
     document.body.classList.add('designer-app')
@@ -91,6 +94,7 @@ function ApprovedDashboard() {
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
       setSettingsMount(null)
+      setAdminMount(null)
       setAdminIntegrationsMount(null)
     }
   }, [navigate])
@@ -107,6 +111,9 @@ function ApprovedDashboard() {
       : null}
     {location.pathname === '/settings' && settingsMount
       ? createPortal(<SettingsWorkspace />, settingsMount)
+      : null}
+    {location.pathname === '/admin' && adminMount
+      ? createPortal(<AdminWorkspace />, adminMount)
       : null}
     {location.pathname === '/admin/integrations' && adminIntegrationsMount
       ? createPortal(<AdminIntegrationsWorkspace />, adminIntegrationsMount)
