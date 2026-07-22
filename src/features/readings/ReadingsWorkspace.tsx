@@ -5,6 +5,7 @@ import { neurocropApi } from '../../services/api/neurocropApi'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonRecord = Record<string, any>
 type ReadingMode = 'value' | 'target' | 'change'
+type TrendRangeKey = '24h' | '7d' | '30d'
 type ReadingQuality = 'live' | 'stale' | 'offline' | 'no-data' | 'not-installed' | 'calibration'
 type ReadingTone = 'good' | 'watch' | 'critical' | 'neutral'
 
@@ -73,8 +74,14 @@ const qualityLabels: Record<ReadingQuality, string> = {
 
 const historySupportedMetricKeys = new Set([
   'airTemp', 'humidity', 'vpd', 'co2', 'leafTemp', 'airPressure',
-  'soilMoisture', 'soilTemp', 'ec', 'ph', 'waterTemp', 'lux',
+  'soilMoisture', 'soilTemp', 'ec', 'ph', 'waterTemp', 'lux', 'batteryLevel',
 ])
+
+const trendRanges: Record<TrendRangeKey, { hours: number; stepMinutes: number }> = {
+  '24h': { hours: 24, stepMinutes: 60 },
+  '7d': { hours: 24 * 7, stepMinutes: 240 },
+  '30d': { hours: 24 * 30, stepMinutes: 240 },
+}
 
 function asArray<T = JsonRecord>(value: unknown): T[] {
   return Array.isArray(value) ? value : []
@@ -268,7 +275,7 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
   </button>
 }
 
-function PinnedSparkline({ points, target, metric, label }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; label: string }) {
+function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; label: string; periodLabel?: string }) {
   const width = 320
   const height = 72
   const padding = 4
@@ -293,8 +300,8 @@ function PinnedSparkline({ points, target, metric, label }: { points: HistoryPoi
     ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(point.observedAt))
     : '—'
 
-  return <figure className="nc-pinned-chart" data-metric={metric.key} aria-label={`${label}, 24 hour history`}>
-    <figcaption>{metric.label} over the last 24 hours</figcaption>
+  return <figure className="nc-pinned-chart" data-metric={metric.key} aria-label={`${label}, ${periodLabel} history`}>
+    <figcaption>{metric.label} over the last {periodLabel}</figcaption>
     <span className="nc-pinned-y-title">{metric.short} ({metric.unit})</span>
     <div className="nc-pinned-y-scale"><span>{formatValue(domainMax, metric)}</span><span>{formatValue((domainMin + domainMax) / 2, metric)}</span><span>{formatValue(domainMin, metric)}</span></div>
     <svg className="nc-pinned-sparkline" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-hidden="true">
@@ -306,7 +313,7 @@ function PinnedSparkline({ points, target, metric, label }: { points: HistoryPoi
       <polyline className="nc-pinned-chart-line" points={line} />
       {lastPoint ? <circle className="nc-pinned-chart-point" cx={x(points.length - 1)} cy={y(lastPoint.value)} r="3.5" /> : null}
     </svg>
-    <div className="nc-pinned-x-axis"><span>{formatTime(points[0])}</span><strong>Time (24h)</strong><span>{formatTime(middlePoint)}</span><span>{formatTime(lastPoint)}</span></div>
+    <div className="nc-pinned-x-axis"><span>{formatTime(points[0])}</span><strong>Time ({periodLabel})</strong><span>{formatTime(middlePoint)}</span><span>{formatTime(lastPoint)}</span></div>
   </figure>
 }
 
@@ -329,6 +336,9 @@ export default function ReadingsWorkspace() {
   const [lensOpen, setLensOpen] = useState(false)
   const [lensMetricKey, setLensMetricKey] = useState('humidity')
   const [pinnedHistory, setPinnedHistory] = useState<Record<string, PinnedHistoryState>>({})
+  const [trendPreview, setTrendPreview] = useState<{ sectionId: string; metricKey: string } | null>(null)
+  const [trendRange, setTrendRange] = useState<TrendRangeKey>('24h')
+  const [trendPreviewHistory, setTrendPreviewHistory] = useState<PinnedHistoryState>({ status: 'empty', points: [] })
   const [refreshToken, setRefreshToken] = useState(0)
 
   useEffect(() => {
@@ -422,11 +432,15 @@ export default function ReadingsWorkspace() {
   }, [refreshToken])
 
   useEffect(() => {
-    if (!drawerId) return
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setDrawerId(null) }
+    if (!drawerId && !trendPreview) return
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setDrawerId(null)
+      setTrendPreview(null)
+    }
     document.addEventListener('keydown', close)
     return () => document.removeEventListener('keydown', close)
-  }, [drawerId])
+  }, [drawerId, trendPreview])
 
   useEffect(() => {
     if (!pinned.length) return
@@ -460,6 +474,34 @@ export default function ReadingsWorkspace() {
     return () => { cancelled = true }
   }, [pinned, lensMetricKey, refreshToken])
 
+  useEffect(() => {
+    if (!trendPreview) return
+    let cancelled = false
+    const range = trendRanges[trendRange]
+    const to = new Date()
+    const from = new Date(to.getTime() - range.hours * 60 * 60 * 1000)
+
+    neurocropApi.getHistory({
+      sectionId: trendPreview.sectionId,
+      metric: trendPreview.metricKey,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      stepMinutes: range.stepMinutes,
+    }).then((payload) => {
+      if (cancelled) return
+      const response = payload as JsonRecord
+      const points = asArray(response?.points).map((point) => ({
+        observedAt: String(point.observedAt || point.receivedAt || ''),
+        value: numeric(point.value),
+      })).filter((point): point is HistoryPoint => Boolean(point.observedAt) && point.value !== null)
+      setTrendPreviewHistory({ status: points.length >= 2 ? 'ready' : 'empty', points })
+    }).catch(() => {
+      if (!cancelled) setTrendPreviewHistory({ status: 'error', points: [] })
+    })
+
+    return () => { cancelled = true }
+  }, [trendPreview, trendRange, refreshToken])
+
   const visibleMetrics = useMemo(() => visibleKeys.map((key) => metrics.find((metric) => metric.key === key)).filter((metric): metric is Metric => Boolean(metric)), [visibleKeys])
   const visibleSections = useMemo(() => sections.filter((section) => {
     if (areaFilter !== 'all' && section.areaId !== areaFilter) return false
@@ -479,6 +521,8 @@ export default function ReadingsWorkspace() {
   }, { live: 0, stale: 0, offline: 0 })
   const readingsUnavailable = status === 'error' && !sections.length
   const selectedSection = sections.find((section) => section.id === drawerId)
+  const trendPreviewSection = sections.find((section) => section.id === trendPreview?.sectionId)
+  const trendPreviewMetric = metrics.find((metric) => metric.key === trendPreview?.metricKey)
   const pinnedSections = pinned.map((id) => sections.find((section) => section.id === id)).filter((section): section is SectionReading => Boolean(section))
   const lensMetric = metrics.find((metric) => metric.key === lensMetricKey) || metrics[0]
   const matrixStyle = { gridTemplateColumns: `minmax(15rem,1.3fr) repeat(${visibleMetrics.length},minmax(7.5rem,.7fr)) minmax(7.75rem,.72fr) 2.5rem`, minWidth: `${27 + visibleMetrics.length * 8}rem` }
@@ -504,6 +548,13 @@ export default function ReadingsWorkspace() {
       sectionId: section.id,
       metricKey: metric.key,
     }, window.location.origin)
+  }
+
+  function openTrendPreview(section: SectionReading, metric: Metric) {
+    setDrawerId(null)
+    setTrendRange('24h')
+    setTrendPreviewHistory({ status: 'loading', points: [] })
+    setTrendPreview({ sectionId: section.id, metricKey: metric.key })
   }
 
   function exportCsv() {
@@ -537,7 +588,7 @@ export default function ReadingsWorkspace() {
       <div className="nc-reading-legend"><span><i data-state="good" />Within crop target</span><span><i data-state="watch" />Outside target</span><span><i data-state="critical" />Critical</span><span><b />Data quality marker</span></div>
       <div className="nc-readings-matrix-scroll">
         <div className="nc-readings-row nc-readings-row-head" style={matrixStyle}><span>Section</span>{visibleMetrics.map((metric) => <span key={metric.key}>{metric.short}<small>{metric.unit}</small></span>)}<span>Latest data</span><span /></div>
-        {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)}><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openMetricTrend(section, metric)} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)}</strong><small>{section.nodes.length || 'No'} nodes</small></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
+        {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)}><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openTrendPreview(section, metric)} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)}</strong><small>{section.nodes.length || 'No'} nodes</small></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
         {status === 'ready' && !visibleSections.length ? <div className="nc-readings-empty">No sections match the selected filters.</div> : null}
       </div>
     </section>
@@ -562,6 +613,8 @@ export default function ReadingsWorkspace() {
     })}</div></section> : null}
 
     <section className="nc-signal-lens"><button type="button" onClick={() => setLensOpen(!lensOpen)} aria-expanded={lensOpen}><span><i className="fa-solid fa-chart-simple" /><span><strong>Profile-normalized signal lens</strong><small>Compare one parameter across different crop targets when you need deeper analysis.</small></span></span><i className={`fa-solid fa-chevron-${lensOpen ? 'up' : 'down'}`} /></button>{lensOpen ? <div className="nc-signal-lens-content"><header><h2>{lensMetric.label} across sections</h2><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></header>{visibleSections.map((section) => { const value = getValue(section, lensMetric); const visual = getDistributionVisual(section, lensMetric, profiles.get(section.profileId)); return <div className="nc-distribution-row" key={section.id}><span><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></span><div className="nc-distribution-track">{visual.zones.map((zone, index) => <span data-tone={zone.tone} style={{ left: `${zone.left}%`, width: `${zone.width}%` }} key={index} />)}<i style={{ left: `${visual.marker}%` }} data-tone={getTone(section, lensMetric, profiles.get(section.profileId))} /></div><strong>{formatValue(value, lensMetric)} <small>{lensMetric.unit}</small></strong><button onClick={() => togglePin(section.id)} disabled={!pinned.includes(section.id) && pinned.length >= 3}><i className="fa-solid fa-thumbtack" /></button></div>})}</div> : null}</section>
+
+    {trendPreviewSection && trendPreviewMetric ? <div className="nc-readings-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setTrendPreview(null) }}><aside className="nc-readings-drawer nc-trend-preview" role="dialog" aria-modal="true" aria-label={`${trendPreviewSection.name} ${trendPreviewMetric.label} trend`}><header><div><p className="nc-overline">Measurement trend</p><h2>{trendPreviewMetric.label}</h2><span>{trendPreviewSection.areaName} · {trendPreviewSection.name}</span></div><button type="button" onClick={() => setTrendPreview(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header><div className="nc-trend-preview-body"><div className="nc-trend-current" data-tone={getTone(trendPreviewSection, trendPreviewMetric, profiles.get(trendPreviewSection.profileId))}><span><small>Current reading</small><strong>{formatValue(getValue(trendPreviewSection, trendPreviewMetric), trendPreviewMetric)} <em>{trendPreviewMetric.unit}</em></strong></span><span><small>Crop target</small><strong>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)?.map((bound) => formatValue(bound, trendPreviewMetric)).join('–') || 'Not set'} <em>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric) ? trendPreviewMetric.unit : ''}</em></strong></span></div><div className="nc-trend-range" role="group" aria-label="Trend period">{(Object.keys(trendRanges) as TrendRangeKey[]).map((range) => <button type="button" className={trendRange === range ? 'active' : ''} onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setTrendRange(range) }} key={range}>{range}</button>)}</div>{trendPreviewHistory.status === 'ready' ? <PinnedSparkline points={trendPreviewHistory.points} target={getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)} metric={trendPreviewMetric} label={`${trendPreviewSection.name} ${trendPreviewMetric.label}`} periodLabel={trendRange} /> : <div className="nc-trend-preview-state" data-state={trendPreviewHistory.status}>{trendPreviewHistory.status === 'loading' ? 'Loading measurement history…' : trendPreviewHistory.status === 'error' ? 'History could not be loaded' : 'Not enough measurements for this period'}</div>}<p className="nc-trend-preview-note"><i className="fa-solid fa-circle-info" /> Chart values are aggregated from this Section's sensor history.</p></div><footer><button type="button" onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setRefreshToken((value) => value + 1) }}><i className="fa-solid fa-rotate" />Refresh</button><button type="button" className="primary" onClick={() => { setTrendPreview(null); openMetricTrend(trendPreviewSection, trendPreviewMetric) }}>Open full Trends <i className="fa-solid fa-arrow-right" /></button></footer></aside></div> : null}
 
     {selectedSection ? <div className="nc-readings-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setDrawerId(null) }}><aside className="nc-readings-drawer" role="dialog" aria-modal="true" aria-label={`${selectedSection.name} readings`}><header><div><p className="nc-overline">Section detail</p><h2>{selectedSection.name}</h2><span>{selectedSection.areaName} · {selectedSection.profileName}</span></div><button onClick={() => setDrawerId(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header><div className="nc-drawer-summary"><i className="fa-solid fa-tower-broadcast" /><span><strong>{formatAge(selectedSection)}</strong><small>{selectedSection.nodes.length} configured nodes</small></span></div><div className="nc-drawer-metrics">{metrics.map((metric) => <div className="nc-drawer-metric" data-tone={getTone(selectedSection, metric, profiles.get(selectedSection.profileId))} key={metric.key}><span><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{qualityLabels[getQuality(selectedSection, metric)]}</small></span></span><span><strong>{formatValue(getValue(selectedSection, metric), metric)} {getValue(selectedSection, metric) === null ? '' : metric.unit}</strong><small>{getRange(profiles.get(selectedSection.profileId), metric)?.map((bound) => formatValue(bound, metric)).join('–') || 'No target'} {metric.unit}</small></span></div>)}</div><footer><button onClick={() => togglePin(selectedSection.id)} disabled={!pinned.includes(selectedSection.id) && pinned.length >= 3}><i className="fa-solid fa-thumbtack" />{pinned.includes(selectedSection.id) ? 'Unpin section' : 'Pin comparison'}</button><button className="primary" onClick={() => { window.postMessage({ type: 'neurocrop:navigate', route: '/sections' }, window.location.origin); setDrawerId(null) }}>Open Sections</button></footer></aside></div> : null}
   </main>
