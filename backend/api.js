@@ -21,7 +21,7 @@ import {
 import { registerTeamRoutes } from './team-routes.js';
 import { registerPlatformOrganizationRoutes } from './organization-routes.js';
 import { SCORE_MODEL_VERSION, buildCurrentMetricEvaluations, buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, statusFromMeasurementTime } from './score.js';
-import { getAllowedOrigins, publicError } from './config.js';
+import { getAllowedOrigins, getTrustProxyHops, publicError } from './config.js';
 import { validateCropProfileMetrics } from './validation.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
 import { runMigrations } from './migrate.js';
@@ -29,6 +29,9 @@ import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
 import { buildTodayActions, evaluateActionOutcome } from './today-actions.js';
 
 const app = express();
+app.disable('x-powered-by');
+const trustProxyHops = getTrustProxyHops();
+if (trustProxyHops > 0) app.set('trust proxy', trustProxyHops);
 app.use(express.json());
 app.use(cookieParser());
 const PORT = parseInt(process.env.API_PORT || '3000', 10);
@@ -46,12 +49,16 @@ function authAttemptKey(req) {
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  const originAllowed = !origin || ALLOWED_ORIGINS.includes(origin);
   res.vary('Origin');
-  if (ALLOWED_ORIGINS.includes(origin)) res.header('Access-Control-Allow-Origin', origin);
+  if (originAllowed && origin) res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Accept');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
+  if (!originAllowed && !['GET', 'HEAD'].includes(req.method)) {
+    return res.status(403).json({ error: { code: 'ORIGIN_NOT_ALLOWED', message: 'Request origin is not allowed' } });
+  }
   next();
 });
 
@@ -288,8 +295,11 @@ async function createChirpStackDevice({ devEui, name }) {
     throw new Error('ChirpStack applicationId or deviceProfileId is not configured');
   }
 
+  const existing = await getChirpStackDevice(devEui);
+  if (existing) return { device: existing, created: false };
+
   try {
-    return await chirpstackRequest('/devices', {
+    const device = await chirpstackRequest('/devices', {
       method: 'POST',
       body: JSON.stringify({
         device: {
@@ -305,10 +315,11 @@ async function createChirpStackDevice({ devEui, name }) {
         },
       }),
     });
+    return { device, created: true };
   } catch (e) {
     const body = String(e.body || e.message || '').toLowerCase();
     if (e.status === 409 || body.includes('already exists') || body.includes('duplicate')) {
-      return getChirpStackDevice(devEui);
+      return { device: await getChirpStackDevice(devEui), created: false };
     }
     throw e;
   }
@@ -496,6 +507,9 @@ app.post('/crop-profiles', requireAuth, requireRole('owner', 'admin', 'grower'),
     });
   } catch (e) {
     console.error('[api] /crop-profiles POST:', e.message);
+    if (e.code === '23505') {
+      return res.status(409).json({ error: { code: 'PROFILE_EXISTS', message: 'A crop profile with this id already exists' } });
+    }
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
 });
@@ -628,6 +642,9 @@ app.post('/crop-profiles/:id/duplicate', requireAuth, requireRole('owner', 'admi
     });
   } catch (e) {
     console.error('[api] /crop-profiles duplicate:', e.message);
+    if (e.code === '23505') {
+      return res.status(409).json({ error: { code: 'PROFILE_EXISTS', message: 'A crop profile with this id already exists' } });
+    }
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
 });
@@ -1454,7 +1471,7 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
 
   try {
     const { rows: nodeRows } = await query(
-      `SELECT dev_eui, name
+      `SELECT dev_eui, name, last_profile
        FROM nodes
        WHERE organization_id=$1 AND section_id=$2 AND archived_at IS NULL
        ORDER BY created_at ASC`,
@@ -1482,6 +1499,21 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
       return res.status(404).json({ error: { code: 'NO_DATA', message: 'No readings' } });
     }
 
+    const expectedIntervalForSample = (sample) => {
+      const reported = Number(sample.measurement?.raw_object?.expected_uplink_interval_s);
+      return Number.isFinite(reported) && reported >= 30
+        ? reported
+        : Math.max(600, expectedUplinkIntervalSec(sample.node.last_profile));
+    };
+    const currentSamples = reportingSamples.filter((sample) => {
+      const status = statusFromMeasurementTime(
+        sample.measurement.time,
+        Date.now(),
+        expectedIntervalForSample(sample)
+      );
+      return status === 'live' || status === 'delayed';
+    });
+
     const sourcesByMetric = {};
     const addSource = (metric, sample, value) => {
       if (!Number.isFinite(Number(value))) return;
@@ -1489,12 +1521,15 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
       sourcesByMetric[metric].push({
         value: Number(value),
         observedAt: sample.measurement.time,
+        expectedIntervalSec: metric === 'batteryLevel'
+          ? Math.max(METRIC_INTERVAL_SEC[metric] || 600, expectedIntervalForSample(sample))
+          : expectedIntervalForSample(sample),
         devEui: normalizeDevEui(sample.node.dev_eui),
         nodeName: sample.node.name || sample.node.dev_eui
       });
     };
 
-    reportingSamples.forEach((sample) => {
+    currentSamples.forEach((sample) => {
       for (const [column, metric] of Object.entries(METRIC_MAP)) {
         if (measurementReportsMetric(sample.measurement, metric)) {
           addSource(metric, sample, sample.measurement[column]);
@@ -1508,11 +1543,15 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     const observations = Object.fromEntries(
       Object.entries(sourcesByMetric).map(([metric, sources]) => {
         const values = sources.map((source) => source.value);
-        const latestSource = [...sources].sort((a, b) => new Date(b.observedAt) - new Date(a.observedAt))[0];
+        const leastFreshSource = [...sources].sort((a, b) => {
+          const aAgeRatio = (Date.now() - new Date(a.observedAt).getTime()) / (a.expectedIntervalSec * 1000);
+          const bAgeRatio = (Date.now() - new Date(b.observedAt).getTime()) / (b.expectedIntervalSec * 1000);
+          return bAgeRatio - aAgeRatio;
+        })[0];
         return [metric, {
           value: medianValue(values),
-          lastObservedAt: latestSource.observedAt,
-          expectedIntervalSec: METRIC_INTERVAL_SEC[metric] || 600,
+          lastObservedAt: leastFreshSource.observedAt,
+          expectedIntervalSec: leastFreshSource.expectedIntervalSec,
           unit: METRIC_UNITS[metric] || '',
           reportingSensors: sources.length,
           range: { min: Math.min(...values), max: Math.max(...values) },
@@ -1524,8 +1563,9 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     const latestReceivedAt = reportingSamples
       .map((sample) => sample.measurement.time)
       .sort((a, b) => new Date(b) - new Date(a))[0];
-    const expectedUplinkIntervalSec = Math.max(
-      ...reportingSamples.map((sample) => Number(sample.measurement.raw_object?.expected_uplink_interval_s) || 600)
+    const intervalSamples = currentSamples.length ? currentSamples : reportingSamples;
+    const sectionExpectedUplinkIntervalSec = Math.max(
+      ...intervalSamples.map(expectedIntervalForSample)
     );
     const airTemp = observations.airTemp?.value;
     const humidity = observations.humidity?.value;
@@ -1533,8 +1573,8 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     res.json({
       sectionId: section.id,
       lastReceivedAt: latestReceivedAt,
-      expectedUplinkIntervalSec,
-      reportingNodes: reportingSamples.length,
+      expectedUplinkIntervalSec: sectionExpectedUplinkIntervalSec,
+      reportingNodes: currentSamples.length,
       registeredNodes: nodeRows.length,
       observations,
       derived: {
@@ -1564,7 +1604,7 @@ function historyPresenceCondition(metric) {
     airPressure: 'pressure_sensor'
   }[metric];
   return sensorPath
-    ? `(raw_object->'sensors'->'${sensorPath}'->>'present')::boolean IS TRUE`
+    ? `lower(COALESCE(raw_object->'sensors'->'${sensorPath}'->>'present', 'false')) = 'true'`
     : 'TRUE';
 }
 
@@ -1607,7 +1647,7 @@ app.get('/history', requireAuth, async (req, res) => {
            AND time BETWEEN $2 AND $3
            AND temperature IS NOT NULL
            AND humidity IS NOT NULL
-           AND (raw_object->'sensors'->'sht45'->>'present')::boolean IS TRUE
+           AND lower(COALESCE(raw_object->'sensors'->'sht45'->>'present', 'false')) = 'true'
          ORDER BY time ASC`,
         [devEuis, from, to]
       );
@@ -1720,7 +1760,7 @@ async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes, o
        WHERE dev_eui = ANY($1)
          AND time BETWEEN $2 AND $3
          AND temperature IS NOT NULL AND humidity IS NOT NULL
-         AND (raw_object->'sensors'->'sht45'->>'present')::boolean IS TRUE
+         AND lower(COALESCE(raw_object->'sensors'->'sht45'->>'present', 'false')) = 'true'
        ORDER BY observed_at ASC`,
       [devEuis, from, to]
     );
@@ -2164,9 +2204,19 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
          AND n.section_id=$2
          AND m.time >= $3
          AND m.time <= $4
-       ORDER BY m.time ASC, m.dev_eui ASC`,
+       ORDER BY m.time ASC, m.dev_eui ASC
+       LIMIT 100001`,
       [getOrganizationId(req), section.id, from, to]
     );
+
+    if (rows.length > 100000) {
+      return res.status(413).json({
+        error: {
+          code: 'EXPORT_TOO_LARGE',
+          message: 'This export contains more than 100,000 readings. Choose a shorter date range.'
+        }
+      });
+    }
 
     const installedMetrics = exportMetrics.filter((metric) => {
       if (metric === 'batteryLevel') return true;
@@ -2453,6 +2503,7 @@ app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technici
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'DevEUI must be 16 hexadecimal characters' } });
   }
 
+  let createdChirpStackDevice = false;
   try {
     const organizationId = getOrganizationId(req);
     const { rows: existingRows } = await query(
@@ -2466,7 +2517,8 @@ app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technici
       } });
     }
 
-    await createChirpStackDevice({ devEui, name: name || devEui });
+    const chirpStackResult = await createChirpStackDevice({ devEui, name: name || devEui });
+    createdChirpStackDevice = chirpStackResult.created;
     await ensureChirpStackDeviceKeys(devEui);
 
     const { rows } = await query(
@@ -2480,6 +2532,7 @@ app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technici
     );
 
     if (!rows[0]) {
+      if (createdChirpStackDevice) await deleteChirpStackDevice(devEui).catch(() => {});
       return res.status(409).json({ error: { code: 'DEVICE_ALREADY_ASSIGNED', message: 'This DevEUI is already assigned to another organization.' } });
     }
 
@@ -2496,6 +2549,7 @@ app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technici
       }
     });
   } catch (e) {
+    if (createdChirpStackDevice) await deleteChirpStackDevice(devEui).catch(() => {});
     console.error('[api] /nodes/register:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
@@ -2542,9 +2596,8 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
         } });
       }
 
-      const existingChirpStackDevice = await getChirpStackDevice(nextDevEui);
-      await createChirpStackDevice({ devEui: nextDevEui, name: name || nextDevEui });
-      createdChirpStackDevice = !existingChirpStackDevice;
+      const chirpStackResult = await createChirpStackDevice({ devEui: nextDevEui, name: name || nextDevEui });
+      createdChirpStackDevice = chirpStackResult.created;
       await ensureChirpStackDeviceKeys(nextDevEui);
     }
 

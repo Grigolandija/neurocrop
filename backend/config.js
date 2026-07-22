@@ -5,11 +5,19 @@ export function getAllowedOrigins(env = process.env) {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
-  const origins = configured.length ? configured : PRODUCTION_ORIGINS;
+  const origins = configured.length ? configured : [...PRODUCTION_ORIGINS];
   if (String(env.ALLOW_LOCAL_DEV_ORIGINS || '').toLowerCase() === 'true') {
     origins.push('http://127.0.0.1:4173', 'http://localhost:4173');
   }
   return [...new Set(origins)];
+}
+
+export function getTrustProxyHops(env = process.env) {
+  const hops = Number(env.TRUST_PROXY_HOPS || 0);
+  if (!Number.isInteger(hops) || hops < 0 || hops > 10) {
+    throw new Error('TRUST_PROXY_HOPS must be an integer between 0 and 10');
+  }
+  return hops;
 }
 
 export function getSessionCookieOptions(env = process.env) {

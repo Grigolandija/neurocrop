@@ -1,6 +1,7 @@
 import mqtt from 'mqtt';
 import { query, pool } from './db.js';
 import { normalizeErrorCounters, normalizeErrorFlags } from './node-health.js';
+import { normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from './telemetry-values.js';
 
 const MQTT_URL = process.env.MQTT_URL || 'mqtt://mosquitto:1883';
 const MQTT_TOPIC = process.env.MQTT_TOPIC || 'application/+/device/+/event/up';
@@ -28,9 +29,9 @@ async function handleUplink(msg) {
   const dev = msg.deviceInfo || {};
   const devEui = dev.devEui;
   if (!devEui) return;
-  const obj = msg.object || {};
+  const obj = msg.object && typeof msg.object === 'object' && !Array.isArray(msg.object) ? msg.object : {};
   // LoRa node does not send an independent observation timestamp, so receive time is canonical.
-  const receivedAt = msg.time ? new Date(msg.time) : new Date();
+  const receivedAt = normalizeTelemetryTimestamp(msg.time);
   const time = receivedAt;
   const rx = Array.isArray(msg.rxInfo) && msg.rxInfo.length ? msg.rxInfo[0] : {};
   const sf = msg.txInfo?.modulation?.lora?.spreadingFactor ?? null;
@@ -38,7 +39,7 @@ async function handleUplink(msg) {
   const errorFlags = normalizeErrorFlags(obj.error_flags);
   const ec = normalizeErrorCounters(obj.error_counters, errorFlags);
   const sensorPresence = Object.fromEntries(
-    Object.entries(obj.sensors || {}).map(([sensor, state]) => [sensor, Boolean(state?.present)])
+    Object.entries(obj.sensors || {}).map(([sensor, state]) => [sensor, normalizeTelemetryBoolean(state?.present) === true])
   );
 
   // Ingestion never creates inventory records: a device must first be registered.
@@ -63,9 +64,9 @@ async function handleUplink(msg) {
        AND (last_received_at IS NULL OR last_received_at <= $4)
      RETURNING dev_eui`,
     [
-      devEui, n(obj.firmware_build), time, receivedAt, dev.deviceName || null,
-      n(obj.battery_mv), n(obj.battery_percent), obj.firmware_version ?? null, adaptive.profile ?? null,
-      n(rx.rssi), n(rx.snr), sf, JSON.stringify(sensorPresence),
+      devEui, normalizeTelemetryNumber(obj.firmware_build), time, receivedAt, dev.deviceName || null,
+      normalizeTelemetryNumber(obj.battery_mv), normalizeTelemetryNumber(obj.battery_percent), obj.firmware_version ?? null, adaptive.profile ?? null,
+      normalizeTelemetryNumber(rx.rssi), normalizeTelemetryNumber(rx.snr), normalizeTelemetryNumber(sf), JSON.stringify(sensorPresence),
       JSON.stringify(errorFlags), JSON.stringify(ec)
     ]
   );
@@ -91,16 +92,14 @@ async function handleUplink(msg) {
         vpd_out_of_range,err_read_fail,err_reinit,err_tx_fail,rssi,snr,
         spreading_factor,raw_object,received_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
-    [time, devEui, n(obj.temperature), n(obj.humidity), n(obj.co2), n(obj.lux),
-     n(obj.soil_temperature), n(obj.soil_moisture), n(obj.ec), n(obj.ph), n(obj.soil_ec),
-     n(obj.leaf_temperature), n(obj.water_temperature), n(obj.air_pressure),
-     n(obj.battery_mv), n(obj.battery_percent),
-     n(obj.firmware_build), adaptive.profile ?? null, adaptive.battery_critical ?? null,
-     adaptive.vpd_out_of_range ?? null, n(ec.read_fail), n(ec.reinit), n(ec.tx_fail),
-     n(rx.rssi), n(rx.snr), sf, JSON.stringify(obj), receivedAt]
+    [time, devEui, normalizeTelemetryNumber(obj.temperature), normalizeTelemetryNumber(obj.humidity), normalizeTelemetryNumber(obj.co2), normalizeTelemetryNumber(obj.lux),
+     normalizeTelemetryNumber(obj.soil_temperature), normalizeTelemetryNumber(obj.soil_moisture), normalizeTelemetryNumber(obj.ec), normalizeTelemetryNumber(obj.ph), normalizeTelemetryNumber(obj.soil_ec),
+     normalizeTelemetryNumber(obj.leaf_temperature), normalizeTelemetryNumber(obj.water_temperature), normalizeTelemetryNumber(obj.air_pressure),
+     normalizeTelemetryNumber(obj.battery_mv), normalizeTelemetryNumber(obj.battery_percent),
+     normalizeTelemetryNumber(obj.firmware_build), adaptive.profile ?? null, normalizeTelemetryBoolean(adaptive.battery_critical),
+     normalizeTelemetryBoolean(adaptive.vpd_out_of_range), normalizeTelemetryNumber(ec.read_fail), normalizeTelemetryNumber(ec.reinit), normalizeTelemetryNumber(ec.tx_fail),
+     normalizeTelemetryNumber(rx.rssi), normalizeTelemetryNumber(rx.snr), normalizeTelemetryNumber(sf), JSON.stringify(obj), receivedAt]
   );
   console.log(`[ingest] ${devEui} temp=${obj.temperature ?? 'NA'} co2=${obj.co2 ?? 'NA'} batt=${obj.battery_percent ?? 'NA'}%`);
 }
-function n(v) { return (v === undefined || v === null) ? null : v; }
-
 process.on('SIGINT', async () => { client.end(); await pool.end(); process.exit(0); });

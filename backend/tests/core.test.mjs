@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import { calcAbsoluteHumidity, calcDewPoint, calcVPD } from '../calculations.js';
-import { getAllowedOrigins, getSessionCookieOptions, publicError } from '../config.js';
+import { getAllowedOrigins, getSessionCookieOptions, getTrustProxyHops, publicError } from '../config.js';
 import { buildCurrentMetricEvaluations, buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, evaluateMetricValue, statusFromMeasurementTime } from '../score.js';
 import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
@@ -10,10 +10,18 @@ import { METRIC_TO_COLUMN } from '../metrics.js';
 import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
 import { buildTodayActions, evaluateActionOutcome, getActionVerificationPolicy } from '../today-actions.js';
 import { invitationState } from '../invitation-state.js';
+import { normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from '../telemetry-values.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
   assert.equal(getAllowedOrigins({ ALLOW_LOCAL_DEV_ORIGINS: 'true' }).includes('http://localhost:4173'), true);
+  assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
+});
+
+test('trusted proxy hops are explicit and validated', () => {
+  assert.equal(getTrustProxyHops({}), 0);
+  assert.equal(getTrustProxyHops({ TRUST_PROXY_HOPS: '1' }), 1);
+  assert.throws(() => getTrustProxyHops({ TRUST_PROXY_HOPS: 'all' }), /integer between 0 and 10/);
 });
 
 test('production API stays private behind the shared Caddy network', () => {
@@ -21,6 +29,31 @@ test('production API stays private behind the shared Caddy network', () => {
   assert.equal(/^\s*ports:/m.test(compose), false);
   assert.match(compose, /external:\s+true/);
   assert.match(compose, /name:\s+chirpstack_default/);
+  assert.match(compose, /TRUST_PROXY_HOPS:\s+"1"/);
+});
+
+test('production frontend sends baseline browser security headers', () => {
+  const nginx = fs.readFileSync(new URL('../../deploy/nginx.conf.template', import.meta.url), 'utf8');
+  assert.match(nginx, /X-Content-Type-Options "nosniff"/);
+  assert.match(nginx, /X-Frame-Options "SAMEORIGIN"/);
+  assert.match(nginx, /Referrer-Policy "strict-origin-when-cross-origin"/);
+  assert.match(nginx, /Permissions-Policy "camera=\(\), microphone=\(\), geolocation=\(\)"/);
+  assert.match(nginx, /max-age=31536000, immutable/);
+});
+
+test('telemetry values reject malformed numbers and poisoned timestamps', () => {
+  assert.equal(normalizeTelemetryNumber('23.5'), 23.5);
+  assert.equal(normalizeTelemetryNumber('not-a-number'), null);
+  assert.equal(normalizeTelemetryNumber(true), null);
+  assert.equal(normalizeTelemetryNumber({ value: 23.5 }), null);
+  assert.equal(normalizeTelemetryBoolean('false'), false);
+  assert.equal(normalizeTelemetryBoolean('1'), true);
+  assert.equal(normalizeTelemetryBoolean('yes'), null);
+
+  const now = new Date('2026-07-22T12:00:00Z');
+  assert.equal(normalizeTelemetryTimestamp('2026-07-22T11:59:00Z', now).toISOString(), '2026-07-22T11:59:00.000Z');
+  assert.equal(normalizeTelemetryTimestamp('invalid', now).toISOString(), now.toISOString());
+  assert.equal(normalizeTelemetryTimestamp('2099-01-01T00:00:00Z', now).toISOString(), now.toISOString());
 });
 
 test('production uptime confirms failures and cannot let notification errors mask the probe', () => {

@@ -73,6 +73,11 @@ test('legacy global tenant constants cannot return', () => {
   assert.equal(apiSource.includes('DEV_USER'), false);
 });
 
+test('browser mutations reject untrusted origins before reaching tenant routes', () => {
+  assert.match(apiSource, /ORIGIN_NOT_ALLOWED/);
+  assert.match(apiSource, /!\['GET', 'HEAD'\]\.includes\(req\.method\)/);
+});
+
 test('crop profile deletion reassigns sections atomically within the tenant', () => {
   const block = routeBlock(apiSource, "app.delete('/crop-profiles/:id'");
   assert.match(block, /client\.query\('BEGIN'\)/);
@@ -110,6 +115,29 @@ test('node deletion supports explicit history retention and permanent purge', ()
   assert.match(block, /await client\.query\('BEGIN'\)/);
   assert.match(block, /await client\.query\('COMMIT'\)/);
   assert.doesNotMatch(block, /NODE_HAS_HISTORY/);
+});
+
+test('current section aggregates exclude interrupted node samples', () => {
+  const block = routeBlock(apiSource, "app.get('/readings/latest'");
+  assert.match(block, /status === 'live' \|\| status === 'delayed'/);
+  assert.match(block, /currentSamples\.forEach/);
+  assert.match(block, /reportingNodes: currentSamples\.length/);
+  assert.match(block, /leastFreshSource/);
+  assert.match(block, /expectedIntervalSec: leastFreshSource\.expectedIntervalSec/);
+  assert.doesNotMatch(block, /::boolean IS TRUE/);
+});
+
+test('node registration rolls back newly created ChirpStack inventory on database failure', () => {
+  const block = routeBlock(apiSource, "app.post('/nodes/register'");
+  assert.match(block, /createdChirpStackDevice/);
+  assert.match(block, /deleteChirpStackDevice\(devEui\)/);
+});
+
+test('measurement export is bounded to protect API memory', () => {
+  const block = routeBlock(apiSource, "app.get('/exports/measurements.csv'");
+  assert.match(block, /LIMIT 100001/);
+  assert.match(block, /EXPORT_TOO_LARGE/);
+  assert.match(block, /status\(413\)/);
 });
 
 test('active node surfaces exclude archived inventory while history can retain it', () => {

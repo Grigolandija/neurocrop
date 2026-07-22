@@ -136,6 +136,26 @@ function getAgeSeconds(section: SectionReading) {
   return Number.isFinite(receivedMs) ? Math.max(0, (Date.now() - receivedMs) / 1000) : null
 }
 
+function getSectionFreshness(section: SectionReading): Extract<ReadingQuality, 'live' | 'stale' | 'offline'> {
+  const age = getAgeSeconds(section)
+  const expected = Math.max(30, numeric(section.latest?.expectedUplinkIntervalSec) || 600)
+  if (section.loadFailed || age === null || age > expected * 6) return 'offline'
+  if (age > expected * 2.5) return 'stale'
+  return 'live'
+}
+
+function getMetricFreshness(section: SectionReading, metric: Metric): Extract<ReadingQuality, 'live' | 'stale' | 'offline'> {
+  const observation = getObservation(section, metric)
+  const observedAt = observation?.lastObservedAt
+  const observedMs = observedAt ? new Date(observedAt).getTime() : NaN
+  if (!Number.isFinite(observedMs)) return getSectionFreshness(section)
+  const age = Math.max(0, (Date.now() - observedMs) / 1000)
+  const expected = Math.max(30, numeric(observation?.expectedIntervalSec) || numeric(section.latest?.expectedUplinkIntervalSec) || 600)
+  if (section.loadFailed || age > expected * 6) return 'offline'
+  if (age > expected * 2.5) return 'stale'
+  return 'live'
+}
+
 function getQuality(section: SectionReading, metric: Metric): ReadingQuality {
   const observation = getObservation(section, metric)
   const value = getValue(section, metric)
@@ -146,11 +166,7 @@ function getQuality(section: SectionReading, metric: Metric): ReadingQuality {
   if (state.includes('calibrat')) return 'calibration'
   if (state.includes('offline') || state.includes('missing') || state.includes('disconnect')) return 'offline'
   if (value === null) return 'no-data'
-  const age = getAgeSeconds(section)
-  const expected = Math.max(30, numeric(section.latest?.expectedUplinkIntervalSec) || 600)
-  if (age !== null && age > expected * 6) return 'offline'
-  if (age !== null && age > expected * 2.5) return 'stale'
-  return 'live'
+  return getMetricFreshness(section, metric)
 }
 
 function getTone(section: SectionReading, metric: Metric, profile: JsonRecord | undefined): ReadingTone {
@@ -456,11 +472,7 @@ export default function ReadingsWorkspace() {
   }), [sections, areaFilter, attentionOnly, sortBy, visibleMetrics, profiles])
 
   const freshness = sections.reduce((counts, section) => {
-    const quality = getAgeSeconds(section)
-    const expected = Math.max(30, numeric(section.latest?.expectedUplinkIntervalSec) || 600)
-    if (section.loadFailed || quality === null || quality > expected * 6) counts.offline += 1
-    else if (quality > expected * 2.5) counts.stale += 1
-    else counts.live += 1
+    counts[getSectionFreshness(section)] += 1
     return counts
   }, { live: 0, stale: 0, offline: 0 })
   const readingsUnavailable = status === 'error' && !sections.length
@@ -514,7 +526,7 @@ export default function ReadingsWorkspace() {
       <div className="nc-reading-legend"><span><i data-state="good" />Within crop target</span><span><i data-state="watch" />Outside target</span><span><i data-state="critical" />Critical</span><span><b />Data quality marker</span></div>
       <div className="nc-readings-matrix-scroll">
         <div className="nc-readings-row nc-readings-row-head" style={matrixStyle}><span>Section</span>{visibleMetrics.map((metric) => <span key={metric.key}>{metric.short}<small>{metric.unit}</small></span>)}<span>Latest data</span><span /></div>
-        {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)}><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getAgeSeconds(section) === null ? 'offline' : 'live'}><strong>{formatAge(section)}</strong><small>{section.nodes.length || 'No'} nodes</small></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
+        {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)}><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)}</strong><small>{section.nodes.length || 'No'} nodes</small></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
         {status === 'ready' && !visibleSections.length ? <div className="nc-readings-empty">No sections match the selected filters.</div> : null}
       </div>
     </section>

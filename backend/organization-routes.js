@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
 import { sendInvitationEmail } from './email.js';
 import { query, pool } from './db.js';
 import { requirePlatformAdmin, requireSuperAdmin, requireUserAuth } from './auth-users.js';
@@ -7,7 +8,17 @@ import { statusFromMeasurementTime } from './score.js';
 import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
 
 const INVITE_TTL_DAYS = 14;
-const APP_BASE_URL = process.env.APP_BASE_URL || 'https://neurocrop.lt';
+const APP_BASE_URL = process.env.APP_BASE_URL || process.env.APP_URL || 'https://neurocrop.lt';
+
+function configuredValue(envName, secretPath, fallback = '') {
+  const environmentValue = String(process.env[envName] || '').trim();
+  if (environmentValue) return environmentValue;
+  try {
+    return fs.readFileSync(secretPath, 'utf8').trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -80,24 +91,28 @@ export function registerPlatformOrganizationRoutes(app) {
   app.get('/platform/integrations', requireUserAuth, requirePlatformAdmin, async (req, res, next) => {
     try {
       await query('SELECT 1');
-      const chirpstackUrl = String(process.env.CHIRPSTACK_API_URL || '').trim();
-      const chirpstackTokenConfigured = Boolean(String(process.env.CHIRPSTACK_API_TOKEN || '').trim());
-      const chirpstackApplicationConfigured = Boolean(String(process.env.CHIRPSTACK_APPLICATION_ID || '').trim());
+      const chirpstackUrl = String(process.env.CHIRPSTACK_API_URL || 'http://chirpstack-rest-api:8090/api').trim();
+      const chirpstackTokenConfigured = Boolean(configuredValue('CHIRPSTACK_API_TOKEN', '/run/secrets/chirpstack_api_token'));
+      const chirpstackApplicationConfigured = Boolean(configuredValue('CHIRPSTACK_APPLICATION_ID', '/run/secrets/chirpstack_application_id'));
+      const chirpstackDeviceProfileConfigured = Boolean(configuredValue('CHIRPSTACK_DEVICE_PROFILE_ID', '/run/secrets/chirpstack_device_profile_id'));
+      const chirpstackConfigured = Boolean(
+        chirpstackUrl && chirpstackTokenConfigured && chirpstackApplicationConfigured && chirpstackDeviceProfileConfigured
+      );
       let chirpstackEndpoint = null;
       try {
         chirpstackEndpoint = chirpstackUrl ? new URL(chirpstackUrl).host : null;
       } catch {
         chirpstackEndpoint = null;
       }
-      const emailConfigured = Boolean(String(process.env.RESEND_API_KEY || '').trim());
+      const emailConfigured = Boolean(configuredValue('RESEND_API_KEY', '/run/secrets/resend_api_key'));
       res.json({
         integrations: [
           {
             id: 'chirpstack',
             name: 'ChirpStack',
             detail: 'LoRaWAN devices and uplink ingestion',
-            configured: Boolean(chirpstackUrl && chirpstackTokenConfigured && chirpstackApplicationConfigured),
-            state: chirpstackUrl && chirpstackTokenConfigured && chirpstackApplicationConfigured ? 'connected' : 'configuration_required',
+            configured: chirpstackConfigured,
+            state: chirpstackConfigured ? 'connected' : 'configuration_required',
             endpoint: chirpstackEndpoint
           },
           {

@@ -8,6 +8,7 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: 3000
+      TRUST_PROXY_HOPS: "1"
       PGHOST: postgresql
       PGUSER: ${PGUSER:-chirpstack}
       PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD}

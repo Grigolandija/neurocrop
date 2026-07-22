@@ -46,7 +46,7 @@ function organizationId(req) {
 }
 
 function appUrl() {
-  return String(process.env.APP_URL || 'https://neurocrop.lt').replace(/\/+$/, '');
+  return String(process.env.APP_URL || process.env.APP_BASE_URL || 'https://neurocrop.lt').replace(/\/+$/, '');
 }
 
 function invitationResponse(row) {
@@ -141,6 +141,9 @@ export function registerTeamRoutes(app) {
         message: 'Account created. NeuroCrop will review the organization request before workspace access is enabled.'
       });
     } catch (error) {
+      if (error?.code === '23505') {
+        return res.status(409).json({ error: { code: 'ACCOUNT_EXISTS', message: 'An account with this email already exists' } });
+      }
       next(error);
     }
   });
