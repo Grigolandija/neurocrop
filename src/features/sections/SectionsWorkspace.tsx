@@ -182,7 +182,7 @@ export default function SectionsWorkspace() {
   const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>('all')
   const [sort, setSort] = useState<SortMode>('area')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [collapsedAreas, setCollapsedAreas] = useState<string[]>([])
+  const [collapsedAreas, setCollapsedAreas] = useState<string[] | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editor, setEditor] = useState<EditorState | null>(null)
@@ -269,7 +269,9 @@ export default function SectionsWorkspace() {
           return temporary
         }).filter((section): section is SectionRow => Boolean(section))
 
-        setAreas([...areaMap.values()].sort((left, right) => left.name.localeCompare(right.name)))
+        const nextAreas = [...areaMap.values()].sort((left, right) => left.name.localeCompare(right.name))
+        setAreas(nextAreas)
+        setCollapsedAreas((current) => current ?? nextAreas.map((area) => area.id))
         setProfiles(profileRows.sort((left, right) => left.name.localeCompare(right.name)))
         setSections(normalized)
         setSelectedIds((current) => current.filter((id) => normalized.some((section) => section.id === id)))
@@ -421,10 +423,13 @@ export default function SectionsWorkspace() {
       {status === 'ready' ? <div className={`nc-section-register ${view}`}>
         <div className={`nc-section-register-head ${view}`}><label><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} aria-label="Select all visible sections" /></label><span>Section</span>{view === 'directory' ? <><span>Crop profile</span><span>Assigned nodes</span><span>Latest data</span><span>Readiness</span></> : <><span>Climate</span><span>Root zone</span><span>Lighting</span><span>CO₂</span><span>System</span><span>Overall</span></>}<span /></div>
         {areaGroups.length ? areaGroups.map(({ area, sections: areaSections }) => {
-          const collapsed = collapsedAreas.includes(area.id)
+          const collapsed = collapsedAreas?.includes(area.id) ?? true
           const readyCount = areaSections.filter((section) => readiness(section) === 'ready').length
           return <section className="nc-section-area" key={area.id}>
-            <header><button type="button" onClick={() => setCollapsedAreas((current) => current.includes(area.id) ? current.filter((id) => id !== area.id) : [...current, area.id])}><i className={`fa-solid fa-chevron-${collapsed ? 'right' : 'down'}`} /><span className="nc-section-area-icon"><i className="fa-solid fa-location-dot" /></span><span><strong>{area.name}</strong><small>{[area.kind, area.location].filter(Boolean).join(' · ')}</small></span><span>{areaSections.length} sections</span><span>{areaSections.reduce((sum, section) => sum + section.nodeCount, 0)} nodes</span><span>{readyCount}/{areaSections.length} ready</span></button></header>
+            <header><button type="button" onClick={() => setCollapsedAreas((current) => {
+              const collapsedIds = current ?? areas.map((item) => item.id)
+              return collapsedIds.includes(area.id) ? collapsedIds.filter((id) => id !== area.id) : [...collapsedIds, area.id]
+            })}><i className={`fa-solid fa-chevron-${collapsed ? 'right' : 'down'}`} /><span className="nc-section-area-icon"><i className="fa-solid fa-location-dot" /></span><span><strong>{area.name}</strong><small>{[area.kind, area.location].filter(Boolean).join(' · ')}</small></span><span>{areaSections.length} sections</span><span>{areaSections.reduce((sum, section) => sum + section.nodeCount, 0)} nodes</span><span>{readyCount}/{areaSections.length} ready</span></button></header>
             {!collapsed ? areaSections.map((section) => {
               const expanded = expandedId === section.id
               const fresh = formatFreshness(section)
