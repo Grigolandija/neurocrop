@@ -84,9 +84,9 @@ function Status({ tone, children }: { tone: string; children: ReactNode }) {
   return <span className="nc-settings-status" data-tone={tone}><i />{children}</span>
 }
 
-export default function SettingsWorkspace() {
+export default function SettingsWorkspace({ initialSection = 'workspace' }: { initialSection?: SettingsSection }) {
   const navigate = useNavigate()
-  const [section, setSection] = useState<SettingsSection>('workspace')
+  const [section, setSection] = useState<SettingsSection>(initialSection)
   const [user, setUser] = useState<User | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])

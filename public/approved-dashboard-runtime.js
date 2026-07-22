@@ -1872,6 +1872,7 @@
       history: { page: "history", route: "/history" },
       alerts: { page: "alerts", route: "/alerts" },
       settings: { page: "settings", route: "/settings" },
+      organization: { page: "settings", route: "/organization", sidebarAction: "organization" },
       admin: { page: "admin", route: "/admin" },
       "admin/integrations": { page: "admin", route: "/admin/integrations" },
       "crop-profiles": { page: "settings", route: "/crop-profiles", sidebarAction: "crop-profiles" }
@@ -4641,7 +4642,11 @@
       } else if (activePrimaryPage === "alerts") {
         activeAction = "alerts";
       } else if (activePrimaryPage === "settings") {
-        activeAction = sidebarActionOverride === "crop-profiles" ? "crop-profiles" : "settings";
+        activeAction = sidebarActionOverride === "crop-profiles"
+          ? "crop-profiles"
+          : sidebarActionOverride === "organization"
+            ? "organization"
+            : "settings";
       } else if (activePrimaryPage === "admin") {
         activeAction = "admin";
       } else if (sidebarActionOverride) {
@@ -4765,6 +4770,15 @@
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/settings");
+          scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
+          return;
+        case "organization":
+          activePrimaryPage = "settings";
+          if (cropProfiles[activeProfileKey]) activeSettingsProfileKey = activeProfileKey;
+          sidebarActionOverride = "organization";
+          closeContextMenus();
+          renderDashboard();
+          syncTopLevelRoute("/organization");
           scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "admin":

@@ -13,7 +13,7 @@ declare const __BUILD_VERSION__: string
 
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts',
-  '/history', '/settings', '/crop-profiles', '/admin',
+  '/history', '/settings', '/organization', '/crop-profiles', '/admin',
   '/admin/integrations',
 ])
 
@@ -109,8 +109,8 @@ function ApprovedDashboard() {
     {location.pathname === '/readings' && readingsMount
       ? createPortal(<ReadingsWorkspace />, readingsMount)
       : null}
-    {location.pathname === '/settings' && settingsMount
-      ? createPortal(<SettingsWorkspace />, settingsMount)
+    {(location.pathname === '/settings' || location.pathname === '/organization') && settingsMount
+      ? createPortal(<SettingsWorkspace key={location.pathname} initialSection={location.pathname === '/organization' ? 'team' : 'workspace'} />, settingsMount)
       : null}
     {location.pathname === '/admin' && adminMount
       ? createPortal(<AdminWorkspace />, adminMount)
