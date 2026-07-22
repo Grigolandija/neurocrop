@@ -16,6 +16,14 @@ public/vendor/
 # Generated test output and deployment bundles
 test-results/
 *.zip
+.release/
+
+# Private NeuroCrop gateway factory and production integration
+/gateway-factory/
+/.github/workflows/gateway-windows.yml
+/backend/gateway-factory-routes.js
+/backend/migrations/0008_gateway_factory.sql
+/backend/tests/gateway-factory.test.mjs
 
 # Editor directories and files
 .vscode/*

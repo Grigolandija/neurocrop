@@ -97,33 +97,30 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-readings-row-head > span:first-child { position: sticky; left: 0; z-index: 10; background: var(--color-surface-subtle); }
 .nc-readings-row-head small { color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-regular); letter-spacing: 0; text-transform: none; }
 .nc-readings-row:not(.nc-readings-row-head):hover { position: relative; z-index: 5; box-shadow: inset 3px 0 var(--color-secondary); }
-.nc-reading-section { position: sticky; left: 0; z-index: 4; display: grid; grid-template-columns: .5rem minmax(0,1fr) 2rem; align-items: center; gap: var(--space-8); border-right: 1px solid var(--color-border); padding: var(--space-8) var(--space-12); background: var(--color-surface); }
+.nc-reading-section { position: sticky; left: 0; z-index: 4; display: grid; min-height: 2.875rem; grid-template-columns: .5rem minmax(0,1fr) 2rem; align-items: center; gap: var(--space-8); border-right: 1px solid var(--color-border); padding: var(--space-4) var(--space-12); background: var(--color-surface); }
 .nc-reading-section > span { width: .45rem; height: .45rem; border-radius: 50%; background: var(--color-success); }
 .nc-reading-section > span[data-state="watch"] { background: var(--color-warning); }
-.nc-reading-section > button:nth-child(2) { display: grid; min-width: 0; gap: 2px; border: 0; padding: 0; background: transparent; color: var(--color-text); text-align: left; }
-.nc-reading-section > button:nth-child(2) :is(strong,small) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nc-reading-section > button:nth-child(2) { display: block; min-width: 0; overflow: hidden; border: 0; padding: 0; background: transparent; color: var(--color-text); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .nc-reading-section > button:nth-child(2) strong { font-size: var(--type-body-sm); }
-.nc-reading-section > button:nth-child(2) small { color: var(--color-text-tertiary); font-size: var(--type-micro); }
 .nc-reading-section > button:last-child, .nc-reading-open { display: grid; width: 2rem; height: 2rem; place-items: center; border: 0; border-radius: .5rem; background: transparent; color: var(--color-neutral-400); }
 .nc-reading-section > button:last-child:hover, .nc-reading-section > button:last-child.pinned, .nc-reading-open:hover { background: var(--color-info-soft); color: var(--color-info); }
-.nc-reading-cell { position: relative; display: flex; width: 100%; min-height: 3.75rem; flex-direction: column; justify-content: center; border: 0; border-right: 1px solid var(--color-border); padding: var(--space-8) var(--space-12); background: var(--color-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.nc-reading-cell { position: relative; display: flex; width: 100%; min-height: 2.875rem; align-items: center; border: 0; border-right: 1px solid var(--color-border); padding: var(--space-4) var(--space-12); background: var(--color-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .nc-reading-cell:hover { z-index: 1; box-shadow: inset 0 0 0 1px var(--color-secondary); }
 .nc-reading-cell:focus-visible { z-index: 2; outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .nc-reading-cell[data-tone="good"] { background: color-mix(in srgb, var(--color-success-soft) 52%, var(--color-surface)); }
 .nc-reading-cell[data-tone="watch"] { background: color-mix(in srgb, var(--color-warning-soft) 66%, var(--color-surface)); }
 .nc-reading-cell[data-tone="critical"] { background: color-mix(in srgb, var(--color-danger-soft) 74%, var(--color-surface)); }
-.nc-reading-cell strong { font-family: var(--font-technical); font-size: var(--type-body); font-weight: var(--weight-medium) !important; font-variant-numeric: tabular-nums; }
-.nc-reading-cell small { overflow: hidden; margin-top: 2px; color: var(--color-text-tertiary); font-size: var(--type-micro); text-overflow: ellipsis; white-space: nowrap; }
+.nc-reading-cell strong { overflow: hidden; padding-right: var(--space-12); font-family: var(--font-technical); font-size: var(--type-body); font-weight: var(--weight-medium) !important; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .nc-reading-cell > i { position: absolute; top: var(--space-8); right: var(--space-8); width: .4rem; height: .4rem; border-radius: 50%; background: var(--color-success); }
 .nc-reading-cell[data-quality="stale"] > i { background: var(--color-stale); }
 .nc-reading-cell[data-quality="offline"] > i, .nc-reading-cell[data-quality="no-data"] > i, .nc-reading-cell[data-quality="not-installed"] > i { background: var(--color-offline); }
 .nc-reading-cell[data-quality="calibration"] > i { background: var(--color-calibration); }
 .nc-reading-cell[data-quality="not-installed"] { background: var(--color-surface-subtle); color: var(--color-disabled); }
-.nc-reading-freshness { display: flex; min-height: 3.75rem; flex-direction: column; justify-content: center; border-right: 1px solid var(--color-border); padding: var(--space-8) var(--space-12); }
+.nc-reading-freshness { display: flex; min-height: 2.875rem; align-items: center; border-right: 1px solid var(--color-border); padding: var(--space-4) var(--space-12); white-space: nowrap; }
 .nc-reading-freshness strong { font-size: var(--type-caption); }
 .nc-reading-freshness small { color: var(--color-text-tertiary); font-size: var(--type-micro); }
 .nc-reading-open { align-self: center; justify-self: center; }
-.nc-reading-skeleton { height: 3.75rem; border-top: 1px solid var(--color-border); background: linear-gradient(90deg,var(--color-surface-subtle),var(--color-surface),var(--color-surface-subtle)); background-size: 200% 100%; animation: nc-readings-skeleton 1.2s linear infinite; }
+.nc-reading-skeleton { height: 2.875rem; border-top: 1px solid var(--color-border); background: linear-gradient(90deg,var(--color-surface-subtle),var(--color-surface),var(--color-surface-subtle)); background-size: 200% 100%; animation: nc-readings-skeleton 1.2s linear infinite; }
 .nc-readings-empty { padding: var(--space-32); color: var(--color-text-tertiary); text-align: center; }
 @keyframes nc-readings-skeleton { to { background-position: -200% 0; } }
 

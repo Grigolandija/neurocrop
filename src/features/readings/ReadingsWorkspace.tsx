@@ -273,22 +273,14 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
   const tone = getTone(section, metric, profile)
   const target = getRange(profile, metric)
   const delta = getDelta(section, metric)
-  const spread = getObservation(section, metric)?.range
-  const min = numeric(spread?.min)
-  const max = numeric(spread?.max)
-  let primary = formatValue(value, metric)
-  let secondary = value === null ? qualityLabels[quality] : metric.unit
+  let display = value === null ? qualityLabels[quality] : `${formatValue(value, metric)} ${metric.unit}`
   if (mode === 'target') {
-    primary = target ? `${formatValue(target[0], metric)}–${formatValue(target[1], metric)}` : '—'
-    secondary = target ? metric.unit : 'No crop target'
+    display = target ? `${formatValue(target[0], metric)}–${formatValue(target[1], metric)} ${metric.unit}` : 'No crop target'
   } else if (mode === 'change') {
-    primary = delta === null ? '—' : `${delta > 0 ? '+' : ''}${formatValue(delta, metric)}`
-    secondary = delta === null ? 'No 1h baseline' : `${metric.unit} / 1h`
-  } else if (value !== null && min !== null && max !== null && min !== max) {
-    secondary = `${metric.unit} · ${formatValue(min, metric)}–${formatValue(max, metric)}`
+    display = delta === null ? 'No 1h baseline' : `${delta > 0 ? '+' : ''}${formatValue(delta, metric)} ${metric.unit} / 1h`
   }
   return <button type="button" className="nc-reading-cell" data-tone={tone} data-quality={quality} onClick={onOpenTrend} title={`Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={`Open ${section.name} ${metric.label} trend`}>
-    <strong>{primary}</strong><small>{secondary}</small><i aria-label={qualityLabels[quality]} />
+    <strong>{display}</strong><i aria-label={qualityLabels[quality]} />
   </button>
 }
 
@@ -631,7 +623,7 @@ export default function ReadingsWorkspace() {
       <div className="nc-reading-legend"><span><i data-state="good" />Within crop target</span><span><i data-state="watch" />Outside target</span><span><i data-state="critical" />Critical</span><span><b />Data quality marker</span></div>
       <div className="nc-readings-matrix-scroll">
         <div className="nc-readings-row nc-readings-row-head" style={matrixStyle}><span>Section</span>{visibleMetrics.map((metric) => <span key={metric.key}>{metric.short}<small>{metric.unit}</small></span>)}<span>Latest data</span><span /></div>
-        {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)}><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openTrendPreview(section, metric)} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)}</strong><small>{section.nodes.length || 'No'} nodes</small></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
+        {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)} title={`${section.name} · ${section.areaName} · ${section.profileName}`}><strong>{section.name}</strong></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openTrendPreview(section, metric)} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)} · {section.nodes.length ? `${section.nodes.length} nodes` : 'No nodes'}</strong></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
         {status === 'ready' && !visibleSections.length ? <div className="nc-readings-empty">No sections match the selected filters.</div> : null}
       </div>
     </section>
