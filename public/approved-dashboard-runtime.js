@@ -11184,7 +11184,7 @@ function buildTrendMetricOptions(options) {
             const definition = item.option.definition;
             const optimalRange = item.option.optimalRange || definition.optimal;
             const axisDomain = getTrendAxisDomain(displayValuesByItem.get(item), definition, optimalRange);
-            const visualSpan = (optimalRange[1] - optimalRange[0])
+            const visualSpan = item.option.hasTarget === false ? 0 : (optimalRange[1] - optimalRange[0])
               / Math.max(axisDomain[1] - axisDomain[0], 0.0001);
             return { index, visualSpan };
           })
@@ -11249,6 +11249,7 @@ function buildTrendMetricOptions(options) {
         const color = colors[index];
         const definition = item.option.definition;
         const optimalRange = item.option.optimalRange || definition.optimal;
+        const hasTarget = item.option.hasTarget !== false;
         const displayValues = displayValuesByItem.get(item);
         const rawValues = item.series.values.map(Number);
         const isSmoothedView = activeTrendPresentation === "smoothed" && shouldSmoothTrendMetric(item.option.key);
@@ -11258,12 +11259,12 @@ function buildTrendMetricOptions(options) {
         const minimumIndex = extremaValues.indexOf(minimumValue);
         const maximumIndex = extremaValues.indexOf(maximumValue);
         const axisDomain = getTrendAxisDomain(displayValues, definition, optimalRange);
-        const isTargetVisible = (value) => value >= axisDomain[0] && value <= axisDomain[1];
+        const isTargetVisible = (value) => hasTarget && value >= axisDomain[0] && value <= axisDomain[1];
         const visibleTargetMin = Math.max(Number(optimalRange[0]), axisDomain[0]);
         const visibleTargetMax = Math.min(Number(optimalRange[1]), axisDomain[1]);
-        const hasVisibleTargetBand = visibleTargetMin < visibleTargetMax;
-        const targetIsBelowView = Number(optimalRange[1]) < axisDomain[0];
-        const targetIsAboveView = Number(optimalRange[0]) > axisDomain[1];
+        const hasVisibleTargetBand = hasTarget && visibleTargetMin < visibleTargetMax;
+        const targetIsBelowView = hasTarget && Number(optimalRange[1]) < axisDomain[0];
+        const targetIsAboveView = hasTarget && Number(optimalRange[0]) > axisDomain[1];
         const data = displayValues.map((value, pointIndex) => [
           item.series.timestamps?.[pointIndex] ?? rangeStart,
           value
@@ -11566,6 +11567,79 @@ function buildTrendMetricOptions(options) {
         series: chartSeries
       };
     }
+
+    window.NeuroCropTrendCharts = Object.freeze({
+      render(element, input = {}) {
+        if (!element || !window.echarts) return null;
+        const rangeKey = trendRangeConfig[input.rangeKey] ? input.rangeKey : "24h";
+        const rangeConfig = trendRangeConfig[rangeKey];
+        const historyPoints = Array.isArray(input.points)
+          ? input.points
+              .map((point) => ({
+                timestamp: new Date(point.observedAt || point.receivedAt).getTime(),
+                value: Number(point.value)
+              }))
+              .filter((point) => Number.isFinite(point.timestamp) && Number.isFinite(point.value))
+              .sort((left, right) => left.timestamp - right.timestamp)
+          : [];
+        if (historyPoints.length < 2) return null;
+
+        const values = historyPoints.map((point) => point.value);
+        const timestamps = historyPoints.map((point) => point.timestamp);
+        const decimals = Math.max(0, Number(input.decimals) || 0);
+        const dataMinimum = Math.min(...values);
+        const dataMaximum = Math.max(...values);
+        const precisionStep = 10 ** -decimals;
+        const fallbackSpan = Math.max(precisionStep * 4, Math.max(Math.abs(dataMinimum), Math.abs(dataMaximum), 1) * 0.02);
+        const hasTarget = Array.isArray(input.target)
+          && input.target.length >= 2
+          && input.target.every((value) => Number.isFinite(Number(value)));
+        const optimalRange = hasTarget
+          ? input.target.map(Number)
+          : [dataMinimum - fallbackSpan, dataMaximum + fallbackSpan];
+        const definition = {
+          unit: String(input.unit || ""),
+          decimals,
+          optimal: optimalRange,
+          critical: optimalRange
+        };
+        const metricOption = {
+          key: String(input.metricKey || "growth"),
+          label: String(input.label || input.metricKey || "Measurement"),
+          definition,
+          optimalRange,
+          hasTarget
+        };
+        const rangeStart = Date.now() - (rangeConfig.totalHours * 60 * 60 * 1000);
+        const chartOption = buildTrendEChartsOption({
+          seriesItems: [{
+            option: metricOption,
+            series: {
+              values,
+              timestamps,
+              pointCount: values.length,
+              source: "api"
+            }
+          }],
+          rangeKey,
+          rangeLabel: rangeConfig.label,
+          totalHours: rangeConfig.totalHours,
+          rangeStart,
+          ariaLabel: `${metricOption.label} trend for the last ${rangeConfig.label}`
+        });
+
+        const chart = window.echarts.init(element, null, { renderer: "svg" });
+        try {
+          chart.setOption(chartOption, { notMerge: true });
+          window.requestAnimationFrame(() => chart.resize());
+          return chart;
+        } catch (error) {
+          console.warn("Shared trend chart render failed.", error);
+          chart.dispose();
+          return null;
+        }
+      }
+    });
 
 
 

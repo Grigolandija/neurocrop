@@ -17,6 +17,7 @@ import './styles/settings-workspace.css'
 declare global {
   interface Window {
     echarts?: unknown
+    NeuroCropTrendCharts?: unknown
     NeuroCropStateEngine?: unknown
     NEUROCROP_CONFIG?: { apiBaseUrl?: string }
     NeuroCropApi?: NeuroCropApi

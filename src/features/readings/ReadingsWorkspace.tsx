@@ -44,14 +44,20 @@ type PinnedHistoryState = {
 }
 
 type EChartsInstance = {
-  setOption: (option: JsonRecord, notMerge?: boolean) => void
   resize: () => void
   dispose: () => void
 }
 
-type EChartsApi = {
-  init: (element: HTMLElement, theme?: string | null, options?: JsonRecord) => EChartsInstance
-  graphic?: { LinearGradient: new (x: number, y: number, x2: number, y2: number, colorStops: JsonRecord[]) => unknown }
+type SharedTrendChartsApi = {
+  render: (element: HTMLElement, input: {
+    points: HistoryPoint[]
+    metricKey: string
+    label: string
+    unit: string
+    decimals: number
+    target: [number, number] | null
+    rangeKey: TrendRangeKey
+  }) => EChartsInstance | null
 }
 
 const metrics: Metric[] = [
@@ -89,17 +95,9 @@ const historySupportedMetricKeys = new Set([
 ])
 
 const trendRanges: Record<TrendRangeKey, { hours: number; stepMinutes: number }> = {
-  '24h': { hours: 24, stepMinutes: 60 },
-  '7d': { hours: 24 * 7, stepMinutes: 240 },
+  '24h': { hours: 24, stepMinutes: 10 },
+  '7d': { hours: 24 * 7, stepMinutes: 60 },
   '30d': { hours: 24 * 30, stepMinutes: 240 },
-}
-
-const chartColorTokens: Record<string, [string, string]> = {
-  airTemp: ['--chart-temperature', '#d36c5b'], leafTemp: ['--chart-temperature', '#d36c5b'], soilTemp: ['--chart-temperature', '#d36c5b'],
-  humidity: ['--chart-humidity', '#4c82b8'], vpd: ['--chart-vpd', '#8a6bbe'], co2: ['--chart-co2', '#7a6f64'],
-  lux: ['--chart-light', '#d6a436'], ec: ['--chart-ec', '#b45f87'], ph: ['--chart-ph', '#6c70c9'],
-  waterTemp: ['--chart-water', '#2c91a3'], soilMoisture: ['--chart-water', '#2c91a3'], batteryLevel: ['--chart-battery', '#738e95'],
-  airPressure: ['--chart-pressure', '#66788e'],
 }
 
 function asArray<T = JsonRecord>(value: unknown): T[] {
@@ -338,116 +336,26 @@ function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }:
 
 function TrendPreviewChart({ points, target, metric, periodLabel }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; periodLabel: TrendRangeKey }) {
   const chartRef = useRef<HTMLDivElement>(null)
-  const targetMinimum = target?.[0] ?? null
-  const targetMaximum = target?.[1] ?? null
 
   useEffect(() => {
-    const echarts = window.echarts as EChartsApi | undefined
+    const charts = (window as Window & { NeuroCropTrendCharts?: SharedTrendChartsApi }).NeuroCropTrendCharts
     const element = chartRef.current
-    if (!echarts || !element || points.length < 2) return
-
-    const styles = getComputedStyle(document.documentElement)
-    const readToken = (token: string, fallback: string) => styles.getPropertyValue(token).trim() || fallback
-    const [colorToken, colorFallback] = chartColorTokens[metric.key] || ['--chart-growth', '#3f7d65']
-    const color = readToken(colorToken, colorFallback)
-    const textColor = readToken('--color-text-secondary', '#5d655f')
-    const borderColor = readToken('--color-border', '#d8dbd7')
-    const surfaceColor = readToken('--color-surface', '#ffffff')
-    const tooltipColor = readToken('--color-primary', '#252b29')
-    const tooltipTextColor = readToken('--color-on-primary', '#ffffff')
-    const values = points.map((point) => point.value)
-    const dataMinimum = Math.min(...values)
-    const dataMaximum = Math.max(...values)
-    const precisionStep = 10 ** -metric.decimals
-    const dataSpan = Math.max(dataMaximum - dataMinimum, precisionStep * 4, Math.max(Math.abs(dataMinimum), Math.abs(dataMaximum), 1) * .02)
-    let axisMinimum = dataMinimum - dataSpan * .18
-    let axisMaximum = dataMaximum + dataSpan * .18
-    for (const boundary of [targetMinimum, targetMaximum]) {
-      if (boundary !== null && boundary >= dataMinimum - dataSpan * .75 && boundary <= dataMaximum + dataSpan * .75) {
-        axisMinimum = Math.min(axisMinimum, boundary - dataSpan * .08)
-        axisMaximum = Math.max(axisMaximum, boundary + dataSpan * .08)
-      }
-    }
-    const formatNumber = (value: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: metric.decimals }).format(value)
-    const formatDate = (value: number) => new Intl.DateTimeFormat(undefined, periodLabel === '24h'
-      ? { hour: '2-digit', minute: '2-digit' }
-      : { day: '2-digit', month: 'short', hour: '2-digit' }).format(new Date(value))
-    const chart = echarts.init(element, null, { renderer: 'svg' })
-    const areaColor = echarts.graphic?.LinearGradient
-      ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: `${color}30` }, { offset: 1, color: `${color}05` }])
-      : color
-    chart.setOption({
-      animation: false,
-      aria: { enabled: true, description: `${metric.label} trend over ${periodLabel}` },
-      grid: { left: 78, right: 28, top: 30, bottom: points.length > 40 ? 78 : 58, containLabel: false },
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: tooltipColor,
-        borderWidth: 0,
-        textStyle: { color: tooltipTextColor, fontSize: 12 },
-        axisPointer: { type: 'line', lineStyle: { color, width: 1, type: 'dashed' } },
-        formatter: (items: JsonRecord[]) => {
-          const item = Array.isArray(items) ? items[0] : items
-          const timestamp = Number(item?.value?.[0])
-          const value = Number(item?.value?.[1])
-          return `<strong>${formatDate(timestamp)}</strong><br>${metric.label}: <strong>${formatNumber(value)} ${metric.unit}</strong>`
-        },
-      },
-      xAxis: {
-        type: 'time',
-        name: `Time (${periodLabel})`,
-        nameLocation: 'middle',
-        nameGap: points.length > 40 ? 54 : 36,
-        axisLine: { lineStyle: { color: textColor } },
-        axisTick: { lineStyle: { color: textColor } },
-        axisLabel: { color: textColor, fontSize: 11, hideOverlap: true, formatter: (value: number) => formatDate(value) },
-        nameTextStyle: { color: textColor, fontSize: 11, fontWeight: 600 },
-        splitLine: { show: false },
-      },
-      yAxis: {
-        type: 'value',
-        min: axisMinimum,
-        max: axisMaximum,
-        splitNumber: 5,
-        name: `${metric.label} (${metric.unit})`,
-        nameLocation: 'middle',
-        nameGap: 58,
-        axisLine: { show: true, lineStyle: { color } },
-        axisTick: { show: true, lineStyle: { color } },
-        axisLabel: { color, fontSize: 11, formatter: (value: number) => formatNumber(value) },
-        nameTextStyle: { color, fontSize: 11, fontWeight: 600 },
-        splitLine: { lineStyle: { color, opacity: .12 } },
-      },
-      dataZoom: points.length > 40 ? [
-        { type: 'inside', xAxisIndex: 0, filterMode: 'none' },
-        { type: 'slider', xAxisIndex: 0, height: 18, bottom: 12, borderColor, fillerColor: `${color}20`, handleStyle: { color, borderColor: surfaceColor }, textStyle: { color: textColor } },
-      ] : [],
-      series: [{
-        name: metric.label,
-        type: 'line',
-        data: points.map((point) => [new Date(point.observedAt).getTime(), point.value]),
-        showSymbol: false,
-        symbol: 'circle',
-        symbolSize: 7,
-        smooth: .32,
-        smoothMonotone: 'x',
-        connectNulls: false,
-        lineStyle: { color, width: 2.5, cap: 'round', join: 'round' },
-        itemStyle: { color, borderColor: surfaceColor, borderWidth: 2 },
-        areaStyle: { color: areaColor, opacity: .45 },
-        markArea: targetMinimum !== null && targetMaximum !== null ? {
-          silent: true,
-          itemStyle: { color: readToken('--color-success-soft', '#e6f2eb'), opacity: .72 },
-          label: { show: true, color: readToken('--color-success', '#2f7d59'), fontSize: 11, formatter: 'Crop target' },
-          data: [[{ yAxis: targetMinimum }, { yAxis: targetMaximum }]],
-        } : undefined,
-      }],
-    }, true)
+    if (!charts || !element || points.length < 2) return
+    const chart = charts.render(element, {
+      points,
+      metricKey: metric.key,
+      label: metric.label,
+      unit: metric.unit,
+      decimals: metric.decimals,
+      target,
+      rangeKey: periodLabel,
+    })
+    if (!chart) return
 
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(element)
     return () => { observer.disconnect(); chart.dispose() }
-  }, [metric, periodLabel, points, targetMinimum, targetMaximum])
+  }, [metric, periodLabel, points, target])
 
   return <div ref={chartRef} className="nc-trend-echart" role="img" aria-label={`${metric.label} ${periodLabel} trend chart`} />
 }
