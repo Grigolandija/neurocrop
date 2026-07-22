@@ -68,7 +68,7 @@ async function seedDefaultCropProfile(client, organizationId) {
     `INSERT INTO crop_profiles (
        id, organization_id, name, hero_name, stage, hint, requires_review, metrics, created_at, updated_at
      ) VALUES (
-       'default', $1, 'Default / Numatytasis', 'Default', 'Default',
+       'default', $1, 'Default', 'Default', 'Default',
        'Universal starter profile. Review target ranges before assigning it to production sections.',
        false, '{}'::jsonb, now(), now()
      ) ON CONFLICT (organization_id, id) DO NOTHING`,

@@ -460,6 +460,9 @@ app.post('/crop-profiles', requireAuth, requireRole('owner', 'admin', 'grower'),
     if (!/^[a-z0-9-]+$/.test(id)) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Profile id must contain only lowercase letters, numbers, and hyphens' } });
     }
+    if (id === 'default' && name !== 'Default') {
+      return res.status(400).json({ error: { code: 'DEFAULT_PROFILE_NAME_PROTECTED', message: 'The Default crop profile must use the name Default' } });
+    }
 
     if (!name || !heroName) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Profile name and heroName are required' } });
@@ -511,6 +514,9 @@ app.patch('/crop-profiles/:id', requireAuth, requireRole('owner', 'admin', 'grow
 
     if (!profileId) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Profile id is required' } });
+    }
+    if (profileId === 'default' && name !== null && name !== 'Default') {
+      return res.status(400).json({ error: { code: 'DEFAULT_PROFILE_NAME_PROTECTED', message: 'The Default crop profile name cannot be changed' } });
     }
 
     if (name === '' || heroName === '') {
@@ -637,6 +643,9 @@ app.delete('/crop-profiles/:id', requireAuth, requireRole('owner', 'admin', 'gro
 
     if (!profileId) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Profile id is required' } });
+    }
+    if (profileId === 'default') {
+      return res.status(409).json({ error: { code: 'DEFAULT_PROFILE_PROTECTED', message: 'The Default crop profile cannot be deleted' } });
     }
     if (replacementProfileId === profileId) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Replacement profile must be different from the deleted profile' } });

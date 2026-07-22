@@ -735,6 +735,11 @@
   background: var(--color-danger-soft);
 }
 
+.designer-app .profile-support-grid .crop-profile-management.is-protected {
+  border-color: var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
 .designer-app .crop-profile-detail-fields input,
 .designer-app .crop-profile-create-drawer input,
 .designer-app .crop-profile-create-drawer select {
@@ -770,6 +775,38 @@
   border-color: var(--color-danger-border);
   background: var(--color-surface);
   color: var(--color-danger);
+}
+
+.designer-app .default-profile-protected {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: var(--space-12);
+  background: var(--color-disabled-bg);
+  color: var(--color-text-secondary);
+}
+
+.designer-app .default-profile-protected > i {
+  color: var(--color-text-tertiary);
+}
+
+.designer-app .default-profile-protected > span {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.designer-app .default-profile-protected strong {
+  color: var(--color-text);
+  font-size: var(--type-body-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.designer-app .default-profile-protected small {
+  color: var(--color-text-tertiary);
+  font-size: var(--type-caption);
+  line-height: var(--leading-compact);
 }
 
 /* Profile editor: direct migration of the frontend-redesign detail view. */
@@ -858,6 +895,21 @@
   color: var(--color-danger-hover);
 }
 
+.designer-app .default-profile-header-badge {
+  display: inline-flex;
+  min-height: var(--control-height-md);
+  align-items: center;
+  gap: var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-12);
+  background: var(--color-disabled-bg);
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-sm);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
 .designer-app .profile-detail-actions .settings-primary-button {
   min-width: 8.25rem;
 }
@@ -922,6 +974,20 @@
   font-size: var(--type-body);
   font-weight: var(--weight-medium);
   outline: 0;
+}
+
+.designer-app .crop-profile-identity-editor input[readonly] {
+  border-color: var(--color-border);
+  background: var(--color-disabled-bg);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+
+.designer-app .crop-profile-identity-editor label > small {
+  color: var(--color-text-tertiary);
+  font-size: var(--type-caption);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-compact);
 }
 
 .designer-app .profile-detail-feedback {

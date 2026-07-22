@@ -81,6 +81,14 @@ test('crop profile deletion reassigns sections atomically within the tenant', ()
   assert.match(block, /WHERE organization_id=\$1 AND crop_profile=\$2/);
   assert.match(block, /client\.query\('COMMIT'\)/);
   assert.match(block, /PROFILE_REPLACEMENT_REQUIRED/);
+  assert.match(block, /DEFAULT_PROFILE_PROTECTED/);
+});
+
+test('default crop profile keeps its canonical identity', () => {
+  const createBlock = routeBlock(apiSource, "app.post('/crop-profiles'");
+  const patchBlock = routeBlock(apiSource, "app.patch('/crop-profiles/:id'");
+  assert.match(createBlock, /DEFAULT_PROFILE_NAME_PROTECTED/);
+  assert.match(patchBlock, /DEFAULT_PROFILE_NAME_PROTECTED/);
 });
 
 test('workspace settings mutations are role protected and organization scoped', () => {

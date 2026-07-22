@@ -869,7 +869,7 @@
     cropProfiles.default = {
       ...JSON.parse(JSON.stringify(cropProfiles.tomato)),
       id: "default",
-      name: "Default / Numatytasis",
+      name: "Default",
       heroName: "Default",
       stage: "Default",
       hint: "Universal starter profile. Review target ranges before assigning it to production sections.",
@@ -1082,7 +1082,7 @@
         cropProfiles[profileId] = {
           ...getCompleteCropProfile(cropProfiles[profileId] || {}),
           id: profileId,
-          name: String(profile.name || cropProfiles[profileId]?.name || profileId),
+          name: profileId === "default" ? "Default" : String(profile.name || cropProfiles[profileId]?.name || profileId),
           heroName: String(profile.heroName || profile.hero_name || cropProfiles[profileId]?.heroName || profile.name || profileId),
           stage: String(profile.stage || profile.growthStage || profile.growth_stage || cropProfiles[profileId]?.stage || ""),
           hint: String(profile.hint || cropProfiles[profileId]?.hint || ""),
@@ -8652,7 +8652,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
 
     function getProfileSaveFeedbackText(feedback) {
       const profileName = feedback.profileKey === "default"
-        ? diagnosticText("Default", "Numatytasis")
+        ? "Default"
         : feedback.profileName;
       return diagnosticText(
         `${profileName} targets saved. Scores, alerts, and history now use these ranges.`,
@@ -8736,7 +8736,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const profileIdentityMarkup = `<section class="crop-profile-identity-editor" aria-labelledby="profileIdentityTitle">
         <header><p id="profileIdentityTitle">Profile details</p><span>Name this program for how it is actually used in your workspace.</span></header>
         <div class="crop-profile-detail-fields">
-          <label><span>Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}" autocomplete="off"></label>
+          <label><span>Profile name</span><input name="profileEditorName" value="${escapeAttribute(profileKey === "default" ? "Default" : (draft?.name ?? profile.name))}" autocomplete="off" ${profileKey === "default" ? "readonly aria-describedby=\"defaultProfileNameHelp\"" : ""}>${profileKey === "default" ? '<small id="defaultProfileNameHelp">System profile name cannot be changed.</small>' : ""}</label>
           <label><span>Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" autocomplete="off"></label>
           <label><span>Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative" autocomplete="off"></label>
         </div>
@@ -8748,10 +8748,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           ${assignments.length ? `<ul class="crop-profile-assignment-list">${assignments.slice(0, 6).map((assignment) => `<li><span>${escapeHtml(assignment.sectionName)}</span><small>${escapeHtml(assignment.areaName)}</small></li>`).join("")}${assignments.length > 6 ? `<li class="crop-profile-more-assignments">+${assignments.length - 6} more sections</li>` : ""}</ul>` : '<p class="crop-profile-side-empty">This profile is not assigned to a section yet.</p>'}
           <p class="crop-profile-side-note">Saved targets apply to every assigned section.</p>
         </div>
-        <div class="crop-profile-side-section crop-profile-management">
-          <header><p>Profile management</p><span>${profileUsageCount > 0 ? "Assigned profile" : "Unused profile"}</span></header>
-          <button type="button" class="crop-profile-delete-button" data-settings-profile-delete="${escapeAttribute(profileKey)}">Delete profile</button>
-          <p>${profileUsageCount > 0 ? `You will choose a replacement for ${profileUsageCount} assigned section${profileUsageCount === 1 ? "" : "s"} before deletion.` : "Deletion cannot be undone."}</p>
+        <div class="crop-profile-side-section crop-profile-management${profileKey === "default" ? " is-protected" : ""}">
+          <header><p>Profile management</p><span>${profileKey === "default" ? "System profile" : profileUsageCount > 0 ? "Assigned profile" : "Unused profile"}</span></header>
+          ${profileKey === "default" ? '<div class="default-profile-protected"><i class="fa-solid fa-lock" aria-hidden="true"></i><span><strong>Protected profile</strong><small>Default cannot be deleted.</small></span></div>' : `<button type="button" class="crop-profile-delete-button" data-settings-profile-delete="${escapeAttribute(profileKey)}">Delete profile</button>`}
+          ${profileKey !== "default" ? `<p>${profileUsageCount > 0 ? `You will choose a replacement for ${profileUsageCount} assigned section${profileUsageCount === 1 ? "" : "s"} before deletion.` : "Deletion cannot be undone."}</p>` : ""}
         </div>
       </section>`;
 
@@ -8774,7 +8774,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             </div>
             <div class="profile-detail-actions">
               <button type="button" class="settings-secondary-button" data-settings-profile-duplicate="${escapeAttribute(profileKey)}"><i class="fa-regular fa-copy" aria-hidden="true"></i>Duplicate</button>
-              <button type="button" class="settings-secondary-button crop-profile-header-delete" data-settings-profile-delete="${escapeAttribute(profileKey)}"><i class="fa-regular fa-trash-can" aria-hidden="true"></i>Delete</button>
+              ${profileKey === "default" ? '<span class="default-profile-header-badge"><i class="fa-solid fa-lock" aria-hidden="true"></i>Protected</span>' : `<button type="button" class="settings-secondary-button crop-profile-header-delete" data-settings-profile-delete="${escapeAttribute(profileKey)}"><i class="fa-regular fa-trash-can" aria-hidden="true"></i>Delete</button>`}
               <button type="button" class="crop-profile-discard-button" data-settings-profile-discard="${escapeAttribute(profileKey)}" disabled>Discard</button>
               <button type="submit" class="settings-primary-button" data-profile-save disabled><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>Save changes</button>
             </div>
@@ -16299,7 +16299,7 @@ function buildTrendMetricOptions(options) {
       if (deleteProfileButton) {
         const profileKey = deleteProfileButton.dataset.settingsProfileDelete;
         const profile = cropProfiles[profileKey];
-        if (!profile) return;
+        if (!profile || profileKey === "default") return;
         profileDeleteDialogKey = profileKey;
         clearManagementNotice("settings");
         renderDashboard();
