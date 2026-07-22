@@ -866,6 +866,64 @@
   display: none;
 }
 
+.designer-app .crop-profile-identity-editor {
+  display: grid;
+  grid-template-columns: minmax(12rem, .65fr) minmax(0, 2fr);
+  align-items: end;
+  gap: var(--space-24);
+  margin-bottom: var(--space-20);
+  border: 1px solid var(--color-border);
+  border-radius: .75rem;
+  padding: var(--space-16) var(--space-20);
+  background: var(--color-surface-subtle);
+}
+
+.designer-app .crop-profile-identity-editor header p {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-semibold);
+}
+
+.designer-app .crop-profile-identity-editor header span {
+  display: block;
+  margin-top: var(--space-4);
+  color: var(--color-text-tertiary);
+  font-size: var(--type-caption);
+  line-height: var(--leading-body);
+}
+
+.designer-app .crop-profile-identity-editor .crop-profile-detail-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-12);
+}
+
+.designer-app .crop-profile-identity-editor label {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.designer-app .crop-profile-identity-editor label > span {
+  color: var(--color-text-secondary);
+  font-size: var(--type-label);
+  font-weight: var(--weight-semibold);
+}
+
+.designer-app .crop-profile-identity-editor input {
+  width: 100%;
+  height: var(--control-height-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-12);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--type-body);
+  font-weight: var(--weight-medium);
+  outline: 0;
+}
+
 .designer-app .profile-detail-feedback {
   margin: -2rem 0 1.25rem;
   border: 1px solid var(--color-success-border);
@@ -1556,6 +1614,11 @@
 }
 
 @media (max-width: 900px) {
+  .designer-app .crop-profile-identity-editor {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
   .designer-app .profile-layout {
     grid-template-columns: 1fr;
   }
@@ -1666,7 +1729,8 @@
 
   .designer-app .crop-profile-create-drawer form,
   .designer-app .profile-support-grid,
-  .designer-app .profile-support-grid .crop-profile-detail-fields {
+  .designer-app .profile-support-grid .crop-profile-detail-fields,
+  .designer-app .crop-profile-identity-editor .crop-profile-detail-fields {
     grid-template-columns: 1fr;
   }
 

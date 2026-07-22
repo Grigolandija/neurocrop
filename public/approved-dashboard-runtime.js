@@ -8733,15 +8733,16 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         return `<div class="profile-boundary-row"><span><strong>${escapeHtml(metric.label)}</strong><small>${escapeHtml(formatUnit(metric.unit))}</small></span><span><small>Optimal</small><b>${escapeHtml(formatRange([rangeValues.optimalMin, rangeValues.optimalMax], metric))}</b></span><span><small>Warning</small><b>${escapeHtml(formatRange(automaticRanges.warning, metric))}</b></span><span><small>Critical</small><b>${escapeHtml(formatRange(automaticRanges.critical, metric))}</b></span></div>`;
       }).join("");
 
-      const profileManagementMarkup = `<section class="profile-support-grid">
-        <div class="crop-profile-side-section profile-identity-section">
-          <header><p>Profile details</p><span>Edit profile identity</span></header>
-          <div class="crop-profile-detail-fields">
-            <label><span>Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}"></label>
-            <label><span>Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}"></label>
-            <label><span>Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative"></label>
-          </div>
+      const profileIdentityMarkup = `<section class="crop-profile-identity-editor" aria-labelledby="profileIdentityTitle">
+        <header><p id="profileIdentityTitle">Profile details</p><span>Name this program for how it is actually used in your workspace.</span></header>
+        <div class="crop-profile-detail-fields">
+          <label><span>Profile name</span><input name="profileEditorName" value="${escapeAttribute(draft?.name ?? profile.name)}" autocomplete="off"></label>
+          <label><span>Crop</span><input name="profileEditorHeroName" value="${escapeAttribute(draft?.heroName ?? profile.heroName)}" autocomplete="off"></label>
+          <label><span>Growth stage</span><input name="profileEditorStage" value="${escapeAttribute((draft?.stage ?? profile.stage) || "")}" placeholder="Vegetative" autocomplete="off"></label>
         </div>
+      </section>`;
+
+      const profileManagementMarkup = `<section class="profile-support-grid">
         <div class="crop-profile-side-section">
           <header><p>Assignments</p><span>${profileUsageCount} section${profileUsageCount === 1 ? "" : "s"}</span></header>
           ${assignments.length ? `<ul class="crop-profile-assignment-list">${assignments.slice(0, 6).map((assignment) => `<li><span>${escapeHtml(assignment.sectionName)}</span><small>${escapeHtml(assignment.areaName)}</small></li>`).join("")}${assignments.length > 6 ? `<li class="crop-profile-more-assignments">+${assignments.length - 6} more sections</li>` : ""}</ul>` : '<p class="crop-profile-side-empty">This profile is not assigned to a section yet.</p>'}
@@ -8780,6 +8781,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           </header>
           <span class="sr-only" data-profile-save-state>${diagnosticText("All changes saved", "Visi pakeitimai išsaugoti")}</span>
           ${saveFeedback ? `<p class="crop-profile-save-feedback profile-detail-feedback" data-tone="${escapeAttribute(saveFeedback.tone)}" role="status">${escapeHtml(getProfileSaveFeedbackText(saveFeedback))}</p>` : ""}
+          ${profileIdentityMarkup}
           <div class="crop-profile-editor-grid profile-editor-new">
             <aside class="profile-editor-navigation" aria-label="Profile sections">
               <p>Profile sections</p>
