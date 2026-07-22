@@ -174,6 +174,10 @@ assert(runtime.includes('const totalGrowthCount = (zone.configuredMetrics || zon
 assert(!runtime.includes('data-settings-form="platform-admin"'), "Admin access must not use a separate email form outside the Users table");
 assert(markup.includes('class="skip-to-content"') && markup.includes('id="dashboardMain"') && markup.includes('tabindex="-1"'), "the application shell must provide a keyboard-accessible skip link and focus target");
 assert(markup.includes('id="loginError"') && markup.includes('aria-live="assertive"') && !markup.includes('id="loginError" class="hidden'), "login failures must become visibly and accessibly announced instead of remaining hidden by CSS");
+assert(markup.includes('name="username"') && markup.includes('autocomplete="username"'), "login email must expose the standard username autofill contract");
+assert(markup.includes('name="password"') && markup.includes('autocomplete="current-password"'), "login password must expose the standard current-password autofill contract");
+assert(runtime.includes('const authenticatedWorkspaceWasVisible = !elements.dashboardShell.hidden;'), "anonymous protected-route requests must not be presented as an expired visible session");
+assert(runtime.includes('if (!authenticatedWorkspaceWasVisible) {') && runtime.includes('elements.loginSubmit.disabled = false;'), "anonymous 401 handling must preserve autofilled credentials and keep sign-in available");
 assert(markup.includes('<span>Areas</span>') && markup.includes('<span>Sections</span>'), "primary navigation must use consistent Area and Section terminology");
 assert(styles.includes("Commercial UI consolidation") && styles.includes(".management-list-row") && styles.includes("min-height: 58px"), "management lists must retain the compact commercial layout for large workspaces");
 assert(styles.includes('.state-chip[data-state="unknown"]') && styles.includes('background: #ecefec'), "No data and unknown states must remain visually neutral rather than critical red");

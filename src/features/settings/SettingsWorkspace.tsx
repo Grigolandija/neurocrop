@@ -91,6 +91,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
   const [members, setMembers] = useState<Member[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
+  const [sessionsAvailable, setSessionsAvailable] = useState(true)
   const [loading, setLoading] = useState(true)
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null)
   const [saved, setSaved] = useState(readPreferences)
@@ -116,8 +117,8 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
     async function load() {
       setLoading(true)
       try {
-        const [userResponse, teamResponse, sessionResponse] = await Promise.all([
-          neurocropApi.getCurrentUser(), neurocropApi.getTeam(), neurocropApi.getSessions(),
+        const [userResponse, teamResponse] = await Promise.all([
+          neurocropApi.getCurrentUser(), neurocropApi.getTeam(),
         ]) as Array<Record<string, unknown>>
         if (cancelled) return
         const nextUser = (userResponse.user || {}) as User
@@ -126,7 +127,18 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
         setSaved(nextPreferences)
         setDraft(nextPreferences)
         setMembers(Array.isArray(teamResponse.members) ? teamResponse.members as Member[] : [])
-        setSessions(Array.isArray(sessionResponse.sessions) ? sessionResponse.sessions as Session[] : [])
+        try {
+          const sessionResponse = await neurocropApi.getSessions() as Record<string, unknown>
+          if (!cancelled) {
+            setSessions(Array.isArray(sessionResponse.sessions) ? sessionResponse.sessions as Session[] : [])
+            setSessionsAvailable(true)
+          }
+        } catch {
+          if (!cancelled) {
+            setSessions([])
+            setSessionsAvailable(false)
+          }
+        }
         if (nextUser.role === 'owner' || nextUser.role === 'admin') {
           const invitationResponse = await neurocropApi.getInvitations() as Record<string, unknown>
           if (!cancelled) setInvitations(Array.isArray(invitationResponse.invitations) ? invitationResponse.invitations as Invitation[] : [])
@@ -240,8 +252,14 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
       await neurocropApi.changePassword({ currentPassword: passwords.current, newPassword: passwords.next })
       recordAudit('security', 'Changed account password', 'All other sessions were revoked')
       setPasswords({ current: '', next: '', confirm: '' })
-      const response = await neurocropApi.getSessions() as Record<string, unknown>
-      setSessions(Array.isArray(response.sessions) ? response.sessions as Session[] : [])
+      try {
+        const response = await neurocropApi.getSessions() as Record<string, unknown>
+        setSessions(Array.isArray(response.sessions) ? response.sessions as Session[] : [])
+        setSessionsAvailable(true)
+      } catch {
+        setSessions([])
+        setSessionsAvailable(false)
+      }
       setFeedback({ tone: 'success', text: 'Password changed. Other sessions were signed out.' })
     } catch (reason) {
       setFeedback({ tone: 'warning', text: reason instanceof Error ? reason.message : 'Password could not be changed.' })
@@ -305,7 +323,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
           ['emailEnabled', 'fa-envelope', 'Email', 'Operational alerts and daily summaries'], ['browserEnabled', 'fa-window-maximize', 'Browser notifications', 'Immediate notice while NeuroCrop is open'], ['smsEnabled', 'fa-message', 'SMS', 'Reserved for critical escalation'],
         ] as Array<[keyof Preferences, string, string, string]>).map(([key, icon, label, note]) => <label key={key}><i className={`fa-solid ${icon}`} /><span><strong>{label}</strong><small>{note}</small></span><input type="checkbox" checked={Boolean(draft[key])} onChange={() => setDraft({ ...draft, [key]: !draft[key] })} /><i className="nc-settings-switch" /></label>)}</div></section><section className="nc-settings-card"><header><div><h3>Escalation behavior</h3><p>Controls notification timing, not crop-profile target limits.</p></div></header><div className="nc-settings-fields three"><label><span>Warning persistence</span><select value={draft.warningAfterMinutes} onChange={(event) => setDraft({ ...draft, warningAfterMinutes: Number(event.target.value) })}><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label><label><span>Quiet hours start</span><input type="time" value={draft.quietStart} onChange={(event) => setDraft({ ...draft, quietStart: event.target.value })} /></label><label><span>Quiet hours end</span><input type="time" value={draft.quietEnd} onChange={(event) => setDraft({ ...draft, quietEnd: event.target.value })} /></label></div><label className="nc-settings-inline-toggle"><span><strong>Critical alerts override quiet hours</strong><small>Critical conditions should be delivered immediately.</small></span><input type="checkbox" checked={draft.criticalOverride} onChange={() => setDraft({ ...draft, criticalOverride: !draft.criticalOverride })} /><i className="nc-settings-switch" /></label></section></div> : null}
 
-        {section === 'security' ? <div className="nc-settings-flow"><div className="nc-settings-security-grid"><form className="nc-settings-card" onSubmit={changePassword}><header><div><h3>Change password</h3><p>At least 12 characters. Other sessions will be revoked.</p></div></header><div className="nc-settings-fields single"><label><span>Current password</span><input type="password" autoComplete="current-password" required value={passwords.current} onChange={(event) => setPasswords({ ...passwords, current: event.target.value })} /></label><label><span>New password</span><input type="password" autoComplete="new-password" required value={passwords.next} onChange={(event) => setPasswords({ ...passwords, next: event.target.value })} /></label><label><span>Confirm new password</span><input type="password" autoComplete="new-password" required value={passwords.confirm} onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })} /></label></div><button className="nc-settings-button primary" disabled={busyKey === 'password'}>{busyKey === 'password' ? 'Updating…' : 'Update password'}</button></form><section className="nc-settings-card"><header><div><h3>Active sessions</h3><p>Revoke any session you no longer recognize.</p></div></header><div className="nc-settings-sessions">{sessions.map((session) => <article key={session.id}><i className="fa-solid fa-display" /><div><strong>{session.current ? 'Current browser session' : 'Authenticated session'}</strong><small>Last active {formatDate(session.lastSeenAt || session.createdAt)}</small></div>{session.current ? <Status tone="success">Current</Status> : <button disabled={busyKey === `session-${session.id}`} onClick={() => void revokeSession(session)}>Sign out</button>}</article>)}</div></section></div></div> : null}
+        {section === 'security' ? <div className="nc-settings-flow"><div className="nc-settings-security-grid"><form className="nc-settings-card" onSubmit={changePassword}><header><div><h3>Change password</h3><p>At least 12 characters. Other sessions will be revoked.</p></div></header><div className="nc-settings-fields single"><label><span>Current password</span><input type="password" autoComplete="current-password" required value={passwords.current} onChange={(event) => setPasswords({ ...passwords, current: event.target.value })} /></label><label><span>New password</span><input type="password" autoComplete="new-password" required value={passwords.next} onChange={(event) => setPasswords({ ...passwords, next: event.target.value })} /></label><label><span>Confirm new password</span><input type="password" autoComplete="new-password" required value={passwords.confirm} onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })} /></label></div><button className="nc-settings-button primary" disabled={busyKey === 'password'}>{busyKey === 'password' ? 'Updating…' : 'Update password'}</button></form><section className="nc-settings-card"><header><div><h3>Active sessions</h3><p>Revoke any session you no longer recognize.</p></div></header>{sessionsAvailable ? <div className="nc-settings-sessions">{sessions.map((session) => <article key={session.id}><i className="fa-solid fa-display" /><div><strong>{session.current ? 'Current browser session' : 'Authenticated session'}</strong><small>Last active {formatDate(session.lastSeenAt || session.createdAt)}</small></div>{session.current ? <Status tone="success">Current</Status> : <button disabled={busyKey === `session-${session.id}`} onClick={() => void revokeSession(session)}>Sign out</button>}</article>)}</div> : <div className="nc-settings-empty"><i className="fa-solid fa-server" /><strong>Session management is being deployed</strong><span>Password changes still work. The signed-in device list will appear after the backend update.</span></div>}</section></div></div> : null}
 
         {section === 'audit' ? <div className="nc-settings-flow"><div className="nc-settings-audit-toolbar"><div>{(['all', 'access', 'configuration', 'security'] as const).map((filter) => <button className={auditFilter === filter ? 'active' : ''} key={filter} onClick={() => setAuditFilter(filter)}>{filter === 'all' ? 'All activity' : filter}</button>)}</div><label><i className="fa-solid fa-magnifying-glass" /><input value={auditQuery} onChange={(event) => setAuditQuery(event.target.value)} placeholder="Search actor or change" /></label></div><section className="nc-settings-audit">{filteredAudit.map((event) => <article key={event.id}><time>{formatDate(event.time)}</time><span><i className={`fa-solid ${event.category === 'access' ? 'fa-user-shield' : event.category === 'security' ? 'fa-lock' : 'fa-sliders'}`} /></span><div><strong>{event.action}</strong><p>{event.detail}</p></div><small>{event.actor}</small></article>)}{filteredAudit.length === 0 ? <div className="nc-settings-empty"><i className="fa-solid fa-clock-rotate-left" /><strong>No matching settings activity</strong><span>Actions performed from this browser will appear here.</span></div> : null}</section><p className="nc-settings-helper">This is a browser-local settings activity record, not the future organization-wide backend audit log.</p></div> : null}
       </div>

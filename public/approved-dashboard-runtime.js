@@ -17124,6 +17124,15 @@ function buildTrendMetricOptions(options) {
     });
 
     window.addEventListener("neurocrop:unauthorized", () => {
+      // Protected workspaces can mount behind the login gate when the browser
+      // restores a deep URL. Their anonymous 401 must not clear autofilled
+      // credentials or masquerade as an expired interactive session.
+      const authenticatedWorkspaceWasVisible = !elements.dashboardShell.hidden;
+      if (!authenticatedWorkspaceWasVisible) {
+        elements.loginError.hidden = true;
+        elements.loginSubmit.disabled = false;
+        return;
+      }
       if (unauthorizedStateHandled) return;
       unauthorizedStateHandled = true;
       window.sessionStorage.removeItem(loginSessionKey);
