@@ -598,6 +598,26 @@ td {
   font-variant-numeric: tabular-nums;
 }
 
+/* Simple Overview stays compact without dropping operational copy below 11px. */
+.designer-app :is(
+  .grower-command-instruction > span,
+  .grower-area-band > header small,
+  .grower-area-band > header > span,
+  .grower-area-status,
+  .grower-section-line > span:nth-of-type(2),
+  .user-tile > span
+) {
+  font-size: var(--type-micro) !important;
+}
+
+.designer-app :is(
+  .grower-system-note strong,
+  .grower-system-note small,
+  .grower-farm-board > header p
+) {
+  font-size: var(--type-caption) !important;
+}
+
 /* Authentication */
 .login-screen .login-aside h1 {
   font-size: var(--type-display-l) !important;

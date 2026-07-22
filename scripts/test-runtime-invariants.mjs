@@ -28,6 +28,7 @@ const settingsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/se
 const registerPage = await fs.readFile(path.join(root, "src/pages/RegisterPage.tsx"), "utf8");
 const invitePage = await fs.readFile(path.join(root, "src/pages/AcceptInvitePage.tsx"), "utf8");
 const authLayout = await fs.readFile(path.join(root, "src/features/auth/AuthLayout.tsx"), "utf8");
+const controlCenterE2e = await fs.readFile(path.join(root, "e2e/control-center.spec.ts"), "utf8");
 const areasModel = await fs.readFile(path.join(root, "src/features/areas/model.ts"), "utf8");
 const sectionsModel = await fs.readFile(path.join(root, "src/features/sections/model.ts"), "utf8");
 const nodesModel = await fs.readFile(path.join(root, "src/features/nodes/model.ts"), "utf8");
@@ -37,6 +38,21 @@ function assert(condition, message) {
   if (condition) return;
   failures += 1;
   console.error(`FAIL ${message}`);
+}
+
+function colorContrastRatio(foreground, background) {
+  const luminance = (hex) => {
+    const channels = hex.match(/[a-f\d]{2}/gi).map((channel) => Number.parseInt(channel, 16) / 255);
+    const linear = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+    return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+  };
+  const lighter = Math.max(luminance(foreground), luminance(background));
+  const darker = Math.min(luminance(foreground), luminance(background));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function colorToken(name) {
+  return colorSystemStyles.match(new RegExp(`--${name}:\\s*(#[a-fA-F0-9]{6})`))?.[1];
 }
 
 assert(
@@ -50,6 +66,10 @@ assert(runtime.includes("function fetchLatestReadingsForArea(siteId") && runtime
 assert(runtime.includes("latestReadingsRequestIdBySectionId[zoneId]") && !runtime.includes("let latestReadingsRequestId = 0;"), "parallel Area readings must track stale requests independently for every Section");
 assert(runtime.includes("function renderAreaLiveReadingsBoard(") && runtime.includes('"area-readings-board"') && runtime.includes("data-area-reading-section"), "Live readings must provide an Area Section-by-metric matrix and a Section detail drill-down");
 assert(markup.includes('id="readingsWorkspaceMount"') && dashboardPage.includes('createPortal(<ReadingsWorkspace />') && readingsWorkspace.includes('neurocropApi.getLatestReadings') && readingsWorkspace.includes('const presets = [') && readingsWorkspace.includes('exportCsv()') && readingsWorkspaceStyles.includes('body[data-primary-page="readings"] #metricsSection'), "Readings must use the API-backed redesign workspace with presets, export, drill-down and a legacy fallback boundary");
+assert(!controlCenterE2e.includes(".triage-priority-card") && controlCenterE2e.includes(".grower-command") && controlCenterE2e.includes(".grower-farm-board"), "Overview e2e coverage must follow the current grower workspace instead of removed legacy cards");
+assert(colorSystemStyles.includes('button:not(.login-submit):not([data-language-option])') && colorSystemStyles.includes('.login-form-panel > p.max-w-md'), "Authentication controls and helper text must retain explicit WCAG-safe colors");
+assert(typographySystemStyles.includes('.grower-area-band > header small') && typographySystemStyles.includes('.grower-section-line > span:nth-of-type(2)') && typographySystemStyles.includes('.user-tile > span'), "Operational Overview and sidebar text must retain the 11px minimum typography guard");
+assert(colorContrastRatio(colorToken("color-on-primary"), colorToken("color-primary")) >= 4.5 && colorContrastRatio(colorToken("color-text-secondary"), colorToken("color-row-selected")) >= 4.5 && colorContrastRatio(colorToken("color-text-secondary"), colorToken("color-surface")) >= 4.5, "Core authentication and selected-row color pairs must meet WCAG AA contrast");
 assert(markup.includes('id="settingsWorkspaceMount"') && dashboardPage.includes('createPortal(<SettingsWorkspace') && settingsWorkspace.includes('neurocropApi.updateTeamMemberRole') && settingsWorkspace.includes('neurocropApi.revokeSession') && settingsWorkspace.includes('neurocropApi.updateCurrentOrganization'), "Settings must use the API-backed redesign workspace with real team, session and organization actions");
 assert(apiFacade.includes('getInvitationStatus:') && invitePage.includes('neurocropApi.getInvitationStatus(token)') && invitePage.includes("revoked: { title: 'Invitation cancelled'") && invitePage.includes("invitation.status === 'pending'") && invitePage.includes("invitation.accountExists ? 'current-password' : 'new-password'"), "Invitation links must validate on open, explain revoked access, and distinguish existing from new accounts");
 assert(markup.includes('data-sidebar-action="organization"') && markup.includes('<span>Organisation</span>') && markup.includes('id="organizationWorkspaceMount"') && runtime.includes('syncTopLevelRoute("/organization")') && dashboardPage.includes('createPortal(<OrganizationWorkspace />') && organizationWorkspace.includes('neurocropApi.updateCurrentOrganization') && organizationWorkspace.includes('neurocropApi.inviteMember') && organizationWorkspace.includes('neurocropApi.updateTeamMemberRole') && organizationWorkspace.includes('neurocropApi.switchOrganization') && organizationWorkspace.includes('neurocropApi.getAreas()'), "Organisation must be a separate API-backed customer workspace, not a Settings alias or platform administration page");

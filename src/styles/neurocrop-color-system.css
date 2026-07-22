@@ -417,6 +417,12 @@ body.designer-app {
   color: var(--color-text-tertiary) !important;
 }
 
+.designer-app .grower-area-band > header small,
+.designer-app .grower-area-band > header > span,
+.designer-app .grower-section-line > span:nth-of-type(2) {
+  color: var(--color-text-secondary) !important;
+}
+
 /* Buttons */
 .designer-app .button-new.primary,
 .designer-app .settings-primary-button,
@@ -789,8 +795,12 @@ body.designer-app {
 }
 
 .login-form-panel a,
-.login-form-panel button:not(.login-submit) {
+.login-form-panel button:not(.login-submit):not([data-language-option]) {
   color: var(--color-secondary) !important;
+}
+
+.login-form-panel > p.max-w-md {
+  color: var(--color-text-secondary) !important;
 }
 
 #loginError {

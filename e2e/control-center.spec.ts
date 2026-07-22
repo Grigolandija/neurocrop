@@ -58,8 +58,9 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(navigationAction(page, 'overview')).toContainText('Overview')
   await expect(navigationAction(page, 'readings')).toContainText('Readings')
   await expect(navigationAction(page, 'alerts')).toContainText('Alerts')
-  await expect(page.locator('.triage-priority-card')).toContainText('Farm priority')
-  await expect(page.locator('.triage-score-card')).toContainText('Selected section score')
+  await expect(page.locator('.grower-command')).toBeVisible()
+  await expect(page.locator('.grower-pulse')).toBeVisible()
+  await expect(page.locator('.grower-farm-board')).toBeVisible()
   await expect(page.locator('#headerContextSelectors')).not.toContainText('All sections')
 
   await navigationAction(page, 'sites').click()
