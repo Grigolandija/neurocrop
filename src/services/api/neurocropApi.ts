@@ -69,7 +69,10 @@ export const neurocropApi = {
   createCropProfile: (payload: Payload) => request('/crop-profiles', { method: 'POST', body: json(payload) }),
   updateCropProfile: (id: string, payload: Payload) => request(`/crop-profiles/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
   duplicateCropProfile: (id: string, payload: Payload = {}) => request(`/crop-profiles/${encoded(id)}/duplicate`, { method: 'POST', body: json(payload) }),
-  deleteCropProfile: (id: string) => request(`/crop-profiles/${encoded(id)}`, { method: 'DELETE' }),
+  deleteCropProfile: (id: string, options: { replacementProfileId?: string } = {}) => request(`/crop-profiles/${encoded(id)}`, {
+    method: 'DELETE',
+    body: options.replacementProfileId ? json({ replacementProfileId: options.replacementProfileId }) : undefined,
+  }),
   registerNode: (payload: Payload) => request('/nodes/register', { method: 'POST', body: json(payload) }),
   deleteNode: (devEui: string, options: { history?: 'keep' | 'delete' } = {}) => request(`/nodes/${encoded(devEui)}${queryString({ history: options.history || 'keep' })}`, { method: 'DELETE' }),
 }

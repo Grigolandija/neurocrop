@@ -628,43 +628,85 @@ app.post('/crop-profiles/:id/duplicate', requireAuth, requireRole('owner', 'admi
 
 
 app.delete('/crop-profiles/:id', requireAuth, requireRole('owner', 'admin', 'grower'), async (req, res) => {
+  let client;
   try {
+    client = await pool.connect();
     const profileId = String(req.params.id || '').trim().toLowerCase();
+    const replacementProfileId = String(req.body?.replacementProfileId || '').trim().toLowerCase();
+    const organizationId = getOrganizationId(req);
 
     if (!profileId) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Profile id is required' } });
     }
+    if (replacementProfileId === profileId) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Replacement profile must be different from the deleted profile' } });
+    }
 
-    const inUse = await query(
-      `SELECT COUNT(*)::int AS count
-       FROM sections
-       WHERE organization_id=$1 AND crop_profile=$2`,
-      [getOrganizationId(req), profileId]
+    await client.query('BEGIN');
+    const sourceResult = await client.query(
+      `SELECT id, name, hero_name, stage, hint, requires_review, metrics, created_at, updated_at
+       FROM crop_profiles
+       WHERE organization_id=$1 AND id=$2
+       FOR UPDATE`,
+      [organizationId, profileId]
     );
+    if (!sourceResult.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Crop profile not found' } });
+    }
 
-    if ((inUse.rows[0]?.count || 0) > 0) {
+    const assignedSections = await client.query(
+      `SELECT id FROM sections
+       WHERE organization_id=$1 AND crop_profile=$2
+       FOR UPDATE`,
+      [organizationId, profileId]
+    );
+    const assignedSectionCount = assignedSections.rowCount || 0;
+
+    if (assignedSectionCount > 0 && !replacementProfileId) {
+      await client.query('ROLLBACK');
       return res.status(409).json({
         error: {
-          code: 'PROFILE_IN_USE',
-          message: 'Crop profile is assigned to one or more sections'
+          code: 'PROFILE_REPLACEMENT_REQUIRED',
+          message: 'Choose a replacement crop profile for the assigned sections',
+          assignedSectionCount
         }
       });
     }
 
-    const { rows } = await query(
+    if (replacementProfileId) {
+      const replacementResult = await client.query(
+        `SELECT 1 FROM crop_profiles
+         WHERE organization_id=$1 AND id=$2
+         FOR UPDATE`,
+        [organizationId, replacementProfileId]
+      );
+      if (!replacementResult.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: { code: 'INVALID_REPLACEMENT_PROFILE', message: 'Replacement crop profile was not found in this organization' } });
+      }
+      if (assignedSectionCount > 0) {
+        await client.query(
+          `UPDATE sections SET crop_profile=$3
+           WHERE organization_id=$1 AND crop_profile=$2`,
+          [organizationId, profileId, replacementProfileId]
+        );
+      }
+    }
+
+    const { rows } = await client.query(
       `DELETE FROM crop_profiles
        WHERE organization_id=$1 AND id=$2
        RETURNING id, name, hero_name, stage, hint, requires_review, metrics, created_at, updated_at`,
-      [getOrganizationId(req), profileId]
+      [organizationId, profileId]
     );
-
-    if (!rows[0]) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Crop profile not found' } });
-    }
+    await client.query('COMMIT');
 
     const row = rows[0];
     res.json({
       deleted: true,
+      reassignedSections: assignedSectionCount,
+      replacementProfileId: replacementProfileId || null,
       profile: {
         id: row.id,
         name: row.name,
@@ -678,8 +720,11 @@ app.delete('/crop-profiles/:id', requireAuth, requireRole('owner', 'admin', 'gro
       }
     });
   } catch (e) {
+    await client?.query('ROLLBACK').catch(() => {});
     console.error('[api] /crop-profiles DELETE:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  } finally {
+    client?.release();
   }
 });
 

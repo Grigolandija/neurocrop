@@ -882,7 +882,19 @@
     const cropProfileOverridesStorageKey = "neurocrop-dashboard-crop-profile-overrides-v1";
     const builtInCropProfileKeys = new Set(Object.keys(cropProfiles));
     const legacyStarterCropProfileKeys = new Set(["tomato", "lettuce", "strawberry"]);
+    const apiCropProfileKeys = new Set();
+    let hasHydratedApiCropProfiles = false;
     const cropProfileTemplateLibrary = [
+      {
+        key: "tomato-seedling",
+        crop: "Tomato",
+        stage: "Seedling",
+        name: "Tomatoes, seedlings",
+        sourceProfile: "tomato",
+        status: "available",
+        note: "Starter targets for establishment",
+        optimal: { airTemp: [20, 24], humidity: [65, 75], co2: [700, 900], lux: [16000, 24000], vpd: [0.55, 0.85], ec: [1.5, 2.2] }
+      },
       {
         key: "tomato-vegetative",
         crop: "Tomato",
@@ -891,6 +903,26 @@
         sourceProfile: "tomato",
         status: "available",
         note: "NeuroCrop starting point"
+      },
+      {
+        key: "tomato-fruiting",
+        crop: "Tomato",
+        stage: "Flowering & fruiting",
+        name: "Tomatoes, flowering & fruiting",
+        sourceProfile: "tomato",
+        status: "available",
+        note: "Starter targets for generative growth",
+        optimal: { airTemp: [21, 25], humidity: [58, 70], co2: [900, 1200], lux: [28000, 38000], vpd: [0.9, 1.25], ec: [2.5, 3.5] }
+      },
+      {
+        key: "lettuce-seedling",
+        crop: "Lettuce",
+        stage: "Seedling",
+        name: "Lettuce, seedlings",
+        sourceProfile: "lettuce",
+        status: "available",
+        note: "Starter targets for establishment",
+        optimal: { airTemp: [18, 21], humidity: [60, 75], co2: [600, 850], lux: [12000, 18000], vpd: [0.45, 0.75], ec: [0.9, 1.4] }
       },
       {
         key: "lettuce-intensive",
@@ -902,6 +934,16 @@
         note: "NeuroCrop starting point"
       },
       {
+        key: "strawberry-vegetative",
+        crop: "Strawberry",
+        stage: "Vegetative",
+        name: "Strawberries, vegetative",
+        sourceProfile: "strawberry",
+        status: "available",
+        note: "Starter targets before flowering",
+        optimal: { airTemp: [18, 22], humidity: [60, 75], co2: [700, 950], lux: [18000, 26000], vpd: [0.6, 0.95], ec: [1.3, 2.0] }
+      },
+      {
         key: "strawberry-fruiting",
         crop: "Strawberry",
         stage: "Fruiting",
@@ -911,31 +953,54 @@
         note: "NeuroCrop starting point"
       },
       {
-        key: "cucumber",
+        key: "cucumber-seedling",
         crop: "Cucumber",
-        stage: "",
-        name: "Cucumber program",
-        sourceProfile: "",
-        status: "manual",
-        note: "Set targets manually"
+        stage: "Seedling",
+        name: "Cucumbers, seedlings",
+        sourceProfile: "tomato",
+        status: "available",
+        note: "Starter targets for establishment",
+        optimal: { airTemp: [22, 25], humidity: [70, 80], co2: [700, 950], lux: [16000, 24000], vpd: [0.55, 0.85], ec: [1.5, 2.2] }
       },
       {
-        key: "pepper",
+        key: "cucumber-fruiting",
+        crop: "Cucumber",
+        stage: "Flowering & fruiting",
+        name: "Cucumbers, flowering & fruiting",
+        sourceProfile: "tomato",
+        status: "available",
+        note: "Starter targets for production",
+        optimal: { airTemp: [22, 26], humidity: [65, 78], co2: [850, 1100], lux: [26000, 36000], vpd: [0.75, 1.15], ec: [2.2, 3.0] }
+      },
+      {
+        key: "pepper-vegetative",
         crop: "Pepper",
-        stage: "",
-        name: "Pepper program",
-        sourceProfile: "",
-        status: "manual",
-        note: "Set targets manually"
+        stage: "Vegetative",
+        name: "Peppers, vegetative",
+        sourceProfile: "tomato",
+        status: "available",
+        note: "Starter targets for canopy development",
+        optimal: { airTemp: [21, 25], humidity: [60, 72], co2: [750, 1000], lux: [24000, 34000], vpd: [0.75, 1.1], ec: [1.8, 2.6] }
       },
       {
-        key: "herbs",
-        crop: "Herbs",
-        stage: "",
-        name: "Herbs program",
-        sourceProfile: "",
-        status: "manual",
-        note: "Set targets manually"
+        key: "pepper-fruiting",
+        crop: "Pepper",
+        stage: "Flowering & fruiting",
+        name: "Peppers, flowering & fruiting",
+        sourceProfile: "tomato",
+        status: "available",
+        note: "Starter targets for production",
+        optimal: { airTemp: [21, 26], humidity: [58, 70], co2: [850, 1100], lux: [28000, 38000], vpd: [0.85, 1.25], ec: [2.2, 3.2] }
+      },
+      {
+        key: "basil-vegetative",
+        crop: "Basil",
+        stage: "Vegetative & harvest",
+        name: "Basil, vegetative & harvest",
+        sourceProfile: "lettuce",
+        status: "available",
+        note: "Starter targets for leafy production",
+        optimal: { airTemp: [21, 25], humidity: [55, 70], co2: [700, 950], lux: [18000, 28000], vpd: [0.7, 1.05], ec: [1.2, 1.8] }
       }
     ];
 
@@ -971,8 +1036,32 @@
       };
     }
 
+    function getCropProfileLibraryTemplateProfile(template) {
+      const sourceProfile = getCompleteCropProfile(cropProfiles[template?.sourceProfile] || getDefaultCropProfileTemplate());
+      Object.entries(template?.optimal || {}).forEach(([metricKey, optimal]) => {
+        const metric = sourceProfile.metrics[metricKey];
+        if (!metric || !Array.isArray(optimal) || optimal.length !== 2) return;
+        const nextOptimal = optimal.map(Number);
+        const automaticRanges = deriveAutomaticAlertRanges({ ...metric, metricKey }, nextOptimal);
+        sourceProfile.metrics[metricKey] = {
+          ...metric,
+          optimal: nextOptimal,
+          warning: automaticRanges.warning,
+          critical: automaticRanges.critical
+        };
+      });
+      sourceProfile.name = template.name;
+      sourceProfile.heroName = template.crop;
+      sourceProfile.stage = template.stage;
+      sourceProfile.hint = `${template.note}. Review targets for the cultivar, facility, and production method before assigning sections.`;
+      sourceProfile.requiresReview = true;
+      return sourceProfile;
+    }
+
     function isVisibleSettingsCropProfile(profileKey) {
-      return !(isApiDataMode() && legacyStarterCropProfileKeys.has(profileKey));
+      if (!isApiDataMode()) return true;
+      if (!hasHydratedApiCropProfiles) return !legacyStarterCropProfileKeys.has(profileKey);
+      return apiCropProfileKeys.has(profileKey);
     }
 
     function getVisibleCropProfileEntries() {
@@ -981,6 +1070,7 @@
 
     function applyApiCropProfiles(payload) {
       const apiProfiles = Array.isArray(payload?.profiles) ? payload.profiles : [];
+      apiCropProfileKeys.clear();
       Object.keys(cropProfiles).forEach((profileKey) => {
         if (!builtInCropProfileKeys.has(profileKey)) delete cropProfiles[profileKey];
       });
@@ -988,6 +1078,7 @@
       apiProfiles.forEach((profile) => {
         const profileId = normalizeCropProfileKey(profile?.id || profile?.key || profile?.slug);
         if (!profileId || !profile?.metrics || typeof profile.metrics !== "object") return;
+        apiCropProfileKeys.add(profileId);
         cropProfiles[profileId] = {
           ...getCompleteCropProfile(cropProfiles[profileId] || {}),
           id: profileId,
@@ -999,6 +1090,7 @@
           metrics: getCompleteCropProfileMetrics(profile.metrics)
         };
       });
+      hasHydratedApiCropProfiles = true;
     }
 
     async function hydrateCropProfilesFromApi(shouldApply = () => true) {
@@ -1858,6 +1950,9 @@
     let activeSettingsPanelKey = "profiles";
     let isCropProfileEditorOpen = false;
     let isCropProfileCreateOpen = false;
+    let isCropProfileLibraryOpen = false;
+    let activeCropProfileLibraryCrop = "all";
+    let profileDeleteDialogKey = "";
     let settingsProfileEditorDrafts = {};
     let profileSaveFeedback = { profileKey: "", profileName: "", tone: "optimal" };
     let managementNotice = { page: "", tone: "optimal", text: "" };
@@ -8653,9 +8748,9 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           <p class="crop-profile-side-note">Saved targets apply to every assigned section.</p>
         </div>
         <div class="crop-profile-side-section crop-profile-management">
-          <header><p>Profile management</p><span>${profileKey === "default" ? "Protected default" : "Custom profile"}</span></header>
-          <button type="button" class="crop-profile-delete-button" data-settings-profile-delete="${escapeAttribute(profileKey)}" ${profileUsageCount > 0 || profileKey === "default" ? "disabled" : ""}>Delete profile</button>
-          <p>${profileKey === "default" ? "The default profile remains available as a safe starting point." : profileUsageCount > 0 ? "Move assigned sections before deleting this profile." : "Deletion cannot be undone."}</p>
+          <header><p>Profile management</p><span>${profileUsageCount > 0 ? "Assigned profile" : "Unused profile"}</span></header>
+          <button type="button" class="crop-profile-delete-button" data-settings-profile-delete="${escapeAttribute(profileKey)}">Delete profile</button>
+          <p>${profileUsageCount > 0 ? `You will choose a replacement for ${profileUsageCount} assigned section${profileUsageCount === 1 ? "" : "s"} before deletion.` : "Deletion cannot be undone."}</p>
         </div>
       </section>`;
 
@@ -8768,6 +8863,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const sourceProfileOptions = profileEntries.map(([profileKey, profile]) => `
         <option value="${escapeAttribute(profileKey)}" ${settingsProfileFormState.sourceProfile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>
       `).join("");
+      const cropProfileLibraryCrops = [...new Set(cropProfileTemplateLibrary.map((template) => template.crop))];
+      const visibleCropProfileTemplates = cropProfileTemplateLibrary.filter((template) => activeCropProfileLibraryCrop === "all" || template.crop === activeCropProfileLibraryCrop);
       const settingsPanels = [
         { key: "profiles", icon: "fa-seedling", label: "Crop profiles", note: "Targets and growth stages", count: profileEntries.length },
         ...(isPlatformAdmin && isAdminPage ? [{ key: "platform", icon: "fa-briefcase", label: "Customers", note: "Client workspaces", count: platformOrganizationState.organizations.length }] : []),
@@ -8814,6 +8911,44 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           </section>
         </div>` : "";
 
+      const profileLibraryMarkup = isCropProfileLibraryOpen ? `
+        <div class="profile-create-backdrop profile-library-backdrop" role="presentation">
+          <section class="crop-profile-library" role="dialog" aria-modal="true" aria-labelledby="cropProfileLibraryTitle">
+            <header>
+              <div><p>NeuroCrop starter library</p><h3 id="cropProfileLibraryTitle">Choose a crop and growth stage</h3><span>Import a complete target set, then review it for your cultivar, facility, and production method before assigning sections.</span></div>
+              <button type="button" data-settings-profile-library-close aria-label="Close profile library"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </header>
+            <nav class="profile-library-filters" aria-label="Filter templates by crop">
+              <button type="button" data-settings-profile-library-crop="all" data-active="${String(activeCropProfileLibraryCrop === "all")}">All <span>${cropProfileTemplateLibrary.length}</span></button>
+              ${cropProfileLibraryCrops.map((crop) => `<button type="button" data-settings-profile-library-crop="${escapeAttribute(crop)}" data-active="${String(activeCropProfileLibraryCrop === crop)}">${escapeHtml(crop)} <span>${cropProfileTemplateLibrary.filter((template) => template.crop === crop).length}</span></button>`).join("")}
+            </nav>
+            <div class="profile-library-list">
+              ${visibleCropProfileTemplates.map((template) => `<article class="profile-library-item">
+                <span class="crop-monogram" aria-hidden="true">${escapeHtml(template.crop.slice(0, 2).toUpperCase())}</span>
+                <div><small>${escapeHtml(template.crop)}</small><h4>${escapeHtml(template.stage)}</h4><p>${escapeHtml(template.note)}</p></div>
+                <button type="button" class="settings-secondary-button" data-settings-profile-library-use="${escapeAttribute(template.key)}">Use template <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+              </article>`).join("")}
+            </div>
+            <footer><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Library profiles are agronomic starting points, not cultivar-specific prescriptions. Every imported profile opens in review mode before use.</span></footer>
+          </section>
+        </div>` : "";
+
+      const profilePendingDeletion = profileDeleteDialogKey ? cropProfiles[profileDeleteDialogKey] : null;
+      const profilePendingDeletionUsage = profilePendingDeletion ? (profileUsageCounts[profileDeleteDialogKey] || 0) : 0;
+      const replacementProfileEntries = profileEntries.filter(([profileKey]) => profileKey !== profileDeleteDialogKey);
+      const profileDeleteMarkup = profilePendingDeletion ? `
+        <div class="profile-create-backdrop profile-delete-backdrop" role="presentation">
+          <section class="crop-profile-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteCropProfileTitle">
+            <header><span class="profile-delete-icon"><i class="fa-solid fa-trash" aria-hidden="true"></i></span><div><p>Permanent action</p><h3 id="deleteCropProfileTitle">Delete ${escapeHtml(profilePendingDeletion.name)}?</h3></div><button type="button" data-settings-profile-delete-close aria-label="Close delete profile"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></header>
+            <form data-settings-delete-profile-form data-profile-key="${escapeAttribute(profileDeleteDialogKey)}">
+              ${profilePendingDeletionUsage > 0 ? `<div class="profile-delete-impact"><strong>${profilePendingDeletionUsage} assigned section${profilePendingDeletionUsage === 1 ? "" : "s"}</strong><span>Their measurement history will be kept. Choose the profile that should control their future scoring and alerts.</span></div>
+                <label><span>Replacement crop profile</span><select name="replacementProfileId" required ${replacementProfileEntries.length ? "" : "disabled"}><option value="">Select replacement profile</option>${replacementProfileEntries.map(([profileKey, profile]) => `<option value="${escapeAttribute(profileKey)}">${escapeHtml(profile.name)} · ${escapeHtml(profile.stage || "Custom program")}</option>`).join("")}</select></label>` : `<div class="profile-delete-impact"><strong>This profile is not assigned to any section.</strong><span>Deleting it will not remove measurements, sections, or nodes.</span></div>`}
+              ${profilePendingDeletionUsage > 0 && !replacementProfileEntries.length ? '<p class="profile-delete-blocked">Create another crop profile before deleting the only profile used by your sections.</p>' : ""}
+              <footer><button type="button" class="settings-secondary-button" data-settings-profile-delete-close>Cancel</button><button type="submit" class="crop-profile-delete-confirm" ${profilePendingDeletionUsage > 0 && !replacementProfileEntries.length ? "disabled" : ""}>Delete profile</button></footer>
+            </form>
+          </section>
+        </div>` : "";
+
       const profilePanel = `
         <section class="crop-profiles-page" aria-labelledby="settingsProfilesTitle">
           ${!isCropProfileEditorOpen ? `<header class="crop-profiles-page-head">
@@ -8823,9 +8958,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
               <p>Reusable target ranges that turn sensor readings into crop-specific status and scores.</p>
             </div>
             <div class="crop-profiles-page-actions">
+              <button type="button" class="settings-secondary-button" data-settings-profile-library-open><i class="fa-solid fa-book-open" aria-hidden="true"></i>Profile library</button>
               <button type="button" class="settings-primary-button" data-settings-create-profile-open><i class="fa-solid fa-plus" aria-hidden="true"></i>Create profile</button>
             </div>
-          </header>${profileListMarkup}${createProfileMarkup}` : activeSettingsProfile ? renderCropProfileEditor(activeSettingsProfileKey, activeSettingsProfile) : ""}
+          </header>${profileListMarkup}${createProfileMarkup}${profileLibraryMarkup}` : activeSettingsProfile ? `${renderCropProfileEditor(activeSettingsProfileKey, activeSettingsProfile)}${profileDeleteMarkup}` : ""}
         </section>
       `;
 
@@ -9355,6 +9491,89 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           ? `${nextName} created as a manual program. Review its targets before assigning it to a Section.`
           : `${nextName} created. It is now available in the Sections crop profile dropdown.`
       );
+      renderDashboard();
+    }
+
+    async function createCropProfileFromLibraryTemplate(templateKey) {
+      const template = cropProfileTemplateLibrary.find((item) => item.key === templateKey);
+      if (!template) return;
+      const profile = getCropProfileLibraryTemplateProfile(template);
+      const nextProfileId = createUniqueId(`${template.key}-profile`, new Set(Object.keys(cropProfiles)), "crop-profile");
+
+      try {
+        if (isApiDataMode() && window.NeuroCropApi?.createCropProfile) {
+          const response = await window.NeuroCropApi.createCropProfile({
+            id: nextProfileId,
+            name: profile.name,
+            heroName: profile.heroName,
+            stage: profile.stage,
+            hint: profile.hint,
+            requiresReview: true,
+            metrics: getCompleteCropProfileMetrics(profile.metrics || {})
+          });
+          await hydrateCropProfilesFromApi();
+          activeSettingsProfileKey = normalizeCropProfileKey(response?.profile?.id || nextProfileId);
+        } else {
+          cropProfiles[nextProfileId] = profile;
+          persistCustomCropProfiles();
+          persistCropProfileOverrides();
+          activeSettingsProfileKey = nextProfileId;
+        }
+        isCropProfileLibraryOpen = false;
+        isCropProfileEditorOpen = true;
+        activeCropProfileEditorSection = "climate";
+        settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
+        setManagementNotice("settings", `${profile.name} imported. Review and save the targets before assigning sections.`);
+      } catch (error) {
+        setManagementNotice("settings", error instanceof Error ? error.message : "The library profile could not be imported.", "warning");
+      }
+      renderDashboard();
+    }
+
+    async function submitCropProfileDeletion(form) {
+      const profileKey = String(form?.dataset?.profileKey || "");
+      const profile = cropProfiles[profileKey];
+      if (!profile) return;
+      const usageCount = getProfileUsageCounts()[profileKey] || 0;
+      const formData = new FormData(form);
+      const replacementProfileId = String(formData.get("replacementProfileId") || "");
+      if (usageCount > 0 && (!replacementProfileId || replacementProfileId === profileKey)) {
+        setManagementNotice("settings", "Choose a replacement crop profile for the assigned sections.", "warning");
+        renderDashboard();
+        return;
+      }
+
+      try {
+        let reassignedSections = 0;
+        if (isApiDataMode() && window.NeuroCropApi?.deleteCropProfile) {
+          const response = await window.NeuroCropApi.deleteCropProfile(profileKey, { replacementProfileId });
+          reassignedSections = Number(response?.reassignedSections || 0);
+          await Promise.all([hydrateCropProfilesFromApi(), hydrateDashboardFromApi()]);
+        } else {
+          if (replacementProfileId) {
+            const nextData = cloneDashboardValue(dashboardData);
+            nextData.sites.forEach((site) => (site.zones || []).forEach((zone) => {
+              if (zone.profile !== profileKey) return;
+              zone.profile = replacementProfileId;
+              reassignedSections += 1;
+            }));
+            persistDashboardData(nextData);
+          }
+          delete cropProfiles[profileKey];
+          persistCustomCropProfiles();
+          persistCropProfileOverrides();
+        }
+        const nextProfileKey = getVisibleCropProfileEntries()[0]?.[0] || "";
+        activeSettingsProfileKey = nextProfileKey;
+        activeProfileKey = replacementProfileId || nextProfileKey || "default";
+        profileDeleteDialogKey = "";
+        isCropProfileEditorOpen = false;
+        isCropProfileCreateOpen = false;
+        settingsProfileFormState.sourceProfile = nextProfileKey;
+        setManagementNotice("settings", `${profile.name} deleted.${reassignedSections ? ` ${reassignedSections} section${reassignedSections === 1 ? "" : "s"} moved to the replacement profile.` : ""}`);
+      } catch (error) {
+        setManagementNotice("settings", error instanceof Error ? error.message : "Crop profile could not be deleted.", "warning");
+      }
       renderDashboard();
     }
 
@@ -15607,6 +15826,12 @@ function buildTrendMetricOptions(options) {
 
     elements.settingsManagementSection.addEventListener("submit", async (event) => {
       event.preventDefault();
+      const deleteProfileForm = event.target.closest("[data-settings-delete-profile-form]");
+      if (deleteProfileForm) {
+        await submitCropProfileDeletion(deleteProfileForm);
+        return;
+      }
+
       const profileForm = event.target.closest('[data-management-form="settings-profile"]');
       if (profileForm) {
         submitSettingsProfileForm();
@@ -15767,12 +15992,43 @@ function buildTrendMetricOptions(options) {
         return;
       }
 
+      const openProfileLibraryButton = event.target.closest("[data-settings-profile-library-open]");
+      if (openProfileLibraryButton) {
+        isCropProfileLibraryOpen = true;
+        isCropProfileCreateOpen = false;
+        clearManagementNotice("settings");
+        renderDashboard();
+        return;
+      }
+
+      const closeProfileLibraryButton = event.target.closest("[data-settings-profile-library-close]");
+      if (closeProfileLibraryButton) {
+        isCropProfileLibraryOpen = false;
+        renderDashboard();
+        return;
+      }
+
+      const filterProfileLibraryButton = event.target.closest("[data-settings-profile-library-crop]");
+      if (filterProfileLibraryButton) {
+        activeCropProfileLibraryCrop = filterProfileLibraryButton.dataset.settingsProfileLibraryCrop || "all";
+        renderDashboard();
+        return;
+      }
+
+      const useProfileLibraryButton = event.target.closest("[data-settings-profile-library-use]");
+      if (useProfileLibraryButton) {
+        await createCropProfileFromLibraryTemplate(useProfileLibraryButton.dataset.settingsProfileLibraryUse);
+        return;
+      }
+
       const settingsPanelButton = event.target.closest("[data-settings-panel-key]");
       if (settingsPanelButton) {
         activeSettingsPanelKey = settingsPanelButton.dataset.settingsPanelKey || "profiles";
         if (activeSettingsPanelKey === "profiles") {
           isCropProfileEditorOpen = false;
           isCropProfileCreateOpen = false;
+          isCropProfileLibraryOpen = false;
+          profileDeleteDialogKey = "";
         }
         clearManagementNotice("settings");
         renderDashboard();
@@ -16013,6 +16269,7 @@ function buildTrendMetricOptions(options) {
       if (backToProfilesButton) {
         isCropProfileEditorOpen = false;
         isCropProfileCreateOpen = false;
+        profileDeleteDialogKey = "";
         activeCropProfileEditorSection = "climate";
         clearManagementNotice("settings");
         renderDashboard();
@@ -16022,6 +16279,7 @@ function buildTrendMetricOptions(options) {
       const createProfileButton = event.target.closest("[data-settings-create-profile-open]");
       if (createProfileButton) {
         isCropProfileCreateOpen = true;
+        isCropProfileLibraryOpen = false;
         renderDashboard();
         elements.settingsManagementSection.querySelector('.crop-profile-create-drawer input')?.focus();
         return;
@@ -16048,35 +16306,16 @@ function buildTrendMetricOptions(options) {
       if (deleteProfileButton) {
         const profileKey = deleteProfileButton.dataset.settingsProfileDelete;
         const profile = cropProfiles[profileKey];
-        if (!profile || deleteProfileButton.hasAttribute("disabled")) return;
+        if (!profile) return;
+        profileDeleteDialogKey = profileKey;
+        clearManagementNotice("settings");
+        renderDashboard();
+        return;
+      }
 
-        if (isApiDataMode() && window.NeuroCropApi?.deleteCropProfile) {
-          (async () => {
-            try {
-              await window.NeuroCropApi.deleteCropProfile(profileKey);
-              await hydrateCropProfilesFromApi();
-              activeSettingsProfileKey = Object.keys(cropProfiles)[0] || activeProfileKey;
-              isCropProfileEditorOpen = false;
-              isCropProfileCreateOpen = false;
-              settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
-              setManagementNotice("settings", `${profile.name} deleted.`);
-              renderDashboard();
-            } catch (error) {
-              setManagementNotice("settings", error instanceof Error ? error.message : "Crop profile could not be deleted.", "warning");
-              renderDashboard();
-            }
-          })();
-          return;
-        }
-
-        delete cropProfiles[profileKey];
-        persistCustomCropProfiles();
-        persistCropProfileOverrides();
-        activeSettingsProfileKey = Object.keys(cropProfiles)[0] || activeProfileKey;
-        isCropProfileEditorOpen = false;
-        isCropProfileCreateOpen = false;
-        settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
-        setManagementNotice("settings", `${profile.name} deleted.`);
+      const closeProfileDeleteButton = event.target.closest("[data-settings-profile-delete-close]");
+      if (closeProfileDeleteButton) {
+        profileDeleteDialogKey = "";
         renderDashboard();
         return;
       }

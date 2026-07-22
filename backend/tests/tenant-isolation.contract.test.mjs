@@ -73,6 +73,16 @@ test('legacy global tenant constants cannot return', () => {
   assert.equal(apiSource.includes('DEV_USER'), false);
 });
 
+test('crop profile deletion reassigns sections atomically within the tenant', () => {
+  const block = routeBlock(apiSource, "app.delete('/crop-profiles/:id'");
+  assert.match(block, /client\.query\('BEGIN'\)/);
+  assert.match(block, /replacementProfileId/);
+  assert.match(block, /UPDATE sections SET crop_profile=\$3/);
+  assert.match(block, /WHERE organization_id=\$1 AND crop_profile=\$2/);
+  assert.match(block, /client\.query\('COMMIT'\)/);
+  assert.match(block, /PROFILE_REPLACEMENT_REQUIRED/);
+});
+
 test('workspace settings mutations are role protected and organization scoped', () => {
   const memberRoleRoute = routeBlock(teamSource, "app.patch('/team/:userId/role'");
   assert.match(memberRoleRoute, /requireRole\('owner', 'admin'\)/);
