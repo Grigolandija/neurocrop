@@ -231,6 +231,12 @@
       .some((node) => node.devEui === devEui && node.id !== excludedNodeId);
   }
 
+  function normalizeBatteryLevel(value) {
+    if (value === null || value === undefined || value === "" || typeof value === "boolean") return null;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.min(numeric, 100)) : null;
+  }
+
   function registerNode({ siteId, zoneId, nodeId, nodeName, batteryLevel, devEui }) {
     const data = getDashboardData();
     const site = data.sites.find((item) => item.id === siteId);
@@ -266,7 +272,7 @@
     zone.batteryNodes.push({
       id: nextNodeId,
       name: nextNodeName,
-      level: Math.max(0, Math.min(Number(batteryLevel) || 0, 100)),
+      level: normalizeBatteryLevel(batteryLevel),
       devEui: nextDevEui,
       active: true
     });
@@ -347,7 +353,7 @@
     targetZone.batteryNodes.push({
       id: sanitizedNextId,
       name: nextNodeName,
-      level: Math.max(0, Math.min(Number(batteryLevel ?? existingRecord.node.level) || 0, 100)),
+      level: normalizeBatteryLevel(batteryLevel ?? existingRecord.node.level),
       devEui: nextDevEui,
       active: existingRecord.node.active !== false
     });
@@ -3535,7 +3541,7 @@
           };
         });
         const values = readings.map((reading) => reading.value).filter(Number.isFinite);
-        const medianResult = Number.isFinite(Number(apiObservation.value))
+        const medianResult = hasFiniteMetricValue(apiObservation.value)
           ? evaluateNodeValue(Number(apiObservation.value))
           : { value: null, state: "unavailable", severity: 0 };
         const outsideReadings = readings.filter((reading) => reading.metricResult.state !== "optimal");
@@ -3546,8 +3552,8 @@
           readings,
           medianValue: Number(apiObservation.value),
           medianResult,
-          min: Number.isFinite(Number(apiObservation.range?.min)) ? Number(apiObservation.range.min) : Math.min(...values),
-          max: Number.isFinite(Number(apiObservation.range?.max)) ? Number(apiObservation.range.max) : Math.max(...values),
+          min: hasFiniteMetricValue(apiObservation.range?.min) ? Number(apiObservation.range.min) : Math.min(...values),
+          max: hasFiniteMetricValue(apiObservation.range?.max) ? Number(apiObservation.range.max) : Math.max(...values),
           outsideCount: outsideReadings.length,
           localOutliers: medianResult.state === "optimal" ? outsideReadings : []
         };
@@ -3647,9 +3653,12 @@
     }
 
     function getZoneBatteryReading(zone, definition) {
-      const nodes = zone?.batteryNodes || [];
-      if (nodes.length === 0) return null;
-      return roundValue(Math.min(...nodes.map((node) => node.level)), definition.decimals);
+      const levels = (zone?.batteryNodes || [])
+        .map((node) => node.level)
+        .filter(hasFiniteMetricValue)
+        .map(Number);
+      if (levels.length === 0) return null;
+      return roundValue(Math.min(...levels), definition.decimals);
     }
 
     function getZoneReadings(profile, zone, scenarioKey) {
@@ -3753,8 +3762,16 @@
         ? response.observations
         : {};
       return Object.fromEntries(Object.entries(observations)
-        .filter(([, observation]) => observation && Number.isFinite(Number(observation.value)))
+        .filter(([, observation]) => observation && hasFiniteMetricValue(observation.value))
         .map(([metricKey, observation]) => [metricKey, Number(observation.value)]));
+    }
+
+    function hasFiniteMetricValue(value) {
+      return value !== null
+        && value !== undefined
+        && value !== ""
+        && typeof value !== "boolean"
+        && Number.isFinite(Number(value));
     }
 
     function getUnavailableMetricEvaluation(definition, reason = "No live data") {
@@ -3772,7 +3789,7 @@
       const isConfigured = availableMetrics.has(metricKey);
       const rawValue = readings?.[metricKey];
       if (!isConfigured) return getUnavailableMetricEvaluation(definition, "Sensor not installed.");
-      if (!Number.isFinite(Number(rawValue))) return getUnavailableMetricEvaluation(definition, "No live data");
+      if (!hasFiniteMetricValue(rawValue)) return getUnavailableMetricEvaluation(definition, "No live data");
       if (metricKey === "lux") return evaluateCurrentLightReading(definition, Number(rawValue));
       return evaluateMetric(definition, Number(rawValue));
     }
@@ -3802,7 +3819,7 @@
     }
 
     function isMetricConfiguredForReadings(metricKey, availableMetrics, readings) {
-      return availableMetrics.has(metricKey) || Number.isFinite(Number(readings?.[metricKey]));
+      return availableMetrics.has(metricKey) || hasFiniteMetricValue(readings?.[metricKey]);
     }
 
     async function fetchLatestReadingsForZone(zoneId, options = {}) {
@@ -8035,8 +8052,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         : health.tone === "optimal"
           ? "Reporting normally"
           : "Device diagnostics require review";
-      const readFailures = Number.isFinite(Number(node.errorCounters?.read_fail)) ? Number(node.errorCounters.read_fail) : "Unavailable";
-      const transmitFailures = Number.isFinite(Number(node.errorCounters?.tx_fail)) ? Number(node.errorCounters.tx_fail) : "Unavailable";
+      const readFailures = hasFiniteMetricValue(node.errorCounters?.read_fail) ? Number(node.errorCounters.read_fail) : "Unavailable";
+      const transmitFailures = hasFiniteMetricValue(node.errorCounters?.tx_fail) ? Number(node.errorCounters.tx_fail) : "Unavailable";
       const resetFlags = node.errorFlags || {};
       const resetReasons = [];
       if (resetFlags.watchdog_reset) resetReasons.push("Watchdog reset");
@@ -9121,7 +9138,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                           <td>${escapeHtml(formatAdminDate(node.lastSeen))}</td>
                           <td>${escapeHtml([formatNodeSignal(node), getNodeReportingModeLabel(node.profile)].filter(Boolean).join(" · "))}</td>
                           <td>${escapeHtml(node.firmwareVersion || "Unknown")}</td>
-                          <td>${Number.isFinite(Number(node.level)) ? `${escapeHtml(String(node.level))}%${Number.isFinite(Number(node.batteryMv)) ? ` · ${escapeHtml((Number(node.batteryMv) / 1000).toFixed(2))} V` : ""}` : "—"}</td>
+                          <td>${hasFiniteMetricValue(node.level) ? `${escapeHtml(String(node.level))}%${hasFiniteMetricValue(node.batteryMv) ? ` · ${escapeHtml((Number(node.batteryMv) / 1000).toFixed(2))} V` : ""}` : "—"}</td>
                           <td class="platform-node-faults"><strong>${escapeHtml(faultFlags)}</strong>${txTimeoutDetail ? `<small>${escapeHtml(txTimeoutDetail)}</small>` : ""}<small>${escapeHtml(txFailures)}</small>${sensorCounters.length ? `<small>${escapeHtml(sensorCounters.join(" · "))}</small>` : ""}<small class="platform-node-next-check"><b>Next check:</b> ${escapeHtml(nextCheck)}</small></td>
                         </tr>
                       `;
@@ -9303,10 +9320,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             </form>
             <form class="settings-form-card" data-settings-form="password">
               <div class="settings-form-title"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><div><h3>Security</h3><p>Use at least 12 characters. Other signed-in devices will be signed out.</p></div></div>
-              <label><span>Current password</span><input name="currentPassword" type="password" autocomplete="current-password" placeholder="Enter your current password" required></label>
+              <label><span>Current password</span><input name="currentPassword" type="password" autocomplete="current-password" maxlength="1024" placeholder="Enter your current password" required></label>
               <div class="settings-form-grid">
-                <label><span>New password</span><input name="newPassword" type="password" autocomplete="new-password" minlength="12" placeholder="At least 12 characters" required></label>
-                <label><span>Confirm new password</span><input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" placeholder="Repeat the new password" required></label>
+                <label><span>New password</span><input name="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="1024" placeholder="At least 12 characters" required></label>
+                <label><span>Confirm new password</span><input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" maxlength="1024" placeholder="Repeat the new password" required></label>
               </div>
               <p class="settings-password-feedback" data-password-feedback role="status" hidden></p>
               <button type="submit" class="settings-primary-button">Change password</button>
@@ -9639,7 +9656,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       // Limits are derived only from the current optimal target and the metric policy.
       // Never use prior alert limits here: doing so compounds the range on every save.
       const padding = getAutomaticBoundaryPadding(metric, [optimalMin, optimalMax]);
-      const decimals = Number.isFinite(Number(metric?.decimals)) ? Number(metric.decimals) : 2;
+      const decimals = hasFiniteMetricValue(metric?.decimals) ? Number(metric.decimals) : 2;
       const warning = [
         roundValue(clampMetricBoundary(optimalMin - padding.warningLow, metric), decimals),
         roundValue(clampMetricBoundary(optimalMax + padding.warningHigh, metric), decimals)
@@ -9702,7 +9719,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
 
     function formatProfileRangeInput(value, decimals) {
       if (!Number.isFinite(value)) return "";
-      const precision = Number.isFinite(Number(decimals)) ? Math.min(Math.max(Number(decimals), 0), 3) : 2;
+      const precision = hasFiniteMetricValue(decimals) ? Math.min(Math.max(Number(decimals), 0), 3) : 2;
       return precision === 0 ? String(Math.round(value)) : String(Number(value.toFixed(precision)));
     }
 
@@ -11096,7 +11113,7 @@ function buildTrendMetricOptions(options) {
       // A nearby target line provides useful context; a distant target must not flatten the real curve.
       const nearbyTargetLimit = dataSpan * 0.5;
       for (const limit of optimalRange) {
-        if (!Number.isFinite(Number(limit))) continue;
+        if (!hasFiniteMetricValue(limit)) continue;
         if (limit >= dataMin - nearbyTargetLimit && limit <= dataMax + nearbyTargetLimit) {
           axisMin = Math.min(axisMin, limit - nearDataPadding);
           axisMax = Math.max(axisMax, limit + nearDataPadding);
@@ -11641,7 +11658,7 @@ function buildTrendMetricOptions(options) {
       const hasRenderableSeries = seriesItems.every((item) =>
         Array.isArray(item.series.values)
         && item.series.values.length > 0
-        && item.series.values.every((value) => Number.isFinite(Number(value)))
+        && item.series.values.every(hasFiniteMetricValue)
       );
 
       if (!hasRenderableSeries) {
@@ -12551,13 +12568,13 @@ function buildTrendMetricOptions(options) {
       const availableMetrics = new Set(zone.availableMetrics || []);
       const results = Object.entries(profile.metrics).map(([key, definition]) => {
         const isConfigured = isMetricConfiguredForReadings(key, availableMetrics, readings);
-        const hasLiveValue = Number.isFinite(Number(readings?.[key]));
+        const hasLiveValue = hasFiniteMetricValue(readings?.[key]);
         const metricAvailableSet = isConfigured && !availableMetrics.has(key)
           ? new Set([...availableMetrics, key])
           : availableMetrics;
         return {
           key,
-          scoreWeight: Number.isFinite(Number(definition.scoreWeight)) ? clamp(Number(definition.scoreWeight), 0, 3) : 1,
+          scoreWeight: hasFiniteMetricValue(definition.scoreWeight) ? clamp(Number(definition.scoreWeight), 0, 3) : 1,
           configured: isConfigured,
           available: isConfigured && (!isApiDataMode() || hasLiveValue),
           ...(isConfigured
@@ -12746,14 +12763,8 @@ function buildTrendMetricOptions(options) {
 
       const rawBaselineValue = item?.outcome?.baselineValue;
       const rawCurrentValue = item?.outcome?.currentValue;
-      const hasBaselineValue = rawBaselineValue !== null
-        && rawBaselineValue !== undefined
-        && rawBaselineValue !== ""
-        && Number.isFinite(Number(rawBaselineValue));
-      const hasCurrentValue = rawCurrentValue !== null
-        && rawCurrentValue !== undefined
-        && rawCurrentValue !== ""
-        && Number.isFinite(Number(rawCurrentValue));
+      const hasBaselineValue = hasFiniteMetricValue(rawBaselineValue);
+      const hasCurrentValue = hasFiniteMetricValue(rawCurrentValue);
       const displayUnit = item.unit === "degC" ? "°C" : item.unit || "";
       const sampleCount = Math.max(0, Number(item?.outcome?.sampleCount) || 0);
       const requiredSampleCount = Math.max(0, Number(item?.outcome?.requiredSampleCount) || 0);
@@ -14062,7 +14073,7 @@ function buildTrendMetricOptions(options) {
 
       const results = Object.entries(profile.metrics).map(([key, definition]) => {
         const isConfigured = isMetricConfiguredForReadings(key, availableMetrics, readings);
-        const hasLiveValue = Number.isFinite(Number(readings?.[key]));
+        const hasLiveValue = hasFiniteMetricValue(readings?.[key]);
         const metricAvailableSet = isConfigured && !availableMetrics.has(key)
           ? new Set([...availableMetrics, key])
           : availableMetrics;

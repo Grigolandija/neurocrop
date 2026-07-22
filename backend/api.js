@@ -11,10 +11,12 @@ import {
   getMemberships,
   hashSessionToken,
   hashUserPassword,
+  MAX_PASSWORD_LENGTH,
   publicUser,
   requireUserAuth as requireAuth,
   requireRole,
   revokeUserSession,
+  sessionCookieClearOptions,
   sessionCookieOptions,
   verifyUserPassword
 } from './auth-users.js';
@@ -27,6 +29,7 @@ import { createMemoryRateLimiter } from './rate-limit.js';
 import { runMigrations } from './migrate.js';
 import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
 import { buildTodayActions, evaluateActionOutcome } from './today-actions.js';
+import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -41,6 +44,11 @@ const authLimiter = createMemoryRateLimiter({
   limit: Number(process.env.AUTH_LOGIN_RATE_LIMIT || 8),
   windowMs: 15 * 60 * 1000
 });
+const authIpLimiter = createMemoryRateLimiter({
+  limit: Number(process.env.AUTH_LOGIN_IP_RATE_LIMIT || 40),
+  windowMs: 15 * 60 * 1000
+});
+const dummyLoginPasswordHash = hashUserPassword(randomUUID());
 
 function authAttemptKey(req) {
   const email = String(req.body?.email || '').trim().toLowerCase();
@@ -91,13 +99,16 @@ app.post('/auth/login', async (req, res, next) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
     const attemptKey = authAttemptKey(req);
-    if (authLimiter.isLimited(attemptKey)) {
+    const ipAttemptKey = String(req.ip || 'unknown');
+    if (authLimiter.isLimited(attemptKey) || authIpLimiter.isLimited(ipAttemptKey)) {
       return res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many login attempts. Try again later.' } });
     }
     const account = await findUserForLogin(email);
+    const passwordValid = verifyUserPassword(password, account?.password_hash || dummyLoginPasswordHash);
 
-    if (!account || !account.is_active || !verifyUserPassword(password, account.password_hash)) {
+    if (!account || !account.is_active || !passwordValid) {
       authLimiter.record(attemptKey);
+      authIpLimiter.record(ipAttemptKey);
       return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Wrong email or password' } });
     }
 
@@ -128,7 +139,7 @@ app.post('/auth/login', async (req, res, next) => {
 app.post('/auth/logout', async (req, res, next) => {
   try {
     await revokeUserSession(req.cookies?.neurocrop_session);
-    res.clearCookie('neurocrop_session', sessionCookieOptions());
+    res.clearCookie('neurocrop_session', sessionCookieClearOptions());
     res.sendStatus(204);
   } catch (error) {
     next(error);
@@ -146,6 +157,9 @@ app.post('/auth/change-password', requireAuth, async (req, res, next) => {
   }
   if (newPassword.length < 12) {
     return res.status(400).json({ error: { code: 'WEAK_PASSWORD', message: 'New password must be at least 12 characters' } });
+  }
+  if (newPassword.length > MAX_PASSWORD_LENGTH || currentPassword.length > MAX_PASSWORD_LENGTH) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `Passwords must be at most ${MAX_PASSWORD_LENGTH} characters` } });
   }
 
   let client;
@@ -277,7 +291,12 @@ async function chirpstackRequest(path, options = {}) {
     throw err;
   }
 
-  return body ? JSON.parse(body) : null;
+  if (!body) return null;
+  try {
+    return JSON.parse(body);
+  } catch {
+    return body;
+  }
 }
 
 async function getChirpStackDevice(devEui) {
@@ -926,9 +945,10 @@ app.patch('/areas/:areaId', requireAuth, requireRole('owner', 'admin', 'grower')
 app.delete('/areas/:areaId', requireAuth, requireRole('owner', 'admin', 'grower'), async (req, res) => {
   const organizationId = getOrganizationId(req);
   const keepSections = String(req.query.keepSections || '').toLowerCase() === 'true';
+  let client;
 
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     try {
       await client.query('BEGIN');
       const { rows: areaRows } = await client.query(
@@ -981,7 +1001,7 @@ app.delete('/areas/:areaId', requireAuth, requireRole('owner', 'admin', 'grower'
       await client.query('ROLLBACK');
       throw error;
     } finally {
-      client.release();
+      client?.release();
     }
   } catch (e) {
     console.error('[api] DELETE /areas/:areaId:', e.message);
@@ -1055,8 +1075,9 @@ app.patch('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'gr
   if (!areaId || !name) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Area and section name are required' } });
 
   const organizationId = getOrganizationId(req);
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
     const { rows: areaRows } = await client.query(
       `SELECT id FROM areas WHERE id=$1 AND organization_id=$2`,
@@ -1095,11 +1116,11 @@ app.patch('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'gr
     await client.query('COMMIT');
     res.json({ section: rows[0] });
   } catch (e) {
-    await client.query('ROLLBACK').catch(() => {});
+    await client?.query('ROLLBACK').catch(() => {});
     console.error('[api] PATCH /sections/:sectionId:', e.message);
     sendInternalError(res, 'DB_ERROR');
   } finally {
-    client.release();
+    client?.release();
   }
 });
 
@@ -1131,16 +1152,38 @@ function medianValue(values) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+const METRIC_SENSOR_KEYS = {
+  airTemp: 'sht45',
+  humidity: 'sht45',
+  vpd: 'sht45',
+  co2: 'scd41',
+  lux: 'bh1750',
+  soilTemp: 'ds18b20',
+  soilMoisture: 'soil_moisture_probe',
+  ec: 'ec_probe',
+  ph: 'ph_probe',
+  soilEc: 'soil_ec_probe',
+  leafTemp: 'leaf_temperature_probe',
+  waterTemp: 'water_temperature_probe',
+  airPressure: 'pressure_sensor'
+};
+
+function measurementMetricValue(measurement, metric) {
+  if (metric === 'vpd') return calcVPD(measurement?.temperature, measurement?.humidity);
+  return measurement?.[METRIC_TO_COLUMN[metric]];
+}
+
 function measurementReportsMetric(measurement, metric) {
-  const sensors = measurement?.raw_object?.sensors || {};
   if (metric === 'batteryLevel') return true;
-  const sensorKey = {
-    airTemp: 'sht45', humidity: 'sht45', vpd: 'sht45', co2: 'scd41', lux: 'bh1750',
-    soilTemp: 'ds18b20', soilMoisture: 'soil_moisture_probe', ec: 'ec_probe', ph: 'ph_probe',
-    soilEc: 'soil_ec_probe', leafTemp: 'leaf_temperature_probe',
-    waterTemp: 'water_temperature_probe', airPressure: 'pressure_sensor'
-  }[metric];
-  return sensorKey ? sensors[sensorKey]?.present === true : false;
+  const sensorKey = METRIC_SENSOR_KEYS[metric];
+  if (!sensorKey) return false;
+
+  const presence = normalizeTelemetryBoolean(measurement?.raw_object?.sensors?.[sensorKey]?.present);
+  if (presence !== null) return presence;
+
+  // Firmware predating sensor-presence metadata is still valid when its
+  // persisted measurement is numeric. Explicit present=false always wins.
+  return normalizeTelemetryNumber(measurementMetricValue(measurement, metric)) !== null;
 }
 
 function publicActionFeedback(row) {
@@ -1164,11 +1207,12 @@ function metricSeriesSnapshot(measurements, metricId) {
       ? calcVPD(measurement.temperature, measurement.humidity)
       : measurement[METRIC_TO_COLUMN[metricId]];
     const observedAtMs = new Date(measurement.time || 0).getTime();
-    if (!Number.isFinite(Number(value)) || !Number.isFinite(observedAtMs)) continue;
+    const numericValue = normalizeTelemetryNumber(value);
+    if (numericValue === null || !Number.isFinite(observedAtMs)) continue;
     const bucket = Math.floor(observedAtMs / (5 * 60_000));
     if (!buckets.has(bucket)) buckets.set(bucket, { values: [], observedAt: measurement.time });
     const entry = buckets.get(bucket);
-    entry.values.push(Number(value));
+    entry.values.push(numericValue);
     if (new Date(measurement.time) > new Date(entry.observedAt)) entry.observedAt = measurement.time;
   }
   return {
@@ -1393,7 +1437,7 @@ app.post(
 app.get('/actions/history', requireAuth, async (req, res) => {
   try {
     const organizationId = getOrganizationId(req);
-    const limit = Math.max(1, Math.min(Number(req.query.limit) || 20, 50));
+    const limit = Math.max(1, Math.min(Math.floor(Number(req.query.limit) || 20), 50));
     const { rows: feedbackRows } = await query(
       `WITH latest_feedback AS (
          SELECT DISTINCT ON (action_id, COALESCE(action_payload->>'observedAt', 'unknown')) *
@@ -1466,10 +1510,10 @@ app.get('/actions/history', requireAuth, async (req, res) => {
 });
 
 app.get('/readings/latest', requireAuth, async (req, res) => {
-  const section = await getSectionById(req.query.sectionId, getOrganizationId(req));
-  if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
-
   try {
+    const section = await getSectionById(req.query.sectionId, getOrganizationId(req));
+    if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+
     const { rows: nodeRows } = await query(
       `SELECT dev_eui, name, last_profile
        FROM nodes
@@ -1516,10 +1560,11 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
 
     const sourcesByMetric = {};
     const addSource = (metric, sample, value) => {
-      if (!Number.isFinite(Number(value))) return;
+      const numericValue = normalizeTelemetryNumber(value);
+      if (numericValue === null) return;
       if (!sourcesByMetric[metric]) sourcesByMetric[metric] = [];
       sourcesByMetric[metric].push({
-        value: Number(value),
+        value: numericValue,
         observedAt: sample.measurement.time,
         expectedIntervalSec: metric === 'batteryLevel'
           ? Math.max(METRIC_INTERVAL_SEC[metric] || 600, expectedIntervalForSample(sample))
@@ -1588,49 +1633,51 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
   }
 });
 
+function historicalSensorPresenceCondition(sensorPath) {
+  const value = `raw_object->'sensors'->'${sensorPath}'->>'present'`;
+  return `(${value} IS NULL OR lower(${value}) IN ('true', '1'))`;
+}
+
 function historyPresenceCondition(metric) {
-  const sensorPath = {
-    airTemp: 'sht45',
-    humidity: 'sht45',
-    co2: 'scd41',
-    lux: 'bh1750',
-    soilTemp: 'ds18b20',
-    soilMoisture: 'soil_moisture_probe',
-    ec: 'ec_probe',
-    ph: 'ph_probe',
-    soilEc: 'soil_ec_probe',
-    leafTemp: 'leaf_temperature_probe',
-    waterTemp: 'water_temperature_probe',
-    airPressure: 'pressure_sensor'
-  }[metric];
+  const sensorPath = METRIC_SENSOR_KEYS[metric];
   return sensorPath
-    ? `lower(COALESCE(raw_object->'sensors'->'${sensorPath}'->>'present', 'false')) = 'true'`
+    ? historicalSensorPresenceCondition(sensorPath)
     : 'TRUE';
 }
 
+const VPD_SQL_EXPRESSION = `ROUND((
+  0.6108::double precision
+  * exp((17.27 * temperature::double precision) / (temperature::double precision + 237.3))
+  * (1.0 - humidity::double precision / 100.0)
+)::numeric, 3)`;
+
+function validVpdSqlCondition() {
+  return `temperature BETWEEN -80 AND 80 AND humidity BETWEEN 0 AND 100`;
+}
+
 app.get('/history', requireAuth, async (req, res) => {
-  const { sectionId, metric } = req.query;
-  const section = await getSectionById(sectionId, getOrganizationId(req));
-  if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
-
-  const column = METRIC_TO_COLUMN[metric] || (metric === 'vpd' ? 'vpd' : null);
-  if (!column) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unknown metric' } });
-
-  const from = req.query.from ? new Date(req.query.from) : new Date(Date.now() - 86400000);
-  const to = req.query.to ? new Date(req.query.to) : new Date();
-  const maxRangeMs = 31 * 24 * 60 * 60 * 1000;
-  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || to <= from) {
-    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid history date range' } });
-  }
-  if (to.getTime() - from.getTime() > maxRangeMs) {
-    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'History is limited to 31 days per request' } });
-  }
-  const requestedStepMinutes = Number(req.query.stepMinutes || 5);
-  const allowedStepMinutes = new Set([5, 10, 60, 240]);
-  const stepMinutes = allowedStepMinutes.has(requestedStepMinutes) ? requestedStepMinutes : 5;
-  const bucketSeconds = stepMinutes * 60;
-
   try {
+    const { sectionId, metric } = req.query;
+    const section = await getSectionById(sectionId, getOrganizationId(req));
+    if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+
+    const column = METRIC_TO_COLUMN[metric] || (metric === 'vpd' ? 'vpd' : null);
+    if (!column) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unknown metric' } });
+
+    const from = req.query.from ? new Date(req.query.from) : new Date(Date.now() - 86400000);
+    const to = req.query.to ? new Date(req.query.to) : new Date();
+    const maxRangeMs = 31 * 24 * 60 * 60 * 1000;
+    if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || to <= from) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid history date range' } });
+    }
+    if (to.getTime() - from.getTime() > maxRangeMs) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'History is limited to 31 days per request' } });
+    }
+    const requestedStepMinutes = Number(req.query.stepMinutes || 5);
+    const allowedStepMinutes = new Set([5, 10, 60, 240]);
+    const stepMinutes = allowedStepMinutes.has(requestedStepMinutes) ? requestedStepMinutes : 5;
+    const bucketSeconds = stepMinutes * 60;
+
     const devEuis = await getSectionDevEuis(section.id, getOrganizationId(req), { includeArchived: true });
     if (!devEuis.length) {
       return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
@@ -1641,27 +1688,23 @@ app.get('/history', requireAuth, async (req, res) => {
 
     if (metric === 'vpd') {
       const { rows } = await query(
-        `SELECT time, temperature, humidity
+        `SELECT ${bucketExpression} AS observed_at,
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY ${VPD_SQL_EXPRESSION}) AS value
          FROM measurements
          WHERE dev_eui = ANY($1)
            AND time BETWEEN $2 AND $3
            AND temperature IS NOT NULL
            AND humidity IS NOT NULL
-           AND lower(COALESCE(raw_object->'sensors'->'sht45'->>'present', 'false')) = 'true'
-         ORDER BY time ASC`,
+           AND ${historicalSensorPresenceCondition('sht45')}
+           AND ${validVpdSqlCondition()}
+         GROUP BY observed_at
+         ORDER BY observed_at ASC`,
         [devEuis, from, to]
       );
-      const grouped = new Map();
-      rows.forEach((row) => {
-        const bucketMs = bucketSeconds * 1000;
-        const bucket = new Date(Math.floor(new Date(row.time).getTime() / bucketMs) * bucketMs).toISOString();
-        if (!grouped.has(bucket)) grouped.set(bucket, []);
-        grouped.get(bucket).push(calcVPD(row.temperature, row.humidity));
-      });
-      points = [...grouped.entries()].map(([observedAt, values]) => ({
-        observedAt,
-        receivedAt: observedAt,
-        value: medianValue(values),
+      points = rows.map((row) => ({
+        observedAt: row.observed_at,
+        receivedAt: row.observed_at,
+        value: Number(row.value),
         detectedLate: false
       }));
     } else {
@@ -1755,22 +1798,19 @@ async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes, o
 
   if (metric === 'vpd') {
     const { rows } = await query(
-      `SELECT ${bucketExpression} AS observed_at, temperature, humidity
+      `SELECT ${bucketExpression} AS observed_at,
+              percentile_cont(0.5) WITHIN GROUP (ORDER BY ${VPD_SQL_EXPRESSION}) AS value
        FROM measurements
        WHERE dev_eui = ANY($1)
          AND time BETWEEN $2 AND $3
          AND temperature IS NOT NULL AND humidity IS NOT NULL
-         AND lower(COALESCE(raw_object->'sensors'->'sht45'->>'present', 'false')) = 'true'
+         AND ${historicalSensorPresenceCondition('sht45')}
+         AND ${validVpdSqlCondition()}
+       GROUP BY observed_at
        ORDER BY observed_at ASC`,
       [devEuis, from, to]
     );
-    const grouped = new Map();
-    rows.forEach((row) => {
-      const key = new Date(row.observed_at).toISOString();
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key).push(calcVPD(row.temperature, row.humidity));
-    });
-    return [...grouped.entries()].map(([observedAt, values]) => ({ observedAt, value: medianValue(values) }));
+    return rows.map((row) => ({ observedAt: row.observed_at, value: Number(row.value) }));
   }
 
   const presence = historyPresenceCondition(metric);
@@ -1825,10 +1865,11 @@ async function getTelemetryEvents(devEuis, from, to) {
         durationMinutes: Math.round((observedAt.getTime() - previous.time.getTime()) / 60000)
       });
     }
-    if (row.raw_object?.error_flags?.last_tx_failed === true && !previous?.txFailed) {
+    const txFailed = normalizeTelemetryBoolean(row.raw_object?.error_flags?.last_tx_failed) === true;
+    if (txFailed && !previous?.txFailed) {
       events.push({ occurredAt: row.time, type: 'transmission_failed', severity: 'warning', devEui });
     }
-    previousByNode.set(devEui, { time: observedAt, profile: row.profile || '', txFailed: row.raw_object?.error_flags?.last_tx_failed === true });
+    previousByNode.set(devEui, { time: observedAt, profile: row.profile || '', txFailed });
   });
   return events.sort((left, right) => new Date(left.occurredAt) - new Date(right.occurredAt)).slice(-80);
 }
@@ -1913,7 +1954,7 @@ function isScheduledLightMinute(minute, start, end) {
 }
 
 function summarizeDynamics(points, definition) {
-  const clean = points.filter((point) => Number.isFinite(Number(point.value)));
+  const clean = points.filter((point) => normalizeTelemetryNumber(point.value) !== null);
   if (!clean.length) return null;
   const start = Number(clean[0].value);
   const end = Number(clean[clean.length - 1].value);
@@ -2128,22 +2169,6 @@ const EXPORT_METRIC_LABELS = {
   batteryLevel: 'Battery level'
 };
 
-const EXPORT_METRIC_SENSOR_KEYS = {
-  airTemp: 'sht45',
-  humidity: 'sht45',
-  co2: 'scd41',
-  lux: 'bh1750',
-  soilTemp: 'ds18b20',
-  soilMoisture: 'soil_moisture_probe',
-  ec: 'ec_probe',
-  ph: 'ph_probe',
-  soilEc: 'soil_ec_probe',
-  leafTemp: 'leaf_temperature_probe',
-  waterTemp: 'water_temperature_probe',
-  airPressure: 'pressure_sensor',
-  vpd: 'sht45'
-};
-
 const EXPORT_METRIC_UNITS = {
   ...METRIC_UNITS,
   lux: 'lx'
@@ -2155,40 +2180,35 @@ function getExportMetricValue(row, metric) {
 }
 
 function rowReportsExportMetric(row, metric) {
-  if (metric === 'batteryLevel') return true;
-  const sensorKey = EXPORT_METRIC_SENSOR_KEYS[metric];
-  const sensor = row.raw_object?.sensors?.[sensorKey];
-  if (sensor && typeof sensor.present === 'boolean') return sensor.present;
-
-  // Older uplinks may not contain sensor-presence metadata. Keep their values
-  // rather than discarding valid historical measurements.
-  return Number.isFinite(Number(getExportMetricValue(row, metric)));
+  return measurementReportsMetric(row, metric)
+    && normalizeTelemetryNumber(getExportMetricValue(row, metric)) !== null;
 }
 
 app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
-  const sectionId = String(req.query.sectionId || '').trim();
-  const section = await getSectionById(sectionId, getOrganizationId(req));
-  if (!section) {
-    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
-  }
-
-  const from = req.query.from ? new Date(req.query.from) : new Date(Date.now() - 86400000);
-  const to = req.query.to ? new Date(req.query.to) : new Date();
-  const maxRangeMs = 31 * 24 * 60 * 60 * 1000;
-
-  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || to <= from) {
-    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid export date range' } });
-  }
-  if (to.getTime() - from.getTime() > maxRangeMs) {
-    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'CSV export is limited to 31 days' } });
-  }
-
-  const exportMetrics = [...Object.keys(METRIC_TO_COLUMN), 'vpd'];
-  const columns = [...new Set(Object.values(METRIC_TO_COLUMN))];
-
   try {
+    const sectionId = String(req.query.sectionId || '').trim();
+    const section = await getSectionById(sectionId, getOrganizationId(req));
+    if (!section) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+    }
+
+    const from = req.query.from ? new Date(req.query.from) : new Date(Date.now() - 86400000);
+    const to = req.query.to ? new Date(req.query.to) : new Date();
+    const maxRangeMs = 31 * 24 * 60 * 60 * 1000;
+
+    if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || to <= from) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid export date range' } });
+    }
+    if (to.getTime() - from.getTime() > maxRangeMs) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'CSV export is limited to 31 days' } });
+    }
+
+    const exportMetrics = [...Object.keys(METRIC_TO_COLUMN), 'vpd'];
+    const columns = [...new Set(Object.values(METRIC_TO_COLUMN))];
+
     const { rows: latestNodeStates } = await query(
-      `SELECT DISTINCT ON (m.dev_eui) m.dev_eui, m.raw_object
+      `SELECT DISTINCT ON (m.dev_eui) m.dev_eui, m.raw_object,
+              ${columns.map((column) => `m.${column}`).join(', ')}
        FROM measurements m
        JOIN nodes n ON n.dev_eui=m.dev_eui
        WHERE n.organization_id=$1 AND n.section_id=$2
@@ -2220,12 +2240,11 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
 
     const installedMetrics = exportMetrics.filter((metric) => {
       if (metric === 'batteryLevel') return true;
-      const sensorKey = EXPORT_METRIC_SENSOR_KEYS[metric];
-      return latestNodeStates.some((node) => node.raw_object?.sensors?.[sensorKey]?.present === true);
+      return latestNodeStates.some((node) => measurementReportsMetric(node, metric));
     });
 
     const metricsWithData = installedMetrics.filter((metric) =>
-      rows.some((row) => rowReportsExportMetric(row, metric) && Number.isFinite(Number(getExportMetricValue(row, metric))))
+      rows.some((row) => rowReportsExportMetric(row, metric))
     );
     const headers = [
       'Date',
@@ -2242,7 +2261,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       const { date, time } = formatExportDateTime(row.time);
       const values = metricsWithData.map((metric) => {
         const value = getExportMetricValue(row, metric);
-        return rowReportsExportMetric(row, metric) && Number.isFinite(Number(value)) ? formatExportValue(value) : '';
+        return rowReportsExportMetric(row, metric) ? formatExportValue(value) : '';
       });
 
       lines.push([
@@ -2267,13 +2286,13 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
 
 
 function buildDetectedNodeSensors(measurement, configsByPort = {}) {
-  const rawSensors = measurement?.raw_object?.sensors || {};
   const configuredOneWire = configsByPort.onewire || {};
   const configuredI2c = configsByPort.i2c || {};
-  const hasSht45 = rawSensors.sht45?.present === true;
-  const hasScd41 = rawSensors.scd41?.present === true;
-  const hasBh1750 = rawSensors.bh1750?.present === true;
-  const hasDs18b20 = rawSensors.ds18b20?.present === true;
+  const hasSht45 = measurementReportsMetric(measurement, 'airTemp')
+    || measurementReportsMetric(measurement, 'humidity');
+  const hasScd41 = measurementReportsMetric(measurement, 'co2');
+  const hasBh1750 = measurementReportsMetric(measurement, 'lux');
+  const hasDs18b20 = measurementReportsMetric(measurement, 'soilTemp');
 
   const auxiliaryDefinitions = [
     ['pressure_sensor', 'Air pressure sensor', ['airPressure']],
@@ -2313,8 +2332,8 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
       label: configuredOneWire.label || 'Temperature probe',
       configurable: true
     },
-    ...auxiliaryDefinitions.map(([key, label, metrics]) => ({
-      port: 'aux', sensorModel: null, detected: rawSensors[key]?.present === true,
+    ...auxiliaryDefinitions.map(([, label, metrics]) => ({
+      port: 'aux', sensorModel: null, detected: metrics.some((metric) => measurementReportsMetric(measurement, metric)),
       metrics, role: null, label, configurable: false
     }))
   ];
@@ -2493,9 +2512,6 @@ app.patch('/nodes/:devEui/sensors/:port', requireAuth, requireRole('owner', 'adm
 });
 
 app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technician'), async (req, res) => {
-  const section = await getSectionById(req.body?.sectionId, getOrganizationId(req));
-  if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
-
   const devEui = normalizeDevEui(req.body?.devEui);
   const name = String(req.body?.name || devEui).trim();
 
@@ -2506,6 +2522,9 @@ app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technici
   let createdChirpStackDevice = false;
   try {
     const organizationId = getOrganizationId(req);
+    const section = await getSectionById(req.body?.sectionId, organizationId);
+    if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+
     const { rows: existingRows } = await query(
       `SELECT organization_id FROM nodes WHERE lower(dev_eui)=lower($1) LIMIT 1`,
       [devEui]
@@ -2749,4 +2768,14 @@ app.use((err, req, res, next) => {
 
 await runMigrations();
 const server = app.listen(PORT, HOST, () => console.log(`[api] klausomasi :${PORT} (auth aktyvus)`));
-process.on('SIGINT', async () => { server.close(); await pool.end(); process.exit(0); });
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[api] ${signal}: shutting down`);
+  server.closeIdleConnections?.();
+  await new Promise((resolve) => server.close(resolve));
+  await pool.end();
+}
+process.on('SIGINT', () => { void shutdown('SIGINT'); });
+process.on('SIGTERM', () => { void shutdown('SIGTERM'); });

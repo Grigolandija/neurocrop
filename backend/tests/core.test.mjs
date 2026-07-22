@@ -11,6 +11,8 @@ import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, nor
 import { buildTodayActions, evaluateActionOutcome, getActionVerificationPolicy } from '../today-actions.js';
 import { invitationState } from '../invitation-state.js';
 import { normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from '../telemetry-values.js';
+import { hashUserPassword, MAX_PASSWORD_LENGTH, sessionCookieClearOptions, sessionCookieOptions, verifyUserPassword } from '../auth-users.js';
+import { sendInvitationEmail } from '../email.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -56,6 +58,36 @@ test('telemetry values reject malformed numbers and poisoned timestamps', () => 
   assert.equal(normalizeTelemetryTimestamp('2099-01-01T00:00:00Z', now).toISOString(), now.toISOString());
 });
 
+test('measurement presence remains compatible with older firmware without converting null to zero', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  assert.match(source, /normalizeTelemetryBoolean\(measurement\?\.raw_object\?\.sensors/);
+  assert.match(source, /normalizeTelemetryNumber\(measurementMetricValue\(measurement, metric\)\) !== null/);
+  assert.match(source, /IS NULL OR lower\([^\n]+\) IN \('true', '1'\)/);
+  assert.match(source, /const numericValue = normalizeTelemetryNumber\(value\);\n\s+if \(numericValue === null\) return;/);
+  assert.doesNotMatch(source, /if \(!Number\.isFinite\(Number\(value\)\)\) return;/);
+});
+
+test('successful invitation delivery tolerates a non-JSON provider response', async () => {
+  const originalKey = process.env.RESEND_API_KEY;
+  const originalFetch = globalThis.fetch;
+  process.env.RESEND_API_KEY = 'test-key';
+  globalThis.fetch = async () => ({ ok: true, text: async () => 'accepted' });
+
+  try {
+    const result = await sendInvitationEmail({
+      to: 'grower@example.com',
+      organizationName: 'Test farm',
+      role: 'grower',
+      inviteUrl: 'https://neurocrop.lt/invite/test'
+    });
+    assert.deepEqual(result, { sent: true, response: 'accepted' });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = originalKey;
+  }
+});
+
 test('production uptime confirms failures and cannot let notification errors mask the probe', () => {
   const workflow = fs.readFileSync(new URL('../../.github/workflows/uptime.yml', import.meta.url), 'utf8');
   assert.match(workflow, /push:[\s\S]*?paths:[\s\S]*?- \.github\/workflows\/uptime\.yml/);
@@ -78,6 +110,96 @@ test('session cookies default to secure SameSite=Lax', () => {
     () => getSessionCookieOptions({ SESSION_SAME_SITE: 'none', SESSION_COOKIE_SECURE: 'false' }),
     /requires a secure/
   );
+});
+
+test('logout cookie options expire the cookie instead of extending it', () => {
+  assert.equal(sessionCookieOptions().maxAge > 0, true);
+  assert.deepEqual(sessionCookieClearOptions(), getSessionCookieOptions({}));
+  assert.equal('maxAge' in sessionCookieClearOptions(), false);
+});
+
+test('password hashing rejects pathological input before running scrypt', () => {
+  const password = 'correct horse battery staple';
+  const hash = hashUserPassword(password);
+  assert.equal(verifyUserPassword(password, hash), true);
+  assert.equal(verifyUserPassword('wrong password', hash), false);
+  assert.equal(verifyUserPassword('x'.repeat(MAX_PASSWORD_LENGTH + 1), hash), false);
+  assert.throws(
+    () => hashUserPassword('x'.repeat(MAX_PASSWORD_LENGTH + 1)),
+    /at most 1024 characters/
+  );
+});
+
+test('login has both account and IP rate limits and logout uses clear-only cookie options', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  assert.match(source, /authIpLimiter\.isLimited\(ipAttemptKey\)/);
+  assert.match(source, /authIpLimiter\.record\(ipAttemptKey\)/);
+  assert.match(source, /dummyLoginPasswordHash/);
+  assert.match(source, /clearCookie\('neurocrop_session', sessionCookieClearOptions\(\)\)/);
+});
+
+test('invitation acceptance is rate limited before reserving a database connection', () => {
+  const source = fs.readFileSync(new URL('../team-routes.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.post('/auth/accept-invite'");
+  const route = source.slice(routeStart);
+  assert.ok(routeStart >= 0);
+  assert.match(route, /invitationAcceptanceLimiter\.isLimited\(attemptKey\)/);
+  assert.ok(route.indexOf('invitationAcceptanceLimiter.isLimited(attemptKey)') < route.indexOf('client = await pool.connect()'));
+});
+
+test('invitation creation serializes duplicate checks and does not expose provider errors', () => {
+  const teamSource = fs.readFileSync(new URL('../team-routes.js', import.meta.url), 'utf8');
+  const routeStart = teamSource.indexOf("app.post('/invitations'");
+  const route = teamSource.slice(routeStart, teamSource.indexOf("app.delete('/invitations/", routeStart));
+  assert.match(route, /pg_advisory_xact_lock/);
+  assert.ok(route.indexOf('BEGIN') < route.indexOf('activeInvitationRows'));
+  assert.ok(route.indexOf("client.query('COMMIT')") < route.indexOf('sendInvitationEmail'));
+  assert.match(route, /error: 'Email delivery failed'/);
+  assert.doesNotMatch(route, /emailDelivery = \{ sent: false, error: error\.message \}/);
+
+  const organizationSource = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(organizationSource, /emailDelivery = \{ sent: false, error: error\.message \}/);
+});
+
+test('database connection acquisition stays inside route error boundaries', () => {
+  for (const filename of ['api.js', 'team-routes.js', 'organization-routes.js']) {
+    const source = fs.readFileSync(new URL(`../${filename}`, import.meta.url), 'utf8');
+    assert.equal(/const client = await pool\.connect\(\)/.test(source), false, `${filename} acquires an unguarded client`);
+  }
+
+  const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  for (const routeName of ["/readings/latest", "/history", "/exports/measurements.csv", "/nodes/register"]) {
+    const routeStart = api.indexOf(`app.get('${routeName}'`) >= 0
+      ? api.indexOf(`app.get('${routeName}'`)
+      : api.indexOf(`app.post('${routeName}'`);
+    const route = api.slice(routeStart, routeStart + 900);
+    assert.ok(route.indexOf('try {') >= 0 && route.indexOf('try {') < route.indexOf('await getSectionById'), `${routeName} must guard its first database query`);
+  }
+});
+
+test('VPD history is aggregated in PostgreSQL instead of loading every raw row into Node', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  assert.match(source, /const VPD_SQL_EXPRESSION/);
+  assert.match(source, /percentile_cont\(0\.5\) WITHIN GROUP \(ORDER BY \$\{VPD_SQL_EXPRESSION\}\)/);
+  assert.equal(/SELECT time, temperature, humidity\s+FROM measurements/.test(source), false);
+});
+
+test('ingestion normalizes device identity, deduplicates MQTT deliveries and commits atomically', () => {
+  const source = fs.readFileSync(new URL('../ingest.js', import.meta.url), 'utf8');
+  assert.match(source, /String\(dev\.devEui \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(source, /pg_advisory_xact_lock\(hashtext\(\$1\)\)/);
+  assert.match(source, /WHERE NOT EXISTS \([\s\S]*dev_eui=\$2 AND time=\$1/);
+  assert.ok(source.indexOf("dbClient.query('BEGIN')") < source.indexOf('UPDATE nodes SET'));
+  assert.ok(source.indexOf('INSERT INTO measurements') < source.indexOf("dbClient.query('COMMIT')"));
+});
+
+test('API and ingestion workers close gracefully on Docker SIGTERM', () => {
+  const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const ingest = fs.readFileSync(new URL('../ingest.js', import.meta.url), 'utf8');
+  assert.match(api, /process\.on\('SIGTERM'/);
+  assert.match(api, /server\.close\(resolve\)/);
+  assert.match(ingest, /process\.on\('SIGTERM'/);
+  assert.match(ingest, /client\.end\(false, \{\}, resolve\)/);
 });
 
 test('server errors do not expose internal details', () => {
@@ -157,13 +279,18 @@ test('profile metric validation rejects malformed and reversed bands', () => {
   assert.equal(validateCropProfileMetrics({ airTemp: { optimal: [18, 24] } }), null);
   assert.match(validateCropProfileMetrics({ airTemp: { optimal: [24, 18] } }), /increasing/);
   assert.match(validateCropProfileMetrics({ airTemp: { optimal: ['x', 24] } }), /increasing/);
+  assert.match(validateCropProfileMetrics({ airTemp: { optimal: [null, 24] } }), /increasing/);
+  assert.match(validateCropProfileMetrics({ airTemp: { optimal: ['', 24] } }), /increasing/);
+  assert.match(validateCropProfileMetrics({ airTemp: { optimal: [false, 24] } }), /increasing/);
   assert.equal(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: 1.5 } }), null);
+  assert.match(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: null } }), /between 0 and 3/);
   assert.match(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: 4 } }), /between 0 and 3/);
 });
 
 test('lighting schedules are validated without exposing hardware assumptions', () => {
   assert.equal(validateCropProfileMetrics({ lux: { optimal: [10000, 30000], lightingSchedule: { enabled: true, start: '06:00', end: '22:00', darkThresholdLux: 100 } } }), null);
   assert.match(validateCropProfileMetrics({ lux: { optimal: [10000, 30000], lightingSchedule: { enabled: true, start: '25:00', end: '22:00' } } }), /HH:MM/);
+  assert.match(validateCropProfileMetrics({ lux: { optimal: [10000, 30000], lightingSchedule: { darkThresholdLux: null } } }), /zero or greater/);
   assert.match(validateCropProfileMetrics({ lux: { optimal: [10000, 30000], lightingSchedule: { darkThresholdLux: -1 } } }), /zero or greater/);
 });
 
@@ -173,6 +300,9 @@ test('score rules use saved optimal ranges and automatic alert bands', () => {
   assert.deepEqual(rules.airTemp.critical, [14, 26]);
   assert.equal(evaluateMetricValue('airTemp', 23, rules).state, 'warning');
   assert.equal(evaluateMetricValue('airTemp', 27, rules).state, 'critical');
+  assert.equal(evaluateMetricValue('airTemp', null, rules), null);
+  assert.equal(evaluateMetricValue('airTemp', false, rules), null);
+  assert.deepEqual(buildScoreRules({ airTemp: { optimal: [null, 22] } }).airTemp.optimal, [22, 26]);
 });
 
 test('score crosses the optimal boundary smoothly without a warning cliff', () => {
@@ -381,6 +511,23 @@ test('completed actions wait for a metric-specific verification window and enoug
   assert.equal(evaluateActionOutcome(action, { ...feedback, status: 'deferred' }, {}).state, 'not_applicable');
 });
 
+test('action verification never interprets missing values as a real zero', () => {
+  const outcome = evaluateActionOutcome(
+    { metricId: 'humidity', value: null, target: [60, 70] },
+    { status: 'completed', createdAt: '2026-07-14T12:00:00Z' },
+    { samples: [
+      { value: null, observedAt: '2026-07-14T12:10:00Z' },
+      { value: '', observedAt: '2026-07-14T12:20:00Z' },
+      { value: false, observedAt: '2026-07-14T12:30:00Z' }
+    ] },
+    '2026-07-14T13:01:00Z'
+  );
+  assert.equal(outcome.baselineValue, null);
+  assert.equal(outcome.currentValue, null);
+  assert.equal(outcome.sampleCount, 0);
+  assert.equal(outcome.state, 'insufficient_data');
+});
+
 test('action verification uses a stable median and ignores later unrelated recovery', () => {
   const action = { metricId: 'humidity', value: 88, target: [60, 70] };
   const feedback = { status: 'completed', createdAt: '2026-07-14T12:00:00Z' };
@@ -512,6 +659,22 @@ test('coverage denominator follows currently detected sensor hardware', () => {
   );
   assert.equal(fullyConnected.coverage.liveMetrics, 5);
   assert.equal(fullyConnected.coverage.expectedMetrics, 5);
+});
+
+test('coverage accepts boolean-like presence values from older decoders', () => {
+  const now = new Date().toISOString();
+  const state = buildSectionDashboardState(
+    [{ last_received_at: now, last_sensor_presence: { sht45: 'true', scd41: '1' } }],
+    [{
+      time: now,
+      temperature: 24,
+      humidity: 65,
+      raw_object: { expected_uplink_interval_s: 300, sensors: { sht45: { present: 'true' } } }
+    }],
+    {}
+  );
+  assert.equal(state.coverage.liveMetrics, 3);
+  assert.equal(state.coverage.expectedMetrics, 4);
 });
 
 test('platform organization creation does not grant the creator tenant membership', () => {

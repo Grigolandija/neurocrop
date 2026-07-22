@@ -56,5 +56,14 @@ export async function sendInvitationEmail({ to, organizationName, role, inviteUr
     throw new Error(body || `Resend email failed with ${response.status}`);
   }
 
-  return { sent: true, response: body ? JSON.parse(body) : null };
+  let responseBody = null;
+  if (body) {
+    try {
+      responseBody = JSON.parse(body);
+    } catch {
+      responseBody = body;
+    }
+  }
+
+  return { sent: true, response: responseBody };
 }

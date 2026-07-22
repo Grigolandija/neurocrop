@@ -22,6 +22,10 @@ const registrationLimiter = createMemoryRateLimiter({
   limit: Number(process.env.AUTH_REGISTRATION_RATE_LIMIT || 5),
   windowMs: 60 * 60 * 1000
 });
+const invitationAcceptanceLimiter = createMemoryRateLimiter({
+  limit: Number(process.env.AUTH_INVITE_RATE_LIMIT || 8),
+  windowMs: 15 * 60 * 1000
+});
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex');
@@ -163,7 +167,7 @@ export function registerTeamRoutes(app) {
   });
 
   app.post('/auth/switch-organization', requireUserAuth, async (req, res, next) => {
-    const client = await pool.connect();
+    let client;
     try {
       const nextOrganizationId = String(req.body?.organizationId || '').trim();
       const memberships = await getMemberships(req.user.id);
@@ -175,6 +179,7 @@ export function registerTeamRoutes(app) {
         });
       }
 
+      client = await pool.connect();
       await client.query('BEGIN');
       const execute = client.query.bind(client);
       await revokeUserSession(req.cookies?.neurocrop_session, execute);
@@ -200,10 +205,10 @@ export function registerTeamRoutes(app) {
         }))
       });
     } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client?.query('ROLLBACK').catch(() => {});
       next(error);
     } finally {
-      client.release();
+      client?.release();
     }
   });
 
@@ -296,6 +301,7 @@ export function registerTeamRoutes(app) {
   });
 
   app.post('/invitations', requireUserAuth, requireRole('owner', 'admin'), async (req, res, next) => {
+    let client;
     try {
       const email = normalizeEmail(req.body?.email);
       const role = String(req.body?.role || 'grower').trim().toLowerCase();
@@ -316,7 +322,14 @@ export function registerTeamRoutes(app) {
         });
       }
 
-      const { rows: memberRows } = await query(
+      client = await pool.connect();
+      await client.query('BEGIN');
+      await client.query(
+        'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+        [organizationId(req), email]
+      );
+
+      const { rows: memberRows } = await client.query(
         `SELECT 1
          FROM users u
          JOIN organization_memberships m ON m.user_id=u.id
@@ -325,12 +338,13 @@ export function registerTeamRoutes(app) {
         [email, organizationId(req)]
       );
       if (memberRows[0]) {
+        await client.query('ROLLBACK');
         return res.status(409).json({
           error: { code: 'ALREADY_MEMBER', message: 'This email already belongs to the organization' }
         });
       }
 
-      const { rows: activeInvitationRows } = await query(
+      const { rows: activeInvitationRows } = await client.query(
         `SELECT id FROM invitations
          WHERE organization_id=$1
            AND lower(email)=lower($2)
@@ -341,13 +355,14 @@ export function registerTeamRoutes(app) {
         [organizationId(req), email]
       );
       if (activeInvitationRows[0]) {
+        await client.query('ROLLBACK');
         return res.status(409).json({
           error: { code: 'INVITATION_EXISTS', message: 'An active invitation already exists for this email' }
         });
       }
 
       const token = newInvitationToken();
-      const { rows } = await query(
+      const { rows } = await client.query(
         `INSERT INTO invitations (
            id, organization_id, email, role, token_hash, invited_by, expires_at
          ) VALUES ($1, $2, $3, $4, $5, $6, now() + ($7 || ' days')::interval)
@@ -362,6 +377,9 @@ export function registerTeamRoutes(app) {
           String(INVITE_TTL_DAYS)
         ]
       );
+      await client.query('COMMIT');
+      client.release();
+      client = null;
 
       const inviteUrlValue = `${appUrl()}/accept-invite?token=${encodeURIComponent(token)}`;
       let emailDelivery = { sent: false };
@@ -375,7 +393,7 @@ export function registerTeamRoutes(app) {
         });
       } catch (error) {
         console.error('[email] invitation send failed:', error.message);
-        emailDelivery = { sent: false, error: error.message };
+        emailDelivery = { sent: false, error: 'Email delivery failed' };
       }
 
       res.status(201).json({
@@ -386,7 +404,10 @@ export function registerTeamRoutes(app) {
         }
       });
     } catch (error) {
+      await client?.query('ROLLBACK').catch(() => {});
       next(error);
+    } finally {
+      client?.release();
     }
   });
 
@@ -453,7 +474,8 @@ export function registerTeamRoutes(app) {
   });
 
   app.post('/auth/accept-invite', async (req, res, next) => {
-    const client = await pool.connect();
+    let client;
+    let attemptKey;
     try {
       const token = String(req.body?.token || '').trim();
       const password = String(req.body?.password || '');
@@ -465,6 +487,15 @@ export function registerTeamRoutes(app) {
         });
       }
 
+      attemptKey = `${String(req.ip || 'unknown')}|${hashToken(token)}`;
+      if (invitationAcceptanceLimiter.isLimited(attemptKey)) {
+        return res.status(429).json({
+          error: { code: 'RATE_LIMITED', message: 'Too many invitation acceptance attempts. Try again later.' }
+        });
+      }
+      invitationAcceptanceLimiter.record(attemptKey);
+
+      client = await pool.connect();
       await client.query('BEGIN');
       const execute = client.query.bind(client);
       const { rows: inviteRows } = await client.query(
@@ -539,6 +570,7 @@ export function registerTeamRoutes(app) {
       const session = await createUserSession(account.id, invitation.organization_id, execute);
       await client.query('UPDATE users SET last_login_at=now(), updated_at=now() WHERE id=$1', [account.id]);
       await client.query('COMMIT');
+      invitationAcceptanceLimiter.reset(attemptKey);
       res.cookie('neurocrop_session', session.token, sessionCookieOptions());
 
       res.status(201).json({
@@ -552,10 +584,10 @@ export function registerTeamRoutes(app) {
         }
       });
     } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client?.query('ROLLBACK').catch(() => {});
       next(error);
     } finally {
-      client.release();
+      client?.release();
     }
   });
 }

@@ -1,4 +1,5 @@
 import { calcVPD } from './calculations.js';
+import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
 
 const DEFAULT_SCORE_RULES = {
   airTemp: { column: 'temperature', optimal: [22, 26], warning: [20, 28], critical: [18, 30], growth: true },
@@ -58,7 +59,7 @@ function measurementHasMetricSensor(measurement, metricId) {
   const sensorId = SENSOR_PRESENCE_BY_METRIC[metricId];
   if (!sensorId) return true;
   const reportedPresence = measurement?.raw_object?.sensors?.[sensorId]?.present;
-  return reportedPresence !== false;
+  return normalizeTelemetryBoolean(reportedPresence) !== false;
 }
 
 function getExpectedGrowthMetrics(nodeRows, measurements, scoreRules, availableMetrics) {
@@ -70,8 +71,11 @@ function getExpectedGrowthMetrics(nodeRows, measurements, scoreRules, availableM
     if (metricId === 'batteryLevel') continue;
     const sensorId = SENSOR_PRESENCE_BY_METRIC[metricId];
     if (!sensorId) continue;
-    const installed = nodeRows.some((node) => node?.last_sensor_presence?.[sensorId] === true)
-      || measurements.some((measurement) => measurement?.raw_object?.sensors?.[sensorId]?.present === true);
+    const installed = nodeRows.some(
+      (node) => normalizeTelemetryBoolean(node?.last_sensor_presence?.[sensorId]) === true
+    ) || measurements.some(
+      (measurement) => normalizeTelemetryBoolean(measurement?.raw_object?.sensors?.[sensorId]?.present) === true
+    );
     if (installed) expected.add(metricId);
   }
 
@@ -87,8 +91,8 @@ function median(values) {
 
 function normalizeBand(candidate, fallback) {
   if (!Array.isArray(candidate) || candidate.length !== 2) return fallback;
-  const numeric = candidate.map(Number);
-  if (!numeric.every(Number.isFinite)) return fallback;
+  const numeric = candidate.map(normalizeTelemetryNumber);
+  if (!numeric.every((value) => value !== null)) return fallback;
   return numeric[0] <= numeric[1] ? numeric : fallback;
 }
 
@@ -110,13 +114,14 @@ export function buildScoreRules(profileMetrics = {}) {
     const profileMetric = profileMetrics?.[metricId] || {};
     const optimal = normalizeBand(profileMetric.optimal, baseRule.optimal);
     const automaticBands = deriveAutomaticBands(metricId, optimal, baseRule);
+    const scoreWeight = normalizeTelemetryNumber(profileMetric.scoreWeight);
     rules[metricId] = {
       ...baseRule,
       optimal,
       warning: automaticBands.warning,
       critical: automaticBands.critical,
-      scoreWeight: Number.isFinite(Number(profileMetric.scoreWeight))
-        ? Math.max(0, Math.min(Number(profileMetric.scoreWeight), 3))
+      scoreWeight: scoreWeight !== null
+        ? Math.max(0, Math.min(scoreWeight, 3))
         : 1
     };
   }
@@ -177,9 +182,8 @@ function directionalSeverity(numeric, rule, direction) {
 
 export function evaluateMetricValue(metricId, value, scoreRules) {
   const rule = scoreRules[metricId];
-  if (!rule || value === null || value === undefined || !Number.isFinite(Number(value))) return null;
-
-  const numeric = Number(value);
+  const numeric = normalizeTelemetryNumber(value);
+  if (!rule || numeric === null) return null;
   let state = 'optimal';
   let severity = 0;
   let direction = 'optimal';
@@ -226,8 +230,8 @@ function buildMetricValuesFromLatestMeasurements(measurements, scoreRules) {
     } else {
       values[metricId] = measurements
         .map((m) => measurementHasMetricSensor(m, metricId) ? m?.[rule.column] : null)
-        .filter((value) => value !== null && value !== undefined && Number.isFinite(Number(value)))
-        .map(Number);
+        .map(normalizeTelemetryNumber)
+        .filter((value) => value !== null);
     }
   }
 

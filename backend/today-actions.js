@@ -1,3 +1,5 @@
+import { normalizeTelemetryNumber } from './telemetry-values.js';
+
 const METRIC_LABELS = {
   airTemp: 'Air temperature',
   humidity: 'Relative humidity',
@@ -147,11 +149,11 @@ export function buildTodayActions(sectionSnapshots, { limit = 3 } = {}) {
 }
 
 function distanceFromTarget(value, target) {
-  if (!Number.isFinite(Number(value)) || !Array.isArray(target) || target.length !== 2) return null;
-  const numeric = Number(value);
-  const low = Number(target[0]);
-  const high = Number(target[1]);
-  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+  const numeric = normalizeTelemetryNumber(value);
+  if (numeric === null || !Array.isArray(target) || target.length !== 2) return null;
+  const low = normalizeTelemetryNumber(target[0]);
+  const high = normalizeTelemetryNumber(target[1]);
+  if (low === null || high === null) return null;
   if (numeric < low) return low - numeric;
   if (numeric > high) return numeric - high;
   return 0;
@@ -193,14 +195,14 @@ export function evaluateActionOutcome(action, feedback, evidence = {}, now = Dat
   const windowEndsAt = new Date(windowEndsAtMs).toISOString();
   const providedSamples = Array.isArray(evidence.samples)
     ? evidence.samples
-    : Number.isFinite(Number(evidence.value)) && evidence.observedAt
+    : normalizeTelemetryNumber(evidence.value) !== null && evidence.observedAt
       ? [{ value: evidence.value, observedAt: evidence.observedAt }]
       : [];
   const eligibleSamples = providedSamples
-    .map((sample) => ({ value: Number(sample.value), observedAt: sample.observedAt }))
+    .map((sample) => ({ value: normalizeTelemetryNumber(sample.value), observedAt: sample.observedAt }))
     .filter((sample) => {
       const observedAtMs = new Date(sample.observedAt || 0).getTime();
-      return Number.isFinite(sample.value)
+      return sample.value !== null
         && Number.isFinite(observedAtMs)
         && observedAtMs >= eligibleAtMs
         && observedAtMs <= windowEndsAtMs;
@@ -208,7 +210,7 @@ export function evaluateActionOutcome(action, feedback, evidence = {}, now = Dat
     .sort((left, right) => new Date(left.observedAt) - new Date(right.observedAt));
   const verificationSamples = eligibleSamples.slice(0, policy.minSamples);
   const common = {
-    baselineValue: Number.isFinite(Number(action.value)) ? Number(action.value) : null,
+    baselineValue: normalizeTelemetryNumber(action.value),
     baselineObservedAt: action.observedAt || null,
     currentValue: null,
     observedAt: null,

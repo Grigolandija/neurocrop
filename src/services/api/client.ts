@@ -37,6 +37,14 @@ function notifyApiConnection(connected: boolean) {
   }))
 }
 
+function isPublicAuthenticationRequest(path: string) {
+  return path === '/auth/login'
+    || path === '/auth/register'
+    || path === '/auth/accept-invite'
+    || path === '/auth/me'
+    || path.startsWith('/auth/invitations/')
+}
+
 async function fetchWithConnectionStatus(input: RequestInfo | URL, init: RequestInit) {
   try {
     const response = await fetch(input, init)
@@ -44,27 +52,33 @@ async function fetchWithConnectionStatus(input: RequestInfo | URL, init: Request
     notifyApiConnection(true)
     return response
   } catch (error) {
-    notifyApiConnection(false)
+    // Cancelling an obsolete UI request does not mean the API went offline.
+    if (!(error instanceof DOMException && error.name === 'AbortError')) notifyApiConnection(false)
     throw error
   }
 }
 
+function requestSignal(signal: AbortSignal | null | undefined, timeoutMs: number) {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs)
+  return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal
+}
+
 export const request: ApiRequest = async <T>(path: string, options: RequestInit = {}) => {
   const response = await fetchWithConnectionStatus(`${apiBaseUrl()}${path}`, {
+    ...options,
     credentials: 'include',
-    signal: options.signal || AbortSignal.timeout(15_000),
+    signal: requestSignal(options.signal, 15_000),
     headers: {
       Accept: 'application/json',
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
     },
-    ...options,
   })
 
   if (!response.ok) {
     // An unauthenticated /auth/me response is the normal signed-out state, not
     // an expired-session event that should alarm the user.
-    if (response.status === 401 && path !== '/auth/login' && path !== '/auth/me') {
+    if (response.status === 401 && !isPublicAuthenticationRequest(path)) {
       notifyUnauthorized()
       throw new Error('Your session has ended. Please sign in again.')
     }
@@ -78,7 +92,7 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
 export async function downloadFile(path: string, fallbackFilename: string) {
   const response = await fetchWithConnectionStatus(`${apiBaseUrl()}${path}`, {
     credentials: 'include',
-    signal: AbortSignal.timeout(60_000),
+    signal: requestSignal(null, 60_000),
     headers: { Accept: 'text/csv' },
   })
 

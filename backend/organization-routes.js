@@ -210,9 +210,10 @@ export function registerPlatformOrganizationRoutes(app) {
 
   app.post('/platform/organization-requests/:requestId/approve', requireUserAuth, requirePlatformAdmin, async (req, res, next) => {
     const requestId = String(req.params.requestId || '').trim();
-    const client = await pool.connect();
+    let client;
 
     try {
+      client = await pool.connect();
       await client.query('BEGIN');
 
       const { rows: requestRows } = await client.query(
@@ -277,10 +278,10 @@ export function registerPlatformOrganizationRoutes(app) {
         })
       });
     } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client?.query('ROLLBACK').catch(() => {});
       next(error);
     } finally {
-      client.release();
+      client?.release();
     }
   });
 
@@ -432,9 +433,10 @@ export function registerPlatformOrganizationRoutes(app) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Valid owner email is required' } });
     }
 
-    const client = await pool.connect();
+    let client;
 
     try {
+      client = await pool.connect();
       await client.query('BEGIN');
 
       const organizationId = makeOrganizationId();
@@ -469,7 +471,7 @@ export function registerPlatformOrganizationRoutes(app) {
         });
       } catch (error) {
         console.error('[email] owner invitation send failed:', error.message);
-        emailDelivery = { sent: false, error: error.message };
+        emailDelivery = { sent: false, error: 'Email delivery failed' };
       }
 
       res.status(201).json({
@@ -489,10 +491,10 @@ export function registerPlatformOrganizationRoutes(app) {
         }
       });
     } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client?.query('ROLLBACK').catch(() => {});
       next(error);
     } finally {
-      client.release();
+      client?.release();
     }
   });
 
@@ -513,7 +515,7 @@ export function registerPlatformOrganizationRoutes(app) {
       return res.status(400).json({ error: { code: 'CONFIRMATION_REQUIRED', message: 'Send confirm=delete to permanently delete this organization and its data' } });
     }
 
-    const client = await pool.connect();
+    let client;
     let organization = null;
     let devEuis = [];
     let deletedUserIds = [];
@@ -533,6 +535,7 @@ export function registerPlatformOrganizationRoutes(app) {
     };
 
     try {
+      client = await pool.connect();
       await client.query('BEGIN');
 
       const { rows: organizationRows } = await client.query(
@@ -601,10 +604,10 @@ export function registerPlatformOrganizationRoutes(app) {
       await client.query('COMMIT');
       organization = deletedOrganizationRows[0] || organization;
     } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client?.query('ROLLBACK').catch(() => {});
       return next(error);
     } finally {
-      client.release();
+      client?.release();
     }
 
     for (const devEui of devEuis) {
@@ -746,8 +749,9 @@ export function registerPlatformOrganizationRoutes(app) {
       return res.status(409).json({ error: { code: 'SELF_DEACTIVATE', message: 'You cannot deactivate your own account' } });
     }
 
-    const client = await pool.connect();
+    let client;
     try {
+      client = await pool.connect();
       await client.query('BEGIN');
       const { rows: userRows } = await client.query(
         `SELECT id, email, display_name, is_active, is_platform_admin, is_super_admin
@@ -817,10 +821,10 @@ export function registerPlatformOrganizationRoutes(app) {
         }
       });
     } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client?.query('ROLLBACK').catch(() => {});
       next(error);
     } finally {
-      client.release();
+      client?.release();
     }
   });
 
@@ -838,8 +842,9 @@ export function registerPlatformOrganizationRoutes(app) {
       return res.status(409).json({ error: { code: 'SELF_DELETE', message: 'You cannot delete your own account' } });
     }
 
-    const client = await pool.connect();
+    let client;
     try {
+      client = await pool.connect();
       await client.query('BEGIN');
       const { rows: userRows } = await client.query(
         `SELECT id, email, display_name, is_super_admin FROM users WHERE id=$1 FOR UPDATE`,
@@ -896,10 +901,10 @@ export function registerPlatformOrganizationRoutes(app) {
         summary
       });
     } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client?.query('ROLLBACK').catch(() => {});
       next(error);
     } finally {
-      client.release();
+      client?.release();
     }
   });
 
@@ -914,9 +919,10 @@ export function registerPlatformOrganizationRoutes(app) {
       return res.status(409).json({ error: { code: 'ACTIVE_ORGANIZATION', message: 'Switch to another organization before archiving this one' } });
     }
 
-    const client = await pool.connect();
+    let client;
 
     try {
+      client = await pool.connect();
       await client.query('BEGIN');
 
       const { rows } = await client.query(
@@ -949,10 +955,10 @@ export function registerPlatformOrganizationRoutes(app) {
         createdAt: rows[0].created_at
       } });
     } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client?.query('ROLLBACK').catch(() => {});
       next(error);
     } finally {
-      client.release();
+      client?.release();
     }
   });
 

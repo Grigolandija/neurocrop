@@ -3,7 +3,7 @@ import { AuthLayout, BackToSignIn } from '../features/auth/AuthLayout'
 import { neurocropApi } from '../services/api/neurocropApi'
 
 type Invitation = {
-  status: 'loading' | 'pending' | 'revoked' | 'expired' | 'accepted' | 'unavailable' | 'invalid'
+  status: 'loading' | 'pending' | 'revoked' | 'expired' | 'accepted' | 'unavailable' | 'invalid' | 'error'
   email?: string
   role?: string
   organizationName?: string
@@ -18,6 +18,7 @@ const statusCopy: Record<Exclude<Invitation['status'], 'pending'>, { title: stri
   accepted: { title: 'Invitation already accepted', description: 'This link has already been used. Sign in with the account that accepted the invitation.', icon: 'fa-circle-check' },
   unavailable: { title: 'Organization unavailable', description: 'This organization can no longer accept new members.', icon: 'fa-building-circle-xmark' },
   invalid: { title: 'Invalid invitation', description: 'This invitation link is incomplete or not valid.', icon: 'fa-link-slash' },
+  error: { title: 'Invitation could not be checked', description: 'NeuroCrop could not reach the service. Check your connection and try again.', icon: 'fa-cloud-arrow-down' },
 }
 
 export default function AcceptInvitePage() {
@@ -41,7 +42,7 @@ export default function AcceptInvitePage() {
         setInvitation(next?.status ? next : { status: 'invalid' })
       })
       .catch(() => {
-        if (active) setInvitation({ status: 'invalid' })
+        if (active) setInvitation({ status: 'error' })
       })
 
     return () => { active = false }
@@ -83,13 +84,14 @@ export default function AcceptInvitePage() {
     <AuthLayout eyebrow="Workspace invitation" title="Join your farm workspace." description="Use a verified invitation to create your account or connect an existing NeuroCrop account." panelTitleId="acceptInviteTitle" panelTitle={panelTitle} panelDescription={panelDescription}>
       {invitation.status === 'pending' ? <form className="mt-8 space-y-5" onSubmit={acceptInvitation} noValidate autoComplete="on">
         {!invitation.accountExists ? <label className="block"><span className="text-sm font-bold text-ink/76">Your name</span><input name="name" className="login-field mt-2" value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" required placeholder="Full name" /></label> : null}
-        <label className="block"><span className="text-sm font-bold text-ink/76">{invitation.accountExists ? 'Your NeuroCrop password' : 'Create a password'}</span><input name="password" className="login-field mt-2" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={invitation.accountExists ? 'current-password' : 'new-password'} minLength={invitation.accountExists ? undefined : 12} required placeholder={invitation.accountExists ? 'Enter your existing password' : 'At least 12 characters'} /></label>
+        <label className="block"><span className="text-sm font-bold text-ink/76">{invitation.accountExists ? 'Your NeuroCrop password' : 'Create a password'}</span><input name="password" className="login-field mt-2" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={invitation.accountExists ? 'current-password' : 'new-password'} minLength={invitation.accountExists ? undefined : 12} maxLength={1024} required placeholder={invitation.accountExists ? 'Enter your existing password' : 'At least 12 characters'} /></label>
         {error ? <p className="rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-ember" role="alert">{error}</p> : null}
         <button type="submit" className="login-submit" disabled={submitting}>{submitting ? 'Setting up access...' : 'Accept invitation'}</button>
       </form> : <div className="mt-8 rounded-2xl border border-ink/10 bg-white/70 p-5" role={invitation.status === 'loading' ? 'status' : 'alert'}>
         <i className={`fa-solid ${inactiveCopy?.icon || 'fa-circle-info'} text-xl text-pine`} aria-hidden="true" />
         <p className="mt-3 text-sm leading-6 text-ink/64">{inactiveCopy?.description}</p>
         {invitation.organizationName ? <p className="mt-3 text-xs font-semibold text-ink/48">Organization: {invitation.organizationName}</p> : null}
+        {invitation.status === 'error' ? <button type="button" className="mt-4 text-sm font-semibold text-pine underline underline-offset-4" onClick={() => window.location.reload()}>Try again</button> : null}
       </div>}
       <BackToSignIn />
     </AuthLayout>

@@ -5,6 +5,7 @@ import { getSessionCookieOptions } from './config.js';
 
 export const MEMBER_ROLES = ['owner', 'admin', 'grower', 'technician', 'viewer'];
 const SESSION_TTL_DAYS = 30;
+export const MAX_PASSWORD_LENGTH = 1024;
 
 export function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -25,9 +26,11 @@ export function publicUser(row) {
 }
 
 export function verifyUserPassword(password, storedHash) {
+  const value = String(password || '');
+  if (value.length > MAX_PASSWORD_LENGTH) return false;
   const [salt, hash] = String(storedHash || '').split(':');
   if (!salt || !hash) return false;
-  const actual = crypto.scryptSync(String(password || ''), salt, 64).toString('hex');
+  const actual = crypto.scryptSync(value, salt, 64).toString('hex');
   const expectedBuffer = Buffer.from(hash, 'hex');
   const actualBuffer = Buffer.from(actual, 'hex');
   return actualBuffer.length === expectedBuffer.length
@@ -37,6 +40,7 @@ export function verifyUserPassword(password, storedHash) {
 export function hashUserPassword(password) {
   const value = String(password || '');
   if (value.length < 12) throw new Error('Password must be at least 12 characters');
+  if (value.length > MAX_PASSWORD_LENGTH) throw new Error(`Password must be at most ${MAX_PASSWORD_LENGTH} characters`);
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(value, salt, 64).toString('hex');
   return `${salt}:${hash}`;
@@ -55,6 +59,10 @@ export function sessionCookieOptions() {
     ...getSessionCookieOptions(),
     maxAge: SESSION_TTL_DAYS * 24 * 3600 * 1000
   };
+}
+
+export function sessionCookieClearOptions() {
+  return getSessionCookieOptions();
 }
 
 export async function findUserForLogin(email, execute = query) {

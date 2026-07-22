@@ -1,12 +1,15 @@
+import { normalizeTelemetryNumber } from './telemetry-values.js';
+
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function validBand(value) {
+  const numeric = Array.isArray(value) ? value.map(normalizeTelemetryNumber) : [];
   return Array.isArray(value)
     && value.length === 2
-    && value.every((item) => Number.isFinite(Number(item)))
-    && Number(value[0]) < Number(value[1]);
+    && numeric.every((item) => item !== null)
+    && numeric[0] < numeric[1];
 }
 
 export function validateCropProfileMetrics(metrics, { allowEmpty = true } = {}) {
@@ -24,8 +27,9 @@ export function validateCropProfileMetrics(metrics, { allowEmpty = true } = {}) 
         return `${metricId}.${bandName} must contain an increasing numeric minimum and maximum`;
       }
     }
+    const scoreWeight = normalizeTelemetryNumber(metric.scoreWeight);
     if (metric.scoreWeight !== undefined
-      && (!Number.isFinite(Number(metric.scoreWeight)) || Number(metric.scoreWeight) < 0 || Number(metric.scoreWeight) > 3)) {
+      && (scoreWeight === null || scoreWeight < 0 || scoreWeight > 3)) {
       return `${metricId}.scoreWeight must be between 0 and 3`;
     }
     if (metricId === 'lux' && metric.lightingSchedule !== undefined) {
@@ -37,7 +41,8 @@ export function validateCropProfileMetrics(metrics, { allowEmpty = true } = {}) 
           return `lux.lightingSchedule.${field} must use HH:MM format`;
         }
       }
-      if (schedule.darkThresholdLux !== undefined && (!Number.isFinite(Number(schedule.darkThresholdLux)) || Number(schedule.darkThresholdLux) < 0)) {
+      const darkThresholdLux = normalizeTelemetryNumber(schedule.darkThresholdLux);
+      if (schedule.darkThresholdLux !== undefined && (darkThresholdLux === null || darkThresholdLux < 0)) {
         return 'lux.lightingSchedule.darkThresholdLux must be zero or greater';
       }
     }

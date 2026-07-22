@@ -22,6 +22,12 @@ type Preferences = {
   quietEnd: string
   warningAfterMinutes: number
 }
+type StoredSettings = {
+  organization?: { name?: string }
+  preferences?: Partial<Pick<Preferences, 'timezone' | 'locale' | 'temperatureUnit' | 'timeFormat'>>
+  notifications?: Partial<Pick<Preferences, 'emailEnabled' | 'browserEnabled' | 'smsEnabled' | 'criticalOverride' | 'quietStart' | 'quietEnd'>>
+  alerts?: Partial<Pick<Preferences, 'warningAfterMinutes'>>
+}
 
 const settingsStorageKey = 'neurocrop-dashboard-settings-v1'
 const auditStorageKey = 'neurocrop-settings-audit-v1'
@@ -38,25 +44,30 @@ const sectionMeta: Record<SettingsSection, { eyebrow: string; title: string; des
   audit: { eyebrow: 'Local governance', title: 'Settings activity', description: 'A transparent record of settings actions performed in this browser.' },
 }
 
-function readPreferences(): Preferences {
+function readStoredSettings(): StoredSettings {
   try {
-    const value = JSON.parse(localStorage.getItem(settingsStorageKey) || '{}')
-    return {
-      organizationName: value.organization?.name || defaults.organizationName,
-      timezone: value.preferences?.timezone || defaults.timezone,
-      locale: value.preferences?.locale || defaults.locale,
-      temperatureUnit: value.preferences?.temperatureUnit || defaults.temperatureUnit,
-      timeFormat: value.preferences?.timeFormat || defaults.timeFormat,
-      emailEnabled: value.notifications?.emailEnabled ?? defaults.emailEnabled,
-      browserEnabled: value.notifications?.browserEnabled ?? defaults.browserEnabled,
-      smsEnabled: value.notifications?.smsEnabled ?? defaults.smsEnabled,
-      criticalOverride: value.notifications?.criticalOverride ?? defaults.criticalOverride,
-      quietStart: value.notifications?.quietStart || defaults.quietStart,
-      quietEnd: value.notifications?.quietEnd || defaults.quietEnd,
-      warningAfterMinutes: Number(value.alerts?.warningAfterMinutes || defaults.warningAfterMinutes),
-    }
+    const value: unknown = JSON.parse(localStorage.getItem(settingsStorageKey) || '{}')
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as StoredSettings : {}
   } catch {
-    return defaults
+    return {}
+  }
+}
+
+function readPreferences(): Preferences {
+  const value = readStoredSettings()
+  return {
+    organizationName: value.organization?.name || defaults.organizationName,
+    timezone: value.preferences?.timezone || defaults.timezone,
+    locale: value.preferences?.locale || defaults.locale,
+    temperatureUnit: value.preferences?.temperatureUnit || defaults.temperatureUnit,
+    timeFormat: value.preferences?.timeFormat || defaults.timeFormat,
+    emailEnabled: value.notifications?.emailEnabled ?? defaults.emailEnabled,
+    browserEnabled: value.notifications?.browserEnabled ?? defaults.browserEnabled,
+    smsEnabled: value.notifications?.smsEnabled ?? defaults.smsEnabled,
+    criticalOverride: value.notifications?.criticalOverride ?? defaults.criticalOverride,
+    quietStart: value.notifications?.quietStart || defaults.quietStart,
+    quietEnd: value.notifications?.quietEnd || defaults.quietEnd,
+    warningAfterMinutes: Number(value.alerts?.warningAfterMinutes || defaults.warningAfterMinutes),
   }
 }
 
@@ -157,7 +168,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
     const event: AuditEvent = { id: crypto.randomUUID(), time: new Date().toISOString(), category, actor: user?.name || user?.email || 'Current user', action, detail }
     setAuditEvents((current) => {
       const next = [event, ...current].slice(0, 100)
-      localStorage.setItem(auditStorageKey, JSON.stringify(next))
+      try { localStorage.setItem(auditStorageKey, JSON.stringify(next)) } catch { /* Activity logging must not break the primary action. */ }
       return next
     })
   }
@@ -170,7 +181,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
         await neurocropApi.updateCurrentOrganization({ name: draft.organizationName })
         recordAudit('configuration', 'Changed workspace name', `${saved.organizationName} → ${draft.organizationName}`)
       }
-      const existing = JSON.parse(localStorage.getItem(settingsStorageKey) || '{}')
+      const existing = readStoredSettings()
       localStorage.setItem(settingsStorageKey, JSON.stringify({
         ...existing,
         organization: { ...(existing.organization || {}), name: draft.organizationName },
@@ -290,7 +301,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
     anchor.href = url
     anchor.download = 'neurocrop-settings-activity.csv'
     anchor.click()
-    URL.revokeObjectURL(url)
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   const filteredAudit = auditEvents.filter((event) => {
@@ -322,7 +333,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
           ['emailEnabled', 'fa-envelope', 'Email', 'Operational alerts and daily summaries'], ['browserEnabled', 'fa-window-maximize', 'Browser notifications', 'Immediate notice while NeuroCrop is open'], ['smsEnabled', 'fa-message', 'SMS', 'Reserved for critical escalation'],
         ] as Array<[keyof Preferences, string, string, string]>).map(([key, icon, label, note]) => <label key={key}><i className={`fa-solid ${icon}`} /><span><strong>{label}</strong><small>{note}</small></span><input type="checkbox" checked={Boolean(draft[key])} onChange={() => setDraft({ ...draft, [key]: !draft[key] })} /><i className="nc-settings-switch" /></label>)}</div></section><section className="nc-settings-card"><header><div><h3>Escalation behavior</h3><p>Controls notification timing, not crop-profile target limits.</p></div></header><div className="nc-settings-fields three"><label><span>Warning persistence</span><select value={draft.warningAfterMinutes} onChange={(event) => setDraft({ ...draft, warningAfterMinutes: Number(event.target.value) })}><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label><label><span>Quiet hours start</span><input type="time" value={draft.quietStart} onChange={(event) => setDraft({ ...draft, quietStart: event.target.value })} /></label><label><span>Quiet hours end</span><input type="time" value={draft.quietEnd} onChange={(event) => setDraft({ ...draft, quietEnd: event.target.value })} /></label></div><label className="nc-settings-inline-toggle"><span><strong>Critical alerts override quiet hours</strong><small>Critical conditions should be delivered immediately.</small></span><input type="checkbox" checked={draft.criticalOverride} onChange={() => setDraft({ ...draft, criticalOverride: !draft.criticalOverride })} /><i className="nc-settings-switch" /></label></section></div> : null}
 
-        {section === 'security' ? <div className="nc-settings-flow"><div className="nc-settings-security-grid"><form className="nc-settings-card" onSubmit={changePassword}><header><div><h3>Change password</h3><p>At least 12 characters. Other sessions will be revoked.</p></div></header><div className="nc-settings-fields single"><label><span>Current password</span><input type="password" autoComplete="current-password" required value={passwords.current} onChange={(event) => setPasswords({ ...passwords, current: event.target.value })} /></label><label><span>New password</span><input type="password" autoComplete="new-password" required value={passwords.next} onChange={(event) => setPasswords({ ...passwords, next: event.target.value })} /></label><label><span>Confirm new password</span><input type="password" autoComplete="new-password" required value={passwords.confirm} onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })} /></label></div><button className="nc-settings-button primary" disabled={busyKey === 'password'}>{busyKey === 'password' ? 'Updating…' : 'Update password'}</button></form><section className="nc-settings-card"><header><div><h3>Active sessions</h3><p>Revoke any session you no longer recognize.</p></div></header>{sessionsAvailable ? <div className="nc-settings-sessions">{sessions.map((session) => <article key={session.id}><i className="fa-solid fa-display" /><div><strong>{session.current ? 'Current browser session' : 'Authenticated session'}</strong><small>Last active {formatDate(session.lastSeenAt || session.createdAt)}</small></div>{session.current ? <Status tone="success">Current</Status> : <button disabled={busyKey === `session-${session.id}`} onClick={() => void revokeSession(session)}>Sign out</button>}</article>)}</div> : <div className="nc-settings-empty"><i className="fa-solid fa-server" /><strong>Session management is being deployed</strong><span>Password changes still work. The signed-in device list will appear after the backend update.</span></div>}</section></div></div> : null}
+        {section === 'security' ? <div className="nc-settings-flow"><div className="nc-settings-security-grid"><form className="nc-settings-card" onSubmit={changePassword}><header><div><h3>Change password</h3><p>At least 12 characters. Other sessions will be revoked.</p></div></header><div className="nc-settings-fields single"><label><span>Current password</span><input type="password" autoComplete="current-password" maxLength={1024} required value={passwords.current} onChange={(event) => setPasswords({ ...passwords, current: event.target.value })} /></label><label><span>New password</span><input type="password" autoComplete="new-password" minLength={12} maxLength={1024} required value={passwords.next} onChange={(event) => setPasswords({ ...passwords, next: event.target.value })} /></label><label><span>Confirm new password</span><input type="password" autoComplete="new-password" minLength={12} maxLength={1024} required value={passwords.confirm} onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })} /></label></div><button className="nc-settings-button primary" disabled={busyKey === 'password'}>{busyKey === 'password' ? 'Updating…' : 'Update password'}</button></form><section className="nc-settings-card"><header><div><h3>Active sessions</h3><p>Revoke any session you no longer recognize.</p></div></header>{sessionsAvailable ? <div className="nc-settings-sessions">{sessions.map((session) => <article key={session.id}><i className="fa-solid fa-display" /><div><strong>{session.current ? 'Current browser session' : 'Authenticated session'}</strong><small>Last active {formatDate(session.lastSeenAt || session.createdAt)}</small></div>{session.current ? <Status tone="success">Current</Status> : <button disabled={busyKey === `session-${session.id}`} onClick={() => void revokeSession(session)}>Sign out</button>}</article>)}</div> : <div className="nc-settings-empty"><i className="fa-solid fa-server" /><strong>Session management is being deployed</strong><span>Password changes still work. The signed-in device list will appear after the backend update.</span></div>}</section></div></div> : null}
 
         {section === 'audit' ? <div className="nc-settings-flow"><div className="nc-settings-audit-toolbar"><div>{(['all', 'access', 'configuration', 'security'] as const).map((filter) => <button className={auditFilter === filter ? 'active' : ''} key={filter} onClick={() => setAuditFilter(filter)}>{filter === 'all' ? 'All activity' : filter}</button>)}</div><label><i className="fa-solid fa-magnifying-glass" /><input value={auditQuery} onChange={(event) => setAuditQuery(event.target.value)} placeholder="Search actor or change" /></label></div><section className="nc-settings-audit">{filteredAudit.map((event) => <article key={event.id}><time>{formatDate(event.time)}</time><span><i className={`fa-solid ${event.category === 'access' ? 'fa-user-shield' : event.category === 'security' ? 'fa-lock' : 'fa-sliders'}`} /></span><div><strong>{event.action}</strong><p>{event.detail}</p></div><small>{event.actor}</small></article>)}{filteredAudit.length === 0 ? <div className="nc-settings-empty"><i className="fa-solid fa-clock-rotate-left" /><strong>No matching settings activity</strong><span>Actions performed from this browser will appear here.</span></div> : null}</section><p className="nc-settings-helper">This is a browser-local settings activity record, not the future organization-wide backend audit log.</p></div> : null}
       </div>
