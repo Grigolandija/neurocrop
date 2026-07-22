@@ -27,6 +27,9 @@ test('production uptime confirms failures and cannot let notification errors mas
   assert.match(workflow, /push:[\s\S]*?paths:[\s\S]*?- \.github\/workflows\/uptime\.yml/);
   assert.match(workflow, /--retry 2/);
   assert.match(workflow, /--retry-all-errors/);
+  assert.match(workflow, /cron: "\*\/15 \* \* \* \*"/);
+  assert.match(workflow, /--header 'Accept: text\/html,application\/xhtml\+xml'/);
+  assert.match(workflow, /--user-agent 'Mozilla\/5\.0 \(compatible; NeuroCrop-Uptime\/1\.0;/);
   assert.match(workflow, /jq -e '\.status == "ok"'/);
   assert.match(workflow, /https:\/\/neurocrop\.lt\//);
   assert.match(workflow, /id: frontend/);

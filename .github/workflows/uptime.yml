@@ -2,7 +2,7 @@ name: Production uptime
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
   push:
     branches:
@@ -30,6 +30,9 @@ jobs:
             --fail \
             --show-error \
             --silent \
+            --location \
+            --header 'Accept: application/json' \
+            --user-agent 'NeuroCrop-Uptime/1.0' \
             --connect-timeout 5 \
             --max-time 15 \
             --retry 2 \
@@ -46,6 +49,9 @@ jobs:
             --fail \
             --show-error \
             --silent \
+            --location \
+            --header 'Accept: text/html,application/xhtml+xml' \
+            --user-agent 'Mozilla/5.0 (compatible; NeuroCrop-Uptime/1.0; +https://neurocrop.lt)' \
             --connect-timeout 5 \
             --max-time 15 \
             --retry 2 \
