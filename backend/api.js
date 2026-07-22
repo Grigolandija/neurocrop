@@ -184,6 +184,47 @@ app.post('/auth/change-password', requireAuth, async (req, res, next) => {
   }
 });
 
+app.get('/auth/sessions', requireAuth, async (req, res, next) => {
+  try {
+    const currentTokenHash = hashSessionToken(req.cookies?.neurocrop_session || '');
+    const { rows } = await query(
+      `SELECT id, organization_id, created_at, last_seen_at, expires_at, token_hash=$2 AS is_current
+       FROM auth_sessions
+       WHERE user_id=$1 AND revoked_at IS NULL AND expires_at > now()
+       ORDER BY is_current DESC, last_seen_at DESC NULLS LAST, created_at DESC`,
+      [req.user.id, currentTokenHash]
+    );
+    res.json({ sessions: rows.map((row) => ({
+      id: row.id,
+      organizationId: row.organization_id,
+      createdAt: row.created_at,
+      lastSeenAt: row.last_seen_at,
+      expiresAt: row.expires_at,
+      current: row.is_current
+    })) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/auth/sessions/:sessionId', requireAuth, async (req, res, next) => {
+  try {
+    const currentTokenHash = hashSessionToken(req.cookies?.neurocrop_session || '');
+    const { rows } = await query(
+      `UPDATE auth_sessions SET revoked_at=now()
+       WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL AND token_hash<>$3
+       RETURNING id`,
+      [req.params.sessionId, req.user.id, currentTokenHash]
+    );
+    if (!rows[0]) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Revocable session not found' } });
+    }
+    res.sendStatus(204);
+  } catch (error) {
+    next(error);
+  }
+});
+
 async function latestForNode(devEui) {
   const { rows } = await query(`SELECT * FROM measurements WHERE dev_eui=$1 ORDER BY time DESC LIMIT 1`, [devEui]);
   return rows[0] || null;

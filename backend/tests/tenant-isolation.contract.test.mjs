@@ -73,6 +73,17 @@ test('legacy global tenant constants cannot return', () => {
   assert.equal(apiSource.includes('DEV_USER'), false);
 });
 
+test('workspace settings mutations are role protected and organization scoped', () => {
+  const memberRoleRoute = routeBlock(teamSource, "app.patch('/team/:userId/role'");
+  assert.match(memberRoleRoute, /requireRole\('owner', 'admin'\)/);
+  assert.match(memberRoleRoute, /organizationId\(req\)/);
+  assert.match(memberRoleRoute, /organization_id=\$\d/);
+
+  const organizationRoute = routeBlock(teamSource, "app.patch('/organization'");
+  assert.match(organizationRoute, /requireRole\('owner', 'admin'\)/);
+  assert.match(organizationRoute, /organizationId\(req\)/);
+});
+
 test('node deletion supports explicit history retention and permanent purge', () => {
   const block = routeBlock(apiSource, "app.delete('/nodes/:devEui'");
   assert.match(block, /historyPolicy/);

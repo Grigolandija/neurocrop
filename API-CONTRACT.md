@@ -18,10 +18,14 @@ POST /auth/login
 POST /auth/logout
 GET  /auth/me
 POST /auth/change-password
+GET  /auth/sessions
+DELETE /auth/sessions/:sessionId
 POST /auth/register
 GET  /auth/organizations
 POST /auth/switch-organization
 POST /auth/accept-invite
+PATCH /organization
+PATCH /team/:userId/role
 ```
 
 `POST /auth/change-password` priima dabartinį ir naują (bent 12 simbolių)
@@ -34,6 +38,14 @@ visos kitos to vartotojo sesijos atšaukiamos:
   "newPassword": "new-secure-password"
 }
 ```
+
+`GET /auth/sessions` grąžina aktyvias vartotojo sesijas ir pažymi dabartinę
+sesiją. `DELETE /auth/sessions/:sessionId` gali atšaukti tik to paties vartotojo
+kitą sesiją; dabartinė sesija šiuo endpointu neatšaukiama.
+
+`PATCH /organization` leidžia organizacijos `owner` arba `admin` pakeisti
+aktyvios organizacijos pavadinimą. `PATCH /team/:userId/role` visada apribotas
+aktyvia organizacija; savos rolės ir `owner` rolės keisti negalima.
 
 ```json
 {
@@ -594,6 +606,7 @@ The authenticated user payload from `POST /auth/login` and `GET /auth/me` includ
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/platform/organizations` | Platform Admin | List organizations with member, workspace, node, and active node-fault counts. |
+| `GET` | `/platform/integrations` | Platform Admin | Read sanitized infrastructure configuration status without returning secrets. |
 | `GET` | `/platform/organizations/:organizationId/nodes` | Platform Admin | Read the selected organization's node fleet, transport state, radio telemetry, battery, firmware, and device fault diagnostics. |
 | `GET` | `/platform/users` | Platform Admin | List users and account state. |
 | `POST` | `/platform/admins` | Super Admin | Grant Platform Admin using `{ "userId": "..." }`. |

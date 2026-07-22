@@ -77,6 +77,60 @@ async function seedDefaultCropProfile(client, organizationId) {
 }
 
 export function registerPlatformOrganizationRoutes(app) {
+  app.get('/platform/integrations', requireUserAuth, requirePlatformAdmin, async (req, res, next) => {
+    try {
+      await query('SELECT 1');
+      const chirpstackUrl = String(process.env.CHIRPSTACK_API_URL || '').trim();
+      const chirpstackTokenConfigured = Boolean(String(process.env.CHIRPSTACK_API_TOKEN || '').trim());
+      const chirpstackApplicationConfigured = Boolean(String(process.env.CHIRPSTACK_APPLICATION_ID || '').trim());
+      let chirpstackEndpoint = null;
+      try {
+        chirpstackEndpoint = chirpstackUrl ? new URL(chirpstackUrl).host : null;
+      } catch {
+        chirpstackEndpoint = null;
+      }
+      const emailConfigured = Boolean(String(process.env.RESEND_API_KEY || '').trim());
+      res.json({
+        integrations: [
+          {
+            id: 'chirpstack',
+            name: 'ChirpStack',
+            detail: 'LoRaWAN devices and uplink ingestion',
+            configured: Boolean(chirpstackUrl && chirpstackTokenConfigured && chirpstackApplicationConfigured),
+            state: chirpstackUrl && chirpstackTokenConfigured && chirpstackApplicationConfigured ? 'connected' : 'configuration_required',
+            endpoint: chirpstackEndpoint
+          },
+          {
+            id: 'database',
+            name: 'PostgreSQL',
+            detail: 'Tenant data, measurements, and configuration',
+            configured: true,
+            state: 'connected',
+            endpoint: null
+          },
+          {
+            id: 'email',
+            name: 'Email delivery',
+            detail: 'Workspace invitations and operational email',
+            configured: emailConfigured,
+            state: emailConfigured ? 'connected' : 'configuration_required',
+            endpoint: emailConfigured ? 'Resend' : null
+          },
+          {
+            id: 'api',
+            name: 'NeuroCrop API',
+            detail: 'Authenticated application and export API',
+            configured: true,
+            state: 'connected',
+            endpoint: null
+          }
+        ]
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get('/platform/users', requireUserAuth, requirePlatformAdmin, async (req, res, next) => {
     try {
       const { rows } = await query(

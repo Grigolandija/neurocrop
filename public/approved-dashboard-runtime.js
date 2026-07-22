@@ -1873,6 +1873,7 @@
       alerts: { page: "alerts", route: "/alerts" },
       settings: { page: "settings", route: "/settings" },
       admin: { page: "admin", route: "/admin" },
+      "admin/integrations": { page: "admin", route: "/admin/integrations" },
       "crop-profiles": { page: "settings", route: "/crop-profiles", sidebarAction: "crop-profiles" }
     };
     let locationFormState = { mode: "create", siteId: "", name: "" };
@@ -9199,7 +9200,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         <div class="admin-page-shell">
           <header class="admin-page-head">
             <div><h1 id="adminConsoleTitle">Admin</h1><p>Organizations, users and access management.</p></div>
-            <div class="admin-page-counts"><span>${platformOrganizationState.organizationRequests.length} pending</span><span>${platformOrganizationState.organizations.length} organizations</span><span>${platformOrganizationState.users.length} users</span></div>
+            <div class="admin-page-counts"><span>${platformOrganizationState.organizationRequests.length} pending</span><span>${platformOrganizationState.organizations.length} organizations</span><span>${platformOrganizationState.users.length} users</span><button type="button" class="settings-secondary-button" data-admin-integrations-open><i class="fa-solid fa-plug" aria-hidden="true"></i>Integrations</button></div>
           </header>
           ${renderManagementNotice("settings")}
           ${platformPanel}
@@ -15706,6 +15707,13 @@ function buildTrendMetricOptions(options) {
     });
 
     elements.settingsManagementSection.addEventListener("click", async (event) => {
+      const adminIntegrationsButton = event.target.closest("[data-admin-integrations-open]");
+      if (adminIntegrationsButton) {
+        if (!getLoginSession()?.isPlatformAdmin) return;
+        syncTopLevelRoute("/admin/integrations");
+        return;
+      }
+
       const profileEditorSectionButton = event.target.closest("[data-profile-editor-section]");
       if (profileEditorSectionButton) {
         activeCropProfileEditorSection = profileEditorSectionButton.dataset.profileEditorSection || "climate";

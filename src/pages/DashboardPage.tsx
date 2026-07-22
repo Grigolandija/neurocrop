@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
 import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
+import SettingsWorkspace from '../features/settings/SettingsWorkspace'
+import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
 import { installNeuroCropApi } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
 
@@ -11,6 +13,7 @@ declare const __BUILD_VERSION__: string
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts',
   '/history', '/settings', '/crop-profiles', '/admin',
+  '/admin/integrations',
 ])
 
 function isSupportedRoute(pathname: string) {
@@ -23,6 +26,8 @@ function ApprovedDashboard() {
   const hostRef = useRef<HTMLDivElement>(null)
   const runtimeReady = useRef(false)
   const [readingsMount, setReadingsMount] = useState<HTMLElement | null>(null)
+  const [settingsMount, setSettingsMount] = useState<HTMLElement | null>(null)
+  const [adminIntegrationsMount, setAdminIntegrationsMount] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     installNeuroCropApi()
@@ -31,6 +36,8 @@ function ApprovedDashboard() {
       hostRef.current.innerHTML = approvedMarkup
     }
     setReadingsMount(hostRef.current?.querySelector<HTMLElement>('#readingsWorkspaceMount') || null)
+    setSettingsMount(hostRef.current?.querySelector<HTMLElement>('#settingsWorkspaceMount') || null)
+    setAdminIntegrationsMount(hostRef.current?.querySelector<HTMLElement>('#adminIntegrationsMount') || null)
 
     document.body.classList.add('designer-app')
     document.body.dataset.dashboardState = 'optimal'
@@ -83,6 +90,8 @@ function ApprovedDashboard() {
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
+      setSettingsMount(null)
+      setAdminIntegrationsMount(null)
     }
   }, [navigate])
 
@@ -95,6 +104,12 @@ function ApprovedDashboard() {
     <div ref={hostRef} />
     {location.pathname === '/readings' && readingsMount
       ? createPortal(<ReadingsWorkspace />, readingsMount)
+      : null}
+    {location.pathname === '/settings' && settingsMount
+      ? createPortal(<SettingsWorkspace />, settingsMount)
+      : null}
+    {location.pathname === '/admin/integrations' && adminIntegrationsMount
+      ? createPortal(<AdminIntegrationsWorkspace />, adminIntegrationsMount)
       : null}
   </>
 }

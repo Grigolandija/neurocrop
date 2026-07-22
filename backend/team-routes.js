@@ -209,6 +209,57 @@ export function registerTeamRoutes(app) {
     }
   });
 
+  app.patch('/team/:userId/role', requireUserAuth, requireRole('owner', 'admin'), async (req, res, next) => {
+    try {
+      const role = String(req.body?.role || '').trim().toLowerCase();
+      const assignableRoles = new Set(['admin', 'grower', 'technician', 'viewer']);
+      if (!assignableRoles.has(role)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid member role' } });
+      }
+      if (role === 'admin' && req.user.role !== 'owner') {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Only an owner can assign administrators' } });
+      }
+      if (req.params.userId === req.user.id) {
+        return res.status(409).json({ error: { code: 'SELF_ROLE_CHANGE', message: 'You cannot change your own role' } });
+      }
+
+      const { rows: currentRows } = await query(
+        `SELECT role FROM organization_memberships WHERE organization_id=$1 AND user_id=$2 LIMIT 1`,
+        [organizationId(req), req.params.userId]
+      );
+      if (!currentRows[0]) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workspace member not found' } });
+      }
+      if (currentRows[0].role === 'owner') {
+        return res.status(409).json({ error: { code: 'OWNER_PROTECTED', message: 'The workspace owner role cannot be changed here' } });
+      }
+
+      const { rows } = await query(
+        `UPDATE organization_memberships SET role=$1 WHERE organization_id=$2 AND user_id=$3 RETURNING user_id, role`,
+        [role, organizationId(req), req.params.userId]
+      );
+      res.json({ member: { id: rows[0].user_id, role: rows[0].role } });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch('/organization', requireUserAuth, requireRole('owner', 'admin'), async (req, res, next) => {
+    try {
+      const name = String(req.body?.name || '').trim().replace(/\s+/g, ' ');
+      if (name.length < 2 || name.length > 120) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Organization name must contain 2 to 120 characters' } });
+      }
+      const { rows } = await query(
+        `UPDATE organizations SET name=$1 WHERE id=$2 RETURNING id, name`,
+        [name, organizationId(req)]
+      );
+      res.json({ organization: rows[0] });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get('/invitations', requireUserAuth, requireRole('owner', 'admin'), async (req, res, next) => {
     try {
       const { rows } = await query(
