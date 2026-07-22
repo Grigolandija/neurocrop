@@ -1975,7 +1975,7 @@
     let locationFormState = { mode: "create", siteId: "", name: "" };
     let blockFormState = { mode: "create", siteId: activeSiteId, zoneId: "", name: "", profile: activeProfileKey, sensorCount: "4" };
     let nodeFormState = { siteId: activeSiteId, zoneId: activeZoneId, devEui: "" };
-    let settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: activeProfileKey, mode: "template" };
+    let settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: activeProfileKey, mode: "template", libraryTemplateKey: "" };
     let managementModalState = null;
     const settingsStorageKey = "neurocrop-dashboard-settings-v1";
     const defaultSettingsState = {
@@ -8858,12 +8858,13 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const profileUsageCounts = getProfileUsageCounts();
       const activeAlertCount = globalSnapshots.filter((snapshot) => snapshot.overall.state !== "optimal").length;
 
-      if (!isVisibleSettingsCropProfile(settingsProfileFormState.sourceProfile)) {
+      const selectedLibraryTemplate = cropProfileTemplateLibrary.find((template) => template.key === settingsProfileFormState.libraryTemplateKey) || null;
+      if (!selectedLibraryTemplate && !isVisibleSettingsCropProfile(settingsProfileFormState.sourceProfile)) {
         settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
       }
-      const sourceProfileOptions = profileEntries.map(([profileKey, profile]) => `
+      const sourceProfileOptions = `${selectedLibraryTemplate ? `<option value="${escapeAttribute(selectedLibraryTemplate.sourceProfile)}" selected>Library · ${escapeHtml(selectedLibraryTemplate.name)}</option>` : ""}${profileEntries.map(([profileKey, profile]) => `
         <option value="${escapeAttribute(profileKey)}" ${settingsProfileFormState.sourceProfile === profileKey ? "selected" : ""}>${escapeHtml(profile.name)}</option>
-      `).join("");
+      `).join("")}`;
       const cropProfileLibraryCrops = [...new Set(cropProfileTemplateLibrary.map((template) => template.crop))];
       const visibleCropProfileTemplates = cropProfileTemplateLibrary.filter((template) => activeCropProfileLibraryCrop === "all" || template.crop === activeCropProfileLibraryCrop);
       const settingsPanels = [
@@ -9415,22 +9416,28 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
 
       if (target instanceof HTMLSelectElement && target.name === "settingsProfileSource") {
         settingsProfileFormState.sourceProfile = target.value;
+        settingsProfileFormState.libraryTemplateKey = "";
       }
     }
 
     function submitSettingsProfileForm() {
       const nextName = settingsProfileFormState.name.trim();
       const isBlankProgram = settingsProfileFormState.mode === "blank";
+      const libraryTemplate = cropProfileTemplateLibrary.find((template) => template.key === settingsProfileFormState.libraryTemplateKey) || null;
       const sourceProfileKey = cropProfiles[settingsProfileFormState.sourceProfile] && isVisibleSettingsCropProfile(settingsProfileFormState.sourceProfile)
         ? settingsProfileFormState.sourceProfile
         : activeSettingsProfileKey;
-      const sourceProfile = getCompleteCropProfile(cropProfiles[sourceProfileKey] || getDefaultCropProfileTemplate());
+      const sourceProfile = libraryTemplate
+        ? getCropProfileLibraryTemplateProfile(libraryTemplate)
+        : getCompleteCropProfile(cropProfiles[sourceProfileKey] || getDefaultCropProfileTemplate());
       const nextProfileId = createUniqueId(nextName, new Set(Object.keys(cropProfiles)), "crop-profile");
       const nextHeroName = settingsProfileFormState.heroName.trim() || nextName.split(",")[0].trim() || nextName;
       const nextStage = settingsProfileFormState.stage.trim();
       const nextHint = isBlankProgram
         ? "Manual program. Review every target before assigning it to a Section."
-        : `Workspace copy of ${cropProfiles[sourceProfileKey]?.name || sourceProfile.name || "the selected profile"}.`;
+        : libraryTemplate
+          ? `${sourceProfile.hint} Imported from ${libraryTemplate.name}.`
+          : `Workspace copy of ${cropProfiles[sourceProfileKey]?.name || sourceProfile.name || "the selected profile"}.`;
 
       if (!nextName) {
         setManagementNotice("settings", "Crop profile name is required before saving.", "warning");
@@ -9455,7 +9462,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             isCropProfileEditorOpen = true;
             isCropProfileCreateOpen = false;
             activeCropProfileEditorSection = "climate";
-            settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: activeSettingsProfileKey, mode: "template" };
+            settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: activeSettingsProfileKey, mode: "template", libraryTemplateKey: "" };
             setManagementNotice(
               "settings",
               isBlankProgram
@@ -9485,49 +9492,13 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       isCropProfileEditorOpen = true;
       isCropProfileCreateOpen = false;
       activeCropProfileEditorSection = "climate";
-      settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: nextProfileKey, mode: "template" };
+      settingsProfileFormState = { name: "", heroName: "", stage: "", sourceProfile: nextProfileKey, mode: "template", libraryTemplateKey: "" };
       setManagementNotice(
         "settings",
         isBlankProgram
           ? `${nextName} created as a manual program. Review its targets before assigning it to a Section.`
           : `${nextName} created. It is now available in the Sections crop profile dropdown.`
       );
-      renderDashboard();
-    }
-
-    async function createCropProfileFromLibraryTemplate(templateKey) {
-      const template = cropProfileTemplateLibrary.find((item) => item.key === templateKey);
-      if (!template) return;
-      const profile = getCropProfileLibraryTemplateProfile(template);
-      const nextProfileId = createUniqueId(`${template.key}-profile`, new Set(Object.keys(cropProfiles)), "crop-profile");
-
-      try {
-        if (isApiDataMode() && window.NeuroCropApi?.createCropProfile) {
-          const response = await window.NeuroCropApi.createCropProfile({
-            id: nextProfileId,
-            name: profile.name,
-            heroName: profile.heroName,
-            stage: profile.stage,
-            hint: profile.hint,
-            requiresReview: true,
-            metrics: getCompleteCropProfileMetrics(profile.metrics || {})
-          });
-          await hydrateCropProfilesFromApi();
-          activeSettingsProfileKey = normalizeCropProfileKey(response?.profile?.id || nextProfileId);
-        } else {
-          cropProfiles[nextProfileId] = profile;
-          persistCustomCropProfiles();
-          persistCropProfileOverrides();
-          activeSettingsProfileKey = nextProfileId;
-        }
-        isCropProfileLibraryOpen = false;
-        isCropProfileEditorOpen = true;
-        activeCropProfileEditorSection = "climate";
-        settingsProfileFormState.sourceProfile = activeSettingsProfileKey;
-        setManagementNotice("settings", `${profile.name} imported. Review and save the targets before assigning sections.`);
-      } catch (error) {
-        setManagementNotice("settings", error instanceof Error ? error.message : "The library profile could not be imported.", "warning");
-      }
       renderDashboard();
     }
 
@@ -9571,6 +9542,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         isCropProfileEditorOpen = false;
         isCropProfileCreateOpen = false;
         settingsProfileFormState.sourceProfile = nextProfileKey;
+        settingsProfileFormState.libraryTemplateKey = "";
         setManagementNotice("settings", `${profile.name} deleted.${reassignedSections ? ` ${reassignedSections} section${reassignedSections === 1 ? "" : "s"} moved to the replacement profile.` : ""}`);
       } catch (error) {
         setManagementNotice("settings", error instanceof Error ? error.message : "Crop profile could not be deleted.", "warning");
@@ -15973,6 +15945,7 @@ function buildTrendMetricOptions(options) {
       const createModeButton = event.target.closest("[data-settings-create-mode]");
       if (createModeButton) {
         settingsProfileFormState.mode = createModeButton.dataset.settingsCreateMode === "blank" ? "blank" : "template";
+        if (settingsProfileFormState.mode === "blank") settingsProfileFormState.libraryTemplateKey = "";
         renderDashboard();
         return;
       }
@@ -15986,7 +15959,8 @@ function buildTrendMetricOptions(options) {
           heroName: template.crop,
           stage: template.stage,
           sourceProfile: template.sourceProfile || activeSettingsProfileKey,
-          mode: template.status === "available" ? "template" : "blank"
+          mode: template.status === "available" ? "template" : "blank",
+          libraryTemplateKey: template.status === "available" ? template.key : ""
         };
         clearManagementNotice("settings");
         renderDashboard();
@@ -16018,7 +15992,21 @@ function buildTrendMetricOptions(options) {
 
       const useProfileLibraryButton = event.target.closest("[data-settings-profile-library-use]");
       if (useProfileLibraryButton) {
-        await createCropProfileFromLibraryTemplate(useProfileLibraryButton.dataset.settingsProfileLibraryUse);
+        const template = cropProfileTemplateLibrary.find((item) => item.key === useProfileLibraryButton.dataset.settingsProfileLibraryUse);
+        if (!template) return;
+        settingsProfileFormState = {
+          name: template.name,
+          heroName: template.crop,
+          stage: template.stage,
+          sourceProfile: template.sourceProfile,
+          mode: "template",
+          libraryTemplateKey: template.key
+        };
+        isCropProfileLibraryOpen = false;
+        isCropProfileCreateOpen = true;
+        clearManagementNotice("settings");
+        renderDashboard();
+        elements.settingsManagementSection.querySelector('input[name="settingsProfileName"]')?.select();
         return;
       }
 
@@ -16257,7 +16245,8 @@ function buildTrendMetricOptions(options) {
           heroName: sourceProfile.heroName,
           stage: sourceProfile.stage || "",
           sourceProfile: sourceProfileKey,
-          mode: "template"
+          mode: "template",
+          libraryTemplateKey: ""
         };
         isCropProfileEditorOpen = false;
         isCropProfileCreateOpen = true;
@@ -16279,6 +16268,7 @@ function buildTrendMetricOptions(options) {
 
       const createProfileButton = event.target.closest("[data-settings-create-profile-open]");
       if (createProfileButton) {
+        settingsProfileFormState.libraryTemplateKey = "";
         isCropProfileCreateOpen = true;
         isCropProfileLibraryOpen = false;
         renderDashboard();
@@ -16289,7 +16279,7 @@ function buildTrendMetricOptions(options) {
       const closeCreateProfileButton = event.target.closest("[data-settings-create-profile-close]");
       if (closeCreateProfileButton) {
         isCropProfileCreateOpen = false;
-        settingsProfileFormState = { ...settingsProfileFormState, name: "", heroName: "", stage: "" };
+        settingsProfileFormState = { ...settingsProfileFormState, name: "", heroName: "", stage: "", libraryTemplateKey: "" };
         renderDashboard();
         return;
       }
