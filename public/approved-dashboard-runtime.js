@@ -8893,7 +8893,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
                 <span class="profile-list-identity"><strong>${escapeHtml(profile.name)}</strong><small>${escapeHtml(profile.heroName || "Crop")} · ${escapeHtml(profile.stage || "No growth stage")}</small></span>
                 <span class="profile-list-assignment">${usageCount} section${usageCount === 1 ? "" : "s"}</span>
                 <span class="profile-list-status" data-tone="${usageCount > 0 ? "active" : "draft"}">${usageCount > 0 ? "Active" : "Draft"}</span>
-                <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                <span class="profile-list-edit">Edit <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
               </button>`;
             }).join("")}
           </section>
