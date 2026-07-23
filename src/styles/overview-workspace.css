@@ -17,6 +17,39 @@ body[data-primary-page="overview"] .dashboard-main-inner {
   padding: 0 !important;
 }
 
+@media (min-width: 1181px) {
+  html:has(body[data-primary-page="overview"]),
+  body[data-primary-page="overview"] {
+    height: 100%;
+    overflow: hidden !important;
+    overscroll-behavior: none;
+  }
+
+  body[data-primary-page="overview"] .dashboard-shell,
+  body[data-primary-page="overview"] #dashboardMain {
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body[data-primary-page="overview"] .dashboard-main-inner,
+  body[data-primary-page="overview"] #overviewWorkspaceMount,
+  body[data-primary-page="overview"] .nc-overview {
+    height: 100%;
+    min-height: 0;
+  }
+
+  body[data-primary-page="overview"] .nc-overview-stage {
+    height: calc(100vh - 56px);
+    min-height: 0;
+  }
+
+  body[data-primary-page="overview"] .nc-overview-main {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
 body[data-primary-page="overview"] .dashboard-shell {
   padding-top: 56px;
 }
@@ -451,7 +484,7 @@ body[data-primary-page="overview"] .workspace-health small {
   grid-template-columns: 52px minmax(170px, 1fr) minmax(220px, .95fr) 16px;
   align-items: center;
   gap: 18px;
-  min-height: 102px;
+  min-height: clamp(82px, 10vh, 102px);
   padding: 0 2px 0 0;
   border: 0;
   border-bottom: 1px solid var(--ov-line);
