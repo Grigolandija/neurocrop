@@ -183,10 +183,10 @@ body[data-primary-page="overview"] .workspace-health small {
   z-index: 2;
   display: grid;
   grid-template-columns: minmax(280px, .72fr) minmax(460px, 1.28fr);
-  align-items: center;
+  align-items: start;
   gap: clamp(30px, 4vw, 76px);
   min-height: calc(100vh - 56px);
-  padding: clamp(52px, 5.2vw, 88px) clamp(38px, 4.8vw, 92px) 112px;
+  padding: clamp(88px, 13vh, 148px) clamp(38px, 4.8vw, 92px) 112px;
 }
 
 .nc-overview-copy {
@@ -282,6 +282,9 @@ body[data-primary-page="overview"] .workspace-health small {
 }
 
 .nc-overview-copy h1 {
+  display: flex;
+  min-height: 2.16em;
+  align-items: flex-end;
   max-width: 600px;
   margin: 0;
   color: #15231c;
@@ -293,6 +296,7 @@ body[data-primary-page="overview"] .workspace-health small {
 }
 
 .nc-overview-copy > p {
+  min-height: 3.3em;
   max-width: 500px;
   margin: 34px 0 0;
   color: #5d6c64;
@@ -908,10 +912,12 @@ body[data-primary-page="overview"] .workspace-health small {
   }
 
   .nc-overview-copy h1 {
+    min-height: 0;
     font-size: 42px;
   }
 
   .nc-overview-copy > p {
+    min-height: 0;
     margin-top: 24px;
     font-size: 16px;
   }
