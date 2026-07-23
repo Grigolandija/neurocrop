@@ -14,6 +14,7 @@ import './styles/redesign-alerts.css'
 import './styles/readings-workspace.css'
 import './styles/sections-workspace.css'
 import './styles/settings-workspace.css'
+import './styles/app-shell.css'
 import './styles/overview-workspace.css'
 
 declare global {

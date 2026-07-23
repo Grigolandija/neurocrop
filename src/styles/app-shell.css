@@ -1,0 +1,117 @@
+/* Stable application chrome: global controls stay global, page context stays with its content. */
+.designer-app #dashboardHeader.global-system-bar {
+  min-height: 56px;
+  border-bottom-color: transparent !important;
+  background: linear-gradient(108deg, rgba(250, 252, 248, .98) 0%, rgba(245, 249, 242, .98) 48%, rgba(238, 246, 234, .98) 100%) !important;
+  box-shadow: none !important;
+}
+
+.designer-app #dashboardHeader.global-system-bar::after {
+  position: absolute;
+  right: 0;
+  bottom: -24px;
+  left: 0;
+  height: 24px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(242, 248, 238, .82), rgba(242, 248, 238, 0));
+}
+
+.designer-app #dashboardHeader .global-system-bar-actions {
+  min-height: 56px;
+  justify-content: flex-end;
+  padding-block: 7px;
+}
+
+.designer-app #dashboardHeader .header-context-tools {
+  display: none !important;
+}
+
+.designer-app .dashboard-shell {
+  padding-top: 56px !important;
+}
+
+@media (min-width: 1280px) {
+  .designer-app #dashboardHeader.global-system-bar {
+    left: 244px;
+    width: calc(100vw - 244px);
+  }
+
+  .designer-app .dashboard-sidebar {
+    top: 56px !important;
+    max-height: calc(100vh - 56px) !important;
+  }
+}
+
+@media (min-width: 1800px) {
+  .designer-app #dashboardHeader.global-system-bar {
+    left: 304px;
+    width: calc(100vw - 304px);
+  }
+}
+
+body[data-primary-page="history"] .trend-history-local-controls {
+  position: sticky;
+  z-index: 150;
+  top: 68px;
+  margin-top: 12px;
+  border: 1px solid rgba(36, 75, 56, .12);
+  border-radius: 18px;
+  padding: 9px;
+  background: rgba(247, 250, 245, .96);
+  box-shadow: 0 10px 28px rgba(27, 52, 39, .08);
+}
+
+body[data-primary-page="history"] .trend-history-context {
+  display: grid !important;
+  grid-template-columns: minmax(180px, .55fr) minmax(440px, 1.45fr);
+  align-items: end;
+  gap: 18px;
+  margin: 0;
+  border: 0;
+  border-radius: 13px;
+  padding: 7px 9px;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-primary-page="history"] .trend-history-context-selects {
+  width: 100%;
+}
+
+body[data-primary-page="history"] .trend-history-toolbar {
+  margin-top: 7px;
+  border-color: rgba(36, 75, 56, .09);
+  background: rgba(255, 255, 255, .7);
+}
+
+@media (max-width: 900px) {
+  body[data-primary-page="history"] .trend-history-local-controls {
+    position: static;
+  }
+
+  body[data-primary-page="history"] .trend-history-context {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  body[data-primary-page="history"] .trend-history-context-selects {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .designer-app #dashboardHeader.global-system-bar {
+    left: 0;
+    width: 100vw;
+    min-height: 52px;
+  }
+
+  .designer-app #dashboardHeader .global-system-bar-actions {
+    min-height: 52px;
+  }
+
+  .designer-app .dashboard-shell {
+    padding-top: 52px !important;
+  }
+}
