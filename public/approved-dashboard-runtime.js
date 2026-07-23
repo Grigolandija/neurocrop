@@ -1675,7 +1675,9 @@
     function refreshLiveDashboardData() {
       const livePage = ["overview", "readings", "history", "alerts"].includes(activePrimaryPage);
       const signedIn = Boolean(getLoginSession()?.email);
-      if (document.hidden || !signedIn || !livePage || !isApiDataMode()) return;
+      const reactWorkspaceMounted = (activePrimaryPage === "overview" && document.getElementById("overviewWorkspaceMount")?.childElementCount > 0)
+        || (activePrimaryPage === "readings" && document.getElementById("readingsWorkspaceMount")?.childElementCount > 0);
+      if (document.hidden || reactWorkspaceMounted || !signedIn || !livePage || !isApiDataMode()) return;
       hydrateDashboardFromApi({ preserveCurrentOnError: true, silent: true });
     }
 
@@ -1683,7 +1685,9 @@
       const dataPage = ["overview", "readings", "history"].includes(activePrimaryPage);
       const signedIn = Boolean(getLoginSession()?.email);
       const isStale = Date.now() - lastDashboardHydratedAt >= dashboardRefreshTtlMs;
-      if (!dataPage || !signedIn || !isApiDataMode() || !isStale) return;
+      const reactWorkspaceMounted = (activePrimaryPage === "overview" && document.getElementById("overviewWorkspaceMount")?.childElementCount > 0)
+        || (activePrimaryPage === "readings" && document.getElementById("readingsWorkspaceMount")?.childElementCount > 0);
+      if (reactWorkspaceMounted || !dataPage || !signedIn || !isApiDataMode() || !isStale) return;
       hydrateDashboardFromApi({ preserveCurrentOnError: true, silent: true });
     }
 
@@ -11652,7 +11656,7 @@ function buildTrendMetricOptions(options) {
           ariaLabel: `${metricOption.label} trend for the last ${rangeConfig.label}`
         });
 
-        const chart = window.echarts.init(element, null, { renderer: "svg" });
+        const chart = window.echarts.init(element, null, { renderer: "canvas" });
         try {
           chart.setOption(chartOption, { notMerge: true });
           window.requestAnimationFrame(() => chart.resize());
@@ -11937,7 +11941,7 @@ function buildTrendMetricOptions(options) {
       trendHistoryChartInstance = window.echarts.init(
         elements.trendHistoryChart,
         null,
-        { renderer: "svg" }
+        { renderer: "canvas" }
       );
       try {
         trendHistoryChartInstance.setOption(chartOption, { notMerge: true });
@@ -11970,7 +11974,7 @@ function buildTrendMetricOptions(options) {
       const element = document.getElementById("trendComparisonChart");
       if (!element || !window.echarts || !comparison?.series?.length) return;
       disposeTrendComparisonChart();
-      trendComparisonChartInstance = window.echarts.init(element, null, { renderer: "svg" });
+      trendComparisonChartInstance = window.echarts.init(element, null, { renderer: "canvas" });
       const comparisonSeries = comparison.series.map((item) => {
         const rawValues = item.points.map((point) => Number(point.value));
         const timestamps = item.points.map((point) => new Date(point.observedAt).getTime());

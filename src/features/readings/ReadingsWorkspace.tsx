@@ -104,6 +104,20 @@ function asArray<T = JsonRecord>(value: unknown): T[] {
   return Array.isArray(value) ? value : []
 }
 
+async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>) {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await mapper(items[index])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
+}
+
 function recordArray(payload: JsonRecord | null | undefined, keys: string[]) {
   if (Array.isArray(payload)) return payload as JsonRecord[]
   for (const root of [payload, payload?.data, payload?.dashboard, payload?.workspace]) {
@@ -443,14 +457,23 @@ export default function ReadingsWorkspace() {
         setPinned((current) => current.filter((id) => baseSections.some((section) => section.id === id)))
         setStatus('ready')
 
-        await Promise.allSettled(baseSections.map(async (section) => {
+        const latestResults = await mapWithConcurrency(baseSections, 6, async (section) => {
           try {
             const latest = await neurocropApi.getLatestReadings(section.id) as JsonRecord
-            if (cancelled) return
-            setSections((current) => current.map((item) => item.id === section.id ? { ...item, latest, loadFailed: false } : item))
+            return { id: section.id, latest, loadFailed: false }
           } catch {
-            if (cancelled) return
-            setSections((current) => current.map((item) => item.id === section.id ? { ...item, loadFailed: true } : item))
+            return { id: section.id, latest: null, loadFailed: true }
+          }
+        })
+        if (cancelled) return
+        const latestBySection = new Map(latestResults.map((result) => [result.id, result]))
+        setSections((current) => current.map((section) => {
+          const result = latestBySection.get(section.id)
+          if (!result) return section
+          return {
+            ...section,
+            latest: result.latest || section.latest,
+            loadFailed: result.loadFailed,
           }
         }))
       } catch (loadError) {
@@ -462,7 +485,9 @@ export default function ReadingsWorkspace() {
       }
     }
     load()
-    const interval = window.setInterval(() => setRefreshToken((value) => value + 1), 60_000)
+    const interval = window.setInterval(() => {
+      if (!document.hidden) setRefreshToken((value) => value + 1)
+    }, 60_000)
     return () => { cancelled = true; window.clearInterval(interval) }
   }, [refreshToken])
 

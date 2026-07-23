@@ -314,6 +314,14 @@ export default function OverviewWorkspace() {
     return () => { active = false }
   }, [refreshKey])
 
+  useEffect(() => {
+    if (!neurocropApi.isConnected()) return
+    const interval = window.setInterval(() => {
+      if (!document.hidden) setRefreshKey((value) => value + 1)
+    }, 60_000)
+    return () => window.clearInterval(interval)
+  }, [])
+
   const model = useMemo(
     () => dashboard && actions ? buildModel(dashboard, actions, selectedAreaId) : null,
     [dashboard, actions, selectedAreaId],

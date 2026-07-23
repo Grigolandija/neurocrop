@@ -14,6 +14,32 @@ import { installNeuroCropFeatures } from '../features/installFeatures'
 
 declare const __BUILD_VERSION__: string
 
+let chartEnginePromise: Promise<void> | null = null
+
+function routeNeedsCharts(pathname: string) {
+  return pathname === '/history' || pathname === '/readings'
+}
+
+function ensureChartEngine() {
+  if (window.echarts) return Promise.resolve()
+  if (chartEnginePromise) return chartEnginePromise
+  chartEnginePromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-neurocrop-vendor]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error('Chart engine could not be loaded.')), { once: true })
+      return
+    }
+    const vendor = document.createElement('script')
+    vendor.src = '/vendor/echarts.min.js'
+    vendor.dataset.neurocropVendor = 'true'
+    vendor.onload = () => resolve()
+    vendor.onerror = () => reject(new Error('Chart engine could not be loaded.'))
+    document.body.appendChild(vendor)
+  })
+  return chartEnginePromise
+}
+
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts',
   '/history', '/settings', '/organization', '/crop-profiles', '/admin',
@@ -70,7 +96,12 @@ function ApprovedDashboard() {
       runtime.dataset.neurocropRuntime = 'true'
       runtime.onload = () => {
         runtimeReady.current = true
-        window.postMessage({ type: 'neurocrop:route', route: window.location.pathname }, window.location.origin)
+        const notifyRoute = () => window.postMessage({ type: 'neurocrop:route', route: window.location.pathname }, window.location.origin)
+        if (routeNeedsCharts(window.location.pathname)) {
+          ensureChartEngine().then(notifyRoute).catch(notifyRoute)
+        } else {
+          notifyRoute()
+        }
       }
       document.body.appendChild(runtime)
     }
@@ -88,15 +119,7 @@ function ApprovedDashboard() {
     }
 
     window.addEventListener('message', handleMessage)
-    if (window.echarts) {
-      loadRuntime()
-    } else {
-      const vendor = document.createElement('script')
-      vendor.src = '/vendor/echarts.min.js'
-      vendor.dataset.neurocropVendor = 'true'
-      vendor.onload = loadRuntime
-      document.body.appendChild(vendor)
-    }
+    loadRuntime()
 
     return () => {
       window.removeEventListener('message', handleMessage)
@@ -113,7 +136,12 @@ function ApprovedDashboard() {
 
   useEffect(() => {
     if (!runtimeReady.current) return
-    window.postMessage({ type: 'neurocrop:route', route: location.pathname }, window.location.origin)
+    const notifyRoute = () => window.postMessage({ type: 'neurocrop:route', route: location.pathname }, window.location.origin)
+    if (routeNeedsCharts(location.pathname)) {
+      ensureChartEngine().then(notifyRoute).catch(notifyRoute)
+    } else {
+      notifyRoute()
+    }
   }, [location.pathname])
 
   return <>

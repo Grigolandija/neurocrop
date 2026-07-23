@@ -211,11 +211,23 @@ export default function TopographicField({ tone }: { tone: TopographicTone }) {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const render = () => drawField(canvas, tone)
+    let frame = 0
+    let lastSignature = ''
+    const render = () => {
+      const bounds = canvas.getBoundingClientRect()
+      const signature = `${Math.round(bounds.width)}:${Math.round(bounds.height)}:${tone}`
+      if (signature === lastSignature) return
+      lastSignature = signature
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => drawField(canvas, tone))
+    }
     const observer = new ResizeObserver(render)
     observer.observe(canvas)
     render()
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      window.cancelAnimationFrame(frame)
+    }
   }, [tone])
 
   return <canvas ref={canvasRef} className="nc-topographic-field" aria-hidden="true" />
