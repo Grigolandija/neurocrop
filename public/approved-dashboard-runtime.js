@@ -2289,6 +2289,23 @@
       openTrendHistory(String(event.data.metricKey || ""));
     });
 
+    window.addEventListener("neurocrop:overview-area-change", (event) => {
+      const requestedAreaId = String(event.detail?.siteId || "");
+      const site = dashboardData.sites.find((item) => item.id === requestedAreaId);
+      if (!site || site.id === activeSiteId) return;
+
+      sidebarActionOverride = null;
+      activeSiteId = site.id;
+      normalizeActiveSelection({ preferCurrentZone: false });
+      resetTrendSelectionForContextChange();
+      renderZoneOptions();
+      resetCurrentReadingsFromActiveZone();
+      closeContextMenus();
+      renderSiteOptions();
+      persistActiveContext();
+      scheduleDashboardRender();
+    });
+
     function isDetailedExperience() {
       return activeExperienceMode === "detailed";
     }

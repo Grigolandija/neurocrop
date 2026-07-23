@@ -314,6 +314,13 @@ export default function OverviewWorkspace() {
     () => dashboard && actions ? buildModel(dashboard, actions, selectedAreaId) : null,
     [dashboard, actions, selectedAreaId],
   )
+  const areaOptions = useMemo(
+    () => asArray(dashboard?.sites).map((site) => ({
+      id: String(site.id),
+      name: String(site.name || 'Unnamed Area'),
+    })),
+    [dashboard],
+  )
 
   function handleActionSubmitted(actionId: string) {
     if (neurocropApi.isConnected()) {
@@ -353,15 +360,26 @@ export default function OverviewWorkspace() {
     setEvidenceOpen(true)
   }
 
+  function changeArea(areaId: string) {
+    setSelectedAreaId(areaId)
+    window.dispatchEvent(new CustomEvent('neurocrop:overview-area-change', {
+      detail: { siteId: areaId },
+    }))
+  }
+
   return <div className={`nc-overview ${stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'}`}>
     <section className="nc-overview-stage">
       <div className="nc-overview-main">
         <section className="nc-overview-copy" aria-live="polite">
-          <div className="nc-overview-kicker"><span>{stable ? 'All systems normal' : model.priority ? 'Action recommended' : 'Setup required'}</span><strong>{model.areaName} · All {model.rows.length} Sections</strong></div>
+          <label className="nc-overview-area-picker">
+            <span>Active Area</span>
+            <div><i className="fa-solid fa-layer-group" aria-hidden="true" /><select value={model.areaId} onChange={(event) => changeArea(event.target.value)} aria-label="Select active Area">{areaOptions.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select><i className="fa-solid fa-chevron-down" aria-hidden="true" /></div>
+          </label>
+          <div className="nc-overview-kicker"><span>{stable ? 'All systems normal' : model.priority ? 'Action recommended' : 'Setup required'}</span><strong>All {model.rows.length} Sections</strong></div>
           <h1>{headline}</h1>
           <p>{explanation}</p>
           {model.priority
-            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Open check instructions<i className="fa-solid fa-arrow-right" /></button>
+            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Start this check<i className="fa-solid fa-arrow-right" /></button>
             : stable
               ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />No action required</div>
               : <a className="nc-overview-action" href="/sections">Review Section setup<i className="fa-solid fa-arrow-right" /></a>}
@@ -386,7 +404,7 @@ export default function OverviewWorkspace() {
           <div className="nc-coverage-list">
             {model.rows.map((row) => <button className={`nc-coverage-row ${row.tone}`} type="button" key={row.id} onClick={() => openSectionEvidence(row)} aria-label={`View evidence for ${row.name}`}>
               <i><span /></i>
-              <div><strong>{row.name}</strong><small>{row.crop}</small></div>
+              <div><strong>{row.name}</strong><small>{row.crop}</small><small className="nc-row-growing-score">Growing score <b>{row.score ?? '—'}{row.score === null ? '' : ' / 100'}</b></small></div>
               <p><strong>{row.status}</strong><small>{row.detail}</small><time>{row.updated}</time></p>
               <i className="fa-solid fa-chevron-right nc-coverage-chevron" aria-hidden="true" />
             </button>)}
