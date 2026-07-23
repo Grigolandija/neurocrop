@@ -211,7 +211,7 @@ body[data-primary-page="overview"] .workspace-health small {
 .nc-overview-area-picker > div {
   position: relative;
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 14px;
+  grid-template-columns: 30px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   min-height: 48px;
@@ -249,9 +249,18 @@ body[data-primary-page="overview"] .workspace-health small {
   font-weight: 750;
 }
 
-.nc-overview-area-picker > div > i:last-child {
-  color: #76857d;
-  font-size: 9px;
+.nc-overview-area-picker .nc-select {
+  width: 100%;
+}
+
+.nc-overview-area-picker .nc-select-trigger {
+  min-height: 46px;
+  padding: 0 2px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 14px;
+  font-weight: 750;
 }
 
 .nc-overview-kicker {

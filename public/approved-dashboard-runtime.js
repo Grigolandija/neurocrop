@@ -715,7 +715,8 @@
       let node = walker.nextNode();
       while (node) {
         const parentTag = node.parentElement?.tagName;
-        if (parentTag !== "SCRIPT" && parentTag !== "STYLE") {
+        const isReactWorkspace = Boolean(node.parentElement?.closest("[data-nc-react-workspace]"));
+        if (parentTag !== "SCRIPT" && parentTag !== "STYLE" && !isReactWorkspace) {
           if (!originalInterfaceText.has(node)) originalInterfaceText.set(node, node.nodeValue);
           const englishText = originalInterfaceText.get(node);
           node.nodeValue = interfaceLanguage === "lt" ? translateInterfaceText(englishText) : englishText;
@@ -724,6 +725,7 @@
       }
 
       document.querySelectorAll("[placeholder], [title], [aria-label]").forEach((element) => {
+        if (element.closest("[data-nc-react-workspace]")) return;
         ["placeholder", "title", "aria-label"].forEach((attribute) => {
           if (!element.hasAttribute(attribute)) return;
           const dataKey = `i18n${attribute.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())}En`;

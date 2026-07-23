@@ -367,19 +367,19 @@ export default function OverviewWorkspace() {
     }))
   }
 
-  return <div className={`nc-overview ${stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'}`}>
+  return <div className={`nc-overview ${stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'}`} data-nc-react-workspace="overview">
     <section className="nc-overview-stage">
       <div className="nc-overview-main">
         <section className="nc-overview-copy" aria-live="polite">
           <label className="nc-overview-area-picker">
             <span>Active Area</span>
-            <div><i className="fa-solid fa-layer-group" aria-hidden="true" /><select value={model.areaId} onChange={(event) => changeArea(event.target.value)} aria-label="Select active Area">{areaOptions.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select><i className="fa-solid fa-chevron-down" aria-hidden="true" /></div>
+            <div><i className="fa-solid fa-layer-group" aria-hidden="true" /><select value={model.areaId} onChange={(event) => changeArea(event.target.value)} aria-label="Select active Area">{areaOptions.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select></div>
           </label>
           <div className="nc-overview-kicker"><span>{stable ? 'All systems normal' : model.priority ? 'Action recommended' : 'Setup required'}</span><strong>All {model.rows.length} Sections</strong></div>
           <h1>{headline}</h1>
           <p>{explanation}</p>
           {model.priority
-            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Start this check<i className="fa-solid fa-arrow-right" /></button>
+            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{String(model.priority.recommendedAction || 'Review recommended action').replace(/\.$/, '')}<i className="fa-solid fa-arrow-right" /></button>
             : stable
               ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />No action required</div>
               : <a className="nc-overview-action" href="/sections">Review Section setup<i className="fa-solid fa-arrow-right" /></a>}
