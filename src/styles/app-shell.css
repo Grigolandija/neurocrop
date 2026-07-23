@@ -37,6 +37,12 @@
     width: calc(100vw - 244px);
   }
 
+  .designer-app #dashboardMain {
+    width: calc(100% - 244px);
+    margin-left: 244px;
+    padding-top: 0 !important;
+  }
+
   .designer-app .dashboard-sidebar {
     top: 56px !important;
     max-height: calc(100vh - 56px) !important;
@@ -47,6 +53,20 @@
   .designer-app #dashboardHeader.global-system-bar {
     left: 304px;
     width: calc(100vw - 304px);
+  }
+
+  .designer-app #dashboardMain {
+    width: calc(100% - 304px);
+    margin-left: 304px;
+  }
+}
+
+@media (max-width: 1279px) {
+  .designer-app .dashboard-shell,
+  .designer-app #dashboardMain,
+  .designer-app .dashboard-main-inner {
+    width: 100%;
+    min-width: 0 !important;
   }
 }
 
@@ -113,5 +133,26 @@ body[data-primary-page="history"] .trend-history-toolbar {
 
   .designer-app .dashboard-shell {
     padding-top: 52px !important;
+  }
+
+  body[data-primary-page="history"] .trend-history-local-controls {
+    margin-inline: 0;
+    padding: 7px;
+  }
+
+  body[data-primary-page="history"] .trend-history-context {
+    gap: 12px;
+    padding: 7px;
+  }
+
+  body[data-primary-page="history"] .trend-history-metric-strip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }
+
+  body[data-primary-page="history"] .trend-history-controls {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
