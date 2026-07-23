@@ -162,23 +162,46 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   }
 }
 
-function EvidenceDrawer({ model, onClose }: { model: OverviewModel; onClose: () => void }) {
+function EvidenceDrawer({ model, row, onClose }: {
+  model: OverviewModel
+  row: OverviewRow | null
+  onClose: () => void
+}) {
+  const sectionAction = row
+    ? model.actions.find((action) => String(action.sectionId) === row.id)
+    : null
+  const conclusion = row
+    ? row.status
+    : model.priority ? model.priority.title : `All ${model.rows.length} Sections are stable.`
+  const evidence = row
+    ? row.detail
+    : model.priority?.reason || 'Every Section is inside its current crop-profile target range.'
+  const score = row ? row.score : model.growingScore
+  const decisionRule = row
+    ? row.tone === 'action' ? 'Current reading outside crop-profile target'
+      : row.tone === 'watch' ? 'Condition requires continued monitoring'
+        : row.tone === 'good' ? 'No active crop-profile deviation'
+          : 'Data or crop-profile target is incomplete'
+    : model.priority ? 'Current reading outside crop-profile target' : 'No active profile deviation'
+
   return <div className="nc-overview-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <aside className="nc-overview-drawer" role="dialog" aria-modal="true" aria-labelledby="overview-evidence-title">
       <header>
-        <div><span>Decision evidence</span><h2 id="overview-evidence-title">{model.areaName}</h2></div>
+        <div><span>{row ? 'Section evidence' : 'Area evidence'}</span><h2 id="overview-evidence-title">{row?.name || model.areaName}</h2>{row ? <p>{model.areaName}</p> : null}</div>
         <button type="button" onClick={onClose} aria-label="Close evidence"><i className="fa-solid fa-xmark" /></button>
       </header>
       <section className="nc-evidence-summary">
         <span>Current conclusion</span>
-        <strong>{model.priority ? model.priority.title : `All ${model.rows.length} Sections are stable.`}</strong>
-        <p>{model.priority?.reason || 'Every Section is inside its current crop-profile target range.'}</p>
+        <strong>{conclusion}</strong>
+        <p>{evidence}</p>
       </section>
       <dl>
-        <div><dt>Growing score</dt><dd>{model.growingScore === null ? 'Not available' : `${model.growingScore} / 100`}</dd></div>
+        <div><dt>Growing score</dt><dd>{score === null ? 'Not available' : `${score} / 100`}</dd></div>
+        {row ? <div><dt>Crop profile</dt><dd>{row.crop}</dd></div> : null}
+        {sectionAction ? <div><dt>Observed metric</dt><dd>{sectionAction.metricLabel || 'Condition'} · {sectionAction.value ?? '—'}{sectionAction.unit || ''}</dd></div> : null}
         <div><dt>Data coverage</dt><dd>{model.reporting}</dd></div>
-        <div><dt>Decision rule</dt><dd>{model.priority ? 'Current reading outside crop-profile target' : 'No active profile deviation'}</dd></div>
-        <div><dt>Last evaluation</dt><dd>{model.updated}</dd></div>
+        <div><dt>Decision rule</dt><dd>{decisionRule}</dd></div>
+        <div><dt>Last evaluation</dt><dd>{row?.updated || model.updated}</dd></div>
       </dl>
       <footer><button type="button" onClick={onClose}>Close</button></footer>
     </aside>
@@ -255,6 +278,7 @@ export default function OverviewWorkspace() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [error, setError] = useState('')
   const [evidenceOpen, setEvidenceOpen] = useState(false)
+  const [selectedEvidenceRow, setSelectedEvidenceRow] = useState<OverviewRow | null>(null)
   const [actionOpen, setActionOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -317,10 +341,19 @@ export default function OverviewWorkspace() {
   const explanation = stable
     ? 'Every Section is inside its current target range.'
     : model.priority?.reason || 'Current data or an active crop profile is missing.'
-  const summaryValue = stable ? stableRows.length : Math.max(actionRows.length, watchRows.length, model.rows.length - verifiedRows.length)
-  const summaryLabel = stable ? 'Sections inside target' : actionRows.length ? 'Section needs action' : watchRows.length ? 'Section needs watching' : 'Section needs setup'
+  const unknownRows = model.rows.filter((row) => row.tone === 'unknown')
 
-  return <div className={`nc-overview ${stable ? 'stable' : model.priority ? 'action' : 'unknown'}`}>
+  function openAreaEvidence() {
+    setSelectedEvidenceRow(null)
+    setEvidenceOpen(true)
+  }
+
+  function openSectionEvidence(row: OverviewRow) {
+    setSelectedEvidenceRow(row)
+    setEvidenceOpen(true)
+  }
+
+  return <div className={`nc-overview ${stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'}`}>
     <section className="nc-overview-stage">
       <div className="nc-overview-main">
         <section className="nc-overview-copy" aria-live="polite">
@@ -328,7 +361,7 @@ export default function OverviewWorkspace() {
           <h1>{headline}</h1>
           <p>{explanation}</p>
           {model.priority
-            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{model.priority.recommendedAction || 'Open recommended check'}<i className="fa-solid fa-arrow-right" /></button>
+            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Open check instructions<i className="fa-solid fa-arrow-right" /></button>
             : stable
               ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />No action required</div>
               : <a className="nc-overview-action" href="/sections">Review Section setup<i className="fa-solid fa-arrow-right" /></a>}
@@ -336,15 +369,27 @@ export default function OverviewWorkspace() {
 
         <figure className="nc-coverage" aria-labelledby="nc-coverage-title">
           <div className="nc-coverage-summary">
-            <span><strong>{summaryValue}</strong><small>/ {model.rows.length}</small></span>
-            <div><p id="nc-coverage-title">{summaryLabel}</p><small>{stable ? 'No current condition requires attention' : 'Sorted by operational priority'}</small></div>
+            <div className="nc-section-summary">
+              <p id="nc-coverage-title">Section status</p>
+              <div>
+                <span className="action"><i />{actionRows.length} need{actionRows.length === 1 ? 's' : ''} action</span>
+                <span className="watch"><i />{watchRows.length} watch</span>
+                <span className="good"><i />{stableRows.length} stable</span>
+                {unknownRows.length ? <span className="unknown"><i />{unknownRows.length} unverified</span> : null}
+              </div>
+            </div>
+            <div className="nc-growing-score">
+              <span>Growing score</span>
+              <p><strong>{model.growingScore ?? '—'}</strong>{model.growingScore === null ? null : <small>/ 100</small>}</p>
+            </div>
           </div>
           <div className="nc-coverage-list">
-            {model.rows.map((row) => <article className={row.tone} key={row.id}>
+            {model.rows.map((row) => <button className={`nc-coverage-row ${row.tone}`} type="button" key={row.id} onClick={() => openSectionEvidence(row)} aria-label={`View evidence for ${row.name}`}>
               <i><span /></i>
               <div><strong>{row.name}</strong><small>{row.crop}</small></div>
               <p><strong>{row.status}</strong><small>{row.detail}</small><time>{row.updated}</time></p>
-            </article>)}
+              <i className="fa-solid fa-chevron-right nc-coverage-chevron" aria-hidden="true" />
+            </button>)}
           </div>
           <figcaption><i className="fa-solid fa-circle-check" />Based on current Section target evaluations. No aggregate trend is inferred.</figcaption>
         </figure>
@@ -353,10 +398,10 @@ export default function OverviewWorkspace() {
         <span><i />{model.reporting}</span>
         <span>{model.updated}</span>
         <span>{actionRows.length} actions · {watchRows.length} watch conditions</span>
-        <button type="button" onClick={() => setEvidenceOpen(true)}>View evidence <i className="fa-solid fa-arrow-right" /></button>
+        <button type="button" onClick={openAreaEvidence}>View Area evidence <i className="fa-solid fa-arrow-right" /></button>
       </footer>
     </section>
-    {evidenceOpen ? <EvidenceDrawer model={model} onClose={() => setEvidenceOpen(false)} /> : null}
+    {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}
     {actionOpen && model.priority ? <ActionWorkflow action={model.priority} onClose={() => setActionOpen(false)} onSubmitted={() => handleActionSubmitted(String(model.priority?.id || ''))} /> : null}
   </div>
 }

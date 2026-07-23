@@ -412,6 +412,7 @@
       "Sensor nodes": "Sensorių mazgai",
       "Sites": "Vietos",
       "Site": "Vieta",
+      "Area": "Erdvė",
       "Zones": "Zonos",
       "Zone": "Zona",
       "Nodes": "Mazgai",
