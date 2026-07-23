@@ -2623,6 +2623,64 @@ app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technici
   }
 });
 
+app.post('/nodes/claim', requireAuth, requireRole('owner', 'admin', 'technician'), async (req, res) => {
+  const devEui = normalizeDevEui(req.body?.devEui);
+  if (!/^[0-9a-f]{16}$/.test(devEui)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'DevEUI must be 16 hexadecimal characters' } });
+  }
+
+  let client;
+  try {
+    const organizationId = getOrganizationId(req);
+    const section = await getSectionById(req.body?.sectionId, organizationId);
+    if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE nodes SET
+         organization_id=$2,
+         area_id=$3,
+         section_id=$4,
+         factory_status='assigned',
+         archived_at=NULL
+       WHERE dev_eui=$1
+         AND organization_id IS NULL
+         AND factory_status='unassigned'
+         AND factory_serial IS NOT NULL
+       RETURNING dev_eui, name, node_type, area_id, section_id, factory_serial, created_at, last_seen`,
+      [devEui, organizationId, section.area_id, section.id]
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: {
+        code: 'NODE_NOT_AVAILABLE',
+        message: 'Node was not factory-prepared or is already assigned.'
+      } });
+    }
+    await client.query('COMMIT');
+    res.json({
+      node: {
+        id: rows[0].name,
+        devEui: rows[0].dev_eui,
+        name: rows[0].name,
+        serialNumber: rows[0].factory_serial,
+        nodeType: rows[0].node_type,
+        areaId: rows[0].area_id,
+        sectionId: rows[0].section_id,
+        createdAt: rows[0].created_at,
+        lastSeen: rows[0].last_seen
+      }
+    });
+  } catch (error) {
+    await client?.query('ROLLBACK').catch(() => {});
+    console.error('[api] /nodes/claim:', error.message);
+    sendInternalError(res, 'NODE_CLAIM_FAILED');
+  } finally {
+    client?.release();
+  }
+});
+
 app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technician'), async (req, res) => {
   const devEui = normalizeDevEui(req.params.devEui);
   const nextDevEui = normalizeDevEui(req.body?.devEui || devEui);

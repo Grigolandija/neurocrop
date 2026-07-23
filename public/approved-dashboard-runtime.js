@@ -8583,6 +8583,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const site = dashboardData.sites.find((item) => item.id === nodeFormState.siteId);
       const zone = (site?.zones || []).find((item) => item.id === nodeFormState.zoneId);
       const registeredDevEui = nodeFormState.devEui;
+      let registeredNodeName = registeredDevEui;
       if (!site || !zone) {
         setManagementModalError("Choose the Area and Section where this node is installed.");
         return;
@@ -8598,11 +8599,11 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           if (!window.NeuroCropApi?.registerNode) {
             throw new Error("Node registration API is not available yet.");
           }
-          await window.NeuroCropApi.registerNode({
+          const claim = await window.NeuroCropApi.registerNode({
             devEui: nodeFormState.devEui,
-            sectionId: zone.id,
-            name: nodeFormState.devEui
+            sectionId: zone.id
           });
+          registeredNodeName = claim?.node?.name || claim?.node?.serialNumber || registeredDevEui;
           await hydrateDashboardFromApi();
         } else {
           window.NeuroCropStore.registerNode({
@@ -8618,12 +8619,12 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         resetCurrentReadingsFromActiveZone();
         resetNodeForm({ siteId: site.id, zoneId: zone.id });
         closeManagementModal();
-        setManagementNotice("nodes", `Node ${registeredDevEui} registered in ${zone.name}. It will appear here when sensor readings begin arriving.`);
+        setManagementNotice("nodes", `Node ${registeredNodeName} registered in ${zone.name}. It will appear here when sensor readings begin arriving.`);
         renderDashboard();
       } catch (error) {
         const message = error instanceof Error ? error.message : "The node could not be registered.";
-        const friendlyMessage = /Cannot POST \/nodes\/register/i.test(message)
-          ? "Node registration API is not deployed yet. Backend needs POST /nodes/register before this can save to the database."
+        const friendlyMessage = /Cannot POST \/nodes\/claim/i.test(message)
+          ? "Node claiming API is not deployed yet. Backend needs POST /nodes/claim before this can save to the database."
           : message;
         setManagementModalError(friendlyMessage);
       }

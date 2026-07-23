@@ -73,7 +73,7 @@ export const neurocropApi = {
     method: 'DELETE',
     body: options.replacementProfileId ? json({ replacementProfileId: options.replacementProfileId }) : undefined,
   }),
-  registerNode: (payload: Payload) => request('/nodes/register', { method: 'POST', body: json(payload) }),
+  registerNode: (payload: Payload) => request('/nodes/claim', { method: 'POST', body: json(payload) }),
   deleteNode: (devEui: string, options: { history?: 'keep' | 'delete' } = {}) => request(`/nodes/${encoded(devEui)}${queryString({ history: options.history || 'keep' })}`, { method: 'DELETE' }),
 }
 

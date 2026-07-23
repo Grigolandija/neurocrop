@@ -123,7 +123,18 @@ assert(runtime.includes('class="management-modal-shell node-edit-modal"') && run
 assert(nodeStyles.includes('.designer-app .node-edit-backdrop-surface') && nodeStyles.includes('backdrop-filter: none;') && !nodeStyles.includes('backdrop-filter: blur(7px)') && nodeStyles.includes('translate3d(0, 10px, 0)') && !nodeStyles.includes('scale(.985)'), "Node registration modal must avoid full-screen live blur and scale rasterization on integrated GPUs");
 assert(runtime.includes('function openNodeRegistrationModal()') && runtime.includes('data-management-modal-form="node-register"') && !runtime.includes('id="nodeRegistrationPanel"'), "Register node must open a modal instead of inserting an inline page card");
 assert(runtime.includes("target.closest('[data-management-modal-form=\"node-register\"], [data-management-form=\"node\"]')") && runtime.includes('rebuildEnhancedSelect(sectionSelect);'), "Register node Area changes must rebuild the modal Section choices");
-assert(runtime.includes('${renderManagementNotice("nodes")}') && runtime.includes('Node ${registeredDevEui} registered in ${zone.name}.'), "Node registration must show a visible success indication in the fleet list");
+assert(
+  runtime.includes('${renderManagementNotice("nodes")}')
+    && runtime.includes('Node ${registeredNodeName} registered in ${zone.name}.')
+    && runtime.includes('registeredNodeName = claim?.node?.name || claim?.node?.serialNumber || registeredDevEui;'),
+  "Node registration must show the factory name returned by the database"
+);
+assert(
+  apiFacade.includes("request('/nodes/claim'")
+    && runtime.includes('devEui: nodeFormState.devEui,\n            sectionId: zone.id\n          });')
+    && !runtime.includes('sectionId: zone.id,\n            name: nodeFormState.devEui'),
+  "Node registration must claim factory inventory using only DevEUI and its destination section"
+);
 assert(runtime.includes('name="modalNodeDevEui"') && runtime.includes('devEui,\n            sectionId: targetZoneId') && !runtime.includes('DevEUI is the physical device identity.'), "Node editing must submit valid DevEUI changes to the API");
 assert(runtime.includes('removeButton.disabled = !event.target.checked;') && runtime.includes('data-modal-node-delete="${escapeAttribute(node.id)}" disabled') && runtime.includes('name="modalNodeHistory"') && runtime.includes('{ history: historyPolicy }'), "Node removal must require explicit confirmation and send the selected history-retention policy");
 assert(!runtime.includes('name="modalNodeReportingMode"') && !runtime.includes('name="modalNodeReportingInterval"'), "Node edit modal must not expose reporting mode or interval controls");

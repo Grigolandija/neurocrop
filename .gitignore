@@ -20,10 +20,12 @@ test-results/
 
 # Private NeuroCrop gateway factory and production integration
 /gateway-factory/
+/node-factory/
 /.github/workflows/gateway-windows.yml
 /backend/gateway-factory-routes.js
 /backend/migrations/0008_gateway_factory.sql
 /backend/tests/gateway-factory.test.mjs
+/backend/tests/node-factory.test.mjs
 
 # Editor directories and files
 .vscode/*
