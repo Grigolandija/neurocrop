@@ -62,9 +62,20 @@ body[data-primary-page="overview"] .dashboard-shell {
 
 body[data-primary-page="overview"] #dashboardHeader.global-system-bar {
   min-height: 56px;
-  border-bottom-color: rgba(38, 74, 56, .12) !important;
-  background: rgba(249, 251, 247, .97) !important;
+  border-bottom-color: transparent !important;
+  background: linear-gradient(108deg, rgba(250, 252, 248, .98) 0%, rgba(245, 249, 242, .98) 48%, rgba(238, 246, 234, .98) 100%) !important;
   box-shadow: none !important;
+}
+
+body[data-primary-page="overview"] #dashboardHeader.global-system-bar::after {
+  position: absolute;
+  right: 0;
+  bottom: -24px;
+  left: 0;
+  height: 24px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(242, 248, 238, .82), rgba(242, 248, 238, 0));
 }
 
 body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {

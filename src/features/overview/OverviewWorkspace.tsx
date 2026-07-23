@@ -96,8 +96,8 @@ function readSelectedAreaId() {
 
 function statusTone(value: unknown): Tone {
   const status = String(value || '').toLowerCase()
-  if (status.includes('critical') || status.includes('action') || status.includes('warning')) return 'action'
-  if (status.includes('watch') || status.includes('stale')) return 'watch'
+  if (status.includes('critical') || status.includes('action') || status.includes('danger') || status.includes('alarm')) return 'action'
+  if (status.includes('warning') || status.includes('watch') || status.includes('attention') || status.includes('stale')) return 'watch'
   if (status.includes('optimal') || status.includes('stable') || status.includes('healthy')) return 'good'
   return 'unknown'
 }
@@ -129,7 +129,7 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   const zones = asArray(site.zones)
   const rows = zones.map((zone): OverviewRow => {
     const action = actionBySection.get(String(zone.id))
-    const tone = action ? statusTone(action.state || 'action') : statusTone(zone.conditionStatus)
+    const tone = action ? 'action' : statusTone(zone.conditionStatus)
     const score = Number.isFinite(Number(zone.score)) ? Number(zone.score) : null
     return {
       id: String(zone.id),
@@ -138,7 +138,11 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
       status: tone === 'action' ? 'Needs action' : tone === 'watch' ? 'Watch' : tone === 'good' ? 'Inside target' : 'Not verified',
       detail: action
         ? `${action.metricLabel || 'Condition'} ${action.value ?? '—'}${action.unit || ''}${Array.isArray(action.target) ? ` · target ${action.target[0]}–${action.target[1]}${action.unit || ''}` : ''}`
-        : tone === 'good' ? 'Current conditions normal' : 'Current data or crop target is incomplete',
+        : tone === 'good'
+          ? 'Current conditions normal'
+          : tone === 'watch'
+            ? 'A current condition is outside its target range'
+            : 'Current data or crop target is incomplete',
       updated: relativeTime(action?.observedAt || zone.computedAt),
       tone,
       score,
@@ -147,7 +151,6 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
 
   const reportingNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.reporting || zone.sensorCount || 0), 0)
   const totalNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.registered || zone.sensorCount || 0), 0)
-  const priorityScore = rows.find((row) => row.id === String(areaActions[0]?.sectionId))?.score
   const availableScores = rows.map((row) => row.score).filter((score): score is number => score !== null)
   return {
     areaId: String(site.id),
@@ -157,9 +160,9 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     priority: areaActions[0] || null,
     reporting: `${reportingNodes} of ${totalNodes} nodes reporting`,
     updated: relativeTime(areaActions[0]?.observedAt || zones[0]?.computedAt),
-    growingScore: priorityScore ?? (availableScores.length
+    growingScore: availableScores.length
       ? Math.round(availableScores.reduce((sum, score) => sum + score, 0) / availableScores.length)
-      : null),
+      : null,
   }
 }
 
@@ -415,7 +418,7 @@ export default function OverviewWorkspace() {
               <i className="fa-solid fa-chevron-right nc-coverage-chevron" aria-hidden="true" />
             </button>)}
           </div>
-          <figcaption><i className="fa-solid fa-circle-check" />Based on current Section target evaluations. No aggregate trend is inferred.</figcaption>
+          <figcaption><i className="fa-solid fa-circle-check" />Growing Score summarizes overall conditions; status highlights current target deviations.</figcaption>
         </figure>
       </div>
       <footer className="nc-overview-trust">
