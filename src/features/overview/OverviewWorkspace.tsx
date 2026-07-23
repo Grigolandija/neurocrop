@@ -371,10 +371,12 @@ export default function OverviewWorkspace() {
     <section className="nc-overview-stage">
       <div className="nc-overview-main">
         <section className="nc-overview-copy" aria-live="polite">
-          <label className="nc-overview-area-picker">
+          <div className="nc-overview-area-picker">
             <span>Active Area</span>
-            <div><i className="fa-solid fa-layer-group" aria-hidden="true" /><select value={model.areaId} onChange={(event) => changeArea(event.target.value)} aria-label="Select active Area">{areaOptions.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select></div>
-          </label>
+            <div role="group" aria-label="Select active Area">
+              {areaOptions.map((area) => <button type="button" key={area.id} data-active={area.id === model.areaId} aria-pressed={area.id === model.areaId} onClick={() => changeArea(area.id)}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>{area.name}</span></button>)}
+            </div>
+          </div>
           <div className="nc-overview-kicker"><span>{stable ? 'All systems normal' : model.priority ? 'Action recommended' : 'Setup required'}</span><strong>All {model.rows.length} Sections</strong></div>
           <h1>{headline}</h1>
           <p>{explanation}</p>
