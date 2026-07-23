@@ -28,6 +28,7 @@ type OverviewRow = {
   deviationLabel: string
   duration: string
   direction: 'above' | 'below' | 'inside' | 'unknown'
+  reporting: string
 }
 
 type OverviewModel = {
@@ -52,9 +53,9 @@ const demoDashboard = {
       id: 'greenhouse-1',
       name: 'Greenhouse No. 1',
       zones: [
-        { id: 'tomato-rear', name: 'Tomato block A · Rear', profile: 'Tomato · Vegetative', score: 78, conditionStatus: 'warning', sensorCount: 4 },
-        { id: 'lettuce-east', name: 'Lettuce · East bench', profile: 'Lettuce · Intensive growth', score: 86, conditionStatus: 'watch', sensorCount: 4 },
-        { id: 'tomato-front', name: 'Tomato block A · Front', profile: 'Tomato · Vegetative', score: 94, conditionStatus: 'optimal', sensorCount: 4 },
+        { id: 'tomato-a-back', name: 'Tomato Block A, Rear', profile: 'Tomato · Vegetative', score: 78, conditionStatus: 'warning', sensorCount: 4 },
+        { id: 'lettuce-rack-under', name: 'Lettuce Rack, Under Shelf', profile: 'Lettuce · Intensive growth', score: 86, conditionStatus: 'watch', sensorCount: 5 },
+        { id: 'tomato-a-front', name: 'Tomato Block A, Front', profile: 'Tomato · Vegetative', score: 94, conditionStatus: 'optimal', sensorCount: 3 },
       ],
     },
     {
@@ -78,11 +79,11 @@ const demoDashboard = {
 }
 
 const demoActions = [{
-  id: 'tomato-rear:soilMoisture:low',
+  id: 'tomato-a-back:soilMoisture:low',
   areaId: 'greenhouse-1',
   areaName: 'Greenhouse No. 1',
-  sectionId: 'tomato-rear',
-  sectionName: 'Tomato block A · Rear',
+  sectionId: 'tomato-a-back',
+  sectionName: 'Tomato Block A, Rear',
   metricId: 'soilMoisture',
   metricLabel: 'Substrate moisture',
   value: 42,
@@ -137,9 +138,13 @@ function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
+function unitSuffix(unit: string) {
+  return unit === '%' ? '%' : unit ? ` ${unit}` : ''
+}
+
 function formatMeasurement(value: number | null, unit: string) {
   if (value === null) return '—'
-  return `${formatNumber(value)}${unit ? ` ${unit}` : ''}`
+  return `${formatNumber(value)}${unitSuffix(unit)}`
 }
 
 function targetRange(value: unknown): [number, number] | null {
@@ -151,7 +156,7 @@ function targetRange(value: unknown): [number, number] | null {
 
 function formatTarget(target: [number, number] | null, unit: string) {
   if (!target) return 'Target not set'
-  return `Target ${formatNumber(target[0])}–${formatNumber(target[1])}${unit ? ` ${unit}` : ''}`
+  return `Target ${formatNumber(target[0])}–${formatNumber(target[1])}${unitSuffix(unit)}`
 }
 
 function deviationFromTarget(value: number | null, target: [number, number] | null) {
@@ -199,8 +204,10 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     const direction = deviation === null ? 'unknown' : deviation > 0 ? 'above' : deviation < 0 ? 'below' : 'inside'
     const deviationLabel = deviation === null
       ? ''
-      : `${deviation > 0 ? '+' : ''}${formatNumber(deviation)}${unit ? ` ${unit}` : ''}`
+      : `${deviation > 0 ? '+' : ''}${formatNumber(deviation)}${unitSuffix(unit)}`
     const metricLabel = String(action?.metricLabel || 'Condition')
+    const reportingNodes = Number(zone.nodeSummary?.reporting || zone.sensorCount || 0)
+    const totalNodes = Number(zone.nodeSummary?.registered || zone.sensorCount || 0)
     return {
       id: String(zone.id),
       name: String(zone.name || 'Unnamed Section'),
@@ -225,6 +232,7 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
       deviationLabel,
       duration: action ? formatDuration(action.outsideTargetSince || action.startedAt || action.firstObservedAt || action.observedAt) : '',
       direction,
+      reporting: `${reportingNodes} of ${totalNodes} nodes reporting`,
     }
   }).sort((left, right) => ['action', 'watch', 'unknown', 'good'].indexOf(left.tone) - ['action', 'watch', 'unknown', 'good'].indexOf(right.tone))
 
@@ -316,7 +324,12 @@ function EvidenceDrawer({ model, row, onClose }: {
       : Promise.resolve({
           points: Array.from({ length: 13 }, (_, index) => ({
             observedAt: new Date(from.getTime() + index * 2 * 60 * 60 * 1000).toISOString(),
-            value: (row.target?.[1] ?? row.currentValue ?? 20) - 1.2 + index * .2,
+            value: (() => {
+              const current = row.currentValue ?? row.target?.[1] ?? 20
+              const start = row.target ? (row.target[0] + row.target[1]) / 2 : current
+              const progress = index / 12
+              return start + (current - start) * progress + Math.sin(progress * Math.PI) * .35
+            })(),
           })),
         })
     request.then((payload) => {
@@ -340,13 +353,11 @@ function EvidenceDrawer({ model, row, onClose }: {
   function openTrends() {
     onClose()
     if (row?.metricKey) {
-      window.postMessage({
-        type: 'neurocrop:open-trend',
+      sessionStorage.setItem('neurocrop-pending-trend', JSON.stringify({
         areaId: model.areaId,
         sectionId: row.id,
         metricKey: row.metricKey,
-      }, window.location.origin)
-      return
+      }))
     }
     navigate('/history')
   }
@@ -369,7 +380,7 @@ function EvidenceDrawer({ model, row, onClose }: {
       </section>
       {row && sectionAction ? <section className="nc-evidence-metrics">
         <div><span>Current</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
-        <div><span>Target</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${row.unit ? ` ${row.unit}` : ''}` : 'Not set'}</strong></div>
+        <div><span>Target</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : 'Not set'}</strong></div>
         <div data-tone={row.tone}><span>Deviation</span><strong>{row.deviationLabel || '—'}</strong></div>
         <div><span>Outside target for</span><strong>{row.duration}</strong></div>
       </section> : null}
@@ -381,7 +392,7 @@ function EvidenceDrawer({ model, row, onClose }: {
       <dl>
         <div><dt>7-day Growing Score</dt><dd>{score === null ? 'Not available' : `${score} / 100`}</dd></div>
         {row ? <div><dt>Crop profile</dt><dd>{row.crop}</dd></div> : null}
-        <div><dt>Data confidence</dt><dd>{model.reporting} · updated {row?.updated || model.updated}</dd></div>
+        <div><dt>Data confidence</dt><dd>{row?.reporting || model.reporting} · updated {row?.updated || model.updated}</dd></div>
       </dl>
       <footer>
         <button type="button" onClick={openSection}>Open Section</button>

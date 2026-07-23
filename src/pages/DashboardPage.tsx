@@ -40,6 +40,24 @@ function ensureChartEngine() {
   return chartEnginePromise
 }
 
+function notifyRuntimeRoute(pathname: string) {
+  window.postMessage({ type: 'neurocrop:route', route: pathname }, window.location.origin)
+  if (pathname !== '/history') return
+  const pendingTrend = sessionStorage.getItem('neurocrop-pending-trend')
+  if (!pendingTrend) return
+  sessionStorage.removeItem('neurocrop-pending-trend')
+  window.requestAnimationFrame(() => {
+    try {
+      window.postMessage({
+        type: 'neurocrop:open-trend',
+        ...JSON.parse(pendingTrend),
+      }, window.location.origin)
+    } catch {
+      // Ignore an invalid local navigation payload and keep the default trend context.
+    }
+  })
+}
+
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts',
   '/history', '/settings', '/organization', '/crop-profiles', '/admin',
@@ -96,7 +114,7 @@ function ApprovedDashboard() {
       runtime.dataset.neurocropRuntime = 'true'
       runtime.onload = () => {
         runtimeReady.current = true
-        const notifyRoute = () => window.postMessage({ type: 'neurocrop:route', route: window.location.pathname }, window.location.origin)
+        const notifyRoute = () => notifyRuntimeRoute(window.location.pathname)
         if (routeNeedsCharts(window.location.pathname)) {
           ensureChartEngine().then(notifyRoute).catch(notifyRoute)
         } else {
@@ -136,7 +154,7 @@ function ApprovedDashboard() {
 
   useEffect(() => {
     if (!runtimeReady.current) return
-    const notifyRoute = () => window.postMessage({ type: 'neurocrop:route', route: location.pathname }, window.location.origin)
+    const notifyRoute = () => notifyRuntimeRoute(location.pathname)
     if (routeNeedsCharts(location.pathname)) {
       ensureChartEngine().then(notifyRoute).catch(notifyRoute)
     } else {
