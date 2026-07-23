@@ -17,6 +17,12 @@ body[data-primary-page="overview"] .dashboard-main-inner {
   padding: 0 !important;
 }
 
+/* Legacy metric controls can be re-rendered briefly while the active Area changes. */
+body[data-primary-page="overview"] #dashboardMain .metric-slider,
+body[data-primary-page="overview"] #dashboardMain .metric-scale {
+  display: none !important;
+}
+
 @media (min-width: 1181px) {
   html:has(body[data-primary-page="overview"]),
   body[data-primary-page="overview"] {
@@ -247,6 +253,7 @@ body[data-primary-page="overview"] .workspace-health small {
   display: block;
   width: 100%;
   height: 100%;
+  opacity: .72;
   pointer-events: none;
 }
 
