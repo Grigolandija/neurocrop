@@ -134,6 +134,16 @@ test('node registration rolls back newly created ChirpStack inventory on databas
   assert.match(block, /deleteChirpStackDevice\(devEui\)/);
 });
 
+test('factory node claim clears pre-customer telemetry under the ingest stream lock', () => {
+  const block = routeBlock(apiSource, "app.post('/nodes/claim'");
+  assert.match(block, /pg_advisory_xact_lock\(hashtext\(\$1\)\)/);
+  assert.match(block, /DELETE FROM measurements WHERE dev_eui=\$1/);
+  assert.match(block, /last_received_at=NULL/);
+  assert.match(block, /last_error_flags=NULL/);
+  assert.match(block, /factory_status='assigned'/);
+  assert.match(block, /clearedMeasurements/);
+});
+
 test('measurement export is bounded to protect API memory', () => {
   const block = routeBlock(apiSource, "app.get('/exports/measurements.csv'");
   assert.match(block, /LIMIT 100001/);

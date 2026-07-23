@@ -2637,29 +2637,57 @@ app.post('/nodes/claim', requireAuth, requireRole('owner', 'admin', 'technician'
 
     client = await pool.connect();
     await client.query('BEGIN');
-    const { rows } = await client.query(
-      `UPDATE nodes SET
-         organization_id=$2,
-         area_id=$3,
-         section_id=$4,
-         factory_status='assigned',
-         archived_at=NULL
+    // Share the ingest stream lock so no factory packet can land between cleanup and assignment.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [devEui]);
+    const { rows: availableRows } = await client.query(
+      `SELECT dev_eui
+       FROM nodes
        WHERE dev_eui=$1
          AND organization_id IS NULL
          AND factory_status='unassigned'
          AND factory_serial IS NOT NULL
-       RETURNING dev_eui, name, node_type, area_id, section_id, factory_serial, created_at, last_seen`,
-      [devEui, organizationId, section.area_id, section.id]
+       FOR UPDATE`,
+      [devEui]
     );
-    if (!rows[0]) {
+    if (!availableRows[0]) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: {
         code: 'NODE_NOT_AVAILABLE',
         message: 'Node was not factory-prepared or is already assigned.'
       } });
     }
+
+    const deletedMeasurements = await client.query(
+      'DELETE FROM measurements WHERE dev_eui=$1',
+      [devEui]
+    );
+    const { rows } = await client.query(
+      `UPDATE nodes SET
+         organization_id=$2,
+         area_id=$3,
+         section_id=$4,
+         factory_status='assigned',
+         archived_at=NULL,
+         firmware_build=NULL,
+         last_seen=NULL,
+         last_received_at=NULL,
+         last_battery_mv=NULL,
+         last_battery_percent=NULL,
+         last_firmware_version=NULL,
+         last_profile=NULL,
+         last_rssi=NULL,
+         last_snr=NULL,
+         last_spreading_factor=NULL,
+         last_sensor_presence=NULL,
+         last_error_flags=NULL,
+         last_error_counters=NULL
+       WHERE dev_eui=$1
+       RETURNING dev_eui, name, node_type, area_id, section_id, factory_serial, created_at, last_seen`,
+      [devEui, organizationId, section.area_id, section.id]
+    );
     await client.query('COMMIT');
     res.json({
+      clearedMeasurements: deletedMeasurements.rowCount || 0,
       node: {
         id: rows[0].name,
         devEui: rows[0].dev_eui,
