@@ -27,6 +27,7 @@ type OverviewModel = {
   priority: JsonRecord | null
   reporting: string
   updated: string
+  growingScore: number | null
 }
 
 const demoDashboard = {
@@ -145,6 +146,8 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
 
   const reportingNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.reporting || zone.sensorCount || 0), 0)
   const totalNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.registered || zone.sensorCount || 0), 0)
+  const priorityScore = rows.find((row) => row.id === String(areaActions[0]?.sectionId))?.score
+  const availableScores = rows.map((row) => row.score).filter((score): score is number => score !== null)
   return {
     areaId: String(site.id),
     areaName: String(site.name || 'Growing Area'),
@@ -153,11 +156,13 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     priority: areaActions[0] || null,
     reporting: `${reportingNodes} of ${totalNodes} nodes reporting`,
     updated: relativeTime(areaActions[0]?.observedAt || zones[0]?.computedAt),
+    growingScore: priorityScore ?? (availableScores.length
+      ? Math.round(availableScores.reduce((sum, score) => sum + score, 0) / availableScores.length)
+      : null),
   }
 }
 
 function EvidenceDrawer({ model, onClose }: { model: OverviewModel; onClose: () => void }) {
-  const priorityRow = model.rows.find((row) => row.id === String(model.priority?.sectionId))
   return <div className="nc-overview-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <aside className="nc-overview-drawer" role="dialog" aria-modal="true" aria-labelledby="overview-evidence-title">
       <header>
@@ -170,7 +175,7 @@ function EvidenceDrawer({ model, onClose }: { model: OverviewModel; onClose: () 
         <p>{model.priority?.reason || 'Every Section is inside its current crop-profile target range.'}</p>
       </section>
       <dl>
-        <div><dt>Growing score</dt><dd>{priorityRow?.score === null || priorityRow?.score === undefined ? 'Not available' : `${priorityRow.score} / 100`}</dd></div>
+        <div><dt>Growing score</dt><dd>{model.growingScore === null ? 'Not available' : `${model.growingScore} / 100`}</dd></div>
         <div><dt>Data coverage</dt><dd>{model.reporting}</dd></div>
         <div><dt>Decision rule</dt><dd>{model.priority ? 'Current reading outside crop-profile target' : 'No active profile deviation'}</dd></div>
         <div><dt>Last evaluation</dt><dd>{model.updated}</dd></div>
