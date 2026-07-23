@@ -1827,6 +1827,9 @@
           lastScopeKey: scopeKey,
           contexts
         }));
+        window.dispatchEvent(new CustomEvent("neurocrop:context-change", {
+          detail: { siteId: activeSiteId, zoneId: activeZoneId }
+        }));
       } catch {
         // Context persistence is optional when browser storage is unavailable.
       }

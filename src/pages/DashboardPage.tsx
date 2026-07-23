@@ -8,6 +8,7 @@ import SettingsWorkspace from '../features/settings/SettingsWorkspace'
 import OrganizationWorkspace from '../features/settings/OrganizationWorkspace'
 import AdminWorkspace from '../features/settings/AdminWorkspace'
 import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
+import OverviewWorkspace from '../features/overview/OverviewWorkspace'
 import { installNeuroCropApi } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
 
@@ -29,6 +30,7 @@ function ApprovedDashboard() {
   const hostRef = useRef<HTMLDivElement>(null)
   const runtimeReady = useRef(false)
   const [readingsMount, setReadingsMount] = useState<HTMLElement | null>(null)
+  const [overviewMount, setOverviewMount] = useState<HTMLElement | null>(null)
   const [sectionsMount, setSectionsMount] = useState<HTMLElement | null>(null)
   const [settingsMount, setSettingsMount] = useState<HTMLElement | null>(null)
   const [organizationMount, setOrganizationMount] = useState<HTMLElement | null>(null)
@@ -42,6 +44,7 @@ function ApprovedDashboard() {
       hostRef.current.innerHTML = approvedMarkup
     }
     setReadingsMount(hostRef.current?.querySelector<HTMLElement>('#readingsWorkspaceMount') || null)
+    setOverviewMount(hostRef.current?.querySelector<HTMLElement>('#overviewWorkspaceMount') || null)
     setSectionsMount(hostRef.current?.querySelector<HTMLElement>('#sectionsWorkspaceMount') || null)
     setSettingsMount(hostRef.current?.querySelector<HTMLElement>('#settingsWorkspaceMount') || null)
     setOrganizationMount(hostRef.current?.querySelector<HTMLElement>('#organizationWorkspaceMount') || null)
@@ -99,6 +102,7 @@ function ApprovedDashboard() {
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
+      setOverviewMount(null)
       setSectionsMount(null)
       setSettingsMount(null)
       setOrganizationMount(null)
@@ -114,6 +118,9 @@ function ApprovedDashboard() {
 
   return <>
     <div ref={hostRef} />
+    {location.pathname === '/' && overviewMount
+      ? createPortal(<OverviewWorkspace />, overviewMount)
+      : null}
     {location.pathname === '/readings' && readingsMount
       ? createPortal(<ReadingsWorkspace />, readingsMount)
       : null}
