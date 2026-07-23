@@ -156,8 +156,8 @@ function drawContours(
       }
     }
     context.strokeStyle = thresholdIndex % 3 === 0
-      ? 'rgba(30, 72, 57, .15)'
-      : 'rgba(42, 87, 68, .09)'
+      ? 'rgba(30, 72, 57, .12)'
+      : 'rgba(42, 87, 68, .07)'
     context.lineWidth = thresholdIndex % 3 === 0 ? 1 : .7
     context.stroke()
   })
@@ -193,7 +193,7 @@ function drawField(canvas: HTMLCanvasElement, tone: TopographicTone) {
     image.data[index * 4] = red
     image.data[index * 4 + 1] = green
     image.data[index * 4 + 2] = blue
-    image.data[index * 4 + 3] = Math.round(12 + value * 30)
+    image.data[index * 4 + 3] = Math.round(7 + value * 18)
   })
   heatmapContext.putImageData(image, 0, 0)
 

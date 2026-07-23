@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import TopographicField from './TopographicField'
 
@@ -18,6 +19,15 @@ type OverviewRow = {
   updated: string
   tone: Tone
   score: number | null
+  metricKey: string
+  metricLabel: string
+  currentValue: number | null
+  target: [number, number] | null
+  unit: string
+  deviation: number | null
+  deviationLabel: string
+  duration: string
+  direction: 'above' | 'below' | 'inside' | 'unknown'
 }
 
 type OverviewModel = {
@@ -29,6 +39,11 @@ type OverviewModel = {
   reporting: string
   updated: string
   growingScore: number | null
+}
+
+type TrendPoint = {
+  observedAt: string
+  value: number
 }
 
 const demoDashboard = {
@@ -111,6 +126,51 @@ function relativeTime(value: unknown) {
   return `${Math.floor(seconds / 3600)} h ago`
 }
 
+function normalizeUnit(value: unknown) {
+  const unit = String(value || '').trim()
+  if (/^(degc|°c|celsius)$/i.test(unit)) return '°C'
+  if (/^(degf|°f|fahrenheit)$/i.test(unit)) return '°F'
+  return unit
+}
+
+function formatNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+}
+
+function formatMeasurement(value: number | null, unit: string) {
+  if (value === null) return '—'
+  return `${formatNumber(value)}${unit ? ` ${unit}` : ''}`
+}
+
+function targetRange(value: unknown): [number, number] | null {
+  if (!Array.isArray(value) || value.length < 2) return null
+  const minimum = Number(value[0])
+  const maximum = Number(value[1])
+  return Number.isFinite(minimum) && Number.isFinite(maximum) ? [minimum, maximum] : null
+}
+
+function formatTarget(target: [number, number] | null, unit: string) {
+  if (!target) return 'Target not set'
+  return `Target ${formatNumber(target[0])}–${formatNumber(target[1])}${unit ? ` ${unit}` : ''}`
+}
+
+function deviationFromTarget(value: number | null, target: [number, number] | null) {
+  if (value === null || !target) return null
+  if (value > target[1]) return value - target[1]
+  if (value < target[0]) return value - target[0]
+  return 0
+}
+
+function formatDuration(value: unknown) {
+  const timestamp = new Date(String(value || '')).getTime()
+  if (!Number.isFinite(timestamp)) return 'Duration unavailable'
+  const minutes = Math.max(1, Math.floor((Date.now() - timestamp) / 60_000))
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  return remainder ? `${hours} h ${remainder} min` : `${hours} h`
+}
+
 function profileLabel(zone: JsonRecord) {
   const value = String(zone.profileName || zone.profile || zone.cropProfileName || '')
   return value && !value.includes('-') ? value : 'Active crop profile'
@@ -131,13 +191,23 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     const action = actionBySection.get(String(zone.id))
     const tone = action ? 'action' : statusTone(zone.conditionStatus)
     const score = Number.isFinite(Number(zone.score)) ? Number(zone.score) : null
+    const numericValue = Number(action?.value)
+    const currentValue = Number.isFinite(numericValue) ? numericValue : null
+    const unit = normalizeUnit(action?.unit)
+    const target = targetRange(action?.target)
+    const deviation = deviationFromTarget(currentValue, target)
+    const direction = deviation === null ? 'unknown' : deviation > 0 ? 'above' : deviation < 0 ? 'below' : 'inside'
+    const deviationLabel = deviation === null
+      ? ''
+      : `${deviation > 0 ? '+' : ''}${formatNumber(deviation)}${unit ? ` ${unit}` : ''}`
+    const metricLabel = String(action?.metricLabel || 'Condition')
     return {
       id: String(zone.id),
       name: String(zone.name || 'Unnamed Section'),
       crop: profileLabel(zone),
       status: tone === 'action' ? 'Needs action' : tone === 'watch' ? 'Watch' : tone === 'good' ? 'Inside target' : 'Not verified',
       detail: action
-        ? `${action.metricLabel || 'Condition'} ${action.value ?? '—'}${action.unit || ''}${Array.isArray(action.target) ? ` · target ${action.target[0]}–${action.target[1]}${action.unit || ''}` : ''}`
+        ? `${metricLabel} ${formatMeasurement(currentValue, unit)} · ${formatTarget(target, unit)}`
         : tone === 'good'
           ? 'Current conditions normal'
           : tone === 'watch'
@@ -146,6 +216,15 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
       updated: relativeTime(action?.observedAt || zone.computedAt),
       tone,
       score,
+      metricKey: String(action?.metricId || action?.metricKey || ''),
+      metricLabel,
+      currentValue,
+      target,
+      unit,
+      deviation,
+      deviationLabel,
+      duration: action ? formatDuration(action.outsideTargetSince || action.startedAt || action.firstObservedAt || action.observedAt) : '',
+      direction,
     }
   }).sort((left, right) => ['action', 'watch', 'unknown', 'good'].indexOf(left.tone) - ['action', 'watch', 'unknown', 'good'].indexOf(right.tone))
 
@@ -166,11 +245,50 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   }
 }
 
+function MiniTrend({ points, target, unit }: {
+  points: TrendPoint[]
+  target: [number, number] | null
+  unit: string
+}) {
+  if (points.length < 2) return <div className="nc-evidence-trend-empty">24-hour history is not available for this metric.</div>
+  const width = 360
+  const height = 112
+  const padding = 10
+  const values = points.map((point) => point.value)
+  if (target) values.push(...target)
+  const minimum = Math.min(...values)
+  const maximum = Math.max(...values)
+  const range = Math.max(maximum - minimum, 1)
+  const x = (index: number) => padding + index * (width - padding * 2) / (points.length - 1)
+  const y = (value: number) => padding + (maximum - value) / range * (height - padding * 2)
+  const line = points.map((point, index) => `${x(index)},${y(point.value)}`).join(' ')
+  const area = `${padding},${height - padding} ${line} ${width - padding},${height - padding}`
+  const targetTop = target ? y(target[1]) : 0
+  const targetHeight = target ? Math.max(2, y(target[0]) - targetTop) : 0
+  const latest = points[points.length - 1]
+
+  return <div className="nc-evidence-trend">
+    <div><span>24-hour trend</span><strong>{formatMeasurement(latest.value, unit)}</strong></div>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`24-hour trend ending at ${formatMeasurement(latest.value, unit)}`}>
+      {target ? <rect x={padding} y={targetTop} width={width - padding * 2} height={targetHeight} rx="4" /> : null}
+      <polygon points={area} />
+      <polyline points={line} />
+      <circle cx={x(points.length - 1)} cy={y(latest.value)} r="4" />
+    </svg>
+    <footer><span>24h ago</span><span>Now</span></footer>
+  </div>
+}
+
 function EvidenceDrawer({ model, row, onClose }: {
   model: OverviewModel
   row: OverviewRow | null
   onClose: () => void
 }) {
+  const navigate = useNavigate()
+  const [trendState, setTrendState] = useState<'idle' | 'loading' | 'ready' | 'empty'>(
+    row && row.metricKey ? 'loading' : 'idle',
+  )
+  const [trendPoints, setTrendPoints] = useState<TrendPoint[]>([])
   const sectionAction = row
     ? model.actions.find((action) => String(action.sectionId) === row.id)
     : null
@@ -181,12 +299,62 @@ function EvidenceDrawer({ model, row, onClose }: {
     ? row.detail
     : model.priority?.reason || 'Every Section is inside its current crop-profile target range.'
   const score = row ? row.score : model.growingScore
-  const decisionRule = row
-    ? row.tone === 'action' ? 'Current reading outside crop-profile target'
-      : row.tone === 'watch' ? 'Condition requires continued monitoring'
-        : row.tone === 'good' ? 'No active crop-profile deviation'
-          : 'Data or crop-profile target is incomplete'
-    : model.priority ? 'Current reading outside crop-profile target' : 'No active profile deviation'
+
+  useEffect(() => {
+    if (!row || !sectionAction || !row.metricKey) return
+    let active = true
+    const to = new Date()
+    const from = new Date(to.getTime() - 24 * 60 * 60 * 1000)
+    const request = neurocropApi.isConnected()
+      ? neurocropApi.getHistory({
+          sectionId: row.id,
+          metric: row.metricKey,
+          from: from.toISOString(),
+          to: to.toISOString(),
+          stepMinutes: 60,
+        })
+      : Promise.resolve({
+          points: Array.from({ length: 13 }, (_, index) => ({
+            observedAt: new Date(from.getTime() + index * 2 * 60 * 60 * 1000).toISOString(),
+            value: (row.target?.[1] ?? row.currentValue ?? 20) - 1.2 + index * .2,
+          })),
+        })
+    request.then((payload) => {
+      if (!active) return
+      const points = asArray((payload as JsonRecord)?.points)
+        .map((point) => ({
+          observedAt: String(point.observedAt || point.receivedAt || ''),
+          value: Number(point.value),
+        }))
+        .filter((point) => point.observedAt && Number.isFinite(point.value))
+      setTrendPoints(points)
+      setTrendState(points.length >= 2 ? 'ready' : 'empty')
+    }).catch(() => {
+      if (!active) return
+      setTrendPoints([])
+      setTrendState('empty')
+    })
+    return () => { active = false }
+  }, [row, sectionAction])
+
+  function openTrends() {
+    onClose()
+    if (row?.metricKey) {
+      window.postMessage({
+        type: 'neurocrop:open-trend',
+        areaId: model.areaId,
+        sectionId: row.id,
+        metricKey: row.metricKey,
+      }, window.location.origin)
+      return
+    }
+    navigate('/history')
+  }
+
+  function openSection() {
+    onClose()
+    navigate('/sections')
+  }
 
   return <div className="nc-overview-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <aside className="nc-overview-drawer" role="dialog" aria-modal="true" aria-labelledby="overview-evidence-title">
@@ -199,15 +367,26 @@ function EvidenceDrawer({ model, row, onClose }: {
         <strong>{conclusion}</strong>
         <p>{evidence}</p>
       </section>
+      {row && sectionAction ? <section className="nc-evidence-metrics">
+        <div><span>Current</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
+        <div><span>Target</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${row.unit ? ` ${row.unit}` : ''}` : 'Not set'}</strong></div>
+        <div data-tone={row.tone}><span>Deviation</span><strong>{row.deviationLabel || '—'}</strong></div>
+        <div><span>Outside target for</span><strong>{row.duration}</strong></div>
+      </section> : null}
+      {row && sectionAction
+        ? trendState === 'loading'
+          ? <div className="nc-evidence-trend-empty loading">Loading 24-hour trend…</div>
+          : <MiniTrend points={trendPoints} target={row.target} unit={row.unit} />
+        : null}
       <dl>
-        <div><dt>Growing score</dt><dd>{score === null ? 'Not available' : `${score} / 100`}</dd></div>
+        <div><dt>7-day Growing Score</dt><dd>{score === null ? 'Not available' : `${score} / 100`}</dd></div>
         {row ? <div><dt>Crop profile</dt><dd>{row.crop}</dd></div> : null}
-        {sectionAction ? <div><dt>Observed metric</dt><dd>{sectionAction.metricLabel || 'Condition'} · {sectionAction.value ?? '—'}{sectionAction.unit || ''}</dd></div> : null}
-        <div><dt>Data coverage</dt><dd>{model.reporting}</dd></div>
-        <div><dt>Decision rule</dt><dd>{decisionRule}</dd></div>
-        <div><dt>Last evaluation</dt><dd>{row?.updated || model.updated}</dd></div>
+        <div><dt>Data confidence</dt><dd>{model.reporting} · updated {row?.updated || model.updated}</dd></div>
       </dl>
-      <footer><button type="button" onClick={onClose}>Close</button></footer>
+      <footer>
+        <button type="button" onClick={openSection}>Open Section</button>
+        <button type="button" className="primary" onClick={openTrends}>Open Trends <i className="fa-solid fa-arrow-right" /></button>
+      </footer>
     </aside>
   </div>
 }
@@ -354,13 +533,32 @@ export default function OverviewWorkspace() {
   const stableRows = model.rows.filter((row) => row.tone === 'good')
   const verifiedRows = model.rows.filter((row) => row.tone !== 'unknown')
   const stable = !model.priority && actionRows.length === 0 && watchRows.length === 0 && verifiedRows.length === model.rows.length
+  const comparableActionRows = actionRows.filter((row) =>
+    row.metricKey
+    && row.metricKey === actionRows[0]?.metricKey
+    && row.direction === actionRows[0]?.direction
+    && row.deviation !== null,
+  )
+  const maximumDeviation = comparableActionRows.length === actionRows.length
+    ? Math.max(...comparableActionRows.map((row) => Math.abs(row.deviation || 0)))
+    : null
+  const actionHeadline = actionRows.length && maximumDeviation !== null && actionRows[0].direction !== 'unknown'
+    ? `${actionRows.length} Section${actionRows.length === 1 ? '' : 's'} ${actionRows.length === 1 ? 'is' : 'are'} up to ${formatMeasurement(maximumDeviation, actionRows[0].unit)} ${actionRows[0].direction} target.`
+    : model.priority?.title
   const headline = stable
     ? `All ${model.rows.length} Sections are stable.`
-    : model.priority?.title || `${model.rows.length - verifiedRows.length} Sections cannot be verified.`
+    : actionHeadline || `${model.rows.length - verifiedRows.length} Sections cannot be verified.`
   const explanation = stable
     ? 'Every Section is inside its current target range.'
-    : model.priority?.reason || 'Current data or an active crop profile is missing.'
+    : actionRows.length
+      ? `${actionRows[0].metricLabel} is outside the active crop-profile target in ${actionRows.length} of ${model.rows.length} Sections.`
+      : model.priority?.reason || 'Current data or an active crop profile is missing.'
   const unknownRows = model.rows.filter((row) => row.tone === 'unknown')
+  const scopeLabel = stable
+    ? `All ${model.rows.length} Sections`
+    : actionRows.length
+      ? `Affects ${actionRows.length} of ${model.rows.length} Sections`
+      : `${unknownRows.length} of ${model.rows.length} Sections unverified`
 
   function openAreaEvidence() {
     setSelectedEvidenceRow(null)
@@ -392,7 +590,10 @@ export default function OverviewWorkspace() {
               {areaOptions.map((area) => <button type="button" key={area.id} data-active={area.id === model.areaId} aria-pressed={area.id === model.areaId} onClick={() => changeArea(area.id)}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>{area.name}</span></button>)}
             </div>
           </div>
-          <div className="nc-overview-kicker"><span>{stable ? 'All systems normal' : model.priority ? 'Action recommended' : 'Setup required'}</span><strong>All {model.rows.length} Sections</strong></div>
+          <div className="nc-overview-kicker">
+            <span>{stable ? 'All systems normal' : model.priority ? 'Action recommended' : 'Setup required'}</span>
+            <strong>{scopeLabel}</strong>
+          </div>
           <h1>{headline}</h1>
           <p>{explanation}</p>
           {model.priority
@@ -405,7 +606,7 @@ export default function OverviewWorkspace() {
         <figure className="nc-coverage" aria-labelledby="nc-coverage-title">
           <div className="nc-coverage-summary">
             <div className="nc-section-summary">
-              <p id="nc-coverage-title">Section status</p>
+              <p id="nc-coverage-title">Live status</p>
               <div>
                 <span className="action"><i />{actionRows.length} need{actionRows.length === 1 ? 's' : ''} action</span>
                 <span className="watch"><i />{watchRows.length} watch</span>
@@ -414,15 +615,21 @@ export default function OverviewWorkspace() {
               </div>
             </div>
             <div className="nc-growing-score">
-              <span>Growing score</span>
+              <span>7-day Growing Score</span>
               <p><strong>{model.growingScore ?? '—'}</strong>{model.growingScore === null ? null : <small>/ 100</small>}</p>
             </div>
           </div>
           <div className="nc-coverage-list">
             {model.rows.map((row) => <button className={`nc-coverage-row ${row.tone}`} type="button" key={row.id} onClick={() => openSectionEvidence(row)} aria-label={`View evidence for ${row.name}`}>
               <i><span /></i>
-              <div><strong>{row.name}</strong><small>{row.crop}</small><small className="nc-row-growing-score">Growing score <b>{row.score ?? '—'}{row.score === null ? '' : ' / 100'}</b></small></div>
-              <p><strong>{row.status}</strong><small>{row.detail}</small><time>{row.updated}</time></p>
+              <div><strong>{row.name}</strong><small>{row.crop}</small><small className="nc-row-growing-score">7-day score <b>{row.score ?? '—'}{row.score === null ? '' : ' / 100'}</b></small></div>
+              <p>
+                <strong>{row.status}</strong>
+                {row.deviation !== null
+                  ? <small className="nc-row-deviation"><b>{row.deviationLabel}</b><span>{row.direction === 'above' ? '↑' : row.direction === 'below' ? '↓' : '•'}</span><em>{row.duration}</em></small>
+                  : <small>{row.detail}</small>}
+                <time>{row.updated}</time>
+              </p>
               <i className="fa-solid fa-chevron-right nc-coverage-chevron" aria-hidden="true" />
             </button>)}
           </div>
@@ -433,7 +640,7 @@ export default function OverviewWorkspace() {
         <span><i />{model.reporting}</span>
         <span>{model.updated}</span>
         <span>{actionRows.length} actions · {watchRows.length} watch conditions</span>
-        <button type="button" onClick={openAreaEvidence}>View Area evidence <i className="fa-solid fa-arrow-right" /></button>
+        <button type="button" onClick={openAreaEvidence}>Open Area analysis <i className="fa-solid fa-arrow-right" /></button>
       </footer>
     </section>
     {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}
