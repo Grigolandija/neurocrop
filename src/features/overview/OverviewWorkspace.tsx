@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import TopographicField from './TopographicField'
 
 // Dashboard payloads intentionally remain open because firmware and API versions
 // can add telemetry fields without requiring an Overview release.
@@ -367,8 +368,11 @@ export default function OverviewWorkspace() {
     }))
   }
 
-  return <div className={`nc-overview ${stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'}`} data-nc-react-workspace="overview">
+  const overviewTone = stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'
+
+  return <div className={`nc-overview ${overviewTone}`} data-nc-react-workspace="overview">
     <section className="nc-overview-stage">
+      <TopographicField tone={overviewTone} />
       <div className="nc-overview-main">
         <section className="nc-overview-copy" aria-live="polite">
           <div className="nc-overview-area-picker">

@@ -191,18 +191,18 @@ body[data-primary-page="overview"] .workspace-health small {
     radial-gradient(ellipse 34% 42% at 76% 24%, rgba(232, 215, 76, .2) 0 10%, rgba(157, 213, 86, .18) 21%, rgba(56, 148, 122, .11) 38%, transparent 57%),
     radial-gradient(ellipse 42% 50% at 61% 78%, rgba(105, 198, 95, .2) 0 13%, rgba(57, 152, 125, .13) 29%, rgba(70, 139, 151, .08) 43%, transparent 60%),
     radial-gradient(ellipse 30% 38% at 98% 72%, rgba(202, 235, 83, .18), rgba(71, 160, 123, .1) 38%, transparent 62%);
-  filter: blur(20px) saturate(.9);
-  opacity: .86;
+  filter: blur(14px) saturate(1.04);
+  opacity: 1;
   transform: scale(1.04);
 }
 
 .nc-overview.action .nc-overview-stage::after {
   background:
-    radial-gradient(ellipse 34% 45% at 18% 48%, rgba(213, 75, 55, .25) 0 11%, rgba(232, 145, 46, .25) 20%, rgba(225, 210, 65, .16) 34%, rgba(70, 151, 126, .08) 48%, transparent 64%),
-    radial-gradient(ellipse 31% 41% at 76% 24%, rgba(218, 91, 50, .2) 0 10%, rgba(239, 171, 47, .22) 21%, rgba(201, 223, 75, .13) 35%, transparent 58%),
-    radial-gradient(ellipse 38% 48% at 68% 78%, rgba(238, 174, 45, .18) 0 12%, rgba(158, 204, 75, .15) 27%, rgba(48, 137, 122, .09) 43%, transparent 62%),
-    radial-gradient(ellipse 30% 42% at 4% 5%, rgba(44, 112, 124, .15), transparent 60%);
-  filter: blur(19px) saturate(.92);
+    radial-gradient(ellipse 34% 45% at 18% 48%, rgba(213, 75, 55, .36) 0 11%, rgba(232, 145, 46, .34) 20%, rgba(225, 210, 65, .24) 34%, rgba(70, 151, 126, .12) 48%, transparent 64%),
+    radial-gradient(ellipse 31% 41% at 76% 24%, rgba(218, 91, 50, .3) 0 10%, rgba(239, 171, 47, .31) 21%, rgba(201, 223, 75, .19) 35%, transparent 58%),
+    radial-gradient(ellipse 38% 48% at 68% 78%, rgba(238, 174, 45, .25) 0 12%, rgba(158, 204, 75, .2) 27%, rgba(48, 137, 122, .12) 43%, transparent 62%),
+    radial-gradient(ellipse 30% 42% at 4% 5%, rgba(44, 112, 124, .2), transparent 60%);
+  filter: blur(13px) saturate(1.06);
 }
 
 .nc-overview.action .nc-overview-stage::before {
@@ -217,9 +217,9 @@ body[data-primary-page="overview"] .workspace-health small {
 
 .nc-overview.watch .nc-overview-stage::after {
   background:
-    radial-gradient(ellipse 38% 46% at 20% 42%, rgba(229, 157, 42, .22) 0 12%, rgba(220, 208, 65, .2) 24%, rgba(113, 184, 92, .14) 39%, transparent 61%),
-    radial-gradient(ellipse 34% 42% at 72% 28%, rgba(221, 188, 53, .2), rgba(113, 190, 95, .14) 31%, rgba(45, 135, 120, .08) 48%, transparent 65%),
-    radial-gradient(ellipse 40% 48% at 70% 82%, rgba(192, 219, 77, .17), rgba(54, 150, 119, .11) 42%, transparent 64%);
+    radial-gradient(ellipse 38% 46% at 20% 42%, rgba(229, 157, 42, .31) 0 12%, rgba(220, 208, 65, .28) 24%, rgba(113, 184, 92, .19) 39%, transparent 61%),
+    radial-gradient(ellipse 34% 42% at 72% 28%, rgba(221, 188, 53, .28), rgba(113, 190, 95, .19) 31%, rgba(45, 135, 120, .12) 48%, transparent 65%),
+    radial-gradient(ellipse 40% 48% at 70% 82%, rgba(192, 219, 77, .23), rgba(54, 150, 119, .15) 42%, transparent 64%);
 }
 
 .nc-overview.unknown .nc-overview-stage::before {
@@ -233,6 +233,21 @@ body[data-primary-page="overview"] .workspace-health small {
     radial-gradient(ellipse 36% 44% at 74% 28%, rgba(204, 204, 99, .12), rgba(90, 158, 140, .1) 38%, transparent 62%),
     radial-gradient(ellipse 43% 51% at 61% 79%, rgba(107, 165, 148, .13), rgba(110, 145, 151, .08) 43%, transparent 65%);
   filter: blur(22px) saturate(.65);
+}
+
+.nc-overview-stage::before,
+.nc-overview-stage::after {
+  display: none;
+}
+
+.nc-topographic-field {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .nc-overview-main {
