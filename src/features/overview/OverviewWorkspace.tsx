@@ -25,7 +25,6 @@ type OverviewRow = {
   target: [number, number] | null
   unit: string
   deviation: number | null
-  deviationLabel: string
   duration: string
   direction: 'above' | 'below' | 'inside' | 'unknown'
   reporting: string
@@ -147,6 +146,12 @@ function formatMeasurement(value: number | null, unit: string) {
   return `${formatNumber(value)}${unitSuffix(unit)}`
 }
 
+function formatDeviation(value: number | null, direction: OverviewRow['direction'], unit: string) {
+  if (value === null || direction === 'unknown') return '—'
+  if (direction === 'inside') return 'Inside target'
+  return `${formatMeasurement(Math.abs(value), unit)} ${direction} target`
+}
+
 function targetRange(value: unknown): [number, number] | null {
   if (!Array.isArray(value) || value.length < 2) return null
   const minimum = Number(value[0])
@@ -202,9 +207,6 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     const target = targetRange(action?.target)
     const deviation = deviationFromTarget(currentValue, target)
     const direction = deviation === null ? 'unknown' : deviation > 0 ? 'above' : deviation < 0 ? 'below' : 'inside'
-    const deviationLabel = deviation === null
-      ? ''
-      : `${deviation > 0 ? '+' : ''}${formatNumber(deviation)}${unitSuffix(unit)}`
     const metricLabel = String(action?.metricLabel || 'Condition')
     const reportingNodes = Number(zone.nodeSummary?.reporting || zone.sensorCount || 0)
     const totalNodes = Number(zone.nodeSummary?.registered || zone.sensorCount || 0)
@@ -229,7 +231,6 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
       target,
       unit,
       deviation,
-      deviationLabel,
       duration: action ? formatDuration(action.outsideTargetSince || action.startedAt || action.firstObservedAt || action.observedAt) : '',
       direction,
       reporting: `${reportingNodes} of ${totalNodes} nodes reporting`,
@@ -381,7 +382,7 @@ function EvidenceDrawer({ model, row, onClose }: {
       {row && sectionAction ? <section className="nc-evidence-metrics">
         <div><span>Current</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
         <div><span>Target</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : 'Not set'}</strong></div>
-        <div data-tone={row.tone}><span>Deviation</span><strong>{row.deviationLabel || '—'}</strong></div>
+        <div data-tone={row.tone}><span>Deviation</span><strong>{formatDeviation(row.deviation, row.direction, row.unit)}</strong></div>
         <div><span>Outside target for</span><strong>{row.duration}</strong></div>
       </section> : null}
       {row && sectionAction
@@ -637,7 +638,7 @@ export default function OverviewWorkspace() {
               <p>
                 <strong>{row.status}</strong>
                 {row.deviation !== null
-                  ? <small className="nc-row-deviation"><b>{row.deviationLabel}</b><span>{row.direction === 'above' ? '↑' : row.direction === 'below' ? '↓' : '•'}</span><em>{row.duration}</em></small>
+                  ? <small className="nc-row-deviation"><b>{formatDeviation(row.deviation, row.direction, row.unit)}</b><em>for {row.duration}</em></small>
                   : <small>{row.detail}</small>}
                 <time>{row.updated}</time>
               </p>
