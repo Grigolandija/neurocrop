@@ -529,7 +529,7 @@ Date;Time;Area;Section;Sensor;Air temperature (°C);Relative humidity (%);...
 riboja vieną eksportą iki 31 dienos; didesniems laikotarpiams vėliau bus
 naudojami agreguoti arba asinchroniškai sugeneruoti eksportai.
 
-## Alerts (planned, not deployed)
+## Alerts
 
 ```text
 GET  /alerts?status=open
@@ -538,11 +538,12 @@ POST /alerts/:alertId/snooze
 POST /alerts/:alertId/resolve
 ```
 
-Backend automatiškai žymi sąlygą `recovered`, kai rodiklis stabiliai grįžta į
-profilio ribas. Vartotojo `resolve` yra darbo proceso įrašas, ne sensoriaus
-reikšmės pakeitimas.
+Alerto ID deterministiškai sieja workflow įrašą su Area, Section ir metrika arba
+Node. `acknowledge`, `snooze` ir `resolve` saugomi organizacijos audit trail;
+vartotojo `resolve` yra darbo proceso įrašas, ne sensoriaus reikšmės pakeitimas.
+Jeigu fizinė sąlyga išlieka, frontend po 24 valandų ją vėl rodo kaip aktyvią.
 
-## Interventions (planned, not deployed)
+## Interventions
 
 Frontend neturi saugoti atliktų veiksmų tik `localStorage`. Veiksmas ir jo
 rezultatas turi būti organizacijos audit trail dalis:

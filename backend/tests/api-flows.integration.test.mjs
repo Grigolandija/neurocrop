@@ -66,6 +66,47 @@ test('authenticated CRUD, scoring, Trends and CSV flow', { skip: !configured }, 
     const renamed = await json(cookie, `/nodes/${devEui}`, 'PATCH', { name: `CI Renamed ${suffix}`, sectionId });
     assert.equal(renamed.node.name, `CI Renamed ${suffix}`);
 
+    const alertId = `metric:${areaId}:${sectionId}:airTemp`;
+    const acknowledged = await json(cookie, `/alerts/${encodeURIComponent(alertId)}/acknowledge`, 'POST', {
+      context: {
+        id: alertId,
+        kind: 'metric',
+        tone: 'warning',
+        siteId: areaId,
+        siteName: `CI Renamed Area ${suffix}`,
+        zoneId: sectionId,
+        zoneName: `CI Section ${suffix}`,
+        metricKey: 'airTemp',
+        title: 'Air temperature outside target'
+      }
+    });
+    assert.equal(acknowledged.alert.status, 'acknowledged');
+    const alertDirectory = await json(cookie, '/alerts?status=all');
+    assert.equal(alertDirectory.alerts.find((item) => item.id === alertId)?.context.metricKey, 'airTemp');
+    const snoozed = await json(cookie, `/alerts/${encodeURIComponent(alertId)}/snooze`, 'POST', { minutes: 5 });
+    assert.equal(snoozed.alert.status, 'snoozed');
+    const resolved = await json(cookie, `/alerts/${encodeURIComponent(alertId)}/resolve`, 'POST');
+    assert.equal(resolved.alert.status, 'resolved');
+
+    const intervention = await json(cookie, '/interventions', 'POST', {
+      sectionId,
+      alertId,
+      metric: 'airTemp',
+      actionType: 'CHECK_VENTILATION',
+      note: 'CI operational workflow',
+      performedAt: new Date().toISOString()
+    }, 201);
+    const outcome = await json(cookie, `/interventions/${intervention.intervention.id}/outcome`, 'PATCH', {
+      status: 'successful',
+      observedAt: new Date().toISOString(),
+      beforeValue: 28.4,
+      afterValue: 23.2,
+      note: 'Returned to target'
+    });
+    assert.equal(outcome.intervention.outcome.status, 'successful');
+    const interventionDirectory = await json(cookie, `/interventions?sectionId=${encodeURIComponent(sectionId)}`);
+    assert.equal(interventionDirectory.interventions.find((item) => item.id === intervention.intervention.id)?.outcome.status, 'successful');
+
     const dashboard = await json(cookie, '/dashboard');
     const fixture = dashboard.sites.flatMap((site) => site.zones).find((zone) => zone.id === 'section-ci-a');
     assert.equal(typeof fixture.score, 'number');

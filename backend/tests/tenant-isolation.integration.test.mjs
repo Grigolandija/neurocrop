@@ -98,6 +98,23 @@ test('tenant A cannot discover or access tenant B resources', { skip: !configure
   });
   assert.ok([400, 404].includes(sectionPatch.status), 'Tenant A could update tenant B Section');
 
+  const foreignAlertId = `metric:${areaB.id}:${sectionB.id}:airTemp`;
+  const foreignAlert = await api(cookieA, `/alerts/${encodeURIComponent(foreignAlertId)}/acknowledge`, {
+    method: 'POST',
+    body: JSON.stringify({})
+  });
+  assert.equal(foreignAlert.status, 404, 'Tenant A could acknowledge tenant B alert');
+
+  const foreignIntervention = await api(cookieA, '/interventions', {
+    method: 'POST',
+    body: JSON.stringify({
+      sectionId: sectionB.id,
+      actionType: 'CROSS_TENANT_TEST',
+      performedAt: new Date().toISOString()
+    })
+  });
+  assert.equal(foreignIntervention.status, 404, 'Tenant A could create an intervention in tenant B Section');
+
   const profileIdsA = new Set((profilesA.profiles || []).map((profile) => profile.id));
   const foreignProfile = (profilesB.profiles || []).find((profile) => !profileIdsA.has(profile.id));
   if (foreignProfile) {

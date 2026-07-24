@@ -91,3 +91,11 @@ test('area metadata migration preserves existing rows with usable defaults', asy
   assert.match(sql, /ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'Growing area'/);
   assert.match(sql, /ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT ''/);
 });
+
+test('operational workflow migration keeps alerts and interventions tenant scoped', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0014_operational_workflows.sql', import.meta.url), 'utf8');
+  assert.match(sql, /PRIMARY KEY \(organization_id, alert_id\)/);
+  assert.match(sql, /interventions_section_tenant_fkey/);
+  assert.match(sql, /FOREIGN KEY \(organization_id, section_id\)/);
+  assert.match(sql, /outcome_status.*successful.*no_change.*made_worse.*not_relevant/s);
+});

@@ -91,6 +91,7 @@
 }
 
 .nc-alerts-review-all:disabled,
+.nc-alert-secondary-action:disabled,
 .nc-alert-primary-action:disabled {
   cursor: not-allowed;
   border-color: var(--color-border);
@@ -316,8 +317,10 @@
 
 .nc-alert-card-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   align-self: center;
+  justify-content: flex-end;
   gap: var(--space-12);
 }
 

@@ -31,6 +31,7 @@ import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
 import { buildTodayActions, evaluateActionOutcome } from './today-actions.js';
 import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
 import { startMeasurementRetention } from './measurement-retention.js';
+import { registerWorkflowRoutes } from './workflow-routes.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -85,6 +86,7 @@ app.use((req, res, next) => {
 
 registerTeamRoutes(app);
 registerPlatformOrganizationRoutes(app);
+registerWorkflowRoutes(app);
 
 function getOrganizationId(req) {
   if (!req.user?.organizationId) throw new Error('Authenticated organization is missing');
