@@ -946,6 +946,13 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   color: #9a640c;
 }
 
+.nc-related-evidence > h3 {
+  margin: 14px 0 0;
+  color: #1b3327;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
 .nc-diagnosis-summary {
   margin: 12px 0 0;
   color: #53645b;

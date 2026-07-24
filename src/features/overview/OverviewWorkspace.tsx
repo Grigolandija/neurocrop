@@ -219,6 +219,7 @@ function AgronomicDiagnosis({ action }: { action: JsonRecord }) {
   const missingMetrics = asArray(diagnosis.missingMetrics).map((metric) => metricLabel(metric))
   return <section className="nc-related-evidence">
     <header><span>Agronomic diagnosis</span><strong data-tone={status}>{diagnosis.label || 'Insufficient data'}</strong></header>
+    <h3>{diagnosis.title || action.title || 'Condition requires review'}</h3>
     <p className="nc-diagnosis-summary">{diagnosis.summary || action.reason}</p>
     {readings.length
       ? <div>
@@ -234,7 +235,7 @@ function AgronomicDiagnosis({ action }: { action: JsonRecord }) {
         </div>
       : null}
     {missingMetrics.length
-      ? <p className="nc-diagnosis-missing"><i className="fa-solid fa-circle-info" /> Add {missingMetrics.join(' or ')} data to confirm this diagnosis.</p>
+      ? <p className="nc-diagnosis-missing"><i className="fa-solid fa-circle-info" /> {missingMetrics.join(' or ')} data would increase confidence in this diagnosis.</p>
       : null}
   </section>
 }

@@ -70,6 +70,20 @@ const DIAGNOSTIC_CONTEXT = {
   waterTemp: ['ec', 'soilTemp']
 };
 
+const SINGLE_DIAGNOSIS_TITLES = {
+  airTemp: { low: 'Likely cold stress and slower growth', high: 'Likely canopy heat stress' },
+  humidity: { low: 'Likely excessive atmospheric drying', high: 'Likely condensation and disease pressure' },
+  vpd: { low: 'Likely weak transpiration', high: 'Likely excessive transpiration demand' },
+  co2: { low: 'Likely carbon limitation', high: 'Likely inefficient CO2 enrichment' },
+  soilTemp: { low: 'Likely restricted root activity', high: 'Likely elevated root respiration' },
+  soilMoisture: { low: 'Likely root-zone water deficit', high: 'Likely root-zone oxygen limitation' },
+  ec: { low: 'Likely insufficient nutrient concentration', high: 'Likely osmotic root stress' },
+  ph: { low: 'Likely acidic nutrient imbalance', high: 'Likely reduced nutrient availability' },
+  leafTemp: { low: 'Likely cold canopy stress', high: 'Likely insufficient canopy cooling' },
+  soilEc: { low: 'Likely diluted root-zone nutrition', high: 'Likely root-zone salinity stress' },
+  waterTemp: { low: 'Likely cold irrigation stress', high: 'Likely low root-zone oxygen availability' }
+};
+
 const MIN_WARNING_ACTION_SEVERITY = 0.05;
 
 const DEFAULT_VERIFICATION_POLICY = Object.freeze({
@@ -112,6 +126,52 @@ function diagnosticReading(snapshot, evaluation) {
   };
 }
 
+function formatDiagnosticNumber(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(1);
+}
+
+function diagnosticDeviation(evaluation, target, unit) {
+  if (!Array.isArray(target) || target.length !== 2) return null;
+  const boundary = evaluation.direction === 'high' ? Number(target[1]) : Number(target[0]);
+  const difference = Math.abs(Number(evaluation.value) - boundary);
+  const formatted = formatDiagnosticNumber(difference);
+  if (formatted === null) return null;
+  const normalizedUnit = unit === 'degC' ? ' degC' : unit === '%' ? '%' : unit ? ` ${unit}` : '';
+  return `${formatted}${normalizedUnit} ${evaluation.direction === 'high' ? 'above' : 'below'} target`;
+}
+
+function buildDiagnosisSummary(snapshot, evaluation, label, availableContext) {
+  const primaryReading = diagnosticReading(snapshot, evaluation);
+  const deviation = diagnosticDeviation(evaluation, primaryReading.target, primaryReading.unit);
+  const opening = deviation
+    ? `${label} is ${deviation}.`
+    : `${label} is outside its crop-profile target.`;
+  const contextByMetric = new Map(availableContext.map((item) => [item.metricId, item]));
+
+  if (evaluation.metricId === 'airTemp' && evaluation.direction === 'high') {
+    const humidity = contextByMetric.get('humidity');
+    const vpd = contextByMetric.get('vpd');
+    const signals = [];
+    if (humidity?.direction === 'low') signals.push('low relative humidity increases drying demand');
+    if (humidity?.direction === 'high') signals.push('high relative humidity can restrict evaporative cooling');
+    if (vpd?.direction === 'high') signals.push('high VPD reinforces transpiration demand');
+    if (vpd?.direction === 'low') signals.push('low VPD can restrict evaporative leaf cooling');
+    if (vpd?.direction === 'optimal') signals.push('VPD remains inside its configured target');
+    const context = signals.length ? `${signals.join(', while ')}.` : '';
+    return `${opening} ${context} This indicates likely canopy heat stress; leaf temperature would confirm the plant-level effect.`.replace(/\s+/g, ' ').trim();
+  }
+
+  const deviatingContext = availableContext
+    .filter((item) => item.direction === 'high' || item.direction === 'low')
+    .map((item) => `${METRIC_LABELS[item.metricId] || item.metricId} is ${item.direction}`);
+  const context = deviatingContext.length
+    ? ` Supporting context: ${deviatingContext.join(' and ')}.`
+    : ' Available supporting readings do not show a second target deviation.';
+  return `${opening}${context}`;
+}
+
 function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
   const evaluations = new Map((snapshot.evaluations || []).map((item) => [item.metricId, item]));
   const contextMetrics = DIAGNOSTIC_CONTEXT[evaluation.metricId] || [];
@@ -119,14 +179,16 @@ function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
   const relatedReadings = [evaluation, ...availableContext].map((item) => diagnosticReading(snapshot, item));
   const missingMetrics = contextMetrics.filter((metricId) => !evaluations.has(metricId));
   const status = availableContext.length > 0 ? 'likely' : 'insufficient_data';
-  const availableLabels = availableContext.map((item) => METRIC_LABELS[item.metricId] || item.metricId);
+  const diagnosisTitle = SINGLE_DIAGNOSIS_TITLES[evaluation.metricId]?.[evaluation.direction]
+    || `Likely ${label.toLowerCase()} stress`;
 
   return {
     diagnosis: {
       status,
       label: status === 'likely' ? 'Likely' : 'Insufficient data',
+      title: diagnosisTitle,
       summary: status === 'likely'
-        ? `${label} is outside target and is being interpreted with current ${availableLabels.join(' and ')} readings.`
+        ? buildDiagnosisSummary(snapshot, evaluation, label, availableContext)
         : `${label} is outside target, but no supporting agronomic context is currently available.`,
       missingMetrics
     },

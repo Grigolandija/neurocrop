@@ -683,6 +683,9 @@ test('single climate deviation still produces a likely diagnosis from installed 
 
   assert.equal(actions.length, 1);
   assert.equal(actions[0].diagnosis.status, 'likely');
+  assert.equal(actions[0].diagnosis.title, 'Likely canopy heat stress');
+  assert.match(actions[0].diagnosis.summary, /above target/);
+  assert.match(actions[0].diagnosis.summary, /leaf temperature would confirm/i);
   assert.deepEqual(actions[0].relatedMetrics, ['airTemp', 'humidity', 'vpd']);
   assert.deepEqual(actions[0].diagnosis.missingMetrics, ['leafTemp']);
 });

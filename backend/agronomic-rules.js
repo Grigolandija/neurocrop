@@ -307,6 +307,7 @@ function buildInteractionCandidate(snapshot, definition, context) {
     diagnosis: {
       status: 'confirmed',
       label: 'Confirmed',
+      title: definition.title,
       summary: definition.reason,
       missingMetrics: []
     }
