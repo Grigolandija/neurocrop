@@ -26,40 +26,45 @@ jobs:
         id: api
         continue-on-error: true
         run: |
-          response=$(curl \
-            --fail \
-            --show-error \
-            --silent \
-            --location \
-            --header 'Accept: application/json' \
-            --user-agent 'NeuroCrop-Uptime/1.0' \
-            --connect-timeout 5 \
-            --max-time 15 \
-            --retry 2 \
-            --retry-all-errors \
-            --retry-delay 5 \
-            --retry-max-time 50 \
-            https://api.neurocrop.lt/health)
-          printf '%s' "$response" | jq -e '.status == "ok"' >/dev/null
+          for attempt in 1 2 3; do
+            if response=$(curl \
+              --fail \
+              --show-error \
+              --silent \
+              --location \
+              --header 'Accept: application/json' \
+              --user-agent 'NeuroCrop-Uptime/1.0' \
+              --connect-timeout 5 \
+              --max-time 15 \
+              https://api.neurocrop.lt/health) \
+              && printf '%s' "$response" | jq -e '.status == "ok"' >/dev/null; then
+              exit 0
+            fi
+            test "$attempt" = 3 || sleep 10
+          done
+          exit 1
       - name: Check public frontend
         id: frontend
         continue-on-error: true
         run: |
-          response=$(curl \
-            --fail \
-            --show-error \
-            --silent \
-            --location \
-            --header 'Accept: text/html,application/xhtml+xml' \
-            --user-agent 'Mozilla/5.0 (compatible; NeuroCrop-Uptime/1.0; +https://neurocrop.lt)' \
-            --connect-timeout 5 \
-            --max-time 15 \
-            --retry 2 \
-            --retry-all-errors \
-            --retry-delay 5 \
-            --retry-max-time 50 \
-            https://neurocrop.lt/)
-          printf '%s' "$response" | grep -F 'id="root"' >/dev/null
+          for attempt in 1 2 3; do
+            if response=$(curl \
+              --fail \
+              --show-error \
+              --silent \
+              --location \
+              --header 'Accept: text/html,application/xhtml+xml' \
+              --user-agent 'Mozilla/5.0 (compatible; NeuroCrop-Uptime/1.0; +https://neurocrop.lt)' \
+              --connect-timeout 5 \
+              --max-time 15 \
+              https://neurocrop.lt/) \
+              && printf '%s' "$response" | grep -F '<title>NeuroCrop Control Center</title>' >/dev/null \
+              && printf '%s' "$response" | grep -F 'id="root"' >/dev/null; then
+              exit 0
+            fi
+            test "$attempt" = 3 || sleep 10
+          done
+          exit 1
       - name: Send outage email
         if: steps.api.outcome == 'failure' || steps.frontend.outcome == 'failure'
         continue-on-error: true

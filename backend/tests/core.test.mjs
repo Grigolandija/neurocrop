@@ -154,13 +154,14 @@ test('successful invitation delivery tolerates a non-JSON provider response', as
 test('production uptime confirms failures and cannot let notification errors mask the probe', () => {
   const workflow = fs.readFileSync(new URL('../../.github/workflows/uptime.yml', import.meta.url), 'utf8');
   assert.match(workflow, /push:[\s\S]*?paths:[\s\S]*?- \.github\/workflows\/uptime\.yml/);
-  assert.match(workflow, /--retry 2/);
-  assert.match(workflow, /--retry-all-errors/);
+  assert.equal((workflow.match(/for attempt in 1 2 3/g) || []).length, 2);
+  assert.equal((workflow.match(/test "\$attempt" = 3 \|\| sleep 10/g) || []).length, 2);
   assert.match(workflow, /cron: "\*\/15 \* \* \* \*"/);
   assert.match(workflow, /--header 'Accept: text\/html,application\/xhtml\+xml'/);
   assert.match(workflow, /--user-agent 'Mozilla\/5\.0 \(compatible; NeuroCrop-Uptime\/1\.0;/);
   assert.match(workflow, /jq -e '\.status == "ok"'/);
   assert.match(workflow, /https:\/\/neurocrop\.lt\//);
+  assert.match(workflow, /<title>NeuroCrop Control Center<\/title>/);
   assert.match(workflow, /id: frontend/);
   assert.match(workflow, /name: Send outage email\n\s+if:[\s\S]*?continue-on-error: true/);
   assert.match(workflow, /name: Fail confirmed outage/);
