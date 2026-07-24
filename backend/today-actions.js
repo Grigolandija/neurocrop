@@ -56,6 +56,20 @@ const EFFECTS = {
   ph: 'Nutrient availability moves closer to the configured range.'
 };
 
+const DIAGNOSTIC_CONTEXT = {
+  airTemp: ['humidity', 'vpd', 'leafTemp'],
+  humidity: ['airTemp', 'vpd', 'leafTemp'],
+  vpd: ['airTemp', 'humidity', 'leafTemp', 'soilMoisture'],
+  co2: ['lux', 'airTemp'],
+  soilTemp: ['soilMoisture', 'waterTemp'],
+  soilMoisture: ['vpd', 'soilEc', 'soilTemp'],
+  ec: ['ph', 'soilEc', 'waterTemp'],
+  ph: ['ec', 'soilEc'],
+  leafTemp: ['airTemp', 'humidity', 'vpd'],
+  soilEc: ['soilMoisture', 'ec', 'ph'],
+  waterTemp: ['ec', 'soilTemp']
+};
+
 const MIN_WARNING_ACTION_SEVERITY = 0.05;
 
 const DEFAULT_VERIFICATION_POLICY = Object.freeze({
@@ -84,6 +98,43 @@ function actionTitle(evaluation, label) {
   return `${verb} ${label.toLowerCase()}`;
 }
 
+function diagnosticReading(snapshot, evaluation) {
+  const metric = snapshot.profileMetrics?.[evaluation.metricId] || {};
+  const rule = snapshot.scoreRules?.[evaluation.metricId];
+  return {
+    metricId: evaluation.metricId,
+    metricLabel: metric.label || METRIC_LABELS[evaluation.metricId] || evaluation.metricId,
+    value: evaluation.value,
+    unit: metric.unit || METRIC_UNITS[evaluation.metricId] || '',
+    target: rule?.optimal || metric.optimal || null,
+    state: evaluation.state,
+    direction: evaluation.direction
+  };
+}
+
+function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
+  const evaluations = new Map((snapshot.evaluations || []).map((item) => [item.metricId, item]));
+  const contextMetrics = DIAGNOSTIC_CONTEXT[evaluation.metricId] || [];
+  const availableContext = contextMetrics.map((metricId) => evaluations.get(metricId)).filter(Boolean);
+  const relatedReadings = [evaluation, ...availableContext].map((item) => diagnosticReading(snapshot, item));
+  const missingMetrics = contextMetrics.filter((metricId) => !evaluations.has(metricId));
+  const status = availableContext.length > 0 ? 'likely' : 'insufficient_data';
+  const availableLabels = availableContext.map((item) => METRIC_LABELS[item.metricId] || item.metricId);
+
+  return {
+    diagnosis: {
+      status,
+      label: status === 'likely' ? 'Likely' : 'Insufficient data',
+      summary: status === 'likely'
+        ? `${label} is outside target and is being interpreted with current ${availableLabels.join(' and ')} readings.`
+        : `${label} is outside target, but no supporting agronomic context is currently available.`,
+      missingMetrics
+    },
+    relatedMetrics: relatedReadings.map((item) => item.metricId),
+    relatedReadings
+  };
+}
+
 function buildCandidate(snapshot, evaluation) {
   const metric = snapshot.profileMetrics?.[evaluation.metricId] || {};
   const rule = snapshot.scoreRules?.[evaluation.metricId];
@@ -92,6 +143,7 @@ function buildCandidate(snapshot, evaluation) {
   const defaultAction = ACTION_TEMPLATES[evaluation.metricId]?.[evaluation.direction];
   const recommendedAction = metric.action || defaultAction || `Check ${label.toLowerCase()} controls and sensor placement.`;
   const observedAt = snapshot.observedAtByMetric?.[evaluation.metricId] || snapshot.latestReceivedAt || null;
+  const diagnosticContext = buildSingleMetricDiagnosis(snapshot, evaluation, label);
 
   return {
     id: `${snapshot.section.id}:${evaluation.metricId}:${evaluation.direction}`,
@@ -114,7 +166,8 @@ function buildCandidate(snapshot, evaluation) {
     recommendedAction,
     expectedEffect: EFFECTS[evaluation.metricId] || `${label} moves closer to the crop profile target.`,
     observedAt,
-    confidence: snapshot.reportingNodes > 0 && snapshot.reportingNodes === snapshot.registeredNodes ? 'high' : 'medium'
+    confidence: snapshot.reportingNodes > 0 && snapshot.reportingNodes === snapshot.registeredNodes ? 'high' : 'medium',
+    ...diagnosticContext
   };
 }
 

@@ -912,13 +912,45 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   background: #f4f8f3;
 }
 
-.nc-related-evidence > span,
+.nc-related-evidence > header > span,
 .nc-action-diagnosis > span {
   color: #718078;
   font-size: 10px;
   font-weight: 750;
   letter-spacing: .07em;
   text-transform: uppercase;
+}
+
+.nc-related-evidence > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.nc-related-evidence > header > strong {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #edf0ed;
+  color: #6e7973;
+  font-size: 11px;
+}
+
+.nc-related-evidence > header > strong[data-tone="confirmed"] {
+  background: #dff1e4;
+  color: #287044;
+}
+
+.nc-related-evidence > header > strong[data-tone="likely"] {
+  background: #fff0d3;
+  color: #9a640c;
+}
+
+.nc-diagnosis-summary {
+  margin: 12px 0 0;
+  color: #53645b;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .nc-related-evidence > div {
@@ -954,6 +986,15 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   margin: 4px 0 0;
   color: #718078;
   font-size: 11px;
+}
+
+.nc-diagnosis-missing {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 12px !important;
+  color: #65736c !important;
+  line-height: 1.45;
 }
 
 .nc-evidence-metrics {

@@ -303,6 +303,12 @@ function buildInteractionCandidate(snapshot, definition, context) {
     evidence: {
       level: definition.evidenceLevel,
       codes: [...definition.evidenceCodes]
+    },
+    diagnosis: {
+      status: 'confirmed',
+      label: 'Confirmed',
+      summary: definition.reason,
+      missingMetrics: []
     }
   };
 }

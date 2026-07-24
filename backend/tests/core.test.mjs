@@ -597,6 +597,7 @@ test('combined high VPD and dry root zone creates one explainable interaction ac
   assert.deepEqual(actions[0].relatedMetrics, ['vpd', 'soilMoisture']);
   assert.equal(actions[0].relatedReadings.length, 2);
   assert.equal(actions[0].confidence, 'high');
+  assert.equal(actions[0].diagnosis.status, 'confirmed');
 });
 
 test('wet roots with hot canopy recommend uptake checks instead of more irrigation', () => {
@@ -660,6 +661,45 @@ test('interaction rules never infer missing required sensor values', () => {
     evaluations: [evaluateMetricValue('vpd', 2, scoreRules)]
   }]);
   assert.equal(actions.some((item) => item.ruleType === 'interaction'), false);
+});
+
+test('single climate deviation still produces a likely diagnosis from installed node context', () => {
+  const profileMetrics = {
+    airTemp: { optimal: [20, 24] },
+    humidity: { optimal: [55, 70] },
+    vpd: { optimal: [0.8, 1.2] }
+  };
+  const scoreRules = buildScoreRules(profileMetrics);
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'North block' },
+    profileMetrics,
+    scoreRules,
+    evaluations: [
+      evaluateMetricValue('airTemp', 31, scoreRules),
+      evaluateMetricValue('humidity', 65, scoreRules),
+      evaluateMetricValue('vpd', 1.1, scoreRules)
+    ]
+  }]);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].diagnosis.status, 'likely');
+  assert.deepEqual(actions[0].relatedMetrics, ['airTemp', 'humidity', 'vpd']);
+  assert.deepEqual(actions[0].diagnosis.missingMetrics, ['leafTemp']);
+});
+
+test('single deviation names the missing sensors needed for agronomic confirmation', () => {
+  const profileMetrics = { soilMoisture: { optimal: [45, 60] } };
+  const scoreRules = buildScoreRules(profileMetrics);
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'North block' },
+    profileMetrics,
+    scoreRules,
+    evaluations: [evaluateMetricValue('soilMoisture', 30, scoreRules)]
+  }]);
+
+  assert.equal(actions[0].diagnosis.status, 'insufficient_data');
+  assert.deepEqual(actions[0].diagnosis.missingMetrics, ['vpd', 'soilEc', 'soilTemp']);
+  assert.equal(actions[0].relatedReadings.length, 1);
 });
 
 test('tiny warning deviations remain visible without creating a priority action', () => {

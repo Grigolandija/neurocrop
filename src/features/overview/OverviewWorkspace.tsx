@@ -211,22 +211,31 @@ function formatTarget(target: [number, number] | null, unit: string) {
   return `Target ${formatNumber(target[0])}–${formatNumber(target[1])}${unitSuffix(unit)}`
 }
 
-function RelatedReadings({ action }: { action: JsonRecord }) {
+function AgronomicDiagnosis({ action }: { action: JsonRecord }) {
   const readings = asArray(action?.relatedReadings)
-  if (action?.ruleType !== 'interaction' || readings.length < 2) return null
+  const diagnosis = action?.diagnosis as JsonRecord | undefined
+  if (!diagnosis) return null
+  const status = String(diagnosis.status || 'insufficient_data')
+  const missingMetrics = asArray(diagnosis.missingMetrics).map((metric) => metricLabel(metric))
   return <section className="nc-related-evidence">
-    <span>Combined evidence</span>
-    <div>
-      {readings.map((reading) => {
-        const unit = normalizeUnit(reading.unit)
-        const value = Number(reading.value)
-        return <article key={String(reading.metricId)}>
-          <small>{reading.metricLabel || metricLabel(reading.metricId)}</small>
-          <strong>{formatMeasurement(Number.isFinite(value) ? value : null, unit)}</strong>
-          <p>{formatTarget(targetRange(reading.target), unit)}</p>
-        </article>
-      })}
-    </div>
+    <header><span>Agronomic diagnosis</span><strong data-tone={status}>{diagnosis.label || 'Insufficient data'}</strong></header>
+    <p className="nc-diagnosis-summary">{diagnosis.summary || action.reason}</p>
+    {readings.length
+      ? <div>
+          {readings.map((reading) => {
+            const unit = normalizeUnit(reading.unit)
+            const value = Number(reading.value)
+            return <article key={String(reading.metricId)}>
+              <small>{reading.metricLabel || metricLabel(reading.metricId)}</small>
+              <strong>{formatMeasurement(Number.isFinite(value) ? value : null, unit)}</strong>
+              <p>{formatTarget(targetRange(reading.target), unit)}</p>
+            </article>
+          })}
+        </div>
+      : null}
+    {missingMetrics.length
+      ? <p className="nc-diagnosis-missing"><i className="fa-solid fa-circle-info" /> Add {missingMetrics.join(' or ')} data to confirm this diagnosis.</p>
+      : null}
   </section>
 }
 
@@ -469,7 +478,7 @@ function EvidenceDrawer({ model, row, onClose }: {
         <strong>{conclusion}</strong>
         <p>{evidence}</p>
       </section>
-      {activeAction ? <RelatedReadings action={activeAction} /> : null}
+      {activeAction ? <AgronomicDiagnosis action={activeAction} /> : null}
       {row && sectionAction ? <section className="nc-evidence-metrics">
         <div><span>Current</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
         <div><span>Target</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : 'Not set'}</strong></div>
@@ -600,7 +609,7 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
             {action.ruleType === 'interaction'
               ? <div className="nc-action-diagnosis"><span>Why NeuroCrop recommends this</span><strong>{action.title}</strong><p>{action.reason}</p></div>
               : null}
-            <RelatedReadings action={action} />
+            <AgronomicDiagnosis action={action} />
             <div className="nc-action-recommendation"><span>Recommended check</span><p>{action.recommendedAction || 'Inspect the relevant controls and sensor placement.'}</p></div>
             {item.status !== 'open'
               ? <label className="nc-action-note"><span>Result note</span><textarea value={item.note} onChange={(event) => updateItem(actionId, { note: event.target.value })} placeholder="What did you find or change?" maxLength={500} disabled={item.status === 'checked'} /></label>
