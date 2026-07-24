@@ -1256,7 +1256,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-overview-insight > header span {
   color: #718078;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: .09em;
   text-transform: uppercase;
@@ -1305,7 +1305,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-progress-stats span {
   color: #718078;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 750;
 }
 
@@ -1359,7 +1359,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-result-list small {
   color: #718078;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .nc-result-list [data-outcome="target_reached"] > span:last-child strong,
