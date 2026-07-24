@@ -48,7 +48,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
       - name: Install SSH key
         run: |
           install -m 700 -d ~/.ssh
@@ -56,7 +55,4 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H '${{ secrets.VPS_HOST }}' >> ~/.ssh/known_hosts
       - name: Deploy immutable image
-        run: |
-          scp deploy/deploy.sh deploy/rollback.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/neurocrop-deploy/"
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            "sh /opt/neurocrop-deploy/deploy.sh '${{ inputs.environment }}' '${{ needs.image.outputs.backend_image }}' '${{ needs.image.outputs.frontend_image }}'"
+        run: ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "${{ inputs.environment }}:${GITHUB_SHA}"

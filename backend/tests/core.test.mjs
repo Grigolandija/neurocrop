@@ -43,6 +43,16 @@ test('production deployment waits for API and ingest processes', () => {
   assert.match(deploy, /test "\$ingest_health" = running/);
 });
 
+test('GitHub deployment key is limited to immutable NeuroCrop releases', () => {
+  const workflow = fs.readFileSync(new URL('../../.github/workflows/release.yml', import.meta.url), 'utf8');
+  const gateway = fs.readFileSync(new URL('../../deploy/github-actions-deploy.sh', import.meta.url), 'utf8');
+  assert.doesNotMatch(workflow, /\bscp\b/);
+  assert.match(workflow, /"\$\{\{ inputs\.environment \}\}:\$\{GITHUB_SHA\}"/);
+  assert.match(gateway, /test "\$\{#sha\}" -ne 40/);
+  assert.match(gateway, /\*\[!0-9a-f\]\*/);
+  assert.match(gateway, /exec \/opt\/neurocrop-deploy\/deploy\.sh/);
+});
+
 test('production frontend sends baseline browser security headers', () => {
   const nginx = fs.readFileSync(new URL('../../deploy/nginx.conf.template', import.meta.url), 'utf8');
   assert.match(nginx, /X-Content-Type-Options "nosniff"/);

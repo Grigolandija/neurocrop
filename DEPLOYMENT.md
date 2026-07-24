@@ -17,6 +17,16 @@ Production runs `neurocrop-api` and `neurocrop-ingest` from the same immutable
 backend image. Compose disables the API HTTP healthcheck for the ingest command,
 and deployment succeeds only when the API is healthy and ingest is running.
 
+The GitHub Actions SSH key must be installed with a forced command:
+
+```text
+command="/opt/neurocrop-deploy/github-actions-deploy.sh",restrict ssh-ed25519 ... neurocrop-github-actions-production
+```
+
+The forced command accepts only `staging:<40-hex-sha>` or
+`production:<40-hex-sha>` and constructs the immutable GHCR image names itself.
+The key cannot open a shell or upload deployment scripts.
+
 ## Server setup
 
 Copy each compose file once:
