@@ -906,6 +906,56 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   line-height: 1.6;
 }
 
+.nc-related-evidence {
+  padding: 20px 28px;
+  border-bottom: 1px solid rgba(45, 83, 65, .13);
+  background: #f4f8f3;
+}
+
+.nc-related-evidence > span,
+.nc-action-diagnosis > span {
+  color: #718078;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.nc-related-evidence > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.nc-related-evidence article {
+  padding: 12px;
+  border: 1px solid rgba(45, 83, 65, .12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .8);
+}
+
+.nc-related-evidence small,
+.nc-related-evidence strong {
+  display: block;
+}
+
+.nc-related-evidence small {
+  color: #718078;
+}
+
+.nc-related-evidence strong {
+  margin-top: 5px;
+  color: #1b3327;
+  font-size: 18px;
+}
+
+.nc-related-evidence p {
+  margin: 4px 0 0;
+  color: #718078;
+  font-size: 11px;
+}
+
 .nc-evidence-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1222,6 +1272,28 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 .nc-action-values strong {
   font-size: 14px;
   line-height: 1.35;
+}
+
+.nc-action-diagnosis {
+  display: grid;
+  gap: 7px;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(45, 83, 65, .1);
+}
+
+.nc-action-diagnosis strong {
+  color: #1b3327;
+}
+
+.nc-action-diagnosis p {
+  margin: 0;
+  color: #53645b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.nc-action-item .nc-related-evidence {
+  padding: 16px 20px;
 }
 
 .nc-action-values > div:nth-child(3) strong {

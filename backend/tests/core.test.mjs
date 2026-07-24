@@ -9,6 +9,7 @@ import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
 import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
 import { buildTodayActions, evaluateActionOutcome, getActionVerificationPolicy } from '../today-actions.js';
+import { AGRONOMIC_INTERACTION_RULES } from '../agronomic-rules.js';
 import { invitationState } from '../invitation-state.js';
 import { compactTelemetryMetadata, normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from '../telemetry-values.js';
 import { getMeasurementRetentionDays, runMeasurementRetention } from '../measurement-retention.js';
@@ -555,6 +556,110 @@ test('today actions exclude context-only light deviations', () => {
     ]
   }]);
   assert.deepEqual(actions, []);
+});
+
+test('agronomic interaction catalogue has 25 complete and unique rules', () => {
+  assert.equal(AGRONOMIC_INTERACTION_RULES.length, 25);
+  assert.equal(new Set(AGRONOMIC_INTERACTION_RULES.map((rule) => rule.id)).size, 25);
+  for (const rule of AGRONOMIC_INTERACTION_RULES) {
+    assert.ok(rule.primaryMetric);
+    assert.ok(rule.requiredMetrics.length >= 2);
+    assert.equal(rule.requiredMetrics.includes(rule.primaryMetric), true);
+    assert.ok(rule.title);
+    assert.ok(rule.reason);
+    assert.ok(rule.recommendedAction);
+    assert.ok(rule.expectedEffect);
+  }
+});
+
+test('combined high VPD and dry root zone creates one explainable interaction action', () => {
+  const profileMetrics = {
+    vpd: { optimal: [0.8, 1.2] },
+    soilMoisture: { optimal: [45, 60] }
+  };
+  const scoreRules = buildScoreRules(profileMetrics);
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'North block', area_id: 'area-1' },
+    profileMetrics,
+    scoreRules,
+    evaluations: [
+      evaluateMetricValue('vpd', 2.1, scoreRules),
+      evaluateMetricValue('soilMoisture', 30, scoreRules)
+    ],
+    observedAtByMetric: { vpd: '2026-07-24T09:00:00Z', soilMoisture: '2026-07-24T09:00:00Z' },
+    reportingNodes: 2,
+    registeredNodes: 2
+  }]);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].ruleId, 'ATM_ROOT_DROUGHT');
+  assert.equal(actions[0].id.startsWith('section-1:soilMoisture:'), true);
+  assert.deepEqual(actions[0].relatedMetrics, ['vpd', 'soilMoisture']);
+  assert.equal(actions[0].relatedReadings.length, 2);
+  assert.equal(actions[0].confidence, 'high');
+});
+
+test('wet roots with hot canopy recommend uptake checks instead of more irrigation', () => {
+  const profileMetrics = {
+    vpd: { optimal: [0.8, 1.2] },
+    soilMoisture: { optimal: [45, 60] },
+    leafTemp: { optimal: [20, 25] }
+  };
+  const scoreRules = buildScoreRules(profileMetrics);
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'North block' },
+    profileMetrics,
+    scoreRules,
+    evaluations: [
+      evaluateMetricValue('vpd', 2, scoreRules),
+      evaluateMetricValue('soilMoisture', 80, scoreRules),
+      evaluateMetricValue('leafTemp', 31, scoreRules)
+    ]
+  }]);
+
+  const action = actions.find((item) => item.ruleId === 'WET_ROOT_UPTAKE_LIMIT');
+  assert.ok(action);
+  assert.match(action.title, /root uptake/i);
+  assert.match(action.recommendedAction, /Do not irrigate automatically/i);
+});
+
+test('condensation interaction uses calculated leaf dew-point margin', () => {
+  const profileMetrics = {
+    airTemp: { optimal: [20, 24] },
+    humidity: { optimal: [55, 70] },
+    leafTemp: { optimal: [20, 24] }
+  };
+  const scoreRules = buildScoreRules(profileMetrics);
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'North block' },
+    profileMetrics,
+    scoreRules,
+    evaluations: [
+      evaluateMetricValue('airTemp', 22, scoreRules),
+      evaluateMetricValue('humidity', 92, scoreRules),
+      evaluateMetricValue('leafTemp', 21, scoreRules)
+    ]
+  }]);
+
+  const action = actions.find((item) => item.ruleId === 'CONDENSATION_IMMINENT');
+  assert.ok(action);
+  assert.ok(action.derived.dewPointMargin <= 1);
+  assert.deepEqual(action.relatedMetrics, ['airTemp', 'humidity', 'leafTemp']);
+});
+
+test('interaction rules never infer missing required sensor values', () => {
+  const profileMetrics = {
+    vpd: { optimal: [0.8, 1.2] },
+    soilMoisture: { optimal: [45, 60] }
+  };
+  const scoreRules = buildScoreRules(profileMetrics);
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'North block' },
+    profileMetrics,
+    scoreRules,
+    evaluations: [evaluateMetricValue('vpd', 2, scoreRules)]
+  }]);
+  assert.equal(actions.some((item) => item.ruleType === 'interaction'), false);
 });
 
 test('tiny warning deviations remain visible without creating a priority action', () => {

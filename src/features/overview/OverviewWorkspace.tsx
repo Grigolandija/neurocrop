@@ -211,6 +211,25 @@ function formatTarget(target: [number, number] | null, unit: string) {
   return `Target ${formatNumber(target[0])}–${formatNumber(target[1])}${unitSuffix(unit)}`
 }
 
+function RelatedReadings({ action }: { action: JsonRecord }) {
+  const readings = asArray(action?.relatedReadings)
+  if (action?.ruleType !== 'interaction' || readings.length < 2) return null
+  return <section className="nc-related-evidence">
+    <span>Combined evidence</span>
+    <div>
+      {readings.map((reading) => {
+        const unit = normalizeUnit(reading.unit)
+        const value = Number(reading.value)
+        return <article key={String(reading.metricId)}>
+          <small>{reading.metricLabel || metricLabel(reading.metricId)}</small>
+          <strong>{formatMeasurement(Number.isFinite(value) ? value : null, unit)}</strong>
+          <p>{formatTarget(targetRange(reading.target), unit)}</p>
+        </article>
+      })}
+    </div>
+  </section>
+}
+
 function deviationFromTarget(value: number | null, target: [number, number] | null) {
   if (value === null || !target) return null
   if (value > target[1]) return value - target[1]
@@ -371,6 +390,7 @@ function EvidenceDrawer({ model, row, onClose }: {
   const sectionAction = row
     ? model.actions.find((action) => String(action.sectionId) === row.id)
     : null
+  const activeAction = sectionAction || (!row ? model.priority : null)
   const conclusion = row
     ? row.status
     : model.priority ? model.priority.title : `All ${model.rows.length} Sections are stable.`
@@ -449,6 +469,7 @@ function EvidenceDrawer({ model, row, onClose }: {
         <strong>{conclusion}</strong>
         <p>{evidence}</p>
       </section>
+      {activeAction ? <RelatedReadings action={activeAction} /> : null}
       {row && sectionAction ? <section className="nc-evidence-metrics">
         <div><span>Current</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
         <div><span>Target</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : 'Not set'}</strong></div>
@@ -576,6 +597,10 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
               <div><span>Deviation</span><strong>{row ? formatDeviation(row.deviation, row.direction, row.unit) : action.reason}</strong></div>
               <div><span>Duration</span><strong>{row?.duration || 'Unavailable'}</strong></div>
             </div>
+            {action.ruleType === 'interaction'
+              ? <div className="nc-action-diagnosis"><span>Why NeuroCrop recommends this</span><strong>{action.title}</strong><p>{action.reason}</p></div>
+              : null}
+            <RelatedReadings action={action} />
             <div className="nc-action-recommendation"><span>Recommended check</span><p>{action.recommendedAction || 'Inspect the relevant controls and sensor placement.'}</p></div>
             {item.status !== 'open'
               ? <label className="nc-action-note"><span>Result note</span><textarea value={item.note} onChange={(event) => updateItem(actionId, { note: event.target.value })} placeholder="What did you find or change?" maxLength={500} disabled={item.status === 'checked'} /></label>
@@ -694,7 +719,9 @@ export default function OverviewWorkspace() {
   const maximumDeviation = comparableActionRows.length === actionRows.length
     ? Math.max(...comparableActionRows.map((row) => Math.abs(row.deviation || 0)))
     : null
-  const actionHeadline = actionRows.length && maximumDeviation !== null && actionRows[0].direction !== 'unknown'
+  const actionHeadline = model.priority?.ruleType === 'interaction'
+    ? model.priority.title
+    : actionRows.length && maximumDeviation !== null && actionRows[0].direction !== 'unknown'
     ? `${actionRows.length} Section${actionRows.length === 1 ? '' : 's'} ${actionRows.length === 1 ? 'is' : 'are'} up to ${formatMeasurement(maximumDeviation, actionRows[0].unit)} ${actionRows[0].direction} target.`
     : model.priority?.title
   const headline = stable
@@ -702,7 +729,9 @@ export default function OverviewWorkspace() {
     : actionHeadline || `${model.rows.length - verifiedRows.length} Sections cannot be verified.`
   const explanation = stable
     ? 'Every Section is inside its current target range.'
-    : actionRows.length
+    : model.priority?.ruleType === 'interaction'
+      ? model.priority.reason
+      : actionRows.length
       ? `${actionRows[0].metricLabel} is outside the active crop-profile target in ${actionRows.length} of ${model.rows.length} Sections.`
       : model.priority?.reason || 'Current data or an active crop profile is missing.'
   const unknownRows = model.rows.filter((row) => row.tone === 'unknown')

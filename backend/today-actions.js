@@ -1,4 +1,5 @@
 import { normalizeTelemetryNumber } from './telemetry-values.js';
+import { buildAgronomicInteractionCandidates } from './agronomic-rules.js';
 
 const METRIC_LABELS = {
   airTemp: 'Air temperature',
@@ -118,24 +119,31 @@ function buildCandidate(snapshot, evaluation) {
 }
 
 export function buildTodayActions(sectionSnapshots, { limit = 3 } = {}) {
-  const candidates = sectionSnapshots.flatMap((snapshot) =>
-    (snapshot.evaluations || [])
+  const candidates = sectionSnapshots.flatMap((snapshot) => {
+    const interactionCandidates = buildAgronomicInteractionCandidates(snapshot);
+    const coveredMetrics = new Set(interactionCandidates.flatMap((candidate) => candidate.relatedMetrics || []));
+    const singleMetricCandidates = (snapshot.evaluations || [])
       .filter((evaluation) => snapshot.scoreRules?.[evaluation.metricId]?.growth !== false)
       .filter((evaluation) => evaluation.state === 'critical' || evaluation.state === 'warning')
       .filter((evaluation) => evaluation.state === 'critical' || evaluation.severity >= MIN_WARNING_ACTION_SEVERITY)
-      .map((evaluation) => buildCandidate(snapshot, evaluation))
-  );
+      .filter((evaluation) => !coveredMetrics.has(evaluation.metricId))
+      .map((evaluation) => buildCandidate(snapshot, evaluation));
+    return [...interactionCandidates, ...singleMetricCandidates];
+  });
 
   candidates.sort((left, right) => {
     if (left.state !== right.state) return left.state === 'critical' ? -1 : 1;
     if (left.severity !== right.severity) return right.severity - left.severity;
+    if (left.ruleType !== right.ruleType) return left.ruleType === 'interaction' ? -1 : 1;
     return new Date(right.observedAt || 0) - new Date(left.observedAt || 0);
   });
 
   const selected = [];
   const sectionGroupCounts = new Map();
   for (const candidate of candidates) {
-    const groupKey = `${candidate.sectionId}:${METRIC_GROUPS[candidate.metricId] || candidate.metricId}`;
+    const groupKey = candidate.ruleType === 'interaction'
+      ? `${candidate.sectionId}:rule:${candidate.decisionGroup}`
+      : `${candidate.sectionId}:${METRIC_GROUPS[candidate.metricId] || candidate.metricId}`;
     if (sectionGroupCounts.has(groupKey)) continue;
     if (selected.filter((item) => item.sectionId === candidate.sectionId).length >= 2) continue;
     selected.push(candidate);
