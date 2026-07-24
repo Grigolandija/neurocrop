@@ -53,6 +53,8 @@ test('wrong password shows a clear inline login error', async ({ page }) => {
 
 test('tenant dashboard selects a real Area and Section and supports navigation', async ({ page }) => {
   await login(page, 'tenant-a@ci.neurocrop.test')
+  await page.goto('/')
+  await expect(page.locator('#dashboardShell')).toBeVisible()
   await expect(page.locator('#headerAccountEmail')).toHaveText('tenant-a@ci.neurocrop.test')
   await expect(navigationAction(page, 'overview')).toHaveAttribute('data-active', 'true')
   await expect(navigationAction(page, 'overview')).toContainText('Overview')
@@ -66,6 +68,7 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
 
   await navigationAction(page, 'sites').click()
   await expect(page).toHaveURL(/\/areas$/)
+  await expect(page.locator('.nc-areas-page')).toBeVisible()
   await navigationAction(page, 'nodes').click()
   await expect(page).toHaveURL(/\/nodes$/)
   await navigationAction(page, 'history').click()
@@ -160,9 +163,10 @@ test('large workspace keeps 100+ Areas accessible', async ({ page }) => {
   await authenticate(page, 'tenant-large@ci.neurocrop.test', 101)
   await navigationAction(page, 'sites').click()
   await expect(page).toHaveURL(/\/areas$/)
-  await page.locator('#siteTrigger').click()
-  await expect(page.locator('[data-site-option]')).toHaveCount(101)
-  await expect(page.locator('[data-site-option]').filter({ hasText: 'Scale Area 101' })).toBeVisible()
+  await expect(page.locator('.nc-area-list article')).toHaveCount(101)
+  await page.getByPlaceholder('Name, environment, location…').fill('Scale Area 101')
+  await expect(page.locator('.nc-area-list article')).toHaveCount(1)
+  await expect(page.locator('.nc-area-list article')).toContainText('Scale Area 101')
 })
 
 test('primary desktop pages fit the viewport without horizontal overflow', async ({ page }) => {
@@ -248,8 +252,13 @@ test('primary desktop pages keep operational text readable', async ({ page }) =>
 test('destructive Area removal requires explicit confirmation', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
   await navigationAction(page, 'sites').click()
-  await page.locator('[data-location-edit]').first().click()
-  await expect(page.locator('#managementModalOverlay')).toBeVisible()
-  await page.locator('[data-modal-location-delete]').click()
-  await expect(page.locator('.management-modal-error')).toContainText('Confirm')
+  await expect(page.locator('.nc-areas-page')).toBeVisible()
+  await page.getByRole('button', { name: 'Actions for CI Area A' }).click()
+  await page.getByRole('button', { name: 'Delete area', exact: true }).click()
+  const confirmation = page.getByRole('dialog', { name: /Delete “CI Area A”/ })
+  await expect(confirmation).toBeVisible()
+  await expect(confirmation).toContainText('Choose what happens to its sections')
+  await expect(confirmation.getByText(/Keep 1 sections/)).toBeVisible()
+  await confirmation.getByRole('button', { name: 'Cancel' }).click()
+  await expect(confirmation).toBeHidden()
 })
