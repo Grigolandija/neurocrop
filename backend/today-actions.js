@@ -131,6 +131,57 @@ const SINGLE_DIAGNOSIS_IMPACTS = {
   }
 };
 
+const CATALOG_RULES = {
+  airTemp: {
+    low: { ruleId: 'S001', evidenceLevel: 'B', evidenceCodes: ['E03', 'E06'], verifyNext: ['Root-zone temperature', 'Leaf temperature', '10–30 min temperature trend'], avoid: 'Do not compensate for cold-limited uptake by increasing irrigation or nutrients first.' },
+    high: { ruleId: 'S002', evidenceLevel: 'B', evidenceCodes: ['E03', 'E06'], verifyNext: ['Leaf temperature', 'VPD', 'Light load'], avoid: 'Do not cool or humidify abruptly without checking canopy temperature and VPD.' }
+  },
+  humidity: {
+    low: { ruleId: 'S003', evidenceLevel: 'A', evidenceCodes: ['E01', 'E02'], verifyNext: ['VPD', 'Leaf temperature', '10–30 min humidity trend'], avoid: 'Do not increase humidity from RH alone; first confirm atmospheric demand with VPD.' },
+    high: { ruleId: 'S004', evidenceLevel: 'A', evidenceCodes: ['E02', 'E13'], verifyNext: ['Leaf-to-dew-point margin', 'Air movement', 'Night temperature trend'], avoid: 'Do not use RH alone as proof of condensation; confirm the surface temperature margin.' }
+  },
+  vpd: {
+    low: { ruleId: 'S005', evidenceLevel: 'B', evidenceCodes: ['E02', 'E13'], verifyNext: ['Leaf temperature', 'Air movement', 'Calcium-sensitive growth'], avoid: 'Do not raise VPD abruptly; protect the crop from a sudden transpiration increase.' },
+    high: { ruleId: 'S006', evidenceLevel: 'B', evidenceCodes: ['E03', 'E04'], verifyNext: ['Root-zone moisture', 'Leaf temperature', '10–30 min VPD trend'], avoid: 'Do not add irrigation or humidity blindly before checking root water supply and canopy response.' }
+  },
+  co2: {
+    low: { ruleId: 'S007', evidenceLevel: 'B', evidenceCodes: ['E04', 'E05'], verifyNext: ['Active light', 'Ventilation state', 'CO2 distribution'], avoid: 'Do not increase CO2 dosing unless useful light is available.' },
+    high: { ruleId: 'S008', evidenceLevel: 'B', evidenceCodes: ['E04', 'E05'], verifyNext: ['Active light', 'Dosing schedule', 'Ventilation losses'], avoid: 'Do not intensify enrichment before confirming a photosynthetic return.' }
+  },
+  lux: {
+    low: { ruleId: 'S009', evidenceLevel: 'B', evidenceCodes: ['E05', 'E06'], verifyNext: ['Photoperiod', 'Canopy PPFD', 'Daily light integral'], avoid: 'Do not diagnose light limitation from one lux snapshot; use canopy PPFD and DLI.' },
+    high: { ruleId: 'S010', evidenceLevel: 'B', evidenceCodes: ['E05', 'E06'], verifyNext: ['CO2', 'Leaf temperature', 'VPD'], avoid: 'Do not reduce useful light permanently before checking whether another factor is limiting cooling or photosynthesis.' }
+  },
+  leafTemp: {
+    low: { ruleId: 'S011', evidenceLevel: 'C', evidenceCodes: ['E02', 'E03'], verifyNext: ['Air temperature', 'VPD', 'Dew-point margin'], avoid: 'Do not infer cold injury before excluding sensor view and evaporative cooling effects.' },
+    high: { ruleId: 'S012', evidenceLevel: 'B', evidenceCodes: ['E03', 'E05'], verifyNext: ['Air temperature', 'VPD', 'Light load'], avoid: 'Do not treat hot leaves as an air-temperature problem only; check canopy energy and water balance.' }
+  },
+  soilMoisture: {
+    low: { ruleId: 'S015', evidenceLevel: 'B', evidenceCodes: ['E01', 'E11'], verifyNext: ['VPD', 'Root-zone EC', 'Dryback curve'], avoid: 'Do not irrigate from one point reading before checking sensor placement and distribution uniformity.' },
+    high: { ruleId: 'S016', evidenceLevel: 'B', evidenceCodes: ['E08'], verifyNext: ['Drainage', 'Root-zone temperature', 'Root condition'], avoid: 'Do not add further irrigation until drainage and root-zone aeration are checked.' }
+  },
+  soilTemp: {
+    low: { ruleId: 'S017', evidenceLevel: 'B', evidenceCodes: ['E07'], verifyNext: ['Irrigation-water temperature', 'Soil moisture', 'Air temperature'], avoid: 'Do not compensate for slow cold-root uptake by increasing feed strength.' },
+    high: { ruleId: 'S018', evidenceLevel: 'B', evidenceCodes: ['E07', 'E08'], verifyNext: ['Water temperature', 'Soil moisture', 'Root aeration'], avoid: 'Do not assess warm roots independently of moisture and oxygen availability.' }
+  },
+  ec: {
+    low: { ruleId: 'S019', evidenceLevel: 'B', evidenceCodes: ['E09'], verifyNext: ['Nutrient recipe', 'Doser calibration', 'Laboratory ion analysis'], avoid: 'Do not assume which element is deficient from EC alone.' },
+    high: { ruleId: 'S020', evidenceLevel: 'B', evidenceCodes: ['E10', 'E11'], verifyNext: ['Root-zone EC', 'Water source', 'Dosing calibration'], avoid: 'Do not flush or dilute before distinguishing feed concentration from root-zone accumulation.' }
+  },
+  ph: {
+    low: { ruleId: 'S021', evidenceLevel: 'B', evidenceCodes: ['E09', 'E10'], verifyNext: ['Probe calibration', 'Mixing time', 'EC and root-zone EC'], avoid: 'Do not correct aggressively until the probe and mixed solution are verified.' },
+    high: { ruleId: 'S022', evidenceLevel: 'B', evidenceCodes: ['E09', 'E10'], verifyNext: ['Alkalinity', 'Probe calibration', 'Nutrient recipe'], avoid: 'Do not increase nutrient concentration to compensate for pH-driven availability problems.' }
+  },
+  soilEc: {
+    low: { ruleId: 'S023', evidenceLevel: 'C', evidenceCodes: ['E09', 'E12'], verifyNext: ['Feed EC', 'Soil moisture', 'Drainage EC'], avoid: 'Do not increase fertilizer from one root-zone EC point.' },
+    high: { ruleId: 'S024', evidenceLevel: 'B', evidenceCodes: ['E11', 'E12'], verifyNext: ['Soil moisture', 'Feed EC', 'Drainage fraction'], avoid: 'Do not flush before distinguishing salt input from dryback concentration.' }
+  },
+  waterTemp: {
+    low: { ruleId: 'S025', evidenceLevel: 'B', evidenceCodes: ['E07', 'E08'], verifyNext: ['Root-zone temperature', 'Air temperature', 'Irrigation timing'], avoid: 'Do not warm the nutrient solution abruptly.' },
+    high: { ruleId: 'S026', evidenceLevel: 'B', evidenceCodes: ['E08'], verifyNext: ['Dissolved oxygen', 'Root-zone temperature', 'Reservoir heat source'], avoid: 'Do not evaluate warm solution without checking oxygen availability.' }
+  }
+};
+
 const DIRECT_CRITICAL_CONDITION_METRICS = new Set(['ph']);
 
 const MIN_WARNING_ACTION_SEVERITY = 0.05;
@@ -242,6 +293,48 @@ function buildDiagnosisSummary(snapshot, evaluation, label, availableContext) {
   return `${opening} ${impact}${context}`.replace(/\s+/g, ' ').trim();
 }
 
+function buildClimateSynthesis(evaluations) {
+  const air = evaluations.get('airTemp');
+  const humidity = evaluations.get('humidity');
+  const vpd = evaluations.get('vpd');
+  if (!air || !humidity || !vpd) return null;
+
+  if (air.direction === 'low' && humidity.direction === 'low' && vpd.direction !== 'high') {
+    const vpdState = vpd.direction === 'low'
+      ? 'also below target, indicating weak transpiration'
+      : 'inside target, so low RH is not producing excessive atmospheric water demand';
+    return {
+      title: 'Cold-limited growth is the primary constraint',
+      summary: `Air temperature is below target and derived VPD is ${vpdState}. Relative humidity alone does not confirm atmospheric drying.`,
+      mechanism: 'Low temperature slows enzyme activity, development, and root water and nutrient uptake. Because saturation vapour pressure falls with temperature, a low RH percentage can coexist with acceptable VPD.',
+      likelyImpact: 'The crop is more likely to show slower growth and a shoot-to-root uptake mismatch than acute dehydration. Sensitive growth stages may accumulate delay if the condition persists.',
+      decision: 'Correct cold-air ingress, heating, or the day/night temperature profile first. Reassess RH only after temperature and VPD stabilize.',
+      verifyNext: ['Root-zone temperature', 'Leaf temperature', '10–30 min temperature and VPD trends'],
+      avoid: 'Do not humidify or increase irrigation from the RH value alone; that can create condensation or an over-wet root zone without removing the main limitation.',
+      evidence: { level: 'A/B', ruleIds: ['S001', 'S003'], codes: ['E01', 'E02', 'E03', 'E06'] },
+      recommendedAction: 'Restore the crop temperature profile first, then reassess VPD and relative humidity.',
+      expectedEffect: 'Metabolic activity and root uptake recover without creating unnecessary humidity or irrigation risk.'
+    };
+  }
+
+  if (air.direction === 'low' && humidity.direction === 'low' && vpd.direction === 'high') {
+    return {
+      title: 'Cold growth limitation with excessive atmospheric demand',
+      summary: 'Low temperature is slowing crop activity while derived VPD confirms that the air can still remove water faster than the crop profile allows.',
+      mechanism: 'The shoot faces atmospheric water demand while cold-limited roots may supply water and nutrients more slowly, creating an uptake-demand mismatch.',
+      likelyImpact: 'Stomatal restriction, uneven transpiration, and delayed nutrient delivery can occur together even though the air is cold.',
+      decision: 'Remove cold ingress and reduce VPD gradually while verifying root-zone moisture; coordinate climate correction rather than changing humidity alone.',
+      verifyNext: ['Root-zone moisture', 'Root-zone temperature', 'Leaf temperature'],
+      avoid: 'Do not respond with irrigation alone; cold roots may not convert additional water into effective uptake.',
+      evidence: { level: 'B', ruleIds: ['S001', 'S003', 'S006'], codes: ['E01', 'E02', 'E03', 'E04', 'E06'] },
+      recommendedAction: 'Coordinate gradual warming with VPD correction and verify root water supply.',
+      expectedEffect: 'Root supply and canopy demand move toward balance without overwatering.'
+    };
+  }
+
+  return null;
+}
+
 function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
   const evaluations = new Map((snapshot.evaluations || []).map((item) => [item.metricId, item]));
   const contextMetrics = DIAGNOSTIC_CONTEXT[evaluation.metricId] || [];
@@ -255,6 +348,15 @@ function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
       : 'observed_condition';
   const diagnosisTitle = SINGLE_DIAGNOSIS_TITLES[evaluation.metricId]?.[evaluation.direction]
     || `Likely ${label.toLowerCase()} stress`;
+  const catalogRule = CATALOG_RULES[evaluation.metricId]?.[evaluation.direction];
+  const climateSynthesis = buildClimateSynthesis(evaluations);
+  const synthesis = ['airTemp', 'humidity', 'vpd'].includes(evaluation.metricId) ? climateSynthesis : null;
+  const summary = synthesis?.summary || buildDiagnosisSummary(snapshot, evaluation, label, availableContext);
+  const mechanism = synthesis?.mechanism
+    || SINGLE_DIAGNOSIS_IMPACTS[evaluation.metricId]?.[evaluation.direction]
+    || 'The selected value changes the crop environment outside its configured target.';
+  const likelyImpact = synthesis?.likelyImpact
+    || `${mechanism} The actual crop response depends on duration, growth stage, and the related readings listed below.`;
 
   return {
     diagnosis: {
@@ -264,12 +366,26 @@ function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
         : status === 'likely'
           ? 'Emerging'
           : 'Observed condition',
-      title: diagnosisTitle,
-      summary: buildDiagnosisSummary(snapshot, evaluation, label, availableContext),
+      title: synthesis?.title || diagnosisTitle,
+      summary,
+      mechanism,
+      likelyImpact,
+      decision: synthesis?.decision || ACTION_TEMPLATES[evaluation.metricId]?.[evaluation.direction],
+      verifyNext: synthesis?.verifyNext || catalogRule?.verifyNext || [],
+      avoid: synthesis?.avoid || catalogRule?.avoid || '',
+      evidence: synthesis?.evidence || (catalogRule ? {
+        level: catalogRule.evidenceLevel,
+        ruleIds: [catalogRule.ruleId],
+        codes: [...catalogRule.evidenceCodes]
+      } : null),
       missingMetrics
     },
     relatedMetrics: relatedReadings.map((item) => item.metricId),
-    relatedReadings
+    relatedReadings,
+    ...(synthesis ? {
+      recommendedAction: synthesis.recommendedAction,
+      expectedEffect: synthesis.expectedEffect
+    } : {})
   };
 }
 
@@ -301,8 +417,8 @@ function buildCandidate(snapshot, evaluation) {
     target,
     title: actionTitle(evaluation, label),
     reason: `${label} is outside the crop profile target in ${snapshot.section.name}.`,
-    recommendedAction,
-    expectedEffect: EFFECTS[evaluation.metricId] || `${label} moves closer to the crop profile target.`,
+    recommendedAction: diagnosticContext.recommendedAction || recommendedAction,
+    expectedEffect: diagnosticContext.expectedEffect || EFFECTS[evaluation.metricId] || `${label} moves closer to the crop profile target.`,
     observedAt,
     confidence: snapshot.reportingNodes > 0 && snapshot.reportingNodes === snapshot.registeredNodes ? 'high' : 'medium',
     ...diagnosticContext

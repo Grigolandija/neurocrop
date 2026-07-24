@@ -40,6 +40,10 @@ function records(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is JsonRecord => Boolean(item) && typeof item === 'object') : []
 }
 
+function strings(value: unknown) {
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : []
+}
+
 function metricRange(profile: JsonRecord, metricId: string): [number, number] | null {
   const metrics = profile.metrics as JsonRecord | undefined
   const metric = metrics?.[metricId] as JsonRecord | undefined
@@ -199,6 +203,10 @@ export default function SimulatorWorkspace() {
   const diagnosis = result?.diagnosis as JsonRecord | undefined
   const action = result?.action as JsonRecord | undefined
   const limitations = Array.isArray(result?.limitations) ? result.limitations.map(String) : []
+  const evidence = diagnosis?.evidence as JsonRecord | undefined
+  const verifyNext = strings(diagnosis?.verifyNext)
+  const evidenceRules = strings(evidence?.ruleIds)
+  const evidenceCodes = strings(evidence?.codes)
   const selectedMetricIds = new Set(parameters.map((item) => item.metricId))
   const derivedVpd = calculatedVpd(parameters)
 
@@ -249,6 +257,22 @@ export default function SimulatorWorkspace() {
           ? <>
               <header><div><span>Expected result</span><h2>{String(diagnosis.title || 'Scenario result')}</h2></div><strong>{String(diagnosis.label || 'Result')}</strong></header>
               <p className="nc-simulator-summary">{String(diagnosis.summary || '')}</p>
+              {diagnosis.mechanism || diagnosis.likelyImpact || diagnosis.decision
+                ? <div className="nc-simulator-reasoning">
+                    {diagnosis.mechanism ? <article><span>Physiological mechanism</span><p>{String(diagnosis.mechanism)}</p></article> : null}
+                    {diagnosis.likelyImpact ? <article><span>Likely crop consequence</span><p>{String(diagnosis.likelyImpact)}</p></article> : null}
+                    {diagnosis.decision ? <article className="priority"><span>Decision priority</span><p>{String(diagnosis.decision)}</p></article> : null}
+                  </div>
+                : null}
+              {verifyNext.length || diagnosis.avoid
+                ? <div className="nc-simulator-guardrails">
+                    {verifyNext.length ? <article><span>Verify next</span><ul>{verifyNext.map((item) => <li key={item}>{item}</li>)}</ul></article> : null}
+                    {diagnosis.avoid ? <article className="avoid"><span>Avoid</span><p>{String(diagnosis.avoid)}</p></article> : null}
+                  </div>
+                : null}
+              {evidenceRules.length || evidenceCodes.length
+                ? <p className="nc-simulator-evidence"><i className="fa-solid fa-book-open" />Catalog {evidenceRules.join(' + ')} · Evidence {String(evidence?.level || '—')} · Sources {evidenceCodes.join(', ')}</p>
+                : null}
               <div className="nc-simulator-score"><span>Simulated Growing Score</span><strong>{result.score === null || result.score === undefined ? '—' : `${result.score} / 100`}</strong><small>{result.mainDriver ? `Main driver: ${METRIC_LABELS[String(result.mainDriver)] || result.mainDriver}` : 'No limiting driver'}</small></div>
               {action ? <article className="nc-simulator-action"><span>Recommended response</span><strong>{String(action.recommendedAction || 'Review the selected conditions.')}</strong><p>{String(action.expectedEffect || '')}</p></article> : <article className="nc-simulator-action stable"><i className="fa-solid fa-circle-check" /><strong>No corrective action is indicated by the selected values.</strong></article>}
               <aside className="nc-simulator-limitations"><span>Model boundaries</span>{limitations.map((item) => <p key={item}><i className="fa-solid fa-circle-info" />{item}</p>)}</aside>

@@ -747,6 +747,26 @@ test('scenario simulator separates a snapshot from a sustained likely condition'
   assert.match(sustained.diagnosis.summary, /persists for 30 minutes/);
 });
 
+test('scenario simulator does not mistake low RH for drying when cold air keeps VPD in target', () => {
+  const result = simulateAgronomicScenario({
+    profileMetrics: {
+      airTemp: { optimal: [19, 20] },
+      humidity: { optimal: [50, 70] },
+      vpd: { optimal: [0.5, 2] }
+    },
+    values: { airTemp: 10, humidity: 23 },
+    durationMinutes: 60
+  });
+
+  assert.equal(result.diagnosis.title, 'Cold-limited growth is the primary constraint');
+  assert.match(result.diagnosis.summary, /low RH is not producing excessive atmospheric water demand/i);
+  assert.match(result.diagnosis.mechanism, /root water and nutrient uptake/i);
+  assert.match(result.diagnosis.decision, /temperature profile first/i);
+  assert.match(result.diagnosis.avoid, /Do not humidify or increase irrigation/i);
+  assert.deepEqual(result.diagnosis.evidence.ruleIds, ['S001', 'S003']);
+  assert.ok(result.derivedValues.vpd >= 0.5 && result.derivedValues.vpd <= 2);
+});
+
 test('scenario simulator confirms a multi-parameter water stress rule', () => {
   const result = simulateAgronomicScenario({
     profileMetrics: {
@@ -761,6 +781,8 @@ test('scenario simulator confirms a multi-parameter water stress rule', () => {
   assert.equal(result.diagnosis.status, 'confirmed');
   assert.equal(result.action.ruleId, 'ATM_ROOT_DROUGHT');
   assert.equal(result.diagnosis.temporalStatus, 'persistent');
+  assert.match(result.diagnosis.mechanism, /water loss/i);
+  assert.deepEqual(result.diagnosis.evidence.ruleIds, ['ATM_ROOT_DROUGHT']);
   assert.ok(result.derivedValues.vpd > 2);
 });
 

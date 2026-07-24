@@ -309,6 +309,16 @@ function buildInteractionCandidate(snapshot, definition, context) {
       label: 'Confirmed',
       title: definition.title,
       summary: definition.reason,
+      mechanism: definition.reason,
+      likelyImpact: definition.expectedEffect,
+      decision: definition.recommendedAction,
+      verifyNext: relatedReadings.map((item) => item.metricLabel),
+      avoid: '',
+      evidence: {
+        level: definition.evidenceLevel,
+        ruleIds: [definition.id],
+        codes: [...definition.evidenceCodes]
+      },
       missingMetrics: []
     }
   };

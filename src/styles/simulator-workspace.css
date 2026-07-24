@@ -374,6 +374,73 @@ body[data-react-simulator-active="true"] #adminIntegrationsMount {
   line-height: 1.65;
 }
 
+.nc-simulator-reasoning {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.nc-simulator-reasoning article,
+.nc-simulator-guardrails article {
+  padding: 16px 17px;
+  border: 1px solid rgba(46, 88, 67, .14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .72);
+}
+
+.nc-simulator-reasoning article.priority {
+  border-left: 4px solid #2b7a65;
+  background: rgba(235, 246, 239, .82);
+}
+
+.nc-simulator-reasoning span,
+.nc-simulator-guardrails span {
+  color: #547187;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.nc-simulator-reasoning p,
+.nc-simulator-guardrails p {
+  margin: 7px 0 0;
+  color: #43564c;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.nc-simulator-guardrails {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.nc-simulator-guardrails ul {
+  margin: 8px 0 0;
+  padding-left: 17px;
+  color: #43564c;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.nc-simulator-guardrails .avoid {
+  background: rgba(255, 247, 232, .76);
+}
+
+.nc-simulator-evidence {
+  margin: 12px 2px 0;
+  color: #718078;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.nc-simulator-evidence i {
+  margin-right: 7px;
+  color: #52725f;
+}
+
 .nc-simulator-score {
   display: grid;
   gap: 4px;
@@ -521,5 +588,9 @@ body[data-react-simulator-active="true"] #adminIntegrationsMount {
 
   .nc-simulator-duration > div {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .nc-simulator-guardrails {
+    grid-template-columns: 1fr;
   }
 }
