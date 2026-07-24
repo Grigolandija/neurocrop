@@ -87,6 +87,20 @@ credentials: "include"
 Naudoti serverio sesiją su `HttpOnly`, `Secure` ir tinkamu `SameSite` cookie.
 JWT, slaptažodžių ir ChirpStack raktų nelaikyti `localStorage`.
 
+## E2E testai
+
+Pilni E2E testai vykdomi GitHub Actions CI aplinkoje po kiekvieno `push` į
+`main` ir kiekviename pull request'e. Lokaliai paleidus:
+
+```bash
+pnpm test:e2e
+```
+
+komanda tik primena, kad pilnas scenarijus yra CI atsakomybė, todėl kompiuteryje
+nereikia nei Docker, nei PostgreSQL. CI komanda pati pritaiko migracijas,
+sukuria testinius tenantus, paleidžia API bei frontend'ą ir po testų išjungia
+savo procesus.
+
 Jeigu API yra kitame subdomene, CORS turi leisti tik konkretų frontend domeną
 ir `Access-Control-Allow-Credentials: true`.
 

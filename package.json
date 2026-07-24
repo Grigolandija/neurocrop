@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "test:state": "node ./scripts/test-state-engine.mjs",
     "test:runtime": "node ./scripts/test-runtime-invariants.mjs",
-    "test:e2e": "playwright test",
+    "test:e2e": "node ./scripts/run-e2e.mjs",
+    "test:e2e:playwright": "playwright test",
     "test": "pnpm test:state && pnpm test:runtime",
     "preview": "vite preview"
   },

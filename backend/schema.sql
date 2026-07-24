@@ -101,8 +101,12 @@ CREATE TABLE IF NOT EXISTS areas (
     id              TEXT PRIMARY KEY,
     organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     name            TEXT NOT NULL,
+    kind            TEXT NOT NULL DEFAULT 'Growing area',
+    location        TEXT NOT NULL DEFAULT '',
     created_at      TIMESTAMPTZ DEFAULT now()
 );
+ALTER TABLE areas ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'Growing area';
+ALTER TABLE areas ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS sections (
     id              TEXT PRIMARY KEY,

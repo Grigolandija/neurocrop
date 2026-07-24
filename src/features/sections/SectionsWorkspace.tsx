@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 // Management payloads can contain both dashboard and API naming conventions.
@@ -167,6 +167,8 @@ function downloadCsv(rows: SectionRow[]) {
 
 export default function SectionsWorkspace() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const handledAreaCreate = useRef('')
   const [areas, setAreas] = useState<AreaOption[]>([])
   const [profiles, setProfiles] = useState<ProfileOption[]>([])
   const [sections, setSections] = useState<SectionRow[]>([])
@@ -195,6 +197,17 @@ export default function SectionsWorkspace() {
     document.body.dataset.reactSectionsActive = 'true'
     return () => { delete document.body.dataset.reactSectionsActive }
   }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const requestedAreaId = params.get('area') || ''
+    const requestKey = params.get('create') === '1' ? location.search : ''
+    if (!requestKey || handledAreaCreate.current === requestKey || !areas.some((area) => area.id === requestedAreaId) || !profiles.length) return
+    handledAreaCreate.current = requestKey
+    setAreaFilter(requestedAreaId)
+    setModalError('')
+    setEditor({ mode: 'create', name: '', areaId: requestedAreaId, profileId: profiles[0].id })
+  }, [areas, location.search, profiles])
 
   useEffect(() => {
     let cancelled = false

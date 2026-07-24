@@ -85,3 +85,9 @@ test('measurement storage migration prunes demo history and duplicate indexes', 
   assert.match(sql, /INTERVAL '7 days'/);
   assert.match(sql, /jsonb_strip_nulls\(jsonb_build_object/);
 });
+
+test('area metadata migration preserves existing rows with usable defaults', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0013_area_metadata.sql', import.meta.url), 'utf8');
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'Growing area'/);
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT ''/);
+});

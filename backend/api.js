@@ -887,7 +887,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
 app.get('/areas', requireAuth, async (req, res) => {
   try {
     const { rows } = await query(
-      `SELECT a.id, a.name, a.created_at,
+      `SELECT a.id, a.name, a.kind, a.location, a.created_at,
         COUNT(DISTINCT s.id)::int AS sections,
         COUNT(DISTINCT n.dev_eui)::int AS nodes
        FROM areas a
@@ -907,15 +907,18 @@ app.get('/areas', requireAuth, async (req, res) => {
 
 app.post('/areas', requireAuth, requireRole('owner', 'admin', 'grower'), async (req, res) => {
   const name = String(req.body?.name || '').trim();
+  const kind = String(req.body?.kind || 'Growing area').trim();
+  const location = String(req.body?.location || '').trim();
   if (!name) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Area name is required' } });
+  if (name.length > 120 || kind.length > 80 || location.length > 180) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Area details are too long' } });
 
   try {
     const id = createEntityId('area');
     const { rows } = await query(
-      `INSERT INTO areas (id, organization_id, name)
-       VALUES ($1, $2, $3)
-       RETURNING id, organization_id, name, created_at`,
-      [id, getOrganizationId(req), name]
+      `INSERT INTO areas (id, organization_id, name, kind, location)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, organization_id, name, kind, location, created_at`,
+      [id, getOrganizationId(req), name, kind || 'Growing area', location]
     );
     res.status(201).json({ area: rows[0] });
   } catch (e) {
@@ -926,14 +929,20 @@ app.post('/areas', requireAuth, requireRole('owner', 'admin', 'grower'), async (
 
 app.patch('/areas/:areaId', requireAuth, requireRole('owner', 'admin', 'grower'), async (req, res) => {
   const name = String(req.body?.name || '').trim();
+  const kind = req.body?.kind === undefined ? null : String(req.body.kind).trim();
+  const location = req.body?.location === undefined ? null : String(req.body.location).trim();
   if (!name) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Area name is required' } });
+  if (name.length > 120 || (kind !== null && kind.length > 80) || (location !== null && location.length > 180)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Area details are too long' } });
 
   try {
     const { rows } = await query(
-      `UPDATE areas SET name=$1
-       WHERE id=$2 AND organization_id=$3
-       RETURNING id, organization_id, name, created_at`,
-      [name, req.params.areaId, getOrganizationId(req)]
+      `UPDATE areas
+       SET name=$1,
+           kind=COALESCE(NULLIF($2, ''), kind),
+           location=COALESCE($3, location)
+       WHERE id=$4 AND organization_id=$5
+       RETURNING id, organization_id, name, kind, location, created_at`,
+      [name, kind, location, req.params.areaId, getOrganizationId(req)]
     );
     if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
     res.json({ area: rows[0] });

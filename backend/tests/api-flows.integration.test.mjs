@@ -37,8 +37,22 @@ test('authenticated CRUD, scoring, Trends and CSV flow', { skip: !configured }, 
   let sectionId;
 
   try {
-    const area = await json(cookie, '/areas', 'POST', { name: `CI Area ${suffix}` }, 201);
+    const area = await json(cookie, '/areas', 'POST', {
+      name: `CI Area ${suffix}`, kind: 'Greenhouse', location: 'CI test facility'
+    }, 201);
     areaId = area.area.id;
+    assert.equal(area.area.kind, 'Greenhouse');
+    assert.equal(area.area.location, 'CI test facility');
+    const updatedArea = await json(cookie, `/areas/${areaId}`, 'PATCH', {
+      name: `CI Area ${suffix}`, kind: 'Trial facility', location: 'Updated CI location'
+    });
+    assert.equal(updatedArea.area.kind, 'Trial facility');
+    assert.equal(updatedArea.area.location, 'Updated CI location');
+    const renamedArea = await json(cookie, `/areas/${areaId}`, 'PATCH', { name: `CI Renamed Area ${suffix}` });
+    assert.equal(renamedArea.area.kind, 'Trial facility');
+    assert.equal(renamedArea.area.location, 'Updated CI location');
+    const areaDirectory = await json(cookie, '/areas');
+    assert.equal(areaDirectory.areas.find((item) => item.id === areaId)?.location, 'Updated CI location');
     await json(cookie, '/crop-profiles', 'POST', {
       id: profileId, name: `CI Profile ${suffix}`, heroName: 'CI Crop', stage: 'Test',
       metrics: { airTemp: { label: 'Air temperature', unit: 'degC', optimal: [18, 24], warning: [16, 26], critical: [14, 30], decimals: 1 } }

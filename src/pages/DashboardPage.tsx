@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
+import AreasWorkspace from '../features/areas/AreasWorkspace'
 import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
 import SectionsWorkspace from '../features/sections/SectionsWorkspace'
 import SettingsWorkspace from '../features/settings/SettingsWorkspace'
@@ -74,6 +75,7 @@ function ApprovedDashboard() {
   const hostRef = useRef<HTMLDivElement>(null)
   const runtimeReady = useRef(false)
   const [readingsMount, setReadingsMount] = useState<HTMLElement | null>(null)
+  const [areasMount, setAreasMount] = useState<HTMLElement | null>(null)
   const [overviewMount, setOverviewMount] = useState<HTMLElement | null>(null)
   const [sectionsMount, setSectionsMount] = useState<HTMLElement | null>(null)
   const [settingsMount, setSettingsMount] = useState<HTMLElement | null>(null)
@@ -88,6 +90,7 @@ function ApprovedDashboard() {
       hostRef.current.innerHTML = approvedMarkup
     }
     setReadingsMount(hostRef.current?.querySelector<HTMLElement>('#readingsWorkspaceMount') || null)
+    setAreasMount(hostRef.current?.querySelector<HTMLElement>('#areasWorkspaceMount') || null)
     setOverviewMount(hostRef.current?.querySelector<HTMLElement>('#overviewWorkspaceMount') || null)
     setSectionsMount(hostRef.current?.querySelector<HTMLElement>('#sectionsWorkspaceMount') || null)
     setSettingsMount(hostRef.current?.querySelector<HTMLElement>('#settingsWorkspaceMount') || null)
@@ -143,6 +146,7 @@ function ApprovedDashboard() {
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
+      setAreasMount(null)
       setOverviewMount(null)
       setSectionsMount(null)
       setSettingsMount(null)
@@ -169,6 +173,9 @@ function ApprovedDashboard() {
       : null}
     {location.pathname === '/readings' && readingsMount
       ? createPortal(<ReadingsWorkspace />, readingsMount)
+      : null}
+    {location.pathname === '/areas' && areasMount
+      ? createPortal(<AreasWorkspace />, areasMount)
       : null}
     {location.pathname === '/sections' && sectionsMount
       ? createPortal(<SectionsWorkspace />, sectionsMount)
