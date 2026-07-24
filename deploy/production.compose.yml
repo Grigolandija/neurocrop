@@ -29,6 +29,23 @@ services:
       retries: 5
       start_period: 15s
 
+  neurocrop-ingest:
+    image: ${NEUROCROP_BACKEND_IMAGE:?Set NEUROCROP_BACKEND_IMAGE}
+    container_name: neurocrop-ingest
+    restart: unless-stopped
+    command: ["node", "ingest.js"]
+    networks:
+      - chirpstack
+    environment:
+      NODE_ENV: production
+      PGHOST: postgresql
+      PGUSER: ${PGUSER:-chirpstack}
+      PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD}
+      PGDATABASE: ${PGDATABASE:-neurocrop}
+      MQTT_URL: ${MQTT_URL:-mqtt://mosquitto:1883}
+    healthcheck:
+      disable: true
+
 networks:
   chirpstack:
     external: true

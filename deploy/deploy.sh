@@ -61,6 +61,9 @@ for attempt in $(seq 1 30); do
     if test "$environment" = staging; then
       frontend_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' neurocrop-frontend-staging 2>/dev/null || true)
       test "$frontend_health" = healthy || { sleep 2; continue; }
+    else
+      ingest_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' neurocrop-ingest 2>/dev/null || true)
+      test "$ingest_health" = running || { sleep 2; continue; }
     fi
     echo "$environment deployed: $image"
     exit 0

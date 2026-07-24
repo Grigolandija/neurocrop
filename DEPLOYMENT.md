@@ -13,6 +13,10 @@ Create `staging` and `production` environments. Require manual approval for `pro
 The release workflow publishes immutable images named with the Git commit SHA. It never deploys `latest`.
 Make the repository GHCR package readable by the VPS (public package or a persistent read-only `docker login` on the server).
 
+Production runs `neurocrop-api` and `neurocrop-ingest` from the same immutable
+backend image. Compose disables the API HTTP healthcheck for the ingest command,
+and deployment succeeds only when the API is healthy and ingest is running.
+
 ## Server setup
 
 Copy each compose file once:

@@ -33,6 +33,14 @@ test('production API stays private behind the shared Caddy network', () => {
   assert.match(compose, /external:\s+true/);
   assert.match(compose, /name:\s+chirpstack_default/);
   assert.match(compose, /TRUST_PROXY_HOPS:\s+"1"/);
+  assert.match(compose, /neurocrop-ingest:[\s\S]*?command: \["node", "ingest\.js"\]/);
+  assert.match(compose, /neurocrop-ingest:[\s\S]*?healthcheck:\n\s+disable: true/);
+});
+
+test('production deployment waits for API and ingest processes', () => {
+  const deploy = fs.readFileSync(new URL('../../deploy/deploy.sh', import.meta.url), 'utf8');
+  assert.match(deploy, /docker inspect[\s\S]*neurocrop-ingest/);
+  assert.match(deploy, /test "\$ingest_health" = running/);
 });
 
 test('production frontend sends baseline browser security headers', () => {
