@@ -403,64 +403,105 @@ function EvidenceDrawer({ model, row, onClose }: {
   </div>
 }
 
-function ActionWorkflow({ action, onClose, onSubmitted }: {
-  action: JsonRecord
-  onClose: () => void
-  onSubmitted: () => void
-}) {
-  const [assignee, setAssignee] = useState('Me')
-  const [note, setNote] = useState('')
-  const [status, setStatus] = useState<'open' | 'in-progress' | 'submitting' | 'checked'>(
-    action.feedback?.status === 'completed' ? 'checked' : 'open',
-  )
-  const [error, setError] = useState('')
+type WorkflowItemState = {
+  status: 'open' | 'in-progress' | 'submitting' | 'checked'
+  note: string
+  error: string
+}
 
-  async function completeAction() {
-    if (status === 'open') {
-      setStatus('in-progress')
+function ActionWorkflow({ actions, rows, areaName, onClose }: {
+  actions: JsonRecord[]
+  rows: OverviewRow[]
+  areaName: string
+  onClose: () => void
+}) {
+  const [items, setItems] = useState<Record<string, WorkflowItemState>>(() => Object.fromEntries(
+    actions.map((action) => [String(action.id), {
+      status: action.feedback?.status === 'completed' ? 'checked' : 'open',
+      note: '',
+      error: '',
+    }]),
+  ))
+  const rowsById = new Map(rows.map((row) => [row.id, row]))
+
+  function updateItem(actionId: string, update: Partial<WorkflowItemState>) {
+    setItems((current) => ({
+      ...current,
+      [actionId]: { ...current[actionId], ...update },
+    }))
+  }
+
+  async function completeAction(action: JsonRecord) {
+    const actionId = String(action.id)
+    const item = items[actionId]
+    if (!item || item.status === 'submitting' || item.status === 'checked') return
+    if (item.status === 'open') {
+      updateItem(actionId, { status: 'in-progress' })
       return
     }
-    if (status === 'checked') return
-    setStatus('submitting')
-    setError('')
+    updateItem(actionId, { status: 'submitting', error: '' })
     try {
       if (neurocropApi.isConnected()) {
-        await neurocropApi.submitTodayActionFeedback(String(action.id), {
+        await neurocropApi.submitTodayActionFeedback(actionId, {
           status: 'completed',
-          note,
+          note: item.note,
           executionDetails: { type: 'equipment_checked', adjustment: action.recommendedAction || 'Checked equipment', durationMinutes: null },
           action,
         })
       }
-      setStatus('checked')
-      onSubmitted()
+      updateItem(actionId, { status: 'checked' })
     } catch (reason) {
-      setStatus('in-progress')
-      setError(reason instanceof Error ? reason.message : 'The result could not be saved.')
+      updateItem(actionId, {
+        status: 'in-progress',
+        error: reason instanceof Error ? reason.message : 'The result could not be saved.',
+      })
     }
   }
 
   return <div className="nc-overview-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-    <aside className="nc-overview-drawer nc-action-drawer" role="dialog" aria-modal="true" aria-labelledby="overview-action-title">
+    <aside className="nc-overview-drawer nc-action-drawer nc-action-list-drawer" role="dialog" aria-modal="true" aria-labelledby="overview-action-title">
       <header>
-        <div><span className={`nc-workflow-status ${status}`}><i />{status === 'checked' ? 'Checked' : status === 'open' ? 'Ready to start' : 'In progress'}</span><h2 id="overview-action-title">{action.title}</h2><p>{action.areaName} · {action.sectionName}</p></div>
+        <div><span>Recommended checks</span><h2 id="overview-action-title">Review {actions.length} affected Section{actions.length === 1 ? '' : 's'}</h2><p>{areaName}</p></div>
         <button type="button" onClick={onClose} aria-label="Close action"><i className="fa-solid fa-xmark" /></button>
       </header>
-      <section className="nc-action-brief">
-        <span>Why this matters</span>
-        <p>{action.reason}</p>
-        <div><strong>Recommended check</strong><p>{action.recommendedAction}</p></div>
+      <section className="nc-action-guidance">
+        <i className="fa-solid fa-circle-info" />
+        <p>NeuroCrop recommends what to inspect. It does not control ventilation, heating, irrigation, or other equipment.</p>
       </section>
-      <section className="nc-action-form">
-        <label><span>Assigned to</span><select value={assignee} onChange={(event) => setAssignee(event.target.value)}><option>Me</option><option>Grower on duty</option><option>Technician</option></select></label>
-        <label><span>Result note</span><textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="What did you find or change?" maxLength={500} /></label>
-        {error ? <p className="nc-action-error" role="alert">{error}</p> : null}
+      <section className="nc-action-items">
+        {actions.map((action) => {
+          const actionId = String(action.id)
+          const item = items[actionId] || { status: 'open', note: '', error: '' }
+          const row = rowsById.get(String(action.sectionId))
+          const actionValue = Number(action.value)
+          const currentValue = row?.currentValue ?? (Number.isFinite(actionValue) ? actionValue : null)
+          const unit = row?.unit || normalizeUnit(action.unit)
+          return <article className="nc-action-item" data-status={item.status} key={actionId}>
+            <header>
+              <div><span>{action.metricLabel || 'Condition check'}</span><h3>{action.sectionName || row?.name || 'Unnamed Section'}</h3></div>
+              <span className={`nc-workflow-status ${item.status}`}><i />{item.status === 'checked' ? 'Checked' : item.status === 'open' ? 'Not started' : 'In progress'}</span>
+            </header>
+            <div className="nc-action-values">
+              <div><span>Current</span><strong>{formatMeasurement(currentValue, unit)}</strong></div>
+              <div><span>Target</span><strong>{row?.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : formatTarget(targetRange(action.target), unit).replace(/^Target /, '')}</strong></div>
+              <div><span>Deviation</span><strong>{row ? formatDeviation(row.deviation, row.direction, row.unit) : action.reason}</strong></div>
+              <div><span>Duration</span><strong>{row?.duration || 'Unavailable'}</strong></div>
+            </div>
+            <div className="nc-action-recommendation"><span>Recommended check</span><p>{action.recommendedAction || 'Inspect the relevant controls and sensor placement.'}</p></div>
+            {item.status !== 'open'
+              ? <label className="nc-action-note"><span>Result note</span><textarea value={item.note} onChange={(event) => updateItem(actionId, { note: event.target.value })} placeholder="What did you find or change?" maxLength={500} disabled={item.status === 'checked'} /></label>
+              : null}
+            {item.error ? <p className="nc-action-error" role="alert">{item.error}</p> : null}
+            <footer>
+              <button className={item.status === 'checked' ? 'checked' : ''} type="button" onClick={() => completeAction(action)} disabled={item.status === 'submitting' || item.status === 'checked'}>
+                {item.status === 'open' ? 'Start check' : item.status === 'checked' ? 'Checked' : item.status === 'submitting' ? 'Saving…' : 'Mark as checked'}
+              </button>
+            </footer>
+          </article>
+        })}
       </section>
       <footer>
-        <button type="button" onClick={onClose}>Cancel</button>
-        <button className={`primary ${status}`} type="button" onClick={completeAction} disabled={status === 'submitting'}>
-          {status === 'open' ? 'Start check' : status === 'checked' ? 'Checked' : status === 'submitting' ? 'Saving…' : 'Mark as checked'}
-        </button>
+        <button type="button" onClick={onClose}>Close</button>
       </footer>
     </aside>
   </div>
@@ -525,17 +566,6 @@ export default function OverviewWorkspace() {
     [dashboard],
   )
 
-  function handleActionSubmitted(actionId: string) {
-    if (neurocropApi.isConnected()) {
-      setRefreshKey((value) => value + 1)
-      return
-    }
-    setActions((current) => current ? {
-      ...current,
-      actions: asArray(current.actions).filter((action) => String(action.id) !== actionId),
-    } : current)
-  }
-
   if (loadState === 'loading') return <section className="nc-overview-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><h1>Preparing your live overview</h1><p>Evaluating Sections against their active crop profiles.</p></section>
   if (loadState === 'error') return <section className="nc-overview-state" role="alert"><i className="fa-solid fa-cloud-arrow-down" /><h1>Overview could not be loaded</h1><p>{error}</p><button type="button" onClick={() => setRefreshKey((value) => value + 1)}>Try again</button></section>
   if (loadState === 'empty' || !model) return <section className="nc-overview-state"><i className="fa-solid fa-seedling" /><h1>Your workspace is ready</h1><p>Create an Area and its first Section to begin monitoring.</p></section>
@@ -566,6 +596,9 @@ export default function OverviewWorkspace() {
       ? `${actionRows[0].metricLabel} is outside the active crop-profile target in ${actionRows.length} of ${model.rows.length} Sections.`
       : model.priority?.reason || 'Current data or an active crop profile is missing.'
   const unknownRows = model.rows.filter((row) => row.tone === 'unknown')
+  const visibleActions = model.actions.filter((action) =>
+    actionRows.some((row) => row.id === String(action.sectionId)),
+  )
   const scopeLabel = stable
     ? `All ${model.rows.length} Sections`
     : actionRows.length
@@ -609,7 +642,7 @@ export default function OverviewWorkspace() {
           <h1>{headline}</h1>
           <p>{explanation}</p>
           {model.priority
-            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{String(model.priority.recommendedAction || 'Review recommended action').replace(/\.$/, '')}<i className="fa-solid fa-arrow-right" /></button>
+            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Review {visibleActions.length} affected Section{visibleActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
             : stable
               ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />No action required</div>
               : <a className="nc-overview-action" href="/sections">Review Section setup<i className="fa-solid fa-arrow-right" /></a>}
@@ -656,6 +689,6 @@ export default function OverviewWorkspace() {
       </footer>
     </section>
     {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}
-    {actionOpen && model.priority ? <ActionWorkflow action={model.priority} onClose={() => setActionOpen(false)} onSubmitted={() => handleActionSubmitted(String(model.priority?.id || ''))} /> : null}
+    {actionOpen && visibleActions.length ? <ActionWorkflow actions={visibleActions} rows={actionRows} areaName={model.areaName} onClose={() => { setActionOpen(false); setRefreshKey((value) => value + 1) }} /> : null}
   </div>
 }
