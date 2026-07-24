@@ -1,0 +1,461 @@
+body[data-react-simulator-active="true"] #settingsManagementShell,
+body[data-react-simulator-active="true"] #settingsWorkspaceMount,
+body[data-react-simulator-active="true"] #organizationWorkspaceMount,
+body[data-react-simulator-active="true"] #adminWorkspaceMount,
+body[data-react-simulator-active="true"] #adminIntegrationsMount {
+  display: none !important;
+}
+
+.nc-simulator {
+  --sim-ink: #202b26;
+  --sim-muted: #6f7a74;
+  --sim-line: #dce1dd;
+  --sim-green: #275f50;
+  width: 100%;
+  padding: 44px 18px 84px;
+  color: var(--sim-ink);
+}
+
+.nc-simulator-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 24px;
+}
+
+.nc-simulator-header p,
+.nc-simulator-controls > header > span,
+.nc-simulator-result > header span,
+.nc-simulator-action > span,
+.nc-simulator-limitations > span {
+  margin: 0;
+  color: #547187;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.nc-simulator-header h1 {
+  margin: 8px 0 5px;
+  font-size: 32px;
+  letter-spacing: -.03em;
+}
+
+.nc-simulator-header > div:first-child > span {
+  color: var(--sim-muted);
+}
+
+.nc-simulator-model {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 270px;
+  padding: 13px 16px;
+  border: 1px solid var(--sim-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.nc-simulator-model > i {
+  color: var(--sim-green);
+  font-size: 20px;
+}
+
+.nc-simulator-model span,
+.nc-simulator-model strong {
+  display: block;
+}
+
+.nc-simulator-model span {
+  color: var(--sim-muted);
+  font-size: 11px;
+}
+
+.nc-simulator-model strong {
+  margin-bottom: 2px;
+  color: var(--sim-ink);
+  font-size: 13px;
+}
+
+.nc-simulator-layout {
+  display: grid;
+  grid-template-columns: minmax(480px, 1.05fr) minmax(400px, .95fr);
+  overflow: hidden;
+  border: 1px solid var(--sim-line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 42px rgba(35, 48, 41, .08);
+}
+
+.nc-simulator-controls {
+  padding: 26px;
+  border-right: 1px solid var(--sim-line);
+}
+
+.nc-simulator-controls > header {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 22px;
+}
+
+.nc-simulator-controls > header strong {
+  font-size: 20px;
+}
+
+.nc-simulator-profile {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+
+.nc-simulator-profile > span,
+.nc-simulator-duration legend {
+  color: var(--sim-muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.nc-simulator select,
+.nc-simulator input[type="number"] {
+  height: 42px;
+  border: 1px solid #d9dfda;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--sim-ink);
+  font: inherit;
+}
+
+.nc-simulator-profile select {
+  padding: 0 12px;
+}
+
+.nc-simulator-parameters {
+  display: grid;
+  gap: 12px;
+}
+
+.nc-simulator-parameters article {
+  padding: 16px;
+  border: 1px solid var(--sim-line);
+  border-radius: 13px;
+  background: #f8faf7;
+}
+
+.nc-simulator-parameters article > header {
+  display: flex;
+  gap: 8px;
+}
+
+.nc-simulator-parameters article > header select {
+  flex: 1;
+  padding: 0 10px;
+  font-weight: 700;
+}
+
+.nc-simulator-parameters article > header button {
+  width: 42px;
+  border: 1px solid var(--sim-line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--sim-muted);
+}
+
+.nc-simulator-value {
+  display: flex;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.nc-simulator-value input {
+  width: 112px;
+  padding: 0 10px;
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.nc-simulator-value span {
+  margin-left: 8px;
+  color: var(--sim-muted);
+  font-weight: 650;
+}
+
+.nc-simulator input[type="range"] {
+  width: 100%;
+  margin: 14px 0 7px;
+  accent-color: var(--sim-green);
+}
+
+.nc-simulator-parameters article > footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #87918c;
+  font-size: 10px;
+}
+
+.nc-simulator-parameters article > footer strong {
+  color: #52625a;
+}
+
+.nc-simulator-add {
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px;
+  border: 1px dashed #aebbb4;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--sim-green);
+  font-weight: 700;
+}
+
+.nc-simulator-add i {
+  margin-right: 7px;
+}
+
+.nc-simulator-duration {
+  margin: 22px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.nc-simulator-duration > div {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid var(--sim-line);
+  border-radius: 10px;
+}
+
+.nc-simulator-duration button {
+  height: 40px;
+  border: 0;
+  border-right: 1px solid var(--sim-line);
+  background: #fff;
+  color: var(--sim-muted);
+  font-weight: 700;
+}
+
+.nc-simulator-duration button:last-child {
+  border-right: 0;
+}
+
+.nc-simulator-duration button[data-active="true"] {
+  background: #26312c;
+  color: #fff;
+}
+
+.nc-simulator-duration p {
+  margin: 7px 0 0;
+  color: #87918c;
+  font-size: 11px;
+}
+
+.nc-simulator-run {
+  width: 100%;
+  height: 46px;
+  margin-top: 20px;
+  border: 0;
+  border-radius: 10px;
+  background: #26312c;
+  color: #fff;
+  font-weight: 750;
+}
+
+.nc-simulator-run i {
+  margin-right: 8px;
+}
+
+.nc-simulator-result {
+  min-height: 680px;
+  padding: 30px;
+  background: linear-gradient(150deg, #f4f8f3 0%, #faf9f2 100%);
+}
+
+.nc-simulator-result > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.nc-simulator-result > header h2 {
+  margin: 8px 0 0;
+  color: #193d30;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.nc-simulator-result > header > strong {
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: #fff0d3;
+  color: #9a640c;
+  font-size: 12px;
+}
+
+.nc-simulator-result[data-tone="confirmed"] > header > strong,
+.nc-simulator-result[data-tone="stable"] > header > strong {
+  background: #dff1e4;
+  color: #287044;
+}
+
+.nc-simulator-summary {
+  margin: 18px 0 0;
+  color: #596a61;
+  line-height: 1.65;
+}
+
+.nc-simulator-score {
+  display: grid;
+  gap: 4px;
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid rgba(46, 88, 67, .14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .75);
+}
+
+.nc-simulator-score span {
+  color: var(--sim-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.nc-simulator-score strong {
+  color: #1e5b48;
+  font-size: 32px;
+}
+
+.nc-simulator-score small {
+  color: var(--sim-muted);
+}
+
+.nc-simulator-action,
+.nc-simulator-limitations {
+  margin-top: 16px;
+  padding: 19px;
+  border: 1px solid rgba(46, 88, 67, .14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .75);
+}
+
+.nc-simulator-action strong {
+  display: block;
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+.nc-simulator-action p {
+  margin: 8px 0 0;
+  color: var(--sim-muted);
+  font-size: 13px;
+}
+
+.nc-simulator-action.stable {
+  display: flex;
+  gap: 10px;
+  color: #287044;
+}
+
+.nc-simulator-limitations p {
+  display: flex;
+  gap: 9px;
+  margin: 10px 0 0;
+  color: var(--sim-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.nc-simulator-limitations i {
+  margin-top: 2px;
+}
+
+.nc-simulator-empty {
+  display: grid;
+  align-content: center;
+  min-height: 610px;
+  text-align: center;
+}
+
+.nc-simulator-empty > i {
+  color: #5b8d78;
+  font-size: 34px;
+}
+
+.nc-simulator-empty h2 {
+  margin: 18px 0 7px;
+}
+
+.nc-simulator-empty > p {
+  max-width: 420px;
+  margin: 0 auto 26px;
+  color: var(--sim-muted);
+  line-height: 1.55;
+}
+
+.nc-simulator-empty > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 300px;
+  margin: 5px auto;
+  color: #52625a;
+  text-align: left;
+}
+
+.nc-simulator-empty > div span {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  background: #dfeae3;
+  color: #275f50;
+  font-weight: 800;
+}
+
+.nc-simulator-error {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  background: #fff0ed;
+  color: #a64235;
+}
+
+@media (max-width: 1050px) {
+  .nc-simulator-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nc-simulator-controls {
+    border-right: 0;
+    border-bottom: 1px solid var(--sim-line);
+  }
+}
+
+@media (max-width: 680px) {
+  .nc-simulator {
+    padding: 24px 10px 60px;
+  }
+
+  .nc-simulator-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .nc-simulator-controls,
+  .nc-simulator-result {
+    padding: 20px 16px;
+  }
+
+  .nc-simulator-duration > div {
+    grid-template-columns: 1fr 1fr;
+  }
+}

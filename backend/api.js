@@ -32,6 +32,7 @@ import { buildTodayActions, evaluateActionOutcome } from './today-actions.js';
 import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
 import { startMeasurementRetention } from './measurement-retention.js';
 import { registerWorkflowRoutes } from './workflow-routes.js';
+import { SIMULATOR_METRICS, simulateAgronomicScenario } from './agronomic-simulator.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -471,6 +472,44 @@ app.get('/crop-profiles', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('[api] /crop-profiles GET:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  }
+});
+
+app.post('/simulator/agronomic', requireAuth, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const profileId = String(req.body?.profileId || '').trim();
+    const values = req.body?.values;
+    const durationMinutes = Number(req.body?.durationMinutes || 1);
+    if (!profileId || !values || typeof values !== 'object' || Array.isArray(values)) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Profile and scenario values are required' } });
+    }
+    const selectedMetrics = Object.keys(values);
+    if (selectedMetrics.length < 2 || selectedMetrics.length > 3 || selectedMetrics.some((metricId) => !SIMULATOR_METRICS.includes(metricId))) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Select 2 or 3 supported parameters' } });
+    }
+    const { rows } = await query(
+      `SELECT id, name, metrics FROM crop_profiles WHERE organization_id=$1 AND id=$2 LIMIT 1`,
+      [getOrganizationId(req), profileId]
+    );
+    const profile = rows[0];
+    if (!profile) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Crop profile not found' } });
+    }
+    const result = simulateAgronomicScenario({
+      profileId: profile.id,
+      profileName: profile.name,
+      profileMetrics: profile.metrics || {},
+      values,
+      durationMinutes
+    });
+    res.json(result);
+  } catch (error) {
+    if (/Select between|unsupported parameter|Invalid value|Duration must/.test(error.message)) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: error.message } });
+    }
+    console.error('[api] POST /simulator/agronomic:', error.message);
+    res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
   }
 });
 

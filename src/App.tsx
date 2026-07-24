@@ -18,6 +18,7 @@ import './styles/settings-workspace.css'
 import './styles/app-shell.css'
 import './styles/operational-consistency.css'
 import './styles/overview-workspace.css'
+import './styles/simulator-workspace.css'
 
 declare global {
   interface Window {

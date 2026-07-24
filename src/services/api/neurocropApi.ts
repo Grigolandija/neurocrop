@@ -52,6 +52,7 @@ export const neurocropApi = {
   createIntervention: (payload: Payload) => request('/interventions', { method: 'POST', body: json(payload) }),
   updateInterventionOutcome: (id: string, payload: Payload) => request(`/interventions/${encoded(id)}/outcome`, { method: 'PATCH', body: json(payload) }),
   getCropProfiles: () => request('/crop-profiles'),
+  simulateAgronomicScenario: (payload: Payload) => request('/simulator/agronomic', { method: 'POST', body: json(payload) }),
   getLatestReadings: (sectionId: string) => request(`/readings/latest${queryString({ sectionId })}`),
   getHistory: (params: Payload) => request(`/history${queryString(params)}`),
   getSectionAnalytics: (params: Payload) => request(`/analytics/section${queryString(params)}`),

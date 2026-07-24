@@ -15,6 +15,7 @@ import { compactTelemetryMetadata, normalizeTelemetryBoolean, normalizeTelemetry
 import { getMeasurementRetentionDays, runMeasurementRetention } from '../measurement-retention.js';
 import { hashUserPassword, MAX_PASSWORD_LENGTH, sessionCookieClearOptions, sessionCookieOptions, verifyUserPassword } from '../auth-users.js';
 import { sendInvitationEmail } from '../email.js';
+import { simulateAgronomicScenario } from '../agronomic-simulator.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -711,6 +712,68 @@ test('diagnosis treats tiny humidity deviations as sensor tolerance rather than 
   assert.match(actions[0].diagnosis.summary, /5.8 °C above target/);
   assert.match(actions[0].diagnosis.summary, /close to its target boundary/);
   assert.doesNotMatch(actions[0].diagnosis.summary, /low relative humidity increases drying demand/);
+});
+
+test('scenario simulator returns stable result when selected conditions are inside profile targets', () => {
+  const result = simulateAgronomicScenario({
+    profileMetrics: {
+      airTemp: { optimal: [19, 21] },
+      humidity: { optimal: [50, 70] },
+      vpd: { optimal: [0.5, 2] }
+    },
+    values: { airTemp: 20, humidity: 60, vpd: 1.2 },
+    durationMinutes: 30
+  });
+  assert.equal(result.diagnosis.status, 'stable');
+  assert.equal(result.score, 100);
+  assert.equal(result.action, null);
+});
+
+test('scenario simulator separates a snapshot from a sustained likely condition', () => {
+  const scenario = {
+    profileMetrics: {
+      airTemp: { optimal: [19, 20] },
+      humidity: { optimal: [50, 70] },
+      vpd: { optimal: [0.5, 2] }
+    },
+    values: { airTemp: 25.8, humidity: 49.8, vpd: 1.7 }
+  };
+  const snapshot = simulateAgronomicScenario({ ...scenario, durationMinutes: 1 });
+  const sustained = simulateAgronomicScenario({ ...scenario, durationMinutes: 30 });
+  assert.equal(snapshot.diagnosis.status, 'emerging');
+  assert.equal(snapshot.diagnosis.temporalStatus, 'snapshot');
+  assert.equal(sustained.diagnosis.status, 'likely');
+  assert.equal(sustained.diagnosis.temporalStatus, 'persistent');
+  assert.match(sustained.diagnosis.summary, /persists for 30 minutes/);
+});
+
+test('scenario simulator confirms a multi-parameter water stress rule', () => {
+  const result = simulateAgronomicScenario({
+    profileMetrics: {
+      vpd: { optimal: [0.8, 1.2] },
+      soilMoisture: { optimal: [45, 60] }
+    },
+    values: { vpd: 2.1, soilMoisture: 30 },
+    durationMinutes: 10
+  });
+  assert.equal(result.diagnosis.status, 'confirmed');
+  assert.equal(result.action.ruleId, 'ATM_ROOT_DROUGHT');
+  assert.equal(result.diagnosis.temporalStatus, 'persistent');
+});
+
+test('scenario simulator rejects unsupported scenario shapes', () => {
+  assert.throws(
+    () => simulateAgronomicScenario({ values: { airTemp: 20 }, durationMinutes: 10 }),
+    /between 2 and 3/
+  );
+  assert.throws(
+    () => simulateAgronomicScenario({ values: { airTemp: 20, unknown: 1 }, durationMinutes: 10 }),
+    /unsupported parameter/
+  );
+  assert.throws(
+    () => simulateAgronomicScenario({ values: { airTemp: 20, humidity: 60 }, durationMinutes: 0 }),
+    /Duration/
+  );
 });
 
 test('single deviation names the missing sensors needed for agronomic confirmation', () => {

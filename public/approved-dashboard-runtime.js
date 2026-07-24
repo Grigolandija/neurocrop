@@ -1996,7 +1996,8 @@
       organization: { page: "settings", route: "/organization", sidebarAction: "organization" },
       admin: { page: "admin", route: "/admin" },
       "admin/integrations": { page: "admin", route: "/admin/integrations" },
-      "crop-profiles": { page: "settings", route: "/crop-profiles", sidebarAction: "crop-profiles" }
+      "crop-profiles": { page: "settings", route: "/crop-profiles", sidebarAction: "crop-profiles" },
+      simulator: { page: "settings", route: "/simulator", sidebarAction: "simulator" }
     };
     let locationFormState = { mode: "create", siteId: "", name: "" };
     let blockFormState = { mode: "create", siteId: activeSiteId, zoneId: "", name: "", profile: activeProfileKey, sensorCount: "4" };
@@ -4816,6 +4817,8 @@
       } else if (activePrimaryPage === "settings") {
         activeAction = sidebarActionOverride === "crop-profiles"
           ? "crop-profiles"
+          : sidebarActionOverride === "simulator"
+            ? "simulator"
           : sidebarActionOverride === "organization"
             ? "organization"
             : "settings";
@@ -4933,6 +4936,14 @@
           closeContextMenus();
           renderDashboard();
           syncTopLevelRoute("/crop-profiles");
+          scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
+          return;
+        case "simulator":
+          activePrimaryPage = "settings";
+          sidebarActionOverride = "simulator";
+          closeContextMenus();
+          renderDashboard();
+          syncTopLevelRoute("/simulator");
           scrollToSection("settingsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "settings":
