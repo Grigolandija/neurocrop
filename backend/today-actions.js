@@ -78,11 +78,13 @@ const SINGLE_DIAGNOSIS_TITLES = {
   soilTemp: { low: 'Potential restricted root activity', high: 'Potential elevated root respiration' },
   soilMoisture: { low: 'Potential root-zone water deficit', high: 'Potential root-zone oxygen limitation' },
   ec: { low: 'Potential insufficient nutrient concentration', high: 'Potential osmotic root stress' },
-  ph: { low: 'Potential acidic nutrient imbalance', high: 'Potential reduced nutrient availability' },
+  ph: { low: 'Strongly acidic nutrient solution', high: 'Strongly alkaline nutrient solution' },
   leafTemp: { low: 'Emerging cold-canopy risk', high: 'Emerging insufficient canopy cooling' },
   soilEc: { low: 'Potential diluted root-zone nutrition', high: 'Potential root-zone salinity stress' },
   waterTemp: { low: 'Potential cold irrigation stress', high: 'Potential low root-zone oxygen availability' }
 };
+
+const DIRECT_CRITICAL_CONDITION_METRICS = new Set(['ph']);
 
 const MIN_WARNING_ACTION_SEVERITY = 0.05;
 
@@ -159,6 +161,14 @@ function buildDiagnosisSummary(snapshot, evaluation, label, availableContext) {
     return difference > tolerance;
   };
 
+  if (evaluation.metricId === 'ph') {
+    const direction = evaluation.direction === 'low' ? 'acidic' : 'alkaline';
+    const consequence = evaluation.direction === 'low'
+      ? 'This can disrupt nutrient availability and increase the risk of root injury.'
+      : 'This can reduce micronutrient availability and create nutrient lockout.';
+    return `${opening} The nutrient solution is ${direction}. ${consequence} EC and root-zone readings would help identify the cause and confirm the plant-level effect.`;
+  }
+
   if (evaluation.metricId === 'airTemp' && evaluation.direction === 'high') {
     const humidity = contextByMetric.get('humidity');
     const vpd = contextByMetric.get('vpd');
@@ -188,18 +198,26 @@ function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
   const availableContext = contextMetrics.map((metricId) => evaluations.get(metricId)).filter(Boolean);
   const relatedReadings = [evaluation, ...availableContext].map((item) => diagnosticReading(snapshot, item));
   const missingMetrics = contextMetrics.filter((metricId) => !evaluations.has(metricId));
-  const status = availableContext.length > 0 ? 'likely' : 'insufficient_data';
+  const status = evaluation.state === 'critical' && DIRECT_CRITICAL_CONDITION_METRICS.has(evaluation.metricId)
+    ? 'critical_condition'
+    : availableContext.length > 0
+      ? 'likely'
+      : 'insufficient_data';
   const diagnosisTitle = SINGLE_DIAGNOSIS_TITLES[evaluation.metricId]?.[evaluation.direction]
     || `Likely ${label.toLowerCase()} stress`;
 
   return {
     diagnosis: {
       status: status === 'likely' ? 'emerging' : status,
-      label: status === 'likely' ? 'Emerging' : 'Insufficient data',
+      label: status === 'critical_condition'
+        ? 'Critical condition'
+        : status === 'likely'
+          ? 'Emerging'
+          : 'Insufficient data',
       title: diagnosisTitle,
-      summary: status === 'likely'
-        ? buildDiagnosisSummary(snapshot, evaluation, label, availableContext)
-        : `${label} is outside target, but no supporting agronomic context is currently available.`,
+      summary: status === 'insufficient_data'
+        ? `${label} is outside target, but no supporting agronomic context is currently available.`
+        : buildDiagnosisSummary(snapshot, evaluation, label, availableContext),
       missingMetrics
     },
     relatedMetrics: relatedReadings.map((item) => item.metricId),

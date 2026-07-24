@@ -358,6 +358,11 @@ body[data-react-simulator-active="true"] #adminIntegrationsMount {
   color: #287044;
 }
 
+.nc-simulator-result[data-tone="critical_condition"] > header > strong {
+  background: #fee4df;
+  color: #b34638;
+}
+
 .nc-simulator-summary {
   margin: 18px 0 0;
   color: #596a61;

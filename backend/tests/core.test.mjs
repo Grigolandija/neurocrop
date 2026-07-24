@@ -779,6 +779,22 @@ test('scenario simulator rejects unsupported scenario shapes', () => {
   );
 });
 
+test('critical pH is a confirmed hazardous condition even without supporting root-zone context', () => {
+  const result = simulateAgronomicScenario({
+    profileMetrics: {
+      ph: { optimal: [5.5, 6.5] },
+      airTemp: { optimal: [20, 24] }
+    },
+    values: { ph: 4, airTemp: 22 },
+    durationMinutes: 1
+  });
+  assert.equal(result.diagnosis.status, 'critical_condition');
+  assert.equal(result.diagnosis.label, 'Critical condition');
+  assert.equal(result.diagnosis.title, 'Strongly acidic nutrient solution');
+  assert.match(result.diagnosis.summary, /risk of root injury/);
+  assert.deepEqual(result.diagnosis.missingMetrics, ['ec', 'soilEc']);
+});
+
 test('single deviation names the missing sensors needed for agronomic confirmation', () => {
   const profileMetrics = { soilMoisture: { optimal: [45, 60] } };
   const scoreRules = buildScoreRules(profileMetrics);

@@ -16,6 +16,13 @@ function temporalDiagnosis(diagnosis, durationMinutes) {
       durationMinutes
     };
   }
+  if (diagnosis.status === 'critical_condition') {
+    return {
+      ...diagnosis,
+      temporalStatus: durationMinutes >= 10 ? 'persistent' : 'snapshot',
+      durationMinutes
+    };
+  }
   if (diagnosis.status === 'insufficient_data') {
     return { ...diagnosis, temporalStatus: 'insufficient_data', durationMinutes };
   }
