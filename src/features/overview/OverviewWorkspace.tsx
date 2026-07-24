@@ -39,6 +39,7 @@ type OverviewModel = {
   reporting: string
   updated: string
   growingScore: number | null
+  scoreDriver: string | null
 }
 
 type TrendPoint = {
@@ -114,6 +115,21 @@ const demoSummary: OverviewSummary = {
   recentResults: [],
 }
 
+const METRIC_LABELS: Record<string, string> = {
+  airTemp: 'Air temperature',
+  humidity: 'Relative humidity',
+  co2: 'CO2',
+  lux: 'Light',
+  soilTemp: 'Soil temperature',
+  soilMoisture: 'Soil moisture',
+  soilEc: 'Soil EC',
+  leafTemp: 'Leaf temperature',
+  waterTemp: 'Water temperature',
+  vpd: 'VPD',
+  ec: 'EC',
+  ph: 'pH',
+}
+
 function asArray(value: unknown): JsonRecord[] {
   return Array.isArray(value) ? value : []
 }
@@ -140,9 +156,14 @@ function relativeTime(value: unknown) {
   const timestamp = new Date(String(value || '')).getTime()
   if (!Number.isFinite(timestamp)) return 'Current'
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000))
-  if (seconds < 60) return `${seconds} sec ago`
+  if (seconds < 60) return 'Just now'
   if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`
   return `${Math.floor(seconds / 3600)} h ago`
+}
+
+function metricLabel(value: unknown) {
+  const key = String(value || '')
+  return METRIC_LABELS[key] || key || 'Condition'
 }
 
 function normalizeUnit(value: unknown) {
@@ -229,34 +250,36 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   const zones = asArray(site.zones)
   const rows = zones.map((zone): OverviewRow => {
     const action = actionBySection.get(String(zone.id))
-    const tone = action ? 'action' : statusTone(zone.conditionStatus)
     const score = Number.isFinite(Number(zone.score)) ? Number(zone.score) : null
-    const numericValue = Number(action?.value)
+    const numericValue = action?.value === null || action?.value === undefined ? Number.NaN : Number(action.value)
     const currentValue = Number.isFinite(numericValue) ? numericValue : null
     const unit = normalizeUnit(action?.unit)
     const target = targetRange(action?.target)
     const deviation = deviationFromTarget(currentValue, target)
     const direction = deviation === null ? 'unknown' : deviation > 0 ? 'above' : deviation < 0 ? 'below' : 'inside'
-    const metricLabel = String(action?.metricLabel || 'Condition')
+    const actionCanBeVerified = Boolean(action && currentValue !== null && target && deviation !== null)
+    const tone = actionCanBeVerified ? 'action' : action ? 'unknown' : statusTone(zone.conditionStatus)
+    const metricKey = String(action?.metricId || action?.metricKey || zone.mainDriver || '')
+    const rowMetricLabel = String(action?.metricLabel || metricLabel(metricKey))
     const reportingNodes = Number(zone.nodeSummary?.reporting || zone.sensorCount || 0)
     const totalNodes = Number(zone.nodeSummary?.registered || zone.sensorCount || 0)
     return {
       id: String(zone.id),
       name: String(zone.name || 'Unnamed Section'),
       crop: profileLabel(zone),
-      status: tone === 'action' ? 'Needs action' : tone === 'watch' ? 'Watch' : tone === 'good' ? 'Inside target' : 'Not verified',
-      detail: action
-        ? `${metricLabel} ${formatMeasurement(currentValue, unit)} · ${formatTarget(target, unit)}`
+      status: tone === 'action' ? 'Needs action' : tone === 'watch' ? 'Watch' : tone === 'good' ? 'Inside target' : 'Unverified',
+      detail: actionCanBeVerified
+        ? `${rowMetricLabel} ${formatMeasurement(currentValue, unit)} · ${formatTarget(target, unit)}`
         : tone === 'good'
           ? 'Current conditions normal'
           : tone === 'watch'
-            ? 'A current condition is outside its target range'
+            ? `${rowMetricLabel} is outside its target range`
             : 'Current data or crop target is incomplete',
       updated: relativeTime(action?.observedAt || zone.computedAt),
       tone,
       score,
-      metricKey: String(action?.metricId || action?.metricKey || ''),
-      metricLabel,
+      metricKey,
+      metricLabel: rowMetricLabel,
       currentValue,
       target,
       unit,
@@ -270,17 +293,24 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   const reportingNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.reporting || zone.sensorCount || 0), 0)
   const totalNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.registered || zone.sensorCount || 0), 0)
   const availableScores = rows.map((row) => row.score).filter((score): score is number => score !== null)
+  const verifiedActions = areaActions.filter((action) =>
+    rows.some((row) => row.id === String(action.sectionId) && row.tone === 'action'),
+  )
+  const scoreDriver = rows
+    .filter((row) => (row.tone === 'action' || row.tone === 'watch') && row.metricKey)
+    .sort((left, right) => (left.score ?? 101) - (right.score ?? 101))[0]?.metricLabel || null
   return {
     areaId: String(site.id),
     areaName: String(site.name || 'Growing Area'),
     rows,
-    actions: areaActions,
-    priority: areaActions[0] || null,
+    actions: verifiedActions,
+    priority: verifiedActions[0] || null,
     reporting: `${reportingNodes} of ${totalNodes} nodes reporting`,
     updated: relativeTime(areaActions[0]?.observedAt || zones[0]?.computedAt),
     growingScore: availableScores.length
       ? Math.round(availableScores.reduce((sum, score) => sum + score, 0) / availableScores.length)
       : null,
+    scoreDriver,
   }
 }
 
@@ -736,6 +766,7 @@ export default function OverviewWorkspace() {
             <div className="nc-growing-score">
               <span>7-day Growing Score</span>
               <p><strong>{model.growingScore ?? '—'}</strong>{model.growingScore === null ? null : <small>/ 100</small>}</p>
+              {model.scoreDriver ? <em>Limited by {model.scoreDriver.toLowerCase()}</em> : null}
             </div>
           </div>
           <div className="nc-coverage-list">
