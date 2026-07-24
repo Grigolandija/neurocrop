@@ -82,7 +82,6 @@ function ApprovedDashboard() {
   const [organizationMount, setOrganizationMount] = useState<HTMLElement | null>(null)
   const [adminMount, setAdminMount] = useState<HTMLElement | null>(null)
   const [adminIntegrationsMount, setAdminIntegrationsMount] = useState<HTMLElement | null>(null)
-  const [visitedRoutes, setVisitedRoutes] = useState(() => new Set([location.pathname]))
 
   useEffect(() => {
     installNeuroCropApi()
@@ -168,14 +167,6 @@ function ApprovedDashboard() {
   }, [navigate])
 
   useEffect(() => {
-    const rememberRouteTimer = window.setTimeout(() => {
-      setVisitedRoutes((current) => {
-        if (current.has(location.pathname)) return current
-        const next = new Set(current)
-        next.add(location.pathname)
-        return next
-      })
-    }, 0)
     if (!runtimeReady.current) return
     const notifyRoute = () => notifyRuntimeRoute(location.pathname)
     if (routeNeedsCharts(location.pathname)) {
@@ -183,35 +174,32 @@ function ApprovedDashboard() {
     } else {
       notifyRoute()
     }
-    return () => window.clearTimeout(rememberRouteTimer)
   }, [location.pathname])
-
-  const shouldMount = (route: string) => location.pathname === route || visitedRoutes.has(route)
 
   return <>
     <div ref={hostRef} />
-    {shouldMount('/') && overviewMount
+    {location.pathname === '/' && overviewMount
       ? createPortal(<OverviewWorkspace />, overviewMount)
       : null}
-    {shouldMount('/readings') && readingsMount
+    {location.pathname === '/readings' && readingsMount
       ? createPortal(<ReadingsWorkspace />, readingsMount)
       : null}
-    {shouldMount('/areas') && areasMount
+    {location.pathname === '/areas' && areasMount
       ? createPortal(<AreasWorkspace />, areasMount)
       : null}
-    {shouldMount('/sections') && sectionsMount
+    {location.pathname === '/sections' && sectionsMount
       ? createPortal(<SectionsWorkspace />, sectionsMount)
       : null}
-    {shouldMount('/settings') && settingsMount
+    {location.pathname === '/settings' && settingsMount
       ? createPortal(<SettingsWorkspace />, settingsMount)
       : null}
-    {shouldMount('/organization') && organizationMount
+    {location.pathname === '/organization' && organizationMount
       ? createPortal(<OrganizationWorkspace />, organizationMount)
       : null}
-    {shouldMount('/admin') && adminMount
+    {location.pathname === '/admin' && adminMount
       ? createPortal(<AdminWorkspace />, adminMount)
       : null}
-    {shouldMount('/admin/integrations') && adminIntegrationsMount
+    {location.pathname === '/admin/integrations' && adminIntegrationsMount
       ? createPortal(<AdminIntegrationsWorkspace />, adminIntegrationsMount)
       : null}
   </>
