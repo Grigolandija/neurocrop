@@ -1002,6 +1002,13 @@ test('action feedback is tenant-scoped, role-protected and keeps an immutable sn
   assert.match(route, /execution_details/);
 });
 
+test('live agronomic actions bypass browser and intermediary caches', () => {
+  const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const frontendApi = fs.readFileSync(new URL('../../src/services/api/neurocropApi.ts', import.meta.url), 'utf8');
+  assert.match(api, /app\.get\('\/actions\/today'[\s\S]*?Cache-Control', 'no-store'/);
+  assert.match(frontendApi, /getTodayActions:[\s\S]*?cache: 'no-store'/);
+});
+
 test('overview action summary is tenant and Area scoped', () => {
   const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   const routeStart = source.indexOf("app.get('/actions/overview-summary'");

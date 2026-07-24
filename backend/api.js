@@ -1236,6 +1236,7 @@ function metricSeriesSnapshot(measurements, metricId) {
 
 app.get('/actions/today', requireAuth, async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store');
     const organizationId = getOrganizationId(req);
     const requestedSectionId = String(req.query.sectionId || '').trim();
     const [sectionsResult, nodesResult, profilesResult, measurementsResult] = await Promise.all([
