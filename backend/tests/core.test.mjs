@@ -168,6 +168,14 @@ test('production uptime confirms failures and cannot let notification errors mas
   assert.match(workflow, /API=\$API_OUTCOME frontend=\$FRONTEND_OUTCOME/);
 });
 
+test('platform monitor ignores archived nodes when checking uplink freshness', () => {
+  const monitor = fs.readFileSync(new URL('../scripts/monitor-platform.sh', import.meta.url), 'utf8');
+  assert.match(
+    monitor,
+    /FROM nodes WHERE organization_id <> 'org-neurocrop-demo' AND archived_at IS NULL AND section_id IS NOT NULL/
+  );
+});
+
 test('session cookies default to secure SameSite=Lax', () => {
   assert.deepEqual(getSessionCookieOptions({}), { httpOnly: true, secure: true, sameSite: 'lax' });
   assert.throws(
