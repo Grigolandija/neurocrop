@@ -805,7 +805,10 @@ test('single deviation names the missing sensors needed for agronomic confirmati
     evaluations: [evaluateMetricValue('soilMoisture', 30, scoreRules)]
   }]);
 
-  assert.equal(actions[0].diagnosis.status, 'insufficient_data');
+  assert.equal(actions[0].diagnosis.status, 'observed_condition');
+  assert.equal(actions[0].diagnosis.label, 'Observed condition');
+  assert.equal(actions[0].diagnosis.title, 'Potential root-zone water deficit');
+  assert.match(actions[0].diagnosis.summary, /restrict water uptake/);
   assert.deepEqual(actions[0].diagnosis.missingMetrics, ['vpd', 'soilEc', 'soilTemp']);
   assert.equal(actions[0].relatedReadings.length, 1);
 });

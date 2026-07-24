@@ -956,6 +956,11 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   color: #b34638;
 }
 
+.nc-related-evidence > header > strong[data-tone="observed_condition"] {
+  background: #e7edf1;
+  color: #536b79;
+}
+
 .nc-related-evidence > h3 {
   margin: 14px 0 0;
   color: #1b3327;

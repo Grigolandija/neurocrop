@@ -84,6 +84,53 @@ const SINGLE_DIAGNOSIS_TITLES = {
   waterTemp: { low: 'Potential cold irrigation stress', high: 'Potential low root-zone oxygen availability' }
 };
 
+const SINGLE_DIAGNOSIS_IMPACTS = {
+  airTemp: {
+    low: 'Low air temperature can slow development and photosynthetic activity.',
+    high: 'High air temperature increases respiration and canopy heat load.'
+  },
+  humidity: {
+    low: 'Low relative humidity can increase atmospheric drying demand.',
+    high: 'High relative humidity can restrict evaporative cooling and increase condensation risk.'
+  },
+  vpd: {
+    low: 'Low VPD can restrict transpiration and nutrient transport.',
+    high: 'High VPD can increase water loss and stomatal stress.'
+  },
+  co2: {
+    low: 'Low CO2 can limit photosynthesis when useful light is available.',
+    high: 'High CO2 may indicate inefficient enrichment or insufficient air exchange.'
+  },
+  soilTemp: {
+    low: 'Low root-zone temperature can slow water and nutrient uptake.',
+    high: 'High root-zone temperature increases respiration and oxygen demand.'
+  },
+  soilMoisture: {
+    low: 'Low root-zone moisture can restrict water uptake.',
+    high: 'High root-zone moisture can reduce oxygen availability around roots.'
+  },
+  ec: {
+    low: 'Low solution EC can indicate insufficient total nutrient concentration.',
+    high: 'High solution EC increases osmotic pressure and can restrict root water uptake.'
+  },
+  ph: {
+    low: 'Low pH can disrupt nutrient availability and increase the risk of root injury.',
+    high: 'High pH can reduce micronutrient availability and create nutrient lockout.'
+  },
+  leafTemp: {
+    low: 'Low leaf temperature can indicate cold airflow or condensation risk.',
+    high: 'High leaf temperature can indicate insufficient canopy cooling.'
+  },
+  soilEc: {
+    low: 'Low root-zone EC can indicate nutrient dilution.',
+    high: 'High root-zone EC can create salinity and osmotic stress.'
+  },
+  waterTemp: {
+    low: 'Cold irrigation water can slow root activity.',
+    high: 'Warm irrigation water holds less oxygen and can increase root stress.'
+  }
+};
+
 const DIRECT_CRITICAL_CONDITION_METRICS = new Set(['ph']);
 
 const MIN_WARNING_ACTION_SEVERITY = 0.05;
@@ -186,10 +233,13 @@ function buildDiagnosisSummary(snapshot, evaluation, label, availableContext) {
   const deviatingContext = availableContext
     .filter(materiallyOutside)
     .map((item) => `${METRIC_LABELS[item.metricId] || item.metricId} is ${item.direction}`);
+  const impact = SINGLE_DIAGNOSIS_IMPACTS[evaluation.metricId]?.[evaluation.direction] || '';
   const context = deviatingContext.length
     ? ` Supporting context: ${deviatingContext.join(' and ')}.`
-    : ' Available supporting readings do not show a second target deviation.';
-  return `${opening}${context}`;
+    : availableContext.length
+      ? ' Available supporting readings do not show a second material target deviation.'
+      : ' Related readings are needed to identify the cause and plant-level effect.';
+  return `${opening} ${impact}${context}`.replace(/\s+/g, ' ').trim();
 }
 
 function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
@@ -202,7 +252,7 @@ function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
     ? 'critical_condition'
     : availableContext.length > 0
       ? 'likely'
-      : 'insufficient_data';
+      : 'observed_condition';
   const diagnosisTitle = SINGLE_DIAGNOSIS_TITLES[evaluation.metricId]?.[evaluation.direction]
     || `Likely ${label.toLowerCase()} stress`;
 
@@ -213,11 +263,9 @@ function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
         ? 'Critical condition'
         : status === 'likely'
           ? 'Emerging'
-          : 'Insufficient data',
+          : 'Observed condition',
       title: diagnosisTitle,
-      summary: status === 'insufficient_data'
-        ? `${label} is outside target, but no supporting agronomic context is currently available.`
-        : buildDiagnosisSummary(snapshot, evaluation, label, availableContext),
+      summary: buildDiagnosisSummary(snapshot, evaluation, label, availableContext),
       missingMetrics
     },
     relatedMetrics: relatedReadings.map((item) => item.metricId),

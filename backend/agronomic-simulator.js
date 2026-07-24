@@ -31,7 +31,7 @@ function temporalDiagnosis(diagnosis, durationMinutes) {
       ...diagnosis,
       status: 'likely',
       label: 'Likely',
-      title: String(diagnosis.title || '').replace(/^Emerging /, 'Likely '),
+      title: String(diagnosis.title || '').replace(/^(Emerging|Potential) /, 'Likely '),
       temporalStatus: durationMinutes >= 30 ? 'persistent' : 'sustained',
       summary: `${diagnosis.summary} The simulated deviation persists for ${durationMinutes} minutes.`,
       durationMinutes
