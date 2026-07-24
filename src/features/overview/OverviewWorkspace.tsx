@@ -772,7 +772,11 @@ export default function OverviewWorkspace() {
           <div className="nc-coverage-list">
             {model.rows.map((row) => <button className={`nc-coverage-row ${row.tone}`} type="button" key={row.id} onClick={() => openSectionEvidence(row)} aria-label={`View evidence for ${row.name}`}>
               <i><span /></i>
-              <div><strong>{row.name}</strong><small>{row.crop}</small><small className="nc-row-growing-score">7-day score <b>{row.score ?? '—'}{row.score === null ? '' : ' / 100'}</b></small></div>
+              <div className="nc-section-identity"><strong>{row.name}</strong><small>{row.crop}</small></div>
+              <div className="nc-section-score">
+                <span>7-day score</span>
+                <strong>{row.score ?? '—'}{row.score === null ? null : <small>/100</small>}</strong>
+              </div>
               <p>
                 <strong>{row.status}</strong>
                 {row.deviation !== null
