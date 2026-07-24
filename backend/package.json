@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "test:tenant": "node --test tests/tenant-isolation.integration.test.mjs tests/api-flows.integration.test.mjs",
+    "test:tenant": "node --test tests/tenant-isolation.integration.test.mjs tests/api-flows.integration.test.mjs tests/operational-workflows.integration.test.mjs",
     "migrate": "node migrate.js",
     "check": "node --check api.js && node --check ingest.js && node --check measurement-retention.js"
   },
