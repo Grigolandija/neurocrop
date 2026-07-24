@@ -4,6 +4,11 @@ const GET_CACHE_TTL_MS = 60_000
 const getCache = new Map<string, { expiresAt: number; value: unknown }>()
 const getRequestsInFlight = new Map<string, Promise<unknown>>()
 let cacheGeneration = 0
+let apiConnectionLost = false
+
+window.addEventListener('neurocrop:api-connection', (event) => {
+  apiConnectionLost = (event as CustomEvent<{ connected?: boolean }>).detail?.connected === false
+})
 
 function apiBaseUrl() {
   const configured = String(window.NEUROCROP_CONFIG?.apiBaseUrl || '').replace(/\/$/, '')
@@ -75,7 +80,7 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
 
   if (cacheable) {
     const cached = getCache.get(cacheKey)
-    if (cached && cached.expiresAt > Date.now()) return cached.value as T
+    if (cached && cached.expiresAt > Date.now() && !apiConnectionLost) return cached.value as T
     if (cached) getCache.delete(cacheKey)
     const pending = getRequestsInFlight.get(cacheKey)
     if (pending) return await pending as T
