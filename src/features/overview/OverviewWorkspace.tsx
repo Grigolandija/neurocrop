@@ -257,7 +257,9 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   const zones = asArray(site.zones)
   const rows = zones.map((zone): OverviewRow => {
     const action = actionBySection.get(String(zone.id))
-    const score = Number.isFinite(Number(zone.score)) ? Number(zone.score) : null
+    const rawScore = zone.score === null || zone.score === undefined || zone.score === ''
+      ? null
+      : Number.isFinite(Number(zone.score)) ? Number(zone.score) : null
     const numericValue = action?.value === null || action?.value === undefined ? Number.NaN : Number(action.value)
     const currentValue = Number.isFinite(numericValue) ? numericValue : null
     const unit = normalizeUnit(action?.unit)
@@ -266,6 +268,7 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     const direction = deviation === null ? 'unknown' : deviation > 0 ? 'above' : deviation < 0 ? 'below' : 'inside'
     const actionCanBeVerified = Boolean(action && currentValue !== null && target && deviation !== null)
     const tone = actionCanBeVerified ? 'action' : action ? 'unknown' : statusTone(zone.conditionStatus)
+    const score = tone === 'unknown' ? null : rawScore
     const metricKey = String(action?.metricId || action?.metricKey || zone.mainDriver || '')
     const rowMetricLabel = String(action?.metricLabel || metricLabel(metricKey))
     const reportingNodes = Number(zone.nodeSummary?.reporting || zone.sensorCount || 0)
@@ -794,7 +797,10 @@ export default function OverviewWorkspace() {
               <i className="fa-solid fa-chevron-right nc-coverage-chevron" aria-hidden="true" />
             </button>)}
           </div>
-          <figcaption><i className="fa-solid fa-circle-check" />Growing Score summarizes overall conditions; status highlights current target deviations.</figcaption>
+          <div className="nc-coverage-footer">
+            <figcaption><i className="fa-solid fa-circle-check" />Growing Score summarizes overall conditions; status highlights current target deviations.</figcaption>
+            <a href="/sections">View all {model.rows.length} Sections <i className="fa-solid fa-arrow-right" /></a>
+          </div>
         </figure>
       </div>
       <footer className="nc-overview-trust">

@@ -521,7 +521,21 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 }
 
 .nc-coverage-list {
+  max-height: 470px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-top: 1px solid var(--ov-line);
+  scrollbar-color: rgba(47, 124, 112, .35) transparent;
+  scrollbar-width: thin;
+}
+
+.nc-coverage-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.nc-coverage-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(47, 124, 112, .35);
 }
 
 .nc-coverage-row {
@@ -685,17 +699,40 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   transform: translateX(2px);
 }
 
+.nc-coverage-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 22px;
+}
+
 .nc-coverage figcaption {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 28px;
+  margin: 0;
   color: #718078;
   font-size: 12px;
 }
 
 .nc-coverage figcaption i {
   color: var(--ov-green);
+}
+
+.nc-coverage-footer > a {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  color: #247c6d;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.nc-coverage-footer > a:hover {
+  text-decoration: underline;
 }
 
 .nc-overview-trust {
@@ -1570,6 +1607,16 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   .nc-coverage-row > .nc-coverage-chevron {
     grid-column: 4;
     grid-row: 1 / span 2;
+  }
+
+  .nc-coverage-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .nc-coverage-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .nc-overview-trust {
