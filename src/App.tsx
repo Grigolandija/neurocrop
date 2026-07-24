@@ -16,6 +16,7 @@ import './styles/areas-workspace.css'
 import './styles/sections-workspace.css'
 import './styles/settings-workspace.css'
 import './styles/app-shell.css'
+import './styles/operational-consistency.css'
 import './styles/overview-workspace.css'
 
 declare global {
