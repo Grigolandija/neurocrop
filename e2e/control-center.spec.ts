@@ -195,6 +195,28 @@ test('primary desktop pages fit the viewport without horizontal overflow', async
   expect(overflows).toEqual([])
 })
 
+test('primary customer pages fit and remain touchable on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  const issues: Array<{ route: string; viewport: number; content: number }> = []
+
+  for (const route of ['/', '/areas', '/sections', '/nodes', '/readings', '/history', '/settings', '/simulator']) {
+    await page.goto(route)
+    await expect(page.locator('#dashboardShell')).toBeVisible()
+    await page.waitForTimeout(100)
+    const dimensions = await page.evaluate(() => ({
+      viewport: window.innerWidth,
+      content: document.documentElement.scrollWidth,
+    }))
+    if (dimensions.content > dimensions.viewport + 1) issues.push({ route, ...dimensions })
+  }
+
+  expect(issues).toEqual([])
+  await expect(page.locator('.mobile-dock')).toBeVisible()
+  const dockHeight = await page.locator('.mobile-dock').evaluate((element) => element.getBoundingClientRect().height)
+  expect(dockHeight).toBeGreaterThanOrEqual(60)
+})
+
 test('primary desktop pages keep operational text readable', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
   const headerType = await page.evaluate(() => {
