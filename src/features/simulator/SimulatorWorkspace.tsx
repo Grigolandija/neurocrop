@@ -34,7 +34,7 @@ const METRIC_UNITS: Record<string, string> = {
   waterTemp: '°C',
 }
 
-const PREFERRED_METRICS = ['airTemp', 'humidity', 'vpd', 'co2', 'soilMoisture', 'leafTemp']
+const PREFERRED_METRICS = ['airTemp', 'humidity', 'co2', 'soilMoisture', 'leafTemp']
 
 function records(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is JsonRecord => Boolean(item) && typeof item === 'object') : []
@@ -95,6 +95,14 @@ function sliderBounds(profile: JsonRecord, metricId: string) {
 function resultTone(result: JsonRecord | null) {
   const diagnosis = result?.diagnosis as JsonRecord | undefined
   return String(diagnosis?.status || 'unknown')
+}
+
+function calculatedVpd(parameters: ScenarioParameter[]) {
+  const temperature = parameters.find((item) => item.metricId === 'airTemp')?.value
+  const humidity = parameters.find((item) => item.metricId === 'humidity')?.value
+  if (!Number.isFinite(temperature) || !Number.isFinite(humidity) || Number(humidity) <= 0 || Number(humidity) > 100) return null
+  const saturation = .6108 * Math.exp((17.27 * Number(temperature)) / (Number(temperature) + 237.3))
+  return Number((saturation * (1 - Number(humidity) / 100)).toFixed(2))
 }
 
 export default function SimulatorWorkspace() {
@@ -192,6 +200,7 @@ export default function SimulatorWorkspace() {
   const action = result?.action as JsonRecord | undefined
   const limitations = Array.isArray(result?.limitations) ? result.limitations.map(String) : []
   const selectedMetricIds = new Set(parameters.map((item) => item.metricId))
+  const derivedVpd = calculatedVpd(parameters)
 
   return <main className="nc-simulator">
     <header className="nc-simulator-header">
@@ -223,6 +232,10 @@ export default function SimulatorWorkspace() {
             </article>
           })}
         </div>
+
+        {derivedVpd !== null
+          ? <div className="nc-simulator-derived"><div><span>Derived parameter</span><strong>VPD</strong></div><b>{derivedVpd} kPa</b><p>Automatically calculated from air temperature and relative humidity.</p></div>
+          : <div className="nc-simulator-derived muted"><i className="fa-solid fa-calculator" /><p>Select both Air temperature and Relative humidity to calculate VPD automatically.</p></div>}
 
         {parameters.length < 3 && availableMetrics.length > parameters.length ? <button className="nc-simulator-add" type="button" onClick={addParameter}><i className="fa-solid fa-plus" />Add third parameter</button> : null}
 

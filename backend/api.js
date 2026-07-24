@@ -505,7 +505,7 @@ app.post('/simulator/agronomic', requireAuth, async (req, res) => {
     });
     res.json(result);
   } catch (error) {
-    if (/Select between|unsupported parameter|Invalid value|Duration must/.test(error.message)) {
+    if (/Select between|unsupported parameter|Invalid|Duration must/.test(error.message)) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: error.message } });
     }
     console.error('[api] POST /simulator/agronomic:', error.message);

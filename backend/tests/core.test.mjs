@@ -721,7 +721,7 @@ test('scenario simulator returns stable result when selected conditions are insi
       humidity: { optimal: [50, 70] },
       vpd: { optimal: [0.5, 2] }
     },
-    values: { airTemp: 20, humidity: 60, vpd: 1.2 },
+    values: { airTemp: 20, humidity: 60 },
     durationMinutes: 30
   });
   assert.equal(result.diagnosis.status, 'stable');
@@ -736,7 +736,7 @@ test('scenario simulator separates a snapshot from a sustained likely condition'
       humidity: { optimal: [50, 70] },
       vpd: { optimal: [0.5, 2] }
     },
-    values: { airTemp: 25.8, humidity: 49.8, vpd: 1.7 }
+    values: { airTemp: 25.8, humidity: 49.8 }
   };
   const snapshot = simulateAgronomicScenario({ ...scenario, durationMinutes: 1 });
   const sustained = simulateAgronomicScenario({ ...scenario, durationMinutes: 30 });
@@ -750,15 +750,18 @@ test('scenario simulator separates a snapshot from a sustained likely condition'
 test('scenario simulator confirms a multi-parameter water stress rule', () => {
   const result = simulateAgronomicScenario({
     profileMetrics: {
+      airTemp: { optimal: [20, 24] },
+      humidity: { optimal: [55, 70] },
       vpd: { optimal: [0.8, 1.2] },
       soilMoisture: { optimal: [45, 60] }
     },
-    values: { vpd: 2.1, soilMoisture: 30 },
+    values: { airTemp: 30, humidity: 40, soilMoisture: 30 },
     durationMinutes: 10
   });
   assert.equal(result.diagnosis.status, 'confirmed');
   assert.equal(result.action.ruleId, 'ATM_ROOT_DROUGHT');
   assert.equal(result.diagnosis.temporalStatus, 'persistent');
+  assert.ok(result.derivedValues.vpd > 2);
 });
 
 test('scenario simulator rejects unsupported scenario shapes', () => {
@@ -767,7 +770,7 @@ test('scenario simulator rejects unsupported scenario shapes', () => {
     /between 2 and 3/
   );
   assert.throws(
-    () => simulateAgronomicScenario({ values: { airTemp: 20, unknown: 1 }, durationMinutes: 10 }),
+    () => simulateAgronomicScenario({ values: { airTemp: 20, vpd: 1.2 }, durationMinutes: 10 }),
     /unsupported parameter/
   );
   assert.throws(
