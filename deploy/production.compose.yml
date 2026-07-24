@@ -13,6 +13,7 @@ services:
       PGUSER: ${PGUSER:-chirpstack}
       PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD}
       PGDATABASE: ${PGDATABASE:-neurocrop}
+      MEASUREMENT_RETENTION_DAYS: ${MEASUREMENT_RETENTION_DAYS:-35}
       CORS_ALLOWED_ORIGINS: https://neurocrop.lt,https://www.neurocrop.lt
     secrets:
       - session_secret

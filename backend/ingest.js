@@ -1,11 +1,13 @@
 import mqtt from 'mqtt';
 import { pool } from './db.js';
+import { runMigrations } from './migrate.js';
 import { normalizeErrorCounters, normalizeErrorFlags } from './node-health.js';
-import { normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from './telemetry-values.js';
+import { compactTelemetryMetadata, normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from './telemetry-values.js';
 
 const MQTT_URL = process.env.MQTT_URL || 'mqtt://mosquitto:1883';
 const MQTT_TOPIC = process.env.MQTT_TOPIC || 'application/+/device/+/event/up';
 
+await runMigrations();
 const client = mqtt.connect(MQTT_URL);
 
 client.on('connect', () => {
@@ -41,6 +43,7 @@ async function handleUplink(msg) {
   const adaptive = obj.adaptive || {};
   const errorFlags = normalizeErrorFlags(obj.error_flags);
   const ec = normalizeErrorCounters(obj.error_counters, errorFlags);
+  const historicalMetadata = compactTelemetryMetadata(obj, errorFlags);
   const sensorPresence = Object.fromEntries(
     Object.entries(obj.sensors || {}).map(([sensor, state]) => [sensor, normalizeTelemetryBoolean(state?.present) === true])
   );
@@ -99,10 +102,8 @@ async function handleUplink(msg) {
           battery_mv,battery_percent,firmware_build,profile,battery_critical,
           vpd_out_of_range,err_read_fail,err_reinit,err_tx_fail,rssi,snr,
           spreading_factor,raw_object,received_at)
-       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28
-       WHERE NOT EXISTS (
-         SELECT 1 FROM measurements WHERE dev_eui=$2 AND time=$1
-       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+       ON CONFLICT (dev_eui, time) DO NOTHING
        RETURNING time`,
       [time, devEui, normalizeTelemetryNumber(obj.temperature), normalizeTelemetryNumber(obj.humidity), normalizeTelemetryNumber(obj.co2), normalizeTelemetryNumber(obj.lux),
        normalizeTelemetryNumber(obj.soil_temperature), normalizeTelemetryNumber(obj.soil_moisture), normalizeTelemetryNumber(obj.ec), normalizeTelemetryNumber(obj.ph), normalizeTelemetryNumber(obj.soil_ec),
@@ -110,7 +111,7 @@ async function handleUplink(msg) {
        normalizeTelemetryNumber(obj.battery_mv), normalizeTelemetryNumber(obj.battery_percent),
        normalizeTelemetryNumber(obj.firmware_build), adaptive.profile ?? null, normalizeTelemetryBoolean(adaptive.battery_critical),
        normalizeTelemetryBoolean(adaptive.vpd_out_of_range), normalizeTelemetryNumber(ec.read_fail), normalizeTelemetryNumber(ec.reinit), normalizeTelemetryNumber(ec.tx_fail),
-       normalizeTelemetryNumber(rx.rssi), normalizeTelemetryNumber(rx.snr), normalizeTelemetryNumber(sf), JSON.stringify(obj), receivedAt]
+       normalizeTelemetryNumber(rx.rssi), normalizeTelemetryNumber(rx.snr), normalizeTelemetryNumber(sf), JSON.stringify(historicalMetadata), receivedAt]
     );
     inserted = Boolean(insertedRows[0]);
     await dbClient.query('COMMIT');

@@ -58,10 +58,11 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(navigationAction(page, 'overview')).toContainText('Overview')
   await expect(navigationAction(page, 'readings')).toContainText('Readings')
   await expect(navigationAction(page, 'alerts')).toContainText('Alerts')
-  await expect(page.locator('.grower-command')).toBeVisible()
-  await expect(page.locator('.grower-pulse')).toBeVisible()
-  await expect(page.locator('.grower-farm-board')).toBeVisible()
-  await expect(page.locator('#headerContextSelectors')).not.toContainText('All sections')
+  await expect(page.locator('[data-nc-react-workspace="overview"]')).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Select active Area' })).toBeVisible()
+  await expect(page.locator('.nc-coverage')).toBeVisible()
+  await expect(page.locator('.nc-overview-trust')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'CI Area A', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   await navigationAction(page, 'sites').click()
   await expect(page).toHaveURL(/\/areas$/)
@@ -157,6 +158,8 @@ test('empty organization always uses the canonical Areas onboarding', async ({ p
 
 test('large workspace keeps 100+ Areas accessible', async ({ page }) => {
   await authenticate(page, 'tenant-large@ci.neurocrop.test', 101)
+  await navigationAction(page, 'sites').click()
+  await expect(page).toHaveURL(/\/areas$/)
   await page.locator('#siteTrigger').click()
   await expect(page.locator('[data-site-option]')).toHaveCount(101)
   await expect(page.locator('[data-site-option]').filter({ hasText: 'Scale Area 101' })).toBeVisible()

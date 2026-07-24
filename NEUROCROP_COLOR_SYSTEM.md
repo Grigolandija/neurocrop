@@ -118,7 +118,6 @@ Chart colors identify measurements. They must not change when a value crosses a 
 | pH | `--chart-ph` | `#6C70C9` | `#9196E3` |
 | Water / moisture | `--chart-water` | `#2C91A3` | `#56B5C5` |
 | Battery | `--chart-battery` | `#738E95` | `#98ABB1` |
-| Pressure | `--chart-pressure` | `#66788E` | `#8CA0B6` |
 | Growth | `--chart-growth` | `#3F7D65` | `#72AD91` |
 
 For same-metric Section comparison, use the categorical series sequence: `#536B78`, `#8A6BBE`, `#D36C5B`, `#2C91A3`, `#B45F87`, `#7A6F64`.

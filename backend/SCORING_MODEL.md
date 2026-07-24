@@ -26,10 +26,9 @@ VPD, air temperature and RH share one domain because VPD is calculated from
 temperature and RH. Counting all three as independent penalties would double
 or triple count the same atmospheric condition.
 
-Instantaneous lux and atmospheric pressure do not affect the score. Lux must
-be assessed over the configured photoperiod using PAR/DLI when available;
-normal atmospheric pressure variation is diagnostic context. Both remain
-available for monitoring and analytics.
+Instantaneous lux does not affect the score. Lux must be assessed over the
+configured photoperiod using PAR/DLI when available, so it remains available
+for monitoring and analytics without penalizing a single dark reading.
 
 Each profile metric may optionally define `scoreWeight` from `0` to `3` for
 crop/stage calibration. A value of `1` uses the default, `0` removes the metric

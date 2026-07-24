@@ -66,7 +66,6 @@ const metrics: Metric[] = [
   { key: 'vpd', label: 'Vapour pressure deficit', short: 'VPD', unit: 'kPa', decimals: 2, group: 'climate', icon: 'fa-wave-square' },
   { key: 'co2', label: 'Carbon dioxide', short: 'CO₂', unit: 'ppm', decimals: 0, group: 'climate', icon: 'fa-wind' },
   { key: 'leafTemp', label: 'Leaf temperature', short: 'Leaf temp.', unit: '°C', decimals: 1, group: 'climate', icon: 'fa-leaf' },
-  { key: 'airPressure', label: 'Air pressure', short: 'Pressure', unit: 'hPa', decimals: 0, group: 'climate', icon: 'fa-gauge-high' },
   { key: 'soilMoisture', label: 'Soil moisture', short: 'Moisture', unit: '%', decimals: 0, group: 'root', icon: 'fa-water' },
   { key: 'soilTemp', label: 'Soil temperature', short: 'Soil temp.', unit: '°C', decimals: 1, group: 'root', icon: 'fa-seedling' },
   { key: 'ec', label: 'Electrical conductivity', short: 'EC', unit: 'mS/cm', decimals: 2, group: 'root', icon: 'fa-bolt' },
@@ -78,7 +77,7 @@ const metrics: Metric[] = [
 
 const presets = [
   { key: 'essential', label: 'Essential', icon: 'fa-layer-group', keys: ['airTemp', 'humidity', 'vpd', 'co2', 'soilMoisture'] },
-  { key: 'climate', label: 'Climate', icon: 'fa-cloud-sun', keys: ['airTemp', 'humidity', 'vpd', 'co2', 'leafTemp', 'airPressure'] },
+  { key: 'climate', label: 'Climate', icon: 'fa-cloud-sun', keys: ['airTemp', 'humidity', 'vpd', 'co2', 'leafTemp'] },
   { key: 'root', label: 'Root zone', icon: 'fa-seedling', keys: ['soilMoisture', 'soilTemp', 'ec', 'ph', 'waterTemp'] },
   { key: 'lighting', label: 'Lighting', icon: 'fa-sun', keys: ['lux'] },
   { key: 'system', label: 'System', icon: 'fa-microchip', keys: ['batteryLevel'] },
@@ -90,7 +89,7 @@ const qualityLabels: Record<ReadingQuality, string> = {
 }
 
 const historySupportedMetricKeys = new Set([
-  'airTemp', 'humidity', 'vpd', 'co2', 'leafTemp', 'airPressure',
+  'airTemp', 'humidity', 'vpd', 'co2', 'leafTemp',
   'soilMoisture', 'soilTemp', 'ec', 'ph', 'waterTemp', 'lux', 'batteryLevel',
 ])
 

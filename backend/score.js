@@ -15,9 +15,6 @@ const DEFAULT_SCORE_RULES = {
   soilEc: { column: 'soil_ec', optimal: [1.5, 2.5], warning: [1.2, 2.9], critical: [0.7, 3.5], growth: true },
   leafTemp: { column: 'leaf_temperature', optimal: [20, 25], warning: [18, 27], critical: [15, 30], growth: true },
   waterTemp: { column: 'water_temperature', optimal: [18, 22], warning: [16, 24], critical: [13, 28], growth: true },
-  // Normal weather-driven pressure changes are diagnostic context, not a direct
-  // crop stress signal at greenhouse elevations.
-  airPressure: { column: 'air_pressure', optimal: [995, 1025], warning: [989, 1031], critical: [981, 1039], growth: false },
   vpd: { column: 'vpd', optimal: [0.8, 1.2], warning: [0.6, 1.5], critical: [0.4, 1.8], growth: true },
   batteryLevel: { column: 'battery_percent', optimal: [55, 100], warning: [35, 100], critical: [0, 100], growth: false }
 };
@@ -34,7 +31,6 @@ const AUTOMATIC_BAND_PADDING = {
   soilEc: { warning: [0.3, 0.4], critical: [0.8, 1], floor: 0 },
   leafTemp: { warning: [2, 2], critical: [5, 5] },
   waterTemp: { warning: [2, 2], critical: [5, 6] },
-  airPressure: { warning: [6, 6], critical: [14, 14], floor: 850, ceiling: 1100 },
   vpd: { warning: [0.2, 0.2], critical: [0.6, 0.6], floor: 0 },
   batteryLevel: { warning: [20, 0], critical: [55, 0], floor: 0, ceiling: 100 }
 };
@@ -51,8 +47,7 @@ const SENSOR_PRESENCE_BY_METRIC = {
   ph: 'ph_probe',
   soilEc: 'soil_ec_probe',
   leafTemp: 'leaf_temperature_probe',
-  waterTemp: 'water_temperature_probe',
-  airPressure: 'pressure_sensor'
+  waterTemp: 'water_temperature_probe'
 };
 
 function measurementHasMetricSensor(measurement, metricId) {

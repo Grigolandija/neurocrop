@@ -10,7 +10,8 @@ import { METRIC_TO_COLUMN } from '../metrics.js';
 import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
 import { buildTodayActions, evaluateActionOutcome, getActionVerificationPolicy } from '../today-actions.js';
 import { invitationState } from '../invitation-state.js';
-import { normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from '../telemetry-values.js';
+import { compactTelemetryMetadata, normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from '../telemetry-values.js';
+import { getMeasurementRetentionDays, runMeasurementRetention } from '../measurement-retention.js';
 import { hashUserPassword, MAX_PASSWORD_LENGTH, sessionCookieClearOptions, sessionCookieOptions, verifyUserPassword } from '../auth-users.js';
 import { sendInvitationEmail } from '../email.js';
 
@@ -56,6 +57,68 @@ test('telemetry values reject malformed numbers and poisoned timestamps', () => 
   assert.equal(normalizeTelemetryTimestamp('2026-07-22T11:59:00Z', now).toISOString(), '2026-07-22T11:59:00.000Z');
   assert.equal(normalizeTelemetryTimestamp('invalid', now).toISOString(), now.toISOString());
   assert.equal(normalizeTelemetryTimestamp('2099-01-01T00:00:00Z', now).toISOString(), now.toISOString());
+});
+
+test('historical telemetry stores only metadata required by product queries', () => {
+  assert.deepEqual(
+    compactTelemetryMetadata({
+      temperature: 23.4,
+      humidity: 66,
+      firmware_version: '2.1.5',
+      expected_uplink_interval_s: 600,
+      sensors: {
+        sht45: { present: true, fresh: true, raw: 123 },
+        scd41: { present: false, fresh: false }
+      },
+      unused_debug_payload: { oversized: true }
+    }, { last_tx_failed: false }),
+    {
+      firmware_version: '2.1.5',
+      expected_uplink_interval_s: 600,
+      sensors: {
+        sht45: { present: true },
+        scd41: { present: false }
+      },
+      error_flags: { last_tx_failed: false }
+    }
+  );
+});
+
+test('measurement retention is bounded, batched and protected by an advisory lock', async () => {
+  assert.equal(getMeasurementRetentionDays({}), 35);
+  assert.equal(getMeasurementRetentionDays({ MEASUREMENT_RETENTION_DAYS: '60' }), 60);
+  assert.throws(
+    () => getMeasurementRetentionDays({ MEASUREMENT_RETENTION_DAYS: '14' }),
+    /between 31 and 365/
+  );
+
+  const calls = [];
+  let deleteCall = 0;
+  const client = {
+    async query(sql, params = []) {
+      calls.push({ sql, params });
+      if (sql.includes('pg_try_advisory_lock')) return { rows: [{ locked: true }], rowCount: 1 };
+      if (sql.includes('DELETE FROM measurements')) {
+        deleteCall += 1;
+        return { rows: [], rowCount: deleteCall === 1 ? 2 : 1 };
+      }
+      return { rows: [{ pg_advisory_unlock: true }], rowCount: 1 };
+    },
+    release() {
+      calls.push({ sql: 'release', params: [] });
+    }
+  };
+
+  const result = await runMeasurementRetention(
+    { connect: async () => client },
+    { retentionDays: 35, batchSize: 2, maxBatches: 5, now: '2026-07-24T12:00:00.000Z' }
+  );
+
+  assert.equal(result.deleted, 3);
+  assert.equal(result.cutoff.toISOString(), '2026-06-19T12:00:00.000Z');
+  assert.equal(calls.filter((call) => call.sql.includes('DELETE FROM measurements')).length, 2);
+  assert.equal(calls.some((call) => call.sql === 'ANALYZE measurements'), true);
+  assert.equal(calls.at(-1).sql, 'release');
 });
 
 test('measurement presence remains compatible with older firmware without converting null to zero', () => {
@@ -189,7 +252,8 @@ test('ingestion normalizes device identity, deduplicates MQTT deliveries and com
   const source = fs.readFileSync(new URL('../ingest.js', import.meta.url), 'utf8');
   assert.match(source, /String\(dev\.devEui \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);
   assert.match(source, /pg_advisory_xact_lock\(hashtext\(\$1\)\)/);
-  assert.match(source, /WHERE NOT EXISTS \([\s\S]*dev_eui=\$2 AND time=\$1/);
+  assert.match(source, /ON CONFLICT \(dev_eui, time\) DO NOTHING/);
+  assert.ok(source.indexOf('await runMigrations()') < source.indexOf('mqtt.connect(MQTT_URL)'));
   assert.ok(source.indexOf("dbClient.query('BEGIN')") < source.indexOf('UPDATE nodes SET'));
   assert.ok(source.indexOf('INSERT INTO measurements') < source.indexOf("dbClient.query('COMMIT')"));
 });
@@ -389,9 +453,9 @@ test('correlated climate readings share one score domain', () => {
   assert.deepEqual(result.scoreGroups[0].metrics.sort(), ['airTemp', 'humidity', 'vpd']);
 });
 
-test('instantaneous light and air pressure are context metrics, not score penalties', () => {
-  const contextualOnly = buildScoreFromMetricValues({ lux: 0, airPressure: 900 });
-  const withOptimalClimate = buildScoreFromMetricValues({ airTemp: 24, lux: 0, airPressure: 900 });
+test('instantaneous light is a context metric, not a score penalty', () => {
+  const contextualOnly = buildScoreFromMetricValues({ lux: 0 });
+  const withOptimalClimate = buildScoreFromMetricValues({ airTemp: 24, lux: 0 });
   assert.equal(contextualOnly.score, null);
   assert.equal(withOptimalClimate.score, 100);
 });
@@ -452,17 +516,15 @@ test('today actions ignore stale measurements and return no work for optimal rea
   }]), []);
 });
 
-test('today actions exclude context-only light and pressure deviations', () => {
+test('today actions exclude context-only light deviations', () => {
   const actions = buildTodayActions([{
     section: { id: 'section-1', name: 'North block' },
     profileMetrics: {},
     scoreRules: {
-      lux: { growth: false, optimal: [10000, 30000] },
-      airPressure: { growth: false, optimal: [995, 1025] }
+      lux: { growth: false, optimal: [10000, 30000] }
     },
     evaluations: [
-      { metricId: 'lux', state: 'critical', severity: 1, direction: 'low', value: 0 },
-      { metricId: 'airPressure', state: 'warning', severity: 0.5, direction: 'low', value: 970 }
+      { metricId: 'lux', state: 'critical', severity: 1, direction: 'low', value: 0 }
     ]
   }]);
   assert.deepEqual(actions, []);
@@ -577,14 +639,13 @@ test('historical score snapshots use the same canonical score model', () => {
   assert.equal(hot.mainDriver, 'airTemp');
 });
 
-test('all persisted parameters have explicit scoring or context-only rules', () => {
+test('all supported product parameters have explicit scoring or context-only rules', () => {
   const persistedMetrics = [
     'airTemp', 'humidity', 'co2', 'lux', 'soilTemp', 'vpd', 'soilMoisture',
-    'ec', 'ph', 'leafTemp', 'soilEc', 'waterTemp', 'airPressure'
+    'ec', 'ph', 'leafTemp', 'soilEc', 'waterTemp'
   ];
   const rules = buildScoreRules({});
   assert.equal(rules.lux.growth, false);
-  assert.equal(rules.airPressure.growth, false);
   assert.deepEqual(persistedMetrics.filter((key) => !rules[key]), []);
   assert.deepEqual(persistedMetrics.filter((key) => key !== 'vpd' && !METRIC_TO_COLUMN[key]), []);
 });

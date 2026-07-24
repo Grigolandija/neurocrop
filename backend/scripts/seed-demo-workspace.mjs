@@ -33,7 +33,6 @@ const profileMetrics = {
   leafTemp: metric('Leaf temperature', 'degC', 1, [19, 25]),
   soilEc: metric('Substrate EC', 'mS/cm', 2, [1.5, 2.5]),
   waterTemp: metric('Water temperature', 'degC', 1, [18, 22]),
-  airPressure: metric('Air pressure', 'hPa', 0, [995, 1025]),
   batteryLevel: metric('Battery level', '%', 0, [55, 100])
 };
 
@@ -58,7 +57,7 @@ const sections = [
 ];
 
 const sensorGroups = [
-  { suffix: 'climate', name: 'Climate and pressure', sensors: ['pressure_sensor'] },
+  { suffix: 'climate', name: 'Air climate', sensors: [] },
   { suffix: 'canopy', name: 'Canopy light and gas', sensors: ['scd41', 'bh1750', 'leaf_temperature_probe'] },
   { suffix: 'root', name: 'Root-zone probe', sensors: ['ds18b20', 'soil_moisture_probe', 'soil_ec_probe'] },
   { suffix: 'nutrient', name: 'Nutrient and water line', sensors: ['ec_probe', 'ph_probe', 'water_temperature_probe'] }
@@ -144,7 +143,7 @@ try {
       await client.query(
         `INSERT INTO measurements (
           time,received_at,dev_eui,temperature,humidity,co2,lux,soil_temperature,soil_moisture,
-          ec,ph,soil_ec,leaf_temperature,water_temperature,air_pressure,battery_mv,battery_percent,
+          ec,ph,soil_ec,leaf_temperature,water_temperature,battery_mv,battery_percent,
           firmware_build,profile,battery_critical,vpd_out_of_range,err_read_fail,err_reinit,err_tx_fail,
           rssi,snr,spreading_factor,raw_object)
          SELECT sample_time,sample_time+interval '2 seconds',$1,
@@ -159,21 +158,20 @@ try {
           CASE WHEN $11 THEN (1.95 + 0.22*sin(extract(epoch from sample_time)/172800+$3))::real END,
           CASE WHEN $12 THEN ($2-0.4 + 2.7*daylight + 0.2*sin(extract(epoch from sample_time)/6400))::real END,
           CASE WHEN $13 THEN (20.1 + 0.85*sin(day_angle-1.1) + 0.12*cos(extract(epoch from sample_time)/11000))::real END,
-          CASE WHEN $14 THEN (1009 + 7*sin(extract(epoch from sample_time)/604800*2*pi()+$3*0.2) + 1.4*cos(extract(epoch from sample_time)/86400))::real END,
-          $15,$16,214,'normal',($16 < 15),false,0,0,0,$17,$18,$19,
+          $14,$15,214,'normal',($15 < 15),false,0,0,0,$16,$17,$18,
           jsonb_build_object('payload_format','neurosense_demo_v2','firmware_version','2.1.4','demo',true,
-            'expected_uplink_interval_s',600,'sensors',$20::jsonb)
+            'expected_uplink_interval_s',600,'sensors',$19::jsonb)
          FROM (
            SELECT sample_time,
              extract(epoch from sample_time)/86400*2*pi() AS day_angle,
              greatest(0,sin(pi()*greatest(0,least(1,(extract(hour from sample_time AT TIME ZONE 'Europe/Vilnius')-5.5)/15)))) AS daylight,
              greatest(0.42,least(1,0.82+0.18*sin(extract(epoch from sample_time)/51000+$3))) AS cloud_factor
-           FROM generate_series(now()-interval '30 days',now(),interval '10 minutes') sample_time
+           FROM generate_series(now()-interval '7 days',now(),interval '10 minutes') sample_time
          ) samples`,
         [devEui, baseTemp + groupIndex * 0.12, phase + groupIndex, baseHumidity,
           has('scd41'), has('bh1750'), has('ds18b20'), has('soil_moisture_probe'),
           has('ec_probe'), has('ph_probe'), has('soil_ec_probe'), has('leaf_temperature_probe'),
-          has('water_temperature_probe'), has('pressure_sensor'), 3650 + battery * 5, battery,
+          has('water_temperature_probe'), 3650 + battery * 5, battery,
           -52 - ((sectionIndex + groupIndex) % 18), 6.5 + ((sectionIndex + groupIndex) % 6) * 0.7,
           7 + ((sectionIndex + groupIndex) % 4),
           JSON.stringify(Object.fromEntries(Object.keys(sensors).map((key) => [key, { present: true, fresh: true }]))) ]
@@ -184,7 +182,7 @@ try {
 
   await client.query('COMMIT');
   console.log(JSON.stringify({ organizationId, email: demoEmail, role: 'viewer', areas: areas.length,
-    sections: sections.length, nodes: nodeCount, growthMetrics: 13, historyDays: 30 }));
+    sections: sections.length, nodes: nodeCount, growthMetrics: 13, historyDays: 7 }));
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

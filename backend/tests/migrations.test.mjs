@@ -56,3 +56,32 @@ test('completed actions can persist structured execution details', async () => {
   assert.match(sql, /ADD COLUMN IF NOT EXISTS execution_details JSONB/);
   assert.match(sql, /jsonb_typeof\(execution_details\) = 'object'/);
 });
+
+test('data integrity migration enforces tenant scope and atomic measurement deduplication', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0010_data_integrity.sql', import.meta.url), 'utf8');
+  assert.match(sql, /sections_area_tenant_fkey/);
+  assert.match(sql, /sections_crop_profile_tenant_fkey/);
+  assert.match(sql, /nodes_section_area_tenant_fkey/);
+  assert.match(sql, /node_sensor_configs_node_tenant_fkey/);
+  assert.match(sql, /action_feedback_section_tenant_fkey/);
+  assert.match(sql, /GENERATED ALWAYS AS IDENTITY/);
+  assert.match(sql, /UNIQUE \(dev_eui, time\)/);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION set_row_updated_at/);
+});
+
+test('unsupported air pressure cleanup removes only synthetic readings and profile metadata', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0011_remove_unsupported_air_pressure.sql', import.meta.url), 'utf8');
+  assert.match(sql, /raw_object->>'demo' = 'true'/);
+  assert.match(sql, /air_pressure = NULL/);
+  assert.match(sql, /last_sensor_presence - 'pressure_sensor'/);
+  assert.match(sql, /metrics - 'airPressure'/);
+});
+
+test('measurement storage migration prunes demo history and duplicate indexes', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0012_measurement_storage.sql', import.meta.url), 'utf8');
+  assert.match(sql, /DROP INDEX IF EXISTS idx_measurements_deveui_time/);
+  assert.match(sql, /DROP INDEX IF EXISTS idx_measurements_deveui_received_at/);
+  assert.match(sql, /raw_object->>'demo' = 'true'/);
+  assert.match(sql, /INTERVAL '7 days'/);
+  assert.match(sql, /jsonb_strip_nulls\(jsonb_build_object/);
+});

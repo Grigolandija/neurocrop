@@ -12,18 +12,17 @@ const METRIC_LABELS = {
   ph: 'pH',
   leafTemp: 'Leaf temperature',
   soilEc: 'Soil EC',
-  waterTemp: 'Water temperature',
-  airPressure: 'Air pressure'
+  waterTemp: 'Water temperature'
 };
 
 const METRIC_UNITS = {
   airTemp: 'degC', humidity: '%', co2: 'ppm', lux: 'lx', soilTemp: 'degC',
   vpd: 'kPa', soilMoisture: '%', ec: 'mS/cm', ph: 'pH', leafTemp: 'degC',
-  soilEc: 'mS/cm', waterTemp: 'degC', airPressure: 'hPa'
+  soilEc: 'mS/cm', waterTemp: 'degC'
 };
 
 const METRIC_GROUPS = {
-  airTemp: 'climate', humidity: 'climate', vpd: 'climate', airPressure: 'climate',
+  airTemp: 'climate', humidity: 'climate', vpd: 'climate',
   co2: 'carbon-light', lux: 'carbon-light',
   soilTemp: 'root-zone', soilMoisture: 'root-zone', soilEc: 'root-zone',
   ec: 'nutrition', ph: 'nutrition', waterTemp: 'nutrition',
@@ -42,8 +41,7 @@ const ACTION_TEMPLATES = {
   ph: { low: 'Raise nutrient solution pH toward the profile target.', high: 'Lower nutrient solution pH toward the profile target.' },
   leafTemp: { low: 'Inspect cold airflow and canopy temperature.', high: 'Inspect canopy cooling, airflow, and water stress.' },
   soilEc: { low: 'Review root-zone nutrient concentration.', high: 'Inspect salinity and consider controlled flushing.' },
-  waterTemp: { low: 'Check tank and irrigation-loop heating.', high: 'Cool the tank and inspect irrigation-loop temperature.' },
-  airPressure: { low: 'Check whether ventilation or weather changes explain the shift.', high: 'Check whether ventilation or weather changes explain the shift.' }
+  waterTemp: { low: 'Check tank and irrigation-loop heating.', high: 'Cool the tank and inspect irrigation-loop temperature.' }
 };
 
 const EFFECTS = {

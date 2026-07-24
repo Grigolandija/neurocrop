@@ -18,7 +18,7 @@
               { id: "NS-000003", level: 52 },
               { id: "NS-000004", level: 49 }
             ],
-            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"]
+            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "batteryLevel"]
           },
           {
             id: "tomato-a-front",
@@ -30,7 +30,7 @@
               { id: "NS-000006", level: 44 },
               { id: "NS-000007", level: 38 }
             ],
-            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"]
+            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "batteryLevel"]
           },
           {
             id: "lettuce-rack-under",
@@ -44,7 +44,7 @@
               { id: "NS-000011", level: 74 },
               { id: "NS-000012", level: 69 }
             ],
-            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"]
+            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "batteryLevel"]
           }
         ]
       },
@@ -63,7 +63,7 @@
               { id: "NS-000015", level: 33 },
               { id: "NS-000016", level: 29 }
             ],
-            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"]
+            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "batteryLevel"]
           },
           {
             id: "strawberry-east",
@@ -76,7 +76,7 @@
               { id: "NS-000019", level: 65 },
               { id: "NS-000020", level: 60 }
             ],
-            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"]
+            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "batteryLevel"]
           },
           {
             id: "seedling-center",
@@ -87,7 +87,7 @@
               { id: "NS-000021", level: 57 },
               { id: "NS-000022", level: 46 }
             ],
-            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "airPressure", "batteryLevel"]
+            availableMetrics: ["airTemp", "humidity", "co2", "lux", "soilTemp", "vpd", "soilMoisture", "waterTemp", "batteryLevel"]
           }
         ]
       }
@@ -477,7 +477,6 @@
       "Soil temperature": "Substrato temperatūra",
       "Soil moisture": "Substrato drėgmė",
       "Water temperature": "Vandens temperatūra",
-      "Air pressure": "Oro slėgis",
       "Leaf temperature": "Lapo temperatūra",
       "Battery level": "Baterijos lygis",
       "Currently viewing": "Šiuo metu rodoma",
@@ -820,7 +819,6 @@
           leafTemp: { label: "Leaf temperature", unit: "degC", decimals: 1, aggregation: "Canopy avg", optimal: [21, 25], warning: [19, 27], critical: [16, 30], zone: "Canopy layer", action: "Inspect canopy stress and ventilation." },
           soilEc: { label: "Soil EC", unit: "mS/cm", decimals: 2, aggregation: "Root-zone avg", optimal: [1.80, 2.80], warning: [1.50, 3.20], critical: [1.00, 3.80], zone: "Root zone", action: "Check substrate salinity in the root zone." },
           waterTemp: { label: "Water temperature", unit: "degC", decimals: 1, aggregation: "Tank avg", optimal: [18, 21], warning: [16, 23], critical: [12, 26], zone: "Irrigation tank", action: "Inspect tank and irrigation loop temperature." },
-          airPressure: { label: "Air pressure", unit: "hPa", decimals: 0, aggregation: "Block avg", optimal: [1004, 1018], warning: [998, 1024], critical: [990, 1032], zone: "Climate layer", action: "Use pressure changes to validate climate instability." },
           batteryLevel: { label: "Battery level", unit: "%", decimals: 0, aggregation: "Lowest node", optimal: [55, 100], warning: [35, 54], critical: [0, 34], alertThreshold: 55, displayRange: [0, 100], behavior: "higherIsBetter", zone: "Sensor nodes", action: "Plan battery replacement for low-power nodes." }
         }
       },
@@ -841,7 +839,6 @@
           leafTemp: { label: "Leaf temperature", unit: "degC", decimals: 1, aggregation: "Canopy avg", optimal: [17, 21], warning: [15, 23], critical: [12, 26], zone: "Canopy layer", action: "Inspect cooling and canopy stress." },
           soilEc: { label: "Soil EC", unit: "mS/cm", decimals: 2, aggregation: "Root-zone avg", optimal: [1.20, 1.90], warning: [1.00, 2.20], critical: [0.70, 2.70], zone: "Root zone", action: "Check substrate salinity." },
           waterTemp: { label: "Water temperature", unit: "degC", decimals: 1, aggregation: "Tank avg", optimal: [17, 20], warning: [15, 22], critical: [12, 25], zone: "Irrigation tank", action: "Check irrigation water temperature." },
-          airPressure: { label: "Air pressure", unit: "hPa", decimals: 0, aggregation: "Block avg", optimal: [1004, 1018], warning: [998, 1024], critical: [990, 1032], zone: "Climate layer", action: "Track pressure swings during ventilation changes." },
           batteryLevel: { label: "Battery level", unit: "%", decimals: 0, aggregation: "Lowest node", optimal: [55, 100], warning: [35, 54], critical: [0, 34], alertThreshold: 55, displayRange: [0, 100], behavior: "higherIsBetter", zone: "Sensor nodes", action: "Schedule battery replacement." }
         }
       },
@@ -862,7 +859,6 @@
           leafTemp: { label: "Leaf temperature", unit: "degC", decimals: 1, aggregation: "Canopy avg", optimal: [19, 23], warning: [17, 25], critical: [14, 28], zone: "Canopy layer", action: "Check canopy temperature and transpiration stress." },
           soilEc: { label: "Soil EC", unit: "mS/cm", decimals: 2, aggregation: "Root-zone avg", optimal: [1.30, 2.20], warning: [1.00, 2.60], critical: [0.70, 3.20], zone: "Root zone", action: "Check root-zone salinity." },
           waterTemp: { label: "Water temperature", unit: "degC", decimals: 1, aggregation: "Tank avg", optimal: [17, 20], warning: [15, 22], critical: [12, 25], zone: "Irrigation tank", action: "Inspect water loop temperature." },
-          airPressure: { label: "Air pressure", unit: "hPa", decimals: 0, aggregation: "Block avg", optimal: [1004, 1018], warning: [998, 1024], critical: [990, 1032], zone: "Climate layer", action: "Use pressure shifts to detect climate instability." },
           batteryLevel: { label: "Battery level", unit: "%", decimals: 0, aggregation: "Lowest node", optimal: [55, 100], warning: [35, 54], critical: [0, 34], alertThreshold: 55, displayRange: [0, 100], behavior: "higherIsBetter", zone: "Sensor nodes", action: "Replace low battery nodes before data loss." }
         }
       }
@@ -2233,7 +2229,9 @@
       sidebarActionOverride = nextRoute.sidebarAction || null;
       closeContextMenus();
 
-      if (activePrimaryPage === "alerts") {
+      if (activePrimaryPage === "overview") {
+        setExperienceMode("simple", { render: false, force: true });
+      } else if (activePrimaryPage === "alerts") {
         activeWorkspaceFocus = "all";
       } else if (activePrimaryPage === "history" || activePrimaryPage === "readings") {
         activeViewScope = activePrimaryPage === "readings" ? "site" : "zone";
@@ -2318,7 +2316,8 @@
 
     function setExperienceMode(nextMode, options = {}) {
       const { scroll = false, force = false, render = true } = options;
-      const normalizedMode = nextMode === "detailed" ? "detailed" : "simple";
+      const detailedRouteActive = activePrimaryPage === "history" || activePrimaryPage === "readings";
+      const normalizedMode = detailedRouteActive && nextMode === "detailed" ? "detailed" : "simple";
       if (normalizedMode === activeExperienceMode && !force) return;
 
       activeExperienceMode = normalizedMode;
@@ -2348,8 +2347,8 @@
 
     function ensureDetailedExperienceForTarget(targetId) {
       if (!targetId || !detailedExperienceTargets.has(targetId) || isDetailedExperience()) return;
-      activeExperienceMode = "detailed";
-      renderDashboard();
+      if (activePrimaryPage !== "history" && activePrimaryPage !== "readings") return;
+      setExperienceMode("detailed");
     }
 
     function clamp(value, min, max) {
@@ -3317,7 +3316,7 @@
     }
 
     function isScoreMetricKey(key) {
-      return !["batteryLevel", "lux", "airPressure"].includes(key);
+      return !["batteryLevel", "lux"].includes(key);
     }
 
     function getBatteryAlertThreshold(definition) {
@@ -3524,7 +3523,6 @@
         soilTemp: "Temperature probe",
         waterTemp: "Temperature probe",
         soilMoisture: "Substrate measurement",
-        airPressure: "Air measurement",
         batteryLevel: "Node battery"
       };
       return sources[metricKey] || "External sensor";
@@ -8702,7 +8700,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
     }
 
     const CROP_PROFILE_EDITOR_SECTIONS = [
-      { id: "climate", label: "Climate", kicker: "Climate targets", title: "Operating envelope", note: "The target range is ideal. Warning and critical limits control status severity outside that range.", metrics: ["airTemp", "humidity", "co2", "vpd", "airPressure", "leafTemp"] },
+      { id: "climate", label: "Climate", kicker: "Climate targets", title: "Operating envelope", note: "The target range is ideal. Warning and critical limits control status severity outside that range.", metrics: ["airTemp", "humidity", "co2", "vpd", "leafTemp"] },
       { id: "root-zone", label: "Root zone", kicker: "Root-zone targets", title: "Root-zone envelope", note: "Set the preferred substrate and nutrient-solution ranges used by scoring and alerts.", metrics: ["soilTemp", "soilMoisture", "ec", "soilEc", "ph", "waterTemp"] },
       { id: "lighting", label: "Lighting", kicker: "Lighting targets", title: "Lighting program", note: "Define the target light range and the schedule used to distinguish daylight from a genuine low-light condition.", metrics: ["lux"] },
       { id: "alert-boundaries", label: "Alert boundaries", kicker: "Automatic severity", title: "Alert boundaries", note: "Warning and critical limits are calculated from each optimal target using NeuroCrop’s approved metric policy.", metrics: [] }
@@ -9653,7 +9651,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       leafTemp: { warning: [2, 2], critical: [5, 5] },
       soilEc: { warning: [0.3, 0.4], critical: [0.8, 1] },
       waterTemp: { warning: [2, 2], critical: [5, 6] },
-      airPressure: { warning: [6, 6], critical: [14, 14] }
     };
 
     function getAutomaticBoundaryPadding(metric, optimalRange) {
@@ -10527,7 +10524,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         ph: { label: "pH", icon: "fa-vial" },
         soilEc: { label: "Root EC", icon: "fa-seedling" },
         waterTemp: { label: "Water", icon: "fa-water" },
-        airPressure: { label: "Pressure", icon: "fa-gauge-high" },
         batteryLevel: { label: "Battery", icon: "fa-battery-half" }
       };
 
@@ -10542,7 +10538,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         co2: "climate",
         lux: "climate",
         vpd: "climate",
-        airPressure: "climate",
         soilTemp: "root",
         soilMoisture: "root",
         soilEc: "root",
@@ -11119,7 +11114,6 @@ function buildTrendMetricOptions(options) {
       waterTemp: ["--chart-water", "#2c91a3"],
       soilMoisture: ["--chart-water", "#2c91a3"],
       batteryLevel: ["--chart-battery", "#738e95"],
-      airPressure: ["--chart-pressure", "#66788e"],
       growth: ["--chart-growth", "#3f7d65"]
     });
     const comparisonChartColors = ["#536b78", "#8a6bbe", "#d36c5b", "#2c91a3", "#b45f87", "#7a6f64"];
@@ -12350,7 +12344,6 @@ function buildTrendMetricOptions(options) {
       "waterTemp",
       "ec",
       "ph",
-      "airPressure"
     ];
     const areaLiveEssentialMetricKeys = [
       "airTemp",
@@ -14756,16 +14749,6 @@ function buildTrendMetricOptions(options) {
         : isSiteView
           ? `Simple view keeps only the current location situation, the main average readings, and the next step for ${site.name}.`
           : `Simple view keeps only the current score, the main readings behind it, and the next step for ${zone.name}.`;
-      const isExperienceModeAvailable = activePrimaryPage === "overview";
-      [...elements.experienceModeControl.querySelectorAll("[data-experience-mode]")].forEach((button) => {
-        const isActive = button.dataset.experienceMode === (isDetailedExperienceMode ? "detailed" : "simple");
-        button.dataset.active = String(isActive);
-        button.setAttribute("aria-pressed", String(isActive));
-        button.disabled = !isExperienceModeAvailable;
-        button.setAttribute("aria-disabled", String(!isExperienceModeAvailable));
-      });
-      elements.experienceModeControl.hidden = false;
-      elements.experienceModeControl.dataset.disabled = String(!isExperienceModeAvailable);
       elements.scopeHelperText.textContent = isSiteView
         ? isSimpleExperienceMode
           ? "Viewing the whole area. Switch to a section when you want to inspect one growing space."
@@ -15560,14 +15543,6 @@ function buildTrendMetricOptions(options) {
       sidebarActionOverride = null;
       activeSiteDetailView = "zones";
       renderDashboard();
-    });
-
-    elements.experienceModeControl.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-experience-mode]");
-      if (!button || button.disabled) return;
-      const nextMode = button.dataset.experienceMode;
-      if (!nextMode || nextMode === activeExperienceMode) return;
-      setExperienceMode(nextMode, { scroll: true });
     });
 
     elements.siteMenu.addEventListener("click", (event) => {

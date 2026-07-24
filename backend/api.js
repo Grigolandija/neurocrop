@@ -30,6 +30,7 @@ import { runMigrations } from './migrate.js';
 import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
 import { buildTodayActions, evaluateActionOutcome } from './today-actions.js';
 import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
+import { startMeasurementRetention } from './measurement-retention.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -1164,8 +1165,7 @@ const METRIC_SENSOR_KEYS = {
   ph: 'ph_probe',
   soilEc: 'soil_ec_probe',
   leafTemp: 'leaf_temperature_probe',
-  waterTemp: 'water_temperature_probe',
-  airPressure: 'pressure_sensor'
+  waterTemp: 'water_temperature_probe'
 };
 
 function measurementMetricValue(measurement, metric) {
@@ -2213,7 +2213,6 @@ const EXPORT_METRIC_LABELS = {
   soilEc: 'Substrate EC',
   leafTemp: 'Leaf temperature',
   waterTemp: 'Water temperature',
-  airPressure: 'Air pressure',
   vpd: 'VPD',
   batteryLevel: 'Battery level'
 };
@@ -2344,7 +2343,6 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
   const hasDs18b20 = measurementReportsMetric(measurement, 'soilTemp');
 
   const auxiliaryDefinitions = [
-    ['pressure_sensor', 'Air pressure sensor', ['airPressure']],
     ['leaf_temperature_probe', 'Leaf temperature sensor', ['leafTemp']],
     ['soil_moisture_probe', 'Soil moisture sensor', ['soilMoisture']],
     ['soil_ec_probe', 'Substrate EC sensor', ['soilEc']],
@@ -2903,11 +2901,13 @@ app.use((err, req, res, next) => {
 
 await runMigrations();
 const server = app.listen(PORT, HOST, () => console.log(`[api] klausomasi :${PORT} (auth aktyvus)`));
+const stopMeasurementRetention = startMeasurementRetention(pool);
 let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[api] ${signal}: shutting down`);
+  stopMeasurementRetention();
   server.closeIdleConnections?.();
   await new Promise((resolve) => server.close(resolve));
   await pool.end();

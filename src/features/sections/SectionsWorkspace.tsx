@@ -35,7 +35,7 @@ type EditorState = { mode: 'create' | 'edit'; id?: string; name: string; areaId:
 type Feedback = { tone: 'success' | 'warning'; message: string } | null
 
 const metricGroups = {
-  climate: ['airTemp', 'humidity', 'vpd', 'leafTemp', 'airPressure'],
+  climate: ['airTemp', 'humidity', 'vpd', 'leafTemp'],
   root: ['soilMoisture', 'soilTemp', 'ec', 'ph', 'waterTemp'],
   lighting: ['lux'],
   co2: ['co2'],

@@ -64,6 +64,13 @@ assert(
   "Detected light hardware must expose Lux in API-backed metric availability"
 );
 
+assert(
+  !markup.includes('data-experience-mode="detailed"')
+    && runtime.includes('if (activePrimaryPage === "overview")')
+    && runtime.includes('const detailedRouteActive = activePrimaryPage === "history" || activePrimaryPage === "readings";'),
+  "Overview must stay in Simple mode without exposing the removed Detailed dashboard"
+);
+
 assert(runtime.includes("function fetchLatestReadingsForArea(siteId") && runtime.includes("latestReadingsCacheTtlMs = 60 * 1000") && runtime.includes("latestReadingsAreaInFlight.has(siteId)"), "Area Live readings must load only the selected Area with cache and in-flight protection");
 assert(runtime.includes("latestReadingsRequestIdBySectionId[zoneId]") && !runtime.includes("let latestReadingsRequestId = 0;"), "parallel Area readings must track stale requests independently for every Section");
 assert(runtime.includes("function renderAreaLiveReadingsBoard(") && runtime.includes('"area-readings-board"') && runtime.includes("data-area-reading-section"), "Live readings must provide an Area Section-by-metric matrix and a Section detail drill-down");
@@ -72,7 +79,14 @@ assert(markup.includes('id="sectionsWorkspaceMount"') && dashboardPage.includes(
 assert(sectionsWorkspace.includes('neurocropApi.getAreas()') && sectionsWorkspace.includes('neurocropApi.getSections()') && sectionsWorkspace.includes('neurocropApi.getNodes()') && sectionsWorkspace.includes('neurocropApi.getCropProfiles()'), "Sections must derive its directory, coverage and readiness from real management data");
 assert(sectionsWorkspace.includes('neurocropApi.createSection(') && sectionsWorkspace.includes('neurocropApi.updateSection(') && sectionsWorkspace.includes('neurocropApi.deleteSection(') && sectionsWorkspace.includes('duplicateSection') && sectionsWorkspace.includes('assignBulkProfile'), "Sections create, edit, duplicate, bulk profile assignment and deletion must call backend APIs");
 assert(sectionsWorkspace.includes("type ViewMode = 'directory' | 'coverage'") && sectionsWorkspace.includes('downloadCsv(') && sectionsWorkspace.includes('readiness(section)') && sectionsWorkspaceStyles.includes('var(--color-surface)') && !sectionsWorkspaceStyles.includes('var(--ink-'), "Sections must retain the transferred directory and coverage workflows while using the NeuroCrop design system rather than prototype colors");
-assert(!controlCenterE2e.includes(".triage-priority-card") && controlCenterE2e.includes(".grower-command") && controlCenterE2e.includes(".grower-farm-board"), "Overview e2e coverage must follow the current grower workspace instead of removed legacy cards");
+assert(
+  !controlCenterE2e.includes(".triage-priority-card")
+    && !controlCenterE2e.includes(".grower-command")
+    && controlCenterE2e.includes('[data-nc-react-workspace="overview"]')
+    && controlCenterE2e.includes("Select active Area")
+    && controlCenterE2e.includes(".nc-coverage"),
+  "Overview e2e coverage must follow the current React workspace instead of removed legacy cards"
+);
 assert(colorSystemStyles.includes('button:not(.login-submit):not([data-language-option])') && colorSystemStyles.includes('.login-form-panel > p.max-w-md'), "Authentication controls and helper text must retain explicit WCAG-safe colors");
 assert(typographySystemStyles.includes('.grower-area-band > header small') && typographySystemStyles.includes('.grower-section-line > span:nth-of-type(2)') && typographySystemStyles.includes('.user-tile > span'), "Operational Overview and sidebar text must retain the 11px minimum typography guard");
 assert(colorContrastRatio(colorToken("color-on-primary"), colorToken("color-primary")) >= 4.5 && colorContrastRatio(colorToken("color-text-secondary"), colorToken("color-row-selected")) >= 4.5 && colorContrastRatio(colorToken("color-text-secondary"), colorToken("color-surface")) >= 4.5, "Core authentication and selected-row color pairs must meet WCAG AA contrast");
@@ -159,7 +173,7 @@ assert(runtime.includes("await hydrateDashboardFromApi();") && runtime.includes(
 assert(runtime.includes('class="settings-local-notice"'), "non-API settings must be clearly identified as browser-local");
 assert(runtime.includes('snapshot?.overall?.source === "backend"') && runtime.includes("Number.isFinite(snapshot.overall.indexScore)"), "Area and Section selectors must display backend scores before local readings load");
 assert(runtime.includes('function getDirectionalScoreSeverity(') && runtime.includes('const scoreWarningEdgeSeverity = 0.2;') && !runtime.includes('severity = 0.34 +'), "frontend fallback scoring must use the continuous v2 stress curve without a warning cliff");
-assert(runtime.includes('function isScoreMetricKey(key)') && runtime.includes('["batteryLevel", "lux", "airPressure"]') && runtime.includes('{ id: "climate", weight: 0.35'), "frontend fallback scoring must preserve v2 agronomic domains and context-only metrics");
+assert(runtime.includes('function isScoreMetricKey(key)') && runtime.includes('["batteryLevel", "lux"]') && runtime.includes('{ id: "climate", weight: 0.35'), "frontend fallback scoring must preserve v2 agronomic domains and context-only metrics");
 assert(runtime.includes('const limitingFactorActivation = smoothScoreProgress((worstGroup.severity - 0.25) / 0.75);') && runtime.includes('* worstGroup.limitingCap') && runtime.includes('{ id: "carbon", weight: 0.08, limitingCap: 0.02'), "frontend fallback limiting-factor pressure must be material-stress and domain-weight aware");
 assert(runtime.includes('const baseRisk = scoreGroups.reduce((sum, group) => sum + group.severity * group.weight, 0);') && !runtime.includes('const averageSeverity = scoreGroups.reduce((sum, group) => sum + group.severity * group.weight, 0) / totalWeight;'), "frontend fallback must preserve absolute domain weights instead of inflating installed sensors");
 assert(runtime.includes('source: "frontend-fallback"') && runtime.includes('scoreModelVersion: "2.1.0"'), "frontend fallback scores must identify the same explicit model version as the backend");

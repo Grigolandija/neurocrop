@@ -105,7 +105,6 @@
   --chart-ph: #6c70c9;
   --chart-water: #2c91a3;
   --chart-battery: #738e95;
-  --chart-pressure: #66788e;
   --chart-growth: #3f7d65;
 
   /* Compatibility aliases while the legacy renderer is decomposed. */
@@ -238,7 +237,6 @@ body[data-theme="dark"] {
   --chart-ph: #9196e3;
   --chart-water: #56b5c5;
   --chart-battery: #98abb1;
-  --chart-pressure: #8ca0b6;
   --chart-growth: #72ad91;
 }
 

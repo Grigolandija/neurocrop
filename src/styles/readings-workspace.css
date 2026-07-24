@@ -160,7 +160,6 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-pinned-chart[data-metric="ph"] { --nc-chart-color: var(--chart-ph); }
 .nc-pinned-chart[data-metric="waterTemp"], .nc-pinned-chart[data-metric="soilMoisture"] { --nc-chart-color: var(--chart-water); }
 .nc-pinned-chart[data-metric="batteryLevel"] { --nc-chart-color: var(--chart-battery); }
-.nc-pinned-chart[data-metric="airPressure"] { --nc-chart-color: var(--chart-pressure); }
 .nc-pinned-y-title { display: grid; grid-column: 1; grid-row: 1; place-items: center; color: var(--color-text-tertiary); font-size: var(--type-micro); line-height: 1; text-align: center; transform: rotate(-90deg); white-space: nowrap; }
 .nc-pinned-y-scale { display: flex; grid-column: 2; grid-row: 1; flex-direction: column; justify-content: space-between; padding: 0 var(--space-4) 0 0; color: var(--color-text-tertiary); font-family: var(--font-technical); font-size: var(--type-micro); line-height: 1; text-align: right; }
 .nc-pinned-sparkline { display: block; width: 100%; height: 4.75rem; grid-column: 3; grid-row: 1; overflow: visible; }
