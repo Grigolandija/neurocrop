@@ -99,3 +99,8 @@ test('operational workflow migration keeps alerts and interventions tenant scope
   assert.match(sql, /FOREIGN KEY \(organization_id, section_id\)/);
   assert.match(sql, /outcome_status.*successful.*no_change.*made_worse.*not_relevant/s);
 });
+
+test('action progress migration persists checks that have started', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0015_action_progress.sql', import.meta.url), 'utf8');
+  assert.match(sql, /status IN \('in_progress', 'completed', 'deferred', 'failed'\)/);
+});

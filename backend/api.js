@@ -1329,7 +1329,9 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       actions: actions.map((action) => {
         const feedback = feedbackByActionId.get(action.id);
         const feedbackMatchesReading = feedback
-          && (!action.observedAt || new Date(feedback.created_at) >= new Date(action.observedAt));
+          && (feedback.status === 'in_progress'
+            || !action.observedAt
+            || new Date(feedback.created_at) >= new Date(action.observedAt));
         return { ...action, feedback: feedbackMatchesReading ? publicActionFeedback(feedback) : null };
       })
     });
@@ -1353,7 +1355,7 @@ app.post(
       const action = req.body?.action;
       const requestedExecutionDetails = req.body?.executionDetails;
 
-      if (!['completed', 'deferred', 'failed'].includes(status)) {
+      if (!['in_progress', 'completed', 'deferred', 'failed'].includes(status)) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unknown action feedback status' } });
       }
       if (!action || action.id !== actionId || !action.sectionId || !action.metricId) {
@@ -1516,6 +1518,119 @@ app.get('/actions/history', requireAuth, async (req, res) => {
     });
   } catch (e) {
     console.error('[api] GET /actions/history:', e.message);
+    res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  }
+});
+
+app.get('/actions/overview-summary', requireAuth, async (req, res) => {
+  try {
+    const organizationId = getOrganizationId(req);
+    const requestedAreaId = String(req.query.areaId || '').trim();
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const { rows: feedbackRows } = await query(
+      `WITH latest_feedback AS (
+         SELECT DISTINCT ON (action_id, COALESCE(action_payload->>'observedAt', 'unknown')) *
+         FROM action_feedback
+         WHERE organization_id=$1 AND created_at >= $2
+         ORDER BY action_id, COALESCE(action_payload->>'observedAt', 'unknown'), created_at DESC
+       )
+       SELECT af.id, af.action_id, af.section_id, af.metric_id, af.status, af.note, af.execution_details,
+              af.action_payload, af.created_by, af.created_at,
+              s.name AS section_name, a.name AS area_name, u.display_name AS created_by_name
+       FROM latest_feedback af
+       JOIN sections s ON s.id=af.section_id AND s.organization_id=af.organization_id
+       LEFT JOIN areas a ON a.id=s.area_id AND a.organization_id=af.organization_id
+       LEFT JOIN users u ON u.id=af.created_by
+       WHERE ($3::text='' OR s.area_id=$3)
+       ORDER BY af.created_at DESC`,
+      [organizationId, monthStart, requestedAreaId]
+    );
+
+    const feedbackIds = feedbackRows.map((row) => row.id);
+    const measurementsByFeedback = new Map();
+    if (feedbackIds.length > 0) {
+      const { rows } = await query(
+        `SELECT af.id AS feedback_id, sample.*
+         FROM action_feedback af
+         JOIN LATERAL (
+           SELECT m.*
+           FROM measurements m
+           JOIN nodes n ON n.dev_eui=m.dev_eui
+           WHERE n.organization_id=af.organization_id
+             AND n.section_id=af.section_id
+             AND m.time>af.created_at
+             AND m.time<=af.created_at + INTERVAL '4 hours'
+           ORDER BY m.time ASC
+           LIMIT 500
+         ) sample ON TRUE
+         WHERE af.organization_id=$1 AND af.id=ANY($2::text[])
+         ORDER BY af.id, sample.time ASC`,
+        [organizationId, feedbackIds]
+      );
+      for (const measurement of rows) {
+        if (!measurementsByFeedback.has(measurement.feedback_id)) measurementsByFeedback.set(measurement.feedback_id, []);
+        measurementsByFeedback.get(measurement.feedback_id).push(measurement);
+      }
+    }
+
+    const items = feedbackRows.map((row) => {
+      const feedback = publicActionFeedback(row);
+      const action = row.action_payload || {};
+      const evidence = metricSeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id);
+      return {
+        ...feedback,
+        sectionId: row.section_id,
+        sectionName: row.section_name,
+        areaName: row.area_name || '',
+        metricId: row.metric_id,
+        metricLabel: action.metricLabel || row.metric_id,
+        title: action.title || 'Recommended action',
+        unit: action.unit || METRIC_UNITS[row.metric_id] || '',
+        createdByName: row.created_by_name || null,
+        outcome: evaluateActionOutcome(action, feedback, evidence)
+      };
+    });
+
+    const summarize = (from) => {
+      const scoped = items.filter((item) => new Date(item.createdAt) >= from);
+      const completed = scoped.filter((item) => item.status === 'completed');
+      const responseMinutes = completed
+        .map((item) => {
+          const baseline = new Date(item.outcome?.baselineObservedAt || 0).getTime();
+          const recorded = new Date(item.createdAt || 0).getTime();
+          return Number.isFinite(baseline) && baseline > 0 && recorded >= baseline
+            ? (recorded - baseline) / 60_000
+            : null;
+        })
+        .filter((value) => value !== null)
+        .sort((left, right) => left - right);
+      return {
+        checksRecorded: scoped.length,
+        inProgress: scoped.filter((item) => item.status === 'in_progress').length,
+        completed: completed.length,
+        conditionsRestored: completed.filter((item) => item.outcome?.state === 'target_reached').length,
+        improvementsConfirmed: completed.filter((item) => ['target_reached', 'improving'].includes(item.outcome?.state)).length,
+        awaitingVerification: completed.filter((item) => item.outcome?.state === 'awaiting_data').length,
+        unchanged: completed.filter((item) => item.outcome?.state === 'unchanged').length,
+        worsened: completed.filter((item) => item.outcome?.state === 'worsened').length,
+        medianResponseMinutes: responseMinutes.length
+          ? Math.round(responseMinutes.length % 2
+              ? responseMinutes[Math.floor(responseMinutes.length / 2)]
+              : (responseMinutes[responseMinutes.length / 2 - 1] + responseMinutes[responseMinutes.length / 2]) / 2)
+          : null
+      };
+    };
+
+    res.json({
+      generatedAt: now.toISOString(),
+      today: summarize(todayStart),
+      month: summarize(monthStart),
+      recentResults: items.filter((item) => item.status === 'completed').slice(0, 5)
+    });
+  } catch (e) {
+    console.error('[api] GET /actions/overview-summary:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
 });

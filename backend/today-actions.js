@@ -175,7 +175,11 @@ export function evaluateActionOutcome(action, feedback, evidence = {}, now = Dat
   if (feedback.status !== 'completed') {
     return {
       state: 'not_applicable',
-      label: feedback.status === 'deferred' ? 'Deferred' : 'Could not complete',
+      label: feedback.status === 'in_progress'
+        ? 'Check in progress'
+        : feedback.status === 'deferred'
+          ? 'Deferred'
+          : 'Could not complete',
       currentValue: null,
       observedAt: null
     };

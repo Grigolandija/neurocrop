@@ -64,6 +64,10 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page.getByRole('group', { name: 'Select active Area' })).toBeVisible()
   await expect(page.locator('.nc-coverage')).toBeVisible()
   await expect(page.locator('.nc-overview-trust')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Recommended checks' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'What changed after action' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Recorded operational value' })).toBeVisible()
+  await expect(page.locator('.nc-value-card')).toContainText('Not configured')
   await expect(page.getByRole('button', { name: 'CI Area A', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   await navigationAction(page, 'sites').click()

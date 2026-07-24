@@ -266,21 +266,28 @@ backend freshness engine turi grąžinti tokį pat rezultatą tiems patiems
 GET  /actions/today?sectionId=...
 POST /actions/today/:actionId/feedback
 GET  /actions/history?limit=20
+GET  /actions/overview-summary?areaId=...
 ```
 
 `GET` grąžina iki trijų backend sureitinguotų veiksmų tik iš `live` arba
 `delayed` matavimų. Veiksmas gali turėti naujausią `feedback`, jeigu jis buvo
 užregistruotas po veiksme nurodyto `observedAt`.
 
-`POST` priima `status` (`completed`, `deferred` arba `failed`) ir pilną
-`action` kopiją. Backend išsaugo nekintamą rekomendacijos kopiją, naudotoją bei
-laiką; veiksmas neišnyksta, kol naujesnis sensoriaus matavimas nepatvirtina
-pasikeitusių sąlygų.
+`POST` priima `status` (`in_progress`, `completed`, `deferred` arba `failed`) ir
+pilną `action` kopiją. `in_progress` išsaugo patikros pradžią ir lieka susietas
+su aktyvia sąlyga. Backend išsaugo nekintamą rekomendacijos kopiją, naudotoją
+bei laiką.
 
 `GET /actions/history` grąžina organizacijos veiksmų auditą. `completed`
 įrašams backend palygina rekomendacijoje buvusią reikšmę su naujausiu po
 veiksmo gautu tos pačios sekcijos matavimu ir pateikia `outcome.state`:
-`awaiting_data`, `improving`, `target_reached` arba `not_improving`.
+`awaiting_data`, `insufficient_data`, `improving`, `target_reached`,
+`unchanged`, `worsened` arba `not_applicable`.
+
+`GET /actions/overview-summary` grąžina pasirinktos Area šiandienos ir einamojo
+mėnesio patikrų skaičius bei paskutinius patikrintus rezultatus. Visi skaičiai
+gaunami tik iš išsaugotų veiksmų ir sensorių matavimų; neįvesti kliento kaštai
+ar tariamas sutaupytas laikas nėra apskaičiuojami.
 
 ## CRUD
 

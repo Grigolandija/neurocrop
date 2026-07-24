@@ -46,6 +46,12 @@ type TrendPoint = {
   value: number
 }
 
+type OverviewSummary = {
+  today?: JsonRecord
+  month?: JsonRecord
+  recentResults?: JsonRecord[]
+}
+
 const demoDashboard = {
   sites: [
     {
@@ -94,6 +100,19 @@ const demoActions = [{
   confidence: 'high',
   observedAt: new Date().toISOString(),
 }]
+
+const demoSummary: OverviewSummary = {
+  today: { checksRecorded: 0, inProgress: 0, completed: 0 },
+  month: {
+    checksRecorded: 0,
+    inProgress: 0,
+    completed: 0,
+    conditionsRestored: 0,
+    improvementsConfirmed: 0,
+    medianResponseMinutes: null,
+  },
+  recentResults: [],
+}
 
 function asArray(value: unknown): JsonRecord[] {
   return Array.isArray(value) ? value : []
@@ -181,6 +200,16 @@ function formatDuration(value: unknown) {
   return remainder ? `${hours} h ${remainder} min` : `${hours} h`
 }
 
+function formatMinutes(value: unknown) {
+  if (value === null || value === undefined || value === '') return 'Not available'
+  const minutes = Number(value)
+  if (!Number.isFinite(minutes)) return 'Not available'
+  if (minutes < 60) return `${Math.round(minutes)} min`
+  const hours = Math.floor(minutes / 60)
+  const remainder = Math.round(minutes % 60)
+  return remainder ? `${hours} h ${remainder} min` : `${hours} h`
+}
+
 function profileLabel(zone: JsonRecord) {
   const value = String(zone.profileName || zone.profile || zone.cropProfileName || '')
   return value && !value.includes('-') ? value : 'Active crop profile'
@@ -189,7 +218,8 @@ function profileLabel(zone: JsonRecord) {
 function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAreaId: string): OverviewModel | null {
   const sites = asArray(dashboard?.sites)
   if (!sites.length) return null
-  const actions = asArray(actionPayload?.actions).filter((action) => action.feedback?.status !== 'completed')
+  const allActions = asArray(actionPayload?.actions)
+  const actions = allActions.filter((action) => action.feedback?.status !== 'completed')
   const priorityAreaId = String(actions[0]?.areaId || '')
   const site = sites.find((item) => String(item.id) === selectedAreaId)
     || sites.find((item) => String(item.id) === priorityAreaId)
@@ -417,7 +447,11 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
 }) {
   const [items, setItems] = useState<Record<string, WorkflowItemState>>(() => Object.fromEntries(
     actions.map((action) => [String(action.id), {
-      status: action.feedback?.status === 'completed' ? 'checked' : 'open',
+      status: action.feedback?.status === 'completed'
+        ? 'checked'
+        : action.feedback?.status === 'in_progress'
+          ? 'in-progress'
+          : 'open',
       note: '',
       error: '',
     }]),
@@ -436,7 +470,22 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
     const item = items[actionId]
     if (!item || item.status === 'submitting' || item.status === 'checked') return
     if (item.status === 'open') {
-      updateItem(actionId, { status: 'in-progress' })
+      updateItem(actionId, { status: 'submitting', error: '' })
+      try {
+        if (neurocropApi.isConnected()) {
+          await neurocropApi.submitTodayActionFeedback(actionId, {
+            status: 'in_progress',
+            note: '',
+            action,
+          })
+        }
+        updateItem(actionId, { status: 'in-progress' })
+      } catch (reason) {
+        updateItem(actionId, {
+          status: 'open',
+          error: reason instanceof Error ? reason.message : 'The check could not be started.',
+        })
+      }
       return
     }
     updateItem(actionId, { status: 'submitting', error: '' })
@@ -510,6 +559,7 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
 export default function OverviewWorkspace() {
   const [dashboard, setDashboard] = useState<JsonRecord | null>(null)
   const [actions, setActions] = useState<JsonRecord | null>(null)
+  const [summary, setSummary] = useState<OverviewSummary>(demoSummary)
   const [selectedAreaId, setSelectedAreaId] = useState(readSelectedAreaId)
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [error, setError] = useState('')
@@ -546,6 +596,29 @@ export default function OverviewWorkspace() {
     return () => { active = false }
   }, [refreshKey])
 
+  const model = useMemo(
+    () => dashboard && actions ? buildModel(dashboard, actions, selectedAreaId) : null,
+    [dashboard, actions, selectedAreaId],
+  )
+
+  useEffect(() => {
+    let active = true
+    if (!model?.areaId) {
+      return () => { active = false }
+    }
+    if (!neurocropApi.isConnected()) {
+      return () => { active = false }
+    }
+    neurocropApi.getActionOverviewSummary(model.areaId)
+      .then((nextSummary) => {
+        if (active) setSummary(nextSummary as OverviewSummary)
+      })
+      .catch(() => {
+        if (active) setSummary(demoSummary)
+      })
+    return () => { active = false }
+  }, [model?.areaId, refreshKey])
+
   useEffect(() => {
     if (!neurocropApi.isConnected()) return
     const interval = window.setInterval(() => {
@@ -554,10 +627,6 @@ export default function OverviewWorkspace() {
     return () => window.clearInterval(interval)
   }, [])
 
-  const model = useMemo(
-    () => dashboard && actions ? buildModel(dashboard, actions, selectedAreaId) : null,
-    [dashboard, actions, selectedAreaId],
-  )
   const areaOptions = useMemo(
     () => asArray(dashboard?.sites).map((site) => ({
       id: String(site.id),
@@ -599,6 +668,11 @@ export default function OverviewWorkspace() {
   const visibleActions = model.actions.filter((action) =>
     actionRows.some((row) => row.id === String(action.sectionId)),
   )
+  const openChecks = visibleActions.filter((action) => action.feedback?.status !== 'in_progress').length
+  const inProgressChecks = visibleActions.filter((action) => action.feedback?.status === 'in_progress').length
+  const completedToday = Number(summary.today?.completed || 0)
+  const month = summary.month || {}
+  const recentResults = asArray(summary.recentResults).slice(0, 3)
   const scopeLabel = stable
     ? `All ${model.rows.length} Sections`
     : actionRows.length
@@ -687,6 +761,59 @@ export default function OverviewWorkspace() {
         <span>{actionRows.length} actions · {watchRows.length} watch conditions</span>
         <button type="button" onClick={openAreaEvidence}>Open Area analysis <i className="fa-solid fa-arrow-right" /></button>
       </footer>
+    </section>
+    <section className="nc-overview-insights" aria-label="Operational overview">
+      <article className="nc-overview-insight nc-progress-card">
+        <header><div><span>Today’s progress</span><h2>Recommended checks</h2></div><i className="fa-solid fa-list-check" /></header>
+        <div className="nc-progress-stats">
+          <div data-tone="open"><strong>{openChecks}</strong><span>Open</span></div>
+          <div data-tone="progress"><strong>{inProgressChecks}</strong><span>In progress</span></div>
+          <div data-tone="done"><strong>{completedToday}</strong><span>Completed</span></div>
+        </div>
+        <p>Checks are counted from real workflow activity recorded today.</p>
+      </article>
+      <article className="nc-overview-insight nc-results-card">
+        <header><div><span>Verified results</span><h2>What changed after action</h2></div><i className="fa-solid fa-wave-square" /></header>
+        {recentResults.length
+          ? <div className="nc-result-list">{recentResults.map((result) => {
+              const outcome = result.outcome || {}
+              const state = String(outcome.state || 'awaiting_data')
+              const baseline = outcome.baselineValue === null || outcome.baselineValue === undefined
+                ? Number.NaN
+                : Number(outcome.baselineValue)
+              const current = outcome.currentValue === null || outcome.currentValue === undefined
+                ? Number.NaN
+                : Number(outcome.currentValue)
+              const hasComparison = Number.isFinite(baseline) && Number.isFinite(current)
+              const label = state === 'target_reached'
+                ? 'Restored'
+                : state === 'improving'
+                  ? 'Improved'
+                  : state === 'worsened'
+                    ? 'Worse'
+                    : state === 'unchanged'
+                      ? 'No change'
+                      : state === 'insufficient_data'
+                        ? 'Not enough data'
+                        : 'Waiting for data'
+              return <div data-outcome={state} key={String(result.id)}>
+                <span><strong>{result.sectionName || 'Section'}</strong><small>{result.metricLabel || result.metricId || 'Condition'} · {relativeTime(result.createdAt)}</small></span>
+                <span><strong>{hasComparison ? `${formatMeasurement(baseline, normalizeUnit(result.unit))} → ${formatMeasurement(current, normalizeUnit(result.unit))}` : label}</strong><small>{hasComparison ? label : outcome.label || 'Collecting sensor readings'}</small></span>
+              </div>
+            })}</div>
+          : <div className="nc-insight-empty"><i className="fa-regular fa-clock" /><span><strong>No verified results yet</strong><small>Completed checks will appear after enough new sensor readings arrive.</small></span></div>}
+      </article>
+      <article className="nc-overview-insight nc-value-card">
+        <header><div><span>Value this month</span><h2>Recorded operational value</h2></div><i className="fa-solid fa-chart-line" /></header>
+        <dl>
+          <div><dt>Checks completed</dt><dd>{Number(month.completed || 0)}</dd></div>
+          <div><dt>Conditions restored</dt><dd>{Number(month.conditionsRestored || 0)}</dd></div>
+          <div><dt>Improvement confirmed</dt><dd>{Number(month.improvementsConfirmed || 0)}</dd></div>
+          <div><dt>Median response time</dt><dd>{formatMinutes(month.medianResponseMinutes)}</dd></div>
+          <div><dt>Inspection time saved</dt><dd className="not-configured">Not configured</dd></div>
+        </dl>
+        <p>Time savings require a customer-specific manual inspection baseline.</p>
+      </article>
     </section>
     {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}
     {actionOpen && visibleActions.length ? <ActionWorkflow actions={visibleActions} rows={actionRows} areaName={model.areaName} onClose={() => { setActionOpen(false); setRefreshKey((value) => value + 1) }} /> : null}

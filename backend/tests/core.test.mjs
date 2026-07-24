@@ -601,6 +601,15 @@ test('completed actions wait for a metric-specific verification window and enoug
   assert.equal(evaluateActionOutcome(action, { ...feedback, status: 'deferred' }, {}).state, 'not_applicable');
 });
 
+test('started checks remain explicitly in progress until completion is recorded', () => {
+  const outcome = evaluateActionOutcome(
+    { metricId: 'airTemp', value: 30, target: [18, 22] },
+    { status: 'in_progress', createdAt: '2026-07-14T12:00:00Z' }
+  );
+  assert.equal(outcome.state, 'not_applicable');
+  assert.equal(outcome.label, 'Check in progress');
+});
+
 test('action verification never interprets missing values as a real zero', () => {
   const outcome = evaluateActionOutcome(
     { metricId: 'humidity', value: null, target: [60, 70] },
@@ -817,8 +826,23 @@ test('action feedback is tenant-scoped, role-protected and keeps an immutable sn
   assert.match(route, /pg_advisory_xact_lock/);
   assert.match(route, /deduplicated: true/);
   assert.match(route, /allowedExecutionTypes/);
+  assert.match(route, /\['in_progress', 'completed', 'deferred', 'failed'\]/);
   assert.match(route, /status === 'completed'/);
   assert.match(route, /execution_details/);
+});
+
+test('overview action summary is tenant and Area scoped', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.get('/actions/overview-summary'");
+  const route = source.slice(routeStart, source.indexOf("app.get('/readings/latest'", routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /getOrganizationId\(req\)/);
+  assert.match(route, /WHERE organization_id=\$1 AND created_at >= \$2/);
+  assert.match(route, /WHERE \(\$3::text='' OR s\.area_id=\$3\)/);
+  assert.match(route, /n\.organization_id=af\.organization_id/);
+  assert.match(route, /evaluateActionOutcome/);
+  assert.match(route, /conditionsRestored/);
+  assert.match(route, /medianResponseMinutes/);
 });
 
 test('action history is tenant-scoped and verifies outcomes from section measurements', () => {
