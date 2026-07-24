@@ -1,5 +1,10 @@
 export type ApiRequest = <T = unknown>(path: string, options?: RequestInit) => Promise<T>
 
+const GET_CACHE_TTL_MS = 60_000
+const getCache = new Map<string, { expiresAt: number; value: unknown }>()
+const getRequestsInFlight = new Map<string, Promise<unknown>>()
+let cacheGeneration = 0
+
 function apiBaseUrl() {
   const configured = String(window.NEUROCROP_CONFIG?.apiBaseUrl || '').replace(/\/$/, '')
   if (!configured) throw new Error('API base URL is not configured.')
@@ -64,29 +69,67 @@ function requestSignal(signal: AbortSignal | null | undefined, timeoutMs: number
 }
 
 export const request: ApiRequest = async <T>(path: string, options: RequestInit = {}) => {
-  const response = await fetchWithConnectionStatus(`${apiBaseUrl()}${path}`, {
-    ...options,
-    credentials: 'include',
-    signal: requestSignal(options.signal, 15_000),
-    headers: {
-      Accept: 'application/json',
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
-  })
+  const method = String(options.method || 'GET').toUpperCase()
+  const cacheable = method === 'GET' && !options.signal && options.cache !== 'no-store' && options.cache !== 'reload'
+  const cacheKey = `${apiBaseUrl()}${path}`
 
-  if (!response.ok) {
-    // An unauthenticated /auth/me response is the normal signed-out state, not
-    // an expired-session event that should alarm the user.
-    if (response.status === 401 && !isPublicAuthenticationRequest(path)) {
-      notifyUnauthorized()
-      throw new Error('Your session has ended. Please sign in again.')
-    }
-    const detail = await readResponseBody(response).catch(() => null)
-    throw new Error(responseErrorMessage(detail, `API request failed with ${response.status}.`))
+  if (cacheable) {
+    const cached = getCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) return cached.value as T
+    if (cached) getCache.delete(cacheKey)
+    const pending = getRequestsInFlight.get(cacheKey)
+    if (pending) return await pending as T
+  } else if (method !== 'GET') {
+    invalidateRequestCache()
   }
 
-  return await readResponseBody(response) as T
+  const execute = async () => {
+    const response = await fetchWithConnectionStatus(cacheKey, {
+      ...options,
+      credentials: 'include',
+      signal: requestSignal(options.signal, 15_000),
+      headers: {
+        Accept: 'application/json',
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...options.headers,
+      },
+    })
+
+    if (!response.ok) {
+      // An unauthenticated /auth/me response is the normal signed-out state, not
+      // an expired-session event that should alarm the user.
+      if (response.status === 401 && !isPublicAuthenticationRequest(path)) {
+        notifyUnauthorized()
+        throw new Error('Your session has ended. Please sign in again.')
+      }
+      const detail = await readResponseBody(response).catch(() => null)
+      throw new Error(responseErrorMessage(detail, `API request failed with ${response.status}.`))
+    }
+
+    return await readResponseBody(response) as T
+  }
+
+  if (!cacheable) return await execute()
+
+  const requestGeneration = cacheGeneration
+  const pending = execute()
+    .then((value) => {
+      if (requestGeneration === cacheGeneration) {
+        getCache.set(cacheKey, { expiresAt: Date.now() + GET_CACHE_TTL_MS, value })
+      }
+      return value
+    })
+    .finally(() => {
+      if (getRequestsInFlight.get(cacheKey) === pending) getRequestsInFlight.delete(cacheKey)
+    })
+  getRequestsInFlight.set(cacheKey, pending)
+  return await pending
+}
+
+export function invalidateRequestCache() {
+  cacheGeneration += 1
+  getCache.clear()
+  getRequestsInFlight.clear()
 }
 
 export async function downloadFile(path: string, fallbackFilename: string) {

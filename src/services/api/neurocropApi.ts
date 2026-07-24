@@ -84,4 +84,14 @@ export function installNeuroCropApi() {
   window.NeuroCropApi = neurocropApi
 }
 
+export async function prefetchWorkspaceData() {
+  await Promise.allSettled([
+    neurocropApi.getDashboard(),
+    neurocropApi.getAreas(),
+    neurocropApi.getSections(),
+    neurocropApi.getNodes(),
+    neurocropApi.getCropProfiles(),
+  ])
+}
+
 export type NeuroCropApi = typeof neurocropApi

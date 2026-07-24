@@ -10,7 +10,7 @@ import OrganizationWorkspace from '../features/settings/OrganizationWorkspace'
 import AdminWorkspace from '../features/settings/AdminWorkspace'
 import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
 import OverviewWorkspace from '../features/overview/OverviewWorkspace'
-import { installNeuroCropApi } from '../services/api/neurocropApi'
+import { installNeuroCropApi, neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
 
 declare const __BUILD_VERSION__: string
@@ -82,6 +82,7 @@ function ApprovedDashboard() {
   const [organizationMount, setOrganizationMount] = useState<HTMLElement | null>(null)
   const [adminMount, setAdminMount] = useState<HTMLElement | null>(null)
   const [adminIntegrationsMount, setAdminIntegrationsMount] = useState<HTMLElement | null>(null)
+  const [visitedRoutes, setVisitedRoutes] = useState(() => new Set([location.pathname]))
 
   useEffect(() => {
     installNeuroCropApi()
@@ -141,8 +142,18 @@ function ApprovedDashboard() {
 
     window.addEventListener('message', handleMessage)
     loadRuntime()
+    const warmupTimer = window.setTimeout(() => {
+      void neurocropApi.getCurrentUser()
+        .then((response) => {
+          const user = (response as { user?: { email?: unknown } } | null)?.user
+          if (user?.email) return prefetchWorkspaceData()
+        })
+        .catch(() => undefined)
+      void ensureChartEngine().catch(() => undefined)
+    }, 250)
 
     return () => {
+      window.clearTimeout(warmupTimer)
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
@@ -157,6 +168,14 @@ function ApprovedDashboard() {
   }, [navigate])
 
   useEffect(() => {
+    const rememberRouteTimer = window.setTimeout(() => {
+      setVisitedRoutes((current) => {
+        if (current.has(location.pathname)) return current
+        const next = new Set(current)
+        next.add(location.pathname)
+        return next
+      })
+    }, 0)
     if (!runtimeReady.current) return
     const notifyRoute = () => notifyRuntimeRoute(location.pathname)
     if (routeNeedsCharts(location.pathname)) {
@@ -164,32 +183,35 @@ function ApprovedDashboard() {
     } else {
       notifyRoute()
     }
+    return () => window.clearTimeout(rememberRouteTimer)
   }, [location.pathname])
+
+  const shouldMount = (route: string) => location.pathname === route || visitedRoutes.has(route)
 
   return <>
     <div ref={hostRef} />
-    {location.pathname === '/' && overviewMount
+    {shouldMount('/') && overviewMount
       ? createPortal(<OverviewWorkspace />, overviewMount)
       : null}
-    {location.pathname === '/readings' && readingsMount
+    {shouldMount('/readings') && readingsMount
       ? createPortal(<ReadingsWorkspace />, readingsMount)
       : null}
-    {location.pathname === '/areas' && areasMount
+    {shouldMount('/areas') && areasMount
       ? createPortal(<AreasWorkspace />, areasMount)
       : null}
-    {location.pathname === '/sections' && sectionsMount
+    {shouldMount('/sections') && sectionsMount
       ? createPortal(<SectionsWorkspace />, sectionsMount)
       : null}
-    {location.pathname === '/settings' && settingsMount
+    {shouldMount('/settings') && settingsMount
       ? createPortal(<SettingsWorkspace />, settingsMount)
       : null}
-    {location.pathname === '/organization' && organizationMount
+    {shouldMount('/organization') && organizationMount
       ? createPortal(<OrganizationWorkspace />, organizationMount)
       : null}
-    {location.pathname === '/admin' && adminMount
+    {shouldMount('/admin') && adminMount
       ? createPortal(<AdminWorkspace />, adminMount)
       : null}
-    {location.pathname === '/admin/integrations' && adminIntegrationsMount
+    {shouldMount('/admin/integrations') && adminIntegrationsMount
       ? createPortal(<AdminIntegrationsWorkspace />, adminIntegrationsMount)
       : null}
   </>
