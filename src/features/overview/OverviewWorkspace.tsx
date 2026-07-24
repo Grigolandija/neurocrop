@@ -177,6 +177,13 @@ function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
+function scoreColor(value: number | null) {
+  if (value === null) return '#7d8982'
+  const score = Math.max(1, Math.min(100, value))
+  const hue = ((score - 1) / 99) * 128
+  return `hsl(${hue} 68% 38%)`
+}
+
 function unitSuffix(unit: string) {
   return unit === '%' ? '%' : unit ? ` ${unit}` : ''
 }
@@ -775,7 +782,7 @@ export default function OverviewWorkspace() {
               <div className="nc-section-identity"><strong>{row.name}</strong><small>{row.crop}</small></div>
               <div className="nc-section-score">
                 <span>7-day score</span>
-                <strong>{row.score ?? '—'}{row.score === null ? null : <small>/100</small>}</strong>
+                <strong style={{ color: scoreColor(row.score) }}>{row.score ?? '—'}{row.score === null ? null : <small>/100</small>}</strong>
               </div>
               <p>
                 <strong>{row.status}</strong>

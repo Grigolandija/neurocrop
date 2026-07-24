@@ -629,7 +629,6 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 }
 
 .nc-section-score > strong {
-  color: #255f52;
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -.03em;
