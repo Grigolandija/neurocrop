@@ -682,12 +682,35 @@ test('single climate deviation still produces a likely diagnosis from installed 
   }]);
 
   assert.equal(actions.length, 1);
-  assert.equal(actions[0].diagnosis.status, 'likely');
-  assert.equal(actions[0].diagnosis.title, 'Likely canopy heat stress');
+  assert.equal(actions[0].diagnosis.status, 'emerging');
+  assert.equal(actions[0].diagnosis.title, 'Emerging canopy heat risk');
   assert.match(actions[0].diagnosis.summary, /above target/);
-  assert.match(actions[0].diagnosis.summary, /leaf temperature would confirm/i);
+  assert.match(actions[0].diagnosis.summary, /persistence over time would confirm/i);
   assert.deepEqual(actions[0].relatedMetrics, ['airTemp', 'humidity', 'vpd']);
   assert.deepEqual(actions[0].diagnosis.missingMetrics, ['leafTemp']);
+});
+
+test('diagnosis treats tiny humidity deviations as sensor tolerance rather than drying stress', () => {
+  const profileMetrics = {
+    airTemp: { optimal: [19, 20] },
+    humidity: { optimal: [50, 70] },
+    vpd: { optimal: [0.5, 2] }
+  };
+  const scoreRules = buildScoreRules(profileMetrics);
+  const actions = buildTodayActions([{
+    section: { id: 'section-1', name: 'Lettuce front' },
+    profileMetrics,
+    scoreRules,
+    evaluations: [
+      evaluateMetricValue('airTemp', 25.8, scoreRules),
+      evaluateMetricValue('humidity', 49.8, scoreRules),
+      evaluateMetricValue('vpd', 1.7, scoreRules)
+    ]
+  }]);
+
+  assert.match(actions[0].diagnosis.summary, /5.8 °C above target/);
+  assert.match(actions[0].diagnosis.summary, /close to its target boundary/);
+  assert.doesNotMatch(actions[0].diagnosis.summary, /low relative humidity increases drying demand/);
 });
 
 test('single deviation names the missing sensors needed for agronomic confirmation', () => {

@@ -71,17 +71,17 @@ const DIAGNOSTIC_CONTEXT = {
 };
 
 const SINGLE_DIAGNOSIS_TITLES = {
-  airTemp: { low: 'Likely cold stress and slower growth', high: 'Likely canopy heat stress' },
-  humidity: { low: 'Likely excessive atmospheric drying', high: 'Likely condensation and disease pressure' },
-  vpd: { low: 'Likely weak transpiration', high: 'Likely excessive transpiration demand' },
-  co2: { low: 'Likely carbon limitation', high: 'Likely inefficient CO2 enrichment' },
-  soilTemp: { low: 'Likely restricted root activity', high: 'Likely elevated root respiration' },
-  soilMoisture: { low: 'Likely root-zone water deficit', high: 'Likely root-zone oxygen limitation' },
-  ec: { low: 'Likely insufficient nutrient concentration', high: 'Likely osmotic root stress' },
-  ph: { low: 'Likely acidic nutrient imbalance', high: 'Likely reduced nutrient availability' },
-  leafTemp: { low: 'Likely cold canopy stress', high: 'Likely insufficient canopy cooling' },
-  soilEc: { low: 'Likely diluted root-zone nutrition', high: 'Likely root-zone salinity stress' },
-  waterTemp: { low: 'Likely cold irrigation stress', high: 'Likely low root-zone oxygen availability' }
+  airTemp: { low: 'Emerging cold-stress risk', high: 'Emerging canopy heat risk' },
+  humidity: { low: 'Emerging atmospheric drying risk', high: 'Emerging condensation risk' },
+  vpd: { low: 'Emerging low-transpiration risk', high: 'Emerging high-transpiration risk' },
+  co2: { low: 'Potential carbon limitation', high: 'Potential inefficient CO2 enrichment' },
+  soilTemp: { low: 'Potential restricted root activity', high: 'Potential elevated root respiration' },
+  soilMoisture: { low: 'Potential root-zone water deficit', high: 'Potential root-zone oxygen limitation' },
+  ec: { low: 'Potential insufficient nutrient concentration', high: 'Potential osmotic root stress' },
+  ph: { low: 'Potential acidic nutrient imbalance', high: 'Potential reduced nutrient availability' },
+  leafTemp: { low: 'Emerging cold-canopy risk', high: 'Emerging insufficient canopy cooling' },
+  soilEc: { low: 'Potential diluted root-zone nutrition', high: 'Potential root-zone salinity stress' },
+  waterTemp: { low: 'Potential cold irrigation stress', high: 'Potential low root-zone oxygen availability' }
 };
 
 const MIN_WARNING_ACTION_SEVERITY = 0.05;
@@ -138,7 +138,7 @@ function diagnosticDeviation(evaluation, target, unit) {
   const difference = Math.abs(Number(evaluation.value) - boundary);
   const formatted = formatDiagnosticNumber(difference);
   if (formatted === null) return null;
-  const normalizedUnit = unit === 'degC' ? ' degC' : unit === '%' ? '%' : unit ? ` ${unit}` : '';
+  const normalizedUnit = unit === 'degC' ? ' °C' : unit === '%' ? '%' : unit ? ` ${unit}` : '';
   return `${formatted}${normalizedUnit} ${evaluation.direction === 'high' ? 'above' : 'below'} target`;
 }
 
@@ -149,22 +149,32 @@ function buildDiagnosisSummary(snapshot, evaluation, label, availableContext) {
     ? `${label} is ${deviation}.`
     : `${label} is outside its crop-profile target.`;
   const contextByMetric = new Map(availableContext.map((item) => [item.metricId, item]));
+  const materiallyOutside = (item) => {
+    if (!item || (item.direction !== 'high' && item.direction !== 'low')) return false;
+    const reading = diagnosticReading(snapshot, item);
+    if (!Array.isArray(reading.target) || reading.target.length !== 2) return false;
+    const boundary = item.direction === 'high' ? Number(reading.target[1]) : Number(reading.target[0]);
+    const difference = Math.abs(Number(item.value) - boundary);
+    const tolerance = VERIFICATION_POLICIES[item.metricId]?.noiseFloor || 0;
+    return difference > tolerance;
+  };
 
   if (evaluation.metricId === 'airTemp' && evaluation.direction === 'high') {
     const humidity = contextByMetric.get('humidity');
     const vpd = contextByMetric.get('vpd');
     const signals = [];
-    if (humidity?.direction === 'low') signals.push('low relative humidity increases drying demand');
-    if (humidity?.direction === 'high') signals.push('high relative humidity can restrict evaporative cooling');
-    if (vpd?.direction === 'high') signals.push('high VPD reinforces transpiration demand');
-    if (vpd?.direction === 'low') signals.push('low VPD can restrict evaporative leaf cooling');
+    if (humidity && !materiallyOutside(humidity) && humidity.direction !== 'optimal') signals.push('relative humidity is close to its target boundary');
+    if (materiallyOutside(humidity) && humidity.direction === 'low') signals.push('low relative humidity increases drying demand');
+    if (materiallyOutside(humidity) && humidity.direction === 'high') signals.push('high relative humidity can restrict evaporative cooling');
+    if (materiallyOutside(vpd) && vpd.direction === 'high') signals.push('high VPD reinforces transpiration demand');
+    if (materiallyOutside(vpd) && vpd.direction === 'low') signals.push('low VPD can restrict evaporative leaf cooling');
     if (vpd?.direction === 'optimal') signals.push('VPD remains inside its configured target');
     const context = signals.length ? `${signals.join(', while ')}.` : '';
-    return `${opening} ${context} This indicates likely canopy heat stress; leaf temperature would confirm the plant-level effect.`.replace(/\s+/g, ' ').trim();
+    return `${opening} ${context} This is an emerging canopy heat risk; leaf temperature and persistence over time would confirm plant-level heat stress.`.replace(/\s+/g, ' ').trim();
   }
 
   const deviatingContext = availableContext
-    .filter((item) => item.direction === 'high' || item.direction === 'low')
+    .filter(materiallyOutside)
     .map((item) => `${METRIC_LABELS[item.metricId] || item.metricId} is ${item.direction}`);
   const context = deviatingContext.length
     ? ` Supporting context: ${deviatingContext.join(' and ')}.`
@@ -184,8 +194,8 @@ function buildSingleMetricDiagnosis(snapshot, evaluation, label) {
 
   return {
     diagnosis: {
-      status,
-      label: status === 'likely' ? 'Likely' : 'Insufficient data',
+      status: status === 'likely' ? 'emerging' : status,
+      label: status === 'likely' ? 'Emerging' : 'Insufficient data',
       title: diagnosisTitle,
       summary: status === 'likely'
         ? buildDiagnosisSummary(snapshot, evaluation, label, availableContext)

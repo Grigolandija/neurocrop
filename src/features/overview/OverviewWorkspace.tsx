@@ -484,7 +484,7 @@ function EvidenceDrawer({ model, row, onClose }: {
         <div><span>Current</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
         <div><span>Target</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : 'Not set'}</strong></div>
         <div data-tone={row.tone}><span>Deviation</span><strong>{formatDeviation(row.deviation, row.direction, row.unit)}</strong></div>
-        <div><span>Outside target for</span><strong>{row.duration}</strong></div>
+        <div><span>Latest reading</span><strong>{row.updated}</strong></div>
       </section> : null}
       {row && sectionAction
         ? trendState === 'loading'
@@ -605,7 +605,7 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
               <div><span>Current</span><strong>{formatMeasurement(currentValue, unit)}</strong></div>
               <div><span>Target</span><strong>{row?.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : formatTarget(targetRange(action.target), unit).replace(/^Target /, '')}</strong></div>
               <div><span>Deviation</span><strong>{row ? formatDeviation(row.deviation, row.direction, row.unit) : action.reason}</strong></div>
-              <div><span>Duration</span><strong>{row?.duration || 'Unavailable'}</strong></div>
+              <div><span>Latest reading</span><strong>{row?.updated || 'Unavailable'}</strong></div>
             </div>
             {action.ruleType === 'interaction'
               ? <div className="nc-action-diagnosis"><span>Why NeuroCrop recommends this</span><strong>{action.title}</strong><p>{action.reason}</p></div>
@@ -830,7 +830,7 @@ export default function OverviewWorkspace() {
               <p>
                 <strong>{row.status}</strong>
                 {row.deviation !== null
-                  ? <small className="nc-row-deviation"><b>{formatDeviation(row.deviation, row.direction, row.unit)}</b><em>for {row.duration}</em></small>
+                  ? <small className="nc-row-deviation"><b>{formatDeviation(row.deviation, row.direction, row.unit)}</b><em>{row.updated}</em></small>
                   : <small>{row.detail}</small>}
                 <time>{row.updated}</time>
               </p>
