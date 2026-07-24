@@ -597,6 +597,7 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
 }
 
 export default function OverviewWorkspace() {
+  const navigate = useNavigate()
   const [dashboard, setDashboard] = useState<JsonRecord | null>(null)
   const [actions, setActions] = useState<JsonRecord | null>(null)
   const [summary, setSummary] = useState<OverviewSummary>(demoSummary)
@@ -799,7 +800,7 @@ export default function OverviewWorkspace() {
           </div>
           <div className="nc-coverage-footer">
             <figcaption><i className="fa-solid fa-circle-check" />Growing Score summarizes overall conditions; status highlights current target deviations.</figcaption>
-            <a href="/sections">View all {model.rows.length} Sections <i className="fa-solid fa-arrow-right" /></a>
+            <button type="button" onClick={() => navigate('/sections')}>View all {model.rows.length} Sections <i className="fa-solid fa-arrow-right" /></button>
           </div>
         </figure>
       </div>
