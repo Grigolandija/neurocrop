@@ -1,4 +1,5 @@
 import { METRICS, OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type NodeStatus, type SensorNodeMetadata } from '../model'
+import NumericInput from './NumericInput'
 
 type Props = {
   map: GreenhouseMap
@@ -7,8 +8,6 @@ type Props = {
   onAlign: (edge: 'left' | 'center' | 'right' | 'bottom' | 'middle' | 'top') => void
   language?: 'en' | 'lt'
 }
-const numeric = (value: string, fallback: number) => Number.isFinite(Number(value)) ? Number(value) : fallback
-
 export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign, language = 'en' }: Props) {
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
   if (!selected.length) return <aside className="gh-right-panel"><div className="gh-empty-selection"><span><i className="fa-solid fa-arrow-pointer" /></span><h2>{tr('No object selected', 'Objektas nepasirinktas')}</h2><p>{tr('Select an object on the plan to inspect exact coordinates, dimensions and operational data.', 'Pasirinkite objektą plane, kad matytumėte koordinates, matmenis ir veikimo duomenis.')}</p><small>{tr('Shift-click to select multiple objects.', 'Shift + paspaudimas pasirenka kelis objektus.')}</small></div></aside>
@@ -30,15 +29,15 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
       <label className="gh-field wide"><span>Name</span><input value={object.name} onChange={(event) => onUpdate(object.id, { name: event.target.value })} /></label>
       <label className="gh-field wide"><span>Type</span><select value={object.type} onChange={(event) => onUpdate(object.id, { type: event.target.value as GreenhouseObject['type'] })}>{OBJECT_LIBRARY.map((item) => <option value={item.type} key={item.type}>{item.label}</option>)}</select></label>
       <div className="gh-coordinate-box"><span>POSITION · ORIGIN LOWER LEFT</span><div className="gh-field-row">
-        <label className="gh-field"><span>X <em>m</em></span><input type="number" step={map.gridSizeM} value={Number(object.xM.toFixed(3))} onChange={(event) => onUpdate(object.id, { xM: numeric(event.target.value, object.xM) })} /></label>
-        <label className="gh-field"><span>Y <em>m</em></span><input type="number" step={map.gridSizeM} value={Number(object.yM.toFixed(3))} onChange={(event) => onUpdate(object.id, { yM: numeric(event.target.value, object.yM) })} /></label>
+        <label className="gh-field"><span>X <em>m</em></span><NumericInput step={map.gridSizeM} value={Number(object.xM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { xM: value ?? object.xM })} /></label>
+        <label className="gh-field"><span>Y <em>m</em></span><NumericInput step={map.gridSizeM} value={Number(object.yM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { yM: value ?? object.yM })} /></label>
       </div></div>
       {sensor ? <label className="gh-field wide"><span>Automatic marker size <em>m</em></span><input value={Number(object.widthM.toFixed(3))} readOnly /><small>Calculated from greenhouse scale.</small></label> : <div className="gh-field-row">
-        <label className="gh-field"><span>Width <em>m</em></span><input type="number" min=".05" step=".05" value={Number(object.widthM.toFixed(3))} onChange={(event) => onUpdate(object.id, { widthM: Math.max(.05, numeric(event.target.value, object.widthM)) })} /></label>
-        <label className="gh-field"><span>Length <em>m</em></span><input type="number" min=".05" step=".05" value={Number(object.lengthM.toFixed(3))} onChange={(event) => onUpdate(object.id, { lengthM: Math.max(.05, numeric(event.target.value, object.lengthM)) })} /></label>
+        <label className="gh-field"><span>Width <em>m</em></span><NumericInput min=".05" step=".05" value={Number(object.widthM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { widthM: value ?? object.widthM })} /></label>
+        <label className="gh-field"><span>Length <em>m</em></span><NumericInput min=".05" step=".05" value={Number(object.lengthM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { lengthM: value ?? object.lengthM })} /></label>
       </div>}
       <div className="gh-field-row">
-        <label className="gh-field"><span>Rotation <em>°</em></span><input type="number" value={Number(object.rotationDeg.toFixed(1))} onChange={(event) => onUpdate(object.id, { rotationDeg: numeric(event.target.value, object.rotationDeg) })} /></label>
+        <label className="gh-field"><span>Rotation <em>°</em></span><NumericInput value={Number(object.rotationDeg.toFixed(1))} onCommit={(value) => onUpdate(object.id, { rotationDeg: value ?? object.rotationDeg })} /></label>
         <label className="gh-field"><span>Layer</span><select value={object.layerId} onChange={(event) => onUpdate(object.id, { layerId: event.target.value })}>{map.layers.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
       </div>
       <div className="gh-toggle-row">
@@ -54,9 +53,9 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
       <label className="gh-field wide"><span>Node ID</span><input value={sensor.nodeId ?? ''} onChange={(event) => patchSensor({ nodeId: event.target.value })} /></label>
       <label className="gh-field wide"><span>DevEUI</span><input value={sensor.devEui ?? ''} onChange={(event) => patchSensor({ devEui: event.target.value })} /></label>
       <label className="gh-field wide"><span>Display name</span><input value={sensor.displayName ?? ''} onChange={(event) => patchSensor({ displayName: event.target.value })} /></label>
-      <div className="gh-field-row"><label className="gh-field"><span>Area</span><input value={sensor.areaId ?? ''} onChange={(event) => patchSensor({ areaId: event.target.value })} /></label><label className="gh-field"><span>Height <em>m</em></span><input type="number" value={sensor.installationHeightM ?? ''} onChange={(event) => patchSensor({ installationHeightM: numeric(event.target.value, 0) })} /></label></div>
+      <div className="gh-field-row"><label className="gh-field"><span>Area</span><input value={sensor.areaId ?? ''} onChange={(event) => patchSensor({ areaId: event.target.value })} /></label><label className="gh-field"><span>Height <em>m</em></span><NumericInput allowEmpty min="0" value={sensor.installationHeightM} onCommit={(value) => patchSensor({ installationHeightM: value })} /></label></div>
       <div className="gh-field-row"><label className="gh-field"><span>Model</span><input value={sensor.model ?? ''} onChange={(event) => patchSensor({ model: event.target.value })} /></label><label className="gh-field"><span>Status</span><select value={sensor.status} onChange={(event) => patchSensor({ status: event.target.value as NodeStatus })}><option>online</option><option>warning</option><option>offline</option><option>unassigned</option><option value="low-battery">low battery</option><option value="stale">stale data</option></select></label></div>
-      <div className="gh-field-row"><label className="gh-field"><span>Battery <em>%</em></span><input type="number" min="0" max="100" value={sensor.batteryPercent ?? ''} onChange={(event) => patchSensor({ batteryPercent: numeric(event.target.value, 0) })} /></label><label className="gh-field"><span>Coverage <em>m</em></span><input type="number" min=".1" step=".1" value={sensor.coverageRadiusM ?? 3} onChange={(event) => patchSensor({ coverageRadiusM: Math.max(.1, numeric(event.target.value, 3)) })} /></label></div>
+      <div className="gh-field-row"><label className="gh-field"><span>Battery <em>%</em></span><NumericInput allowEmpty min="0" max="100" value={sensor.batteryPercent} onCommit={(value) => patchSensor({ batteryPercent: value })} /></label><label className="gh-field"><span>Coverage <em>m</em></span><NumericInput min=".1" step=".1" value={sensor.coverageRadiusM ?? 3} onCommit={(value) => patchSensor({ coverageRadiusM: value ?? sensor.coverageRadiusM ?? 3 })} /></label></div>
       <div className="gh-radio-row"><span><small>RSSI</small><strong>{sensor.rssi ?? '—'} dBm</strong></span><span><small>SNR</small><strong>{sensor.snr ?? '—'} dB</strong></span><span><small>Last uplink</small><strong>{sensor.lastSeenAt ? new Date(sensor.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></span></div>
       <label className="gh-field wide"><span>Active sensors</span><input value={sensor.sensors.join(', ')} onChange={(event) => patchSensor({ sensors: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} /></label>
       <div className="gh-measurement-list">{(Object.keys(METRICS) as Array<keyof typeof METRICS>).map((key) => <span key={key}><small>{METRICS[key].label}</small><strong>{String(measurements?.[METRICS[key].field] ?? '—')} {METRICS[key].unit}</strong></span>)}</div>

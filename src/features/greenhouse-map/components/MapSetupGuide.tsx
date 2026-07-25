@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { GreenhouseMap } from '../model'
 import type { AreaMapNode, AreaSummary } from '../services/areaMapRepository'
+import NumericInput from './NumericInput'
 
 type Props = {
   area: AreaSummary
@@ -16,7 +17,6 @@ export default function MapSetupGuide({ area, map, nodes, language, onMapChange,
   const [step, setStep] = useState(0)
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
   const steps = [tr('Dimensions', 'Matmenys'), tr('Node placement', 'Node išdėstymas')]
-  const number = (value: string, fallback: number) => Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback
 
   return <div className="gh-setup-backdrop" role="presentation">
     <section className="gh-setup-guide" role="dialog" aria-modal="true" aria-labelledby="gh-setup-title">
@@ -31,8 +31,8 @@ export default function MapSetupGuide({ area, map, nodes, language, onMapChange,
         <h3>{tr('Confirm physical dimensions', 'Patvirtinkite fizinius matmenis')}</h3>
         <p>{tr('Use the inside dimensions of the room or greenhouse. The grid and node marker scale adapt automatically.', 'Naudokite vidinius patalpos arba šiltnamio matmenis. Tinklelio ir node žymeklių mastelis prisitaikys automatiškai.')}</p>
         <div className="gh-field-row">
-          <label className="gh-field"><span>{tr('Width', 'Plotis')} <em>m</em></span><input type="number" min=".5" step=".1" value={map.dimensions.widthM} onChange={(event) => onMapChange({ ...map, dimensions: { ...map.dimensions, widthM: number(event.target.value, map.dimensions.widthM) } })} /></label>
-          <label className="gh-field"><span>{tr('Length', 'Ilgis')} <em>m</em></span><input type="number" min=".5" step=".1" value={map.dimensions.lengthM} onChange={(event) => onMapChange({ ...map, dimensions: { ...map.dimensions, lengthM: number(event.target.value, map.dimensions.lengthM) } })} /></label>
+          <label className="gh-field"><span>{tr('Width', 'Plotis')} <em>m</em></span><NumericInput min=".5" step=".1" value={map.dimensions.widthM} onCommit={(value) => onMapChange({ ...map, dimensions: { ...map.dimensions, widthM: value ?? map.dimensions.widthM } })} /></label>
+          <label className="gh-field"><span>{tr('Length', 'Ilgis')} <em>m</em></span><NumericInput min=".5" step=".1" value={map.dimensions.lengthM} onCommit={(value) => onMapChange({ ...map, dimensions: { ...map.dimensions, lengthM: value ?? map.dimensions.lengthM } })} /></label>
         </div>
       </div> : null}
 
