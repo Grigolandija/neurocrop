@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const runtime = await fs.readFile(path.join(root, "public/approved-dashboard-runtime.js"), "utf8");
 const config = await fs.readFile(path.join(root, "public/runtime-config.js"), "utf8");
+const htaccess = await fs.readFile(path.join(root, "public/.htaccess"), "utf8");
 const contract = await fs.readFile(path.join(root, "API-CONTRACT.md"), "utf8");
 const appSource = await fs.readFile(path.join(root, "src/App.tsx"), "utf8");
 const markup = await fs.readFile(path.join(root, "src/approved-dashboard-markup.html"), "utf8");
@@ -75,6 +76,9 @@ assert(
 
 assert(runtime.includes("function fetchLatestReadingsForArea(siteId") && runtime.includes("latestReadingsCacheTtlMs = 60 * 1000") && runtime.includes("latestReadingsAreaInFlight.has(siteId)"), "Area Live readings must load only the selected Area with cache and in-flight protection");
 assert(apiFacade.includes("getAlerts: (status = 'all')"), "Alerts API client must use a status accepted by the backend");
+for (const header of ["Strict-Transport-Security", "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy", "Permissions-Policy"]) {
+  assert(htaccess.includes(`Header always set ${header}`), `${header} must be present in the production static-host configuration`);
+}
 assert(runtime.includes("latestReadingsRequestIdBySectionId[zoneId]") && !runtime.includes("let latestReadingsRequestId = 0;"), "parallel Area readings must track stale requests independently for every Section");
 assert(runtime.includes("function renderAreaLiveReadingsBoard(") && runtime.includes('"area-readings-board"') && runtime.includes("data-area-reading-section"), "Live readings must provide an Area Section-by-metric matrix and a Section detail drill-down");
 assert(markup.includes('id="readingsWorkspaceMount"') && dashboardPage.includes('createPortal(<ReadingsWorkspace />') && readingsWorkspace.includes('neurocropApi.getLatestReadings') && readingsWorkspace.includes('const presets = [') && readingsWorkspace.includes('exportCsv()') && readingsWorkspaceStyles.includes('body[data-primary-page="readings"] #metricsSection'), "Readings must use the API-backed redesign workspace with presets, export, drill-down and a legacy fallback boundary");

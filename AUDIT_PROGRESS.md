@@ -33,7 +33,7 @@ configuration, Docker/proxy/deployment, jobs, security, tests, and documentation
 | Shell syntax | Pass | Deployment and rollback scripts parsed with `sh -n` |
 | PostgreSQL integration | Not run locally | No local PostgreSQL client/service or Docker CLI |
 | Compose runtime validation | Not run locally | Docker CLI unavailable |
-| Production runtime | Access required | Containers, DB, MQTT and ChirpStack not inspected yet |
+| Production runtime | Pass with findings | Read-only inspection of containers, both databases, ChirpStack metadata, logs, timers, backups, proxy and public endpoints |
 
 ## Findings
 
@@ -51,12 +51,17 @@ configuration, Docker/proxy/deployment, jobs, security, tests, and documentation
 | AUD-010 | Medium | Fixed | Environment documentation | No canonical example covered actual API, DB, MQTT, ChirpStack and mail variables | Added `backend/.env.example` with blank sensitive values and production-secret guidance | Manual variable inventory |
 | AUD-016 | Medium | Fixed | Crop Profile validation | Known sensor targets could be saved outside physically possible ranges and poison scoring | Added physical-limit validation for known profile metrics while preserving custom metrics | Unit tests cover impossible RH/pH and valid custom metrics |
 | AUD-017 | Medium | Fixed | Alerts API contract | Frontend `getAlerts()` defaulted to unsupported `status=open` while backend accepts `all`, `acknowledged`, `snoozed`, `resolved` | Changed the client default to `all` | Runtime invariant test |
+| AUD-019 | Medium | Fixed locally | Browser security | Production static frontend returned no HSTS, MIME-sniffing, frame, referrer or browser-permission policy headers | Added non-breaking headers to the shipped `.htaccess`; deployment is still required | Runtime invariant test; production headers captured before fix |
+| AUD-020 | Medium | Open | Production operations | Production has 24 available OS updates, including one standard security update; package metadata is over one week old | Schedule a maintenance window, refresh package metadata, assess updates, snapshot/backup and patch with rollback available | Read-only host inspection |
+| AUD-021 | Medium | Open | Device lifecycle | 45 production Nodes are assigned but only 5 are current; 40 stale assigned Nodes belong to the demo organization | Keep demo inventory excluded from production health/client counts or archive it; verify this distinction in every operational query | Production aggregate query |
+| AUD-022 | Low | Open | Backup observability | Daily backups and checksums are healthy, but the latest NeuroCrop dump shrank from about 4.9 MB to 307 KB after data changes | Extend backup job with table row-count manifest and alert on unexpected size/count deltas | Production backup metadata and checksum verification |
+| AUD-023 | Low | Open | Staging endpoint | Running staging is protected, but its canonical URL is the `nip.io` host rather than `staging.neurocrop.lt` | Use the actual protected URL consistently in E2E and deployment docs, or configure the desired DNS name | Production DNS and HTTP checks |
 | AUD-018 | High | Open | Alert lifecycle | Current alerts are calculated in the browser while workflow state is stored separately; manual resolve is not sensor-verified recovery and can hide a continuing condition | Move canonical alert creation, deduplication, acknowledgement and automatic recovery to backend before relying on alerts for unattended escalation | Source and workflow trace; requires product/backend design |
-| AUD-011 | High | Open | LoRaWAN keys | Legacy `/nodes/register` and DevEUI-change paths use one `DEFAULT_OTAA_APP_KEY` for multiple devices | Replace legacy registration with per-device factory provisioning, then rotate existing shared keys; requires real inventory and firmware coordination | Repository trace confirms shared-key function |
+| AUD-011 | High | Open | LoRaWAN keys | Legacy `/nodes/register` and DevEUI-change paths can use one `DEFAULT_OTAA_APP_KEY` for multiple devices | Replace legacy registration with per-device factory provisioning before further registrations; current six ChirpStack devices were verified to have six distinct AppKey and NwkKey values | Repository trace plus production aggregate key-count query; no keys exposed |
 | AUD-012 | High | Open | Factory deployment | Secure per-device factory routes/tests exist only in Git-ignored local files and are not registered by tracked `backend/api.js` | Decide whether factory API is a separate private deployment or must be tracked and mounted into production | Git tracking and import trace |
-| AUD-013 | Medium | Open | Payload auditability | Repository has no tracked ChirpStack decoder; ingest stores compact metadata, not raw payload, frame counter, uplink ID or decoder version | Export actual decoder/config, define a versioned payload contract and fixtures, then add raw uplink idempotency storage | README corrected to mark target vs implemented behavior |
+| AUD-013 | Medium | Open | Payload auditability | Production has one 14,948-character JS codec used by six devices, but the repository has no tracked decoder; ingest stores compact metadata, not raw payload, frame counter, uplink ID or decoder version | Export the production decoder without secrets, define a versioned payload contract and fixtures, then add raw uplink idempotency storage | Production codec metadata/hash plus repository trace |
 | AUD-014 | Medium | Open | Downlink | No tracked downlink encoder, queue command or acknowledgement flow was found | Confirm whether MVP intentionally has no control channel; if required, design versioned commands and delivery/audit state | Repository-wide route/code search |
-| AUD-015 | Medium | Open | Integration verification | Live PostgreSQL tenant, migration, MQTT and ChirpStack state cannot be proven from source alone | Run read-only production checks listed below | Awaiting access |
+| AUD-015 | Medium | Closed | Integration verification | Live PostgreSQL tenant, migration, MQTT and ChirpStack state could not be proven from source alone | Completed read-only production inspection without exposing credentials or key values | See production verification below |
 
 ## Checked components
 
@@ -74,17 +79,29 @@ configuration, Docker/proxy/deployment, jobs, security, tests, and documentation
   reverse-proxy headers, backups, restore checks, monitoring and secret files.
 - Documentation against implemented routes, ingest storage and deployment flow.
 
-## Production access required
+## Production verification
 
-Repository-level work can continue without access, but the remaining integration
-claims require read-only inspection of:
+Read-only checks completed on 2026-07-25:
 
-- Docker host running `neurocrop-api`, `neurocrop-ingest`, PostgreSQL, MQTT and
-  ChirpStack;
-- production PostgreSQL schema/migration history and data-integrity counts;
-- ChirpStack application, device profiles, codec, device keys metadata and recent
-  uplink event shape;
-- API/ingest logs with secrets redacted;
-- backup age and latest restore-test status.
+- production API is healthy, unauthenticated product routes return `401`, and
+  API/root HTTP checks complete in about 0.05-0.08 seconds from the host;
+- API, PostgreSQL, ChirpStack and infrastructure containers are healthy with no
+  restart loop; deployed ingest runs but has no Docker healthcheck until the
+  local `AUD-007` fix is deployed;
+- migrations `0001`-`0015` are applied; local migration `0016` is intentionally
+  not present before deployment;
+- 5,724 measurements contain no duplicate DevEUI/time pairs, cross-tenant
+  Section/Node/config links, invalid DevEUIs or impossible checked physical values;
+- 45 Nodes are assigned, but the 40 stale assignments are isolated in the demo
+  organization while all five default-organization Nodes are current;
+- ChirpStack has one JS codec and six devices with distinct AppKey and NwkKey
+  values; no key material was printed or copied;
+- production ingest logs currently expose telemetry values and DevEUIs, confirming
+  why the local `AUD-003` log-redaction fix must be deployed;
+- daily NeuroCrop and ChirpStack backups are current and checksum-valid; the most
+  recent scheduled restore test succeeded on 2026-07-19;
+- Caddy configuration validates; staging is online behind authentication at its
+  configured `nip.io` address;
+- the host has adequate disk/memory capacity but pending OS/security updates.
 
 No production credentials are stored in this file or the repository.
