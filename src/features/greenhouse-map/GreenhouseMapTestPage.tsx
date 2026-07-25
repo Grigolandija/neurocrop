@@ -9,7 +9,7 @@ import MapSetupGuide from './components/MapSetupGuide'
 import ObjectLibraryPanel from './components/ObjectLibraryPanel'
 import ObjectPropertiesPanel from './components/ObjectPropertiesPanel'
 import { METRICS, type MapMode, type MetricKey } from './model'
-import { areaMapRepository, createAreaMap, mergeAreaMapContext, type AreaMapContext, type AreaMapNode, type AreaSummary } from './services/areaMapRepository'
+import { areaMapRepository, createAreaMap, mergeAreaMapContext, type AreaMapContext, type AreaSummary } from './services/areaMapRepository'
 import { validateMap } from './services/mapRepository'
 import { useMapEditor } from './useMapEditor'
 
@@ -233,37 +233,6 @@ export default function GreenhouseMapTestPage() {
     }
   }
 
-  const createSectionFromGuide = async (name: string, profileId: string) => {
-    if (!activeAreaId || !areaContextRef.current) return
-    const section = await areaMapRepository.createSection(activeAreaId, name, profileId)
-    const context = areaContextRef.current
-    const sections = [...context.sections, section]
-    const nextContext = { ...context, sections }
-    areaContextRef.current = nextContext
-    setAreaContext(nextContext)
-    editor.commit((map) => mergeAreaMapContext(map, context.area, context.nodes, sections))
-    setNotice({ tone: 'success', text: tr(`${name} created.`, `${name} sukurta.`) })
-  }
-
-  const assignNodeFromGuide = async (node: AreaMapNode, sectionId: string) => {
-    if (!activeAreaId || !sectionId || !node.devEui || !areaContextRef.current) return
-    const context = areaContextRef.current
-    const target = context.sections.find((section) => section.id === sectionId)
-    if (!target) return
-    await areaMapRepository.assignNodeToSection(activeAreaId, node.devEui, sectionId)
-    const nodes = context.nodes.map((candidate) => candidate.devEui?.toLowerCase() === node.devEui?.toLowerCase()
-      ? { ...candidate, sectionId, sectionName: target.name } : candidate)
-    const sections = context.sections.map((section) => {
-      const delta = section.id === node.sectionId ? -1 : section.id === sectionId ? 1 : 0
-      return delta ? { ...section, nodes: Math.max(0, section.nodes + delta) } : section
-    })
-    const nextContext = { ...context, nodes, sections }
-    areaContextRef.current = nextContext
-    setAreaContext(nextContext)
-    editor.commit((map) => mergeAreaMapContext(map, context.area, nodes, sections))
-    setNotice({ tone: 'success', text: tr(`${node.displayName || node.nodeId} assigned to ${target.name}.`, `${node.displayName || node.nodeId} priskirtas prie ${target.name}.`) })
-  }
-
   const createFirstArea = () => {
     if (!newArea.name.trim() || creatingArea) return
     setCreatingArea(true)
@@ -285,16 +254,6 @@ export default function GreenhouseMapTestPage() {
       })
       .catch((error) => setSyncMessage(error instanceof Error ? error.message : 'Area could not be created.'))
       .finally(() => setCreatingArea(false))
-  }
-
-  const claimNodeFromGuide = async (devEui: string, sectionId: string) => {
-    if (!areaContextRef.current) return
-    await areaMapRepository.claimNode(devEui, sectionId)
-    const context = await areaMapRepository.load(activeAreaId)
-    areaContextRef.current = context
-    setAreaContext(context)
-    editor.commit((map) => mergeAreaMapContext(map, context.area, context.nodes, context.sections))
-    setNotice({ tone: 'success', text: tr('Node connected. Place it at its physical installation point.', 'Node prijungtas. Padėkite jį fizinėje montavimo vietoje.') })
   }
 
   const moveOnCanvas = (positions: Array<{ id: string; xM: number; yM: number }>, record = true) => {
@@ -349,7 +308,7 @@ export default function GreenhouseMapTestPage() {
       <GreenhouseCanvas map={editor.map} mode={mode} readOnly={canvasReadOnly} dailyView={dailyView} language={language} actions={areaContext?.actions ?? []} selectedIds={editor.selectedIds} snap={editor.snap} onSelect={(ids) => { editor.setSelectedIds(ids); if (ids.length) setMobilePanel('right') }} onMove={moveOnCanvas} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAdd={canvasReadOnly ? () => undefined : editor.addObject} />
       <ObjectPropertiesPanel map={editor.map} selected={editor.selected} language={language} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAlign={canvasReadOnly ? () => undefined : align} />
     </div>
-    {showSetupGuide && areaContext ? <MapSetupGuide area={areaContext.area} map={editor.map} sections={areaContext.sections} nodes={areaContext.nodes} profiles={areaContext.profiles} language={language} onMapChange={(map) => editor.commit(() => map)} onCreateSection={createSectionFromGuide} onAssignNode={assignNodeFromGuide} onClaimNode={claimNodeFromGuide} onOpenSections={() => navigate('/sections')} onClose={() => { setShowSetupGuide(false); if (!permissionReadOnly) { setEditing(true); setMode('layout') } }} /> : null}
+    {showSetupGuide && areaContext ? <MapSetupGuide area={areaContext.area} map={editor.map} nodes={areaContext.nodes} language={language} onMapChange={(map) => editor.commit(() => map)} onOpenNodes={() => navigate('/nodes')} onClose={() => { setShowSetupGuide(false); if (!permissionReadOnly) { setEditing(true); setMode('layout') } }} /> : null}
     {notice ? <button className={`gh-notice ${notice.tone}`} onClick={() => setNotice(null)}><i className={`fa-solid ${notice.tone === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation'}`} />{notice.text}<i className="fa-solid fa-xmark" /></button> : null}
   </div>
 }

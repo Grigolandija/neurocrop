@@ -1,66 +1,35 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { GreenhouseMap } from '../model'
-import type { AreaMapNode, AreaMapProfile, AreaMapSection, AreaSummary } from '../services/areaMapRepository'
+import type { AreaMapNode, AreaSummary } from '../services/areaMapRepository'
 
 type Props = {
   area: AreaSummary
   map: GreenhouseMap
-  sections: AreaMapSection[]
   nodes: AreaMapNode[]
-  profiles: AreaMapProfile[]
   language: 'en' | 'lt'
   onMapChange: (map: GreenhouseMap) => void
-  onCreateSection: (name: string, profileId: string) => Promise<void>
-  onAssignNode: (node: AreaMapNode, sectionId: string) => Promise<void>
-  onClaimNode: (devEui: string, sectionId: string) => Promise<void>
+  onOpenNodes: () => void
   onClose: () => void
-  onOpenSections: () => void
 }
 
-export default function MapSetupGuide({ area, map, sections, nodes, profiles, language, onMapChange, onCreateSection, onAssignNode, onClaimNode, onClose, onOpenSections }: Props) {
+export default function MapSetupGuide({ area, map, nodes, language, onMapChange, onOpenNodes, onClose }: Props) {
   const [step, setStep] = useState(0)
-  const [sectionName, setSectionName] = useState('')
-  const [profileId, setProfileId] = useState(profiles[0]?.id || 'default')
-  const [busy, setBusy] = useState('')
-  const [devEui, setDevEui] = useState('')
-  const [claimSectionId, setClaimSectionId] = useState(sections[0]?.id || '')
-  const [scanError, setScanError] = useState('')
-  const qrInputRef = useRef<HTMLInputElement>(null)
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
-  const steps = [tr('Greenhouse', 'Šiltnamis'), 'Sections', 'Nodes']
+  const steps = [tr('Dimensions', 'Matmenys'), tr('Node placement', 'Node išdėstymas')]
   const number = (value: string, fallback: number) => Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback
-  const scanNodeLabel = async (file?: File) => {
-    if (!file) return
-    setScanError('')
-    try {
-      const Detector = (window as unknown as { BarcodeDetector?: new (options: { formats: string[] }) => { detect: (source: ImageBitmap) => Promise<Array<{ rawValue?: string }>> } }).BarcodeDetector
-      if (!Detector) throw new Error(tr('QR scanning is not supported in this browser. Enter DevEUI manually.', 'Ši naršyklė nepalaiko QR nuskaitymo. Įveskite DevEUI ranka.'))
-      const bitmap = await createImageBitmap(file)
-      const results = await new Detector({ formats: ['qr_code'] }).detect(bitmap)
-      bitmap.close()
-      const raw = results[0]?.rawValue || ''
-      const match = raw.replace(/[^0-9a-f]/gi, '').match(/[0-9a-f]{16}/i)
-      if (!match) throw new Error(tr('The QR code does not contain a 16-character DevEUI.', 'QR kode nėra 16 simbolių DevEUI.'))
-      setDevEui(match[0].toUpperCase())
-    } catch (error) {
-      setScanError(error instanceof Error ? error.message : tr('QR code could not be read.', 'Nepavyko nuskaityti QR kodo.'))
-    } finally {
-      if (qrInputRef.current) qrInputRef.current.value = ''
-    }
-  }
 
   return <div className="gh-setup-backdrop" role="presentation">
     <section className="gh-setup-guide" role="dialog" aria-modal="true" aria-labelledby="gh-setup-title">
       <header>
         <div><small>{tr('AREA MAP SETUP', 'AREA ŽEMĖLAPIO PARUOŠIMAS')}</small><h2 id="gh-setup-title">{tr('Prepare', 'Paruošti')} {area.name}</h2></div>
-        <button type="button" onClick={onClose} aria-label="Close setup guide"><i className="fa-solid fa-xmark" /></button>
+        <button type="button" onClick={onClose} aria-label={tr('Close setup guide', 'Uždaryti paruošimo vedlį')}><i className="fa-solid fa-xmark" /></button>
       </header>
       <ol>{steps.map((label, index) => <li key={label} className={index === step ? 'active' : index < step ? 'done' : ''}><span>{index < step ? <i className="fa-solid fa-check" /> : index + 1}</span>{label}</li>)}</ol>
 
       {step === 0 ? <div className="gh-setup-step">
         <span className="gh-setup-icon"><i className="fa-solid fa-vector-square" /></span>
         <h3>{tr('Confirm physical dimensions', 'Patvirtinkite fizinius matmenis')}</h3>
-        <p>{tr('Use the inside dimensions of the growing space. Node and grid scale will adapt automatically.', 'Naudokite vidinius auginimo erdvės matmenis. Node ir tinklelio mastelis prisitaikys automatiškai.')}</p>
+        <p>{tr('Use the inside dimensions of the room or greenhouse. The grid and node marker scale adapt automatically.', 'Naudokite vidinius patalpos arba šiltnamio matmenis. Tinklelio ir node žymeklių mastelis prisitaikys automatiškai.')}</p>
         <div className="gh-field-row">
           <label className="gh-field"><span>{tr('Width', 'Plotis')} <em>m</em></span><input type="number" min=".5" step=".1" value={map.dimensions.widthM} onChange={(event) => onMapChange({ ...map, dimensions: { ...map.dimensions, widthM: number(event.target.value, map.dimensions.widthM) } })} /></label>
           <label className="gh-field"><span>{tr('Length', 'Ilgis')} <em>m</em></span><input type="number" min=".5" step=".1" value={map.dimensions.lengthM} onChange={(event) => onMapChange({ ...map, dimensions: { ...map.dimensions, lengthM: number(event.target.value, map.dimensions.lengthM) } })} /></label>
@@ -68,39 +37,19 @@ export default function MapSetupGuide({ area, map, sections, nodes, profiles, la
       </div> : null}
 
       {step === 1 ? <div className="gh-setup-step">
-        <span className="gh-setup-icon"><i className="fa-solid fa-border-all" /></span>
-        <h3>{sections.length ? tr(`${sections.length} Sections ready`, `Paruošta Sections: ${sections.length}`) : tr('Create at least one Section', 'Sukurkite bent vieną Section')}</h3>
-        <p>{tr('Sections are logical crop groups used by profiles, alerts and node assignments. They do not divide the physical map automatically.', 'Sections yra loginės augalų grupės, naudojamos profiliams, perspėjimams ir node priskyrimams. Jos automatiškai nedalija fizinio žemėlapio.')}</p>
-        <div className="gh-setup-list">{sections.map((section) => <span key={section.id}><i className="fa-solid fa-square" /><b>{section.name}</b><small>{section.nodes} node{section.nodes === 1 ? '' : 's'}</small></span>)}</div>
-        <div className="gh-setup-inline-form">
-          <input value={sectionName} onChange={(event) => setSectionName(event.target.value)} placeholder={tr('New Section name', 'Naujos Section pavadinimas')} />
-          <select value={profileId} onChange={(event) => setProfileId(event.target.value)}>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name}</option>)}</select>
-          <button className="primary" type="button" disabled={!sectionName.trim() || Boolean(busy)} onClick={() => { setBusy('section'); void onCreateSection(sectionName.trim(), profileId).then(() => setSectionName('')).finally(() => setBusy('')) }}>{busy === 'section' ? '…' : tr('Create', 'Sukurti')}</button>
-        </div>
-        {!profiles.length ? <button className="primary" type="button" onClick={onOpenSections}>{tr('Open Sections', 'Atidaryti Sections')}</button> : null}
-      </div> : null}
-
-      {step === 2 ? <div className="gh-setup-step">
-        <span className="gh-setup-icon"><i className="fa-solid fa-microchip" /></span>
-        <h3>{nodes.length ? tr(`${nodes.length} nodes placed`, `Išdėstyta nodes: ${nodes.length}`) : tr('No nodes assigned yet', 'Dar nėra priskirtų nodes')}</h3>
-        <p>{tr('Section assignment is logical. Assign the node here, then place it on the map where it is physically installed.', 'Priskyrimas prie Section yra loginis. Priskirkite node čia, o žemėlapyje padėkite ten, kur jis fiziškai sumontuotas.')}</p>
-        <div className="gh-setup-list gh-setup-node-list">{nodes.map((node) => <span key={node.devEui || node.nodeId}><i className={`fa-solid fa-circle gh-node-${node.status}`} /><b>{node.displayName || node.nodeId || node.devEui}</b><select value={node.sectionId || ''} disabled={!node.devEui || Boolean(busy)} onChange={(event) => { setBusy(node.devEui || 'node'); void onAssignNode(node, event.target.value).finally(() => setBusy('')) }}><option value="">{tr('Unassigned', 'Nepriskirtas')}</option>{sections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}</select></span>)}</div>
-        <div className="gh-setup-inline-form">
-          <input value={devEui} maxLength={16} onChange={(event) => setDevEui(event.target.value.replace(/[^0-9a-f]/gi, '').toUpperCase())} placeholder="DevEUI · 16 HEX" />
-          <select value={claimSectionId} onChange={(event) => setClaimSectionId(event.target.value)}><option value="">{tr('Choose Section', 'Pasirinkite Section')}</option>{sections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}</select>
-          <button className="primary" type="button" disabled={devEui.length !== 16 || !claimSectionId || Boolean(busy)} onClick={() => { setBusy('claim'); void onClaimNode(devEui, claimSectionId).then(() => setDevEui('')).finally(() => setBusy('')) }}>{tr('Connect', 'Prijungti')}</button>
-        </div>
-        <button className="gh-scan-node" type="button" onClick={() => qrInputRef.current?.click()}><i className="fa-solid fa-qrcode" />{tr('Scan node QR label', 'Nuskaityti node QR etiketę')}</button>
-        <input ref={qrInputRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => void scanNodeLabel(event.target.files?.[0])} />
-        {scanError ? <p className="gh-scan-error">{scanError}</p> : null}
+        <span className="gh-setup-icon"><i className="fa-solid fa-location-dot" /></span>
+        <h3>{nodes.length ? tr(`${nodes.length} Area nodes ready to place`, `Paruošta išdėstyti Area nodes: ${nodes.length}`) : tr('No nodes assigned to this Area', 'Šiai Area nepriskirta nodes')}</h3>
+        <p>{tr('After closing this guide, drag each node to its real installation point. Section assignments are managed outside Area Map.', 'Uždarę vedlį nutempkite kiekvieną node į tikrą montavimo vietą. Priskyrimai prie Sections valdomi ne Area Map aplinkoje.')}</p>
+        <div className="gh-setup-list gh-setup-node-list">{nodes.map((node) => <span key={node.devEui || node.nodeId}><i className={`fa-solid fa-circle gh-node-${node.status}`} /><b>{node.displayName || node.nodeId || node.devEui}</b><small>{node.sectionName || tr('No Section', 'Be Section')}</small></span>)}</div>
+        <button className="primary" type="button" onClick={onOpenNodes}><i className="fa-solid fa-microchip" /> {tr('Manage nodes', 'Valdyti nodes')}</button>
       </div> : null}
 
       <footer>
-        <button type="button" disabled={step === 0} onClick={() => setStep((current) => current - 1)}>Back</button>
+        <button type="button" disabled={step === 0} onClick={() => setStep((current) => current - 1)}>{tr('Back', 'Atgal')}</button>
         <span />
         {step < steps.length - 1
           ? <button className="primary" type="button" onClick={() => setStep((current) => current + 1)}>{tr('Continue', 'Tęsti')} <i className="fa-solid fa-arrow-right" /></button>
-          : <button className="primary" type="button" onClick={onClose}>{tr('Start editing map', 'Pradėti redaguoti')} <i className="fa-solid fa-check" /></button>}
+          : <button className="primary" type="button" onClick={onClose}>{tr('Start placing nodes', 'Pradėti dėlioti nodes')} <i className="fa-solid fa-check" /></button>}
       </footer>
     </section>
   </div>
