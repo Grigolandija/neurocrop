@@ -135,6 +135,13 @@ type ChartInput = {
   color: string
 }
 
+type MetricChartInput = {
+  metric: Metric
+  points: Point[]
+  color: string
+  target: [number, number] | null
+}
+
 function TrendChart({ series, metric, target, range }: { series: ChartInput[]; metric: Metric; target: [number, number] | null; range: RangeKey }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -288,6 +295,152 @@ function TrendChart({ series, metric, target, range }: { series: ChartInput[]; m
   return <div className="nc-trends-chart" ref={ref} role="img" aria-label={`${metric.label}, ${range} trend`} />
 }
 
+function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: RangeKey }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const echarts = window.echarts as {
+      init?: (element: HTMLElement) => { setOption: (option: JsonRecord) => void; resize: () => void; dispose: () => void }
+    } | undefined
+    const visibleItems = items.filter((item) => item.points.length > 1)
+    if (!ref.current || !visibleItems.length) return
+    if (visibleItems.length === 1) {
+      const item = visibleItems[0]
+      const sharedRenderer = (window as typeof window & {
+        NeuroCropTrendCharts?: {
+          render: (element: HTMLElement, input: JsonRecord) => { resize: () => void; dispose: () => void } | null
+        }
+      }).NeuroCropTrendCharts
+      const singleChart = sharedRenderer?.render(ref.current, {
+        points: item.points,
+        metricKey: item.metric.key,
+        label: item.metric.label,
+        unit: item.metric.unit,
+        decimals: item.metric.decimals,
+        target: item.target,
+        rangeKey: range,
+      })
+      if (!singleChart) return
+      const singleObserver = new ResizeObserver(() => singleChart.resize())
+      singleObserver.observe(ref.current)
+      return () => {
+        singleObserver.disconnect()
+        singleChart.dispose()
+      }
+    }
+    if (!echarts?.init) return
+    const chart = echarts.init(ref.current)
+    const stacked = visibleItems.length > 2
+    const axisStyle = (item: MetricChartInput, index: number) => {
+      const values = item.points.map((point) => point.value)
+      const domain = item.target ? [...values, ...item.target] : values
+      const minimum = Math.min(...domain)
+      const maximum = Math.max(...domain)
+      const padding = Math.max((maximum - minimum) * .12, 10 ** -item.metric.decimals * 4)
+      return {
+        type: 'value',
+        gridIndex: stacked ? index : 0,
+        position: !stacked && index === 1 ? 'right' : 'left',
+        min: minimum - padding,
+        max: maximum + padding,
+        splitNumber: stacked ? 3 : 4,
+        name: `${item.metric.short} (${item.metric.unit})`,
+        nameLocation: 'middle',
+        nameGap: 56,
+        nameRotate: !stacked && index === 1 ? -90 : 90,
+        axisLine: { show: true, lineStyle: { color: item.color, width: 1.2 } },
+        axisTick: { show: true, lineStyle: { color: item.color } },
+        axisLabel: { color: item.color, fontSize: 11, fontWeight: 500, margin: 12, formatter: (value: number) => format(value, item.metric) },
+        nameTextStyle: { color: item.color, fontSize: 11, fontWeight: 600 },
+        splitLine: { show: index === 0 || stacked, lineStyle: { color: 'rgba(216, 219, 215, .72)', width: 1 } },
+      }
+    }
+    const timeAxis = (index: number) => ({
+      type: 'time',
+      gridIndex: stacked ? index : 0,
+      boundaryGap: false,
+      name: !stacked || index === visibleItems.length - 1 ? `Time (${range})` : '',
+      nameLocation: 'middle',
+      nameGap: 34,
+      axisLine: { show: true, lineStyle: { color: 'rgba(32, 37, 34, .30)', width: 1.2 } },
+      axisTick: { show: !stacked || index === visibleItems.length - 1 },
+      axisLabel: { show: !stacked || index === visibleItems.length - 1, color: '#5d655f', fontSize: 11, fontWeight: 500, hideOverlap: true },
+      nameTextStyle: { color: '#5d655f', fontSize: 11, fontWeight: 600 },
+      splitLine: { show: false },
+    })
+    chart.setOption({
+      animation: false,
+      color: visibleItems.map((item) => item.color),
+      textStyle: { fontFamily: 'IBM Plex Sans, sans-serif', color: '#202522' },
+      grid: stacked
+        ? visibleItems.map((_, index) => ({ left: 88, right: 36, top: `${10 + index * 29}%`, height: '21%' }))
+        : { left: 88, right: 88, top: 58, bottom: 52 },
+      legend: {
+        top: 10,
+        left: 88,
+        right: 36,
+        type: 'scroll',
+        itemWidth: 18,
+        itemHeight: 3,
+        icon: 'roundRect',
+        textStyle: { color: '#5d655f', fontSize: 12, fontWeight: 500 },
+      },
+      tooltip: {
+        trigger: 'axis',
+        confine: true,
+        backgroundColor: 'rgba(37, 43, 41, .97)',
+        borderColor: 'rgba(255, 255, 255, .22)',
+        borderWidth: 1,
+        padding: [10, 12],
+        textStyle: { color: '#fff', fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 12 },
+        axisPointer: { type: 'cross', label: { backgroundColor: '#252b29', color: '#fff' } },
+      },
+      axisPointer: stacked ? { link: [{ xAxisIndex: 'all' }] } : undefined,
+      xAxis: stacked ? visibleItems.map((_, index) => timeAxis(index)) : timeAxis(0),
+      yAxis: visibleItems.map(axisStyle),
+      series: visibleItems.map((item, index) => ({
+        name: item.metric.label,
+        type: 'line',
+        xAxisIndex: stacked ? index : 0,
+        yAxisIndex: index,
+        showSymbol: false,
+        smooth: range === '24h' ? .32 : false,
+        smoothMonotone: range === '24h' ? 'x' : undefined,
+        connectNulls: false,
+        animation: false,
+        lineStyle: { width: 2, cap: 'round', join: 'round' },
+        emphasis: { focus: 'series' },
+        tooltip: { valueFormatter: (value: unknown) => `${format(Number(value), item.metric)} ${item.metric.unit}` },
+        data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value]),
+        markArea: item.target ? {
+          silent: true,
+          itemStyle: { color: `${item.color}14` },
+          data: [[{ yAxis: item.target[0] }, { yAxis: item.target[1] }]],
+        } : undefined,
+        markLine: item.target ? {
+          silent: true,
+          symbol: ['none', 'none'],
+          lineStyle: { color: item.color, width: 1, type: 'dashed', opacity: .65 },
+          label: {
+            show: stacked,
+            position: 'insideStartTop',
+            color: item.color,
+            fontSize: 10,
+            formatter: (parameters: JsonRecord) => `${format(Number(parameters.value), item.metric)} ${item.metric.unit}`,
+          },
+          data: [{ yAxis: item.target[0] }, { yAxis: item.target[1] }],
+        } : undefined,
+      })),
+    })
+    const observer = new ResizeObserver(() => chart.resize())
+    observer.observe(ref.current)
+    return () => {
+      observer.disconnect()
+      chart.dispose()
+    }
+  }, [items, range])
+  return <div className="nc-trends-chart nc-trends-multi-chart" ref={ref} role="img" aria-label={`${items.map((item) => item.metric.label).join(', ')}, ${range} trend`} />
+}
+
 function SectionPicker({ sections, selectedId, recentIds, onSelect }: {
   sections: Section[]
   selectedId: string
@@ -439,11 +592,15 @@ export default function TrendsWorkspace() {
   const [areaId, setAreaId] = useState(String(stored.areaId || ''))
   const [sectionId, setSectionId] = useState(String(stored.sectionId || ''))
   const [metricKey, setMetricKey] = useState(String(stored.metricKey || 'airTemp'))
+  const [secondaryMetricKeys, setSecondaryMetricKeys] = useState<string[]>(
+    Array.isArray(stored.secondaryMetricKeys) ? stored.secondaryMetricKeys.map(String).slice(0, 2) : [],
+  )
   const [range, setRange] = useState<RangeKey>(['24h', '7d', '30d'].includes(stored.range) ? stored.range : '24h')
   const [recentSectionIds, setRecentSectionIds] = useState<string[]>(Array.isArray(stored.recentSectionIds) ? stored.recentSectionIds.map(String).slice(0, 5) : [])
   const [compare, setCompare] = useState(false)
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
   const [points, setPoints] = useState<Point[]>([])
+  const [metricHistories, setMetricHistories] = useState<Record<string, Point[]>>({})
   const [comparison, setComparison] = useState<ChartInput[]>([])
   const [analytics, setAnalytics] = useState<JsonRecord | null>(null)
   const [status, setStatus] = useState<LoadState>('loading')
@@ -453,6 +610,8 @@ export default function TrendsWorkspace() {
 
   const selectedSection = sections.find((section) => section.id === sectionId) || sections[0]
   const selectedMetric = metrics.find((metric) => metric.key === metricKey) || metrics[0]
+  const activeMetricKeys = [metricKey, ...secondaryMetricKeys.filter((key) => key !== metricKey)].slice(0, 3)
+  const metricSelectionKey = activeMetricKeys.join(',')
   const areas = useMemo(() => [...new Map(sections.map((section) => [section.areaId, section.areaName])).entries()], [sections])
   const areaSections = sections.filter((section) => !areaId || section.areaId === areaId)
   const availableMetrics = metrics.filter((metric) => selectedSection?.available.has(metric.key))
@@ -474,6 +633,7 @@ export default function TrendsWorkspace() {
         if (!initialSection.available.has(metricKey)) {
           setMetricKey(metrics.find((metric) => initialSection.available.has(metric.key))?.key || 'airTemp')
         }
+        setSecondaryMetricKeys((current) => current.filter((key) => initialSection.available.has(key)).slice(0, 2))
       }
     }).catch((reason) => {
       if (!active) return
@@ -501,6 +661,7 @@ export default function TrendsWorkspace() {
     const config = rangeConfig[range]
     const to = new Date()
     const from = new Date(to.getTime() - config.hours * 60 * 60 * 1000)
+    const requestedMetricKeys = compare ? [metricKey] : activeMetricKeys
     let active = true
     queueMicrotask(() => {
       if (!active) return
@@ -509,12 +670,20 @@ export default function TrendsWorkspace() {
       setComparison([])
     })
     Promise.all([
-      neurocropApi.getHistory({ sectionId: selectedSection.id, metric: metricKey, from: from.toISOString(), to: to.toISOString(), stepMinutes: config.stepMinutes }),
+      Promise.all(requestedMetricKeys.map((key) => neurocropApi.getHistory({
+        sectionId: selectedSection.id,
+        metric: key,
+        from: from.toISOString(),
+        to: to.toISOString(),
+        stepMinutes: config.stepMinutes,
+      }).then((payload) => [key, historyPoints(payload as JsonRecord)] as const))),
       neurocropApi.getSectionAnalytics({ sectionId: selectedSection.id, metric: metricKey, from: from.toISOString(), to: to.toISOString(), stepMinutes: config.stepMinutes })
         .catch(() => null),
-    ]).then(([historyPayload, analyticsPayload]) => {
+    ]).then(([histories, analyticsPayload]) => {
       if (!active) return
-      const nextPoints = historyPoints(historyPayload as JsonRecord)
+      const nextHistories = Object.fromEntries(histories)
+      const nextPoints = nextHistories[metricKey] || []
+      setMetricHistories(nextHistories)
       setPoints(nextPoints)
       setAnalytics(analyticsPayload as JsonRecord)
       setStatus(nextPoints.length > 1 ? 'ready' : 'empty')
@@ -522,12 +691,15 @@ export default function TrendsWorkspace() {
     }).catch((reason) => {
       if (!active) return
       setPoints([])
+      setMetricHistories({})
       setAnalytics(null)
       setError(reason instanceof Error ? reason.message : 'Trend data could not be loaded.')
       setStatus('error')
     })
     return () => { active = false }
-  }, [metricKey, range, refreshToken, selectedSection])
+  // metricSelectionKey intentionally represents the complete ordered metric selection.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compare, metricKey, metricSelectionKey, range, refreshToken, selectedSection])
 
   useEffect(() => {
     if (!selectedSection) return
@@ -537,8 +709,9 @@ export default function TrendsWorkspace() {
       metricKey,
       range,
       recentSectionIds,
+      secondaryMetricKeys,
     }))
-  }, [metricKey, range, recentSectionIds, selectedSection])
+  }, [metricKey, range, recentSectionIds, secondaryMetricKeys, selectedSection])
 
   useEffect(() => {
     if (!compare || !selectedSection || comparisonIds.length < 2) {
@@ -597,11 +770,20 @@ export default function TrendsWorkspace() {
   const coveredMinutes = number(timeInTarget.coveredMinutes) || 0
   const targetPct = expectedMinutes ? Math.round(optimalMinutes / expectedMinutes * 100) : null
   const coveragePct = expectedMinutes ? Math.min(100, Math.round(coveredMinutes / expectedMinutes * 100)) : null
-  const showMeasuredConclusion = !compare && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
+  const showMeasuredConclusion = !compare && activeMetricKeys.length === 1 && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
   const events = Array.isArray(analytics?.events) ? analytics.events.slice(-6).reverse() : []
   const chartSeries = compare && comparison.length > 1
     ? comparison
     : [{ name: selectedSection?.name || 'Selected section', points, color: chartColors[0] }]
+  const metricChartItems = activeMetricKeys.map((key, index) => {
+    const metric = metrics.find((item) => item.key === key) || metrics[0]
+    return {
+      metric,
+      points: metricHistories[key] || [],
+      color: chartColors[index % chartColors.length],
+      target: profileRange(profiles, selectedSection?.profileId || '', key),
+    }
+  })
 
   function changeArea(nextAreaId: string) {
     setAreaId(nextAreaId)
@@ -617,6 +799,31 @@ export default function TrendsWorkspace() {
     setAreaId(section.areaId)
     setRecentSectionIds((current) => [section.id, ...current.filter((id) => id !== section.id)].slice(0, 5))
     if (!section.available.has(metricKey)) setMetricKey(metrics.find((metric) => section.available.has(metric.key))?.key || metricKey)
+    setSecondaryMetricKeys((current) => current.filter((key) => section.available.has(key)).slice(0, 2))
+  }
+
+  function toggleMetric(nextMetricKey: string) {
+    const selectedKeys = activeMetricKeys
+    if (compare) {
+      setMetricKey(nextMetricKey)
+      return
+    }
+    if (selectedKeys.includes(nextMetricKey)) {
+      if (selectedKeys.length === 1) return
+      const remaining = selectedKeys.filter((key) => key !== nextMetricKey)
+      setMetricKey(remaining[0])
+      setSecondaryMetricKeys(remaining.slice(1, 3))
+      return
+    }
+    if (selectedKeys.length >= 3) return
+    setSecondaryMetricKeys((current) => [...current.filter((key) => key !== nextMetricKey), nextMetricKey].slice(0, 2))
+  }
+
+  function applyMetricPreset(preset: string[]) {
+    const available = preset.filter((key) => selectedSection?.available.has(key)).slice(0, 3)
+    if (!available.length) return
+    setMetricKey(available[0])
+    setSecondaryMetricKeys(available.slice(1))
   }
 
   function toggleComparison(id: string) {
@@ -655,7 +862,25 @@ export default function TrendsWorkspace() {
       <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />Compare Sections</button>
     </section>
 
-    <nav className="nc-trends-metrics" aria-label="Metric">{(availableMetrics.length ? availableMetrics : metrics.slice(0, 4)).map((metric) => <button type="button" data-active={metric.key === metricKey} onClick={() => setMetricKey(metric.key)} key={metric.key}><i className={`fa-solid ${metric.icon}`} /><span>{metric.short}</span></button>)}</nav>
+    <section className="nc-trends-metric-controls">
+      <div className="nc-trends-metric-presets">
+        <span>{compare ? 'Select one parameter for comparison' : `Select up to 3 parameters · ${activeMetricKeys.length}/3 selected`}</span>
+        {!compare ? <div>
+          <button type="button" onClick={() => applyMetricPreset(['airTemp', 'humidity', 'vpd'])}>Climate</button>
+          <button type="button" onClick={() => applyMetricPreset(['soilMoisture', 'ec', 'ph'])}>Root zone</button>
+        </div> : null}
+      </div>
+      <nav className="nc-trends-metrics" aria-label="Metric">{(availableMetrics.length ? availableMetrics : metrics.slice(0, 4)).map((metric) => {
+        const selectedIndex = (compare ? [metricKey] : activeMetricKeys).indexOf(metric.key)
+        const selected = selectedIndex >= 0
+        const selectionLimitReached = !compare && !selected && activeMetricKeys.length >= 3
+        return <button type="button" data-active={selected} aria-pressed={selected} disabled={selectionLimitReached} title={selectionLimitReached ? 'Remove a selected parameter before adding another.' : undefined} onClick={() => toggleMetric(metric.key)} key={metric.key}>
+          <i className={`fa-solid ${metric.icon}`} />
+          <span>{metric.short}</span>
+          {selected ? <b>{selectedIndex + 1}</b> : null}
+        </button>
+      })}</nav>
+    </section>
 
     {compare ? <section className="nc-trends-comparison-picker"><div><strong>Compare Sections</strong><span>Select 2–6 Sections in {selectedSection?.areaName}.</span></div><div>{sections.filter((section) => section.areaId === selectedSection?.areaId && section.available.has(metricKey)).map((section) => <label key={section.id}><input type="checkbox" checked={comparisonIds.includes(section.id)} onChange={() => toggleComparison(section.id)} /><span>{section.name}</span></label>)}</div></section> : null}
 
@@ -668,13 +893,19 @@ export default function TrendsWorkspace() {
 
     <section className="nc-trends-main">
       <article className="nc-trends-chart-card">
-        <header><div><p>{compare ? 'Section comparison' : 'Measured history'}</p><h2>{selectedMetric.label}</h2><span>{selectedSection?.areaName} · {compare ? `${comparisonIds.length} Sections` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
+        <header><div><p>{compare ? 'Section comparison' : activeMetricKeys.length > 1 ? 'Combined measured history' : 'Measured history'}</p><h2>{compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
         {showMeasuredConclusion ? <div className="nc-trends-chart-conclusion" data-tone={summary.tone}>
           <span>Measured conclusion</span>
           <strong>{summary.title}</strong>
           <p>{summary.body}</p>
         </div> : null}
-        {status === 'ready' || comparison.length > 1 ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} /> : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{status === 'loading' ? 'Loading measured history' : status === 'error' ? 'History could not be loaded' : 'Not enough measurements yet'}</strong><span>{error || 'At least two measured points are required to draw a trend.'}</span></div>}
+        {status === 'ready' || comparison.length > 1
+          ? compare
+            ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
+            : activeMetricKeys.length > 1
+              ? <MultiMetricChart items={metricChartItems} range={range} />
+              : <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
+          : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{status === 'loading' ? 'Loading measured history' : status === 'error' ? 'History could not be loaded' : 'Not enough measurements yet'}</strong><span>{error || 'At least two measured points are required to draw a trend.'}</span></div>}
       </article>
     </section>
 

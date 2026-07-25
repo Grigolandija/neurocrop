@@ -120,6 +120,31 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-range button.active { background: #fff; color: var(--trends-ink); box-shadow: 0 2px 7px rgba(26, 43, 34, .1); }
 .designer-app .nc-trends-compare-toggle.active { border-color: #5b7e91; background: #edf5f8; color: #315e75; }
 
+.designer-app .nc-trends-metric-controls {
+  display: grid;
+  gap: 8px;
+  border-bottom: 1px solid var(--trends-line);
+  padding-bottom: 10px;
+}
+.designer-app .nc-trends-metric-presets {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.designer-app .nc-trends-metric-presets > span { color: var(--trends-muted); font-size: 11px; font-weight: 650; }
+.designer-app .nc-trends-metric-presets > div { display: flex; gap: 6px; }
+.designer-app .nc-trends-metric-presets button {
+  min-height: 30px;
+  border: 1px solid var(--trends-line);
+  border-radius: 999px;
+  padding: 0 11px;
+  background: #fff;
+  color: #53635b;
+  font-size: 11px;
+  font-weight: 700;
+}
+.designer-app .nc-trends-metric-presets button:hover { border-color: #5c8c80; color: #216b5f; }
 .designer-app .nc-trends-metrics {
   display: flex;
   gap: 7px;
@@ -142,6 +167,18 @@ body.designer-app .nc-trends-section-search input {
   font-weight: 650;
 }
 .designer-app .nc-trends-metrics button[data-active="true"] { border-color: #2b8071; background: #e7f2ed; color: #216b5f; }
+.designer-app .nc-trends-metrics button:disabled { cursor: not-allowed; opacity: .42; }
+.designer-app .nc-trends-metrics button b {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  background: #287f70;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+}
 
 .designer-app .nc-trends-comparison-picker {
   display: flex;
@@ -205,6 +242,7 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-updated,
 .designer-app .nc-trends-lower header > span { color: var(--trends-muted); font-size: 11px; font-weight: 650; white-space: nowrap; }
 .designer-app .nc-trends-chart { width: 100%; height: clamp(520px, 48vw, 660px); min-height: 520px; }
+.designer-app .nc-trends-multi-chart { height: clamp(580px, 54vw, 760px); min-height: 580px; }
 .designer-app .nc-trends-empty { display: grid; min-height: 430px; place-items: center; align-content: center; gap: 8px; padding: 28px; color: var(--trends-muted); text-align: center; }
 .designer-app .nc-trends-empty i { font-size: 24px; }
 .designer-app .nc-trends-empty strong { color: var(--trends-ink); font-size: 15px; }
@@ -269,11 +307,13 @@ body[data-primary-page="history"] #historySection > .trend-history-shell { displ
   .designer-app .nc-trends-range button { flex: 1; }
   .designer-app .nc-trends-comparison-picker { align-items: stretch; flex-direction: column; }
   .designer-app .nc-trends-comparison-picker > div:last-child { justify-content: flex-start; }
+  .designer-app .nc-trends-metric-presets { align-items: flex-start; flex-direction: column; }
   .designer-app .nc-trends-kpis { grid-template-columns: 1fr 1fr; }
   .designer-app .nc-trends-kpis article { padding: 14px; }
   .designer-app .nc-trends-kpis strong { font-size: 19px; }
   .designer-app .nc-trends-chart-conclusion { grid-template-columns: 1fr; gap: 5px; padding: 13px 15px; }
   .designer-app .nc-trends-chart { height: 330px; min-height: 330px; }
+  .designer-app .nc-trends-multi-chart { height: 600px; min-height: 600px; }
   .designer-app .nc-trends-empty { min-height: 330px; }
   .designer-app .nc-trends-distribution { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; }
 }
