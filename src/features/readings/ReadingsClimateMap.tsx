@@ -1,43 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import GreenhouseCanvas from '../greenhouse-map/components/GreenhouseCanvas'
-import { METRICS, type GreenhouseMap, type MetricKey } from '../greenhouse-map/model'
+import { METRICS, type MetricKey } from '../greenhouse-map/model'
 import {
   areaMapRepository,
-  createAreaMap,
-  mergeAreaMapContext,
   type AreaMapContext,
 } from '../greenhouse-map/services/areaMapRepository'
+import { prepareReadOnlyClimateMap } from './prepareReadOnlyClimateMap'
 
 const climateMetrics: MetricKey[] = ['air-temperature', 'relative-humidity', 'co2', 'vpd']
 
 type Props = {
   areaId: string
   refreshToken: number
-}
-
-function prepareReadOnlyMap(context: AreaMapContext, metric: MetricKey): GreenhouseMap {
-  const source = context.map
-    ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections)
-    : createAreaMap(context.area, context.nodes, context.sections)
-  const visibleLayerIds = new Set(['structure', 'cultivation', 'irrigation', 'climate', 'lighting', 'environment', 'labels'])
-  return {
-    ...source,
-    layers: source.layers.map((layer) => ({
-      ...layer,
-      visible: visibleLayerIds.has(layer.id),
-      locked: true,
-      opacity: layer.id === 'environment' ? 1 : layer.opacity,
-    })),
-    objects: source.objects.flatMap((object) => object.type === 'section-zone' ? [] : [{ ...object, locked: true }]),
-    heatmapSettings: {
-      ...source.heatmapSettings,
-      enabled: true,
-      metric,
-      opacity: Math.max(.88, source.heatmapSettings.opacity),
-      scaleMode: 'auto',
-      showConfidence: true,
-    },
-  }
 }
 
 export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
@@ -57,6 +31,8 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
     areaMapRepository.load(areaId)
       .then((next) => {
         if (cancelled) return
+        const savedMetric = next.map?.heatmapSettings.metric
+        setMetric(savedMetric && climateMetrics.includes(savedMetric) ? savedMetric : 'air-temperature')
         setContext(next)
         setStatus('ready')
       })
@@ -69,7 +45,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
     return () => { cancelled = true }
   }, [areaId, refreshToken])
 
-  const map = useMemo(() => context ? prepareReadOnlyMap(context, metric) : null, [context, metric])
+  const map = useMemo(() => context ? prepareReadOnlyClimateMap(context, metric) : null, [context, metric])
   const validNodes = map?.objects.filter((object) => {
     const sensor = object.metadata.sensor
     if (!sensor || sensor.status === 'offline' || sensor.status === 'stale') return false

@@ -91,4 +91,51 @@ describe('Area Map API context integration', () => {
     expect(small).toBeLessThan(medium)
     expect(medium).toBeLessThan(large)
   })
+
+  it('keeps saved interpolation settings in the read-only climate map', async () => {
+    const { prepareReadOnlyClimateMap } = await import('../../readings/prepareReadOnlyClimateMap')
+    const map = createDemoMap()
+    map.areaId = 'area-1'
+    map.heatmapSettings = {
+      ...map.heatmapSettings,
+      metric: 'air-temperature',
+      idwPower: 5.9,
+      opacity: 0.72,
+      showConfidence: false,
+      scaleMode: 'manual',
+      manualMin: 18,
+      manualMax: 24,
+    }
+    const context = {
+      area: { id: 'area-1', name: 'Production greenhouse' },
+      map,
+      revision: 3,
+      updatedAt: '2026-07-25T12:00:00Z',
+      nodes,
+      sections,
+      profiles: [],
+      actions: [],
+      permissions: { canEdit: true },
+    }
+
+    const savedMetric = prepareReadOnlyClimateMap(context, 'air-temperature')
+    expect(savedMetric.heatmapSettings).toMatchObject({
+      idwPower: 5.9,
+      opacity: 0.72,
+      showConfidence: false,
+      scaleMode: 'manual',
+      manualMin: 18,
+      manualMax: 24,
+    })
+
+    const otherMetric = prepareReadOnlyClimateMap(context, 'relative-humidity')
+    expect(otherMetric.heatmapSettings).toMatchObject({
+      idwPower: 5.9,
+      opacity: 0.72,
+      showConfidence: false,
+      scaleMode: 'auto',
+    })
+    expect(otherMetric.heatmapSettings.manualMin).toBeUndefined()
+    expect(otherMetric.heatmapSettings.manualMax).toBeUndefined()
+  })
 })
