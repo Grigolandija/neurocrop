@@ -6,6 +6,18 @@ RewriteEngine On
   Header always set X-Frame-Options "DENY"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+
+  # Hashed build assets are content-addressed and safe to cache permanently.
+  <FilesMatch "\.(css|js|woff2)$">
+    Header always set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # The application shell must always discover the newest hashed Vite bundle.
+  <FilesMatch "^(index\.html|runtime-config\.js|approved-dashboard-runtime\.js|neurocrop-state-engine\.js)$">
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header always set Pragma "no-cache"
+    Header always set Expires "0"
+  </FilesMatch>
 </IfModule>
 
 # Serve real files and directories normally.
