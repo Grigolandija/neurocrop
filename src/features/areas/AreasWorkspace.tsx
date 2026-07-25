@@ -234,15 +234,8 @@ export default function AreasWorkspace() {
       const payload = { name: editor.name.trim(), kind: editor.kind, location: editor.location.trim() }
       if (editor.mode === 'edit' && editor.id) await neurocropApi.updateArea(editor.id, payload)
       else {
-        const response = await neurocropApi.createArea(payload) as { area?: { id?: unknown } }
-        const createdAreaId = String(response.area?.id || '')
-        window.dispatchEvent(new CustomEvent('neurocrop:workspace-structure-changed', {
-          detail: {
-            route: createdAreaId
-              ? `/sections?area=${encodeURIComponent(createdAreaId)}&create=1`
-              : '/sections',
-          },
-        }))
+        await neurocropApi.createArea(payload)
+        window.dispatchEvent(new CustomEvent('neurocrop:workspace-structure-changed'))
       }
       setFeedback({ tone: 'success', message: editor.mode === 'edit' ? 'Area updated.' : 'Area created.' })
       setEditor(null)
