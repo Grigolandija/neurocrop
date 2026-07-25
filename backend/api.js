@@ -1700,6 +1700,7 @@ app.post(
 
 app.get('/actions/history', requireAuth, async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store');
     const organizationId = getOrganizationId(req);
     const limit = Math.max(1, Math.min(Math.floor(Number(req.query.limit) || 20), 100));
     const { rows: feedbackRows } = await query(
@@ -1939,13 +1940,26 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     }
 
     const devEuis = nodeRows.map((node) => normalizeDevEui(node.dev_eui));
-    const { rows: latestRows } = await query(
-      `SELECT DISTINCT ON (dev_eui) *
-       FROM measurements
-       WHERE dev_eui = ANY($1::text[])
-       ORDER BY dev_eui, time DESC`,
+    const { rows: recentRows } = await query(
+      `SELECT recent.*
+       FROM unnest($1::text[]) requested(dev_eui)
+       JOIN LATERAL (
+         SELECT measurement.*
+         FROM measurements measurement
+         WHERE measurement.dev_eui=requested.dev_eui
+         ORDER BY measurement.time DESC
+         LIMIT 100
+       ) recent ON TRUE
+       ORDER BY recent.dev_eui, recent.time DESC`,
       [devEuis]
     );
+    const recentByDevEui = new Map();
+    recentRows.forEach((row) => {
+      const devEui = normalizeDevEui(row.dev_eui);
+      if (!recentByDevEui.has(devEui)) recentByDevEui.set(devEui, []);
+      recentByDevEui.get(devEui).push(row);
+    });
+    const latestRows = [...recentByDevEui.values()].flatMap((rows) => rows.slice(0, 1));
     const latestByDevEui = new Map(latestRows.map((row) => [normalizeDevEui(row.dev_eui), row]));
     const samples = nodeRows.map((node) => ({
       node,
@@ -2034,7 +2048,51 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
       return collected;
     };
 
-    const sourcesByMetric = collectSourcesByMetric(currentSamples);
+    const collectLatestKnownSourcesByMetric = () => {
+      const metricSamples = [];
+      nodeRows.forEach((node) => {
+        const measurements = recentByDevEui.get(normalizeDevEui(node.dev_eui)) || [];
+        for (const [column, metric] of Object.entries(METRIC_MAP)) {
+          const measurement = measurements.find((candidate) =>
+            measurementReportsMetric(candidate, metric)
+            && normalizeTelemetryNumber(candidate[column]) !== null
+          );
+          if (measurement) metricSamples.push({ node, measurement, metric, value: measurement[column] });
+        }
+        const vpdMeasurement = measurements.find((candidate) =>
+          measurementReportsMetric(candidate, 'airTemp')
+          && measurementReportsMetric(candidate, 'humidity')
+          && normalizeTelemetryNumber(calcVPD(candidate.temperature, candidate.humidity)) !== null
+        );
+        if (vpdMeasurement) {
+          metricSamples.push({
+            node,
+            measurement: vpdMeasurement,
+            metric: 'vpd',
+            value: calcVPD(vpdMeasurement.temperature, vpdMeasurement.humidity)
+          });
+        }
+      });
+
+      const collected = {};
+      metricSamples.forEach((sample) => {
+        if (!collected[sample.metric]) collected[sample.metric] = [];
+        collected[sample.metric].push({
+          value: normalizeTelemetryNumber(sample.value),
+          observedAt: sample.measurement.time,
+          expectedIntervalSec: sample.metric === 'batteryLevel'
+            ? Math.max(METRIC_INTERVAL_SEC[sample.metric] || 600, expectedIntervalForSample(sample))
+            : expectedIntervalForSample(sample),
+          devEui: normalizeDevEui(sample.node.dev_eui),
+          nodeName: sample.node.name || sample.node.dev_eui
+        });
+      });
+      return collected;
+    };
+
+    // Keep last-known values visible after an uplink interruption. Their own
+    // timestamps let the client mark them delayed or offline instead of "No data".
+    const sourcesByMetric = collectLatestKnownSourcesByMetric();
     const oneHourBaselineSourcesByMetric = collectSourcesByMetric(oneHourBaselineSamples);
 
     const observations = Object.fromEntries(

@@ -117,11 +117,13 @@ test('node deletion supports explicit history retention and permanent purge', ()
   assert.doesNotMatch(block, /NODE_HAS_HISTORY/);
 });
 
-test('current section aggregates exclude interrupted node samples', () => {
+test('latest section readings retain timestamped last-known values after interruption', () => {
   const block = routeBlock(apiSource, "app.get('/readings/latest'");
   assert.match(block, /status === 'live' \|\| status === 'delayed'/);
-  assert.match(block, /collectSourcesByMetric\(currentSamples\)/);
-  assert.doesNotMatch(block, /collectSourcesByMetric\(reportingSamples\)/);
+  assert.match(block, /JOIN LATERAL/);
+  assert.match(block, /LIMIT 100/);
+  assert.match(block, /collectLatestKnownSourcesByMetric\(\)/);
+  assert.match(block, /measurements\.find/);
   assert.match(block, /reportingNodes: currentSamples\.length/);
   assert.match(block, /leastFreshSource/);
   assert.match(block, /expectedIntervalSec: leastFreshSource\.expectedIntervalSec/);

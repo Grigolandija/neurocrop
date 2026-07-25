@@ -1259,11 +1259,13 @@ test('live agronomic actions bypass browser and intermediary caches', () => {
   const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   const frontendApi = fs.readFileSync(new URL('../../src/services/api/neurocropApi.ts', import.meta.url), 'utf8');
   assert.match(api, /app\.get\('\/actions\/today'[\s\S]*?Cache-Control', 'no-store'/);
+  assert.match(api, /app\.get\('\/actions\/history'[\s\S]*?Cache-Control', 'no-store'/);
   assert.match(api, /workflowAction:/);
   assert.match(api, /feedback\.action_payload/);
   assert.match(api, /getActionVerificationPolicy\(action\.metricId\)/);
   assert.match(api, /completedVerificationEndsAt/);
   assert.match(frontendApi, /getTodayActions:[\s\S]*?cache: 'no-store'/);
+  assert.match(frontendApi, /getActionHistory:[\s\S]*?cache: 'no-store'/);
 });
 
 test('overview action summary is tenant and Area scoped', () => {
@@ -1319,4 +1321,17 @@ test('latest readings expose a one-hour change from a bounded historical baselin
   assert.match(route, /INTERVAL '40 minutes'/);
   assert.match(route, /oneHourBaselineSourcesByMetric/);
   assert.match(route, /change1h:/);
+});
+
+test('latest readings keep the newest valid value per metric when uplinks are stale or partial', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.get('/readings/latest'");
+  const route = source.slice(routeStart, source.indexOf("function historicalSensorPresenceCondition", routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /JOIN LATERAL/);
+  assert.match(route, /LIMIT 100/);
+  assert.match(route, /collectLatestKnownSourcesByMetric/);
+  assert.match(route, /measurementReportsMetric\(candidate, metric\)/);
+  assert.match(route, /observedAt: sample\.measurement\.time/);
+  assert.doesNotMatch(route, /const sourcesByMetric = collectSourcesByMetric\(currentSamples\)/);
 });

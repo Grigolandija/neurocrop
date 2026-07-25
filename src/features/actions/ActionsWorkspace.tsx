@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 // API payloads intentionally remain flexible while the legacy dashboard is still being retired.
@@ -108,6 +108,7 @@ export default function ActionsWorkspace() {
   const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>(emptyAssignmentForm)
   const [assignmentError, setAssignmentError] = useState('')
   const [adminMenuOpen, setAdminMenuOpen] = useState(false)
+  const previousVerificationCount = useRef(0)
 
   async function load() {
     setLoading(true)
@@ -186,6 +187,14 @@ export default function ActionsWorkspace() {
   const completed = useMemo(() => history.filter((item) =>
     item.status !== 'in_progress' && displayStatus(item, String(item.status)) !== 'awaiting_verification',
   ), [history])
+
+  useEffect(() => {
+    if (tab === 'verification' && previousVerificationCount.current > 0 && verification.length === 0 && completed.length > 0) {
+      setTab('completed')
+    }
+    previousVerificationCount.current = verification.length
+  }, [completed.length, tab, verification.length])
+
   const source = tab === 'todo' ? todo : tab === 'in_progress' ? inProgress : tab === 'verification' ? verification : completed
   const areas = useMemo(() => [...new Set([...today, ...history].map((item) => String(item.areaName || '')).filter(Boolean))].sort(), [history, today])
   const employees = useMemo(() => [...new Set([

@@ -560,9 +560,9 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 .nc-coverage-row {
   display: grid;
   width: 100%;
-  grid-template-columns: 52px minmax(130px, 1fr) 86px minmax(210px, .95fr) 16px;
+  grid-template-columns: 52px minmax(130px, 1fr) minmax(104px, .34fr) minmax(250px, 1.05fr) 16px;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
   min-height: clamp(82px, 10vh, 102px);
   padding: 0 2px 0 0;
   border: 0;
@@ -658,6 +658,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   color: #718078;
   font-size: 11px;
   font-weight: 750;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
@@ -685,22 +686,29 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 }
 
 .nc-row-deviation {
-  display: inline-flex;
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, .58fr);
   align-items: center;
-  justify-content: flex-end;
-  gap: 7px;
+  gap: 14px;
 }
 
 .nc-row-deviation b {
+  display: block;
   color: currentColor;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1.35;
+  text-align: right;
 }
 
 .nc-row-deviation em {
+  display: block;
   color: #718078;
   font-size: 11px;
   font-style: normal;
+  line-height: 1.35;
+  text-align: right;
 }
 
 .nc-coverage-row > .nc-coverage-chevron {

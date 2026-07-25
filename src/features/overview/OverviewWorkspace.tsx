@@ -1012,7 +1012,7 @@ export default function OverviewWorkspace() {
               <i><span /></i>
               <div className="nc-section-identity"><strong>{row.name}</strong><small>{row.crop}</small></div>
               <div className="nc-section-score">
-                <span>Current overall score</span>
+                <span>Growing Score</span>
                 <strong style={{ color: scoreColor(row.score) }}>{row.score ?? '—'}{row.score === null ? null : <small>/100</small>}</strong>
               </div>
               <p>

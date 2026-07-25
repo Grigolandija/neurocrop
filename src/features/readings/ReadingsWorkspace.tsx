@@ -128,6 +128,19 @@ function recordArray(payload: JsonRecord | null | undefined, keys: string[]) {
   return []
 }
 
+function mergeLatestReadings(previous: JsonRecord | null, next: JsonRecord | null) {
+  if (!next) return previous
+  if (!previous) return next
+  return {
+    ...previous,
+    ...next,
+    observations: {
+      ...(previous.observations || {}),
+      ...(next.observations || {}),
+    },
+  }
+}
+
 function areaIdentity(area: JsonRecord) {
   return String(area.id || area.areaId || area.area_id || area.siteId || area.site_id || '')
 }
@@ -471,7 +484,7 @@ export default function ReadingsWorkspace() {
           if (!result) return section
           return {
             ...section,
-            latest: result.latest || section.latest,
+            latest: mergeLatestReadings(section.latest, result.latest),
             loadFailed: result.loadFailed,
           }
         }))
