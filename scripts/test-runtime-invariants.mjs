@@ -81,7 +81,10 @@ assert(
   overviewWorkspace.includes('zone.mainCondition')
     && overviewWorkspace.includes('correctionInstruction(')
     && overviewWorkspace.includes("'Decrease' : 'Increase'")
-    && overviewWorkspace.includes('by at least ${formatMeasurement(difference, unit)}'),
+    && overviewWorkspace.includes('by at least ${formatMeasurement(difference, unit)}')
+    && overviewWorkspace.includes('enrichLegacyDashboardConditions(')
+    && overviewWorkspace.includes('neurocropApi.getLatestReadings(sectionId)')
+    && overviewWorkspace.includes('neurocropApi.getCropProfiles()'),
   "Overview Watch evidence must show the exact current value, target boundary and required correction",
 );
 for (const header of ["Strict-Transport-Security", "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy", "Permissions-Policy"]) {

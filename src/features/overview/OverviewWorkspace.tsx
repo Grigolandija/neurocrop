@@ -302,6 +302,51 @@ function profileLabel(zone: JsonRecord) {
   return value && !value.includes('-') ? value : 'Active crop profile'
 }
 
+async function enrichLegacyDashboardConditions(
+  dashboard: JsonRecord,
+  profilesPayload: JsonRecord,
+) {
+  const profiles = new Map(asArray(profilesPayload?.profiles).map((profile) => [String(profile.id), profile]))
+  const sites = asArray(dashboard?.sites)
+  const pending = sites.flatMap((site) => asArray(site.zones)
+    .filter((zone) => !zone.mainCondition && zone.mainDriver && statusTone(zone.conditionStatus) !== 'good')
+    .map((zone) => ({ zone, sectionId: String(zone.id), metricId: String(zone.mainDriver) })))
+
+  if (!pending.length) return dashboard
+
+  const conditions = new Map<string, JsonRecord>()
+  await Promise.all(pending.map(async ({ zone, sectionId, metricId }) => {
+    try {
+      const latest = await neurocropApi.getLatestReadings(sectionId) as JsonRecord
+      const observation = latest?.observations?.[metricId] as JsonRecord | undefined
+      const value = Number(observation?.value)
+      const profileId = String(zone.profile?.id || zone.profile || zone.profileId || zone.cropProfile || '')
+      const target = targetRange(profiles.get(profileId)?.metrics?.[metricId]?.optimal)
+      if (!Number.isFinite(value) || !target) return
+      conditions.set(sectionId, {
+        metricId,
+        value,
+        target,
+        unit: observation?.unit || METRIC_UNITS[metricId] || '',
+      })
+    } catch {
+      // The normal dashboard still renders if optional legacy enrichment is unavailable.
+    }
+  }))
+
+  if (!conditions.size) return dashboard
+  return {
+    ...dashboard,
+    sites: sites.map((site) => ({
+      ...site,
+      zones: asArray(site.zones).map((zone) => ({
+        ...zone,
+        mainCondition: zone.mainCondition || conditions.get(String(zone.id)) || null,
+      })),
+    })),
+  }
+}
+
 function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAreaId: string): OverviewModel | null {
   const sites = asArray(dashboard?.sites)
   if (!sites.length) return null
@@ -692,13 +737,16 @@ export default function OverviewWorkspace() {
   useEffect(() => {
     let active = true
     Promise.all(neurocropApi.isConnected()
-      ? [neurocropApi.getDashboard(), neurocropApi.getTodayActions()]
-      : [Promise.resolve(demoDashboard), Promise.resolve({ actions: demoActions })])
-      .then(([nextDashboard, nextActions]) => {
+      ? [neurocropApi.getDashboard(), neurocropApi.getTodayActions(), neurocropApi.getCropProfiles()]
+      : [Promise.resolve(demoDashboard), Promise.resolve({ actions: demoActions }), Promise.resolve({ profiles: [] })])
+      .then(async ([nextDashboard, nextActions, nextProfiles]) => {
+        const enrichedDashboard = neurocropApi.isConnected()
+          ? await enrichLegacyDashboardConditions(nextDashboard as JsonRecord, nextProfiles as JsonRecord)
+          : nextDashboard as JsonRecord
         if (!active) return
-        setDashboard(nextDashboard as JsonRecord)
+        setDashboard(enrichedDashboard)
         setActions(nextActions as JsonRecord)
-        setLoadState(asArray((nextDashboard as JsonRecord)?.sites).length ? 'ready' : 'empty')
+        setLoadState(asArray(enrichedDashboard?.sites).length ? 'ready' : 'empty')
       })
       .catch((reason) => {
         if (!active) return
