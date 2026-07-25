@@ -98,6 +98,7 @@ describe('environment colour scale', () => {
     })
     const colors = METRICS['air-temperature'].colors
     expect(COLOR_INTERVALS['air-temperature']).toBe(0.25)
+    expect(COLOR_INTERVALS['relative-humidity']).toBe(1)
     expect(bandedColorAt(22.99, 20, 30, colors, 0.25)).not.toEqual(bandedColorAt(23.01, 20, 30, colors, 0.25))
     expect(bandedGradient(20, 25, colors, 0.25).match(/rgb\(/g)).toHaveLength(40)
   })

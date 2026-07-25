@@ -3,7 +3,7 @@ import type { HeatmapGrid } from './heatmapTypes'
 
 export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourInterval: number }> = {
   'air-temperature': { colorInterval: 0.25, contourInterval: 1 },
-  'relative-humidity': { colorInterval: 2.5, contourInterval: 5 },
+  'relative-humidity': { colorInterval: 1, contourInterval: 5 },
   co2: { colorInterval: 50, contourInterval: 100 },
   vpd: { colorInterval: 0.05, contourInterval: 0.1 },
   'root-temperature': { colorInterval: 0.25, contourInterval: 1 },
