@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { GreenhouseMap } from '../model'
 import type { AreaMapNode, AreaMapProfile, AreaMapSection, AreaSummary } from '../services/areaMapRepository'
 
@@ -24,9 +24,30 @@ export default function MapSetupGuide({ area, map, sections, nodes, profiles, la
   const [busy, setBusy] = useState('')
   const [devEui, setDevEui] = useState('')
   const [claimSectionId, setClaimSectionId] = useState(sections[0]?.id || '')
+  const [scanError, setScanError] = useState('')
+  const qrInputRef = useRef<HTMLInputElement>(null)
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
   const steps = [tr('Greenhouse', 'Šiltnamis'), 'Sections', 'Nodes']
   const number = (value: string, fallback: number) => Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback
+  const scanNodeLabel = async (file?: File) => {
+    if (!file) return
+    setScanError('')
+    try {
+      const Detector = (window as unknown as { BarcodeDetector?: new (options: { formats: string[] }) => { detect: (source: ImageBitmap) => Promise<Array<{ rawValue?: string }>> } }).BarcodeDetector
+      if (!Detector) throw new Error(tr('QR scanning is not supported in this browser. Enter DevEUI manually.', 'Ši naršyklė nepalaiko QR nuskaitymo. Įveskite DevEUI ranka.'))
+      const bitmap = await createImageBitmap(file)
+      const results = await new Detector({ formats: ['qr_code'] }).detect(bitmap)
+      bitmap.close()
+      const raw = results[0]?.rawValue || ''
+      const match = raw.replace(/[^0-9a-f]/gi, '').match(/[0-9a-f]{16}/i)
+      if (!match) throw new Error(tr('The QR code does not contain a 16-character DevEUI.', 'QR kode nėra 16 simbolių DevEUI.'))
+      setDevEui(match[0].toUpperCase())
+    } catch (error) {
+      setScanError(error instanceof Error ? error.message : tr('QR code could not be read.', 'Nepavyko nuskaityti QR kodo.'))
+    } finally {
+      if (qrInputRef.current) qrInputRef.current.value = ''
+    }
+  }
 
   return <div className="gh-setup-backdrop" role="presentation">
     <section className="gh-setup-guide" role="dialog" aria-modal="true" aria-labelledby="gh-setup-title">
@@ -69,6 +90,9 @@ export default function MapSetupGuide({ area, map, sections, nodes, profiles, la
           <select value={claimSectionId} onChange={(event) => setClaimSectionId(event.target.value)}><option value="">{tr('Choose Section', 'Pasirinkite Section')}</option>{sections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}</select>
           <button className="primary" type="button" disabled={devEui.length !== 16 || !claimSectionId || Boolean(busy)} onClick={() => { setBusy('claim'); void onClaimNode(devEui, claimSectionId).then(() => setDevEui('')).finally(() => setBusy('')) }}>{tr('Connect', 'Prijungti')}</button>
         </div>
+        <button className="gh-scan-node" type="button" onClick={() => qrInputRef.current?.click()}><i className="fa-solid fa-qrcode" />{tr('Scan node QR label', 'Nuskaityti node QR etiketę')}</button>
+        <input ref={qrInputRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => void scanNodeLabel(event.target.files?.[0])} />
+        {scanError ? <p className="gh-scan-error">{scanError}</p> : null}
       </div> : null}
 
       <footer>
