@@ -157,6 +157,8 @@ test('Trends opens the historical analysis workspace with persistent context and
   await page.getByRole('button', { name: '7d', exact: true }).click()
   await expect(page.getByRole('button', { name: '7d', exact: true })).toHaveClass(/active/)
   await page.reload()
+  await expect(page).toHaveURL(/\/history$/)
+  await expect(page.locator('.nc-trends-page')).toBeVisible()
   await expect(page.getByRole('button', { name: '7d', exact: true })).toHaveClass(/active/)
 })
 
@@ -190,14 +192,11 @@ test('new customer can register and receives a pending workspace confirmation', 
 test('measurement CSV can be downloaded from Trends', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
   await navigationAction(page, 'history').click()
-  await expect(page.locator('#trendHistoryExportButton')).toBeVisible()
-  await page.locator('#trendHistoryExportButton').click()
-  await expect(page.locator('[data-csv-export-form]')).toBeVisible()
-
+  await expect(page.locator('.nc-trends-page')).toBeVisible()
   const downloadPromise = page.waitForEvent('download')
-  await page.locator('[data-csv-export-form]').getByRole('button', { name: 'Download CSV' }).click()
+  await page.getByRole('button', { name: 'Export CSV' }).click()
   const download = await downloadPromise
-  expect(download.suggestedFilename()).toMatch(/^neurocrop-.*\.csv$/)
+  expect(download.suggestedFilename()).toBe('neurocrop-measurements.csv')
 })
 
 test('empty organization always uses the canonical Areas onboarding', async ({ page }) => {

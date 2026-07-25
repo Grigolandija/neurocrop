@@ -57,7 +57,7 @@
   box-shadow: 0 10px 28px rgba(35, 55, 44, .06);
 }
 .designer-app .nc-trends-context label { display: grid; gap: 6px; }
-.designer-app .nc-trends-context label > span { color: var(--trends-muted); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.designer-app .nc-trends-context label > span { color: var(--trends-muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .designer-app .nc-trends-context select { width: 100%; height: 44px; border: 1px solid var(--trends-line); border-radius: 9px; padding: 0 12px; background: #fafbf9; font-size: 13px; }
 .designer-app .nc-trends-range { display: flex; height: 44px; border: 1px solid var(--trends-line); border-radius: 9px; padding: 3px; background: #f0f2ef; }
 .designer-app .nc-trends-range button { min-width: 54px; border-radius: 6px; background: transparent; color: var(--trends-muted); font-size: 12px; font-weight: 650; }
@@ -116,7 +116,7 @@
 }
 .designer-app .nc-trends-kpis article { display: grid; gap: 6px; min-width: 0; border-right: 1px solid var(--trends-line); padding: 18px 20px; }
 .designer-app .nc-trends-kpis article:last-child { border-right: 0; }
-.designer-app .nc-trends-kpis small { color: var(--trends-muted); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.designer-app .nc-trends-kpis small { color: var(--trends-muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .designer-app .nc-trends-kpis strong { overflow: hidden; font-size: 23px; font-weight: 650; letter-spacing: -.03em; text-overflow: ellipsis; white-space: nowrap; }
 .designer-app .nc-trends-kpis strong em { color: var(--trends-muted); font-size: 12px; font-style: normal; font-weight: 550; letter-spacing: 0; }
 .designer-app .nc-trends-kpis article > span { overflow: hidden; color: var(--trends-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -148,7 +148,7 @@
 .designer-app .nc-trends-lower h2 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.02em; }
 .designer-app .nc-trends-chart-card header div > span { display: block; margin-top: 4px; color: var(--trends-muted); font-size: 11px; }
 .designer-app .nc-trends-updated,
-.designer-app .nc-trends-lower header > span { color: var(--trends-muted); font-size: 10px; font-weight: 650; white-space: nowrap; }
+.designer-app .nc-trends-lower header > span { color: var(--trends-muted); font-size: 11px; font-weight: 650; white-space: nowrap; }
 .designer-app .nc-trends-chart { width: 100%; height: 430px; }
 .designer-app .nc-trends-empty { display: grid; min-height: 430px; place-items: center; align-content: center; gap: 8px; padding: 28px; color: var(--trends-muted); text-align: center; }
 .designer-app .nc-trends-empty i { font-size: 24px; }
@@ -162,7 +162,7 @@
 }
 .designer-app .nc-trends-insight[data-tone="critical"] { border-color: #ebc8c0; background: linear-gradient(160deg, #fff9f6, #faeeea); }
 .designer-app .nc-trends-insight[data-tone="watch"] { border-color: #ead9ad; background: linear-gradient(160deg, #fffcf3, #f7f0dd); }
-.designer-app .nc-trends-insight-label { color: #477162; font-size: 10px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.designer-app .nc-trends-insight-label { color: #477162; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .designer-app .nc-trends-insight-label i { margin-right: 7px; }
 .designer-app .nc-trends-insight h2 { margin: 18px 0 10px; font-size: 25px; font-weight: 650; line-height: 1.15; letter-spacing: -.035em; }
 .designer-app .nc-trends-insight > p { color: #607069; font-size: 13px; line-height: 1.65; }
@@ -170,16 +170,16 @@
 .designer-app .nc-trends-insight dl div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(46, 76, 61, .1); padding: 12px 0; }
 .designer-app .nc-trends-insight dt { color: var(--trends-muted); font-size: 11px; }
 .designer-app .nc-trends-insight dd { margin: 0; font-size: 11px; font-weight: 700; text-align: right; }
-.designer-app .nc-trends-insight .nc-trends-trust { margin: 20px 0 0; font-size: 10px; line-height: 1.5; }
+.designer-app .nc-trends-insight .nc-trends-trust { margin: 20px 0 0; font-size: 11px; line-height: 1.5; }
 .designer-app .nc-trends-trust i { margin-right: 6px; }
 
 .designer-app .nc-trends-lower { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .designer-app .nc-trends-distribution { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 20px; }
 .designer-app .nc-trends-distribution > div { position: relative; display: grid; gap: 5px; overflow: hidden; border-radius: 9px; padding: 13px 13px 16px; background: #f4f6f3; }
-.designer-app .nc-trends-distribution span { color: var(--trends-muted); font-size: 10px; font-weight: 650; }
+.designer-app .nc-trends-distribution span { color: var(--trends-muted); font-size: 11px; font-weight: 650; }
 .designer-app .nc-trends-distribution span i { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #7e8b84; }
 .designer-app .nc-trends-distribution strong { font-size: 22px; }
-.designer-app .nc-trends-distribution small { color: var(--trends-muted); font-size: 10px; }
+.designer-app .nc-trends-distribution small { color: var(--trends-muted); font-size: 11px; }
 .designer-app .nc-trends-distribution em { position: absolute; bottom: 0; left: 0; height: 3px; background: #7e8b84; }
 .designer-app .nc-trends-distribution [data-state="optimal"] i,
 .designer-app .nc-trends-distribution [data-state="optimal"] em { background: #3b9365; }
@@ -194,7 +194,7 @@
 .designer-app .nc-trends-events > div > div > i { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 9px; background: #edf3f0; color: #477162; }
 .designer-app .nc-trends-events > div span { display: grid; gap: 3px; }
 .designer-app .nc-trends-events strong { font-size: 11px; text-transform: capitalize; }
-.designer-app .nc-trends-events small { color: var(--trends-muted); font-size: 10px; }
+.designer-app .nc-trends-events small { color: var(--trends-muted); font-size: 11px; }
 
 body[data-primary-page="history"] #historySection > .trend-history-shell { display: none !important; }
 
