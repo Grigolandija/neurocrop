@@ -43,6 +43,7 @@ function prepareReadOnlyMap(context: AreaMapContext, metric: MetricKey): Greenho
 export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
   const [context, setContext] = useState<AreaMapContext | null>(null)
   const [metric, setMetric] = useState<MetricKey>('relative-humidity')
+  const [legendHost, setLegendHost] = useState<HTMLDivElement | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -98,6 +99,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
         map={map}
         mode="environment"
         readOnly
+        legendHost={legendHost}
         selectedIds={[]}
         snap={false}
         onSelect={() => undefined}
@@ -106,6 +108,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
         onAdd={() => undefined}
       />
     </div>
+    <div className="nc-climate-map-legend-slot" ref={setLegendHost} />
     <footer><i className="fa-solid fa-circle-info" /> The Area heatmap uses every valid node. Hardware details remain available in Nodes.</footer>
   </section>
 }

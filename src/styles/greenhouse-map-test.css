@@ -130,15 +130,15 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   position: absolute; right: 15px; bottom: 43px; width: 270px; border: 1px solid #bdc8c0; padding: 12px;
   color: #253a32; background: rgba(255,255,255,.95); box-shadow: 0 8px 24px rgba(28,48,40,.13);
 }
-.gh-heatmap-legend > small { display: block; color: #708078; font: 600 8px 'IBM Plex Mono'; letter-spacing: .1em; }
-.gh-heatmap-legend > strong { display: block; margin: 3px 0 8px; font-size: 13px; }
+.gh-legend-heading small { display: block; color: #708078; font: 600 8px 'IBM Plex Mono'; letter-spacing: .1em; }
+.gh-legend-heading strong { display: block; margin: 3px 0 8px; font-size: 13px; }
 .gh-contour-toggle { display: flex; align-items: center; gap: 5px; width: 100%; margin-bottom: 8px; border: 1px solid #cbd4cd; padding: 5px 7px; color: #607169; background: #f4f6f3; font: 600 8px 'IBM Plex Mono'; }
 .gh-contour-toggle.active { border-color: #7da08f; color: #285f4b; background: #e7f0e9; }
 .gh-contour-toggle:disabled { cursor: not-allowed; opacity: .48; }
 .gh-color-scale { height: 8px; border: 1px solid rgba(0,0,0,.08); }
-.gh-heatmap-legend > div + div { display: flex; justify-content: space-between; margin-top: 4px; font: 500 8px 'IBM Plex Mono'; }
-.gh-heatmap-legend p { margin: 8px 0 5px; color: #4d6058; font-size: 9px; }
-.gh-heatmap-legend em { display: block; color: #79684d; font-size: 8px; line-height: 1.35; }
+.gh-legend-range { display: flex; justify-content: space-between; margin-top: 4px; font: 500 8px 'IBM Plex Mono'; }
+.gh-legend-meta p { margin: 8px 0 5px; color: #4d6058; font-size: 9px; }
+.gh-legend-meta em { display: block; color: #79684d; font-size: 8px; line-height: 1.35; }
 .gh-mode-note { position: absolute; right: 15px; bottom: 42px; max-width: 360px; border: 1px solid #c4cec7; padding: 8px 10px; color: #4d6259; background: rgba(255,255,255,.94); font-size: 9px; }
 .gh-mode-note i { margin-right: 5px; color: #326e58; }
 .gh-empty-selection { display: grid; place-items: center; padding: 68px 27px; text-align: center; }

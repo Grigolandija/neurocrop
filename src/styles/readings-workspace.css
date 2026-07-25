@@ -62,6 +62,13 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-climate-map-filters select { min-width: 11rem; min-height: var(--control-height-sm); border: 1px solid var(--color-border); border-radius: .5rem; padding: 0 2rem 0 var(--space-8); background: var(--color-surface); color: var(--color-text); font-size: var(--type-caption); }
 .nc-climate-map-canvas { position: relative; height: clamp(38rem,72vh,56rem); background: #e5e9e4; }
 .nc-climate-map-canvas .gh-canvas-shell { width: 100%; height: 100%; min-height: 38rem; }
+.nc-climate-map-legend-slot { border-top: 1px solid var(--color-border); padding: var(--space-12) var(--space-16); background: var(--color-surface); }
+.nc-climate-map-legend-slot:empty { display: none; }
+.nc-climate-map-legend-slot .gh-heatmap-legend { position: static; display: grid; width: 100%; grid-template-columns: minmax(10rem,.7fr) minmax(16rem,1fr) minmax(18rem,1.2fr); align-items: center; gap: var(--space-20); border: 0; padding: 0; background: transparent; box-shadow: none; }
+.nc-climate-map-legend-slot .gh-legend-heading strong { margin-bottom: 0; }
+.nc-climate-map-legend-slot .gh-contour-toggle { margin-bottom: var(--space-8); }
+.nc-climate-map-legend-slot .gh-legend-meta p { margin-top: 0; }
+.nc-climate-map-legend-slot .gh-target-state { margin-top: 0; }
 .nc-live-climate-map > footer { display: flex; align-items: center; gap: var(--space-8); border-top: 1px solid var(--color-border); padding: var(--space-8) var(--space-16); color: var(--color-text-tertiary); font-size: var(--type-caption); }
 .nc-live-climate-map > footer i { color: var(--color-info); }
 .nc-climate-map-state { display: grid; min-height: 31rem; place-items: center; align-content: center; gap: var(--space-8); border: 1px solid var(--color-border); border-radius: .8rem; padding: var(--space-32); background: var(--color-surface-subtle); color: var(--color-text-tertiary); text-align: center; }
@@ -277,6 +284,8 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
   .nc-readings-actions { width: 100%; }.nc-readings-actions > span { margin-right: auto; }
   .nc-readings-health { grid-template-columns: repeat(3,1fr); }.nc-readings-health > p { grid-column: 1 / -1; border-top: 1px solid var(--color-border); }
   .nc-pinned-comparison > div { grid-template-columns: 1fr; }.nc-pinned-comparison article { border-right: 0; border-bottom: 1px solid var(--color-border); }.nc-pinned-comparison article:last-child { border-bottom: 0; }
+  .nc-climate-map-legend-slot .gh-heatmap-legend { grid-template-columns: minmax(10rem,.7fr) minmax(16rem,1fr); }
+  .nc-climate-map-legend-slot .gh-legend-meta { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
   .nc-readings-hero h1 { font-size: var(--type-h1) !important; }.nc-readings-actions { flex-wrap: wrap; }.nc-readings-actions > span { width: 100%; border: 0; padding-right: 0; }
@@ -284,6 +293,8 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
   .nc-readings-matrix > header { grid-template-columns: 1fr; align-items: start; }.nc-segmented { width: 100%; overflow-x: auto; }.nc-segmented button { flex: 1; white-space: nowrap; }
   .nc-readings-viewbar, .nc-readings-controls { align-items: stretch; flex-direction: column; }.nc-column-control > button { width: 100%; }.nc-column-menu { right: auto; left: 0; }.nc-area-tabs { width: 100%; }.nc-readings-control-actions { align-items: stretch; flex-direction: column; }.nc-readings-controls select { width: 100%; }
   .nc-reading-display-row, .nc-live-climate-map > header, .nc-climate-map-filters { align-items: stretch; flex-direction: column; }.nc-climate-map-filters select { width: 100%; }.nc-climate-map-canvas { height: 31rem; }.nc-reading-legend { justify-content: flex-start; overflow-x: auto; }.nc-pinned-comparison > header, .nc-signal-lens-content > header { align-items: stretch; flex-direction: column; }
+  .nc-climate-map-legend-slot .gh-heatmap-legend { grid-template-columns: 1fr; gap: var(--space-12); }
+  .nc-climate-map-legend-slot .gh-legend-meta { grid-column: auto; }
   .nc-distribution-row { grid-template-columns: minmax(10rem,1fr) 6rem 2rem; gap: var(--space-8); }.nc-distribution-row > div { display: none; }
   .nc-readings-drawer { width: 100%; }.nc-readings-drawer > footer { flex-direction: column; }.nc-readings-drawer > footer button { width: 100%; }.nc-trend-modal-backdrop { padding: 0; }.nc-trend-preview { width: 100%; max-height: 100%; border-radius: 0; }.nc-trend-current { grid-template-columns: 1fr; }.nc-trend-echart { min-height: 16rem; }
 }

@@ -260,6 +260,21 @@ export default function GreenhouseMapTestPage() {
   const moveOnCanvas = (positions: Array<{ id: string; xM: number; yM: number }>, record = true) => {
     editor.moveObjects(positions, record)
   }
+  const leaveMap = async () => {
+    if (!integrated) {
+      navigate('/')
+      return
+    }
+    window.clearTimeout(remoteSaveTimerRef.current)
+    const serialized = JSON.stringify(editor.map)
+    if (canEdit && serialized !== lastSyncedRef.current) {
+      await saveRemote()
+      if (lastSyncedRef.current !== serialized) return
+    }
+    // Area Map and the approved dashboard use separate page shells. A document
+    // navigation guarantees the dashboard runtime starts from a clean DOM.
+    window.location.assign('/areas')
+  }
 
   if (integrated && ['initializing', 'loading'].includes(syncState)) {
     return <div className="gh-app gh-integrated-loading"><div><i className="fa-solid fa-spinner fa-spin" /><strong>Loading Area Map Beta</strong><span>Connecting the plan with Areas, Nodes and latest sensor readings…</span></div></div>
@@ -276,7 +291,7 @@ export default function GreenhouseMapTestPage() {
       onMode={setMode} onMetric={updateMetric} onSnap={editor.setSnap} onUndo={permissionReadOnly ? () => undefined : editor.undo} onRedo={permissionReadOnly ? () => undefined : editor.redo} onDuplicate={canvasReadOnly ? () => undefined : editor.duplicateSelected} onDelete={canvasReadOnly ? () => undefined : editor.deleteSelected}
     />
     <div className="gh-action-strip">
-      <button onClick={() => navigate(integrated ? '/areas' : '/')}><i className="fa-solid fa-arrow-left" /> {integrated ? tr('Back to Areas', 'Grįžti į Areas') : tr('Exit test lab', 'Uždaryti testą')}</button>
+      <button onClick={() => void leaveMap()}><i className="fa-solid fa-arrow-left" /> {integrated ? tr('Back to Areas', 'Grįžti į Areas') : tr('Exit test lab', 'Uždaryti testą')}</button>
       <span />
       {integrated ? <label className="gh-area-selector"><span>Area</span><select value={activeAreaId} onChange={(event) => { setSyncState('loading'); setSyncMessage(''); setActiveAreaId(event.target.value); setSearchParams({ area: event.target.value }, { replace: true }) }}>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label> : null}
       <small className={`gh-sync-state ${syncState}`}><i className={`fa-solid ${integrated ? syncState === 'saving' ? 'fa-arrows-rotate fa-spin' : syncState === 'conflict' || syncState === 'error' ? 'fa-triangle-exclamation' : permissionReadOnly ? 'fa-eye' : 'fa-cloud' : 'fa-flask'}`} /> {integrated ? permissionReadOnly ? 'Read only · live API data' : syncMessage || 'Backend autosave ready' : 'Local prototype · API disconnected'}</small>
