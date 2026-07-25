@@ -443,9 +443,10 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
   return <div className="nc-trends-chart nc-trends-multi-chart" ref={ref} role="img" aria-label={`${items.map((item) => item.metric.label).join(', ')}, ${range} trend`} />
 }
 
-function SectionPicker({ sections, selectedId, recentIds, onSelect }: {
+function SectionPicker({ sections, selectedId, selectedLabel, recentIds, onSelect }: {
   sections: Section[]
   selectedId: string
+  selectedLabel: string
   recentIds: string[]
   onSelect: (id: string) => void
 }) {
@@ -454,7 +455,6 @@ function SectionPicker({ sections, selectedId, recentIds, onSelect }: {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [position, setPosition] = useState({ top: 0, left: 0, width: 280 })
-  const selected = sections.find((section) => section.id === selectedId)
   const normalizedSearch = search.trim().toLocaleLowerCase()
   const recent = recentIds.map((id) => sections.find((section) => section.id === id)).filter((section): section is Section => Boolean(section))
   const orderedSections = normalizedSearch
@@ -500,7 +500,7 @@ function SectionPicker({ sections, selectedId, recentIds, onSelect }: {
       setSearch('')
       setOpen((value) => !value)
     }}>
-      <span>{selected?.name || 'Select Section'}</span>
+      <span>{selectedLabel || 'Select Section'}</span>
       <i className="fa-solid fa-chevron-down" aria-hidden="true" />
     </button>
     {open ? createPortal(<div ref={menuRef} className="nc-trends-section-menu" role="listbox" aria-label="Select Section" style={position}>
@@ -523,16 +523,16 @@ function SectionPicker({ sections, selectedId, recentIds, onSelect }: {
   </div>
 }
 
-function AreaPicker({ areas, selectedId, onSelect }: {
+function AreaPicker({ areas, selectedId, selectedLabel, onSelect }: {
   areas: [string, string][]
   selectedId: string
+  selectedLabel: string
   onSelect: (id: string) => void
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0, width: 240 })
-  const selected = areas.find(([id]) => id === selectedId)
 
   useEffect(() => {
     if (!open) return
@@ -570,7 +570,7 @@ function AreaPicker({ areas, selectedId, onSelect }: {
   return <div className="nc-trends-section-field">
     <span>Area</span>
     <button ref={triggerRef} type="button" className="nc-trends-section-trigger" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-      <span>{selected?.[1] || 'Select Area'}</span>
+      <span>{selectedLabel || 'Select Area'}</span>
       <i className="fa-solid fa-chevron-down" aria-hidden="true" />
     </button>
     {open ? createPortal(<div ref={menuRef} className="nc-trends-section-menu nc-trends-area-menu" role="listbox" aria-label="Select Area" style={position}>
@@ -797,7 +797,9 @@ export default function TrendsWorkspace() {
   const expectedMinutes = number(timeInTarget.expectedMinutes) || 0
   const optimalMinutes = number(timeInTarget.optimal) || 0
   const coveredMinutes = number(timeInTarget.coveredMinutes) || 0
-  const targetPct = expectedMinutes ? Math.round(optimalMinutes / expectedMinutes * 100) : null
+  const targetPct = target && expectedMinutes
+    ? Math.min(100, Math.max(0, Math.round(optimalMinutes / expectedMinutes * 100)))
+    : null
   const coveragePct = expectedMinutes ? Math.min(100, Math.round(coveredMinutes / expectedMinutes * 100)) : null
   const showMeasuredConclusion = !compare && activeMetricKeys.length === 1 && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
   const events = Array.isArray(analytics?.events) ? analytics.events.slice(-6).reverse() : []
@@ -885,8 +887,8 @@ export default function TrendsWorkspace() {
     </header>
 
     <section className="nc-trends-context">
-      <AreaPicker areas={areas} selectedId={displayedAreaId} onSelect={changeArea} />
-      <SectionPicker sections={displayedAreaSections} selectedId={selectedSection?.id || sectionId} recentIds={recentSectionIds} onSelect={changeSection} />
+      <AreaPicker areas={areas} selectedId={displayedAreaId} selectedLabel={selectedSection?.areaName || ''} onSelect={changeArea} />
+      <SectionPicker sections={displayedAreaSections} selectedId={selectedSection?.id || sectionId} selectedLabel={selectedSection?.name || ''} recentIds={recentSectionIds} onSelect={changeSection} />
       <div className="nc-trends-range" role="group" aria-label="Trend period">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
       <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />Compare Sections</button>
     </section>
