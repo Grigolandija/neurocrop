@@ -644,6 +644,7 @@ export default function TrendsWorkspace() {
   const [stored] = useState(() => loadStoredSelection())
   const hydrationBusyRef = useRef(false)
   const retryContextAfterLoginRef = useRef(false)
+  const sectionsRef = useRef<Section[]>([])
   const [sections, setSections] = useState<Section[]>([])
   const [profiles, setProfiles] = useState<JsonRecord[]>([])
   const [areaId, setAreaId] = useState(String(stored.areaId || ''))
@@ -666,16 +667,18 @@ export default function TrendsWorkspace() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
 
   const selectedSection = sections.find((section) => section.id === sectionId)
+    || sections.find((section) => section.areaId === areaId)
+    || sections[0]
   const selectedMetric = metrics.find((metric) => metric.key === metricKey) || metrics[0]
   const activeMetricKeys = [metricKey, ...secondaryMetricKeys.filter((key) => key !== metricKey)].slice(0, 3)
   const metricSelectionKey = activeMetricKeys.join(',')
   const areas = useMemo(() => [...new Map(sections.map((section) => [section.areaId, section.areaName])).entries()], [sections])
   const areaIdExists = areas.some(([id]) => id === areaId)
   const displayedAreaId = selectedSection?.areaId || (areaIdExists ? areaId : areas[0]?.[0] || '')
-  const displayedAreaName = areas.find(([id]) => id === displayedAreaId)?.[1] || ''
+  const displayedAreaName = selectedSection?.areaName || areas.find(([id]) => id === displayedAreaId)?.[1] || ''
   const displayedAreaSections = sections.filter((section) => section.areaId === displayedAreaId)
   const displayedSectionId = selectedSection?.id || displayedAreaSections[0]?.id || ''
-  const displayedSectionName = sections.find((section) => section.id === displayedSectionId)?.name || ''
+  const displayedSectionName = selectedSection?.name || sections.find((section) => section.id === displayedSectionId)?.name || ''
   const availableMetrics = metrics.filter((metric) => selectedSection?.available.has(metric.key))
   const target = profileRange(profiles, selectedSection?.profileId || '', selectedMetric.key)
 
@@ -700,6 +703,7 @@ export default function TrendsWorkspace() {
         const profilePayload = profileResult.status === 'fulfilled' ? profileResult.value as JsonRecord : {}
         const nextSections = sectionList(dashboardPayload, areaPayload, sectionPayload)
         const nextProfiles = arrays(profilePayload, ['profiles', 'items'])
+        sectionsRef.current = nextSections
         setSections(nextSections)
         setProfiles(nextProfiles)
         const requestedSection = nextSections.find((section) => section.id === sectionId)
@@ -723,13 +727,22 @@ export default function TrendsWorkspace() {
     }
     const retryAfterAuthentication = (event: Event) => {
       const connected = (event as CustomEvent<{ connected?: boolean }>).detail?.connected !== false
-      if (connected && retryContextAfterLoginRef.current) void hydrateContext()
+      if (connected && (retryContextAfterLoginRef.current || sectionsRef.current.length === 0)) void hydrateContext()
+    }
+    const syncRuntimeContext = (event: Event) => {
+      const detail = (event as CustomEvent<{ siteId?: unknown; zoneId?: unknown }>).detail
+      const nextAreaId = text(detail?.siteId)
+      const nextSectionId = text(detail?.zoneId)
+      if (nextAreaId) setAreaId(nextAreaId)
+      if (nextSectionId) setSectionId(nextSectionId)
     }
     void hydrateContext()
     window.addEventListener('neurocrop:api-connection', retryAfterAuthentication)
+    window.addEventListener('neurocrop:context-change', syncRuntimeContext)
     return () => {
       active = false
       window.removeEventListener('neurocrop:api-connection', retryAfterAuthentication)
+      window.removeEventListener('neurocrop:context-change', syncRuntimeContext)
     }
     // Initial workspace hydration intentionally runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
