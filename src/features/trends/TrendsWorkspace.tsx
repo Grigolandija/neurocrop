@@ -35,11 +35,46 @@ const storageKey = 'neurocrop-trends-workspace-v2'
 const chartColors = ['#287f70', '#d87655', '#507ea2', '#b18a35', '#845f8e', '#68746f']
 
 function arrays(payload: JsonRecord | null | undefined, keys: string[]) {
+  if (Array.isArray(payload)) return payload as JsonRecord[]
   for (const root of [payload, payload?.data, payload?.dashboard, payload?.workspace]) {
     if (!root || typeof root !== 'object') continue
     for (const key of keys) if (Array.isArray(root[key])) return root[key] as JsonRecord[]
   }
   return []
+}
+
+function text(value: unknown, fallback = '') {
+  return value === null || value === undefined || value === '' ? fallback : String(value)
+}
+
+function areaIdentity(area: JsonRecord) {
+  return text(area.id || area.areaId || area.area_id || area.siteId || area.site_id)
+}
+
+function areaLabel(area: JsonRecord) {
+  return text(area.name || area.areaName || area.area_name || area.siteName || area.site_name || area.id, 'Unnamed area')
+}
+
+function sectionIdentity(section: JsonRecord) {
+  return text(section.id || section.sectionId || section.section_id || section.zoneId || section.zone_id)
+}
+
+function sectionAreaId(section: JsonRecord) {
+  return text(section.areaId || section.area_id || section.siteId || section.site_id || section.area?.id || section.site?.id)
+}
+
+function sectionProfileId(section: JsonRecord) {
+  return text(section.profile?.id || section.profile || section.profileId || section.profile_id || section.cropProfile || section.crop_profile, 'default')
+}
+
+function metricSet(section: JsonRecord) {
+  const values = [
+    ...arrays({ items: section.availableMetrics || section.available_metrics }, ['items']),
+    ...arrays({ items: section.configuredMetrics || section.configured_metrics }, ['items']),
+  ]
+  const available = new Set(values.map((item) => typeof item === 'string' ? item : text(item?.key || item?.metric)).filter(Boolean))
+  if (available.has('airTemp') && available.has('humidity')) available.add('vpd')
+  return available
 }
 
 function number(value: unknown) {
@@ -63,26 +98,44 @@ function loadStoredSelection() {
   }
 }
 
-function sectionList(dashboard: JsonRecord): Section[] {
-  return arrays(dashboard, ['sites', 'areas']).flatMap((area) => {
-    const areaId = String(area.id || area.areaId || '')
-    const areaName = String(area.name || area.areaName || areaId)
-    return arrays(area, ['zones', 'sections']).map((section) => {
-      const available = new Set<string>([
-        ...((Array.isArray(section.availableMetrics) ? section.availableMetrics : []) as string[]),
-        ...((Array.isArray(section.configuredMetrics) ? section.configuredMetrics : []) as string[]),
-      ])
-      if (available.has('airTemp') && available.has('humidity')) available.add('vpd')
-      return {
-        id: String(section.id || section.sectionId || ''),
-        name: String(section.name || section.sectionName || section.id),
-        areaId,
-        areaName,
-        profileId: String(section.profile || section.cropProfile || section.crop_profile || 'default'),
-        available,
-      }
-    }).filter((section) => section.id)
+function sectionList(dashboard: JsonRecord, areaPayload: JsonRecord, sectionPayload: JsonRecord): Section[] {
+  const dashboardAreas = arrays(dashboard, ['sites', 'areas'])
+  const managementAreas = arrays(areaPayload, ['areas', 'sites', 'items'])
+  const areaMap = new Map<string, string>()
+  ;[...dashboardAreas, ...managementAreas].forEach((area) => {
+    const id = areaIdentity(area)
+    if (id) areaMap.set(id, areaLabel(area))
   })
+
+  const dashboardSections = new Map<string, { area: JsonRecord; section: JsonRecord }>()
+  dashboardAreas.forEach((area) => arrays(area, ['zones', 'sections']).forEach((section) => {
+    const id = sectionIdentity(section)
+    if (id) dashboardSections.set(id, { area, section })
+  }))
+
+  const managementSections = arrays(sectionPayload, ['sections', 'zones', 'items'])
+  const sourceSections = managementSections.length
+    ? managementSections
+    : [...dashboardSections.values()].map(({ section }) => section)
+
+  return sourceSections.map((source): Section | null => {
+    const id = sectionIdentity(source)
+    if (!id) return null
+    const dashboardEntry = dashboardSections.get(id)
+    const merged = { ...(dashboardEntry?.section || {}), ...source }
+    const areaId = sectionAreaId(merged) || areaIdentity(dashboardEntry?.area || {})
+    if (!areaId) return null
+    const areaName = areaMap.get(areaId) || text(merged.areaName || merged.area_name, areaId)
+    const available = metricSet(merged)
+    return {
+      id,
+      name: text(merged.name || merged.sectionName || merged.section_name || id),
+      areaId,
+      areaName,
+      profileId: sectionProfileId(merged),
+      available,
+    }
+  }).filter((section): section is Section => Boolean(section))
 }
 
 function historyPoints(payload: JsonRecord): Point[] {
@@ -589,6 +642,8 @@ function AreaPicker({ areas, selectedId, selectedLabel, onSelect }: {
 
 export default function TrendsWorkspace() {
   const [stored] = useState(() => loadStoredSelection())
+  const hydrationBusyRef = useRef(false)
+  const retryContextAfterLoginRef = useRef(false)
   const [sections, setSections] = useState<Section[]>([])
   const [profiles, setProfiles] = useState<JsonRecord[]>([])
   const [areaId, setAreaId] = useState(String(stored.areaId || ''))
@@ -626,28 +681,56 @@ export default function TrendsWorkspace() {
 
   useEffect(() => {
     let active = true
-    Promise.all([neurocropApi.getDashboard(), neurocropApi.getCropProfiles()]).then(([dashboardPayload, profilePayload]) => {
-      if (!active) return
-      const nextSections = sectionList(dashboardPayload as JsonRecord)
-      const nextProfiles = arrays(profilePayload as JsonRecord, ['profiles', 'items'])
-      setSections(nextSections)
-      setProfiles(nextProfiles)
-      const requestedSection = nextSections.find((section) => section.id === sectionId)
-      const initialSection = requestedSection || nextSections.find((section) => section.areaId === areaId) || nextSections[0]
-      if (initialSection) {
-        setAreaId(initialSection.areaId)
-        setSectionId(initialSection.id)
-        if (!initialSection.available.has(metricKey)) {
-          setMetricKey(metrics.find((metric) => initialSection.available.has(metric.key))?.key || 'airTemp')
+    async function hydrateContext() {
+      if (hydrationBusyRef.current) return
+      hydrationBusyRef.current = true
+      retryContextAfterLoginRef.current = false
+      try {
+        const [dashboardResult, areaResult, sectionResult, profileResult] = await Promise.allSettled([
+          neurocropApi.getDashboard(),
+          neurocropApi.getAreas(),
+          neurocropApi.getSections(),
+          neurocropApi.getCropProfiles(),
+        ])
+        if (!active) return
+        if (dashboardResult.status === 'rejected' && sectionResult.status === 'rejected') throw dashboardResult.reason
+        const dashboardPayload = dashboardResult.status === 'fulfilled' ? dashboardResult.value as JsonRecord : {}
+        const areaPayload = areaResult.status === 'fulfilled' ? areaResult.value as JsonRecord : {}
+        const sectionPayload = sectionResult.status === 'fulfilled' ? sectionResult.value as JsonRecord : {}
+        const profilePayload = profileResult.status === 'fulfilled' ? profileResult.value as JsonRecord : {}
+        const nextSections = sectionList(dashboardPayload, areaPayload, sectionPayload)
+        const nextProfiles = arrays(profilePayload, ['profiles', 'items'])
+        setSections(nextSections)
+        setProfiles(nextProfiles)
+        const requestedSection = nextSections.find((section) => section.id === sectionId)
+        const initialSection = requestedSection || nextSections.find((section) => section.areaId === areaId) || nextSections[0]
+        if (initialSection) {
+          setAreaId(initialSection.areaId)
+          setSectionId(initialSection.id)
+          if (!initialSection.available.has(metricKey)) {
+            setMetricKey(metrics.find((metric) => initialSection.available.has(metric.key))?.key || 'airTemp')
+          }
+          setSecondaryMetricKeys((current) => current.filter((key) => initialSection.available.has(key)).slice(0, 2))
         }
-        setSecondaryMetricKeys((current) => current.filter((key) => initialSection.available.has(key)).slice(0, 2))
+      } catch (reason) {
+        if (!active) return
+        retryContextAfterLoginRef.current = true
+        setError(reason instanceof Error ? reason.message : 'Workspace context could not be loaded.')
+        setStatus('error')
+      } finally {
+        hydrationBusyRef.current = false
       }
-    }).catch((reason) => {
-      if (!active) return
-      setError(reason instanceof Error ? reason.message : 'Workspace context could not be loaded.')
-      setStatus('error')
-    })
-    return () => { active = false }
+    }
+    const retryAfterAuthentication = (event: Event) => {
+      const connected = (event as CustomEvent<{ connected?: boolean }>).detail?.connected !== false
+      if (connected && retryContextAfterLoginRef.current) void hydrateContext()
+    }
+    void hydrateContext()
+    window.addEventListener('neurocrop:api-connection', retryAfterAuthentication)
+    return () => {
+      active = false
+      window.removeEventListener('neurocrop:api-connection', retryAfterAuthentication)
+    }
     // Initial workspace hydration intentionally runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
