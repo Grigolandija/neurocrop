@@ -17717,6 +17717,16 @@ function buildTrendMetricOptions(options) {
       apiTransportConnected = event.detail?.connected !== false;
       updateClientConnectionStatus();
     });
+    window.addEventListener("neurocrop:workspace-structure-changed", async (event) => {
+      const requestedRoute = String(event.detail?.route || "");
+      await hydrateDashboardFromApi({ preserveCurrentOnError: true });
+      if (!requestedRoute) {
+        renderDashboard();
+        return;
+      }
+      applyDashboardRoute(requestedRoute.split(/[?#]/, 1)[0]);
+      syncTopLevelRoute(requestedRoute);
+    });
     document.addEventListener("visibilitychange", () => {
       updateClientConnectionStatus();
       if (!document.hidden) refreshLiveDashboardData();

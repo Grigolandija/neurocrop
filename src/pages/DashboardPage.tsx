@@ -69,7 +69,8 @@ const supportedRoutes = new Set([
 ])
 
 function isSupportedRoute(pathname: string) {
-  return supportedRoutes.has(pathname) || /^\/nodes\/[^/]+$/.test(pathname)
+  const routePathname = String(pathname || '/').split(/[?#]/, 1)[0] || '/'
+  return supportedRoutes.has(routePathname) || /^\/nodes\/[^/]+$/.test(routePathname)
 }
 
 function ApprovedDashboard() {
