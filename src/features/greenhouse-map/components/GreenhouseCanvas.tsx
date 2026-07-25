@@ -99,11 +99,11 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
 
   const fit = useCallback(() => {
-    const paddingX = 85
-    const paddingY = 90
+    const paddingX = readOnly ? 54 : 85
+    const paddingY = readOnly ? 38 : 90
     const scale = Math.max(2, Math.min((size.width - paddingX * 2) / map.dimensions.widthM, (size.height - paddingY * 2) / map.dimensions.lengthM))
     setView({ scale, x: (size.width - map.dimensions.widthM * scale) / 2, y: (size.height - map.dimensions.lengthM * scale) / 2 })
-  }, [map.dimensions.lengthM, map.dimensions.widthM, size])
+  }, [map.dimensions.lengthM, map.dimensions.widthM, readOnly, size])
 
   useEffect(() => {
     const host = hostRef.current
@@ -182,23 +182,73 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
     }))
   }, [heatmap, map.dimensions.lengthM, map.dimensions.widthM, map.heatmapSettings.metric, showContours])
   const contourLabels = useMemo(() => {
-    const bestByLevel = new Map<number, (typeof contourPaths)[number]>()
+    const pathsByLevel = new Map<number, Array<(typeof contourPaths)[number]>>()
     contourPaths.forEach((path) => {
-      const current = bestByLevel.get(path.level)
-      const score = path.points.length * (.5 + path.confidence)
-      const currentScore = current ? current.points.length * (.5 + current.confidence) : -1
-      if (score > currentScore) bestByLevel.set(path.level, path)
+      const levelPaths = pathsByLevel.get(path.level) ?? []
+      levelPaths.push(path)
+      pathsByLevel.set(path.level, levelPaths)
     })
-    return [...bestByLevel.values()].map((path) => {
-      const pointIndex = Math.floor(path.points.length / 4) * 2
-      return {
-        level: path.level,
-        x: path.points[Math.min(pointIndex, path.points.length - 2)],
-        y: path.points[Math.min(pointIndex + 1, path.points.length - 1)],
-        label: formatContourLabel(path.level, map.heatmapSettings.metric),
+
+    type Bounds = { left: number; right: number; top: number; bottom: number }
+    const intersects = (a: Bounds, b: Bounds) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+    const objectPaddingX = 6 / view.scale
+    const objectPaddingY = 5 / view.scale
+    const blockedBounds = orderedObjects.flatMap((object) => {
+      if (!object.visible || !visibleLayers.get(object.layerId)?.visible) return []
+      const topY = map.dimensions.lengthM - object.yM - object.lengthM
+      const sensorLabelWidth = object.type === 'sensor-node' ? Math.max(2.8, 150 / view.scale) : 0
+      const localLeft = 0
+      const localTop = object.type === 'sensor-node' ? -1 / view.scale : 0
+      const localRight = object.widthM + sensorLabelWidth
+      const localBottom = Math.max(object.lengthM, object.type === 'sensor-node' ? 12 / view.scale : object.lengthM)
+      const angle = object.rotationDeg * Math.PI / 180
+      const cosine = Math.cos(angle)
+      const sine = Math.sin(angle)
+      const corners = [
+        [localLeft, localTop],
+        [localRight, localTop],
+        [localLeft, localBottom],
+        [localRight, localBottom],
+      ].map(([x, y]) => ({
+        x: object.xM + x * cosine - y * sine,
+        y: topY + x * sine + y * cosine,
+      }))
+      return [{
+        left: Math.min(...corners.map((corner) => corner.x)) - objectPaddingX,
+        right: Math.max(...corners.map((corner) => corner.x)) + objectPaddingX,
+        top: Math.min(...corners.map((corner) => corner.y)) - objectPaddingY,
+        bottom: Math.max(...corners.map((corner) => corner.y)) + objectPaddingY,
+      }]
+    })
+
+    const placedBounds: Bounds[] = []
+    const labels: Array<{ level: number; x: number; y: number; label: string }> = []
+    const candidateFractions = [.16, .3, .44, .58, .72, .86]
+    for (const [level, paths] of [...pathsByLevel.entries()].sort(([a], [b]) => a - b)) {
+      const label = formatContourLabel(level, map.heatmapSettings.metric)
+      const width = Math.max(38, label.length * 6.2) / view.scale
+      const height = 12 / view.scale
+      let best: { x: number; y: number; bounds: Bounds; score: number } | null = null
+      for (const path of paths) {
+        const pointCount = Math.floor(path.points.length / 2)
+        for (const fraction of candidateFractions) {
+          const pointIndex = Math.min(pointCount - 1, Math.max(0, Math.round((pointCount - 1) * fraction))) * 2
+          const x = path.points[pointIndex]
+          const y = path.points[pointIndex + 1]
+          const bounds = { left: x - width / 2, right: x + width / 2, top: y - height / 2, bottom: y + height / 2 }
+          if (bounds.left < 0 || bounds.right > map.dimensions.widthM || bounds.top < 0 || bounds.bottom > map.dimensions.lengthM) continue
+          if (blockedBounds.some((blocked) => intersects(bounds, blocked)) || placedBounds.some((placed) => intersects(bounds, placed))) continue
+          const score = path.points.length * (.5 + path.confidence) - Math.abs(.5 - fraction) * path.points.length * .08
+          if (!best || score > best.score) best = { x, y, bounds, score }
+        }
       }
-    })
-  }, [contourPaths, map.heatmapSettings.metric])
+      if (best) {
+        labels.push({ level, x: best.x, y: best.y, label })
+        placedBounds.push(best.bounds)
+      }
+    }
+    return labels
+  }, [contourPaths, map.dimensions.lengthM, map.dimensions.widthM, map.heatmapSettings.metric, orderedObjects, view.scale, visibleLayers])
   const average = points.length ? points.reduce((sum, point) => sum + point.value, 0) / points.length : null
   const targetState = average === null || !target ? 'unknown' : average < target[0] ? 'low' : average > target[1] ? 'high' : 'optimal'
   const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
