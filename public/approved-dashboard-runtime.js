@@ -8410,7 +8410,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           ${alertsPageFeedback.text ? `<div class="nc-alerts-feedback" data-tone="${escapeAttribute(alertsPageFeedback.tone || "info")}" role="status">${escapeHtml(alertsPageFeedback.text)}</div>` : ""}
           <div class="nc-alerts-layout">
             <aside class="nc-alerts-filters" aria-label="${escapeAttribute(diagnosticText("Alert views", "Įspėjimų filtrai"))}">
-              <p>${escapeHtml(diagnosticText("View", "Vaizdas"))}</p>
+              <p>${escapeHtml(diagnosticText("Status", "Būsena"))}</p>
               <div role="list">
                 ${view.filters.map((filter, index) => `${index === 4 ? `<span class="nc-alert-filter-divider" aria-hidden="true"></span>` : ""}<button type="button" data-alerts-page-filter="${escapeAttribute(filter.key)}" data-active="${String(filter.key === activeAlertsPageFilterKey)}" aria-pressed="${String(filter.key === activeAlertsPageFilterKey)}"><span>${escapeHtml(filter.label)}</span><strong>${filter.count}</strong></button>`).join("")}
               </div>

@@ -317,6 +317,16 @@
   font-size: var(--type-caption);
 }
 
+.designer-app .nc-alerts-filters button[data-active="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.designer-app .nc-alerts-filters button[data-active="true"] strong {
+  color: inherit;
+}
+
 .designer-app .nc-alert-filter-divider {
   width: 1px;
   height: var(--control-height-sm);
@@ -336,6 +346,19 @@
 
 .designer-app .nc-alert-card:last-child {
   border-bottom: 0;
+}
+
+/* Global form typography sets input padding with !important. Search fields need
+   a larger leading inset so their icon never overlaps the placeholder or value. */
+.designer-app :is(
+  .nc-actions-search,
+  .nc-areas-search,
+  .nc-sections-search,
+  .nc-settings-audit-toolbar label,
+  .nc-admin-search,
+  .nc-organization-team > header > label
+) > input {
+  padding-left: 2.75rem !important;
 }
 
 /* Crop profiles follow the same neutral register language. */
