@@ -1,6 +1,8 @@
 import type { MetricKey } from '../model'
 import type { HeatmapGrid } from './heatmapTypes'
 
+export const MIN_CONTOUR_SENSOR_COUNT = 2
+
 export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourInterval: number }> = {
   'air-temperature': { colorInterval: 0.25, contourInterval: 1 },
   'relative-humidity': { colorInterval: 1, contourInterval: 5 },

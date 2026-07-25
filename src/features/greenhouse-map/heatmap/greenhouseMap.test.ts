@@ -3,7 +3,7 @@ import { createDemoMap } from '../demo'
 import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, worldToScreen } from '../geometry'
 import { mapRepository, validateMap } from '../services/mapRepository'
 import { calculateConfidence } from './calculateConfidenceGrid'
-import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, connectContourSegments, createContourSegments, getContourLevels } from './contourLines'
+import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_COUNT, connectContourSegments, createContourSegments, getContourLevels } from './contourLines'
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
@@ -105,6 +105,10 @@ describe('environment colour scale', () => {
 })
 
 describe('heatmap contour lines', () => {
+  it('allows directional contours from two valid sensors', () => {
+    expect(MIN_CONTOUR_SENSOR_COUNT).toBe(2)
+  })
+
   it('uses meaningful fixed intervals for every metric', () => {
     expect(CONTOUR_INTERVALS['air-temperature']).toBe(1)
     expect(CONTOUR_INTERVALS['relative-humidity']).toBe(5)
