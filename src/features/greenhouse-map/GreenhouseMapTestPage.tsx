@@ -267,9 +267,10 @@ export default function GreenhouseMapTestPage() {
     }
     window.clearTimeout(remoteSaveTimerRef.current)
     const serialized = JSON.stringify(editor.map)
-    if (canEdit && serialized !== lastSyncedRef.current) {
+    const needsSave = serialized !== lastSyncedRef.current || revisionRef.current <= 0
+    if (canEdit && needsSave) {
       await saveRemote()
-      if (lastSyncedRef.current !== serialized) return
+      if (lastSyncedRef.current !== serialized || revisionRef.current <= 0) return
     }
     // Area Map and the approved dashboard use separate page shells. A document
     // navigation guarantees the dashboard runtime starts from a clean DOM.
