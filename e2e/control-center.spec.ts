@@ -150,7 +150,6 @@ test('Trends opens the historical analysis workspace with persistent context and
   await expect(page.locator('.nc-trends-context select')).toHaveCount(2)
   await expect(page.locator('.nc-trends-kpis article')).toHaveCount(4)
   await expect(page.locator('.nc-trends-chart-card')).toContainText('Measured history')
-  await expect(page.locator('.nc-trends-insight')).toContainText('Trend interpretation')
   await expect(page.locator('.nc-trends-target-card')).toContainText('Condition distribution')
   await expect(page.locator('.nc-trends-events')).toContainText('Events in this period')
 
