@@ -347,6 +347,10 @@ export default function SectionsWorkspace() {
     setEditor({ mode: 'edit', id: section.id, name: section.name, areaId: section.areaId, profileId: section.profileId })
   }
 
+  function notifyWorkspaceStructureChanged() {
+    window.dispatchEvent(new CustomEvent('neurocrop:workspace-structure-changed'))
+  }
+
   async function saveSection(event: FormEvent) {
     event.preventDefault()
     if (!editor || busy) return
@@ -355,6 +359,7 @@ export default function SectionsWorkspace() {
       const payload = { areaId: editor.areaId, name: editor.name.trim(), cropProfile: editor.profileId }
       if (editor.mode === 'edit' && editor.id) await neurocropApi.updateSection(editor.id, payload)
       else await neurocropApi.createSection(payload)
+      notifyWorkspaceStructureChanged()
       setFeedback({ tone: 'success', message: editor.mode === 'edit' ? 'Section updated.' : 'Section created.' })
       setEditor(null); setRefreshToken((value) => value + 1)
     } catch (mutationError) {
@@ -367,6 +372,7 @@ export default function SectionsWorkspace() {
     setBusy(true); setMenuId(null); setFeedback(null)
     try {
       await neurocropApi.createSection({ areaId: section.areaId, name: `${section.name} copy`, cropProfile: section.profileId })
+      notifyWorkspaceStructureChanged()
       setFeedback({ tone: 'success', message: `${section.name} duplicated.` }); setRefreshToken((value) => value + 1)
     } catch (mutationError) {
       setFeedback({ tone: 'warning', message: mutationError instanceof Error ? mutationError.message : 'Section could not be duplicated.' })
@@ -378,6 +384,7 @@ export default function SectionsWorkspace() {
     setBusy(true); setFeedback(null)
     try {
       await Promise.all(deleteIds.map((id) => neurocropApi.deleteSection(id)))
+      notifyWorkspaceStructureChanged()
       setFeedback({ tone: 'success', message: `${deleteIds.length} ${deleteIds.length === 1 ? 'section' : 'sections'} deleted.` })
       setDeleteIds([]); setSelectedIds([]); setRefreshToken((value) => value + 1)
     } catch (mutationError) {
