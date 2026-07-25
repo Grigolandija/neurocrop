@@ -18,6 +18,12 @@ export type ContourSegment = {
   confidence: number
 }
 
+export type ContourPath = {
+  level: number
+  points: number[]
+  confidence: number
+}
+
 type Point = { x: number; y: number }
 
 const interpolate = (level: number, valueA: number, valueB: number) => {
@@ -100,4 +106,66 @@ export function createContourSegments(grid: HeatmapGrid, interval: number): Cont
     }
   }
   return segments
+}
+
+const pointKey = (x: number, y: number) => `${Math.round(x * 1000)}:${Math.round(y * 1000)}`
+
+export function connectContourSegments(segments: ContourSegment[]): ContourPath[] {
+  const paths: ContourPath[] = []
+  const byLevel = new Map<number, ContourSegment[]>()
+  segments.forEach((segment) => byLevel.set(segment.level, [...(byLevel.get(segment.level) ?? []), segment]))
+
+  for (const [level, levelSegments] of byLevel) {
+    const edges = levelSegments.map((segment) => ({
+      a: pointKey(segment.x1, segment.y1),
+      b: pointKey(segment.x2, segment.y2),
+      segment,
+    }))
+    const points = new Map<string, Point>()
+    const adjacency = new Map<string, number[]>()
+    edges.forEach((edge, index) => {
+      points.set(edge.a, { x: edge.segment.x1, y: edge.segment.y1 })
+      points.set(edge.b, { x: edge.segment.x2, y: edge.segment.y2 })
+      adjacency.set(edge.a, [...(adjacency.get(edge.a) ?? []), index])
+      adjacency.set(edge.b, [...(adjacency.get(edge.b) ?? []), index])
+    })
+    const unused = new Set(edges.map((_, index) => index))
+
+    const walk = (firstEdge: number, start: string) => {
+      const pathPoints: number[] = []
+      let confidenceTotal = 0
+      let edgeCount = 0
+      let edgeIndex: number | undefined = firstEdge
+      let current = start
+      const startPoint = points.get(start)!
+      pathPoints.push(startPoint.x, startPoint.y)
+      while (edgeIndex != null && unused.has(edgeIndex)) {
+        unused.delete(edgeIndex)
+        const edge = edges[edgeIndex]
+        current = edge.a === current ? edge.b : edge.a
+        const nextPoint = points.get(current)!
+        pathPoints.push(nextPoint.x, nextPoint.y)
+        confidenceTotal += edge.segment.confidence
+        edgeCount += 1
+        edgeIndex = adjacency.get(current)?.find((candidate) => unused.has(candidate))
+      }
+      if (pathPoints.length >= 4) paths.push({ level, points: pathPoints, confidence: confidenceTotal / Math.max(1, edgeCount) })
+    }
+
+    for (const [key, connectedEdges] of adjacency) {
+      if (connectedEdges.length === 2) continue
+      connectedEdges.forEach((edgeIndex) => {
+        if (unused.has(edgeIndex)) walk(edgeIndex, key)
+      })
+    }
+    while (unused.size) {
+      const edgeIndex = unused.values().next().value as number
+      walk(edgeIndex, edges[edgeIndex].a)
+    }
+  }
+  return paths
+}
+
+export function createContourPaths(grid: HeatmapGrid, interval: number): ContourPath[] {
+  return connectContourSegments(createContourSegments(grid, interval))
 }

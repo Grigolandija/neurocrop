@@ -3,7 +3,7 @@ import { createDemoMap } from '../demo'
 import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, worldToScreen } from '../geometry'
 import { mapRepository, validateMap } from '../services/mapRepository'
 import { calculateConfidence } from './calculateConfidenceGrid'
-import { CONTOUR_INTERVALS, createContourSegments, getContourLevels } from './contourLines'
+import { CONTOUR_INTERVALS, connectContourSegments, createContourSegments, getContourLevels } from './contourLines'
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
@@ -111,6 +111,15 @@ describe('heatmap contour lines', () => {
     }, 0.5)
     expect(segments).toHaveLength(1)
     expect(segments[0]).toMatchObject({ level: 0.5, x1: 0.5, x2: 0.5, confidence: 1 })
+  })
+  it('joins neighbouring segments into a crisp continuous path', () => {
+    const paths = connectContourSegments([
+      { level: 20, x1: 0, y1: 0, x2: 1, y2: 1, confidence: 0.8 },
+      { level: 20, x1: 1, y1: 1, x2: 2, y2: 1.5, confidence: 1 },
+    ])
+    expect(paths).toHaveLength(1)
+    expect(paths[0].points).toEqual([0, 0, 1, 1, 2, 1.5])
+    expect(paths[0].confidence).toBeCloseTo(0.9)
   })
 })
 

@@ -1,9 +1,10 @@
 import Konva from 'konva'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
-import { CONTOUR_INTERVALS } from '../heatmap/contourLines'
+import { CONTOUR_INTERVALS, createContourPaths } from '../heatmap/contourLines'
 import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
+import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
 import { METRICS, OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type MapMode, type ObjectType } from '../model'
 
@@ -30,6 +31,13 @@ const objectColors: Record<string, { fill: string; stroke: string }> = {
   lighting: { fill: '#e1cc75', stroke: '#8a7532' }, labels: { fill: '#ece8dd', stroke: '#6f716c' },
 }
 const statusColors: Record<string, string> = { online: '#2f8760', warning: '#bd842b', offline: '#6d7470', unassigned: '#60758a', 'low-battery': '#b85b46', stale: '#936d3c' }
+
+const formatContourLabel = (level: number, metric: GreenhouseMap['heatmapSettings']['metric']) => {
+  if (metric === 'relative-humidity') return `${level}%`
+  if (metric === 'co2') return `${level} ppm`
+  if (metric === 'vpd') return `${level.toFixed(1)} kPa`
+  return `${level.toFixed(1)} °C`
+}
 
 function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
   object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; layerOpacity: number; viewScale: number
@@ -89,7 +97,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
   const [panning, setPanning] = useState(false)
   const [showContours, setShowContours] = useState(true)
   const [mouse, setMouse] = useState<{ xM: number; yM: number } | null>(null)
-  const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; min: number; max: number; count: number; calculatedAt: Date } | null>(null)
+  const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; count: number; calculatedAt: Date } | null>(null)
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
 
   const fit = useCallback(() => {
@@ -137,8 +145,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
           METRICS[metric].colors,
           map.heatmapSettings.opacity,
           map.heatmapSettings.showConfidence,
-          showContours ? { interval: CONTOUR_INTERVALS[metric], unit: METRICS[metric].unit } : undefined,
         ),
+        grid,
         min: grid.min,
         max: grid.max,
         count: grid.sensorCount,
@@ -146,7 +154,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
       })
     }, 180)
     return () => window.clearTimeout(timer)
-  }, [map.dimensions, map.heatmapSettings, mode, points, showContours])
+  }, [map.dimensions, map.heatmapSettings, mode, points])
 
   const pointerWorld = useCallback(() => {
     const stage = stageRef.current
@@ -165,6 +173,34 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
 
   const visibleLayers = useMemo(() => new Map(map.layers.map((layer) => [layer.id, layer])), [map.layers])
   const orderedObjects = useMemo(() => map.layers.flatMap((layer) => map.objects.filter((object) => object.layerId === layer.id)), [map.layers, map.objects])
+  const contourPaths = useMemo(() => {
+    if (!showContours || !heatmap || heatmap.count < 3) return []
+    return createContourPaths(heatmap.grid, CONTOUR_INTERVALS[map.heatmapSettings.metric]).map((path) => ({
+      ...path,
+      points: path.points.map((coordinate, index) => index % 2 === 0
+        ? coordinate / (heatmap.grid.width - 1) * map.dimensions.widthM
+        : coordinate / (heatmap.grid.height - 1) * map.dimensions.lengthM),
+    }))
+  }, [heatmap, map.dimensions.lengthM, map.dimensions.widthM, map.heatmapSettings.metric, showContours])
+  const contourLabels = useMemo(() => {
+    const bestByLevel = new Map<number, (typeof contourPaths)[number]>()
+    contourPaths.forEach((path) => {
+      const current = bestByLevel.get(path.level)
+      const score = path.points.length * (.5 + path.confidence)
+      const currentScore = current ? current.points.length * (.5 + current.confidence) : -1
+      if (score > currentScore) bestByLevel.set(path.level, path)
+    })
+    return [...bestByLevel.values()].map((path) => {
+      const pointCount = path.points.length / 2
+      const pointIndex = Math.floor(pointCount / 2) * 2
+      return {
+        level: path.level,
+        x: path.points[Math.min(pointIndex, path.points.length - 2)],
+        y: path.points[Math.min(pointIndex + 1, path.points.length - 1)],
+        label: formatContourLabel(path.level, map.heatmapSettings.metric),
+      }
+    })
+  }, [contourPaths, map.heatmapSettings.metric])
   const average = points.length ? points.reduce((sum, point) => sum + point.value, 0) / points.length : null
   const targetState = average === null || !target ? 'unknown' : average < target[0] ? 'low' : average > target[1] ? 'high' : 'optimal'
   const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
@@ -209,6 +245,19 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
         {mode === 'environment' && heatmap && visibleLayers.get('environment')?.visible
           ? <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} opacity={visibleLayers.get('environment')?.opacity ?? 1} />
           : null}
+        {mode === 'environment' && heatmap && showContours && heatmap.count >= 3 && visibleLayers.get('environment')?.visible ? <Group clipX={0} clipY={0} clipWidth={map.dimensions.widthM} clipHeight={map.dimensions.lengthM}>
+          {contourPaths.map((path, index) => <Group key={`${path.level}-${index}`}>
+            <Line points={path.points} stroke="rgba(250,252,248,.92)" strokeWidth={4.2 / view.scale} lineCap="round" lineJoin="round" tension={.08} dash={path.confidence < .35 ? [7 / view.scale, 5 / view.scale] : undefined} perfectDrawEnabled={false} />
+            <Line points={path.points} stroke="#173f35" strokeWidth={1.8 / view.scale} opacity={path.confidence < .35 ? .62 : .94} lineCap="round" lineJoin="round" tension={.08} dash={path.confidence < .35 ? [7 / view.scale, 5 / view.scale] : undefined} perfectDrawEnabled={false} />
+          </Group>)}
+          {contourLabels.map(({ level, x, y, label }) => {
+            const widthPx = Math.max(38, label.length * 6.3 + 12)
+            return <Group key={level} x={x - widthPx / view.scale / 2} y={y - 9 / view.scale}>
+              <Rect width={widthPx / view.scale} height={18 / view.scale} fill="rgba(250,252,248,.96)" stroke="#173f35" strokeWidth={1 / view.scale} cornerRadius={3 / view.scale} />
+              <Text width={widthPx / view.scale} height={18 / view.scale} text={label} align="center" verticalAlign="middle" fontFamily="IBM Plex Mono" fontStyle="bold" fontSize={10 / view.scale} fill="#173f35" />
+            </Group>
+          })}
+        </Group> : null}
         {mode === 'signal' && visibleLayers.get('signal')?.visible ? map.objects.filter((object) => object.metadata.sensor).map((object) => {
           const quality = Math.max(.15, Math.min(1, ((object.metadata.sensor?.rssi ?? -120) + 120) / 55))
           return <Circle key={object.id} x={object.xM + object.widthM / 2} y={map.dimensions.lengthM - object.yM - object.lengthM / 2} radius={2.5 + quality * 2.2} fill={quality > .65 ? '#3b8364' : quality > .38 ? '#b58a3d' : '#a45849'} opacity={.08 + quality * .12} />
