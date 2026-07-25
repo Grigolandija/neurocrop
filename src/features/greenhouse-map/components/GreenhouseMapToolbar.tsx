@@ -8,6 +8,7 @@ type Props = {
   canRedo: boolean
   selectedCount: number
   editing: boolean
+  language: 'en' | 'lt'
   onMode: (mode: MapMode) => void
   onMetric: (metric: MetricKey) => void
   onSnap: (value: boolean) => void
@@ -18,14 +19,15 @@ type Props = {
 }
 
 export default function GreenhouseMapToolbar(props: Props) {
+  const tr = (english: string, lithuanian: string) => props.language === 'lt' ? lithuanian : english
   return <header className="gh-toolbar">
     <div className="gh-brand"><span><i className="fa-solid fa-leaf" /></span><div><strong>NeuroCrop</strong><small>Area intelligence · Beta</small></div></div>
     <nav className="gh-modes" aria-label="Map mode">
       {([
-        ['layout', 'fa-pen-ruler', 'Plan', 'Arrange Sections, nodes and greenhouse equipment.'],
-        ['coverage', 'fa-bullseye', 'Sensor reach', 'Review planned sensing radius around each node.'],
-        ['environment', 'fa-temperature-half', 'Climate map', 'View measured and interpolated growing conditions.'],
-        ['signal', 'fa-tower-broadcast', 'LoRa signal', 'Review the latest node-to-gateway radio quality.'],
+        ['layout', 'fa-pen-ruler', tr('Plan', 'Planas'), tr('Arrange Sections, nodes and greenhouse equipment.', 'Išdėstykite Sections, nodes ir šiltnamio įrangą.')],
+        ['coverage', 'fa-bullseye', tr('Sensor reach', 'Jutiklių aprėptis'), tr('Review planned sensing radius around each node.', 'Peržiūrėkite planuojamą kiekvieno node stebėjimo spindulį.')],
+        ['environment', 'fa-temperature-half', tr('Climate map', 'Klimato žemėlapis'), tr('View measured and interpolated growing conditions.', 'Peržiūrėkite išmatuotas ir interpoliuotas auginimo sąlygas.')],
+        ['signal', 'fa-tower-broadcast', tr('LoRa signal', 'LoRa signalas'), tr('Review the latest node-to-gateway radio quality.', 'Peržiūrėkite naujausią node ryšio su gateway kokybę.')],
       ] as const).map(([id, icon, label, title]) => <button key={id} title={title} className={props.mode === id ? 'active' : ''} onClick={() => props.onMode(id)}><i className={`fa-solid ${icon}`} />{label}</button>)}
     </nav>
     {props.mode === 'environment' ? <select aria-label="Environment metric" value={props.metric} onChange={(event) => props.onMetric(event.target.value as MetricKey)}>

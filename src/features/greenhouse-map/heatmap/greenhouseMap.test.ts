@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createDemoMap } from '../demo'
-import { screenToWorld, snapValue, worldToScreen } from '../geometry'
+import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, worldToScreen } from '../geometry'
 import { mapRepository, validateMap } from '../services/mapRepository'
 import { calculateConfidence } from './calculateConfidenceGrid'
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
@@ -91,6 +91,20 @@ describe('coordinates, snap and persistence validation', () => {
   })
   it('snaps to the configured grid', () => expect(snapValue(2.37, .25, true)).toBe(2.25))
   it('does not snap when disabled', () => expect(snapValue(2.37, .25, false)).toBe(2.37))
+  it('reports overlapping and uncovered Section geometry', () => {
+    const summary = sectionGeometrySummary([
+      { id: 'a', xM: 0, yM: 0, widthM: 6, lengthM: 4 },
+      { id: 'b', xM: 5, yM: 0, widthM: 5, lengthM: 4 },
+    ], { widthM: 10, lengthM: 5 })
+    expect(summary.overlaps).toHaveLength(1)
+    expect(summary.overlaps[0].areaM2).toBe(4)
+    expect(summary.uncoveredPercent).toBeGreaterThan(0)
+  })
+  it('snaps Section boundaries to nearby greenhouse walls', () => {
+    const snapped = snapSectionToWalls({ id: 'a', xM: .2, yM: 2.8, widthM: 4, lengthM: 2 }, { widthM: 10, lengthM: 5 }, .25)
+    expect(snapped.xM).toBe(0)
+    expect(snapped.yM).toBe(3)
+  })
   it('rejects invalid imported dimensions and coordinates without mutation', () => {
     const map = createDemoMap()
     const invalidDimensions = structuredClone(map)

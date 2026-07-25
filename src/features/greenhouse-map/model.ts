@@ -25,6 +25,7 @@ export type SensorNodeMetadata = {
   sectionId?: string
   sectionName?: string
   installationHeightM?: number
+  installationConfirmedAt?: string
   model?: string
   sensors: string[]
   status: NodeStatus

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type ObjectType } from './model'
-import { clampObjectPosition, sensorMarkerSizeM, snapValue } from './geometry'
+import { clampObjectPosition, sensorMarkerSizeM, snapSectionToWalls, snapValue } from './geometry'
 import { mapRepository } from './services/mapRepository'
 
 type History = { past: GreenhouseMap[]; present: GreenhouseMap; future: GreenhouseMap[] }
@@ -90,7 +90,10 @@ export function useMapEditor() {
       objects: current.objects.map((object) => {
         const position = positions.find((item) => item.id === object.id)
         if (!position || object.locked) return object
-        return { ...object, ...clampObjectPosition(snapValue(position.xM, current.gridSizeM, snap), snapValue(position.yM, current.gridSizeM, snap), object.widthM, object.lengthM, current.dimensions.widthM, current.dimensions.lengthM) }
+        const clamped = clampObjectPosition(snapValue(position.xM, current.gridSizeM, snap), snapValue(position.yM, current.gridSizeM, snap), object.widthM, object.lengthM, current.dimensions.widthM, current.dimensions.lengthM)
+        return object.type === 'section-zone'
+          ? snapSectionToWalls({ ...object, ...clamped }, current.dimensions, current.gridSizeM)
+          : { ...object, ...clamped }
       }),
     }), record)
   }, [commit, snap])

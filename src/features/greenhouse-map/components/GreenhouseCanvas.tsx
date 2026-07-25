@@ -11,6 +11,10 @@ type Props = {
   mode: MapMode
   readOnly?: boolean
   sectionFilterId?: string
+  target?: [number, number]
+  dailyView?: boolean
+  language?: 'en' | 'lt'
+  actions?: Array<{ id: string; sectionId: string; sectionName: string; title: string; reason: string; priority: string }>
   selectedIds: string[]
   snap: boolean
   onSelect: (ids: string[]) => void
@@ -76,7 +80,7 @@ function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale,
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionFilterId, selectedIds, snap, onSelect, onMove, onUpdate, onAdd }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionFilterId, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -85,6 +89,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionF
   const [panning, setPanning] = useState(false)
   const [mouse, setMouse] = useState<{ xM: number; yM: number } | null>(null)
   const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; min: number; max: number; count: number; calculatedAt: Date } | null>(null)
+  const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
 
   const fit = useCallback(() => {
     const paddingX = 85
@@ -147,6 +152,10 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionF
 
   const visibleLayers = useMemo(() => new Map(map.layers.map((layer) => [layer.id, layer])), [map.layers])
   const orderedObjects = useMemo(() => map.layers.flatMap((layer) => map.objects.filter((object) => object.layerId === layer.id)), [map.layers, map.objects])
+  const selectedZone = map.objects.find((object) => object.type === 'section-zone' && object.metadata.section?.sectionId === sectionFilterId)
+  const average = points.length ? points.reduce((sum, point) => sum + point.value, 0) / points.length : null
+  const targetState = average === null || !target ? 'unknown' : average < target[0] ? 'low' : average > target[1] ? 'high' : 'optimal'
+  const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
   const editable = mode === 'layout' && !readOnly
 
   return <main className="gh-canvas-shell" ref={hostRef}
@@ -185,7 +194,19 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionF
       <Layer listening={false}>
         <Rect x={0} y={0} width={map.dimensions.widthM} height={map.dimensions.lengthM} fill="#f7f7f2" shadowColor="#152c25" shadowBlur={.35} shadowOpacity={.18} />
         {gridLines.map((line, index) => <Line key={index} points={line.points} stroke={line.major ? '#b5bcb4' : '#d9ddd7'} strokeWidth={(line.major ? 1.2 : .65) / view.scale} />)}
-        {mode === 'environment' && heatmap && visibleLayers.get('environment')?.visible ? <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} opacity={visibleLayers.get('environment')?.opacity ?? 1} /> : null}
+        {mode === 'environment' && heatmap && visibleLayers.get('environment')?.visible
+          ? selectedZone
+            ? <Group clipX={selectedZone.xM} clipY={map.dimensions.lengthM - selectedZone.yM - selectedZone.lengthM} clipWidth={selectedZone.widthM} clipHeight={selectedZone.lengthM}>
+                <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} opacity={visibleLayers.get('environment')?.opacity ?? 1} />
+              </Group>
+            : <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} opacity={visibleLayers.get('environment')?.opacity ?? 1} />
+          : null}
+        {mode === 'environment' && selectedZone ? <>
+          <Rect x={0} y={0} width={map.dimensions.widthM} height={Math.max(0, map.dimensions.lengthM - selectedZone.yM - selectedZone.lengthM)} fill="#e5e9e4" opacity={.42} />
+          <Rect x={0} y={map.dimensions.lengthM - selectedZone.yM} width={map.dimensions.widthM} height={selectedZone.yM} fill="#e5e9e4" opacity={.42} />
+          <Rect x={0} y={map.dimensions.lengthM - selectedZone.yM - selectedZone.lengthM} width={selectedZone.xM} height={selectedZone.lengthM} fill="#e5e9e4" opacity={.42} />
+          <Rect x={selectedZone.xM + selectedZone.widthM} y={map.dimensions.lengthM - selectedZone.yM - selectedZone.lengthM} width={Math.max(0, map.dimensions.widthM - selectedZone.xM - selectedZone.widthM)} height={selectedZone.lengthM} fill="#e5e9e4" opacity={.42} />
+        </> : null}
         {mode === 'signal' && visibleLayers.get('signal')?.visible ? map.objects.filter((object) => object.metadata.sensor).map((object) => {
           const quality = Math.max(.15, Math.min(1, ((object.metadata.sensor?.rssi ?? -120) + 120) / 55))
           return <Circle key={object.id} x={object.xM + object.widthM / 2} y={map.dimensions.lengthM - object.yM - object.lengthM / 2} radius={2.5 + quality * 2.2} fill={quality > .65 ? '#3b8364' : quality > .38 ? '#b58a3d' : '#a45849'} opacity={.08 + quality * .12} />
@@ -223,11 +244,18 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionF
     </div>
     {mode === 'environment' ? <div className="gh-heatmap-legend">
       <small>ESTIMATED ENVIRONMENT MAP</small><strong>{METRICS[map.heatmapSettings.metric].label}</strong>
-      {heatmap ? <><div className="gh-color-scale" style={{ background: `linear-gradient(90deg, ${METRICS[map.heatmapSettings.metric].colors.join(',')})` }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div><p>{sectionFilterId ? 'Selected Section' : 'Whole Area'} · estimated from {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count === 1 ? <em>Low confidence: only one valid sensor.</em> : null}</> : <p>No valid online sensor data for this metric and Section.</p>}
+      {heatmap ? <><div className="gh-color-scale" style={{ background: `linear-gradient(90deg, ${METRICS[map.heatmapSettings.metric].colors.join(',')})` }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>{target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}<p>{sectionFilterId ? tr('Selected Section', 'Pasirinkta Section') : tr('Whole Area', 'Visa Area')} · {tr('estimated from', 'apskaičiuota iš')} {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count === 1 ? <em>{tr('Low confidence: only one valid sensor.', 'Mažas patikimumas: tik vienas tinkamas jutiklis.')}</em> : null}</> : <p>{tr('No valid online sensor data for this metric and Section.', 'Nėra tinkamų aktyvių jutiklių šiam rodikliui ir Section.')}</p>}
       <em>Interpolated estimate based on sensor locations. Values between sensors are not directly measured.</em>
     </div> : null}
     {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> Approximate planned sensor coverage, not a physical propagation model.</div> : null}
     {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> Latest LoRa quality based on RSSI, SNR and node status. It is not a propagation map.</div> : null}
+    {dailyView ? <aside className="gh-daily-summary">
+      <small>{tr('TODAY', 'ŠIANDIEN')}</small><h2>{actions.length || sensorIssues.length || (targetState !== 'optimal' && targetState !== 'unknown') ? tr('Items need attention', 'Reikia dėmesio') : tr('Area is stable', 'Area stabili')}</h2>
+      {actions.slice(0, 3).map((action) => <p data-tone={action.priority === 'now' ? 'critical' : 'warning'} key={action.id}><i className="fa-solid fa-list-check" /><span><b>{action.title}</b>{action.sectionName} · {action.reason}</span></p>)}
+      {targetState !== 'optimal' && targetState !== 'unknown' ? <p data-tone="warning"><i className="fa-solid fa-temperature-half" /><span><b>{METRICS[map.heatmapSettings.metric].label}</b>{targetState === 'low' ? tr('Below crop target', 'Žemiau augalo tikslo') : tr('Above crop target', 'Virš augalo tikslo')}</span></p> : null}
+      {sensorIssues.slice(0, Math.max(0, 3 - actions.length)).map((object) => <p data-tone={object.metadata.sensor?.status === 'offline' ? 'critical' : 'warning'} key={object.id}><i className="fa-solid fa-microchip" /><span><b>{object.name}</b>{object.metadata.sensor?.status}</span></p>)}
+      {!actions.length && !sensorIssues.length && targetState === 'optimal' ? <p data-tone="good"><i className="fa-solid fa-circle-check" /><span><b>{tr('No priority actions', 'Nėra prioritetinių veiksmų')}</b>{tr('Current readings are inside target.', 'Dabartiniai rodmenys tiksliniame diapazone.')}</span></p> : null}
+    </aside> : null}
     <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> {mouse && mouse.xM >= 0 && mouse.yM >= 0 && mouse.xM <= map.dimensions.widthM && mouse.yM <= map.dimensions.lengthM ? `X ${mouse.xM.toFixed(2)} m · Y ${mouse.yM.toFixed(2)} m` : 'Outside plan'}</span><span>Grid {map.gridSizeM} m</span><span>Zoom {Math.round(view.scale / 40 * 100)}%</span><span>{selectedIds.length ? `${selectedIds.length} selected` : snap ? 'Snap enabled' : 'Free placement'}</span></footer>
   </main>
 }

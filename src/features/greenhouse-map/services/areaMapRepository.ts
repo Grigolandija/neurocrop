@@ -11,6 +11,21 @@ export type AreaMapSection = {
   cropProfile?: string
   nodes: number
 }
+export type AreaMapProfile = {
+  id: string
+  name: string
+  stage?: string
+  metrics: Record<string, { optimal?: [number, number]; warning?: [number, number]; critical?: [number, number] }>
+}
+export type AreaMapAction = {
+  id: string
+  areaId: string
+  sectionId: string
+  sectionName: string
+  title: string
+  reason: string
+  priority: string
+}
 export type AreaMapNode = SensorNodeMetadata & { sectionId?: string; sectionName?: string }
 export type AreaMapContext = {
   area: AreaSummary
@@ -19,6 +34,8 @@ export type AreaMapContext = {
   updatedAt: string | null
   nodes: AreaMapNode[]
   sections: AreaMapSection[]
+  profiles: AreaMapProfile[]
+  actions: AreaMapAction[]
   permissions: { canEdit: boolean }
 }
 export type AreaMapSaveResult = { map: GreenhouseMap; revision: number; updatedAt: string }
@@ -42,6 +59,7 @@ function normalizeNode(value: AreaMapNode): AreaMapNode {
     sectionId: text(value.sectionId),
     sectionName: text(value.sectionName),
     installationHeightM: finite(value.installationHeightM),
+    installationConfirmedAt: text(value.installationConfirmedAt),
     model: text(value.model),
     sensors: Array.isArray(value.sensors) ? value.sensors.map(String) : [],
     status: normalizeStatus(value.status),
@@ -228,9 +246,11 @@ export const areaMapRepository = {
     })).filter((area) => area.id)
   },
   async load(areaId: string): Promise<AreaMapContext> {
-    const [payload, sectionsPayload] = await Promise.all([
+    const [payload, sectionsPayload, profilesPayload, actionsPayload] = await Promise.all([
       neurocropApi.getGreenhouseMap(areaId) as Promise<AreaMapContext>,
       neurocropApi.getSections(areaId) as Promise<{ sections?: Array<Record<string, unknown>> }>,
+      neurocropApi.getCropProfiles() as Promise<{ profiles?: Array<Record<string, unknown>> }>,
+      neurocropApi.getTodayActions() as Promise<{ actions?: Array<Record<string, unknown>> }>,
     ])
     const sections = (sectionsPayload.sections ?? []).map((section) => ({
       id: String(section.id || ''),
@@ -239,12 +259,41 @@ export const areaMapRepository = {
       cropProfile: text(section.crop_profile),
       nodes: Number(section.nodes) || 0,
     })).filter((section) => section.id)
-    return { ...payload, nodes: Array.isArray(payload.nodes) ? payload.nodes : [], sections }
+    const profiles = (profilesPayload.profiles ?? []).map((profile) => ({
+      id: String(profile.id || ''),
+      name: String(profile.name || 'Unnamed profile'),
+      stage: text(profile.stage),
+      metrics: profile.metrics && typeof profile.metrics === 'object' && !Array.isArray(profile.metrics)
+        ? profile.metrics as AreaMapProfile['metrics'] : {},
+    })).filter((profile) => profile.id)
+    const actions = (actionsPayload.actions ?? []).filter((action) => String(action.areaId || '') === areaId).map((action) => ({
+      id: String(action.id || ''),
+      areaId,
+      sectionId: String(action.sectionId || ''),
+      sectionName: String(action.sectionName || ''),
+      title: String(action.title || 'Condition needs attention'),
+      reason: String(action.reason || ''),
+      priority: String(action.priority || 'today'),
+    })).filter((action) => action.id)
+    return { ...payload, nodes: Array.isArray(payload.nodes) ? payload.nodes : [], sections, profiles, actions }
   },
   async save(areaId: string, map: GreenhouseMap, expectedRevision: number): Promise<AreaMapSaveResult> {
     return await neurocropApi.saveGreenhouseMap(areaId, { map: { ...map, areaId }, expectedRevision }) as AreaMapSaveResult
   },
   async assignNodeToSection(areaId: string, devEui: string, sectionId: string) {
     return await neurocropApi.assignMapNodeSection(areaId, devEui, sectionId) as { node: { devEui: string; sectionId: string; areaId: string } }
+  },
+  async createSection(areaId: string, name: string, cropProfile: string) {
+    const payload = await neurocropApi.createSection({ areaId, name, cropProfile }) as { section: Record<string, unknown> }
+    return {
+      id: String(payload.section.id),
+      name: String(payload.section.name || name),
+      areaId: String(payload.section.area_id || payload.section.areaId || areaId),
+      cropProfile: text(payload.section.crop_profile || payload.section.cropProfile || cropProfile),
+      nodes: 0,
+    } satisfies AreaMapSection
+  },
+  async claimNode(devEui: string, sectionId: string) {
+    return await neurocropApi.registerNode({ devEui, sectionId }) as { node: Record<string, unknown> }
   },
 }

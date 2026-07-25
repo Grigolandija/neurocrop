@@ -5,11 +5,14 @@ type Props = {
   selected: GreenhouseObject[]
   onUpdate: (id: string, patch: Partial<GreenhouseObject>) => void
   onAlign: (edge: 'left' | 'center' | 'right' | 'bottom' | 'middle' | 'top') => void
+  onSplitSection?: (object: GreenhouseObject) => void
+  language?: 'en' | 'lt'
 }
 const numeric = (value: string, fallback: number) => Number.isFinite(Number(value)) ? Number(value) : fallback
 
-export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign }: Props) {
-  if (!selected.length) return <aside className="gh-right-panel"><div className="gh-empty-selection"><span><i className="fa-solid fa-arrow-pointer" /></span><h2>No object selected</h2><p>Select an object on the plan to inspect exact coordinates, dimensions and operational data.</p><small>Shift-click to select multiple objects.</small></div></aside>
+export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign, onSplitSection, language = 'en' }: Props) {
+  const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
+  if (!selected.length) return <aside className="gh-right-panel"><div className="gh-empty-selection"><span><i className="fa-solid fa-arrow-pointer" /></span><h2>{tr('No object selected', 'Objektas nepasirinktas')}</h2><p>{tr('Select an object on the plan to inspect exact coordinates, dimensions and operational data.', 'Pasirinkite objektą plane, kad matytumėte koordinates, matmenis ir veikimo duomenis.')}</p><small>{tr('Shift-click to select multiple objects.', 'Shift + paspaudimas pasirenka kelis objektus.')}</small></div></aside>
   if (selected.length > 1) return <aside className="gh-right-panel"><section className="gh-properties"><header><small>MULTI-SELECTION</small><h2>{selected.length} objects selected</h2></header><p className="gh-muted">Align selected objects to their shared bounds.</p><div className="gh-align-grid">
     {(['left', 'center', 'right', 'bottom', 'middle', 'top'] as const).map((edge) => <button key={edge} onClick={() => onAlign(edge)}><i className={`fa-solid fa-align-${edge === 'middle' ? 'center' : edge}`} />{edge}</button>)}
   </div></section></aside>
@@ -20,6 +23,10 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
   const patchMetadata = (metadata: Partial<GreenhouseObject['metadata']>) => onUpdate(object.id, { metadata: { ...object.metadata, ...metadata } })
   const patchSensor = (update: Partial<SensorNodeMetadata>) => patchMetadata({ sensor: { ...sensor!, ...update } })
   const measurements = sensor?.measurements
+  const otherSensors = map.objects.filter((candidate) => candidate.id !== object.id && candidate.metadata.sensor)
+  const nearestNodeDistance = sensor && otherSensors.length ? Math.min(...otherSensors.map((candidate) => Math.hypot(candidate.xM - object.xM, candidate.yM - object.yM))) : null
+  const suggestedSpacing = Math.max(1.5, Math.sqrt(map.dimensions.widthM * map.dimensions.lengthM / Math.max(1, map.objects.filter((candidate) => candidate.metadata.sensor).length)) * .55)
+  const insideLinkedSection = !sensor?.sectionId || map.objects.some((candidate) => candidate.type === 'section-zone' && candidate.metadata.section?.sectionId === sensor.sectionId && object.xM + object.widthM / 2 >= candidate.xM && object.xM + object.widthM / 2 <= candidate.xM + candidate.widthM && object.yM + object.lengthM / 2 >= candidate.yM && object.yM + object.lengthM / 2 <= candidate.yM + candidate.lengthM)
 
   return <aside className="gh-right-panel">
     <section className="gh-properties">
@@ -51,6 +58,7 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
       <header><div><small>NEUROCROP SECTION</small><h2>{section.sectionName}</h2></div><span className="gh-type-badge"><i className="fa-solid fa-border-all" /></span></header>
       <div className="gh-node-summary"><div><span>Assigned nodes</span><strong>{section.nodeCount ?? 0}</strong></div><div><span>Crop profile</span><strong>{section.cropProfile || 'Not assigned'}</strong></div></div>
       <p className="gh-muted">Resize and position this boundary in Layout mode. The geometry belongs to the map; the linked Section and its node assignments remain managed in Sections.</p>
+      {onSplitSection ? <button className="gh-inspector-action" type="button" onClick={() => onSplitSection(object)}><i className="fa-solid fa-table-columns" />{tr('Split into a new Section', 'Padalinti į naują Section')}</button> : null}
     </section> : null}
     {sensor ? <section className="gh-properties gh-sensor-properties">
       <header><div><small>NEUROSENSE DATA</small><h2>Node configuration</h2></div><span className={`gh-status-dot ${sensor.status}`} /></header>
@@ -64,6 +72,13 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
       <div className="gh-radio-row"><span><small>RSSI</small><strong>{sensor.rssi ?? '—'} dBm</strong></span><span><small>SNR</small><strong>{sensor.snr ?? '—'} dB</strong></span><span><small>Last uplink</small><strong>{sensor.lastSeenAt ? new Date(sensor.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></span></div>
       <label className="gh-field wide"><span>Active sensors</span><input value={sensor.sensors.join(', ')} onChange={(event) => patchSensor({ sensors: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} /></label>
       <div className="gh-measurement-list">{(Object.keys(METRICS) as Array<keyof typeof METRICS>).map((key) => <span key={key}><small>{METRICS[key].label}</small><strong>{String(measurements?.[METRICS[key].field] ?? '—')} {METRICS[key].unit}</strong></span>)}</div>
+      <div className="gh-installation-check">
+        <h3><i className="fa-solid fa-screwdriver-wrench" />{tr('Installation check', 'Montavimo patikra')}</h3>
+        <p data-tone={insideLinkedSection ? 'good' : 'warning'}>{insideLinkedSection ? tr('Inside the assigned Section', 'Priskirtos Section viduje') : tr('Move this node inside its assigned Section', 'Perkelkite node į priskirtą Section')}</p>
+        <p data-tone={nearestNodeDistance === null || nearestNodeDistance >= suggestedSpacing * .55 ? 'good' : 'warning'}>{nearestNodeDistance === null ? tr('First node in this Area', 'Pirmasis node šioje Area') : tr(`Nearest node ${nearestNodeDistance.toFixed(1)} m · suggested spacing about ${suggestedSpacing.toFixed(1)} m`, `Artimiausias node ${nearestNodeDistance.toFixed(1)} m · siūlomas tarpas apie ${suggestedSpacing.toFixed(1)} m`)}</p>
+        <p>{tr('Recommended starting height: 1.2–1.8 m above crop level; confirm against the installed sensor type and crop canopy.', 'Rekomenduojamas pradinis aukštis: 1,2–1,8 m virš augalų; patikslinkite pagal jutiklio tipą ir augalų lają.')}</p>
+        <button className={sensor.installationConfirmedAt ? 'confirmed' : ''} type="button" onClick={() => patchSensor({ installationConfirmedAt: sensor.installationConfirmedAt ? undefined : new Date().toISOString() })}><i className={`fa-solid ${sensor.installationConfirmedAt ? 'fa-circle-check' : 'fa-location-dot'}`} />{sensor.installationConfirmedAt ? `${tr('Installed', 'Sumontuota')} · ${new Date(sensor.installationConfirmedAt).toLocaleDateString()}` : tr('Confirm physical installation', 'Patvirtinti fizinį montavimą')}</button>
+      </div>
     </section> : null}
     <footer className="gh-wall-distances"><span><small>Left wall</small><strong>{object.xM.toFixed(2)} m</strong></span><span><small>Right wall</small><strong>{Math.max(0, map.dimensions.widthM - object.xM - object.widthM).toFixed(2)} m</strong></span><span><small>Bottom wall</small><strong>{object.yM.toFixed(2)} m</strong></span><span><small>Top wall</small><strong>{Math.max(0, map.dimensions.lengthM - object.yM - object.lengthM).toFixed(2)} m</strong></span></footer>
   </aside>
