@@ -16,7 +16,6 @@ services:
       MEASUREMENT_RETENTION_DAYS: ${MEASUREMENT_RETENTION_DAYS:-35}
       CORS_ALLOWED_ORIGINS: https://neurocrop.lt,https://www.neurocrop.lt
     secrets:
-      - session_secret
       - chirpstack_api_token
       - chirpstack_application_id
       - chirpstack_device_profile_id
@@ -44,7 +43,11 @@ services:
       PGDATABASE: ${PGDATABASE:-neurocrop}
       MQTT_URL: ${MQTT_URL:-mqtt://mosquitto:1883}
     healthcheck:
-      disable: true
+      test: ["CMD", "node", "ingest-healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 networks:
   chirpstack:
@@ -52,8 +55,6 @@ networks:
     name: chirpstack_default
 
 secrets:
-  session_secret:
-    file: /opt/neurocrop-backend/.session_secret
   chirpstack_api_token:
     file: /opt/neurocrop-backend/.chirpstack_api_token
   chirpstack_application_id:

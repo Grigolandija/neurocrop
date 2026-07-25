@@ -297,7 +297,7 @@ Istorinių alertų ribos turi likti audituojamos.
 ### Naujausi rodmenys
 
 ```text
-GET /sections/:sectionId/readings/latest
+GET /readings/latest?sectionId=:sectionId
 ```
 
 Pavyzdys:
@@ -441,7 +441,13 @@ dirbtinių reikšmių. API juos pažymi `available: false`.
 
 ## ChirpStack ingest
 
-Rekomenduojama naudoti MQTT arba ChirpStack HTTP integration:
+Dabartinė implementacija naudoja ChirpStack MQTT uplink įvykius. Ji normalizuoja
+`DevEUI`, atmeta neregistruotus ar archyvuotus įrenginius, serializuoja vieno
+įrenginio srautą ir deduplikuoja pagal `(dev_eui, time)`.
+
+Toliau pateiktas pilnas tikslinis ingest kontraktas. Dabartinė implementacija dar
+nesaugo atskiro raw uplink, frame counter, uplink ID ar dekoderio versijos, todėl
+šių punktų negalima laikyti įgyvendintais vien pagal šį repository:
 
 1. Gauti uplink įvykį.
 2. Patikrinti šaltinį arba integration secret.

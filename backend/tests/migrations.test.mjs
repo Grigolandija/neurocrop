@@ -86,6 +86,12 @@ test('measurement storage migration prunes demo history and duplicate indexes', 
   assert.match(sql, /jsonb_strip_nulls\(jsonb_build_object/);
 });
 
+test('case-insensitive DevEUI operations have functional indexes', async () => {
+  const migration = await fs.readFile(new URL('../migrations/0016_deveui_lookup_indexes.sql', import.meta.url), 'utf8');
+  assert.match(migration, /idx_nodes_dev_eui_lower[\s\S]*lower\(dev_eui\)/);
+  assert.match(migration, /idx_measurements_dev_eui_lower[\s\S]*lower\(dev_eui\)/);
+});
+
 test('area metadata migration preserves existing rows with usable defaults', async () => {
   const sql = await fs.readFile(new URL('../migrations/0013_area_metadata.sql', import.meta.url), 'utf8');
   assert.match(sql, /ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'Growing area'/);

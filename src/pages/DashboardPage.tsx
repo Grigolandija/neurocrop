@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
 import AreasWorkspace from '../features/areas/AreasWorkspace'
 import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'

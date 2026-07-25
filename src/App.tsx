@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router'
 import type { NeuroCropApi } from './services/api/neurocropApi'
 import type { NeuroCropFeatures } from './features/installFeatures'
 import './App.css'

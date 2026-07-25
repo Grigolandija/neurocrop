@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 type Integration = { id: string; name: string; detail: string; configured: boolean; state: string; endpoint?: string | null }

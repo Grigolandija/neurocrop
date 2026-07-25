@@ -1,5 +1,21 @@
 import { normalizeTelemetryNumber } from './telemetry-values.js';
 
+const PROFILE_METRIC_LIMITS = Object.freeze({
+  airTemp: [-80, 80],
+  humidity: [0, 100],
+  co2: [0, 100000],
+  lux: [0, 2000000],
+  soilTemp: [-80, 80],
+  soilMoisture: [0, 100],
+  ec: [0, 100],
+  ph: [0, 14],
+  soilEc: [0, 100],
+  leafTemp: [-80, 80],
+  waterTemp: [-80, 100],
+  vpd: [0, 20],
+  batteryLevel: [0, 100],
+});
+
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -12,6 +28,13 @@ function validBand(value) {
     && numeric[0] < numeric[1];
 }
 
+function bandWithinMetricLimits(metricId, value) {
+  const limits = PROFILE_METRIC_LIMITS[metricId];
+  if (!limits) return true;
+  const numeric = value.map(Number);
+  return numeric[0] >= limits[0] && numeric[1] <= limits[1];
+}
+
 export function validateCropProfileMetrics(metrics, { allowEmpty = true } = {}) {
   if (!isPlainObject(metrics)) return 'Metrics must be an object';
   const entries = Object.entries(metrics);
@@ -22,9 +45,15 @@ export function validateCropProfileMetrics(metrics, { allowEmpty = true } = {}) 
     if (!/^[A-Za-z][A-Za-z0-9]*$/.test(metricId)) return `Invalid metric id: ${metricId}`;
     if (!isPlainObject(metric)) return `${metricId} must be an object`;
     if (!validBand(metric.optimal)) return `${metricId}.optimal must contain an increasing numeric minimum and maximum`;
+    if (!bandWithinMetricLimits(metricId, metric.optimal)) {
+      return `${metricId}.optimal is outside supported physical limits`;
+    }
     for (const bandName of ['warning', 'critical']) {
       if (metric[bandName] !== undefined && !validBand(metric[bandName])) {
         return `${metricId}.${bandName} must contain an increasing numeric minimum and maximum`;
+      }
+      if (metric[bandName] !== undefined && !bandWithinMetricLimits(metricId, metric[bandName])) {
+        return `${metricId}.${bandName} is outside supported physical limits`;
       }
     }
     const scoreWeight = normalizeTelemetryNumber(metric.scoreWeight);

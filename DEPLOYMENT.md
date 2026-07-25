@@ -14,8 +14,8 @@ The release workflow publishes immutable images named with the Git commit SHA. I
 Make the repository GHCR package readable by the VPS (public package or a persistent read-only `docker login` on the server).
 
 Production runs `neurocrop-api` and `neurocrop-ingest` from the same immutable
-backend image. Compose disables the API HTTP healthcheck for the ingest command,
-and deployment succeeds only when the API is healthy and ingest is running.
+backend image. Ingest maintains a readiness heartbeat only while its MQTT client
+is connected. Deployment succeeds only when both the API and ingest are healthy.
 
 The GitHub Actions SSH key must be installed with a forced command:
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 type SettingsSection = 'workspace' | 'team' | 'notifications' | 'security' | 'audit'

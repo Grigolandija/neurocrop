@@ -1,23 +1,51 @@
+import fs from 'fs';
 import mqtt from 'mqtt';
 import { pool } from './db.js';
 import { runMigrations } from './migrate.js';
 import { normalizeErrorCounters, normalizeErrorFlags } from './node-health.js';
-import { compactTelemetryMetadata, normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from './telemetry-values.js';
+import {
+  compactTelemetryMetadata,
+  normalizeTelemetryBoolean,
+  normalizeTelemetryTimestamp,
+  normalizeTelemetryValue,
+  redactConnectionUrl
+} from './telemetry-values.js';
 
 const MQTT_URL = process.env.MQTT_URL || 'mqtt://mosquitto:1883';
 const MQTT_TOPIC = process.env.MQTT_TOPIC || 'application/+/device/+/event/up';
+const READY_FILE = process.env.INGEST_READY_FILE || '/tmp/neurocrop-ingest-ready';
+
+function markReady() {
+  fs.writeFileSync(READY_FILE, new Date().toISOString(), { mode: 0o600 });
+}
+
+function clearReady() {
+  try { fs.unlinkSync(READY_FILE); } catch (error) {
+    if (error.code !== 'ENOENT') console.error('[ingest] readiness cleanup failed:', error.message);
+  }
+}
 
 await runMigrations();
+clearReady();
 const client = mqtt.connect(MQTT_URL);
 
 client.on('connect', () => {
-  console.log(`[ingest] prisijungta prie MQTT: ${MQTT_URL}`);
+  markReady();
+  console.log(`[ingest] prisijungta prie MQTT: ${redactConnectionUrl(MQTT_URL)}`);
   client.subscribe(MQTT_TOPIC, (err) => {
     if (err) { console.error('[ingest] subscribe klaida:', err.message); process.exit(1); }
     console.log(`[ingest] klausomasi: ${MQTT_TOPIC}`);
   });
 });
 client.on('error', (err) => console.error('[ingest] MQTT klaida:', err.message));
+client.on('offline', clearReady);
+client.on('close', clearReady);
+
+const readinessHeartbeat = setInterval(() => {
+  if (client.connected) markReady();
+  else clearReady();
+}, 30_000);
+readinessHeartbeat.unref?.();
 
 client.on('message', async (topic, payload) => {
   let msg;
@@ -77,9 +105,9 @@ async function handleUplink(msg) {
          AND (last_received_at IS NULL OR last_received_at <= $4)
        RETURNING dev_eui`,
       [
-        devEui, normalizeTelemetryNumber(obj.firmware_build), time, receivedAt, dev.deviceName || null,
-        normalizeTelemetryNumber(obj.battery_mv), normalizeTelemetryNumber(obj.battery_percent), obj.firmware_version ?? null, adaptive.profile ?? null,
-        normalizeTelemetryNumber(rx.rssi), normalizeTelemetryNumber(rx.snr), normalizeTelemetryNumber(sf), JSON.stringify(sensorPresence),
+        devEui, normalizeTelemetryValue('firmware_build', obj.firmware_build), time, receivedAt, dev.deviceName || null,
+        normalizeTelemetryValue('battery_mv', obj.battery_mv), normalizeTelemetryValue('battery_percent', obj.battery_percent), obj.firmware_version ?? null, adaptive.profile ?? null,
+        normalizeTelemetryValue('rssi', rx.rssi), normalizeTelemetryValue('snr', rx.snr), normalizeTelemetryValue('spreading_factor', sf), JSON.stringify(sensorPresence),
         JSON.stringify(errorFlags), JSON.stringify(ec)
       ]
     );
@@ -105,13 +133,13 @@ async function handleUplink(msg) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
        ON CONFLICT (dev_eui, time) DO NOTHING
        RETURNING time`,
-      [time, devEui, normalizeTelemetryNumber(obj.temperature), normalizeTelemetryNumber(obj.humidity), normalizeTelemetryNumber(obj.co2), normalizeTelemetryNumber(obj.lux),
-       normalizeTelemetryNumber(obj.soil_temperature), normalizeTelemetryNumber(obj.soil_moisture), normalizeTelemetryNumber(obj.ec), normalizeTelemetryNumber(obj.ph), normalizeTelemetryNumber(obj.soil_ec),
-       normalizeTelemetryNumber(obj.leaf_temperature), normalizeTelemetryNumber(obj.water_temperature), normalizeTelemetryNumber(obj.air_pressure),
-       normalizeTelemetryNumber(obj.battery_mv), normalizeTelemetryNumber(obj.battery_percent),
-       normalizeTelemetryNumber(obj.firmware_build), adaptive.profile ?? null, normalizeTelemetryBoolean(adaptive.battery_critical),
-       normalizeTelemetryBoolean(adaptive.vpd_out_of_range), normalizeTelemetryNumber(ec.read_fail), normalizeTelemetryNumber(ec.reinit), normalizeTelemetryNumber(ec.tx_fail),
-       normalizeTelemetryNumber(rx.rssi), normalizeTelemetryNumber(rx.snr), normalizeTelemetryNumber(sf), JSON.stringify(historicalMetadata), receivedAt]
+      [time, devEui, normalizeTelemetryValue('temperature', obj.temperature), normalizeTelemetryValue('humidity', obj.humidity), normalizeTelemetryValue('co2', obj.co2), normalizeTelemetryValue('lux', obj.lux),
+       normalizeTelemetryValue('soil_temperature', obj.soil_temperature), normalizeTelemetryValue('soil_moisture', obj.soil_moisture), normalizeTelemetryValue('ec', obj.ec), normalizeTelemetryValue('ph', obj.ph), normalizeTelemetryValue('soil_ec', obj.soil_ec),
+       normalizeTelemetryValue('leaf_temperature', obj.leaf_temperature), normalizeTelemetryValue('water_temperature', obj.water_temperature), normalizeTelemetryValue('air_pressure', obj.air_pressure),
+       normalizeTelemetryValue('battery_mv', obj.battery_mv), normalizeTelemetryValue('battery_percent', obj.battery_percent),
+       normalizeTelemetryValue('firmware_build', obj.firmware_build), adaptive.profile ?? null, normalizeTelemetryBoolean(adaptive.battery_critical),
+       normalizeTelemetryBoolean(adaptive.vpd_out_of_range), normalizeTelemetryValue('error_counter', ec.read_fail), normalizeTelemetryValue('error_counter', ec.reinit), normalizeTelemetryValue('error_counter', ec.tx_fail),
+       normalizeTelemetryValue('rssi', rx.rssi), normalizeTelemetryValue('snr', rx.snr), normalizeTelemetryValue('spreading_factor', sf), JSON.stringify(historicalMetadata), receivedAt]
     );
     inserted = Boolean(insertedRows[0]);
     await dbClient.query('COMMIT');
@@ -122,7 +150,7 @@ async function handleUplink(msg) {
     dbClient.release();
   }
   if (!inserted) return;
-  console.log(`[ingest] ${devEui} temp=${obj.temperature ?? 'NA'} co2=${obj.co2 ?? 'NA'} batt=${obj.battery_percent ?? 'NA'}%`);
+  console.log(`[ingest] stored uplink for ${devEui}`);
 }
 
 let shuttingDown = false;
@@ -130,6 +158,8 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[ingest] ${signal}: shutting down`);
+  clearInterval(readinessHeartbeat);
+  clearReady();
   await new Promise((resolve) => client.end(false, {}, resolve));
   await pool.end();
 }

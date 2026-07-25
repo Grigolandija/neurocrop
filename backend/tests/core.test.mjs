@@ -11,7 +11,14 @@ import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, nor
 import { buildTodayActions, evaluateActionOutcome, getActionVerificationPolicy } from '../today-actions.js';
 import { AGRONOMIC_INTERACTION_RULES } from '../agronomic-rules.js';
 import { invitationState } from '../invitation-state.js';
-import { compactTelemetryMetadata, normalizeTelemetryBoolean, normalizeTelemetryNumber, normalizeTelemetryTimestamp } from '../telemetry-values.js';
+import {
+  compactTelemetryMetadata,
+  normalizeTelemetryBoolean,
+  normalizeTelemetryNumber,
+  normalizeTelemetryTimestamp,
+  normalizeTelemetryValue,
+  redactConnectionUrl
+} from '../telemetry-values.js';
 import { getMeasurementRetentionDays, runMeasurementRetention } from '../measurement-retention.js';
 import { hashUserPassword, MAX_PASSWORD_LENGTH, sessionCookieClearOptions, sessionCookieOptions, verifyUserPassword } from '../auth-users.js';
 import { sendInvitationEmail } from '../email.js';
@@ -36,13 +43,23 @@ test('production API stays private behind the shared Caddy network', () => {
   assert.match(compose, /name:\s+chirpstack_default/);
   assert.match(compose, /TRUST_PROXY_HOPS:\s+"1"/);
   assert.match(compose, /neurocrop-ingest:[\s\S]*?command: \["node", "ingest\.js"\]/);
-  assert.match(compose, /neurocrop-ingest:[\s\S]*?healthcheck:\n\s+disable: true/);
+  assert.match(compose, /neurocrop-ingest:[\s\S]*?test: \["CMD", "node", "ingest-healthcheck\.js"\]/);
+  assert.doesNotMatch(compose, /session_secret/);
 });
 
 test('production deployment waits for API and ingest processes', () => {
   const deploy = fs.readFileSync(new URL('../../deploy/deploy.sh', import.meta.url), 'utf8');
   assert.match(deploy, /docker inspect[\s\S]*neurocrop-ingest/);
-  assert.match(deploy, /test "\$ingest_health" = running/);
+  assert.match(deploy, /test "\$ingest_health" = healthy/);
+});
+
+test('ingest health follows a fresh MQTT readiness heartbeat', () => {
+  const ingest = fs.readFileSync(new URL('../ingest.js', import.meta.url), 'utf8');
+  const healthcheck = fs.readFileSync(new URL('../ingest-healthcheck.js', import.meta.url), 'utf8');
+  assert.match(ingest, /client\.on\('connect',[\s\S]*markReady\(\)/);
+  assert.match(ingest, /client\.on\('offline', clearReady\)/);
+  assert.match(ingest, /client\.on\('close', clearReady\)/);
+  assert.match(healthcheck, /ageMs > maxAgeMs/);
 });
 
 test('GitHub deployment key is limited to immutable NeuroCrop releases', () => {
@@ -77,6 +94,29 @@ test('telemetry values reject malformed numbers and poisoned timestamps', () => 
   assert.equal(normalizeTelemetryTimestamp('2026-07-22T11:59:00Z', now).toISOString(), '2026-07-22T11:59:00.000Z');
   assert.equal(normalizeTelemetryTimestamp('invalid', now).toISOString(), now.toISOString());
   assert.equal(normalizeTelemetryTimestamp('2099-01-01T00:00:00Z', now).toISOString(), now.toISOString());
+});
+
+test('telemetry values reject physically impossible sensor and radio values', () => {
+  assert.equal(normalizeTelemetryValue('temperature', 25.4), 25.4);
+  assert.equal(normalizeTelemetryValue('humidity', 100), 100);
+  assert.equal(normalizeTelemetryValue('humidity', 140), null);
+  assert.equal(normalizeTelemetryValue('co2', -1), null);
+  assert.equal(normalizeTelemetryValue('ph', 4), 4);
+  assert.equal(normalizeTelemetryValue('ph', 99), null);
+  assert.equal(normalizeTelemetryValue('battery_percent', 101), null);
+  assert.equal(normalizeTelemetryValue('spreading_factor', 13), null);
+  assert.equal(normalizeTelemetryValue('unknown_metric', 12), null);
+});
+
+test('connection URLs are safe to write to operational logs', () => {
+  const safe = redactConnectionUrl('mqtts://sensor-user:super-secret@broker.example:8883/uplinks');
+  assert.equal(safe, 'mqtts://broker.example:8883/uplinks');
+  assert.doesNotMatch(safe, /sensor-user|super-secret/);
+  assert.equal(redactConnectionUrl('not a URL'), '[invalid URL]');
+
+  const source = fs.readFileSync(new URL('../ingest.js', import.meta.url), 'utf8');
+  assert.match(source, /redactConnectionUrl\(MQTT_URL\)/);
+  assert.doesNotMatch(source, /temp=\$\{obj\.temperature/);
 });
 
 test('historical telemetry stores only metadata required by product queries', () => {
@@ -379,6 +419,25 @@ test('profile metric validation rejects malformed and reversed bands', () => {
   assert.equal(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: 1.5 } }), null);
   assert.match(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: null } }), /between 0 and 3/);
   assert.match(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: 4 } }), /between 0 and 3/);
+});
+
+test('profile metric validation rejects impossible targets for known sensors', () => {
+  assert.match(
+    validateCropProfileMetrics({ humidity: { optimal: [80, 120] } }),
+    /outside supported physical limits/
+  );
+  assert.match(
+    validateCropProfileMetrics({ ph: { optimal: [99, 100] } }),
+    /outside supported physical limits/
+  );
+  assert.equal(
+    validateCropProfileMetrics({ ph: { optimal: [5.5, 6.5], critical: [0, 14] } }),
+    null
+  );
+  assert.equal(
+    validateCropProfileMetrics({ customIndex: { optimal: [-1000, 1000] } }),
+    null
+  );
 });
 
 test('lighting schedules are validated without exposing hardware assumptions', () => {

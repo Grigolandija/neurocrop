@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 type User = { id: string; email: string; name: string; role: string; organizationId: string; organizationName: string }

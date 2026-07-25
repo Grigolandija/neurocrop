@@ -44,7 +44,7 @@ export const neurocropApi = {
   getActionHistory: (limit = 20) => request(`/actions/history${queryString({ limit })}`),
   getActionOverviewSummary: (areaId?: string) => request(`/actions/overview-summary${queryString({ areaId })}`),
   submitTodayActionFeedback: (actionId: string, payload: Payload) => request(`/actions/today/${encoded(actionId)}/feedback`, { method: 'POST', body: json(payload) }),
-  getAlerts: (status = 'open') => request(`/alerts${queryString({ status })}`),
+  getAlerts: (status = 'all') => request(`/alerts${queryString({ status })}`),
   acknowledgeAlert: (id: string, payload: Payload = {}) => request(`/alerts/${encoded(id)}/acknowledge`, { method: 'POST', body: json(payload) }),
   snoozeAlert: (id: string, payload: Payload) => request(`/alerts/${encoded(id)}/snooze`, { method: 'POST', body: json(payload) }),
   resolveAlert: (id: string, payload: Payload = {}) => request(`/alerts/${encoded(id)}/resolve`, { method: 'POST', body: json(payload) }),

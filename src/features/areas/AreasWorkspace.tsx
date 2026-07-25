@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 // API payloads include both current management fields and dashboard aliases.

@@ -25,7 +25,6 @@ prepare_secret() {
 
 if test "$environment" = production; then
   for secret_file in \
-    /opt/neurocrop-backend/.session_secret \
     /opt/neurocrop-backend/.chirpstack_api_token \
     /opt/neurocrop-backend/.chirpstack_application_id \
     /opt/neurocrop-backend/.chirpstack_device_profile_id \
@@ -34,8 +33,6 @@ if test "$environment" = production; then
   do
     prepare_secret "$secret_file"
   done
-else
-  prepare_secret /opt/neurocrop-deploy/staging/session_secret
 fi
 
 if test -f "$state_file"; then
@@ -63,7 +60,7 @@ for attempt in $(seq 1 30); do
       test "$frontend_health" = healthy || { sleep 2; continue; }
     else
       ingest_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' neurocrop-ingest 2>/dev/null || true)
-      test "$ingest_health" = running || { sleep 2; continue; }
+      test "$ingest_health" = healthy || { sleep 2; continue; }
     fi
     echo "$environment deployed: $image"
     exit 0
