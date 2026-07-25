@@ -18,3 +18,7 @@ export function clampObjectPosition(xM: number, yM: number, widthM: number, leng
     yM: Math.max(0, Math.min(greenhouseLengthM - lengthM, yM)),
   }
 }
+
+export function sensorMarkerSizeM(dimensions: { widthM: number; lengthM: number }) {
+  return Math.max(.16, Math.min(1.5, Math.min(dimensions.widthM, dimensions.lengthM) * .06))
+}

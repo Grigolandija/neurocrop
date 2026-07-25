@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type ObjectType } from './model'
-import { clampObjectPosition, snapValue } from './geometry'
+import { clampObjectPosition, sensorMarkerSizeM, snapValue } from './geometry'
 import { mapRepository } from './services/mapRepository'
 
 type History = { past: GreenhouseMap[]; present: GreenhouseMap; future: GreenhouseMap[] }
@@ -33,7 +33,17 @@ export function useMapEditor() {
 
   const commit = useCallback((producer: (current: GreenhouseMap) => GreenhouseMap, record = true) => {
     setHistory((current) => {
-      const next = { ...producer(clone(current.present)), updatedAt: new Date().toISOString() }
+      const produced = producer(clone(current.present))
+      const markerSize = sensorMarkerSizeM(produced.dimensions)
+      const next = {
+        ...produced,
+        objects: produced.objects.map((object) => {
+          if (object.type !== 'sensor-node') return object
+          const position = clampObjectPosition(object.xM, object.yM, markerSize, markerSize, produced.dimensions.widthM, produced.dimensions.lengthM)
+          return { ...object, ...position, widthM: markerSize, lengthM: markerSize }
+        }),
+        updatedAt: new Date().toISOString(),
+      }
       if (JSON.stringify(next) === JSON.stringify(current.present)) return current
       return record
         ? { past: [...current.past.slice(-49), current.present], present: next, future: [] }
@@ -59,12 +69,12 @@ export function useMapEditor() {
 
   const deleteSelected = useCallback(() => {
     if (!selectedIds.length) return
-    commit((current) => ({ ...current, objects: current.objects.filter((object) => !selectedIds.includes(object.id) || object.locked) }))
+    commit((current) => ({ ...current, objects: current.objects.filter((object) => !selectedIds.includes(object.id) || object.locked || object.type === 'section-zone') }))
     setSelectedIds([])
   }, [commit, selectedIds])
 
   const duplicateSelected = useCallback(() => {
-    const copies = map.objects.filter((object) => selectedIds.includes(object.id)).map((object) => {
+    const copies = map.objects.filter((object) => selectedIds.includes(object.id) && object.type !== 'section-zone').map((object) => {
       const id = `${object.type}-${crypto.randomUUID().slice(0, 8)}`
       const position = clampObjectPosition(object.xM + map.gridSizeM * 2, object.yM + map.gridSizeM * 2, object.widthM, object.lengthM, map.dimensions.widthM, map.dimensions.lengthM)
       return { ...clone({ ...map, objects: [object] }).objects[0], ...position, id, name: `${object.name} copy` }

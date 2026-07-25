@@ -1,7 +1,7 @@
 import type { GreenhouseMap, GreenhouseObject, MapLayer, NodeStatus } from './model'
 
 export const DEFAULT_LAYERS: MapLayer[] = [
-  ['structure', 'Greenhouse structure'], ['cultivation', 'Cultivation infrastructure'], ['irrigation', 'Irrigation'],
+  ['sections', 'Growing Sections'], ['structure', 'Greenhouse structure'], ['cultivation', 'Cultivation infrastructure'], ['irrigation', 'Irrigation'],
   ['climate', 'Climate equipment'], ['lighting', 'Lighting'], ['sensors', 'Sensor nodes'], ['labels', 'Labels'],
   ['coverage', 'Sensor coverage'], ['environment', 'Estimated environment map'], ['signal', 'LoRa signal'],
   ['confidence', 'Uncertainty / confidence'],

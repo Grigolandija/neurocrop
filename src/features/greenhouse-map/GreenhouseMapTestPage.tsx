@@ -89,8 +89,8 @@ export default function GreenhouseMapTestPage() {
         areaContextRef.current = context
         revisionRef.current = context.revision
         const next = context.map
-          ? mergeAreaMapContext(context.map, context.area, context.nodes)
-          : createAreaMap(context.area, context.nodes)
+          ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections)
+          : createAreaMap(context.area, context.nodes, context.sections)
         editor.hydrate(next)
         lastSyncedRef.current = JSON.stringify(next)
         setCanEdit(context.permissions.canEdit)
@@ -178,7 +178,7 @@ export default function GreenhouseMapTestPage() {
       const result = validateMap(JSON.parse(await file.text()))
       if (!result.ok) throw new Error(result.error)
       const imported = integrated && areaContextRef.current
-        ? mergeAreaMapContext({ ...result.map, areaId: activeAreaId }, areaContextRef.current.area, areaContextRef.current.nodes)
+        ? mergeAreaMapContext({ ...result.map, areaId: activeAreaId }, areaContextRef.current.area, areaContextRef.current.nodes, areaContextRef.current.sections)
         : result.map
       editor.replace(imported)
       setNotice({ tone: 'success', text: 'Plan imported successfully.' })
@@ -193,7 +193,7 @@ export default function GreenhouseMapTestPage() {
     const prompt = integrated ? 'Reset this Area map? Infrastructure placement will be replaced and assigned nodes will be placed automatically.' : 'Reset this plan to the NeuroCrop demo? Your local changes will be replaced.'
     if (!window.confirm(prompt)) return
     if (integrated && areaContextRef.current) {
-      editor.hydrate(createAreaMap(areaContextRef.current.area, areaContextRef.current.nodes))
+      editor.hydrate(createAreaMap(areaContextRef.current.area, areaContextRef.current.nodes, areaContextRef.current.sections))
       setNotice({ tone: 'success', text: 'Area map reset. The new layout will be saved automatically.' })
     } else {
       editor.reset()

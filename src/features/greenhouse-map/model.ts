@@ -2,7 +2,7 @@ export type MapMode = 'layout' | 'coverage' | 'environment' | 'signal'
 export type MetricKey = 'air-temperature' | 'relative-humidity' | 'co2' | 'vpd' | 'root-temperature'
 export type NodeStatus = 'online' | 'warning' | 'offline' | 'unassigned' | 'low-battery' | 'stale'
 export type ObjectType =
-  | 'sensor-node' | 'growing-table' | 'hydroponic-channel' | 'growing-bed' | 'rack'
+  | 'sensor-node' | 'section-zone' | 'growing-table' | 'hydroponic-channel' | 'growing-bed' | 'rack'
   | 'reservoir' | 'irrigation-unit' | 'fan' | 'heater' | 'cooling-unit' | 'lamp'
   | 'door' | 'window' | 'ventilation-opening' | 'electrical-cabinet' | 'technical-zone'
   | 'walkway' | 'partition' | 'text-label' | 'rectangle'
@@ -39,6 +39,12 @@ export type ObjectMetadata = {
   notes?: string
   color?: string
   sensor?: SensorNodeMetadata
+  section?: {
+    sectionId: string
+    sectionName: string
+    cropProfile?: string
+    nodeCount?: number
+  }
 }
 
 export type GreenhouseObject = {

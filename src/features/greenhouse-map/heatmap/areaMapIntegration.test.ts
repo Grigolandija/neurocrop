@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDemoMap } from '../demo'
-import type { AreaMapNode } from '../services/areaMapRepository'
+import type { AreaMapNode, AreaMapSection } from '../services/areaMapRepository'
 
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
@@ -13,15 +13,19 @@ Object.defineProperty(globalThis, 'window', {
 
 const nodes: AreaMapNode[] = [
   {
-    nodeId: 'NS-1', devEui: '70B3D57ED0060001', displayName: 'North node', areaId: 'area-1',
+    nodeId: 'NS-1', devEui: '70B3D57ED0060001', displayName: 'North node', areaId: 'area-1', sectionId: 'section-north', sectionName: 'North tomatoes',
     sensors: ['sht45'], status: 'online', batteryPercent: 88, rssi: -78, snr: 8,
     measurements: { airTemperatureC: 24.5, relativeHumidityPercent: 70, measuredAt: '2026-07-25T12:00:00Z' },
   },
   {
-    nodeId: 'NS-2', devEui: '70B3D57ED0060002', displayName: 'South node', areaId: 'area-1',
+    nodeId: 'NS-2', devEui: '70B3D57ED0060002', displayName: 'South node', areaId: 'area-1', sectionId: 'section-south', sectionName: 'South seedlings',
     sensors: ['sht45'], status: 'stale', batteryPercent: 61,
     measurements: { airTemperatureC: 25.2, relativeHumidityPercent: 67, measuredAt: '2026-07-25T11:00:00Z' },
   },
+]
+const sections: AreaMapSection[] = [
+  { id: 'section-north', name: 'North tomatoes', areaId: 'area-1', cropProfile: 'Tomato production', nodes: 1 },
+  { id: 'section-south', name: 'South seedlings', areaId: 'area-1', cropProfile: 'Seedlings', nodes: 1 },
 ]
 
 describe('Area Map API context integration', () => {
@@ -60,5 +64,29 @@ describe('Area Map API context integration', () => {
     expect(placed?.metadata.sensor?.measurements?.airTemperatureC).toBe(24.5)
     expect(placed?.metadata.sensor?.coverageRadiusM).toBe(4.5)
     expect(merged.objects.some((object) => object.metadata.sensor?.devEui === '70b3d57ed0060002')).toBe(true)
+  })
+
+  it('creates one editable map boundary for every existing Section', async () => {
+    const { createAreaMap } = await import('../services/areaMapRepository')
+    const map = createAreaMap({ id: 'area-1', name: 'Production greenhouse' }, nodes, sections)
+    const zones = map.objects.filter((object) => object.type === 'section-zone')
+    expect(zones).toHaveLength(2)
+    expect(zones.map((zone) => zone.metadata.section?.sectionId)).toEqual(['section-north', 'section-south'])
+    expect(map.layers[0].id).toBe('sections')
+    const northZone = zones[0]
+    const northNode = map.objects.find((object) => object.metadata.sensor?.sectionId === 'section-north')!
+    expect(northNode.xM).toBeGreaterThanOrEqual(northZone.xM)
+    expect(northNode.xM + northNode.widthM).toBeLessThanOrEqual(northZone.xM + northZone.widthM)
+    expect(northNode.yM).toBeGreaterThanOrEqual(northZone.yM)
+    expect(northNode.yM + northNode.lengthM).toBeLessThanOrEqual(northZone.yM + northZone.lengthM)
+  })
+
+  it('scales node markers up with greenhouse dimensions', async () => {
+    const { sensorMarkerSizeM } = await import('../services/areaMapRepository')
+    const small = sensorMarkerSizeM({ widthM: 4, lengthM: 2 })
+    const medium = sensorMarkerSizeM({ widthM: 20, lengthM: 8 })
+    const large = sensorMarkerSizeM({ widthM: 100, lengthM: 40 })
+    expect(small).toBeLessThan(medium)
+    expect(medium).toBeLessThan(large)
   })
 })

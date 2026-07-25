@@ -19,23 +19,29 @@ type Props = {
 }
 
 const objectColors: Record<string, { fill: string; stroke: string }> = {
+  sections: { fill: '#4e927d', stroke: '#2f6f5e' },
   structure: { fill: '#d9d5c8', stroke: '#74786f' }, cultivation: { fill: '#9db89f', stroke: '#4f7359' },
   irrigation: { fill: '#8cb7bd', stroke: '#376d75' }, climate: { fill: '#c7a778', stroke: '#765a36' },
   lighting: { fill: '#e1cc75', stroke: '#8a7532' }, labels: { fill: '#ece8dd', stroke: '#6f716c' },
 }
 const statusColors: Record<string, string> = { online: '#2f8760', warning: '#bd842b', offline: '#6d7470', unassigned: '#60758a', 'low-battery': '#b85b46', stale: '#936d3c' }
 
-function ObjectShape({ object, map, selected, editable, layerOpacity, onSelect, onMove, onUpdate }: {
-  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; layerOpacity: number
+function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
+  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; layerOpacity: number; viewScale: number
   onSelect: (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void
   onMove: (position: { id: string; xM: number; yM: number }, record?: boolean) => void
   onUpdate: Props['onUpdate']
 }) {
   const definition = OBJECT_LIBRARY.find((item) => item.type === object.type)
   const isSensor = object.type === 'sensor-node'
+  const isSection = object.type === 'section-zone'
   const sensor = object.metadata.sensor
+  const section = object.metadata.section
   const colors = objectColors[object.layerId] ?? objectColors.structure
   const topY = map.dimensions.lengthM - object.yM - object.lengthM
+  const sensorSize = Math.max(object.widthM, object.lengthM)
+  const labelFontSize = Math.max(sensorSize * .3, 11 / viewScale)
+  const detailFontSize = Math.max(sensorSize * .22, 9 / viewScale)
   return <Group
     id={`gh-object-${object.id}`} name="map-object" x={object.xM} y={topY} rotation={object.rotationDeg}
     draggable={editable && !object.locked}
@@ -50,12 +56,16 @@ function ObjectShape({ object, map, selected, editable, layerOpacity, onSelect, 
       onUpdate(object.id, { xM: node.x(), yM: map.dimensions.lengthM - node.y() - lengthM, widthM, lengthM, rotationDeg: node.rotation() })
     }}
   >
-    {isSensor ? <>
-      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={Math.max(object.widthM, object.lengthM) * .52} fill="#173e35" stroke={selected ? '#f0bd4f' : '#fff'} strokeWidth={selected ? .09 : .05} shadowColor="#10251f" shadowBlur={.16} shadowOpacity={.35} />
-      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={Math.max(object.widthM, object.lengthM) * .20} fill={statusColors[sensor?.status ?? 'unassigned']} />
-      <Circle x={object.widthM * .8} y={object.lengthM * .18} radius={.1} fill={statusColors[sensor?.status ?? 'unassigned']} stroke="#fff" strokeWidth={.025} />
-      <Text x={object.widthM + .14} y={-.05} width={2.8} text={object.name} fontFamily="IBM Plex Sans" fontSize={.24} fontStyle="bold" fill="#183a31" />
-      <Text x={object.widthM + .14} y={.25} width={2.2} text={`${sensor?.batteryPercent ?? '—'}%  ·  ${sensor?.rssi ?? '—'} dBm`} fontFamily="IBM Plex Mono" fontSize={.17} fill="#53645e" />
+    {isSection ? <>
+      <Rect width={object.widthM} height={object.lengthM} fill={object.metadata.color ?? colors.fill} opacity={selected ? .2 : .11} stroke={selected ? '#d89222' : object.metadata.color ?? colors.stroke} strokeWidth={selected ? 2 / viewScale : 1.2 / viewScale} dash={[8 / viewScale, 5 / viewScale]} cornerRadius={4 / viewScale} />
+      <Text x={8 / viewScale} y={7 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={section?.sectionName ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.max(.18, 12 / viewScale)} fontStyle="bold" fill="#244d41" />
+      <Text x={8 / viewScale} y={23 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={`${section?.nodeCount ?? 0} node${section?.nodeCount === 1 ? '' : 's'}${section?.cropProfile ? ` · ${section.cropProfile}` : ''}`} fontFamily="IBM Plex Mono" fontSize={Math.max(.13, 9 / viewScale)} fill="#557168" />
+    </> : isSensor ? <>
+      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .5} fill="#173e35" stroke={selected ? '#f0bd4f' : '#fff'} strokeWidth={selected ? Math.max(sensorSize * .12, 2 / viewScale) : Math.max(sensorSize * .07, 1.2 / viewScale)} shadowColor="#10251f" shadowBlur={Math.max(sensorSize * .2, 3 / viewScale)} shadowOpacity={.35} />
+      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .2} fill={statusColors[sensor?.status ?? 'unassigned']} />
+      <Circle x={object.widthM * .8} y={object.lengthM * .18} radius={sensorSize * .14} fill={statusColors[sensor?.status ?? 'unassigned']} stroke="#fff" strokeWidth={Math.max(sensorSize * .035, .8 / viewScale)} />
+      <Text x={object.widthM + 6 / viewScale} y={-1 / viewScale} width={Math.max(2.8, 150 / viewScale)} text={object.name} fontFamily="IBM Plex Sans" fontSize={labelFontSize} fontStyle="bold" fill="#183a31" />
+      <Text x={object.widthM + 6 / viewScale} y={labelFontSize + 2 / viewScale} width={Math.max(2.2, 130 / viewScale)} text={`${sensor?.batteryPercent ?? '—'}%  ·  ${sensor?.rssi ?? '—'} dBm`} fontFamily="IBM Plex Mono" fontSize={detailFontSize} fill="#53645e" />
     </> : <>
       <Rect width={object.widthM} height={object.lengthM} fill={object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : colors.stroke} strokeWidth={selected ? .08 : .035} dash={object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
       {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} /> : null}
@@ -185,7 +195,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, selected
         {orderedObjects.map((object) => {
           const layer = visibleLayers.get(object.layerId)
           if (!object.visible || !layer?.visible) return null
-          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} layerOpacity={layer.opacity}
+          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} layerOpacity={layer.opacity} viewScale={view.scale}
             onSelect={(event) => {
               event.cancelBubble = true
               const shift = event.evt.shiftKey

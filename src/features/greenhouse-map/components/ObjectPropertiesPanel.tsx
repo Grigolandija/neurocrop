@@ -15,6 +15,8 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
   </div></section></aside>
   const object = selected[0]
   const sensor = object.metadata.sensor
+  const section = object.metadata.section
+  const isSection = object.type === 'section-zone'
   const patchMetadata = (metadata: Partial<GreenhouseObject['metadata']>) => onUpdate(object.id, { metadata: { ...object.metadata, ...metadata } })
   const patchSensor = (update: Partial<SensorNodeMetadata>) => patchMetadata({ sensor: { ...sensor!, ...update } })
   const measurements = sensor?.measurements
@@ -23,15 +25,17 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
     <section className="gh-properties">
       <header><div><small>OBJECT INSPECTOR</small><h2>{object.name}</h2></div><span className="gh-type-badge"><i className={`fa-solid ${OBJECT_LIBRARY.find((item) => item.type === object.type)?.icon}`} /></span></header>
       <label className="gh-field wide"><span>Name</span><input value={object.name} onChange={(event) => onUpdate(object.id, { name: event.target.value })} /></label>
-      <label className="gh-field wide"><span>Type</span><select value={object.type} onChange={(event) => onUpdate(object.id, { type: event.target.value as GreenhouseObject['type'] })}>{OBJECT_LIBRARY.map((item) => <option value={item.type} key={item.type}>{item.label}</option>)}</select></label>
+      {isSection
+        ? <label className="gh-field wide"><span>Linked Section</span><input value={section?.sectionName ?? object.name} readOnly /></label>
+        : <label className="gh-field wide"><span>Type</span><select value={object.type} onChange={(event) => onUpdate(object.id, { type: event.target.value as GreenhouseObject['type'] })}>{OBJECT_LIBRARY.map((item) => <option value={item.type} key={item.type}>{item.label}</option>)}</select></label>}
       <div className="gh-coordinate-box"><span>POSITION · ORIGIN LOWER LEFT</span><div className="gh-field-row">
         <label className="gh-field"><span>X <em>m</em></span><input type="number" step={map.gridSizeM} value={Number(object.xM.toFixed(3))} onChange={(event) => onUpdate(object.id, { xM: numeric(event.target.value, object.xM) })} /></label>
         <label className="gh-field"><span>Y <em>m</em></span><input type="number" step={map.gridSizeM} value={Number(object.yM.toFixed(3))} onChange={(event) => onUpdate(object.id, { yM: numeric(event.target.value, object.yM) })} /></label>
       </div></div>
-      <div className="gh-field-row">
+      {sensor ? <label className="gh-field wide"><span>Automatic marker size <em>m</em></span><input value={Number(object.widthM.toFixed(3))} readOnly /><small>Calculated from greenhouse scale.</small></label> : <div className="gh-field-row">
         <label className="gh-field"><span>Width <em>m</em></span><input type="number" min=".05" step=".05" value={Number(object.widthM.toFixed(3))} onChange={(event) => onUpdate(object.id, { widthM: Math.max(.05, numeric(event.target.value, object.widthM)) })} /></label>
         <label className="gh-field"><span>Length <em>m</em></span><input type="number" min=".05" step=".05" value={Number(object.lengthM.toFixed(3))} onChange={(event) => onUpdate(object.id, { lengthM: Math.max(.05, numeric(event.target.value, object.lengthM)) })} /></label>
-      </div>
+      </div>}
       <div className="gh-field-row">
         <label className="gh-field"><span>Rotation <em>°</em></span><input type="number" value={Number(object.rotationDeg.toFixed(1))} onChange={(event) => onUpdate(object.id, { rotationDeg: numeric(event.target.value, object.rotationDeg) })} /></label>
         <label className="gh-field"><span>Layer</span><select value={object.layerId} onChange={(event) => onUpdate(object.id, { layerId: event.target.value })}>{map.layers.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
@@ -43,6 +47,11 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
       <label className="gh-field wide"><span>Status</span><input value={object.metadata.status ?? ''} placeholder="Optional status" onChange={(event) => patchMetadata({ status: event.target.value })} /></label>
       <label className="gh-field wide"><span>Notes</span><textarea value={object.metadata.notes ?? ''} placeholder="Installation or planning notes…" onChange={(event) => patchMetadata({ notes: event.target.value })} /></label>
     </section>
+    {section ? <section className="gh-properties">
+      <header><div><small>NEUROCROP SECTION</small><h2>{section.sectionName}</h2></div><span className="gh-type-badge"><i className="fa-solid fa-border-all" /></span></header>
+      <div className="gh-node-summary"><div><span>Assigned nodes</span><strong>{section.nodeCount ?? 0}</strong></div><div><span>Crop profile</span><strong>{section.cropProfile || 'Not assigned'}</strong></div></div>
+      <p className="gh-muted">Resize and position this boundary in Layout mode. The geometry belongs to the map; the linked Section and its node assignments remain managed in Sections.</p>
+    </section> : null}
     {sensor ? <section className="gh-properties gh-sensor-properties">
       <header><div><small>NEUROSENSE DATA</small><h2>Node configuration</h2></div><span className={`gh-status-dot ${sensor.status}`} /></header>
       <div className="gh-node-summary"><div><span>Air</span><strong>{measurements?.airTemperatureC ?? '—'}°C</strong></div><div><span>RH</span><strong>{measurements?.relativeHumidityPercent ?? '—'}%</strong></div><div><span>CO₂</span><strong>{measurements?.co2Ppm ?? '—'}<small> ppm</small></strong></div><div><span>VPD</span><strong>{measurements?.vpdKpa ?? '—'}<small> kPa</small></strong></div></div>
