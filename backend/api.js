@@ -1255,6 +1255,20 @@ function publicActionFeedback(row) {
   };
 }
 
+function publicActionAssignment(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    assignedTo: row.assigned_to,
+    assignedToName: row.assigned_to_name || null,
+    assignedBy: row.assigned_by || null,
+    assignedByName: row.assigned_by_name || null,
+    priority: row.priority,
+    dueAt: row.due_at,
+    updatedAt: row.updated_at
+  };
+}
+
 function metricSeriesSnapshot(measurements, metricId) {
   const buckets = new Map();
   for (const measurement of measurements) {
@@ -1362,16 +1376,30 @@ app.get('/actions/today', requireAuth, async (req, res) => {
     });
     const actionIds = actions.map((action) => action.id);
     let feedbackByActionId = new Map();
+    let assignmentByActionId = new Map();
     if (actionIds.length > 0) {
-      const { rows } = await query(
-        `SELECT DISTINCT ON (action_id)
-                id, action_id, status, note, execution_details, action_payload, created_by, created_at
-         FROM action_feedback
-         WHERE organization_id=$1 AND action_id=ANY($2::text[])
-         ORDER BY action_id, created_at DESC`,
-        [organizationId, actionIds]
-      );
-      feedbackByActionId = new Map(rows.map((row) => [row.action_id, row]));
+      const [feedbackResult, assignmentResult] = await Promise.all([
+        query(
+          `SELECT DISTINCT ON (action_id)
+                  id, action_id, status, note, execution_details, action_payload, created_by, created_at
+           FROM action_feedback
+           WHERE organization_id=$1 AND action_id=ANY($2::text[])
+           ORDER BY action_id, created_at DESC`,
+          [organizationId, actionIds]
+        ),
+        query(
+          `SELECT aa.id, aa.action_id, aa.assigned_to, aa.assigned_by, aa.priority,
+                  aa.due_at, aa.updated_at, assignee.display_name AS assigned_to_name,
+                  assigner.display_name AS assigned_by_name
+           FROM action_assignments aa
+           JOIN users assignee ON assignee.id=aa.assigned_to AND assignee.is_active=true
+           LEFT JOIN users assigner ON assigner.id=aa.assigned_by
+           WHERE aa.organization_id=$1 AND aa.action_id=ANY($2::text[]) AND aa.active=true`,
+          [organizationId, actionIds]
+        )
+      ]);
+      feedbackByActionId = new Map(feedbackResult.rows.map((row) => [row.action_id, row]));
+      assignmentByActionId = new Map(assignmentResult.rows.map((row) => [row.action_id, row]));
     }
 
     res.json({
@@ -1389,6 +1417,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
             || new Date(feedback.created_at) >= new Date(action.observedAt));
         return {
           ...action,
+          assignment: publicActionAssignment(assignmentByActionId.get(action.id)),
           feedback: feedbackMatchesReading ? publicActionFeedback(feedback) : null,
           workflowAction: feedbackMatchesReading && feedback?.status === 'in_progress'
             ? feedback.action_payload || null
@@ -1401,6 +1430,107 @@ app.get('/actions/today', requireAuth, async (req, res) => {
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
 });
+
+app.post(
+  '/actions/today/:actionId/assignment',
+  requireAuth,
+  requireRole('owner', 'admin', 'grower'),
+  async (req, res) => {
+    try {
+      const organizationId = getOrganizationId(req);
+      const actionId = String(req.params.actionId || '').trim();
+      const assignedTo = String(req.body?.assignedTo || '').trim();
+      const priority = String(req.body?.priority || 'normal').trim();
+      const dueAt = req.body?.dueAt ? new Date(req.body.dueAt) : null;
+      const action = req.body?.action;
+
+      if (!action || action.id !== actionId || !action.sectionId || !action.metricId) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A matching action snapshot is required' } });
+      }
+      if (!['urgent', 'high', 'normal', 'low'].includes(priority)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unknown action priority' } });
+      }
+      if (dueAt && !Number.isFinite(dueAt.getTime())) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid due date' } });
+      }
+      const section = await getSectionById(action.sectionId, organizationId);
+      if (!section || !actionId.startsWith(`${section.id}:${action.metricId}:`)) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Action section was not found' } });
+      }
+
+      if (!assignedTo) {
+        const { rows: activeRows } = await query(
+          `SELECT status FROM action_feedback
+           WHERE organization_id=$1 AND action_id=$2
+           ORDER BY created_at DESC LIMIT 1`,
+          [organizationId, actionId]
+        );
+        if (activeRows[0]?.status === 'in_progress') {
+          return res.status(409).json({ error: { code: 'ACTION_ALREADY_STARTED', message: 'A started check cannot be unassigned' } });
+        }
+        await query(
+          `DELETE FROM action_assignments WHERE organization_id=$1 AND action_id=$2`,
+          [organizationId, actionId]
+        );
+        return res.json({ assignment: null });
+      }
+
+      const { rows: memberRows } = await query(
+        `SELECT u.id, u.display_name
+         FROM organization_memberships m
+         JOIN users u ON u.id=m.user_id AND u.is_active=true
+         WHERE m.organization_id=$1 AND m.user_id=$2
+           AND m.role IN ('owner', 'admin', 'grower', 'technician')
+         LIMIT 1`,
+        [organizationId, assignedTo]
+      );
+      if (!memberRows[0]) {
+        return res.status(400).json({ error: { code: 'INVALID_ASSIGNEE', message: 'Choose an active team member who can perform checks' } });
+      }
+
+      const { rows: activeRows } = await query(
+        `SELECT status FROM action_feedback
+         WHERE organization_id=$1 AND action_id=$2
+         ORDER BY created_at DESC LIMIT 1`,
+        [organizationId, actionId]
+      );
+      if (activeRows[0]?.status === 'in_progress') {
+        return res.status(409).json({ error: { code: 'ACTION_ALREADY_STARTED', message: 'A started check cannot be reassigned' } });
+      }
+
+      const { rows } = await query(
+        `INSERT INTO action_assignments (
+           id, organization_id, action_id, section_id, assigned_to, assigned_by,
+           priority, due_at, action_payload, active
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,true)
+         ON CONFLICT (organization_id, action_id) DO UPDATE SET
+           section_id=EXCLUDED.section_id,
+           assigned_to=EXCLUDED.assigned_to,
+           assigned_by=EXCLUDED.assigned_by,
+           priority=EXCLUDED.priority,
+           due_at=EXCLUDED.due_at,
+           action_payload=EXCLUDED.action_payload,
+           active=true,
+           updated_at=now()
+         RETURNING id, assigned_to, assigned_by, priority, due_at, updated_at`,
+        [
+          randomUUID(), organizationId, actionId, section.id, assignedTo, req.user.id,
+          priority, dueAt ? dueAt.toISOString() : null, JSON.stringify(action)
+        ]
+      );
+      res.json({
+        assignment: publicActionAssignment({
+          ...rows[0],
+          assigned_to_name: memberRows[0].display_name,
+          assigned_by_name: req.user.name
+        })
+      });
+    } catch (e) {
+      console.error('[api] POST /actions/today/:actionId/assignment:', e.message);
+      res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+    }
+  }
+);
 
 app.post(
   '/actions/today/:actionId/feedback',
@@ -1496,6 +1626,20 @@ app.post(
         [organizationId, actionId, observedAt]
       );
       const latestFeedback = latestRows[0] || null;
+      if (status === 'in_progress') {
+        const { rows: assignmentRows } = await client.query(
+          `SELECT assigned_to FROM action_assignments
+           WHERE organization_id=$1 AND action_id=$2 AND active=true
+           LIMIT 1`,
+          [organizationId, actionId]
+        );
+        if (assignmentRows[0] && assignmentRows[0].assigned_to !== req.user.id) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            error: { code: 'ACTION_ASSIGNED_TO_ANOTHER_USER', message: 'This check is assigned to another employee' }
+          });
+        }
+      }
       if (!isActionFeedbackTransitionAllowed(latestFeedback?.status || null, status)) {
         await client.query('ROLLBACK');
         const message = status === 'completed'
@@ -1512,6 +1656,16 @@ app.post(
           }
         });
       }
+      if (
+        (status === 'completed' || status === 'failed')
+        && latestFeedback?.created_by
+        && latestFeedback.created_by !== req.user.id
+      ) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: { code: 'ACTION_STARTED_BY_ANOTHER_USER', message: 'Only the employee who started this check can record its result' }
+        });
+      }
 
       const { rows } = await client.query(
         `INSERT INTO action_feedback (
@@ -1524,6 +1678,13 @@ app.post(
           status, note, executionDetails ? JSON.stringify(executionDetails) : null, JSON.stringify(action), req.user.id
         ]
       );
+      if (status === 'completed' || status === 'failed') {
+        await client.query(
+          `UPDATE action_assignments SET active=false, updated_at=now()
+           WHERE organization_id=$1 AND action_id=$2`,
+          [organizationId, actionId]
+        );
+      }
       await client.query('COMMIT');
 
       res.status(201).json({ feedback: publicActionFeedback(rows[0]), deduplicated: false });
@@ -1614,6 +1775,7 @@ app.get('/actions/history', requireAuth, async (req, res) => {
 });
 
 app.delete('/actions/reset', requireAuth, requireRole('owner', 'admin'), async (req, res) => {
+  let client;
   try {
     if (String(req.body?.confirm || '') !== 'RESET') {
       return res.status(400).json({
@@ -1621,18 +1783,29 @@ app.delete('/actions/reset', requireAuth, requireRole('owner', 'admin'), async (
       });
     }
     const organizationId = getOrganizationId(req);
-    const result = await query(
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const feedbackResult = await client.query(
       `DELETE FROM action_feedback
        WHERE organization_id=$1`,
       [organizationId]
     );
+    const assignmentResult = await client.query(
+      `DELETE FROM action_assignments
+       WHERE organization_id=$1`,
+      [organizationId]
+    );
+    await client.query('COMMIT');
     res.json({
       reset: true,
-      deletedCount: result.rowCount || 0
+      deletedCount: (feedbackResult.rowCount || 0) + (assignmentResult.rowCount || 0)
     });
   } catch (e) {
+    await client?.query('ROLLBACK').catch(() => {});
     console.error('[api] DELETE /actions/reset:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  } finally {
+    client?.release();
   }
 });
 

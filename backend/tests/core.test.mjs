@@ -1235,8 +1235,24 @@ test('action feedback is tenant-scoped, role-protected and keeps an immutable sn
   assert.match(route, /status === 'completed'/);
   assert.match(route, /execution_details/);
   assert.match(route, /INVALID_ACTION_TRANSITION/);
+  assert.match(route, /ACTION_STARTED_BY_ANOTHER_USER/);
+  assert.match(route, /latestFeedback\.created_by !== req\.user\.id/);
   assert.match(route, /Start the check before recording performed work/);
   assert.match(route, /Record what was actually performed before requesting verification/);
+});
+
+test('action assignment only accepts active operational team members in the same tenant', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("'/actions/today/:actionId/assignment'");
+  const route = source.slice(routeStart, source.indexOf("app.post(\n  '/actions/today/:actionId/feedback'", routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /requireRole\('owner', 'admin', 'grower'\)/);
+  assert.match(route, /organization_memberships/);
+  assert.match(route, /m\.organization_id=\$1 AND m\.user_id=\$2/);
+  assert.match(route, /u\.is_active=true/);
+  assert.match(route, /action_assignments/);
+  assert.match(route, /ON CONFLICT \(organization_id, action_id\)/);
+  assert.match(route, /ACTION_ALREADY_STARTED/);
 });
 
 test('live agronomic actions bypass browser and intermediary caches', () => {

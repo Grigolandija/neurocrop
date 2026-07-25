@@ -4,10 +4,12 @@ import { neurocropApi } from '../../services/api/neurocropApi'
 // API payloads intentionally remain flexible while the legacy dashboard is still being retired.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonRecord = Record<string, any>
-type Tab = 'open' | 'in_progress' | 'history'
+type Tab = 'todo' | 'in_progress' | 'verification' | 'completed'
 type CompletionForm = { type: string; adjustment: string; duration: string; note: string }
+type AssignmentForm = { assignedTo: string; priority: string; dueAt: string }
 
 const emptyCompletionForm: CompletionForm = { type: '', adjustment: '', duration: '', note: '' }
+const emptyAssignmentForm: AssignmentForm = { assignedTo: '', priority: 'normal', dueAt: '' }
 const executionTypes = [
   ['ventilation_increased', 'Ventilation increased'],
   ['ventilation_reduced', 'Ventilation reduced'],
@@ -70,10 +72,24 @@ function resultText(item: JsonRecord) {
   return outcome.summary || outcome.label || item.note || item.executionDetails?.adjustment || 'Result saved'
 }
 
+function priorityLabel(value: unknown) {
+  const priority = String(value || 'normal')
+  return priority.charAt(0).toUpperCase() + priority.slice(1)
+}
+
+function dueLabel(value: unknown) {
+  if (!value) return 'No deadline'
+  const date = new Date(String(value))
+  if (!Number.isFinite(date.getTime())) return 'No deadline'
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date)
+}
+
 export default function ActionsWorkspace() {
   const [today, setToday] = useState<JsonRecord[]>([])
   const [history, setHistory] = useState<JsonRecord[]>([])
-  const [tab, setTab] = useState<Tab>('open')
+  const [team, setTeam] = useState<JsonRecord[]>([])
+  const [currentUser, setCurrentUser] = useState<JsonRecord | null>(null)
+  const [tab, setTab] = useState<Tab>('todo')
   const [query, setQuery] = useState('')
   const [area, setArea] = useState('all')
   const [employee, setEmployee] = useState('all')
@@ -88,6 +104,10 @@ export default function ActionsWorkspace() {
   const [canReset, setCanReset] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [resetBusy, setResetBusy] = useState(false)
+  const [assignmentItem, setAssignmentItem] = useState<JsonRecord | null>(null)
+  const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>(emptyAssignmentForm)
+  const [assignmentError, setAssignmentError] = useState('')
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -112,11 +132,15 @@ export default function ActionsWorkspace() {
       neurocropApi.getTodayActions(),
       neurocropApi.getActionHistory(100),
       neurocropApi.getCurrentUser(),
-    ]).then(([todayPayload, historyPayload, userPayload]) => {
+      neurocropApi.getTeam(),
+    ]).then(([todayPayload, historyPayload, userPayload, teamPayload]) => {
       if (!active) return
       setToday(asArray((todayPayload as JsonRecord)?.actions))
       setHistory(asArray((historyPayload as JsonRecord)?.items))
-      setCanReset(['owner', 'admin'].includes(String((userPayload as JsonRecord)?.user?.role || '')))
+      const user = (userPayload as JsonRecord)?.user || null
+      setCurrentUser(user)
+      setTeam(asArray((teamPayload as JsonRecord)?.members).filter((member) => member.role !== 'viewer'))
+      setCanReset(['owner', 'admin'].includes(String(user?.role || '')))
     }).catch((reason) => {
       if (active) setError(reason instanceof Error ? reason.message : 'Actions could not be loaded.')
     }).finally(() => {
@@ -139,7 +163,7 @@ export default function ActionsWorkspace() {
   }, [])
 
   const currentById = useMemo(() => new Map(today.map((item) => [String(item.id), item])), [today])
-  const open = useMemo(() => today.filter((item) => !item.feedback), [today])
+  const todo = useMemo(() => today.filter((item) => !item.feedback), [today])
   const inProgress = useMemo<JsonRecord[]>(() => {
     const current: JsonRecord[] = today.filter((item) => item.feedback?.status === 'in_progress').map((item): JsonRecord => {
       const historyItem = history.find((entry) => entry.status === 'in_progress' && String(entry.actionId) === String(item.id))
@@ -152,28 +176,33 @@ export default function ActionsWorkspace() {
       }
     })
     const ids = new Set(current.map((item) => String(item.id)))
-    const activeHistory = history.filter((item) =>
-      (item.status === 'in_progress' || displayStatus(item, String(item.status)) === 'awaiting_verification')
-      && !ids.has(String(item.actionId)),
-    )
+    const activeHistory = history.filter((item) => item.status === 'in_progress' && !ids.has(String(item.actionId)))
     return [...current, ...activeHistory]
   }, [history, today])
 
-  const recordedHistory = useMemo(() => history.filter((item) =>
+  const verification = useMemo(() => history.filter((item) =>
+    displayStatus(item, String(item.status)) === 'awaiting_verification',
+  ), [history])
+  const completed = useMemo(() => history.filter((item) =>
     item.status !== 'in_progress' && displayStatus(item, String(item.status)) !== 'awaiting_verification',
   ), [history])
-  const source = tab === 'open' ? open : tab === 'in_progress' ? inProgress : recordedHistory
+  const source = tab === 'todo' ? todo : tab === 'in_progress' ? inProgress : tab === 'verification' ? verification : completed
   const areas = useMemo(() => [...new Set([...today, ...history].map((item) => String(item.areaName || '')).filter(Boolean))].sort(), [history, today])
-  const employees = useMemo(() => [...new Set(history.map((item) => String(item.createdByName || '')).filter(Boolean))].sort(), [history])
+  const employees = useMemo(() => [...new Set([
+    ...team.map((item) => String(item.name || '')),
+    ...history.map((item) => String(item.createdByName || '')),
+  ].filter(Boolean))].sort(), [history, team])
   const filtered = useMemo(() => source.filter((item) => {
-    const haystack = [item.title, item.metricLabel, item.areaName, item.sectionName, item.createdByName, item.note, item.executionDetails?.adjustment].join(' ').toLowerCase()
+    const workerName = item.assignment?.assignedToName || item.createdByName || ''
+    const workerId = item.assignment?.assignedTo || item.createdBy || ''
+    const haystack = [item.title, item.metricLabel, item.areaName, item.sectionName, workerName, item.note, item.executionDetails?.adjustment].join(' ').toLowerCase()
     const itemDateSource = item.createdAt || item.observedAt
     const itemDate = itemDateSource ? new Date(itemDateSource).toISOString().slice(0, 10) : ''
     return (!query || haystack.includes(query.toLowerCase()))
       && (area === 'all' || item.areaName === area)
-      && (employee === 'all' || item.createdByName === employee)
+      && (employee === 'all' || (employee === 'mine' ? workerId === currentUser?.id : workerName === employee))
       && (!date || itemDate === date)
-  }), [area, date, employee, query, source])
+  }), [area, currentUser?.id, date, employee, query, source])
 
   async function start(item: JsonRecord) {
     const action = item.action || item
@@ -185,6 +214,39 @@ export default function ActionsWorkspace() {
       await load()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The check could not be started.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  function openAssignment(item: JsonRecord) {
+    const assignment = item.assignment || {}
+    setAssignmentItem(item)
+    setAssignmentForm({
+      assignedTo: String(assignment.assignedTo || ''),
+      priority: String(assignment.priority || 'normal'),
+      dueAt: assignment.dueAt ? new Date(assignment.dueAt).toISOString().slice(0, 16) : '',
+    })
+    setAssignmentError('')
+  }
+
+  async function saveAssignment() {
+    if (!assignmentItem) return
+    const action = assignmentItem.action || assignmentItem
+    setBusyId(String(action.id))
+    setAssignmentError('')
+    try {
+      await neurocropApi.assignTodayAction(String(action.id), {
+        assignedTo: assignmentForm.assignedTo,
+        priority: assignmentForm.priority,
+        dueAt: assignmentForm.dueAt ? new Date(assignmentForm.dueAt).toISOString() : null,
+        action,
+      })
+      setAssignmentItem(null)
+      setNotice(assignmentForm.assignedTo ? 'Action assigned successfully.' : 'Action is now unassigned.')
+      await load()
+    } catch (reason) {
+      setAssignmentError(reason instanceof Error ? reason.message : 'The action could not be assigned.')
     } finally {
       setBusyId('')
     }
@@ -232,7 +294,7 @@ export default function ActionsWorkspace() {
         action,
       })
       setCompletionItem(null)
-      setTab('history')
+      setTab('verification')
       await load()
     } catch (reason) {
       setCompletionError(reason instanceof Error ? reason.message : 'The performed work could not be recorded.')
@@ -263,7 +325,7 @@ export default function ActionsWorkspace() {
         action,
       })
       setCompletionItem(null)
-      setTab('history')
+      setTab('completed')
       await load()
     } catch (reason) {
       setCompletionError(reason instanceof Error ? reason.message : 'The failed check could not be recorded.')
@@ -280,7 +342,7 @@ export default function ActionsWorkspace() {
       const payload = await neurocropApi.resetActions() as JsonRecord
       const deletedCount = Number(payload?.deletedCount || 0)
       setResetOpen(false)
-      setTab('open')
+      setTab('todo')
       setNotice(`${deletedCount} action record${deletedCount === 1 ? '' : 's'} reset. Live conditions are now available as new checks.`)
       await load()
     } catch (reason) {
@@ -290,6 +352,12 @@ export default function ActionsWorkspace() {
     }
   }
 
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(''), 5000)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
   return <main className="nc-actions-page">
     <header className="nc-actions-head">
       <div>
@@ -298,26 +366,31 @@ export default function ActionsWorkspace() {
         <span>See what needs attention, who performed each check, and whether conditions improved.</span>
       </div>
       <div className="nc-actions-head-controls">
-        {canReset && <button type="button" className="nc-actions-reset" onClick={() => setResetOpen(true)}>
-          <i className="fa-solid fa-arrow-rotate-left" /> Reset actions
-        </button>}
         <button type="button" className="nc-actions-refresh" onClick={() => void load()}>
           <i className="fa-solid fa-rotate" /> Refresh
         </button>
+        {canReset && <div className="nc-actions-admin-menu">
+          <button type="button" className="nc-actions-more" aria-label="Administration options" aria-expanded={adminMenuOpen} onClick={() => setAdminMenuOpen((open) => !open)}>
+            <i className="fa-solid fa-ellipsis" />
+          </button>
+          {adminMenuOpen && <div><button type="button" onClick={() => { setAdminMenuOpen(false); setResetOpen(true) }}><i className="fa-solid fa-arrow-rotate-left" /> Reset action records</button></div>}
+        </div>}
       </div>
     </header>
 
     <section className="nc-actions-summary" aria-label="Action summary">
-      <button type="button" className={tab === 'open' ? 'active' : ''} onClick={() => setTab('open')}>
-        <i data-state="open" /><strong>{open.length}</strong><span>Open checks</span>
+      <button type="button" className={tab === 'todo' ? 'active' : ''} onClick={() => setTab('todo')}>
+        <i data-state="open" /><strong>{todo.length}</strong><span>To do</span>
       </button>
       <button type="button" className={tab === 'in_progress' ? 'active' : ''} onClick={() => setTab('in_progress')}>
         <i data-state="in_progress" /><strong>{inProgress.length}</strong><span>In progress</span>
       </button>
-      <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
-        <i data-state="completed" /><strong>{recordedHistory.length}</strong><span>Recorded checks</span>
+      <button type="button" className={tab === 'verification' ? 'active' : ''} onClick={() => setTab('verification')}>
+        <i data-state="verification" /><strong>{verification.length}</strong><span>Verification</span>
       </button>
-      <p><i className="fa-solid fa-circle-info" /><span><strong>History is auditable.</strong> Every result records the employee and time.</span></p>
+      <button type="button" className={tab === 'completed' ? 'active' : ''} onClick={() => setTab('completed')}>
+        <i data-state="completed" /><strong>{completed.length}</strong><span>Completed</span>
+      </button>
     </section>
 
     {error && <div className="nc-actions-feedback"><i className="fa-solid fa-triangle-exclamation" /><span>{error}</span></div>}
@@ -330,28 +403,34 @@ export default function ActionsWorkspace() {
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search action, area, section or employee" />
         </label>
         <label><span>Area</span><select value={area} onChange={(event) => setArea(event.target.value)}><option value="all">All areas</option>{areas.map((item) => <option key={item}>{item}</option>)}</select></label>
-        <label><span>Employee</span><select value={employee} onChange={(event) => setEmployee(event.target.value)}><option value="all">All employees</option>{employees.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label><span>Employee</span><select value={employee} onChange={(event) => setEmployee(event.target.value)}><option value="all">All employees</option><option value="mine">My actions</option>{employees.map((item) => <option key={item}>{item}</option>)}</select></label>
         <label><span>Date</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
       </div>
 
       {loading ? <div className="nc-actions-loading"><span /><span /><span /></div> : filtered.length === 0
         ? <div className="nc-actions-empty"><i className="fa-solid fa-list-check" /><h2>No matching actions</h2><p>Change the filters or select another status.</p></div>
         : <div className="nc-actions-table">
-          <div className="nc-actions-row head"><span>Status</span><span>Check</span><span>Location</span><span>Employee</span><span>Recorded</span><span>Result</span><span /></div>
+          <div className="nc-actions-row head"><span>Status</span><span>Task</span><span>Location</span><span>Assignee</span><span>Due</span><span>Priority / result</span><span /></div>
           {filtered.map((item) => {
             const action = item.action || item
             const actionId = String(action.id || item.actionId)
-            const workflowStatus = tab === 'open' ? 'open' : String(item.status || item.feedback?.status || 'open')
+            const workflowStatus = tab === 'todo' ? 'open' : String(item.status || item.feedback?.status || 'open')
             const status = displayStatus(item, workflowStatus)
+            const assignment = item.assignment || {}
+            const assignedToCurrentUser = !assignment.assignedTo || assignment.assignedTo === currentUser?.id
+            const workerName = assignment.assignedToName || item.createdByName || 'Unassigned'
             return <article className="nc-actions-row" key={`${tab}-${item.id || item.actionId}`}>
               <span><b className="nc-actions-status" data-state={status}><i />{labelStatus(status)}</b></span>
               <span><strong>{item.title || item.metricLabel || 'Recommended check'}</strong><small>{item.recommendedAction || item.metricLabel || ''}</small></span>
               <span><strong>{item.sectionName || 'Unknown section'}</strong><small>{item.areaName || 'Unknown area'}</small></span>
-              <span><strong>{item.createdByName || (workflowStatus === 'open' ? 'Unassigned' : 'Current user')}</strong><small>{workflowStatus === 'open' ? 'Not started' : 'Recorded account'}</small></span>
-              <span><strong>{workflowStatus === 'open' ? relativeTime(item.observedAt) : relativeTime(item.createdAt)}</strong><small>{workflowStatus === 'open' ? 'Condition detected' : 'Activity logged'}</small></span>
-              <span><strong>{workflowStatus === 'open' ? 'Check required' : resultText(item)}</strong><small>{item.executionDetails?.adjustment || item.note || ''}</small></span>
+              <span><strong>{workerName}</strong><small>{assignment.assignedTo ? 'Assigned employee' : workflowStatus === 'open' ? 'Not assigned' : 'Performed by'}</small></span>
+              <span><strong>{workflowStatus === 'open' ? dueLabel(assignment.dueAt) : relativeTime(item.createdAt)}</strong><small>{workflowStatus === 'open' ? relativeTime(item.observedAt) + ' detected' : 'Activity logged'}</small></span>
+              <span>{workflowStatus === 'open'
+                ? <><b className="nc-actions-priority" data-priority={assignment.priority || 'normal'}>{priorityLabel(assignment.priority)}</b><small>{assignment.assignedByName ? `Assigned by ${assignment.assignedByName}` : 'Ready to assign'}</small></>
+                : <><strong>{resultText(item)}</strong><small>{item.executionDetails?.adjustment || item.note || ''}</small></>}</span>
               <span className="nc-actions-controls">
-                {workflowStatus === 'open' && <button type="button" disabled={busyId === actionId} onClick={() => void start(item)}>Start</button>}
+                {workflowStatus === 'open' && ['owner', 'admin', 'grower'].includes(String(currentUser?.role || '')) && <button type="button" className="secondary" disabled={busyId === actionId} onClick={() => openAssignment(item)}>{assignment.assignedTo ? 'Reassign' : 'Assign'}</button>}
+                {workflowStatus === 'open' && <button type="button" disabled={busyId === actionId || !assignedToCurrentUser} title={!assignedToCurrentUser ? `Assigned to ${workerName}` : ''} onClick={() => void start(item)}>Start</button>}
                 {workflowStatus === 'in_progress' && <button type="button" disabled={busyId === actionId} onClick={() => openCompletion(item)}>Record work</button>}
               </span>
             </article>
@@ -359,6 +438,24 @@ export default function ActionsWorkspace() {
           <footer>Showing {filtered.length} of {source.length} actions</footer>
       </div>}
     </section>
+    {assignmentItem && <div className="nc-actions-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setAssignmentItem(null)}>
+      <section className="nc-actions-modal" role="dialog" aria-modal="true" aria-labelledby="assign-action-title">
+        <header>
+          <div><p>Work assignment</p><h2 id="assign-action-title">Assign {assignmentItem.sectionName || 'Section'} check</h2><span>Choose who is responsible, how urgent it is, and when it should be completed.</span></div>
+          <button type="button" onClick={() => setAssignmentItem(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button>
+        </header>
+        <div className="nc-actions-form">
+          <label><span>Employee</span><select value={assignmentForm.assignedTo} onChange={(event) => setAssignmentForm((current) => ({ ...current, assignedTo: event.target.value }))}><option value="">Unassigned</option>{team.map((member) => <option value={member.id} key={member.id}>{member.name} · {member.role}</option>)}</select></label>
+          <label><span>Priority</span><select value={assignmentForm.priority} onChange={(event) => setAssignmentForm((current) => ({ ...current, priority: event.target.value }))}><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label>
+          <label><span>Due date (optional)</span><input type="datetime-local" value={assignmentForm.dueAt} onChange={(event) => setAssignmentForm((current) => ({ ...current, dueAt: event.target.value }))} /></label>
+          {assignmentError && <p className="nc-actions-form-error"><i className="fa-solid fa-triangle-exclamation" />{assignmentError}</p>}
+        </div>
+        <footer>
+          <button type="button" onClick={() => setAssignmentItem(null)}>Cancel</button>
+          <button type="button" className="primary" disabled={busyId === String((assignmentItem.action || assignmentItem).id)} onClick={() => void saveAssignment()}>{assignmentForm.assignedTo ? 'Save assignment' : 'Leave unassigned'}</button>
+        </footer>
+      </section>
+    </div>}
     {completionItem && <div className="nc-actions-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setCompletionItem(null)}>
       <section className="nc-actions-modal" role="dialog" aria-modal="true" aria-labelledby="record-work-title">
         <header>

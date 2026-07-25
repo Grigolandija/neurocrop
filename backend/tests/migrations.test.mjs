@@ -110,3 +110,13 @@ test('action progress migration persists checks that have started', async () => 
   const sql = await fs.readFile(new URL('../migrations/0015_action_progress.sql', import.meta.url), 'utf8');
   assert.match(sql, /status IN \('in_progress', 'completed', 'deferred', 'failed'\)/);
 });
+
+test('action assignments are tenant scoped and keep assignee workflow metadata', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0017_action_assignments.sql', import.meta.url), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS action_assignments/);
+  assert.match(sql, /action_assignments_section_tenant_fkey/);
+  assert.match(sql, /UNIQUE \(organization_id, action_id\)/);
+  assert.match(sql, /assigned_to/);
+  assert.match(sql, /priority IN \('urgent', 'high', 'normal', 'low'\)/);
+  assert.match(sql, /due_at/);
+});
