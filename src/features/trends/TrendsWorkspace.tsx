@@ -863,27 +863,27 @@ export default function TrendsWorkspace() {
     <section className="nc-trends-context">
       <label>
         <span>Area</span>
-        <select
-          aria-label="Select Area"
-          value={displayedAreaId}
-          disabled={!areas.length}
-          onChange={(event) => changeArea(event.target.value)}
-        >
-          {!areas.length ? <option value="">Loading Area…</option> : null}
-          {areas.map(([id, name]) => <option value={id} key={id}>{name}</option>)}
-        </select>
+        {areas.length
+          ? <select
+              aria-label="Select Area"
+              value={displayedAreaId}
+              onChange={(event) => changeArea(event.target.value)}
+            >
+              {areas.map(([id, name]) => <option value={id} key={id}>{name}</option>)}
+            </select>
+          : <span className="nc-trends-select-skeleton" aria-label="Preparing Area selection" />}
       </label>
       <label>
         <span>Section</span>
-        <select
-          aria-label="Select Section"
-          value={displayedSectionId}
-          disabled={!displayedAreaSections.length}
-          onChange={(event) => changeSection(event.target.value)}
-        >
-          {!displayedAreaSections.length ? <option value="">Loading Section…</option> : null}
-          {displayedAreaSections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}
-        </select>
+        {displayedAreaSections.length
+          ? <select
+              aria-label="Select Section"
+              value={displayedSectionId}
+              onChange={(event) => changeSection(event.target.value)}
+            >
+              {displayedAreaSections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}
+            </select>
+          : <span className="nc-trends-select-skeleton" aria-label="Preparing Section selection" />}
       </label>
       <div className="nc-trends-range" role="group" aria-label="Trend period">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
       <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />Compare Sections</button>
