@@ -215,7 +215,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
         <Rect x={0} y={0} width={map.dimensions.widthM} height={map.dimensions.lengthM} fill="#f7f7f2" shadowColor="#152c25" shadowBlur={.35} shadowOpacity={.18} />
         {gridLines.map((line, index) => <Line key={index} points={line.points} stroke={line.major ? '#b5bcb4' : '#d9ddd7'} strokeWidth={(line.major ? 1.2 : .65) / view.scale} />)}
         {mode === 'environment' && heatmap && visibleLayers.get('environment')?.visible
-          ? <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} opacity={visibleLayers.get('environment')?.opacity ?? 1} />
+          ? <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} />
           : null}
         {mode === 'environment' && heatmap && showContours && heatmap.count >= 3 && visibleLayers.get('environment')?.visible ? <Group clipX={0} clipY={0} clipWidth={map.dimensions.widthM} clipHeight={map.dimensions.lengthM}>
           {contourPaths.map((path, index) => <Group key={`${path.level}-${index}`}>

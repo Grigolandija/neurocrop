@@ -5,7 +5,7 @@ export const DEFAULT_LAYERS: MapLayer[] = [
   ['climate', 'Climate equipment'], ['lighting', 'Lighting'], ['sensors', 'Sensor nodes'], ['labels', 'Labels'],
   ['coverage', 'Sensor coverage'], ['environment', 'Estimated environment map'], ['signal', 'LoRa signal'],
   ['confidence', 'Uncertainty / confidence'],
-].map(([id, name]) => ({ id, name, visible: true, locked: false, opacity: id === 'environment' ? 0.72 : 1 }))
+].map(([id, name]) => ({ id, name, visible: true, locked: false, opacity: 1 }))
 
 const now = new Date()
 const base = (id: string, type: GreenhouseObject['type'], name: string, xM: number, yM: number, widthM: number, lengthM: number, layerId: string): GreenhouseObject => ({
@@ -36,7 +36,7 @@ export function createDemoMap(): GreenhouseMap {
     shape: { type: 'rectangle' }, dimensions: { widthM: 20, lengthM: 8, heightM: 4.2 },
     gridSizeM: 0.5, orientationDeg: 90, wallThicknessM: 0.15,
     createdAt: timestamp, updatedAt: timestamp, layers: DEFAULT_LAYERS.map((layer) => ({ ...layer })),
-    heatmapSettings: { enabled: true, metric: 'air-temperature', interpolationMethod: 'idw', idwPower: 2, opacity: 0.72, scaleMode: 'auto', showConfidence: true },
+    heatmapSettings: { enabled: true, metric: 'air-temperature', interpolationMethod: 'idw', idwPower: 2, opacity: 0.88, scaleMode: 'auto', showConfidence: true },
     objects: [
       base('table-west', 'growing-table', 'West table block', 1.3, 1.1, 7.2, 2.1, 'cultivation'),
       base('table-east', 'growing-table', 'East table block', 11.5, 4.8, 7.2, 2.1, 'cultivation'),

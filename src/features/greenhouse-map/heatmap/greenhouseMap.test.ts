@@ -81,6 +81,11 @@ describe('measurement filtering and grid sizing', () => {
 })
 
 describe('environment colour scale', () => {
+  it('uses a high-opacity heatmap without a second translucent layer', () => {
+    const map = createDemoMap()
+    expect(map.heatmapSettings.opacity).toBe(0.88)
+    expect(map.layers.find((layer) => layer.id === 'environment')?.opacity).toBe(1)
+  })
   it('uses distinct dry, balanced and humid colours for relative humidity', () => {
     const colors = METRICS['relative-humidity'].colors
     expect(colorAt(40, 40, 80, colors)).toEqual([242, 184, 75])
