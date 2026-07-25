@@ -121,11 +121,7 @@ function ApprovedDashboard() {
     }
 
     function attachRuntime() {
-      if (document.querySelector('script[data-neurocrop-runtime]')) return
-      const runtime = document.createElement('script')
-      runtime.src = `/approved-dashboard-runtime.js?v=${__BUILD_VERSION__}`
-      runtime.dataset.neurocropRuntime = 'true'
-      runtime.onload = () => {
+      const activateRuntime = () => {
         runtimeReady.current = true
         const notifyRoute = () => notifyRuntimeRoute(window.location.pathname)
         if (routeNeedsCharts(window.location.pathname)) {
@@ -134,6 +130,14 @@ function ApprovedDashboard() {
           notifyRoute()
         }
       }
+      if (document.querySelector('script[data-neurocrop-runtime]')) {
+        activateRuntime()
+        return
+      }
+      const runtime = document.createElement('script')
+      runtime.src = `/approved-dashboard-runtime.js?v=${__BUILD_VERSION__}`
+      runtime.dataset.neurocropRuntime = 'true'
+      runtime.onload = activateRuntime
       document.body.appendChild(runtime)
     }
 
