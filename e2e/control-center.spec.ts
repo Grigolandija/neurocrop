@@ -107,6 +107,14 @@ test('Nodes inventory displays registered hardware without an Area or Section', 
   const retainedNodeRow = page.locator('.nc-node-table tbody tr').filter({ hasText: retainedNodeName })
   await expect(retainedNodeRow).toHaveCount(1)
   await expect(retainedNodeRow).toContainText('Unassigned')
+  await retainedNodeRow.getByRole('button', { name: new RegExp(`Open ${retainedNodeName}`) }).click()
+  await expect(page).toHaveURL(/\/nodes\/f000000000000001$/)
+  await page.getByRole('button', { name: 'Edit node' }).click()
+  const editDialog = page.getByRole('dialog', { name: 'Edit node' })
+  await expect(editDialog).toBeVisible()
+  await expect(editDialog.locator('[name="modalNodeName"]')).toHaveValue(retainedNodeName)
+  await expect(editDialog.locator('[name="modalNodeSiteId"]')).toHaveValue('')
+  await expect(editDialog.locator('[name="modalNodeSectionId"]')).toBeDisabled()
 })
 
 test('Live readings opens the API-backed cross-section measurement workspace', async ({ page }) => {

@@ -3078,16 +3078,20 @@
     }
 
     function openNodeManagementModal(siteId, zoneId, nodeId) {
-      const site = dashboardData.sites.find((item) => item.id === siteId);
-      const zone = (site?.zones || []).find((item) => item.id === zoneId);
-      const node = (zone?.batteryNodes || []).find((item) => item.id === nodeId);
-      if (!site || !zone || !node) return;
+      const record = findNodeRecordById(nodeId);
+      if (!record) return;
+      const { site, zone, node } = record;
+      const isUnassigned = isUnassignedLocation(site) || site.id === "unassigned" || zone.id === "unassigned";
 
-      managementModalState = { type: "node", siteId, zoneId, nodeId };
-      const areaOptions = dashboardData.sites.map((location) => `
+      managementModalState = { type: "node", siteId: site.id, zoneId: zone.id, nodeId: node.id };
+      const areaOptions = `
+        ${isUnassigned ? `<option value="" selected>Unassigned</option>` : ""}
+        ${dashboardData.sites.filter((location) => !isUnassignedLocation(location)).map((location) => `
         <option value="${escapeAttribute(location.id)}" ${location.id === site.id ? "selected" : ""}>${escapeHtml(location.name)}</option>
-      `).join("");
-      const sectionOptions = getNodeSectionOptions(site.id, zone.id);
+      `).join("")}`;
+      const sectionOptions = isUnassigned
+        ? `<option value="">Select an area first</option>`
+        : getNodeSectionOptions(site.id, zone.id);
       const nodeName = node.name || node.id;
 
       elements.managementModalOverlay.innerHTML = `
@@ -3105,7 +3109,7 @@
             <label class="node-edit-field"><span>Node display name</span><input name="modalNodeName" value="${escapeAttribute(nodeName)}" required></label>
             <label class="node-edit-field"><span>DevEUI</span><input name="modalNodeDevEui" value="${escapeAttribute(node.devEui || "")}" minlength="16" maxlength="16" pattern="[0-9A-Fa-f]{16}" title="Enter exactly 16 hexadecimal characters" required></label>
             <label class="node-edit-field"><span>Assigned area</span><select name="modalNodeSiteId">${areaOptions}</select></label>
-            <label class="node-edit-field"><span>Assigned section</span><select name="modalNodeSectionId" required>${sectionOptions}</select></label>
+            <label class="node-edit-field"><span>Assigned section</span><select name="modalNodeSectionId" ${isUnassigned ? "disabled" : "required"}>${sectionOptions}</select></label>
             <p class="node-move-note field-wide">Moving a node keeps its Node ID. Future readings will belong to the selected area and section.</p>
             <p class="management-modal-error field-wide" role="alert" hidden></p>
             <section class="node-remove-zone field-wide" aria-labelledby="remove-node-title">
@@ -3218,7 +3222,8 @@
       const targetZoneId = String(formData.get("modalNodeSectionId") || "");
       const nodeName = String(formData.get("modalNodeName") || "").trim();
       const devEui = String(formData.get("modalNodeDevEui") || "").trim().toUpperCase();
-      if (!nodeId || !targetSiteId || !targetZoneId) return setManagementModalError("Choose both an area and a section for this node.");
+      if (!nodeId) return setManagementModalError("This node could not be found anymore.");
+      if (targetSiteId && !targetZoneId) return setManagementModalError("Choose a section for the selected area.");
       if (!nodeName) return setManagementModalError("Enter a node display name.");
       if (!/^[0-9A-F]{16}$/.test(devEui)) return setManagementModalError("DevEUI must be 16 hexadecimal characters.");
       if (isApiDataMode()) {
@@ -3226,21 +3231,24 @@
         const currentDevEui = record?.node?.devEui || nodeId;
         if (!window.NeuroCropApi?.updateNode) return setManagementModalError("Node update API is not available yet.");
         try {
-          await window.NeuroCropApi.updateNode(currentDevEui, {
+          const updatePayload = {
             name: nodeName,
-            devEui,
-            sectionId: targetZoneId
-          });
+            devEui
+          };
+          if (targetZoneId) updatePayload.sectionId = targetZoneId;
+          await window.NeuroCropApi.updateNode(currentDevEui, updatePayload);
           await hydrateDashboardFromApi();
-          activeSiteId = targetSiteId;
-          activeZoneId = targetZoneId;
-          resetCurrentReadingsFromActiveZone();
-          resetNodeForm({ siteId: targetSiteId, zoneId: targetZoneId });
+          if (targetSiteId && targetZoneId) {
+            activeSiteId = targetSiteId;
+            activeZoneId = targetZoneId;
+            resetCurrentReadingsFromActiveZone();
+            resetNodeForm({ siteId: targetSiteId, zoneId: targetZoneId });
+          }
           const targetSite = dashboardData.sites.find((item) => item.id === targetSiteId);
           const targetZone = (targetSite?.zones || []).find((item) => item.id === targetZoneId);
-          const updatedNode = (targetZone?.batteryNodes || []).find((item) => normalizeDevEuiForCompare(item.devEui) === normalizeDevEuiForCompare(devEui));
+          const updatedNode = findNodeRecordById(devEui)?.node;
           closeManagementModal();
-          setManagementNotice("nodes", `${nodeName} saved${targetZone ? ` and assigned to ${targetZone.name}` : ""}.`);
+          setManagementNotice("nodes", `${nodeName} saved${targetZone ? ` and assigned to ${targetZone.name}` : " as unassigned"}.`);
           renderDashboard();
           if (activeNodeDetailId && updatedNode) {
             activeNodeDetailId = updatedNode.id;
@@ -3280,13 +3288,11 @@
     }
 
     function findNodeRecordById(nodeId) {
-      for (const site of dashboardData.sites || []) {
-        for (const zone of site.zones || []) {
-          const node = (zone.batteryNodes || []).find((item) => item.id === nodeId);
-          if (node) return { site, zone, node };
-        }
-      }
-      return null;
+      const normalizedId = normalizeDevEuiForCompare(nodeId);
+      return getNodesManagementRecords().find(({ node }) =>
+        String(node.id || "") === String(nodeId || "")
+        || normalizeDevEuiForCompare(node.devEui) === normalizedId
+      ) || null;
     }
 
     function normalizeDevEuiForCompare(devEui) {
@@ -16681,8 +16687,11 @@ function buildTrendMetricOptions(options) {
         if (!(sectionSelect instanceof HTMLSelectElement)) return;
         const targetSite = dashboardData.sites.find((site) => site.id === event.target.value);
         const targetZones = Array.isArray(targetSite?.zones) ? targetSite.zones : [];
-        sectionSelect.innerHTML = getNodeSectionOptions(event.target.value);
+        sectionSelect.innerHTML = event.target.value
+          ? getNodeSectionOptions(event.target.value)
+          : `<option value="">Select an area first</option>`;
         sectionSelect.disabled = targetZones.length === 0;
+        sectionSelect.required = targetZones.length > 0;
         rebuildEnhancedSelect(sectionSelect);
       }
       if (event.target instanceof HTMLSelectElement && event.target.name === "csvAreaId") {

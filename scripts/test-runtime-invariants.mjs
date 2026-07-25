@@ -212,7 +212,13 @@ assert(
     && !runtime.includes('sectionId: zone.id,\n            name: nodeFormState.devEui'),
   "Node registration must claim factory inventory using only DevEUI and its destination section"
 );
-assert(runtime.includes('name="modalNodeDevEui"') && runtime.includes('devEui,\n            sectionId: targetZoneId') && !runtime.includes('DevEUI is the physical device identity.'), "Node editing must submit valid DevEUI changes to the API");
+assert(
+  runtime.includes('name="modalNodeDevEui"')
+    && runtime.includes('if (targetZoneId) updatePayload.sectionId = targetZoneId;')
+    && runtime.includes('window.NeuroCropApi.updateNode(currentDevEui, updatePayload)')
+    && !runtime.includes('DevEUI is the physical device identity.'),
+  "Node editing must submit valid DevEUI changes and assign a section only when selected"
+);
 assert(runtime.includes('removeButton.disabled = !event.target.checked;') && runtime.includes('data-modal-node-delete="${escapeAttribute(node.id)}" disabled') && runtime.includes('name="modalNodeHistory"') && runtime.includes('{ history: historyPolicy }'), "Node removal must require explicit confirmation and send the selected history-retention policy");
 assert(!runtime.includes('name="modalNodeReportingMode"') && !runtime.includes('name="modalNodeReportingInterval"'), "Node edit modal must not expose reporting mode or interval controls");
 assert(runtime.includes("function getNodeReportingModeLabel(profile)") && nodesModel.includes("power_save: 'Power save'"), "Node reporting modes must be presented with clear labels from the Node feature model");
