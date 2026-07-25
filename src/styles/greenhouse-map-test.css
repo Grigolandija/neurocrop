@@ -215,6 +215,13 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-setup-inline-form button { padding: 0 12px; }
 .gh-setup-node-list > span { grid-template-columns: 18px minmax(110px,1fr) minmax(120px, .8fr); }
 .gh-setup-node-list select { min-width: 0; height: 27px; border: 1px solid #d0d9d2; color: #385047; background: #fff; font-size: 9px; }
+.gh-scan-node {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px;
+  margin-top: 9px; border: 1px solid #b9cbc0; padding: 0 12px; color: #2b624e;
+  background: #f1f6f2; font-size: 10px; font-weight: 700;
+}
+.gh-scan-node:hover { border-color: #739986; background: #e7f0e9; }
+.gh-scan-error { margin-top: 8px !important; color: #984e42 !important; }
 .gh-setup-step button.primary, .gh-setup-guide > footer button.primary { color: #fff; background: #2d6b54; }
 .gh-setup-guide > footer { display: flex; align-items: center; gap: 8px; padding: 13px 20px; border-top: 1px solid #dce3de; background: #fafbf9; }
 .gh-setup-guide > footer span { flex: 1; }
