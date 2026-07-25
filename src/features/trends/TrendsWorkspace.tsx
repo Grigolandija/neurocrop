@@ -377,6 +377,7 @@ export default function TrendsWorkspace() {
   const coveredMinutes = number(timeInTarget.coveredMinutes) || 0
   const targetPct = expectedMinutes ? Math.round(optimalMinutes / expectedMinutes * 100) : null
   const coveragePct = expectedMinutes ? Math.min(100, Math.round(coveredMinutes / expectedMinutes * 100)) : null
+  const showMeasuredConclusion = !compare && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
   const events = Array.isArray(analytics?.events) ? analytics.events.slice(-6).reverse() : []
   const chartSeries = compare && comparison.length > 1
     ? comparison
@@ -447,20 +448,13 @@ export default function TrendsWorkspace() {
     <section className="nc-trends-main">
       <article className="nc-trends-chart-card">
         <header><div><p>{compare ? 'Section comparison' : 'Measured history'}</p><h2>{selectedMetric.label}</h2><span>{selectedSection?.areaName} · {compare ? `${comparisonIds.length} Sections` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
+        {showMeasuredConclusion ? <div className="nc-trends-chart-conclusion" data-tone={summary.tone}>
+          <span>Measured conclusion</span>
+          <strong>{summary.title}</strong>
+          <p>{summary.body}</p>
+        </div> : null}
         {status === 'ready' || comparison.length > 1 ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} /> : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{status === 'loading' ? 'Loading measured history' : status === 'error' ? 'History could not be loaded' : 'Not enough measurements yet'}</strong><span>{error || 'At least two measured points are required to draw a trend.'}</span></div>}
       </article>
-
-      <aside className="nc-trends-insight" data-tone={summary.tone}>
-        <div className="nc-trends-insight-label"><i className="fa-solid fa-sparkles" />Trend interpretation</div>
-        <h2>{summary.title}</h2>
-        <p>{summary.body}</p>
-        <dl>
-          <div><dt>Target</dt><dd>{target ? `${format(target[0], selectedMetric)}–${format(target[1], selectedMetric)} ${selectedMetric.unit}` : 'Not configured'}</dd></div>
-          <div><dt>Coverage</dt><dd>{coveragePct === null ? 'Pending' : `${coveragePct}%`}</dd></div>
-          <div><dt>Samples</dt><dd>{points.length}</dd></div>
-        </dl>
-        <p className="nc-trends-trust"><i className="fa-solid fa-circle-info" />Interpretation uses measured history and configured crop targets. It does not infer missing sensor data.</p>
-      </aside>
     </section>
 
     <section className="nc-trends-lower">
