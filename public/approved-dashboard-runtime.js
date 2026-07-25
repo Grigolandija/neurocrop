@@ -11291,6 +11291,9 @@ function buildTrendMetricOptions(options) {
     }
 
     function getTrendAxisDomain(values, definition, optimalRange, scaleMode = activeTrendScaleMode) {
+      if (Number.isFinite(Number(definition.axisMin)) && Number.isFinite(Number(definition.axisMax))) {
+        return [Number(definition.axisMin), Number(definition.axisMax)];
+      }
       const dataValues = values.map(Number).filter(Number.isFinite);
       if (!dataValues.length) return optimalRange;
 
@@ -11784,7 +11787,9 @@ function buildTrendMetricOptions(options) {
           unit: String(input.unit || ""),
           decimals,
           optimal: optimalRange,
-          critical: optimalRange
+          critical: optimalRange,
+          axisMin: String(input.metricKey || "") === "batteryLevel" ? 0 : undefined,
+          axisMax: String(input.metricKey || "") === "batteryLevel" ? 100 : undefined
         };
         const metricOption = {
           key: String(input.metricKey || "growth"),

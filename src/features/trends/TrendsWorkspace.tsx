@@ -190,8 +190,8 @@ function TrendChart({ series, metric, target, range }: { series: ChartInput[]; m
     const domainMinimum = Math.min(...domainValues)
     const domainMaximum = Math.max(...domainValues)
     const domainPadding = Math.max((domainMaximum - domainMinimum) * .12, 10 ** -metric.decimals * 4)
-    const axisMinimum = domainMinimum - domainPadding
-    const axisMaximum = domainMaximum + domainPadding
+    const axisMinimum = metric.key === 'batteryLevel' ? 0 : domainMinimum - domainPadding
+    const axisMaximum = metric.key === 'batteryLevel' ? 100 : domainMaximum + domainPadding
     chart.setOption({
       animation: false,
       color: series.map((item) => item.color),
@@ -336,12 +336,14 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
       const minimum = Math.min(...domain)
       const maximum = Math.max(...domain)
       const padding = Math.max((maximum - minimum) * .12, 10 ** -item.metric.decimals * 4)
+      const axisMinimum = item.metric.key === 'batteryLevel' ? 0 : minimum - padding
+      const axisMaximum = item.metric.key === 'batteryLevel' ? 100 : maximum + padding
       return {
         type: 'value',
         gridIndex: stacked ? index : 0,
         position: !stacked && index === 1 ? 'right' : 'left',
-        min: minimum - padding,
-        max: maximum + padding,
+        min: axisMinimum,
+        max: axisMaximum,
         splitNumber: stacked ? 3 : 4,
         name: `${item.metric.short} (${item.metric.unit})`,
         nameLocation: 'middle',
