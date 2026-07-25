@@ -207,10 +207,15 @@ function formatMeasurement(value: number | null, unit: string) {
   return `${formatNumber(value)}${unitSuffix(unit)}`
 }
 
+function formatDifference(value: number, unit: string) {
+  const difference = formatNumber(Math.abs(value))
+  return unit === '%' ? `${difference} percentage point${difference === '1' ? '' : 's'}` : formatMeasurement(Math.abs(value), unit)
+}
+
 function formatDeviation(value: number | null, direction: OverviewRow['direction'], unit: string) {
   if (value === null || direction === 'unknown') return '—'
   if (direction === 'inside') return 'Inside target'
-  return `${formatMeasurement(Math.abs(value), unit)} ${direction} target`
+  return `${formatDifference(value, unit)} ${direction} target`
 }
 
 function targetRange(value: unknown): [number, number] | null {
@@ -238,7 +243,17 @@ function correctionInstruction(
   const difference = Math.abs(deviation)
   const boundary = direction === 'above' ? target[1] : target[0]
   const change = direction === 'above' ? 'Decrease' : 'Increase'
-  return `${label} is ${formatMeasurement(difference, unit)} ${direction} target. ${change} by at least ${formatMeasurement(difference, unit)} to ${formatMeasurement(boundary, unit)}; target range ${formatNumber(target[0])}–${formatNumber(target[1])}${unitSuffix(unit)}.`
+  return `${label} is ${formatDifference(difference, unit)} ${direction} target. ${change} by at least ${formatDifference(difference, unit)} to ${formatMeasurement(boundary, unit)}; target range ${formatNumber(target[0])}–${formatNumber(target[1])}${unitSuffix(unit)}.`
+}
+
+function rowConditionSummary(row: OverviewRow) {
+  if (row.currentValue === null || !row.target) return row.detail
+  return `${row.metricLabel} ${formatMeasurement(row.currentValue, row.unit)} · target ${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}`
+}
+
+function rowCorrectionSummary(row: OverviewRow) {
+  if (row.deviation === null || (row.direction !== 'above' && row.direction !== 'below')) return ''
+  return `${row.direction === 'above' ? 'Decrease' : 'Increase'} by ${formatDifference(row.deviation, row.unit)}`
 }
 
 function AgronomicDiagnosis({ action }: { action: JsonRecord }) {
@@ -883,7 +898,7 @@ export default function OverviewWorkspace() {
             ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Review {visibleActions.length} affected Section{visibleActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
             : stable
               ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />No action required</div>
-              : <a className="nc-overview-action" href="/sections">Review Section setup<i className="fa-solid fa-arrow-right" /></a>}
+              : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>Review Section setup<i className="fa-solid fa-arrow-right" /></button>}
         </section>
 
         <figure className="nc-coverage" aria-labelledby="nc-coverage-title">
@@ -914,7 +929,7 @@ export default function OverviewWorkspace() {
               <p>
                 <strong>{row.status}</strong>
                 {row.deviation !== null
-                  ? <small className="nc-row-deviation"><b>{formatDeviation(row.deviation, row.direction, row.unit)}</b><em>{row.updated}</em></small>
+                  ? <small className="nc-row-deviation"><b>{rowConditionSummary(row)}</b><em>{rowCorrectionSummary(row)}</em></small>
                   : <small>{row.detail}</small>}
                 <time>{row.updated}</time>
               </p>
