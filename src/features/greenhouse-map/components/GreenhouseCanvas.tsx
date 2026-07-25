@@ -33,8 +33,8 @@ const objectColors: Record<string, { fill: string; stroke: string }> = {
 }
 const statusColors: Record<string, string> = { online: '#2f8760', warning: '#bd842b', offline: '#6d7470', unassigned: '#60758a', 'low-battery': '#b85b46', stale: '#936d3c' }
 
-function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
-  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; layerOpacity: number; viewScale: number
+function ObjectShape({ object, map, selected, editable, environmentView, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
+  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; environmentView: boolean; layerOpacity: number; viewScale: number
   onSelect: (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void
   onMove: (position: { id: string; xM: number; yM: number }, record?: boolean) => void
   onUpdate: Props['onUpdate']
@@ -64,9 +64,9 @@ function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale,
     }}
   >
     {isSection ? <>
-      <Rect width={object.widthM} height={object.lengthM} fill={object.metadata.color ?? colors.fill} opacity={selected ? .2 : .11} stroke={selected ? '#d89222' : object.metadata.color ?? colors.stroke} strokeWidth={selected ? 2 / viewScale : 1.2 / viewScale} dash={[8 / viewScale, 5 / viewScale]} cornerRadius={4 / viewScale} />
-      <Text x={8 / viewScale} y={7 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={section?.sectionName ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.max(.18, 12 / viewScale)} fontStyle="bold" fill="#244d41" />
-      <Text x={8 / viewScale} y={23 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={`${section?.nodeCount ?? 0} node${section?.nodeCount === 1 ? '' : 's'}${section?.cropProfile ? ` · ${section.cropProfile}` : ''}`} fontFamily="IBM Plex Mono" fontSize={Math.max(.13, 9 / viewScale)} fill="#557168" />
+      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? undefined : object.metadata.color ?? colors.fill} opacity={environmentView ? .58 : selected ? .2 : .11} stroke={selected ? '#d89222' : object.metadata.color ?? colors.stroke} strokeWidth={selected ? 2 / viewScale : 1.2 / viewScale} dash={[8 / viewScale, 5 / viewScale]} cornerRadius={4 / viewScale} />
+      <Text x={8 / viewScale} y={7 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={section?.sectionName ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.max(.18, 12 / viewScale)} fontStyle="bold" fill="#244d41" opacity={environmentView ? .68 : 1} />
+      <Text x={8 / viewScale} y={23 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={`${section?.nodeCount ?? 0} node${section?.nodeCount === 1 ? '' : 's'}${section?.cropProfile ? ` · ${section.cropProfile}` : ''}`} fontFamily="IBM Plex Mono" fontSize={Math.max(.13, 9 / viewScale)} fill="#557168" opacity={environmentView ? .68 : 1} />
     </> : isSensor ? <>
       <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .5} fill="#173e35" stroke={selected ? '#f0bd4f' : '#fff'} strokeWidth={selected ? Math.max(sensorSize * .12, 2 / viewScale) : Math.max(sensorSize * .07, 1.2 / viewScale)} shadowColor="#10251f" shadowBlur={Math.max(sensorSize * .2, 3 / viewScale)} shadowOpacity={.35} />
       <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .2} fill={statusColors[sensor?.status ?? 'unassigned']} />
@@ -74,9 +74,9 @@ function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale,
       <Text x={object.widthM + 6 / viewScale} y={-1 / viewScale} width={Math.max(2.8, 150 / viewScale)} text={object.name} fontFamily="IBM Plex Sans" fontSize={labelFontSize} fontStyle="bold" fill="#183a31" />
       <Text x={object.widthM + 6 / viewScale} y={labelFontSize + 2 / viewScale} width={Math.max(2.2, 130 / viewScale)} text={`${sensor?.batteryPercent ?? '—'}%  ·  ${sensor?.rssi ?? '—'} dBm`} fontFamily="IBM Plex Mono" fontSize={detailFontSize} fill="#53645e" />
     </> : <>
-      <Rect width={object.widthM} height={object.lengthM} fill={object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : colors.stroke} strokeWidth={selected ? .08 : .035} dash={object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
-      {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} /> : null}
-      <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.type === 'text-label' ? object.name : object.widthM > 1.2 && object.lengthM > .45 ? object.name : definition?.label ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill="#2d4038" ellipsis wrap="none" />
+      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? undefined : object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : environmentView ? '#536b62' : colors.stroke} strokeWidth={selected ? .08 : .035} opacity={environmentView ? .68 : 1} dash={object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
+      {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} opacity={environmentView ? .68 : 1} /> : null}
+      <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.type === 'text-label' ? object.name : object.widthM > 1.2 && object.lengthM > .45 ? object.name : definition?.label ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill="#2d4038" opacity={environmentView ? .68 : 1} ellipsis wrap="none" />
     </>}
   </Group>
 }
@@ -234,7 +234,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
         {orderedObjects.map((object) => {
           const layer = visibleLayers.get(object.layerId)
           if (!object.visible || !layer?.visible) return null
-          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} layerOpacity={layer.opacity} viewScale={view.scale}
+          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} environmentView={mode === 'environment'} layerOpacity={layer.opacity} viewScale={view.scale}
             onSelect={(event) => {
               event.cancelBubble = true
               const shift = event.evt.shiftKey
