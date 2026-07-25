@@ -137,6 +137,41 @@ type ChartInput = {
 function TrendChart({ series, metric, target, range }: { series: ChartInput[]; metric: Metric; target: [number, number] | null; range: RangeKey }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
+    const sharedRenderer = (window as typeof window & {
+      NeuroCropTrendCharts?: {
+        render: (
+          element: HTMLElement,
+          input: {
+            points: Point[]
+            metricKey: string
+            label: string
+            unit: string
+            decimals: number
+            target: [number, number] | null
+            rangeKey: RangeKey
+          },
+        ) => { resize: () => void; dispose: () => void } | null
+      }
+    }).NeuroCropTrendCharts
+    if (ref.current && series.length === 1 && sharedRenderer?.render) {
+      const chart = sharedRenderer.render(ref.current, {
+        points: series[0].points,
+        metricKey: metric.key,
+        label: metric.label,
+        unit: metric.unit,
+        decimals: metric.decimals,
+        target,
+        rangeKey: range,
+      })
+      if (!chart) return
+      const observer = new ResizeObserver(() => chart.resize())
+      observer.observe(ref.current)
+      return () => {
+        observer.disconnect()
+        chart.dispose()
+      }
+    }
+
     const echarts = window.echarts as {
       init?: (element: HTMLElement) => { setOption: (option: JsonRecord) => void; resize: () => void; dispose: () => void }
     } | undefined
