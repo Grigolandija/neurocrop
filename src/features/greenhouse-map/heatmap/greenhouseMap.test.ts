@@ -6,6 +6,8 @@ import { calculateConfidence } from './calculateConfidenceGrid'
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
+import { colorAt } from './heatmapColorScale'
+import { METRICS } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
 const storage = new Map<string, string>()
@@ -61,6 +63,15 @@ describe('measurement filtering and grid sizing', () => {
   it('reduces confidence with distance', () => {
     const points = [point(0, 0, 20), point(1, 0, 21)]
     expect(calculateConfidence(points, .2, .1, 20)).toBeGreaterThan(calculateConfidence(points, 15, 0, 20))
+  })
+})
+
+describe('environment colour scale', () => {
+  it('uses distinct dry, balanced and humid colours for relative humidity', () => {
+    const colors = METRICS['relative-humidity'].colors
+    expect(colorAt(40, 40, 80, colors)).toEqual([242, 184, 75])
+    expect(colorAt(60, 40, 80, colors)).toEqual([102, 199, 180])
+    expect(colorAt(80, 40, 80, colors)).toEqual([47, 128, 195])
   })
 })
 

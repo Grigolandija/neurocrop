@@ -118,7 +118,7 @@ export const OBJECT_LIBRARY: Array<{ type: ObjectType; label: string; icon: stri
 
 export const METRICS: Record<MetricKey, { label: string; unit: string; field: keyof SensorMeasurements; bounds: [number, number]; colors: [string, string, string] }> = {
   'air-temperature': { label: 'Air temperature', unit: '°C', field: 'airTemperatureC', bounds: [5, 45], colors: ['#256b73', '#e1c56b', '#b74c3f'] },
-  'relative-humidity': { label: 'Relative humidity', unit: '%', field: 'relativeHumidityPercent', bounds: [15, 100], colors: ['#b98a44', '#82aa91', '#246b72'] },
+  'relative-humidity': { label: 'Relative humidity', unit: '%', field: 'relativeHumidityPercent', bounds: [15, 100], colors: ['#f2b84b', '#66c7b4', '#2f80c3'] },
   co2: { label: 'CO₂', unit: 'ppm', field: 'co2Ppm', bounds: [250, 2500], colors: ['#527b65', '#c3a95d', '#8c4a3f'] },
   vpd: { label: 'VPD', unit: 'kPa', field: 'vpdKpa', bounds: [0, 3], colors: ['#3e7183', '#c7bd73', '#a55542'] },
   'root-temperature': { label: 'Root temperature', unit: '°C', field: 'rootTemperatureC', bounds: [5, 40], colors: ['#356d86', '#d0c171', '#a55341'] },

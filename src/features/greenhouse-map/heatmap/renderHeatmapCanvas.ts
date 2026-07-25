@@ -17,7 +17,7 @@ export function renderHeatmapCanvas(grid: HeatmapGrid, colors: [string, string, 
       image.data[target] = r
       image.data[target + 1] = g
       image.data[target + 2] = b
-      image.data[target + 3] = Math.round(255 * opacity * (0.25 + confidence * 0.75))
+      image.data[target + 3] = Math.round(255 * opacity * (0.42 + confidence * 0.58))
     }
   }
   context.putImageData(image, 0, 0)
