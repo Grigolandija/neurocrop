@@ -537,6 +537,23 @@ export default function TrendsWorkspace() {
 
   useEffect(() => {
     let active = true
+    function applyWorkspaceContext(nextSections: Section[], nextProfiles?: JsonRecord[], requestedAreaId = '', requestedSectionId = '') {
+      if (!active || !nextSections.length) return
+      sectionsRef.current = nextSections
+      setSections(nextSections)
+      if (nextProfiles) setProfiles(nextProfiles)
+      const initialSection = nextSections.find((section) => section.id === requestedSectionId)
+        || nextSections.find((section) => section.id === sectionId)
+        || nextSections.find((section) => section.areaId === requestedAreaId)
+        || nextSections.find((section) => section.areaId === areaId)
+        || nextSections[0]
+      setAreaId(initialSection.areaId)
+      setSectionId(initialSection.id)
+      if (!initialSection.available.has(metricKey)) {
+        setMetricKey(metrics.find((metric) => initialSection.available.has(metric.key))?.key || 'airTemp')
+      }
+      setSecondaryMetricKeys((current) => current.filter((key) => initialSection.available.has(key)).slice(0, 2))
+    }
     async function hydrateContext() {
       if (hydrationBusyRef.current) return
       hydrationBusyRef.current = true
@@ -556,19 +573,7 @@ export default function TrendsWorkspace() {
         const profilePayload = profileResult.status === 'fulfilled' ? profileResult.value as JsonRecord : {}
         const nextSections = sectionList(dashboardPayload, areaPayload, sectionPayload)
         const nextProfiles = arrays(profilePayload, ['profiles', 'items'])
-        sectionsRef.current = nextSections
-        setSections(nextSections)
-        setProfiles(nextProfiles)
-        const requestedSection = nextSections.find((section) => section.id === sectionId)
-        const initialSection = requestedSection || nextSections.find((section) => section.areaId === areaId) || nextSections[0]
-        if (initialSection) {
-          setAreaId(initialSection.areaId)
-          setSectionId(initialSection.id)
-          if (!initialSection.available.has(metricKey)) {
-            setMetricKey(metrics.find((metric) => initialSection.available.has(metric.key))?.key || 'airTemp')
-          }
-          setSecondaryMetricKeys((current) => current.filter((key) => initialSection.available.has(key)).slice(0, 2))
-        }
+        applyWorkspaceContext(nextSections, nextProfiles)
       } catch (reason) {
         if (!active) return
         retryContextAfterLoginRef.current = true
@@ -589,13 +594,21 @@ export default function TrendsWorkspace() {
       if (nextAreaId) setAreaId(nextAreaId)
       if (nextSectionId) setSectionId(nextSectionId)
     }
+    const useDashboardContext = (event: Event) => {
+      const detail = (event as CustomEvent<{ sites?: JsonRecord[]; siteId?: unknown; zoneId?: unknown }>).detail
+      if (!Array.isArray(detail?.sites) || !detail.sites.length) return
+      const runtimeSections = sectionList({ sites: detail.sites }, {}, {})
+      applyWorkspaceContext(runtimeSections, undefined, text(detail.siteId), text(detail.zoneId))
+    }
     void hydrateContext()
     window.addEventListener('neurocrop:api-connection', retryAfterAuthentication)
     window.addEventListener('neurocrop:context-change', syncRuntimeContext)
+    window.addEventListener('neurocrop:dashboard-context', useDashboardContext)
     return () => {
       active = false
       window.removeEventListener('neurocrop:api-connection', retryAfterAuthentication)
       window.removeEventListener('neurocrop:context-change', syncRuntimeContext)
+      window.removeEventListener('neurocrop:dashboard-context', useDashboardContext)
     }
     // Initial workspace hydration intentionally runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps

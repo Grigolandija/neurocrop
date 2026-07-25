@@ -15683,6 +15683,13 @@ function buildTrendMetricOptions(options) {
         renderDashboardUnsafe(options);
         document.body.dataset.dashboardError = "false";
         document.querySelector('[data-runtime-render-error]')?.remove();
+        window.dispatchEvent(new CustomEvent("neurocrop:dashboard-context", {
+          detail: {
+            sites: Array.isArray(dashboardData.sites) ? dashboardData.sites : [],
+            siteId: activeSiteId,
+            zoneId: activeZoneId
+          }
+        }));
       } catch (error) {
         console.error("Dashboard render failed", error);
         document.body.dataset.dashboardError = "true";
