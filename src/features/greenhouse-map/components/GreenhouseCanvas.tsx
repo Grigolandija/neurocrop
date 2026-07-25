@@ -54,7 +54,6 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   const topY = map.dimensions.lengthM - object.yM - object.lengthM
   const sensorSize = Math.max(object.widthM, object.lengthM)
   const labelFontSize = Math.max(sensorSize * .3, 11 / viewScale)
-  const detailFontSize = Math.max(sensorSize * .22, 9 / viewScale)
   return <Group
     id={`gh-object-${object.id}`} name="map-object" x={object.xM} y={topY} rotation={object.rotationDeg}
     draggable={editable && !object.locked}
@@ -78,7 +77,6 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
       <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .2} fill={statusColors[sensor?.status ?? 'unassigned']} />
       <Circle x={object.widthM * .8} y={object.lengthM * .18} radius={sensorSize * .14} fill={statusColors[sensor?.status ?? 'unassigned']} stroke="#fff" strokeWidth={Math.max(sensorSize * .035, .8 / viewScale)} />
       <Text x={object.widthM + 6 / viewScale} y={-1 / viewScale} width={Math.max(2.8, 150 / viewScale)} text={object.name} fontFamily="IBM Plex Sans" fontSize={labelFontSize} fontStyle="bold" fill="#183a31" />
-      <Text x={object.widthM + 6 / viewScale} y={labelFontSize + 2 / viewScale} width={Math.max(2.2, 130 / viewScale)} text={`${sensor?.batteryPercent ?? '—'}%  ·  ${sensor?.rssi ?? '—'} dBm`} fontFamily="IBM Plex Mono" fontSize={detailFontSize} fill="#53645e" />
     </> : <>
       <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? translucent(object.metadata.color ?? colors.fill, .15) : object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : environmentView ? '#536b62' : colors.stroke} strokeWidth={selected ? .08 : .035} dash={object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
       {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} opacity={environmentView ? .68 : 1} /> : null}
