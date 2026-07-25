@@ -610,7 +610,7 @@ export default function TrendsWorkspace() {
   const [refreshToken, setRefreshToken] = useState(0)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
 
-  const selectedSection = sections.find((section) => section.id === sectionId) || sections[0]
+  const selectedSection = sections.find((section) => section.id === sectionId)
   const selectedMetric = metrics.find((metric) => metric.key === metricKey) || metrics[0]
   const activeMetricKeys = [metricKey, ...secondaryMetricKeys.filter((key) => key !== metricKey)].slice(0, 3)
   const metricSelectionKey = activeMetricKeys.join(',')
@@ -648,6 +648,20 @@ export default function TrendsWorkspace() {
   }, [])
 
   useEffect(() => {
+    if (!sections.length) return
+    const exactSection = sections.find((section) => section.id === sectionId)
+    if (exactSection) {
+      if (areaId !== exactSection.areaId) queueMicrotask(() => setAreaId(exactSection.areaId))
+      return
+    }
+    const validSection = sections.find((section) => section.areaId === areaId) || sections[0]
+    queueMicrotask(() => {
+      setAreaId(validSection.areaId)
+      setSectionId(validSection.id)
+    })
+  }, [areaId, sectionId, sections])
+
+  useEffect(() => {
     const listener = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'neurocrop:open-trend') return
       if (event.data.areaId) setAreaId(String(event.data.areaId))
@@ -659,7 +673,16 @@ export default function TrendsWorkspace() {
   }, [])
 
   useEffect(() => {
-    if (!selectedSection) return
+    if (!selectedSection) {
+      queueMicrotask(() => {
+        setPoints([])
+        setMetricHistories({})
+        setAnalytics(null)
+        setStatus('empty')
+        setUpdatedAt(null)
+      })
+      return
+    }
     const config = rangeConfig[range]
     const to = new Date()
     const from = new Date(to.getTime() - config.hours * 60 * 60 * 1000)
@@ -901,13 +924,13 @@ export default function TrendsWorkspace() {
           <strong>{summary.title}</strong>
           <p>{summary.body}</p>
         </div> : null}
-        {status === 'ready' || comparison.length > 1
+        {selectedSection && (status === 'ready' || comparison.length > 1)
           ? compare
             ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
             : activeMetricKeys.length > 1
               ? <MultiMetricChart items={metricChartItems} range={range} />
               : <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
-          : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{status === 'loading' ? 'Loading measured history' : status === 'error' ? 'History could not be loaded' : 'Not enough measurements yet'}</strong><span>{error || 'At least two measured points are required to draw a trend.'}</span></div>}
+          : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{!selectedSection ? 'Select an Area and Section' : status === 'loading' ? 'Loading measured history' : status === 'error' ? 'History could not be loaded' : 'Not enough measurements yet'}</strong><span>{!selectedSection ? 'Trend data is shown only for an explicitly selected Section.' : error || 'At least two measured points are required to draw a trend.'}</span></div>}
       </article>
     </section>
 
