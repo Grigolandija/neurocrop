@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 // API records remain open because telemetry payloads can gain metrics independently.
@@ -223,6 +224,86 @@ function TrendChart({ series, metric, target, range }: { series: ChartInput[]; m
   return <div className="nc-trends-chart" ref={ref} role="img" aria-label={`${metric.label}, ${range} trend`} />
 }
 
+function SectionPicker({ sections, selectedId, recentIds, onSelect }: {
+  sections: Section[]
+  selectedId: string
+  recentIds: string[]
+  onSelect: (id: string) => void
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 280 })
+  const selected = sections.find((section) => section.id === selectedId)
+  const normalizedSearch = search.trim().toLocaleLowerCase()
+  const recent = recentIds.map((id) => sections.find((section) => section.id === id)).filter((section): section is Section => Boolean(section))
+  const orderedSections = normalizedSearch
+    ? sections.filter((section) => `${section.name} ${section.areaName}`.toLocaleLowerCase().includes(normalizedSearch))
+    : [...recent, ...sections.filter((section) => !recentIds.includes(section.id))]
+
+  useEffect(() => {
+    if (!open) return
+    const updatePosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = Math.min(Math.max(rect.width, 280), window.innerWidth - 24)
+      const left = Math.min(Math.max(12, rect.left), window.innerWidth - width - 12)
+      const menuHeight = Math.min(360, 70 + orderedSections.length * 47)
+      const top = rect.bottom + 7 + menuHeight > window.innerHeight && rect.top > menuHeight
+        ? Math.max(12, rect.top - menuHeight - 7)
+        : rect.bottom + 7
+      setPosition({ top, left, width })
+    }
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    document.addEventListener('pointerdown', closeOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+      document.removeEventListener('pointerdown', closeOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open, orderedSections.length])
+
+  return <div className="nc-trends-section-field">
+    <span>Section</span>
+    <button ref={triggerRef} type="button" className="nc-trends-section-trigger" aria-haspopup="listbox" aria-expanded={open} onClick={() => {
+      setSearch('')
+      setOpen((value) => !value)
+    }}>
+      <span>{selected?.name || 'Select Section'}</span>
+      <i className="fa-solid fa-chevron-down" aria-hidden="true" />
+    </button>
+    {open ? createPortal(<div ref={menuRef} className="nc-trends-section-menu" role="listbox" aria-label="Select Section" style={position}>
+      <label className="nc-trends-section-search">
+        <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+        <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search Sections" />
+      </label>
+      {!normalizedSearch && recent.length ? <div className="nc-trends-section-group">Recent</div> : null}
+      <div className="nc-trends-section-options">
+        {orderedSections.map((section) => <button type="button" role="option" aria-selected={section.id === selectedId} key={section.id} onClick={() => {
+          onSelect(section.id)
+          setOpen(false)
+        }}>
+          <span><strong>{section.name}</strong><small>{section.areaName}</small></span>
+          {section.id === selectedId ? <i className="fa-solid fa-check" aria-hidden="true" /> : null}
+        </button>)}
+        {!orderedSections.length ? <p>No matching Sections</p> : null}
+      </div>
+    </div>, document.body) : null}
+  </div>
+}
+
 export default function TrendsWorkspace() {
   const [stored] = useState(() => loadStoredSelection())
   const [sections, setSections] = useState<Section[]>([])
@@ -231,6 +312,7 @@ export default function TrendsWorkspace() {
   const [sectionId, setSectionId] = useState(String(stored.sectionId || ''))
   const [metricKey, setMetricKey] = useState(String(stored.metricKey || 'airTemp'))
   const [range, setRange] = useState<RangeKey>(['24h', '7d', '30d'].includes(stored.range) ? stored.range : '24h')
+  const [recentSectionIds, setRecentSectionIds] = useState<string[]>(Array.isArray(stored.recentSectionIds) ? stored.recentSectionIds.map(String).slice(0, 5) : [])
   const [compare, setCompare] = useState(false)
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
   const [points, setPoints] = useState<Point[]>([])
@@ -288,7 +370,6 @@ export default function TrendsWorkspace() {
 
   useEffect(() => {
     if (!selectedSection) return
-    localStorage.setItem(storageKey, JSON.stringify({ areaId: selectedSection.areaId, sectionId: selectedSection.id, metricKey, range }))
     const config = rangeConfig[range]
     const to = new Date()
     const from = new Date(to.getTime() - config.hours * 60 * 60 * 1000)
@@ -319,6 +400,17 @@ export default function TrendsWorkspace() {
     })
     return () => { active = false }
   }, [metricKey, range, refreshToken, selectedSection])
+
+  useEffect(() => {
+    if (!selectedSection) return
+    localStorage.setItem(storageKey, JSON.stringify({
+      areaId: selectedSection.areaId,
+      sectionId: selectedSection.id,
+      metricKey,
+      range,
+      recentSectionIds,
+    }))
+  }, [metricKey, range, recentSectionIds, selectedSection])
 
   useEffect(() => {
     if (!compare || !selectedSection || comparisonIds.length < 2) {
@@ -395,6 +487,7 @@ export default function TrendsWorkspace() {
     if (!section) return
     setSectionId(section.id)
     setAreaId(section.areaId)
+    setRecentSectionIds((current) => [section.id, ...current.filter((id) => id !== section.id)].slice(0, 5))
     if (!section.available.has(metricKey)) setMetricKey(metrics.find((metric) => section.available.has(metric.key))?.key || metricKey)
   }
 
@@ -429,7 +522,7 @@ export default function TrendsWorkspace() {
 
     <section className="nc-trends-context">
       <label><span>Area</span><select value={areaId} onChange={(event) => changeArea(event.target.value)}>{areas.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label>
-      <label><span>Section</span><select value={selectedSection?.id || ''} onChange={(event) => changeSection(event.target.value)}>{areaSections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}</select></label>
+      <SectionPicker sections={areaSections} selectedId={selectedSection?.id || ''} recentIds={recentSectionIds} onSelect={changeSection} />
       <div className="nc-trends-range" role="group" aria-label="Trend period">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
       <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />Compare Sections</button>
     </section>
