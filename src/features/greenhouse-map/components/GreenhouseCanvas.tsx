@@ -247,8 +247,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
           : null}
         {mode === 'environment' && heatmap && showContours && heatmap.count >= 3 && visibleLayers.get('environment')?.visible ? <Group clipX={0} clipY={0} clipWidth={map.dimensions.widthM} clipHeight={map.dimensions.lengthM}>
           {contourPaths.map((path, index) => <Group key={`${path.level}-${index}`}>
-            <Line points={path.points} stroke="rgba(250,252,248,.92)" strokeWidth={4.2 / view.scale} lineCap="round" lineJoin="round" tension={.08} dash={path.confidence < .35 ? [7 / view.scale, 5 / view.scale] : undefined} perfectDrawEnabled={false} />
-            <Line points={path.points} stroke="#173f35" strokeWidth={1.8 / view.scale} opacity={path.confidence < .35 ? .62 : .94} lineCap="round" lineJoin="round" tension={.08} dash={path.confidence < .35 ? [7 / view.scale, 5 / view.scale] : undefined} perfectDrawEnabled={false} />
+            <Line points={path.points} stroke="#244f43" strokeWidth={1.3 / view.scale} opacity={path.confidence < .35 ? .28 : .52} lineCap="round" lineJoin="round" tension={.08} dash={path.confidence < .35 ? [6 / view.scale, 5 / view.scale] : undefined} perfectDrawEnabled={false} />
           </Group>)}
           {contourLabels.map(({ level, x, y, label }) => {
             const widthPx = Math.max(38, label.length * 6.3 + 12)
