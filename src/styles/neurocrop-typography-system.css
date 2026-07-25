@@ -686,6 +686,24 @@ td {
   padding-inline: var(--space-12) !important;
 }
 
+.designer-app .dashboard-sidebar.rail .nav-beta-badge {
+  display: inline-flex;
+  min-height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0 .45rem;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-tertiary);
+  font-size: .625rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: .04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 @media (min-width: 1800px) {
   .designer-app .dashboard-main-inner {
     padding: var(--space-24) var(--space-32) var(--space-64) !important;
