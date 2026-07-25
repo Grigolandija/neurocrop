@@ -1595,8 +1595,17 @@
       try {
         await hydrateCropProfilesFromApi(isCurrentRequest);
         if (!isCurrentRequest()) return;
-        const nextDashboardData = await window.NeuroCropApi.getDashboard();
+        const [nextDashboardData, nodeInventoryResponse] = await Promise.all([
+          window.NeuroCropApi.getDashboard(),
+          window.NeuroCropApi.getNodes().catch((error) => {
+            console.warn("NeuroCrop API node inventory load failed; using assigned dashboard nodes.", error);
+            return null;
+          })
+        ]);
         if (!isCurrentRequest()) return;
+        if (Array.isArray(nodeInventoryResponse?.nodes)) {
+          backendNodeInventory = nodeInventoryResponse.nodes;
+        }
         if (!nextDashboardData || !Array.isArray(nextDashboardData.sites) || nextDashboardData.sites.length === 0) {
           dashboardHydrationStatus = "empty";
           dashboardData = { sites: [], note: "API returned no dashboard structure." };
@@ -1877,6 +1886,7 @@
       latestReadingsAreaInFlight.clear();
       backendTodayActions = null;
       backendActionHistory = [];
+      backendNodeInventory = null;
       backendAlertRecords = {};
       backendAlertsCanonicalLoaded = false;
       todayPriorityFeedbackState = { actionId: "", saving: false, error: false, message: "" };
@@ -1958,6 +1968,7 @@
     const latestReadingsAreaInFlight = new Set();
     let backendTodayActions = null;
     let backendActionHistory = [];
+    let backendNodeInventory = null;
     let todayPriorityFeedbackState = { actionId: "", saving: false, error: false, message: "" };
     let dashboardHydrationRequestId = 0;
     let dashboardHydrationInFlight = false;
@@ -8521,6 +8532,52 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       }
     }
 
+    function getNodesManagementRecords() {
+      const assignedRecords = dashboardData.sites
+        .flatMap((site) => (site.zones || []).flatMap((zone) =>
+          (zone.batteryNodes || []).map((node) => ({ node, site, zone }))
+        ));
+      if (!Array.isArray(backendNodeInventory)) return assignedRecords;
+
+      const assignedByDevEui = new Map(assignedRecords.map((record) => [
+        String(record.node.devEui || "").toLowerCase(),
+        record
+      ]));
+      const defaultProfile = cropProfiles.default ? "default" : Object.keys(cropProfiles)[0] || "default";
+
+      return backendNodeInventory.map((inventoryNode) => {
+        const devEui = String(inventoryNode.devEui || inventoryNode.dev_eui || "").trim();
+        const assigned = assignedByDevEui.get(devEui.toLowerCase());
+        const site = dashboardData.sites.find((item) => item.id === inventoryNode.areaId)
+          || assigned?.site
+          || { id: "unassigned", name: "Unassigned", isUnassigned: true, zones: [] };
+        const zone = (site.zones || []).find((item) => item.id === inventoryNode.sectionId)
+          || assigned?.zone
+          || {
+            id: "unassigned",
+            name: "Unassigned",
+            profile: defaultProfile,
+            availableMetrics: [],
+            configuredMetrics: [],
+            batteryNodes: []
+          };
+        const id = String(devEui || inventoryNode.id || assigned?.node?.id || inventoryNode.name || "").trim();
+        return {
+          site,
+          zone,
+          node: {
+            ...(assigned?.node || {}),
+            ...inventoryNode,
+            id,
+            name: String(inventoryNode.name || id || devEui).trim(),
+            devEui,
+            lastReceivedAt: inventoryNode.lastReceivedAt || inventoryNode.lastSeen || assigned?.node?.lastReceivedAt || null,
+            active: inventoryNode.active !== false
+          }
+        };
+      });
+    }
+
     function renderNodesManagementPage() {
       const locations = dashboardData.sites.filter((site) => (site.zones || []).length > 0);
       const selectedLocation = locations.find((site) => site.id === nodeFormState.siteId) || locations[0] || null;
@@ -8534,10 +8591,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         nodeFormState.zoneId = selectedBlock.id;
       }
 
-      const nodes = dashboardData.sites
-        .flatMap((site) => (site.zones || []).flatMap((zone) =>
-          (zone.batteryNodes || []).map((node) => ({ node, site, zone }))
-        ))
+      const nodes = getNodesManagementRecords()
         .sort((left, right) => left.node.id.localeCompare(right.node.id));
       if (activeNodeDetailId) {
         const detailRecord = nodes.find(({ node }) =>
@@ -8550,7 +8604,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         node.id,
         getNodeFreshness(node, zone)
       ]));
-      const filterLocations = dashboardData.sites.filter((site) => (site.zones || []).length > 0);
+      const filterLocations = [...new Map(nodes.map(({ site }) => [site.id, site])).values()];
       if (activeNodeFilterSiteId !== "all" && !filterLocations.some((site) => site.id === activeNodeFilterSiteId)) {
         activeNodeFilterSiteId = "all";
         activeNodeFilterZoneId = "all";
@@ -14183,7 +14237,10 @@ function buildTrendMetricOptions(options) {
 
     function renderEmptyWorkspaceState() {
       const workspaceDependentPages = new Set(["overview", "blocks", "nodes", "readings", "history"]);
-      if (workspaceDependentPages.has(activePrimaryPage)) {
+      const hasUnassignedNodeInventory = activePrimaryPage === "nodes"
+        && Array.isArray(backendNodeInventory)
+        && backendNodeInventory.length > 0;
+      if (workspaceDependentPages.has(activePrimaryPage) && !hasUnassignedNodeInventory) {
         activePrimaryPage = "locations";
         sidebarActionOverride = null;
         syncTopLevelRoute("/areas", { replace: true });

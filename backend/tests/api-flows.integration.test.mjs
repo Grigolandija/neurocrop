@@ -125,3 +125,49 @@ test('authenticated CRUD, scoring, Trends and CSV flow', { skip: !configured }, 
     await request(cookie, `/crop-profiles/${profileId}`, 'DELETE');
   }
 });
+
+test('deleting an Area leaves its Nodes registered and unassigned', { skip: !configured }, async () => {
+  const login = await request('', '/auth/login', 'POST', { email, password });
+  assert.equal(login.status, 200);
+  const cookie = (login.headers.getSetCookie?.()[0] || login.headers.get('set-cookie')).split(';', 1)[0];
+  const suffix = `${Date.now().toString(36)}-delete`;
+  const devEui = randomBytes(8).toString('hex');
+  let areaId;
+  let sectionId;
+
+  try {
+    const area = await json(cookie, '/areas', 'POST', { name: `Delete Area ${suffix}` }, 201);
+    areaId = area.area.id;
+    const section = await json(cookie, '/sections', 'POST', {
+      areaId,
+      name: `Delete Section ${suffix}`,
+      cropProfile: 'default'
+    }, 201);
+    sectionId = section.section.id;
+    await json(cookie, '/nodes/register', 'POST', {
+      devEui,
+      sectionId,
+      name: `Unassigned Node ${suffix}`
+    }, 201);
+
+    const deleted = await json(cookie, `/areas/${areaId}`, 'DELETE');
+    areaId = undefined;
+    assert.equal(deleted.sections.affected, 1);
+    assert.equal(deleted.sections.keptUnassigned, false);
+    assert.equal(deleted.nodes.unassigned, 1);
+
+    const nodeDirectory = await json(cookie, '/nodes');
+    const retainedNode = nodeDirectory.nodes.find((item) => item.devEui === devEui);
+    assert.ok(retainedNode, 'Node must remain in organization inventory');
+    assert.equal(retainedNode.areaId, null);
+    assert.equal(retainedNode.sectionId, null);
+
+    const sectionDirectory = await json(cookie, '/sections');
+    assert.equal(sectionDirectory.sections.some((item) => item.id === sectionId), false);
+    sectionId = undefined;
+  } finally {
+    await request(cookie, `/nodes/${devEui}`, 'DELETE');
+    if (sectionId) await request(cookie, `/sections/${sectionId}`, 'DELETE');
+    if (areaId) await request(cookie, `/areas/${areaId}`, 'DELETE');
+  }
+});

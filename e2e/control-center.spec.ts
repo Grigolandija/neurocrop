@@ -79,6 +79,53 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page).toHaveURL(/\/history$/)
 })
 
+test('Nodes inventory keeps hardware visible as unassigned after deleting its Area', async ({ page }) => {
+  const loginResponse = await page.request.post(`${apiBaseUrl}/auth/login`, {
+    data: { email: 'tenant-a@ci.neurocrop.test', password }
+  })
+  expect(loginResponse.ok(), await loginResponse.text()).toBeTruthy()
+  const suffix = Date.now().toString(36)
+  const devEui = `f0${suffix.replace(/[^a-f0-9]/gi, '').padEnd(14, '0').slice(0, 14)}`.toLowerCase()
+  let areaId = ''
+  let sectionId = ''
+
+  try {
+    const areaResponse = await page.request.post(`${apiBaseUrl}/areas`, {
+      data: { name: `E2E delete Area ${suffix}` }
+    })
+    expect(areaResponse.ok(), await areaResponse.text()).toBeTruthy()
+    areaId = (await areaResponse.json()).area.id
+
+    const sectionResponse = await page.request.post(`${apiBaseUrl}/sections`, {
+      data: { areaId, name: `E2E delete Section ${suffix}`, cropProfile: 'default' }
+    })
+    expect(sectionResponse.ok(), await sectionResponse.text()).toBeTruthy()
+    sectionId = (await sectionResponse.json()).section.id
+
+    const nodeResponse = await page.request.post(`${apiBaseUrl}/nodes/register`, {
+      data: { devEui, sectionId, name: `E2E retained Node ${suffix}` }
+    })
+    expect(nodeResponse.ok(), await nodeResponse.text()).toBeTruthy()
+
+    const deleteResponse = await page.request.delete(`${apiBaseUrl}/areas/${encodeURIComponent(areaId)}`)
+    expect(deleteResponse.ok(), await deleteResponse.text()).toBeTruthy()
+    areaId = ''
+    sectionId = ''
+
+    await prepare(page)
+    await page.goto('/nodes')
+    await expect(page.locator('#dashboardShell')).toBeVisible()
+    await expect(page.locator('#nodesManagementSection')).toBeVisible()
+    const retainedNodeRow = page.locator('.nc-node-table tbody tr').filter({ hasText: `E2E retained Node ${suffix}` })
+    await expect(retainedNodeRow).toHaveCount(1)
+    await expect(retainedNodeRow).toContainText('Unassigned')
+  } finally {
+    await page.request.delete(`${apiBaseUrl}/nodes/${encodeURIComponent(devEui)}`)
+    if (sectionId) await page.request.delete(`${apiBaseUrl}/sections/${encodeURIComponent(sectionId)}`)
+    if (areaId) await page.request.delete(`${apiBaseUrl}/areas/${encodeURIComponent(areaId)}`)
+  }
+})
+
 test('Live readings opens the API-backed cross-section measurement workspace', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
   await navigationAction(page, 'readings').click()

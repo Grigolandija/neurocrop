@@ -1023,16 +1023,20 @@ app.delete('/areas/:areaId', requireAuth, requireRole('owner', 'admin', 'grower'
       );
       const sectionCount = childRows[0]?.count || 0;
 
-      if (keepSections) {
-        await client.query(
-        `UPDATE nodes
-         SET area_id=NULL
-         WHERE organization_id=$1 AND archived_at IS NULL
-           AND section_id IN (
+      const { rowCount: unassignedNodeCount } = await client.query(
+      `UPDATE nodes
+       SET area_id=NULL, section_id=NULL
+       WHERE organization_id=$1
+         AND (
+           area_id=$2
+           OR section_id IN (
              SELECT id FROM sections WHERE organization_id=$1 AND area_id=$2
-           )`,
-        [organizationId, req.params.areaId]
-        );
+           )
+         )`,
+      [organizationId, req.params.areaId]
+      );
+
+      if (keepSections) {
         await client.query(
         `UPDATE sections SET area_id=NULL WHERE organization_id=$1 AND area_id=$2`,
         [organizationId, req.params.areaId]
@@ -1052,7 +1056,8 @@ app.delete('/areas/:areaId', requireAuth, requireRole('owner', 'admin', 'grower'
       res.json({
         deleted: Boolean(rows[0]),
         area: rows[0] || null,
-        sections: { affected: sectionCount, keptUnassigned: keepSections }
+        sections: { affected: sectionCount, keptUnassigned: keepSections },
+        nodes: { unassigned: unassignedNodeCount }
       });
     } catch (error) {
       await client.query('ROLLBACK');
