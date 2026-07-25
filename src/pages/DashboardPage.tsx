@@ -12,6 +12,7 @@ import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWo
 import OverviewWorkspace from '../features/overview/OverviewWorkspace'
 import SimulatorWorkspace from '../features/simulator/SimulatorWorkspace'
 import ActionsWorkspace from '../features/actions/ActionsWorkspace'
+import TrendsWorkspace from '../features/trends/TrendsWorkspace'
 import { installNeuroCropApi, neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
 
@@ -86,6 +87,7 @@ function ApprovedDashboard() {
   const [adminIntegrationsMount, setAdminIntegrationsMount] = useState<HTMLElement | null>(null)
   const [simulatorMount, setSimulatorMount] = useState<HTMLElement | null>(null)
   const [actionsMount, setActionsMount] = useState<HTMLElement | null>(null)
+  const [trendsMount, setTrendsMount] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     installNeuroCropApi()
@@ -103,6 +105,7 @@ function ApprovedDashboard() {
     setAdminIntegrationsMount(hostRef.current?.querySelector<HTMLElement>('#adminIntegrationsMount') || null)
     setSimulatorMount(hostRef.current?.querySelector<HTMLElement>('#simulatorWorkspaceMount') || null)
     setActionsMount(hostRef.current?.querySelector<HTMLElement>('#actionsWorkspaceMount') || null)
+    setTrendsMount(hostRef.current?.querySelector<HTMLElement>('#trendsWorkspaceMount') || null)
 
     document.body.classList.add('designer-app')
     document.body.dataset.dashboardState = 'optimal'
@@ -171,6 +174,7 @@ function ApprovedDashboard() {
       setAdminIntegrationsMount(null)
       setSimulatorMount(null)
       setActionsMount(null)
+      setTrendsMount(null)
     }
   }, [navigate])
 
@@ -215,6 +219,9 @@ function ApprovedDashboard() {
       : null}
     {location.pathname === '/actions' && actionsMount
       ? createPortal(<ActionsWorkspace />, actionsMount)
+      : null}
+    {location.pathname === '/history' && trendsMount
+      ? createPortal(<TrendsWorkspace />, trendsMount)
       : null}
   </>
 }

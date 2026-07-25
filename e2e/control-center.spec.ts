@@ -140,6 +140,26 @@ test('Live readings opens the API-backed cross-section measurement workspace', a
   await expect(page.locator('.nc-readings-drawer')).toContainText('CI Section A')
 })
 
+test('Trends opens the historical analysis workspace with persistent context and decision support', async ({ page }) => {
+  await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  await navigationAction(page, 'history').click()
+
+  await expect(page).toHaveURL(/\/history$/)
+  await expect(page.locator('.nc-trends-page')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Trends', exact: true })).toBeVisible()
+  await expect(page.locator('.nc-trends-context select')).toHaveCount(2)
+  await expect(page.locator('.nc-trends-kpis article')).toHaveCount(4)
+  await expect(page.locator('.nc-trends-chart-card')).toContainText('Measured history')
+  await expect(page.locator('.nc-trends-insight')).toContainText('Trend interpretation')
+  await expect(page.locator('.nc-trends-target-card')).toContainText('Condition distribution')
+  await expect(page.locator('.nc-trends-events')).toContainText('Events in this period')
+
+  await page.getByRole('button', { name: '7d', exact: true }).click()
+  await expect(page.getByRole('button', { name: '7d', exact: true })).toHaveClass(/active/)
+  await page.reload()
+  await expect(page.getByRole('button', { name: '7d', exact: true })).toHaveClass(/active/)
+})
+
 test('successful API traffic restores the connection indicator without a refresh', async ({ page }) => {
   await authenticate(page, 'tenant-a@ci.neurocrop.test')
   await page.evaluate(() => {
