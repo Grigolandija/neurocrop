@@ -130,6 +130,20 @@ const METRIC_LABELS: Record<string, string> = {
   ph: 'pH',
 }
 
+const METRIC_UNITS: Record<string, string> = {
+  airTemp: '°C',
+  humidity: '%',
+  co2: 'ppm',
+  lux: 'lx',
+  soilTemp: '°C',
+  soilMoisture: '%',
+  soilEc: 'mS/cm',
+  leafTemp: '°C',
+  waterTemp: '°C',
+  vpd: 'kPa',
+  ec: 'mS/cm',
+}
+
 function asArray(value: unknown): JsonRecord[] {
   return Array.isArray(value) ? value : []
 }
@@ -211,6 +225,22 @@ function formatTarget(target: [number, number] | null, unit: string) {
   return `Target ${formatNumber(target[0])}–${formatNumber(target[1])}${unitSuffix(unit)}`
 }
 
+function correctionInstruction(
+  label: string,
+  deviation: number | null,
+  direction: OverviewRow['direction'],
+  target: [number, number] | null,
+  unit: string,
+) {
+  if (deviation === null || !target || (direction !== 'above' && direction !== 'below')) {
+    return `${label} is outside its target range.`
+  }
+  const difference = Math.abs(deviation)
+  const boundary = direction === 'above' ? target[1] : target[0]
+  const change = direction === 'above' ? 'Decrease' : 'Increase'
+  return `${label} is ${formatMeasurement(difference, unit)} ${direction} target. ${change} by at least ${formatMeasurement(difference, unit)} to ${formatMeasurement(boundary, unit)}; target range ${formatNumber(target[0])}–${formatNumber(target[1])}${unitSuffix(unit)}.`
+}
+
 function AgronomicDiagnosis({ action }: { action: JsonRecord }) {
   const readings = asArray(action?.relatedReadings)
   const diagnosis = action?.diagnosis as JsonRecord | undefined
@@ -286,19 +316,23 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   const zones = asArray(site.zones)
   const rows = zones.map((zone): OverviewRow => {
     const action = actionBySection.get(String(zone.id))
+    const condition = action || zone.mainCondition
     const rawScore = zone.score === null || zone.score === undefined || zone.score === ''
       ? null
       : Number.isFinite(Number(zone.score)) ? Number(zone.score) : null
-    const numericValue = action?.value === null || action?.value === undefined ? Number.NaN : Number(action.value)
+    const metricKey = String(action?.metricId || action?.metricKey || condition?.metricId || zone.mainDriver || '')
+    const numericValue = condition?.value === null || condition?.value === undefined ? Number.NaN : Number(condition.value)
     const currentValue = Number.isFinite(numericValue) ? numericValue : null
-    const unit = normalizeUnit(action?.unit)
-    const target = targetRange(action?.target)
+    const unit = normalizeUnit(action?.unit || condition?.unit || METRIC_UNITS[metricKey])
+    const target = targetRange(condition?.target)
     const deviation = deviationFromTarget(currentValue, target)
     const direction = deviation === null ? 'unknown' : deviation > 0 ? 'above' : deviation < 0 ? 'below' : 'inside'
     const actionCanBeVerified = Boolean(action && currentValue !== null && target && deviation !== null)
-    const tone = actionCanBeVerified ? 'action' : action ? 'unknown' : statusTone(zone.conditionStatus)
+    const conditionCanBeVerified = Boolean(currentValue !== null && target && deviation !== null)
+    const tone = actionCanBeVerified
+      ? 'action'
+      : conditionCanBeVerified ? statusTone(zone.conditionStatus) : action ? 'unknown' : statusTone(zone.conditionStatus)
     const score = tone === 'unknown' ? null : rawScore
-    const metricKey = String(action?.metricId || action?.metricKey || zone.mainDriver || '')
     const rowMetricLabel = String(action?.metricLabel || metricLabel(metricKey))
     const reportingNodes = Number(zone.nodeSummary?.reporting || zone.sensorCount || 0)
     const totalNodes = Number(zone.nodeSummary?.registered || zone.sensorCount || 0)
@@ -308,7 +342,9 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
       crop: profileLabel(zone),
       status: tone === 'action' ? 'Needs action' : tone === 'watch' ? 'Watch' : tone === 'good' ? 'Inside target' : 'Unverified',
       detail: actionCanBeVerified
-        ? `${rowMetricLabel} ${formatMeasurement(currentValue, unit)} · ${formatTarget(target, unit)}`
+        ? correctionInstruction(rowMetricLabel, deviation, direction, target, unit)
+        : conditionCanBeVerified
+          ? correctionInstruction(rowMetricLabel, deviation, direction, target, unit)
         : tone === 'good'
           ? 'Current conditions normal'
           : tone === 'watch'
@@ -410,7 +446,7 @@ function EvidenceDrawer({ model, row, onClose }: {
   const score = row ? row.score : model.growingScore
 
   useEffect(() => {
-    if (!row || !sectionAction || !row.metricKey) return
+    if (!row || !row.metricKey) return
     let active = true
     const to = new Date()
     const from = new Date(to.getTime() - 24 * 60 * 60 * 1000)
@@ -449,7 +485,7 @@ function EvidenceDrawer({ model, row, onClose }: {
       setTrendState('empty')
     })
     return () => { active = false }
-  }, [row, sectionAction])
+  }, [row])
 
   function openTrends() {
     onClose()
@@ -480,13 +516,13 @@ function EvidenceDrawer({ model, row, onClose }: {
         <p>{evidence}</p>
       </section>
       {activeAction ? <AgronomicDiagnosis action={activeAction} /> : null}
-      {row && sectionAction ? <section className="nc-evidence-metrics">
+      {row && row.currentValue !== null && row.target ? <section className="nc-evidence-metrics">
         <div><span>Current</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
         <div><span>Target</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : 'Not set'}</strong></div>
         <div data-tone={row.tone}><span>Deviation</span><strong>{formatDeviation(row.deviation, row.direction, row.unit)}</strong></div>
         <div><span>Latest reading</span><strong>{row.updated}</strong></div>
       </section> : null}
-      {row && sectionAction
+      {row && row.currentValue !== null && row.target
         ? trendState === 'loading'
           ? <div className="nc-evidence-trend-empty loading">Loading 24-hour trend…</div>
           : <MiniTrend points={trendPoints} target={row.target} unit={row.unit} />

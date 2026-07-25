@@ -394,9 +394,23 @@ export function buildSectionDashboardState(nodeRows, measurements, profileMetric
   const liveMetrics = availableMetrics.filter((metricId) => metricId !== 'batteryLevel').length;
   const expectedGrowthMetrics = getExpectedGrowthMetrics(nodeRows, measurements, scoreRules, availableMetrics);
   const scoreState = deriveScoreFromEvaluations(evaluations, scoreRules);
+  const mainEvaluation = scoreState.mainDriver
+    ? evaluations.find((evaluation) => evaluation.metricId === scoreState.mainDriver)
+    : null;
+  const mainRule = mainEvaluation ? scoreRules[mainEvaluation.metricId] : null;
 
   return {
     ...scoreState,
+    mainCondition: mainEvaluation && mainRule
+      ? {
+          metricId: mainEvaluation.metricId,
+          value: mainEvaluation.value,
+          state: mainEvaluation.state,
+          direction: mainEvaluation.direction,
+          severity: mainEvaluation.severity,
+          target: mainRule.optimal
+        }
+      : null,
     availableMetrics,
     configuredMetrics: expectedGrowthMetrics,
     coverage: {

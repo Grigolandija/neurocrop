@@ -1061,6 +1061,10 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   color: var(--ov-risk, #d95e49);
 }
 
+.nc-evidence-metrics [data-tone="watch"] strong {
+  color: var(--ov-watch, #c47b13);
+}
+
 .nc-evidence-trend {
   padding: 22px 28px 18px;
   border-bottom: 1px solid rgba(45, 83, 65, .13);

@@ -1065,6 +1065,38 @@ test('score ignores values from sensors explicitly reported as absent', () => {
   assert.deepEqual(state.configuredMetrics.sort(), ['airTemp', 'co2', 'humidity', 'vpd']);
 });
 
+test('dashboard exposes the exact main condition needed for a corrective instruction', () => {
+  const now = new Date().toISOString();
+  const state = buildSectionDashboardState(
+    [{ last_received_at: now, last_sensor_presence: { sht45: true } }],
+    [{
+      time: now,
+      temperature: 21.4,
+      humidity: 60,
+      raw_object: {
+        expected_uplink_interval_s: 300,
+        sensors: { sht45: { present: true } }
+      }
+    }],
+    {
+      airTemp: { optimal: [19, 20] },
+      humidity: { optimal: [50, 70] },
+      vpd: { optimal: [0.5, 2] }
+    }
+  );
+
+  assert.equal(state.conditionStatus, 'warning');
+  assert.equal(state.mainDriver, 'airTemp');
+  assert.deepEqual(state.mainCondition, {
+    metricId: 'airTemp',
+    value: 21.4,
+    state: 'warning',
+    direction: 'high',
+    severity: state.mainCondition.severity,
+    target: [19, 20]
+  });
+});
+
 test('coverage denominator follows currently detected sensor hardware', () => {
   const now = new Date().toISOString();
   const internalOnly = buildSectionDashboardState(

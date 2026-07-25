@@ -19,6 +19,7 @@ const nodeStyles = await fs.readFile(path.join(root, "src/styles/nodes-page.css"
 const apiClient = await fs.readFile(path.join(root, "src/services/api/client.ts"), "utf8");
 const apiFacade = await fs.readFile(path.join(root, "src/services/api/neurocropApi.ts"), "utf8");
 const dashboardPage = await fs.readFile(path.join(root, "src/pages/DashboardPage.tsx"), "utf8");
+const overviewWorkspace = await fs.readFile(path.join(root, "src/features/overview/OverviewWorkspace.tsx"), "utf8");
 const readingsWorkspace = await fs.readFile(path.join(root, "src/features/readings/ReadingsWorkspace.tsx"), "utf8");
 const readingsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/readings-workspace.css"), "utf8");
 const areasWorkspace = await fs.readFile(path.join(root, "src/features/areas/AreasWorkspace.tsx"), "utf8");
@@ -76,6 +77,13 @@ assert(
 
 assert(runtime.includes("function fetchLatestReadingsForArea(siteId") && runtime.includes("latestReadingsCacheTtlMs = 60 * 1000") && runtime.includes("latestReadingsAreaInFlight.has(siteId)"), "Area Live readings must load only the selected Area with cache and in-flight protection");
 assert(apiFacade.includes("getAlerts: (status = 'all')"), "Alerts API client must use a status accepted by the backend");
+assert(
+  overviewWorkspace.includes('zone.mainCondition')
+    && overviewWorkspace.includes('correctionInstruction(')
+    && overviewWorkspace.includes("'Decrease' : 'Increase'")
+    && overviewWorkspace.includes('by at least ${formatMeasurement(difference, unit)}'),
+  "Overview Watch evidence must show the exact current value, target boundary and required correction",
+);
 for (const header of ["Strict-Transport-Security", "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy", "Permissions-Policy"]) {
   assert(htaccess.includes(`Header always set ${header}`), `${header} must be present in the production static-host configuration`);
 }

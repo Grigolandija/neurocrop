@@ -904,6 +904,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
           score: sectionState.score,
           conditionStatus: sectionState.conditionStatus,
           mainDriver: sectionState.mainDriver,
+          mainCondition: sectionState.mainCondition,
           scoreGroups: sectionState.scoreGroups,
           scoreModelVersion: sectionState.scoreModelVersion,
           coverage: sectionState.coverage,
