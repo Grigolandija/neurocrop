@@ -626,3 +626,20 @@ The authenticated user payload from `POST /auth/login` and `GET /auth/me` includ
 | `PATCH` | `/platform/users/:userId/status` | Super Admin | Activate/deactivate using `{ "active": true/false }`; deactivation revokes active sessions. |
 | `DELETE` | `/platform/users/:userId?confirm=delete` | Super Admin | Permanently remove an account, sessions, requests, invitations, and memberships; organization measurements remain. |
 | `DELETE` | `/platform/organizations/:organizationId?confirm=delete` | Super Admin | Permanently remove an organization and all organization-owned operational data. |
+# Area Map Beta
+
+`GET /areas/:areaId/map`
+
+- Reikalauja autentifikuotos NeuroCrop sesijos.
+- Grąžina tenant-scoped Area, išsaugotą planą, jo `revision`, redagavimo teisę
+  ir tai Area priklausančius Nodes su naujausiu matavimo snapshot.
+
+`PATCH /areas/:areaId/map`
+
+- Leidžiama `owner`, `admin`, `grower` ir `technician` rolėms.
+- Body: `{ map: GreenhouseMap, expectedRevision: number }`.
+- Pirmas įrašas siunčiamas su `expectedRevision: 0`.
+- Pasenus revision grąžinamas `409 MAP_REVISION_CONFLICT`.
+- Sensor objekto DevEUI turi priklausyti tai pačiai organizacijai ir Area.
+- Gyvi matavimai, baterija, RSSI ir SNR neįrašomi į plano JSON; jie sujungiami
+  iš naujausio backend snapshot kiekvieno užkrovimo metu.

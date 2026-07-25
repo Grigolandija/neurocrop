@@ -1,0 +1,266 @@
+import { query } from './db.js';
+import { requireRole, requireUserAuth } from './auth-users.js';
+import { calcVPD } from './calculations.js';
+import { statusFromMeasurementTime } from './score.js';
+import { expectedUplinkIntervalSec } from './node-health.js';
+
+const MAX_OBJECTS = 2000;
+const MAX_LAYERS = 50;
+const MAX_MAP_BYTES = 900_000;
+const writableRoles = ['owner', 'admin', 'grower', 'technician'];
+
+function finite(value) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function validationError(message) {
+  return { valid: false, message };
+}
+
+export function validateGreenhouseMap(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return validationError('Map must be a JSON object');
+  if (value.schemaVersion !== 1) return validationError('Unsupported greenhouse map schemaVersion');
+  if (value.shape?.type !== 'rectangle') return validationError('Only rectangular greenhouse maps are supported');
+  if (typeof value.name !== 'string' || !value.name.trim() || value.name.length > 160) return validationError('Map name is required and must not exceed 160 characters');
+  if (!value.dimensions || !finite(value.dimensions.widthM) || !finite(value.dimensions.lengthM)) return validationError('Map dimensions must be finite numbers');
+  if (value.dimensions.widthM <= 0 || value.dimensions.lengthM <= 0 || value.dimensions.widthM > 10000 || value.dimensions.lengthM > 10000) return validationError('Map dimensions are outside supported limits');
+  if (value.dimensions.heightM !== undefined && (!finite(value.dimensions.heightM) || value.dimensions.heightM < 0 || value.dimensions.heightM > 1000)) return validationError('Map height is invalid');
+  if (!finite(value.gridSizeM) || value.gridSizeM <= 0 || value.gridSizeM > 100) return validationError('Grid size is invalid');
+  if (!finite(value.orientationDeg) || !finite(value.wallThicknessM) || value.wallThicknessM <= 0) return validationError('Orientation or wall thickness is invalid');
+  if (!Array.isArray(value.layers) || value.layers.length > MAX_LAYERS) return validationError(`Map must contain at most ${MAX_LAYERS} layers`);
+  if (!Array.isArray(value.objects) || value.objects.length > MAX_OBJECTS) return validationError(`Map must contain at most ${MAX_OBJECTS} objects`);
+
+  const layerIds = new Set();
+  for (const layer of value.layers) {
+    if (!layer || typeof layer.id !== 'string' || !layer.id || layerIds.has(layer.id)) return validationError('Every layer must have a unique id');
+    if (typeof layer.name !== 'string' || typeof layer.visible !== 'boolean' || typeof layer.locked !== 'boolean' || !finite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1) return validationError(`Layer ${layer.id} is invalid`);
+    layerIds.add(layer.id);
+  }
+
+  const objectIds = new Set();
+  for (const object of value.objects) {
+    if (!object || typeof object.id !== 'string' || !object.id || objectIds.has(object.id)) return validationError('Every map object must have a unique id');
+    objectIds.add(object.id);
+    if (typeof object.type !== 'string' || typeof object.name !== 'string' || object.name.length > 200) return validationError(`Object ${object.id} has invalid identity fields`);
+    if (![object.xM, object.yM, object.widthM, object.lengthM, object.rotationDeg].every(finite)) return validationError(`Object ${object.id} contains an invalid number`);
+    if (object.xM < 0 || object.yM < 0 || object.widthM <= 0 || object.lengthM <= 0) return validationError(`Object ${object.id} has negative coordinates or dimensions`);
+    if (object.xM + object.widthM > value.dimensions.widthM + 1e-6 || object.yM + object.lengthM > value.dimensions.lengthM + 1e-6) return validationError(`Object ${object.id} is outside the greenhouse`);
+    if (!layerIds.has(object.layerId) || typeof object.visible !== 'boolean' || typeof object.locked !== 'boolean') return validationError(`Object ${object.id} has invalid layer or visibility state`);
+    if (object.metadata !== undefined && (!object.metadata || typeof object.metadata !== 'object' || Array.isArray(object.metadata))) return validationError(`Object ${object.id} metadata must be an object`);
+  }
+
+  if (!value.heatmapSettings || typeof value.heatmapSettings !== 'object') return validationError('Heatmap settings are required');
+  if (typeof value.heatmapSettings.enabled !== 'boolean' || value.heatmapSettings.interpolationMethod !== 'idw') return validationError('Heatmap method or enabled state is invalid');
+  if (!['air-temperature', 'relative-humidity', 'co2', 'vpd', 'root-temperature'].includes(value.heatmapSettings.metric)) return validationError('Heatmap metric is invalid');
+  if (!['auto', 'manual'].includes(value.heatmapSettings.scaleMode) || typeof value.heatmapSettings.showConfidence !== 'boolean') return validationError('Heatmap scale or confidence setting is invalid');
+  if (!finite(value.heatmapSettings.idwPower) || value.heatmapSettings.idwPower <= 0 || value.heatmapSettings.idwPower > 20) return validationError('IDW power is invalid');
+  if (!finite(value.heatmapSettings.opacity) || value.heatmapSettings.opacity < 0 || value.heatmapSettings.opacity > 1) return validationError('Heatmap opacity is invalid');
+  if (value.heatmapSettings.scaleMode === 'manual' && (!finite(value.heatmapSettings.manualMin) || !finite(value.heatmapSettings.manualMax) || value.heatmapSettings.manualMin >= value.heatmapSettings.manualMax)) return validationError('Manual heatmap scale is invalid');
+
+  const serializedSize = Buffer.byteLength(JSON.stringify(value), 'utf8');
+  if (serializedSize > MAX_MAP_BYTES) return validationError('Map exceeds the supported storage size');
+  return { valid: true };
+}
+
+function liveNodeStatus(node, measurement) {
+  const lastSeen = node.last_received_at || node.last_seen || measurement?.time || null;
+  const transportStatus = statusFromMeasurementTime(lastSeen, Date.now(), expectedUplinkIntervalSec(node.last_profile || measurement?.profile));
+  const battery = node.last_battery_percent ?? measurement?.battery_percent ?? null;
+  if (transportStatus === 'offline') return 'offline';
+  if (transportStatus === 'delayed') return 'stale';
+  if (battery !== null && Number(battery) < 20) return 'low-battery';
+  return transportStatus === 'live' ? 'online' : 'warning';
+}
+
+function publicMapNode(row) {
+  const measurement = row.measurement || null;
+  const lastSeenAt = row.last_received_at || row.last_seen || measurement?.time || null;
+  const temperature = measurement?.temperature ?? null;
+  const humidity = measurement?.humidity ?? null;
+  return {
+    nodeId: row.name || row.dev_eui,
+    devEui: row.dev_eui,
+    displayName: row.name || row.dev_eui,
+    areaId: row.area_id,
+    sectionId: row.section_id,
+    sectionName: row.section_name || null,
+    model: row.node_type || 'NeuroSense',
+    status: liveNodeStatus(row, measurement),
+    batteryPercent: row.last_battery_percent ?? measurement?.battery_percent ?? null,
+    lastSeenAt,
+    rssi: row.last_rssi ?? measurement?.rssi ?? null,
+    snr: row.last_snr ?? measurement?.snr ?? null,
+    sensors: Object.entries(row.last_sensor_presence || {}).filter(([, present]) => present === true).map(([sensor]) => sensor),
+    measurements: {
+      airTemperatureC: temperature,
+      relativeHumidityPercent: humidity,
+      co2Ppm: measurement?.co2 ?? null,
+      vpdKpa: finite(temperature) && finite(humidity) ? calcVPD(temperature, humidity) : null,
+      rootTemperatureC: measurement?.soil_temperature ?? measurement?.water_temperature ?? null,
+      pressureHpa: measurement?.air_pressure ?? null,
+      measuredAt: measurement?.time ?? null
+    }
+  };
+}
+
+function sanitizeMapForStorage(map, areaId) {
+  return {
+    ...map,
+    areaId,
+    objects: map.objects.map((object) => {
+      const sensor = object.metadata?.sensor;
+      if (!sensor) return object;
+      const {
+        measurements: _measurements,
+        batteryPercent: _batteryPercent,
+        lastSeenAt: _lastSeenAt,
+        rssi: _rssi,
+        snr: _snr,
+        status: _status,
+        ...configuration
+      } = sensor;
+      return {
+        ...object,
+        metadata: {
+          ...object.metadata,
+          sensor: { ...configuration, areaId }
+        }
+      };
+    })
+  };
+}
+
+async function getArea(organizationId, areaId) {
+  const { rows } = await query(
+    `SELECT id, name, kind, location
+     FROM areas
+     WHERE organization_id=$1 AND id=$2`,
+    [organizationId, areaId]
+  );
+  return rows[0] || null;
+}
+
+async function getAreaNodes(organizationId, areaId) {
+  const { rows } = await query(
+    `SELECT n.dev_eui, n.name, n.node_type, n.area_id, n.section_id,
+            n.last_seen, n.last_received_at, n.last_battery_percent,
+            n.last_rssi, n.last_snr, n.last_profile, n.last_sensor_presence,
+            s.name AS section_name,
+            to_jsonb(m.*) AS measurement
+     FROM nodes n
+     LEFT JOIN sections s
+       ON s.organization_id=n.organization_id AND s.id=n.section_id
+     LEFT JOIN LATERAL (
+       SELECT latest.*
+       FROM measurements latest
+       WHERE lower(latest.dev_eui)=lower(n.dev_eui)
+       ORDER BY latest.time DESC
+       LIMIT 1
+     ) m ON true
+     WHERE n.organization_id=$1
+       AND n.area_id=$2
+       AND n.archived_at IS NULL
+     ORDER BY n.created_at ASC`,
+    [organizationId, areaId]
+  );
+  return rows.map(publicMapNode);
+}
+
+export function registerGreenhouseMapRoutes(app) {
+  app.get('/areas/:areaId/map', requireUserAuth, async (req, res, next) => {
+    const organizationId = req.user.organizationId;
+    const areaId = String(req.params.areaId || '').trim();
+    try {
+      const area = await getArea(organizationId, areaId);
+      if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
+      const [mapResult, nodes] = await Promise.all([
+        query(
+          `SELECT map_data, revision, updated_at
+           FROM greenhouse_maps
+           WHERE organization_id=$1 AND area_id=$2`,
+          [organizationId, areaId]
+        ),
+        getAreaNodes(organizationId, areaId)
+      ]);
+      const stored = mapResult.rows[0] || null;
+      res.json({
+        area: { id: area.id, name: area.name, kind: area.kind, location: area.location },
+        map: stored?.map_data || null,
+        revision: stored?.revision || 0,
+        updatedAt: stored?.updated_at || null,
+        nodes,
+        permissions: { canEdit: writableRoles.includes(req.user.role) }
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch('/areas/:areaId/map', requireUserAuth, requireRole(...writableRoles), async (req, res, next) => {
+    const organizationId = req.user.organizationId;
+    const areaId = String(req.params.areaId || '').trim();
+    const expectedRevision = Number(req.body?.expectedRevision);
+    const validation = validateGreenhouseMap(req.body?.map);
+    if (!validation.valid) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: validation.message } });
+    if (!Number.isInteger(expectedRevision) || expectedRevision < 0) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'expectedRevision must be a non-negative integer' } });
+
+    try {
+      const area = await getArea(organizationId, areaId);
+      if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
+      const sanitizedMap = sanitizeMapForStorage(req.body.map, areaId);
+      const sensorDevEuis = [...new Set(sanitizedMap.objects
+        .map((object) => String(object.metadata?.sensor?.devEui || '').trim().toLowerCase())
+        .filter(Boolean))];
+      if (sensorDevEuis.some((devEui) => !/^[0-9a-f]{16}$/.test(devEui))) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Sensor DevEUI values must contain 16 hexadecimal characters' } });
+      }
+      if (sensorDevEuis.length) {
+        const { rows } = await query(
+          `SELECT lower(dev_eui) AS dev_eui
+           FROM nodes
+           WHERE organization_id=$1 AND area_id=$2 AND lower(dev_eui)=ANY($3::text[]) AND archived_at IS NULL`,
+          [organizationId, areaId, sensorDevEuis]
+        );
+        if (rows.length !== sensorDevEuis.length) return res.status(400).json({ error: { code: 'NODE_AREA_MISMATCH', message: 'One or more sensor nodes do not belong to this Area' } });
+      }
+
+      let result;
+      if (expectedRevision === 0) {
+        result = await query(
+          `INSERT INTO greenhouse_maps (organization_id, area_id, map_data, revision, updated_by)
+           VALUES ($1, $2, $3::jsonb, 1, $4)
+           ON CONFLICT (organization_id, area_id) DO NOTHING
+           RETURNING map_data, revision, updated_at`,
+          [organizationId, areaId, JSON.stringify(sanitizedMap), req.user.id]
+        );
+      } else {
+        result = await query(
+          `UPDATE greenhouse_maps
+           SET map_data=$3::jsonb, revision=revision+1, updated_by=$4, updated_at=now()
+           WHERE organization_id=$1 AND area_id=$2 AND revision=$5
+           RETURNING map_data, revision, updated_at`,
+          [organizationId, areaId, JSON.stringify(sanitizedMap), req.user.id, expectedRevision]
+        );
+      }
+      if (!result.rows[0]) {
+        const current = await query(
+          `SELECT revision, updated_at FROM greenhouse_maps
+           WHERE organization_id=$1 AND area_id=$2`,
+          [organizationId, areaId]
+        );
+        return res.status(409).json({
+          error: { code: 'MAP_REVISION_CONFLICT', message: 'This Area map was changed in another session. Reload it before saving again.' },
+          revision: current.rows[0]?.revision || 0,
+          updatedAt: current.rows[0]?.updated_at || null
+        });
+      }
+      res.json({
+        map: result.rows[0].map_data,
+        revision: result.rows[0].revision,
+        updatedAt: result.rows[0].updated_at
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+}

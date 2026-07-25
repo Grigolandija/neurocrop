@@ -22,13 +22,14 @@ import './styles/simulator-workspace.css'
 import './styles/actions-workspace.css'
 import './styles/trends-workspace.css'
 import './styles/mobile-experience.css'
+import './styles/greenhouse-map-test.css'
 
 declare global {
   interface Window {
     echarts?: unknown
     NeuroCropTrendCharts?: unknown
     NeuroCropStateEngine?: unknown
-    NEUROCROP_CONFIG?: { apiBaseUrl?: string }
+    NEUROCROP_CONFIG?: { apiBaseUrl?: string; greenhouseMapBeta?: boolean }
     NeuroCropApi?: NeuroCropApi
     NeuroCropFeatures?: NeuroCropFeatures
   }
@@ -37,6 +38,7 @@ declare global {
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const AcceptInvitePage = lazy(() => import('./pages/AcceptInvitePage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const GreenhouseMapTestPage = lazy(() => import('./features/greenhouse-map/GreenhouseMapTestPage'))
 
 function RouteLoading() {
   return <main className="app-route-loading" aria-busy="true" aria-label="Loading NeuroCrop" />
@@ -49,6 +51,8 @@ export default function App() {
         <Routes>
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
+          <Route path="/greenhouse-map-test" element={<GreenhouseMapTestPage />} />
+          <Route path="/area-map" element={<GreenhouseMapTestPage />} />
           <Route path="*" element={<DashboardPage />} />
         </Routes>
       </Suspense>

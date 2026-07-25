@@ -72,11 +72,21 @@ Pavyzdys:
 
 ```js
 window.NEUROCROP_CONFIG = {
-  apiBaseUrl: "https://api.neurocrop.lt"
+  apiBaseUrl: "https://api.neurocrop.lt",
+  greenhouseMapBeta: true
 };
 ```
 
 API adresą galima pakeisti neperkompiliuojant frontendo.
+
+`greenhouseMapBeta` įjungia „Area Map Beta“ įėjimą Areas puslapyje. Docker
+aplinkoje jis valdomas `NEUROCROP_GREENHOUSE_MAP_BETA=true`; numatytoji
+production reikšmė yra `false`, kol neparuošta `0019_greenhouse_maps.sql`
+migracija.
+
+Area žemėlapiai saugomi PostgreSQL lentelėje `greenhouse_maps`. API naudoja
+aktyvios sesijos organizaciją, tikrina Area ir Node priklausomybę bei optimistinį
+`revision`, kad viena naršyklės sesija tyliai neperrašytų kitos.
 
 Frontend užklausos siunčiamos su:
 

@@ -38,12 +38,13 @@ import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry
 import { startMeasurementRetention } from './measurement-retention.js';
 import { registerWorkflowRoutes } from './workflow-routes.js';
 import { SIMULATOR_METRICS, simulateAgronomicScenario } from './agronomic-simulator.js';
+import { registerGreenhouseMapRoutes } from './greenhouse-map-routes.js';
 
 const app = express();
 app.disable('x-powered-by');
 const trustProxyHops = getTrustProxyHops();
 if (trustProxyHops > 0) app.set('trust proxy', trustProxyHops);
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 const PORT = parseInt(process.env.API_PORT || '3000', 10);
 const HOST = '0.0.0.0';
@@ -93,6 +94,7 @@ app.use((req, res, next) => {
 registerTeamRoutes(app);
 registerPlatformOrganizationRoutes(app);
 registerWorkflowRoutes(app);
+registerGreenhouseMapRoutes(app);
 
 function getOrganizationId(req) {
   if (!req.user?.organizationId) throw new Error('Authenticated organization is missing');

@@ -111,6 +111,7 @@ function errorMessage(error: unknown, fallback: string) {
 
 export default function AreasWorkspace() {
   const navigate = useNavigate()
+  const greenhouseMapBeta = window.NEUROCROP_CONFIG?.greenhouseMapBeta === true
   const [areas, setAreas] = useState<AreaRow[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
@@ -311,6 +312,7 @@ export default function AreasWorkspace() {
               {menuId === area.id ? <div onClick={(event) => event.stopPropagation()}>
                 <button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />Edit area</button>
                 <button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />Add section</button>
+                {greenhouseMapBeta ? <button type="button" onClick={() => navigate(`/area-map?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-draw-polygon" />Open Area Map <small>Beta</small></button> : null}
                 <button type="button" onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />Manage nodes</button>
                 <button type="button" className="danger" onClick={() => { setMenuId(null); setModalError(''); setDeleteState({ id: area.id, name: area.name, sectionCount: area.sectionCount, keepSections: true }) }}><i className="fa-solid fa-trash" />Delete area</button>
               </div> : null}
@@ -320,7 +322,7 @@ export default function AreasWorkspace() {
             <div><p>Environment</p><strong>{area.kind}</strong><span>{area.location || 'No location details added'}</span></div>
             <div><p>Coverage</p><strong>{area.sectionCount} sections · {area.nodeCount} nodes</strong><span>{area.nodeCount ? `${area.reportingCount} of ${area.nodeCount} nodes currently reporting` : 'No hardware assigned yet'}</span></div>
             <div><p>Health</p><strong>{healthCopy(area.health)}{area.score !== null ? ` · ${area.score}/100` : ''}</strong><span>{area.health === 'stable' ? 'All available signals are within expected state.' : area.health === 'unconfigured' ? 'Add a section to begin monitoring.' : 'Review sections and reporting hardware.'}</span></div>
-            <nav><button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />Add section</button><button type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-layer-group" />Open sections</button><button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />Edit area</button></nav>
+            <nav><button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />Add section</button>{greenhouseMapBeta ? <button type="button" onClick={() => navigate(`/area-map?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-draw-polygon" />Area Map <small>Beta</small></button> : null}<button type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-layer-group" />Open sections</button><button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />Edit area</button></nav>
           </div> : null}
         </article>)}
       </div> : null}

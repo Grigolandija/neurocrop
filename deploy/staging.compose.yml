@@ -9,6 +9,7 @@ services:
       - "127.0.0.1:4173:80"
     environment:
       NEUROCROP_API_BASE_URL: /api
+      NEUROCROP_GREENHOUSE_MAP_BETA: "true"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
       interval: 15s

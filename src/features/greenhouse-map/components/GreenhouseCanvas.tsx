@@ -1,0 +1,222 @@
+import Konva from 'konva'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
+import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
+import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
+import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
+import { METRICS, OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type MapMode, type ObjectType } from '../model'
+
+type Props = {
+  map: GreenhouseMap
+  mode: MapMode
+  readOnly?: boolean
+  selectedIds: string[]
+  snap: boolean
+  onSelect: (ids: string[]) => void
+  onMove: (positions: Array<{ id: string; xM: number; yM: number }>, record?: boolean) => void
+  onUpdate: (id: string, patch: Partial<GreenhouseObject>, record?: boolean) => void
+  onAdd: (type: ObjectType, xM?: number, yM?: number) => void
+}
+
+const objectColors: Record<string, { fill: string; stroke: string }> = {
+  structure: { fill: '#d9d5c8', stroke: '#74786f' }, cultivation: { fill: '#9db89f', stroke: '#4f7359' },
+  irrigation: { fill: '#8cb7bd', stroke: '#376d75' }, climate: { fill: '#c7a778', stroke: '#765a36' },
+  lighting: { fill: '#e1cc75', stroke: '#8a7532' }, labels: { fill: '#ece8dd', stroke: '#6f716c' },
+}
+const statusColors: Record<string, string> = { online: '#2f8760', warning: '#bd842b', offline: '#6d7470', unassigned: '#60758a', 'low-battery': '#b85b46', stale: '#936d3c' }
+
+function ObjectShape({ object, map, selected, editable, layerOpacity, onSelect, onMove, onUpdate }: {
+  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; layerOpacity: number
+  onSelect: (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void
+  onMove: (position: { id: string; xM: number; yM: number }, record?: boolean) => void
+  onUpdate: Props['onUpdate']
+}) {
+  const definition = OBJECT_LIBRARY.find((item) => item.type === object.type)
+  const isSensor = object.type === 'sensor-node'
+  const sensor = object.metadata.sensor
+  const colors = objectColors[object.layerId] ?? objectColors.structure
+  const topY = map.dimensions.lengthM - object.yM - object.lengthM
+  return <Group
+    id={`gh-object-${object.id}`} name="map-object" x={object.xM} y={topY} rotation={object.rotationDeg}
+    draggable={editable && !object.locked}
+    opacity={layerOpacity}
+    onClick={onSelect} onTap={onSelect}
+    onDragEnd={(event) => onMove({ id: object.id, xM: event.target.x(), yM: map.dimensions.lengthM - event.target.y() - object.lengthM }, true)}
+    onTransformEnd={(event) => {
+      const node = event.target
+      const widthM = Math.max(.05, object.widthM * node.scaleX())
+      const lengthM = Math.max(.05, object.lengthM * node.scaleY())
+      node.scaleX(1); node.scaleY(1)
+      onUpdate(object.id, { xM: node.x(), yM: map.dimensions.lengthM - node.y() - lengthM, widthM, lengthM, rotationDeg: node.rotation() })
+    }}
+  >
+    {isSensor ? <>
+      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={Math.max(object.widthM, object.lengthM) * .52} fill="#173e35" stroke={selected ? '#f0bd4f' : '#fff'} strokeWidth={selected ? .09 : .05} shadowColor="#10251f" shadowBlur={.16} shadowOpacity={.35} />
+      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={Math.max(object.widthM, object.lengthM) * .20} fill={statusColors[sensor?.status ?? 'unassigned']} />
+      <Circle x={object.widthM * .8} y={object.lengthM * .18} radius={.1} fill={statusColors[sensor?.status ?? 'unassigned']} stroke="#fff" strokeWidth={.025} />
+      <Text x={object.widthM + .14} y={-.05} width={2.8} text={object.name} fontFamily="IBM Plex Sans" fontSize={.24} fontStyle="bold" fill="#183a31" />
+      <Text x={object.widthM + .14} y={.25} width={2.2} text={`${sensor?.batteryPercent ?? '—'}%  ·  ${sensor?.rssi ?? '—'} dBm`} fontFamily="IBM Plex Mono" fontSize={.17} fill="#53645e" />
+    </> : <>
+      <Rect width={object.widthM} height={object.lengthM} fill={object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : colors.stroke} strokeWidth={selected ? .08 : .035} dash={object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
+      {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} /> : null}
+      <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.type === 'text-label' ? object.name : object.widthM > 1.2 && object.lengthM > .45 ? object.name : definition?.label ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill="#2d4038" ellipsis wrap="none" />
+    </>}
+    {object.locked ? <Text x={Math.max(0, object.widthM - .28)} y={.06} text="" fontFamily="Font Awesome 7 Free" fontSize={.18} fill="#493f32" /> : null}
+  </Group>
+}
+
+export default function GreenhouseCanvas({ map, mode, readOnly = false, selectedIds, snap, onSelect, onMove, onUpdate, onAdd }: Props) {
+  const hostRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<Konva.Stage>(null)
+  const transformerRef = useRef<Konva.Transformer>(null)
+  const [size, setSize] = useState({ width: 900, height: 650 })
+  const [view, setView] = useState({ scale: 40, x: 70, y: 70 })
+  const [panning, setPanning] = useState(false)
+  const [mouse, setMouse] = useState<{ xM: number; yM: number } | null>(null)
+  const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; min: number; max: number; count: number; calculatedAt: Date } | null>(null)
+
+  const fit = useCallback(() => {
+    const paddingX = 85
+    const paddingY = 90
+    const scale = Math.max(2, Math.min((size.width - paddingX * 2) / map.dimensions.widthM, (size.height - paddingY * 2) / map.dimensions.lengthM))
+    setView({ scale, x: (size.width - map.dimensions.widthM * scale) / 2, y: (size.height - map.dimensions.lengthM * scale) / 2 })
+  }, [map.dimensions.lengthM, map.dimensions.widthM, size])
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    const observer = new ResizeObserver(([entry]) => setSize({ width: Math.max(500, entry.contentRect.width), height: Math.max(420, entry.contentRect.height) }))
+    observer.observe(host)
+    return () => observer.disconnect()
+  }, [])
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(fit)
+    return () => window.cancelAnimationFrame(frame)
+  }, [fit])
+
+  useEffect(() => {
+    const transformer = transformerRef.current
+    const stage = stageRef.current
+    if (!transformer || !stage) return
+    const nodes = mode === 'layout' ? selectedIds.map((id) => stage.findOne(`#gh-object-${id}`)).filter((node): node is Konva.Node => Boolean(node)) : []
+    transformer.nodes(nodes)
+    transformer.getLayer()?.batchDraw()
+  }, [selectedIds, mode, map.objects])
+
+  const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric), [map])
+  useEffect(() => {
+    if (mode !== 'environment' || !map.heatmapSettings.enabled) {
+      const clearTimer = window.setTimeout(() => setHeatmap(null), 0)
+      return () => window.clearTimeout(clearTimer)
+    }
+    const timer = window.setTimeout(() => {
+      const metric = map.heatmapSettings.metric
+      const scale = getStableScale(points.map((point) => point.value), metric, map.heatmapSettings.scaleMode === 'manual' ? { min: map.heatmapSettings.manualMin, max: map.heatmapSettings.manualMax } : undefined)
+      const grid = createMeasurementGrid(points, map.dimensions.widthM, map.dimensions.lengthM, metric, map.heatmapSettings.idwPower, scale)
+      if (!grid) { setHeatmap(null); return }
+      setHeatmap({ canvas: renderHeatmapCanvas(grid, METRICS[metric].colors, map.heatmapSettings.opacity, map.heatmapSettings.showConfidence), min: grid.min, max: grid.max, count: grid.sensorCount, calculatedAt: new Date() })
+    }, 180)
+    return () => window.clearTimeout(timer)
+  }, [map.dimensions, map.heatmapSettings, mode, points])
+
+  const pointerWorld = useCallback(() => {
+    const stage = stageRef.current
+    const pointer = stage?.getPointerPosition()
+    if (!pointer) return null
+    return { xM: (pointer.x - view.x) / view.scale, yM: map.dimensions.lengthM - (pointer.y - view.y) / view.scale }
+  }, [map.dimensions.lengthM, view])
+
+  const gridLines = useMemo(() => {
+    const step = map.gridSizeM
+    const lines: Array<{ points: number[]; major: boolean }> = []
+    for (let x = 0; x <= map.dimensions.widthM + .0001; x += step) lines.push({ points: [x, 0, x, map.dimensions.lengthM], major: Math.abs(x - Math.round(x)) < .001 })
+    for (let y = 0; y <= map.dimensions.lengthM + .0001; y += step) lines.push({ points: [0, y, map.dimensions.widthM, y], major: Math.abs(y - Math.round(y)) < .001 })
+    return lines.slice(0, 1000)
+  }, [map.dimensions, map.gridSizeM])
+
+  const visibleLayers = useMemo(() => new Map(map.layers.map((layer) => [layer.id, layer])), [map.layers])
+  const orderedObjects = useMemo(() => map.layers.flatMap((layer) => map.objects.filter((object) => object.layerId === layer.id)), [map.layers, map.objects])
+  const editable = mode === 'layout' && !readOnly
+
+  return <main className="gh-canvas-shell" ref={hostRef}
+    onDragOver={(event) => { if (event.dataTransfer.types.includes('application/x-neurocrop-object')) event.preventDefault() }}
+    onDrop={(event) => {
+      event.preventDefault()
+      const type = event.dataTransfer.getData('application/x-neurocrop-object') as ObjectType
+      const rect = hostRef.current?.getBoundingClientRect()
+      if (!type || !rect) return
+      onAdd(type, (event.clientX - rect.left - view.x) / view.scale, map.dimensions.lengthM - (event.clientY - rect.top - view.y) / view.scale)
+    }}
+  >
+    <Stage
+      ref={stageRef} width={size.width} height={size.height}
+      onMouseMove={() => setMouse(pointerWorld())}
+      onMouseLeave={() => setMouse(null)}
+      onMouseDown={(event) => {
+        if (event.target === event.target.getStage()) {
+          if (!event.evt.shiftKey) onSelect([])
+          if (panning) event.target.getStage()?.startDrag()
+        }
+      }}
+      onDragEnd={(event) => { if (event.target === event.target.getStage()) setView((current) => ({ ...current, x: event.target.x(), y: event.target.y() })) }}
+      draggable={panning} x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale}
+      onWheel={(event) => {
+        event.evt.preventDefault()
+        const stage = stageRef.current
+        const pointer = stage?.getPointerPosition()
+        if (!stage || !pointer) return
+        const oldScale = view.scale
+        const nextScale = Math.max(8, Math.min(140, event.evt.deltaY > 0 ? oldScale / 1.08 : oldScale * 1.08))
+        const world = { x: (pointer.x - view.x) / oldScale, y: (pointer.y - view.y) / oldScale }
+        setView({ scale: nextScale, x: pointer.x - world.x * nextScale, y: pointer.y - world.y * nextScale })
+      }}
+    >
+      <Layer listening={false}>
+        <Rect x={0} y={0} width={map.dimensions.widthM} height={map.dimensions.lengthM} fill="#f7f7f2" shadowColor="#152c25" shadowBlur={.35} shadowOpacity={.18} />
+        {gridLines.map((line, index) => <Line key={index} points={line.points} stroke={line.major ? '#b5bcb4' : '#d9ddd7'} strokeWidth={(line.major ? 1.2 : .65) / view.scale} />)}
+        {mode === 'environment' && heatmap && visibleLayers.get('environment')?.visible ? <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} opacity={visibleLayers.get('environment')?.opacity ?? 1} /> : null}
+        {mode === 'signal' && visibleLayers.get('signal')?.visible ? map.objects.filter((object) => object.metadata.sensor).map((object) => {
+          const quality = Math.max(.15, Math.min(1, ((object.metadata.sensor?.rssi ?? -120) + 120) / 55))
+          return <Circle key={object.id} x={object.xM + object.widthM / 2} y={map.dimensions.lengthM - object.yM - object.lengthM / 2} radius={2.5 + quality * 2.2} fill={quality > .65 ? '#3b8364' : quality > .38 ? '#b58a3d' : '#a45849'} opacity={.08 + quality * .12} />
+        }) : null}
+        {mode === 'coverage' && visibleLayers.get('coverage')?.visible ? map.objects.filter((object) => object.metadata.sensor).map((object) => <Circle key={object.id} x={object.xM + object.widthM / 2} y={map.dimensions.lengthM - object.yM - object.lengthM / 2} radius={object.metadata.sensor?.coverageRadiusM ?? 3} fill="#4d8d78" stroke="#2f715d" strokeWidth={.04} dash={[.16, .12]} opacity={(visibleLayers.get('coverage')?.opacity ?? 1) * .18} />) : null}
+      </Layer>
+      <Layer>
+        {orderedObjects.map((object) => {
+          const layer = visibleLayers.get(object.layerId)
+          if (!object.visible || !layer?.visible) return null
+          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} layerOpacity={layer.opacity}
+            onSelect={(event) => {
+              event.cancelBubble = true
+              const shift = event.evt.shiftKey
+              onSelect(shift ? selectedIds.includes(object.id) ? selectedIds.filter((id) => id !== object.id) : [...selectedIds, object.id] : [object.id])
+            }}
+            onMove={(position, record) => onMove([position], record)}
+            onUpdate={onUpdate}
+          />
+        })}
+        <Transformer ref={transformerRef} rotateEnabled={editable} resizeEnabled={editable} flipEnabled={false} borderStroke="#d89222" anchorStroke="#d89222" anchorFill="#fff" anchorSize={9} borderStrokeWidth={1.5} rotateAnchorOffset={24} />
+      </Layer>
+      <Layer listening={false}>
+        <Rect width={map.dimensions.widthM} height={map.dimensions.lengthM} stroke="#30483f" strokeWidth={Math.max(map.wallThicknessM, 2 / view.scale)} />
+        <Text x={0} y={map.dimensions.lengthM + 12 / view.scale} text={`0                                        X  ${map.dimensions.widthM} m →`} width={map.dimensions.widthM} align="center" fontSize={11 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" />
+        <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" />
+      </Layer>
+    </Stage>
+    <div className="gh-view-controls">
+      <button className={panning ? 'active' : ''} onClick={() => setPanning(!panning)} title="Pan tool"><i className="fa-solid fa-hand" /></button>
+      <span />
+      <button onClick={() => setView((current) => ({ ...current, scale: Math.min(140, current.scale * 1.15) }))} title="Zoom in"><i className="fa-solid fa-plus" /></button>
+      <button onClick={() => setView((current) => ({ ...current, scale: Math.max(8, current.scale / 1.15) }))} title="Zoom out"><i className="fa-solid fa-minus" /></button>
+      <button onClick={fit} title="Fit to screen"><i className="fa-solid fa-expand" /></button>
+    </div>
+    {mode === 'environment' ? <div className="gh-heatmap-legend">
+      <small>ESTIMATED ENVIRONMENT MAP</small><strong>{METRICS[map.heatmapSettings.metric].label}</strong>
+      {heatmap ? <><div className="gh-color-scale" style={{ background: `linear-gradient(90deg, ${METRICS[map.heatmapSettings.metric].colors.join(',')})` }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div><p>Estimated from {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count === 1 ? <em>Low confidence: only one valid sensor.</em> : null}</> : <p>No valid online sensor data for this metric.</p>}
+      <em>Interpolated estimate based on sensor locations. Values between sensors are not directly measured.</em>
+    </div> : null}
+    {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> Approximate planned sensor coverage, not a physical propagation model.</div> : null}
+    {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> Indicative LoRa quality based on mock RSSI, SNR and node status.</div> : null}
+    <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> {mouse && mouse.xM >= 0 && mouse.yM >= 0 && mouse.xM <= map.dimensions.widthM && mouse.yM <= map.dimensions.lengthM ? `X ${mouse.xM.toFixed(2)} m · Y ${mouse.yM.toFixed(2)} m` : 'Outside plan'}</span><span>Grid {map.gridSizeM} m</span><span>Zoom {Math.round(view.scale / 40 * 100)}%</span><span>{selectedIds.length ? `${selectedIds.length} selected` : snap ? 'Snap enabled' : 'Free placement'}</span></footer>
+  </main>
+}
