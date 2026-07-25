@@ -1647,6 +1647,7 @@
         if (Array.isArray(todayActionsResponse?.actions)) backendTodayActions = todayActionsResponse.actions;
         if (Array.isArray(actionHistoryResponse?.items)) backendActionHistory = actionHistoryResponse.items;
         if (Array.isArray(alertsResponse?.alerts)) {
+          backendAlertsCanonicalLoaded = true;
           backendAlertRecords = Object.fromEntries(alertsResponse.alerts.map((record) => [
             record.id,
             {
@@ -1876,6 +1877,8 @@
       latestReadingsAreaInFlight.clear();
       backendTodayActions = null;
       backendActionHistory = [];
+      backendAlertRecords = {};
+      backendAlertsCanonicalLoaded = false;
       todayPriorityFeedbackState = { actionId: "", saving: false, error: false, message: "" };
       resetTrendSelectionForContextChange();
       syncTopLevelRoute("/", { replace: true });
@@ -1919,6 +1922,7 @@
     let activeAlertsPageFilterKey = "open";
     let currentAlertsPageItems = [];
     let backendAlertRecords = {};
+    let backendAlertsCanonicalLoaded = false;
     let alertsPageFeedback = { tone: "", text: "" };
     const alertsPagePendingIds = new Set();
     const reviewedAlertsStorageKey = "neurocrop-reviewed-alerts-v1";
@@ -8263,6 +8267,21 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
     }
 
     function buildAlertsPageItems(globalSnapshots = []) {
+      if (backendAlertsCanonicalLoaded) {
+        const toneRank = { critical: 0, warning: 1, offline: 2 };
+        return Object.values(backendAlertRecords)
+          .filter((record) => record?.managed === true && record?.active === true && record?.item?.id)
+          .map((record) => ({
+            ...record.item,
+            source: "backend",
+            sortTime: record.item.timestamp ? new Date(record.item.timestamp).getTime() : 0
+          }))
+          .sort((left, right) =>
+            (toneRank[left.tone] ?? 3) - (toneRank[right.tone] ?? 3)
+            || right.sortTime - left.sortTime
+          );
+      }
+
       const metricItems = globalSnapshots.flatMap((snapshot) => {
         const timestamp = getAlertsPageLocationTimestamp(snapshot.zone);
         return snapshot.results

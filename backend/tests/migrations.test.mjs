@@ -120,3 +120,14 @@ test('action assignments are tenant scoped and keep assignee workflow metadata',
   assert.match(sql, /priority IN \('urgent', 'high', 'normal', 'low'\)/);
   assert.match(sql, /due_at/);
 });
+
+test('canonical alert lifecycle migration supports active episodes and automatic recovery', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0018_canonical_alert_lifecycle.sql', import.meta.url), 'utf8');
+  assert.match(sql, /status IN \('open', 'acknowledged', 'snoozed', 'resolved'\)/);
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS managed BOOLEAN/);
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS active BOOLEAN/);
+  assert.match(sql, /first_detected_at/);
+  assert.match(sql, /last_detected_at/);
+  assert.match(sql, /recovered_at/);
+  assert.match(sql, /condition_cleared/);
+});

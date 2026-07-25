@@ -28,6 +28,7 @@ import { getMeasurementRetentionDays, runMeasurementRetention } from '../measure
 import { hashUserPassword, MAX_PASSWORD_LENGTH, sessionCookieClearOptions, sessionCookieOptions, verifyUserPassword } from '../auth-users.js';
 import { sendInvitationEmail } from '../email.js';
 import { simulateAgronomicScenario } from '../agronomic-simulator.js';
+import { buildCanonicalAlerts, buildCanonicalAlertState, canonicalAlertContext } from '../alert-lifecycle.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -932,6 +933,74 @@ test('tiny warning deviations remain visible without creating a priority action'
   assert.equal(evaluation.state, 'warning');
   assert.ok(evaluation.severity < 0.05);
   assert.deepEqual(actions, []);
+});
+
+test('canonical alerts deduplicate metric and offline conditions with stable tenant-scoped ids', () => {
+  const snapshots = [{
+    section: {
+      id: 'section-1',
+      area_id: 'area-1',
+      name: 'Tomatoes',
+      area_name: 'Greenhouse 1'
+    },
+    nodes: [
+      { dev_eui: 'ABCDEF0123456789', name: 'Node 1', last_received_at: '2026-07-25T10:00:00Z' }
+    ],
+    measurements: [null],
+    nodeStatuses: ['offline'],
+    profileMetrics: {
+      airTemp: { label: 'Air temperature', unit: '°C' }
+    },
+    scoreRules: {
+      airTemp: { optimal: [21, 22], growth: true },
+      lux: { optimal: [10000, 35000], growth: false }
+    },
+    evaluations: [
+      { metricId: 'airTemp', value: 25.5, state: 'critical', direction: 'high' },
+      { metricId: 'lux', value: 0, state: 'warning', direction: 'low' }
+    ],
+    observedAtByMetric: { airTemp: '2026-07-25T10:00:00Z' },
+    latestReceivedAt: '2026-07-25T10:00:00Z'
+  }];
+
+  const alerts = buildCanonicalAlerts(snapshots);
+  assert.deepEqual(alerts.map((alert) => alert.id), [
+    'metric:area-1:section-1:airTemp',
+    'offline:area-1:section-1:abcdef0123456789'
+  ]);
+  assert.equal(alerts[0].tone, 'critical');
+  assert.equal(alerts[0].currentValue, 25.5);
+  assert.equal(alerts[0].targetLow, 21);
+  assert.equal(alerts[0].targetHigh, 22);
+  assert.equal(canonicalAlertContext(alerts[0]).direction, 'above');
+});
+
+test('canonical alerts only mark a condition clear after current recovery evidence', () => {
+  const recovered = buildCanonicalAlertState([{
+    section: { id: 'section-1', area_id: 'area-1', name: 'Tomatoes', area_name: 'Greenhouse 1' },
+    nodes: [{ dev_eui: 'abcdef0123456789' }],
+    measurements: [{}],
+    nodeStatuses: ['live'],
+    profileMetrics: {},
+    scoreRules: { airTemp: { optimal: [21, 22], growth: true } },
+    evaluations: [{ metricId: 'airTemp', value: 21.5, state: 'optimal', direction: 'inside' }]
+  }]);
+  assert.deepEqual(recovered.alerts, []);
+  assert.deepEqual(recovered.clearableIds.sort(), [
+    'metric:area-1:section-1:airTemp',
+    'offline:area-1:section-1:abcdef0123456789'
+  ]);
+
+  const unavailable = buildCanonicalAlertState([{
+    section: { id: 'section-1', area_id: 'area-1', name: 'Tomatoes', area_name: 'Greenhouse 1' },
+    nodes: [{ dev_eui: 'abcdef0123456789' }],
+    measurements: [null],
+    nodeStatuses: ['offline'],
+    profileMetrics: {},
+    scoreRules: {},
+    evaluations: []
+  }]);
+  assert.equal(unavailable.clearableIds.includes('metric:area-1:section-1:airTemp'), false);
 });
 
 test('completed actions wait for a metric-specific verification window and enough samples', () => {

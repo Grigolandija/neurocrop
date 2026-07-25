@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { query } from './db.js';
+import { pool, query } from './db.js';
 import { requireRole, requireUserAuth } from './auth-users.js';
+import { buildCurrentMetricEvaluations } from './score.js';
+import { buildCanonicalAlertState, canonicalAlertContext } from './alert-lifecycle.js';
 
 const workflowRoles = requireRole('owner', 'admin', 'grower', 'technician');
 const OUTCOME_STATUSES = new Set(['successful', 'no_change', 'made_worse', 'not_relevant']);
-const ALERT_STATUSES = new Set(['all', 'acknowledged', 'snoozed', 'resolved']);
+const ALERT_STATUSES = new Set(['all', 'active', 'open', 'acknowledged', 'snoozed', 'resolved']);
 
 function organizationId(req) {
   if (!req.user?.organizationId) throw new Error('Authenticated organization is missing');
@@ -31,11 +33,17 @@ function publicAlertWorkflow(row) {
   return {
     id: row.alert_id,
     status: row.status,
+    managed: Boolean(row.managed),
+    active: Boolean(row.active),
     context: row.context || {},
     acknowledgedAt: row.acknowledged_at,
     snoozedAt: row.snoozed_at,
     snoozedUntil: row.snoozed_until,
     resolvedAt: row.resolved_at,
+    firstDetectedAt: row.first_detected_at,
+    lastDetectedAt: row.last_detected_at,
+    recoveredAt: row.recovered_at,
+    resolutionReason: row.resolution_reason,
     updatedAt: row.updated_at
   };
 }
@@ -66,7 +74,7 @@ function publicIntervention(row) {
 
 function alertContext(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  return Object.fromEntries([
+  const context = Object.fromEntries([
     ['id', text(source.id, 500)],
     ['kind', text(source.kind, 32)],
     ['tone', text(source.tone, 32)],
@@ -79,8 +87,162 @@ function alertContext(value) {
     ['title', text(source.title, 240)],
     ['detail', text(source.detail, 500)],
     ['timestamp', text(source.timestamp, 64)],
-    ['icon', text(source.icon, 64)]
+    ['icon', text(source.icon, 64)],
+    ['unit', text(source.unit, 24)],
+    ['direction', text(source.direction, 16)]
   ].filter(([, item]) => item));
+  for (const key of ['currentValue', 'targetLow', 'targetHigh']) {
+    const value = finiteNumber(source[key]);
+    if (value !== null) context[key] = value;
+  }
+  return context;
+}
+
+function normalizedDevEui(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+async function loadCanonicalAlerts(tenantId) {
+  const [sectionsResult, nodesResult, profilesResult, measurementsResult] = await Promise.all([
+    query(
+      `SELECT s.id, s.area_id, s.name, s.crop_profile, a.name AS area_name
+       FROM sections s
+       JOIN areas a ON a.organization_id=s.organization_id AND a.id=s.area_id
+       WHERE s.organization_id=$1
+       ORDER BY s.created_at ASC`,
+      [tenantId]
+    ),
+    query(
+      `SELECT dev_eui, section_id, name, last_seen, last_received_at, last_sensor_presence
+       FROM nodes
+       WHERE organization_id=$1 AND archived_at IS NULL
+       ORDER BY created_at ASC`,
+      [tenantId]
+    ),
+    query('SELECT id, metrics FROM crop_profiles WHERE organization_id=$1', [tenantId]),
+    query(
+      `SELECT DISTINCT ON (m.dev_eui) m.*
+       FROM measurements m
+       JOIN nodes n ON n.dev_eui=m.dev_eui
+       WHERE n.organization_id=$1 AND n.archived_at IS NULL
+       ORDER BY m.dev_eui, m.time DESC`,
+      [tenantId]
+    )
+  ]);
+
+  const nodesBySection = new Map();
+  for (const node of nodesResult.rows) {
+    if (!nodesBySection.has(node.section_id)) nodesBySection.set(node.section_id, []);
+    nodesBySection.get(node.section_id).push(node);
+  }
+  const profileMetricsById = new Map(profilesResult.rows.map((row) => [row.id, row.metrics || {}]));
+  const latestByDevEui = new Map(
+    measurementsResult.rows.map((row) => [normalizedDevEui(row.dev_eui), row])
+  );
+  const snapshots = sectionsResult.rows.map((section) => {
+    const nodes = nodesBySection.get(section.id) || [];
+    const measurements = nodes.map((node) => latestByDevEui.get(normalizedDevEui(node.dev_eui)) || null);
+    const profileMetrics = profileMetricsById.get(section.crop_profile) || {};
+    const current = buildCurrentMetricEvaluations(nodes, measurements, profileMetrics);
+    const latestReceivedAt = measurements
+      .map((measurement) => measurement?.time)
+      .filter(Boolean)
+      .sort((left, right) => new Date(right) - new Date(left))[0] || null;
+    const observedAtByMetric = Object.fromEntries(
+      current.evaluations.map((evaluation) => [evaluation.metricId, latestReceivedAt])
+    );
+    return {
+      section,
+      nodes,
+      measurements,
+      nodeStatuses: current.statuses,
+      profileMetrics,
+      scoreRules: current.scoreRules,
+      evaluations: current.evaluations,
+      observedAtByMetric,
+      latestReceivedAt
+    };
+  });
+  return buildCanonicalAlertState(snapshots);
+}
+
+async function synchronizeCanonicalAlerts(tenantId, activeAlerts, clearableIds) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const alert of activeAlerts) {
+      await client.query(
+      `INSERT INTO alert_workflows AS current (
+         organization_id, alert_id, status, context, managed, active,
+         first_detected_at, last_detected_at
+       ) VALUES ($1, $2, 'open', $3, true, true, now(), now())
+       ON CONFLICT (organization_id, alert_id) DO UPDATE SET
+         status=CASE
+           WHEN current.managed=true AND current.active=true
+             AND current.status='snoozed' AND current.snoozed_until > now() THEN 'snoozed'
+           WHEN current.managed=true AND current.active=true
+             AND current.status='acknowledged' THEN 'acknowledged'
+           ELSE 'open'
+         END,
+         context=EXCLUDED.context,
+         managed=true,
+         active=true,
+         acknowledged_by=CASE WHEN current.managed AND current.active THEN current.acknowledged_by ELSE NULL END,
+         acknowledged_at=CASE WHEN current.managed AND current.active THEN current.acknowledged_at ELSE NULL END,
+         snoozed_by=CASE
+           WHEN current.managed AND current.active AND current.status='snoozed'
+             AND current.snoozed_until > now() THEN current.snoozed_by
+           ELSE NULL
+         END,
+         snoozed_at=CASE
+           WHEN current.managed AND current.active AND current.status='snoozed'
+             AND current.snoozed_until > now() THEN current.snoozed_at
+           ELSE NULL
+         END,
+         snoozed_until=CASE
+           WHEN current.managed AND current.active AND current.status='snoozed'
+             AND current.snoozed_until > now() THEN current.snoozed_until
+           ELSE NULL
+         END,
+         resolved_by=NULL,
+         resolved_at=NULL,
+         first_detected_at=CASE
+           WHEN current.managed AND current.active THEN current.first_detected_at
+           ELSE now()
+         END,
+         last_detected_at=now(),
+         recovered_at=NULL,
+         resolution_reason=NULL,
+         updated_at=now()`,
+        [tenantId, alert.id, canonicalAlertContext(alert)]
+      );
+    }
+
+    await client.query(
+      `UPDATE alert_workflows
+       SET status='resolved',
+           active=false,
+           resolved_by=NULL,
+           resolved_at=now(),
+           recovered_at=now(),
+           resolution_reason='condition_cleared',
+           snoozed_by=NULL,
+           snoozed_at=NULL,
+           snoozed_until=NULL,
+           updated_at=now()
+       WHERE organization_id=$1
+         AND managed=true
+         AND active=true
+         AND alert_id = ANY($2::text[])`,
+      [tenantId, clearableIds]
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function resolveAlertScope(alertId, tenantId) {
@@ -128,9 +290,18 @@ export function registerWorkflowRoutes(app) {
       if (!ALERT_STATUSES.has(status)) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unknown alert status' } });
       }
-      const parameters = [organizationId(req)];
-      const statusClause = status === 'all' ? '' : 'AND status=$2';
-      if (status !== 'all') parameters.push(status);
+      const tenantId = organizationId(req);
+      const canonicalState = await loadCanonicalAlerts(tenantId);
+      await synchronizeCanonicalAlerts(tenantId, canonicalState.alerts, canonicalState.clearableIds);
+      const parameters = [tenantId];
+      const statusClause = status === 'all'
+        ? ''
+        : status === 'active'
+          ? 'AND active=true'
+          : status === 'open'
+            ? `AND active=true AND status='open'`
+            : 'AND status=$2';
+      if (!['all', 'active', 'open'].includes(status)) parameters.push(status);
       const { rows } = await query(
         `SELECT * FROM alert_workflows
          WHERE organization_id=$1 ${statusClause}
@@ -211,21 +382,38 @@ export function registerWorkflowRoutes(app) {
     try {
       const alert = await requireAlert(req, res);
       if (!alert) return;
+      const tenantId = organizationId(req);
+      const { rows: existingRows } = await query(
+        `SELECT managed, active FROM alert_workflows
+         WHERE organization_id=$1 AND alert_id=$2`,
+        [tenantId, alert.alertId]
+      );
+      if (existingRows[0]?.managed && existingRows[0]?.active) {
+        return res.status(409).json({
+          error: {
+            code: 'LIVE_ALERT_CANNOT_BE_RESOLVED',
+            message: 'Live alerts close automatically after the monitored condition clears'
+          }
+        });
+      }
       const { rows } = await query(
         `INSERT INTO alert_workflows (
-           organization_id, alert_id, status, context, resolved_by, resolved_at
-         ) VALUES ($1, $2, 'resolved', $3, $4, now())
+           organization_id, alert_id, status, context, resolved_by, resolved_at,
+           active, resolution_reason
+         ) VALUES ($1, $2, 'resolved', $3, $4, now(), false, 'manual')
          ON CONFLICT (organization_id, alert_id) DO UPDATE SET
            status='resolved',
            context=CASE WHEN EXCLUDED.context='{}'::jsonb THEN alert_workflows.context ELSE EXCLUDED.context END,
            resolved_by=EXCLUDED.resolved_by,
            resolved_at=EXCLUDED.resolved_at,
+           active=false,
+           resolution_reason='manual',
            snoozed_by=NULL,
            snoozed_at=NULL,
            snoozed_until=NULL,
            updated_at=now()
          RETURNING *`,
-        [organizationId(req), alert.alertId, alertContext(req.body?.context), req.user.id]
+        [tenantId, alert.alertId, alertContext(req.body?.context), req.user.id]
       );
       res.json({ alert: publicAlertWorkflow(rows[0]) });
     } catch (error) {
