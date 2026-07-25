@@ -22,6 +22,8 @@ export type SensorNodeMetadata = {
   devEui?: string
   displayName?: string
   areaId?: string
+  sectionId?: string
+  sectionName?: string
   installationHeightM?: number
   model?: string
   sensors: string[]

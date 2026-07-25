@@ -4,6 +4,7 @@ import GreenhouseCanvas from './components/GreenhouseCanvas'
 import GreenhouseMapToolbar from './components/GreenhouseMapToolbar'
 import GreenhouseSettingsPanel from './components/GreenhouseSettingsPanel'
 import LayersPanel from './components/LayersPanel'
+import MapSetupGuide from './components/MapSetupGuide'
 import ObjectLibraryPanel from './components/ObjectLibraryPanel'
 import ObjectPropertiesPanel from './components/ObjectPropertiesPanel'
 import { METRICS, type MapMode, type MetricKey } from './model'
@@ -19,12 +20,16 @@ export default function GreenhouseMapTestPage() {
   const betaEnabled = window.NEUROCROP_CONFIG?.greenhouseMapBeta === true
   const editor = useMapEditor()
   const [mode, setMode] = useState<MapMode>('layout')
+  const [editing, setEditing] = useState(!integrated)
+  const [showSetupGuide, setShowSetupGuide] = useState(false)
+  const [sectionFilterId, setSectionFilterId] = useState('')
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [areas, setAreas] = useState<AreaSummary[]>([])
   const [activeAreaId, setActiveAreaId] = useState('')
   const [syncState, setSyncState] = useState<'local' | 'initializing' | 'loading' | 'saved' | 'saving' | 'error' | 'conflict' | 'readonly'>(integrated ? 'initializing' : 'local')
   const [syncMessage, setSyncMessage] = useState('')
   const [canEdit, setCanEdit] = useState(!integrated)
+  const [areaContext, setAreaContext] = useState<AreaMapContext | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const areaContextRef = useRef<AreaMapContext | null>(null)
   const revisionRef = useRef(0)
@@ -87,11 +92,15 @@ export default function GreenhouseMapTestPage() {
       .then((context) => {
         if (cancelled) return
         areaContextRef.current = context
+        setAreaContext(context)
         revisionRef.current = context.revision
         const next = context.map
           ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections)
           : createAreaMap(context.area, context.nodes, context.sections)
         editor.hydrate(next)
+        setEditing(!integrated || !context.map)
+        setShowSetupGuide(!context.map)
+        setSectionFilterId('')
         lastSyncedRef.current = JSON.stringify(next)
         setCanEdit(context.permissions.canEdit)
         setSyncState(context.permissions.canEdit ? 'saved' : 'readonly')
@@ -201,6 +210,53 @@ export default function GreenhouseMapTestPage() {
     }
   }
 
+  const moveOnCanvas = (positions: Array<{ id: string; xM: number; yM: number }>, record = true) => {
+    editor.moveObjects(positions, record)
+    if (!integrated || !activeAreaId || !canEdit || !record || positions.length !== 1) return
+    const position = positions[0]
+    const object = editor.map.objects.find((candidate) => candidate.id === position.id)
+    const sensor = object?.metadata.sensor
+    if (!object || object.type !== 'sensor-node' || !sensor?.devEui) return
+    const center = { xM: position.xM + object.widthM / 2, yM: position.yM + object.lengthM / 2 }
+    const target = editor.map.objects.find((candidate) =>
+      candidate.type === 'section-zone' &&
+      center.xM >= candidate.xM && center.xM <= candidate.xM + candidate.widthM &&
+      center.yM >= candidate.yM && center.yM <= candidate.yM + candidate.lengthM)
+    const section = target?.metadata.section
+    if (!section || section.sectionId === sensor.sectionId) return
+    void areaMapRepository.assignNodeToSection(activeAreaId, sensor.devEui, section.sectionId)
+      .then(() => {
+        editor.commit((map) => ({
+          ...map,
+          objects: map.objects.map((candidate) => {
+            if (candidate.id === object.id) {
+              return { ...candidate, metadata: { ...candidate.metadata, sensor: { ...candidate.metadata.sensor!, sectionId: section.sectionId, sectionName: section.sectionName } } }
+            }
+            const candidateSection = candidate.metadata.section
+            if (!candidateSection) return candidate
+            const delta = candidateSection.sectionId === sensor.sectionId ? -1 : candidateSection.sectionId === section.sectionId ? 1 : 0
+            return delta ? { ...candidate, metadata: { ...candidate.metadata, section: { ...candidateSection, nodeCount: Math.max(0, (candidateSection.nodeCount ?? 0) + delta) } } } : candidate
+          }),
+        }), false)
+        if (areaContextRef.current) {
+          areaContextRef.current.nodes = areaContextRef.current.nodes.map((node) =>
+            node.devEui?.toLowerCase() === sensor.devEui?.toLowerCase()
+              ? { ...node, sectionId: section.sectionId, sectionName: section.sectionName }
+              : node)
+          areaContextRef.current.sections = areaContextRef.current.sections.map((candidate) => {
+            const delta = candidate.id === sensor.sectionId ? -1 : candidate.id === section.sectionId ? 1 : 0
+            return delta ? { ...candidate, nodes: Math.max(0, candidate.nodes + delta) } : candidate
+          })
+          setAreaContext({ ...areaContextRef.current, nodes: [...areaContextRef.current.nodes] })
+        }
+        setNotice({ tone: 'success', text: `${object.name} assigned to ${section.sectionName}.` })
+      })
+      .catch((error) => {
+        editor.moveObjects([{ id: object.id, xM: object.xM, yM: object.yM }], false)
+        setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Node Section assignment failed.' })
+      })
+  }
+
   if (integrated && ['initializing', 'loading'].includes(syncState)) {
     return <div className="gh-app gh-integrated-loading"><div><i className="fa-solid fa-spinner fa-spin" /><strong>Loading Area Map Beta</strong><span>Connecting the plan with Areas, Nodes and latest sensor readings…</span></div></div>
   }
@@ -209,29 +265,34 @@ export default function GreenhouseMapTestPage() {
     return <div className="gh-app gh-integrated-loading"><div><i className="fa-solid fa-triangle-exclamation" /><strong>Area Map is not available</strong><span>{syncMessage}</span><button onClick={() => navigate('/areas')}>Back to Areas</button></div></div>
   }
 
-  const readOnly = integrated && !canEdit
-  return <div className={`gh-app ${integrated ? 'gh-integrated' : ''} ${readOnly ? 'gh-readonly' : ''}`}>
-    <GreenhouseMapToolbar mode={mode} metric={editor.map.heatmapSettings.metric} snap={editor.snap} canUndo={!readOnly && editor.canUndo} canRedo={!readOnly && editor.canRedo} selectedCount={readOnly ? 0 : editor.selected.length}
-      onMode={setMode} onMetric={updateMetric} onSnap={editor.setSnap} onUndo={readOnly ? () => undefined : editor.undo} onRedo={readOnly ? () => undefined : editor.redo} onDuplicate={readOnly ? () => undefined : editor.duplicateSelected} onDelete={readOnly ? () => undefined : editor.deleteSelected}
+  const permissionReadOnly = integrated && !canEdit
+  const canvasReadOnly = permissionReadOnly || !editing
+  const mapSections = editor.map.objects.filter((object) => object.type === 'section-zone' && object.metadata.section)
+  return <div className={`gh-app ${integrated ? 'gh-integrated' : ''} ${canvasReadOnly ? 'gh-readonly' : ''}`}>
+    <GreenhouseMapToolbar mode={mode} metric={editor.map.heatmapSettings.metric} snap={editor.snap} editing={editing && !permissionReadOnly} canUndo={editing && !permissionReadOnly && editor.canUndo} canRedo={editing && !permissionReadOnly && editor.canRedo} selectedCount={editing && !permissionReadOnly ? editor.selected.length : 0}
+      onMode={setMode} onMetric={updateMetric} onSnap={editor.setSnap} onUndo={permissionReadOnly ? () => undefined : editor.undo} onRedo={permissionReadOnly ? () => undefined : editor.redo} onDuplicate={canvasReadOnly ? () => undefined : editor.duplicateSelected} onDelete={canvasReadOnly ? () => undefined : editor.deleteSelected}
     />
     <div className="gh-action-strip">
       <button onClick={() => navigate(integrated ? '/areas' : '/')}><i className="fa-solid fa-arrow-left" /> {integrated ? 'Back to Areas' : 'Exit test lab'}</button>
       <span />
       {integrated ? <label className="gh-area-selector"><span>Area</span><select value={activeAreaId} onChange={(event) => { setSyncState('loading'); setSyncMessage(''); setActiveAreaId(event.target.value); setSearchParams({ area: event.target.value }, { replace: true }) }}>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label> : null}
-      <small className={`gh-sync-state ${syncState}`}><i className={`fa-solid ${integrated ? syncState === 'saving' ? 'fa-arrows-rotate fa-spin' : syncState === 'conflict' || syncState === 'error' ? 'fa-triangle-exclamation' : readOnly ? 'fa-eye' : 'fa-cloud' : 'fa-flask'}`} /> {integrated ? readOnly ? 'Read only · live API data' : syncMessage || 'Backend autosave ready' : 'Local prototype · API disconnected'}</small>
-      <button disabled={readOnly || syncState === 'saving'} onClick={() => { if (integrated) void saveRemote(); else { editor.save(); setNotice({ tone: 'success', text: 'Plan saved in this browser.' }) } }}><i className="fa-regular fa-floppy-disk" /> {syncState === 'saving' ? 'Saving…' : 'Save'}</button>
+      <small className={`gh-sync-state ${syncState}`}><i className={`fa-solid ${integrated ? syncState === 'saving' ? 'fa-arrows-rotate fa-spin' : syncState === 'conflict' || syncState === 'error' ? 'fa-triangle-exclamation' : permissionReadOnly ? 'fa-eye' : 'fa-cloud' : 'fa-flask'}`} /> {integrated ? permissionReadOnly ? 'Read only · live API data' : syncMessage || 'Backend autosave ready' : 'Local prototype · API disconnected'}</small>
+      {integrated && !permissionReadOnly ? <button className={editing ? 'gh-edit-active' : ''} onClick={() => { setEditing((current) => !current); if (!editing) setMode('layout') }}><i className={`fa-solid ${editing ? 'fa-eye' : 'fa-pen-ruler'}`} /> {editing ? 'Finish editing' : 'Edit map'}</button> : null}
+      {integrated ? <button onClick={() => setShowSetupGuide(true)}><i className="fa-regular fa-circle-question" /> Setup guide</button> : null}
+      <button disabled={permissionReadOnly || syncState === 'saving'} onClick={() => { if (integrated) void saveRemote(); else { editor.save(); setNotice({ tone: 'success', text: 'Plan saved in this browser.' }) } }}><i className="fa-regular fa-floppy-disk" /> {syncState === 'saving' ? 'Saving…' : 'Save'}</button>
       <button onClick={exportMap}><i className="fa-solid fa-arrow-up-from-bracket" /> Export JSON</button>
       <button onClick={() => inputRef.current?.click()}><i className="fa-solid fa-arrow-down-to-bracket" /> Import JSON</button>
       <input ref={inputRef} hidden type="file" accept="application/json,.json" onChange={(event) => void importFile(event.target.files?.[0])} />
-      <button className="danger" disabled={readOnly} onClick={resetMap}><i className="fa-solid fa-arrow-rotate-left" /> Reset map</button>
+      <button className="danger" disabled={canvasReadOnly} onClick={resetMap}><i className="fa-solid fa-arrow-rotate-left" /> Reset map</button>
     </div>
     <div className="gh-workspace">
       <aside className="gh-left-panel">
-        {!readOnly ? <GreenhouseSettingsPanel map={editor.map} onChange={(next) => editor.commit(() => next)} /> : null}
-        {!readOnly ? <ObjectLibraryPanel onAdd={editor.addObject} /> : null}
+        {!canvasReadOnly ? <GreenhouseSettingsPanel map={editor.map} onChange={(next) => editor.commit(() => next)} /> : null}
+        {!canvasReadOnly ? <ObjectLibraryPanel onAdd={editor.addObject} /> : null}
         <section className="gh-panel-section gh-view-settings">
           <header><div><small>INTERPOLATION</small><h2>View settings</h2></div><i className="fa-solid fa-sliders" /></header>
           <label className="gh-field wide"><span>Environment metric</span><select value={editor.map.heatmapSettings.metric} onChange={(event) => updateMetric(event.target.value as MetricKey)}>{(Object.keys(METRICS) as MetricKey[]).map((metric) => <option value={metric} key={metric}>{METRICS[metric].label}</option>)}</select></label>
+          <label className="gh-field wide"><span>Climate map area</span><select value={sectionFilterId} onChange={(event) => setSectionFilterId(event.target.value)}><option value="">Whole Area</option>{mapSections.map((object) => <option value={object.metadata.section!.sectionId} key={object.id}>{object.metadata.section!.sectionName}</option>)}</select></label>
           <div className="gh-field-row"><label className="gh-field"><span>IDW power</span><input type="number" min=".1" max="10" step=".1" value={editor.map.heatmapSettings.idwPower} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, idwPower: Math.max(.1, Number(event.target.value) || 2) } }))} /></label><label className="gh-field"><span>Heatmap opacity</span><input type="number" min="0" max="1" step=".05" value={editor.map.heatmapSettings.opacity} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, opacity: Math.max(0, Math.min(1, Number(event.target.value))) } }))} /></label></div>
           <div className="gh-toggle-row"><label><input type="checkbox" checked={editor.map.heatmapSettings.showConfidence} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, showConfidence: event.target.checked } }))} /><span>Confidence fade</span></label></div>
           <div className="gh-scale-toggle"><button className={editor.map.heatmapSettings.scaleMode === 'auto' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'auto' } }))}>Auto scale</button><button className={editor.map.heatmapSettings.scaleMode === 'manual' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'manual', manualMin: map.heatmapSettings.manualMin ?? METRICS[map.heatmapSettings.metric].bounds[0], manualMax: map.heatmapSettings.manualMax ?? METRICS[map.heatmapSettings.metric].bounds[1] } }))}>Manual</button></div>
@@ -239,9 +300,10 @@ export default function GreenhouseMapTestPage() {
         </section>
         <LayersPanel layers={editor.map.layers} onChange={(layers) => editor.commit((map) => ({ ...map, layers }))} />
       </aside>
-      <GreenhouseCanvas map={editor.map} mode={mode} readOnly={readOnly} selectedIds={editor.selectedIds} snap={editor.snap} onSelect={editor.setSelectedIds} onMove={editor.moveObjects} onUpdate={readOnly ? () => undefined : editor.updateObject} onAdd={readOnly ? () => undefined : editor.addObject} />
-      <ObjectPropertiesPanel map={editor.map} selected={editor.selected} onUpdate={readOnly ? () => undefined : editor.updateObject} onAlign={readOnly ? () => undefined : align} />
+      <GreenhouseCanvas map={editor.map} mode={mode} readOnly={canvasReadOnly} sectionFilterId={sectionFilterId || undefined} selectedIds={editor.selectedIds} snap={editor.snap} onSelect={editor.setSelectedIds} onMove={moveOnCanvas} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAdd={canvasReadOnly ? () => undefined : editor.addObject} />
+      <ObjectPropertiesPanel map={editor.map} selected={editor.selected} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAlign={canvasReadOnly ? () => undefined : align} />
     </div>
+    {showSetupGuide && areaContext ? <MapSetupGuide area={areaContext.area} map={editor.map} sections={areaContext.sections} nodes={areaContext.nodes} onMapChange={(map) => editor.commit(() => map)} onOpenSections={() => navigate('/sections')} onClose={() => { setShowSetupGuide(false); if (!permissionReadOnly) { setEditing(true); setMode('layout') } }} /> : null}
     {notice ? <button className={`gh-notice ${notice.tone}`} onClick={() => setNotice(null)}><i className={`fa-solid ${notice.tone === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation'}`} />{notice.text}<i className="fa-solid fa-xmark" /></button> : null}
   </div>
 }

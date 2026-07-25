@@ -57,6 +57,7 @@ test('Area Map routes are authenticated, role protected and organization scoped'
   const source = await fs.readFile(new URL('../greenhouse-map-routes.js', import.meta.url), 'utf8');
   assert.match(source, /app\.get\('\/areas\/:areaId\/map', requireUserAuth/);
   assert.match(source, /app\.patch\('\/areas\/:areaId\/map', requireUserAuth, requireRole\(\.\.\.writableRoles\)/);
+  assert.match(source, /app\.patch\('\/areas\/:areaId\/map\/nodes\/:devEui\/section', requireUserAuth, requireRole\(\.\.\.writableRoles\)/);
   assert.match(source, /const organizationId = req\.user\.organizationId/);
   assert.match(source, /WHERE organization_id=\$1 AND area_id=\$2/);
   assert.match(source, /n\.organization_id=\$1/);

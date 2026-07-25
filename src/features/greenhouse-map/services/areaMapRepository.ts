@@ -244,4 +244,7 @@ export const areaMapRepository = {
   async save(areaId: string, map: GreenhouseMap, expectedRevision: number): Promise<AreaMapSaveResult> {
     return await neurocropApi.saveGreenhouseMap(areaId, { map: { ...map, areaId }, expectedRevision }) as AreaMapSaveResult
   },
+  async assignNodeToSection(areaId: string, devEui: string, sectionId: string) {
+    return await neurocropApi.assignMapNodeSection(areaId, devEui, sectionId) as { node: { devEui: string; sectionId: string; areaId: string } }
+  },
 }

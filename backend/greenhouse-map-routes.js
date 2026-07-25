@@ -167,6 +167,38 @@ async function getAreaNodes(organizationId, areaId) {
 }
 
 export function registerGreenhouseMapRoutes(app) {
+  app.patch('/areas/:areaId/map/nodes/:devEui/section', requireUserAuth, requireRole(...writableRoles), async (req, res, next) => {
+    const organizationId = req.user.organizationId;
+    const areaId = String(req.params.areaId || '').trim();
+    const devEui = String(req.params.devEui || '').trim().toLowerCase();
+    const sectionId = String(req.body?.sectionId || '').trim();
+    if (!/^[0-9a-f]{16}$/.test(devEui) || !sectionId) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A valid DevEUI and sectionId are required' } });
+    }
+    try {
+      const { rows } = await query(
+        `UPDATE nodes n
+         SET section_id=s.id, area_id=s.area_id
+         FROM sections s
+         WHERE lower(n.dev_eui)=$1
+           AND n.organization_id=$2
+           AND n.area_id=$3
+           AND n.archived_at IS NULL
+           AND s.id=$4
+           AND s.organization_id=$2
+           AND s.area_id=$3
+         RETURNING n.dev_eui, n.section_id, n.area_id`,
+        [devEui, organizationId, areaId, sectionId]
+      );
+      if (!rows[0]) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node or target Section was not found in this Area' } });
+      }
+      res.json({ node: { devEui: rows[0].dev_eui, sectionId: rows[0].section_id, areaId: rows[0].area_id } });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get('/areas/:areaId/map', requireUserAuth, async (req, res, next) => {
     const organizationId = req.user.organizationId;
     const areaId = String(req.params.areaId || '').trim();

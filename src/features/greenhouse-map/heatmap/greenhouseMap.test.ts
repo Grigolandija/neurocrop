@@ -43,6 +43,14 @@ describe('measurement filtering and grid sizing', () => {
     map.objects[11].xM = 50
     expect(getValidMeasurementPoints(map, 'air-temperature')).toHaveLength(0)
   })
+  it('filters climate measurements to the selected Section', () => {
+    const map = createDemoMap()
+    map.objects.filter((object) => object.metadata.sensor).forEach((object, index) => {
+      object.metadata.sensor!.sectionId = index < 2 ? 'section-a' : 'section-b'
+    })
+    expect(getValidMeasurementPoints(map, 'air-temperature', 'section-a')).toHaveLength(2)
+    expect(getValidMeasurementPoints(map, 'air-temperature', 'section-b')).toHaveLength(2)
+  })
   it('keeps adaptive grids useful for very small greenhouses', () => {
     const resolution = gridResolution(.2, .1)
     expect(resolution.width).toBeGreaterThanOrEqual(100)

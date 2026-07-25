@@ -10,6 +10,7 @@ type Props = {
   map: GreenhouseMap
   mode: MapMode
   readOnly?: boolean
+  sectionFilterId?: string
   selectedIds: string[]
   snap: boolean
   onSelect: (ids: string[]) => void
@@ -75,7 +76,7 @@ function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale,
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, selectedIds, snap, onSelect, onMove, onUpdate, onAdd }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionFilterId, selectedIds, snap, onSelect, onMove, onUpdate, onAdd }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -113,7 +114,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, selected
     transformer.getLayer()?.batchDraw()
   }, [selectedIds, mode, map.objects])
 
-  const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric), [map])
+  const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric, sectionFilterId), [map, sectionFilterId])
   useEffect(() => {
     if (mode !== 'environment' || !map.heatmapSettings.enabled) {
       const clearTimer = window.setTimeout(() => setHeatmap(null), 0)
@@ -222,11 +223,11 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, selected
     </div>
     {mode === 'environment' ? <div className="gh-heatmap-legend">
       <small>ESTIMATED ENVIRONMENT MAP</small><strong>{METRICS[map.heatmapSettings.metric].label}</strong>
-      {heatmap ? <><div className="gh-color-scale" style={{ background: `linear-gradient(90deg, ${METRICS[map.heatmapSettings.metric].colors.join(',')})` }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div><p>Estimated from {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count === 1 ? <em>Low confidence: only one valid sensor.</em> : null}</> : <p>No valid online sensor data for this metric.</p>}
+      {heatmap ? <><div className="gh-color-scale" style={{ background: `linear-gradient(90deg, ${METRICS[map.heatmapSettings.metric].colors.join(',')})` }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div><p>{sectionFilterId ? 'Selected Section' : 'Whole Area'} · estimated from {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count === 1 ? <em>Low confidence: only one valid sensor.</em> : null}</> : <p>No valid online sensor data for this metric and Section.</p>}
       <em>Interpolated estimate based on sensor locations. Values between sensors are not directly measured.</em>
     </div> : null}
     {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> Approximate planned sensor coverage, not a physical propagation model.</div> : null}
-    {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> Indicative LoRa quality based on mock RSSI, SNR and node status.</div> : null}
+    {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> Latest LoRa quality based on RSSI, SNR and node status. It is not a propagation map.</div> : null}
     <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> {mouse && mouse.xM >= 0 && mouse.yM >= 0 && mouse.xM <= map.dimensions.widthM && mouse.yM <= map.dimensions.lengthM ? `X ${mouse.xM.toFixed(2)} m · Y ${mouse.yM.toFixed(2)} m` : 'Outside plan'}</span><span>Grid {map.gridSizeM} m</span><span>Zoom {Math.round(view.scale / 40 * 100)}%</span><span>{selectedIds.length ? `${selectedIds.length} selected` : snap ? 'Snap enabled' : 'Free placement'}</span></footer>
   </main>
 }

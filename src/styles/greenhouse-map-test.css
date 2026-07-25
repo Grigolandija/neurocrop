@@ -54,6 +54,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   color: #385047; background: transparent; font-size: 11px; font-weight: 600;
 }
 .gh-action-strip button:hover { background: #edf2ed; }
+.gh-action-strip button.gh-edit-active { color: #fff; background: #2d6b54; }
 .gh-action-strip button.danger { color: #9b4c3e; }
 .gh-action-strip small { margin-right: auto; color: #78837e; font: 500 9px/1 'IBM Plex Mono'; letter-spacing: .04em; text-transform: uppercase; }
 .gh-action-strip button:disabled { cursor: not-allowed; opacity: .42; }
@@ -179,6 +180,41 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 }
 .gh-notice.error { border-color: #d4aea6; color: #7a3f35; background: #fff8f6; }
 .gh-notice i:last-child { margin-left: auto; }
+.gh-setup-backdrop {
+  position: fixed; z-index: 1200; inset: 0; display: grid; place-items: center;
+  padding: 24px; background: rgba(14,35,29,.56); backdrop-filter: blur(3px);
+}
+.gh-setup-guide {
+  width: min(610px, 92vw); max-height: 88vh; overflow: auto; border: 1px solid #b9c9bf;
+  color: #20382f; background: #fff; box-shadow: 0 24px 80px rgba(8,29,22,.3);
+}
+.gh-setup-guide > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid #dce3de; }
+.gh-setup-guide > header small { color: #708078; font: 600 9px 'IBM Plex Mono'; letter-spacing: .12em; }
+.gh-setup-guide > header h2 { margin: 4px 0 0; font-size: 19px; }
+.gh-setup-guide > header button { width: 32px; height: 32px; color: #62736b; background: #f0f4f0; }
+.gh-setup-guide > ol { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin: 0; padding: 15px 20px; list-style: none; background: #f4f7f3; }
+.gh-setup-guide > ol li { display: flex; align-items: center; gap: 7px; color: #8a9690; font-size: 10px; font-weight: 700; }
+.gh-setup-guide > ol li::after { content: ''; flex: 1; height: 1px; margin: 0 8px; background: #d2dad4; }
+.gh-setup-guide > ol li:last-child::after { display: none; }
+.gh-setup-guide > ol li span { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid #c9d3cc; border-radius: 50%; background: #fff; font: 600 9px 'IBM Plex Mono'; }
+.gh-setup-guide > ol li.active { color: #245b48; }
+.gh-setup-guide > ol li.active span { border-color: #2d7158; color: #fff; background: #2d7158; }
+.gh-setup-guide > ol li.done span { border-color: #85ad99; color: #2d7158; background: #e5f0e9; }
+.gh-setup-step { min-height: 285px; padding: 30px 48px 22px; text-align: center; }
+.gh-setup-icon { display: grid; place-items: center; width: 48px; height: 48px; margin: 0 auto 13px; color: #fff; background: #2d6b54; font-size: 18px; }
+.gh-setup-step h3 { margin: 0 0 7px; font-size: 18px; }
+.gh-setup-step > p { max-width: 430px; margin: 0 auto 20px; color: #66766f; font-size: 11px; line-height: 1.5; }
+.gh-setup-step .gh-field-row { max-width: 360px; margin: 0 auto; text-align: left; }
+.gh-setup-list { display: grid; gap: 5px; max-height: 150px; overflow: auto; margin: 0 auto 14px; text-align: left; }
+.gh-setup-list > span { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 7px; min-height: 34px; padding: 5px 9px; border: 1px solid #dce3de; background: #f8faf7; }
+.gh-setup-list i { color: #4e927d; font-size: 8px; }
+.gh-setup-list b { font-size: 10px; }
+.gh-setup-list small { color: #75827c; font: 500 8px 'IBM Plex Mono'; }
+.gh-setup-step button.primary, .gh-setup-guide > footer button.primary { color: #fff; background: #2d6b54; }
+.gh-setup-guide > footer { display: flex; align-items: center; gap: 8px; padding: 13px 20px; border-top: 1px solid #dce3de; background: #fafbf9; }
+.gh-setup-guide > footer span { flex: 1; }
+.gh-setup-guide > footer button { min-width: 84px; height: 34px; padding: 0 13px; color: #50635a; background: #edf2ed; font-size: 10px; font-weight: 700; }
+.gh-setup-guide > footer button:disabled { opacity: .35; }
 .gh-integrated-loading { display: grid; place-items: center; background: #edf1ec; }
 .gh-integrated-loading > div { display: grid; place-items: center; width: min(430px, 90vw); border: 1px solid #ccd6cf; padding: 42px; background: #fff; box-shadow: 0 16px 45px rgba(26,55,44,.12); text-align: center; }
 .gh-integrated-loading i { margin-bottom: 16px; color: #2d7057; font-size: 24px; }
