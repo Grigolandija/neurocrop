@@ -2696,8 +2696,8 @@
         setManagementModalError(diagnosticText("Select what was actually done.", "Pasirinkite, kas realiai buvo padaryta."));
         return;
       }
-      if (type === "other" && !adjustment) {
-        setManagementModalError(diagnosticText("Briefly describe the other action.", "Trumpai aprašykite kitą atliktą veiksmą."));
+      if (!adjustment) {
+        setManagementModalError(diagnosticText("Describe the actual change or finding.", "Aprašykite realų pakeitimą arba radinį."));
         return;
       }
 
@@ -4616,17 +4616,21 @@
         ? todayPriorityFeedbackState
         : null;
       const feedbackStatusLabels = {
-        completed: diagnosticText("Done", "Atlikta"),
+        in_progress: diagnosticText("In progress", "Vykdoma"),
+        completed: diagnosticText("Awaiting verification", "Laukiama patvirtinimo"),
         deferred: diagnosticText("Deferred", "Atidėta"),
         failed: diagnosticText("Could not complete", "Nepavyko atlikti")
       };
+      const actionInProgress = persistedFeedback?.status === "in_progress";
       const feedbackControls = action?.backendAction ? `
         <div class="today-priority-feedback" data-saving="${localFeedback?.saving === true}">
-          <span class="today-priority-feedback-label">${diagnosticText("Was this action carried out?", "Ar šis veiksmas atliktas?")}</span>
+          <span class="today-priority-feedback-label">${actionInProgress ? diagnosticText("Record what was performed", "Užregistruokite, kas atlikta") : diagnosticText("Start this check before changing equipment", "Pradėkite patikrą prieš keisdami įrangą")}</span>
           <div class="today-priority-feedback-actions" role="group" aria-label="${diagnosticText("Record action outcome", "Išsaugoti veiksmo rezultatą")}">
-            <button type="button" data-today-feedback="completed" ${localFeedback?.saving || persistedFeedback?.status === "completed" ? "disabled" : ""}><i class="fa-solid fa-check" aria-hidden="true"></i>${diagnosticText("Done", "Atlikta")}</button>
-            <button type="button" data-today-feedback="deferred" ${localFeedback?.saving || persistedFeedback?.status === "deferred" ? "disabled" : ""}><i class="fa-regular fa-clock" aria-hidden="true"></i>${diagnosticText("Defer", "Atidėti")}</button>
-            <button type="button" data-today-feedback="failed" ${localFeedback?.saving || persistedFeedback?.status === "failed" ? "disabled" : ""}><i class="fa-solid fa-xmark" aria-hidden="true"></i>${diagnosticText("Could not complete", "Nepavyko")}</button>
+            ${actionInProgress
+              ? `<button type="button" data-today-feedback="completed" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>${diagnosticText("Record work", "Užregistruoti darbą")}</button>
+                 <button type="button" data-today-feedback="failed" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-solid fa-xmark" aria-hidden="true"></i>${diagnosticText("Could not complete", "Nepavyko")}</button>`
+              : `<button type="button" data-today-feedback="in_progress" ${localFeedback?.saving || persistedFeedback?.status === "completed" ? "disabled" : ""}><i class="fa-solid fa-play" aria-hidden="true"></i>${diagnosticText("Start check", "Pradėti patikrą")}</button>
+                 <button type="button" data-today-feedback="deferred" ${localFeedback?.saving || persistedFeedback?.status === "deferred" ? "disabled" : ""}><i class="fa-regular fa-clock" aria-hidden="true"></i>${diagnosticText("Defer", "Atidėti")}</button>`}
           </div>
           ${(localFeedback?.message || persistedFeedback) ? `
             <div class="today-priority-feedback-status" data-error="${localFeedback?.error === true}" role="${localFeedback?.error ? "alert" : "status"}" aria-live="polite">
@@ -5451,9 +5455,12 @@
       renderDashboard();
 
       try {
+        const submittedAction = status === "completed" && action.workflowAction
+          ? action.workflowAction
+          : action;
         const response = await window.NeuroCropApi.submitTodayActionFeedback(action.id, {
           status,
-          action,
+          action: submittedAction,
           note: options.note || "",
           ...(options.executionDetails ? { executionDetails: options.executionDetails } : {})
         });
@@ -5466,7 +5473,8 @@
         });
         if (Array.isArray(historyResponse?.items)) backendActionHistory = historyResponse.items;
         const statusLabel = {
-          completed: diagnosticText("Done", "Atlikta"),
+          in_progress: diagnosticText("In progress", "Vykdoma"),
+          completed: diagnosticText("Awaiting verification", "Laukiama patvirtinimo"),
           deferred: diagnosticText("Deferred", "Atidėta"),
           failed: diagnosticText("Could not complete", "Nepavyko atlikti")
         }[status] || status;
@@ -13002,20 +13010,24 @@ function buildTrendMetricOptions(options) {
       const localFeedback = todayPriorityFeedbackState.actionId === action.id ? todayPriorityFeedbackState : null;
       const persistedFeedback = action.feedback || null;
       const feedbackLabels = {
-        completed: diagnosticText("Done", "Atlikta"),
+        in_progress: diagnosticText("In progress", "Vykdoma"),
+        completed: diagnosticText("Awaiting verification", "Laukiama patvirtinimo"),
         deferred: diagnosticText("Deferred", "Atidėta"),
         failed: diagnosticText("Could not complete", "Nepavyko atlikti")
       };
+      const actionInProgress = persistedFeedback?.status === "in_progress";
       const persistedText = persistedFeedback
         ? `${feedbackLabels[persistedFeedback.status] || persistedFeedback.status} · ${new Date(persistedFeedback.createdAt).toLocaleString(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}`
         : "";
       return `
         <div class="triage-feedback" data-saving="${localFeedback?.saving === true}">
-          <span>${diagnosticText("Was this action carried out?", "Ar šis veiksmas atliktas?")}</span>
+          <span>${actionInProgress ? diagnosticText("Record what was performed", "Užregistruokite, kas atlikta") : diagnosticText("Start this check before changing equipment", "Pradėkite patikrą prieš keisdami įrangą")}</span>
           <div class="triage-feedback-actions" role="group" aria-label="${diagnosticText("Record action outcome", "Išsaugoti veiksmo rezultatą")}">
-            <button type="button" data-triage-feedback="completed" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving || persistedFeedback?.status === "completed" ? "disabled" : ""}><i class="fa-solid fa-check" aria-hidden="true"></i>${diagnosticText("Done", "Atlikta")}</button>
-            <button type="button" data-triage-feedback="deferred" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving || persistedFeedback?.status === "deferred" ? "disabled" : ""}><i class="fa-regular fa-clock" aria-hidden="true"></i>${diagnosticText("Defer", "Atidėti")}</button>
-            <button type="button" data-triage-feedback="failed" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving || persistedFeedback?.status === "failed" ? "disabled" : ""}><i class="fa-solid fa-xmark" aria-hidden="true"></i>${diagnosticText("Could not complete", "Nepavyko")}</button>
+            ${actionInProgress
+              ? `<button type="button" data-triage-feedback="completed" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>${diagnosticText("Record work", "Užregistruoti darbą")}</button>
+                 <button type="button" data-triage-feedback="failed" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving ? "disabled" : ""}><i class="fa-solid fa-xmark" aria-hidden="true"></i>${diagnosticText("Could not complete", "Nepavyko")}</button>`
+              : `<button type="button" data-triage-feedback="in_progress" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving || persistedFeedback?.status === "completed" ? "disabled" : ""}><i class="fa-solid fa-play" aria-hidden="true"></i>${diagnosticText("Start check", "Pradėti patikrą")}</button>
+                 <button type="button" data-triage-feedback="deferred" data-action-id="${escapeAttribute(action.id)}" ${localFeedback?.saving || persistedFeedback?.status === "deferred" ? "disabled" : ""}><i class="fa-regular fa-clock" aria-hidden="true"></i>${diagnosticText("Defer", "Atidėti")}</button>`}
           </div>
           ${(localFeedback?.message || persistedText) ? `<small data-error="${localFeedback?.error === true}" role="${localFeedback?.error ? "alert" : "status"}" aria-live="polite"><i class="fa-solid ${localFeedback?.error ? "fa-triangle-exclamation" : localFeedback?.saving ? "fa-circle-notch fa-spin" : "fa-circle-check"}" aria-hidden="true"></i>${escapeHtml(localFeedback?.message || persistedText)}</small>` : ""}
         </div>

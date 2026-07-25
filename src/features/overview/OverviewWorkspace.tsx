@@ -366,7 +366,7 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   const sites = asArray(dashboard?.sites)
   if (!sites.length) return null
   const allActions = asArray(actionPayload?.actions)
-  const actions = allActions.filter((action) => action.feedback?.status !== 'completed')
+  const actions = allActions.filter((action) => !action.feedback || action.feedback?.status === 'in_progress')
   const priorityAreaId = String(actions[0]?.areaId || '')
   const site = sites.find((item) => String(item.id) === selectedAreaId)
     || sites.find((item) => String(item.id) === priorityAreaId)
@@ -605,8 +605,11 @@ function EvidenceDrawer({ model, row, onClose }: {
 }
 
 type WorkflowItemState = {
-  status: 'open' | 'in-progress' | 'submitting' | 'checked'
+  status: 'open' | 'in-progress' | 'submitting' | 'submitted'
   note: string
+  executionType: string
+  adjustment: string
+  duration: string
   error: string
 }
 
@@ -619,11 +622,14 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
   const [items, setItems] = useState<Record<string, WorkflowItemState>>(() => Object.fromEntries(
     actions.map((action) => [String(action.id), {
       status: action.feedback?.status === 'completed'
-        ? 'checked'
+        ? 'submitted'
         : action.feedback?.status === 'in_progress'
           ? 'in-progress'
           : 'open',
       note: '',
+      executionType: '',
+      adjustment: '',
+      duration: '',
       error: '',
     }]),
   ))
@@ -638,8 +644,9 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
 
   async function completeAction(action: JsonRecord) {
     const actionId = String(action.id)
+    const workflowAction = action.workflowAction || action
     const item = items[actionId]
-    if (!item || item.status === 'submitting' || item.status === 'checked') return
+    if (!item || item.status === 'submitting' || item.status === 'submitted') return
     if (item.status === 'open') {
       updateItem(actionId, { status: 'submitting', error: '' })
       try {
@@ -659,17 +666,34 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
       }
       return
     }
+    if (!item.executionType) {
+      updateItem(actionId, { error: 'Select what was actually done.' })
+      return
+    }
+    if (!item.adjustment.trim()) {
+      updateItem(actionId, { error: 'Describe the actual change or finding.' })
+      return
+    }
+    const durationMinutes = item.duration === '' ? null : Number(item.duration)
+    if (durationMinutes !== null && (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440)) {
+      updateItem(actionId, { error: 'Duration must be between 1 and 1440 minutes.' })
+      return
+    }
     updateItem(actionId, { status: 'submitting', error: '' })
     try {
       if (neurocropApi.isConnected()) {
         await neurocropApi.submitTodayActionFeedback(actionId, {
           status: 'completed',
           note: item.note,
-          executionDetails: { type: 'equipment_checked', adjustment: action.recommendedAction || 'Checked equipment', durationMinutes: null },
-          action,
+          executionDetails: {
+            type: item.executionType,
+            adjustment: item.adjustment.trim(),
+            durationMinutes,
+          },
+          action: workflowAction,
         })
       }
-      updateItem(actionId, { status: 'checked' })
+      updateItem(actionId, { status: 'submitted' })
     } catch (reason) {
       updateItem(actionId, {
         status: 'in-progress',
@@ -691,7 +715,7 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
       <section className="nc-action-items">
         {actions.map((action) => {
           const actionId = String(action.id)
-          const item = items[actionId] || { status: 'open', note: '', error: '' }
+          const item = items[actionId] || { status: 'open', note: '', executionType: '', adjustment: '', duration: '', error: '' }
           const row = rowsById.get(String(action.sectionId))
           const actionValue = Number(action.value)
           const currentValue = row?.currentValue ?? (Number.isFinite(actionValue) ? actionValue : null)
@@ -699,7 +723,7 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
           return <article className="nc-action-item" data-status={item.status} key={actionId}>
             <header>
               <div><span>{action.metricLabel || 'Condition check'}</span><h3>{action.sectionName || row?.name || 'Unnamed Section'}</h3></div>
-              <span className={`nc-workflow-status ${item.status}`}><i />{item.status === 'checked' ? 'Checked' : item.status === 'open' ? 'Not started' : 'In progress'}</span>
+              <span className={`nc-workflow-status ${item.status}`}><i />{item.status === 'submitted' ? 'Awaiting verification' : item.status === 'open' ? 'Not started' : 'In progress'}</span>
             </header>
             <div className="nc-action-values">
               <div><span>Current</span><strong>{formatMeasurement(currentValue, unit)}</strong></div>
@@ -713,12 +737,32 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
             <AgronomicDiagnosis action={action} />
             <div className="nc-action-recommendation"><span>Recommended check</span><p>{action.recommendedAction || 'Inspect the relevant controls and sensor placement.'}</p></div>
             {item.status !== 'open'
-              ? <label className="nc-action-note"><span>Result note</span><textarea value={item.note} onChange={(event) => updateItem(actionId, { note: event.target.value })} placeholder="What did you find or change?" maxLength={500} disabled={item.status === 'checked'} /></label>
+              ? <div className="nc-action-record">
+                <label><span>What was done</span><select value={item.executionType} onChange={(event) => updateItem(actionId, { executionType: event.target.value })} disabled={item.status === 'submitted'}>
+                  <option value="">Select performed action</option>
+                  <option value="ventilation_increased">Ventilation increased</option>
+                  <option value="ventilation_reduced">Ventilation reduced</option>
+                  <option value="vents_opened">Vents opened</option>
+                  <option value="heating_increased">Heating increased</option>
+                  <option value="heating_reduced">Heating reduced</option>
+                  <option value="cooling_increased">Cooling increased</option>
+                  <option value="cooling_reduced">Cooling reduced</option>
+                  <option value="humidification_increased">Humidification increased</option>
+                  <option value="humidification_reduced">Humidification reduced</option>
+                  <option value="irrigation_adjusted">Irrigation adjusted</option>
+                  <option value="shading_adjusted">Shading adjusted</option>
+                  <option value="equipment_checked">Equipment checked</option>
+                  <option value="other">Other</option>
+                </select></label>
+                <label><span>Actual change or finding</span><input value={item.adjustment} onChange={(event) => updateItem(actionId, { adjustment: event.target.value })} placeholder="Example: AC setpoint increased from 18 to 20 °C" maxLength={160} disabled={item.status === 'submitted'} /></label>
+                <label><span>Duration, minutes (optional)</span><input type="number" min="1" max="1440" value={item.duration} onChange={(event) => updateItem(actionId, { duration: event.target.value })} disabled={item.status === 'submitted'} /></label>
+                <label><span>Additional note (optional)</span><textarea value={item.note} onChange={(event) => updateItem(actionId, { note: event.target.value })} placeholder="Anything the next employee should know" maxLength={500} disabled={item.status === 'submitted'} /></label>
+              </div>
               : null}
             {item.error ? <p className="nc-action-error" role="alert">{item.error}</p> : null}
             <footer>
-              <button className={item.status === 'checked' ? 'checked' : ''} type="button" onClick={() => completeAction(action)} disabled={item.status === 'submitting' || item.status === 'checked'}>
-                {item.status === 'open' ? 'Start check' : item.status === 'checked' ? 'Checked' : item.status === 'submitting' ? 'Saving…' : 'Mark as checked'}
+              <button className={item.status === 'submitted' ? 'checked' : ''} type="button" onClick={() => completeAction(action)} disabled={item.status === 'submitting' || item.status === 'submitted'}>
+                {item.status === 'open' ? 'Start check' : item.status === 'submitted' ? 'Awaiting verification' : item.status === 'submitting' ? 'Saving…' : 'Submit for verification'}
               </button>
             </footer>
           </article>
@@ -887,7 +931,7 @@ export default function OverviewWorkspace() {
   const reviewRows = visibleActions.length ? actionRows : watchRows
   const openChecks = reviewActions.filter((action) => action.feedback?.status !== 'in_progress').length
   const inProgressChecks = reviewActions.filter((action) => action.feedback?.status === 'in_progress').length
-  const completedToday = Number(summary.today?.completed || 0)
+  const recordedToday = Number(summary.today?.completed || 0)
   const month = summary.month || {}
   const recentResults = asArray(summary.recentResults).slice(0, 3)
   const scopeLabel = stable
@@ -1000,12 +1044,12 @@ export default function OverviewWorkspace() {
         <div className="nc-progress-stats">
           <div data-tone="open"><strong>{openChecks}</strong><span>Open</span></div>
           <div data-tone="progress"><strong>{inProgressChecks}</strong><span>In progress</span></div>
-          <div data-tone="done"><strong>{completedToday}</strong><span>Completed</span></div>
+          <div data-tone="done"><strong>{recordedToday}</strong><span>Recorded</span></div>
         </div>
         <p>Checks are counted from real workflow activity recorded today.</p>
       </article>
       <article className="nc-overview-insight nc-results-card">
-        <header><div><span>Verified results</span><h2>What changed after action</h2></div><i className="fa-solid fa-wave-square" /></header>
+        <header><div><span>Action outcomes</span><h2>Sensor verification after work</h2></div><i className="fa-solid fa-wave-square" /></header>
         {recentResults.length
           ? <div className="nc-result-list">{recentResults.map((result) => {
               const outcome = result.outcome || {}
@@ -1033,12 +1077,12 @@ export default function OverviewWorkspace() {
                 <span><strong>{hasComparison ? `${formatMeasurement(baseline, normalizeUnit(result.unit))} → ${formatMeasurement(current, normalizeUnit(result.unit))}` : label}</strong><small>{hasComparison ? label : outcome.label || 'Collecting sensor readings'}</small></span>
               </div>
             })}</div>
-          : <div className="nc-insight-empty"><i className="fa-regular fa-clock" /><span><strong>No verified results yet</strong><small>Completed checks will appear after enough new sensor readings arrive.</small></span></div>}
+          : <div className="nc-insight-empty"><i className="fa-regular fa-clock" /><span><strong>No action outcomes yet</strong><small>Recorded work will appear after enough new sensor readings arrive.</small></span></div>}
       </article>
       <article className="nc-overview-insight nc-value-card">
         <header><div><span>Value this month</span><h2>Recorded operational value</h2></div><i className="fa-solid fa-chart-line" /></header>
         <dl>
-          <div><dt>Checks completed</dt><dd>{Number(month.completed || 0)}</dd></div>
+          <div><dt>Work records submitted</dt><dd>{Number(month.completed || 0)}</dd></div>
           <div><dt>Conditions restored</dt><dd>{Number(month.conditionsRestored || 0)}</dd></div>
           <div><dt>Improvement confirmed</dt><dd>{Number(month.improvementsConfirmed || 0)}</dd></div>
           <div><dt>Median response time</dt><dd>{formatMinutes(month.medianResponseMinutes)}</dd></div>

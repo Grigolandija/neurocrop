@@ -486,6 +486,13 @@ export function getActionVerificationPolicy(metricId) {
   return { ...DEFAULT_VERIFICATION_POLICY, ...(VERIFICATION_POLICIES[metricId] || {}) };
 }
 
+export function isActionFeedbackTransitionAllowed(previousStatus, nextStatus) {
+  if (nextStatus === 'completed') return previousStatus === 'in_progress';
+  if (nextStatus === 'failed') return previousStatus === 'in_progress';
+  if (nextStatus === 'in_progress') return previousStatus === null || previousStatus === undefined;
+  return true;
+}
+
 export function evaluateActionOutcome(action, feedback, evidence = {}, now = Date.now()) {
   if (!action || !feedback) return null;
   if (feedback.status !== 'completed') {

@@ -5,6 +5,24 @@ import { neurocropApi } from '../../services/api/neurocropApi'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonRecord = Record<string, any>
 type Tab = 'open' | 'in_progress' | 'history'
+type CompletionForm = { type: string; adjustment: string; duration: string; note: string }
+
+const emptyCompletionForm: CompletionForm = { type: '', adjustment: '', duration: '', note: '' }
+const executionTypes = [
+  ['ventilation_increased', 'Ventilation increased'],
+  ['ventilation_reduced', 'Ventilation reduced'],
+  ['vents_opened', 'Vents opened'],
+  ['heating_increased', 'Heating increased'],
+  ['heating_reduced', 'Heating reduced'],
+  ['cooling_increased', 'Cooling increased'],
+  ['cooling_reduced', 'Cooling reduced'],
+  ['humidification_increased', 'Humidification increased'],
+  ['humidification_reduced', 'Humidification reduced'],
+  ['irrigation_adjusted', 'Irrigation adjusted'],
+  ['shading_adjusted', 'Shading adjusted'],
+  ['equipment_checked', 'Equipment checked'],
+  ['other', 'Other'],
+] as const
 
 function asArray(value: unknown): JsonRecord[] {
   return Array.isArray(value) ? value : []
@@ -12,10 +30,26 @@ function asArray(value: unknown): JsonRecord[] {
 
 function labelStatus(status: string) {
   if (status === 'in_progress') return 'In progress'
-  if (status === 'completed') return 'Completed'
+  if (status === 'awaiting_verification') return 'Awaiting verification'
+  if (status === 'verified') return 'Verified improvement'
+  if (status === 'no_change') return 'No change'
+  if (status === 'worsened') return 'Worsened'
+  if (status === 'unverified') return 'Not verified'
+  if (status === 'completed') return 'Action recorded'
   if (status === 'deferred') return 'Deferred'
   if (status === 'failed') return 'Failed'
   return 'Open'
+}
+
+function displayStatus(item: JsonRecord, workflowStatus: string) {
+  if (workflowStatus !== 'completed') return workflowStatus
+  const outcomeState = String(item.outcome?.state || '')
+  if (outcomeState === 'awaiting_data') return 'awaiting_verification'
+  if (outcomeState === 'target_reached' || outcomeState === 'improving') return 'verified'
+  if (outcomeState === 'unchanged') return 'no_change'
+  if (outcomeState === 'worsened') return 'worsened'
+  if (outcomeState === 'insufficient_data') return 'unverified'
+  return 'completed'
 }
 
 function relativeTime(value: unknown) {
@@ -44,7 +78,9 @@ export default function ActionsWorkspace() {
   const [area, setArea] = useState('all')
   const [employee, setEmployee] = useState('all')
   const [date, setDate] = useState('')
-  const [notes, setNotes] = useState<Record<string, string>>({})
+  const [completionItem, setCompletionItem] = useState<JsonRecord | null>(null)
+  const [completionForm, setCompletionForm] = useState<CompletionForm>(emptyCompletionForm)
+  const [completionError, setCompletionError] = useState('')
   const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -80,13 +116,24 @@ export default function ActionsWorkspace() {
     }).finally(() => {
       if (active) setLoading(false)
     })
+    const refreshTimer = window.setInterval(() => {
+      Promise.all([
+        neurocropApi.getTodayActions(),
+        neurocropApi.getActionHistory(100),
+      ]).then(([todayPayload, historyPayload]) => {
+        if (!active) return
+        setToday(asArray((todayPayload as JsonRecord)?.actions))
+        setHistory(asArray((historyPayload as JsonRecord)?.items))
+      }).catch(() => undefined)
+    }, 30_000)
     return () => {
       active = false
+      window.clearInterval(refreshTimer)
     }
   }, [])
 
   const currentById = useMemo(() => new Map(today.map((item) => [String(item.id), item])), [today])
-  const open = useMemo(() => today.filter((item) => !item.feedback || !['in_progress', 'completed'].includes(String(item.feedback.status))), [today])
+  const open = useMemo(() => today.filter((item) => !item.feedback), [today])
   const inProgress = useMemo<JsonRecord[]>(() => {
     const current: JsonRecord[] = today.filter((item) => item.feedback?.status === 'in_progress').map((item): JsonRecord => {
       const historyItem = history.find((entry) => entry.status === 'in_progress' && String(entry.actionId) === String(item.id))
@@ -95,7 +142,7 @@ export default function ActionsWorkspace() {
         status: 'in_progress',
         createdAt: historyItem?.createdAt || item.feedback?.createdAt,
         createdByName: historyItem?.createdByName || null,
-        action: item,
+        action: item.workflowAction || item,
       }
     })
     const ids = new Set(current.map((item) => String(item.id)))
@@ -106,8 +153,9 @@ export default function ActionsWorkspace() {
   const areas = useMemo(() => [...new Set([...today, ...history].map((item) => String(item.areaName || '')).filter(Boolean))].sort(), [history, today])
   const employees = useMemo(() => [...new Set(history.map((item) => String(item.createdByName || '')).filter(Boolean))].sort(), [history])
   const filtered = useMemo(() => source.filter((item) => {
-    const haystack = [item.title, item.metricLabel, item.areaName, item.sectionName, item.createdByName, item.note].join(' ').toLowerCase()
-    const itemDate = item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : ''
+    const haystack = [item.title, item.metricLabel, item.areaName, item.sectionName, item.createdByName, item.note, item.executionDetails?.adjustment].join(' ').toLowerCase()
+    const itemDateSource = item.createdAt || item.observedAt
+    const itemDate = itemDateSource ? new Date(itemDateSource).toISOString().slice(0, 10) : ''
     return (!query || haystack.includes(query.toLowerCase()))
       && (area === 'all' || item.areaName === area)
       && (employee === 'all' || item.createdByName === employee)
@@ -129,10 +177,31 @@ export default function ActionsWorkspace() {
     }
   }
 
-  async function complete(item: JsonRecord) {
+  function openCompletion(item: JsonRecord) {
+    setCompletionItem(item)
+    setCompletionForm(emptyCompletionForm)
+    setCompletionError('')
+  }
+
+  async function complete() {
+    const item = completionItem
+    if (!item) return
     const action = item.action || currentById.get(String(item.actionId))
     if (!action) {
-      setError('This older check no longer has a matching action snapshot.')
+      setCompletionError('This older check no longer has a matching action snapshot.')
+      return
+    }
+    if (!completionForm.type) {
+      setCompletionError('Select what was actually done.')
+      return
+    }
+    if (!completionForm.adjustment.trim()) {
+      setCompletionError('Describe the actual change or finding.')
+      return
+    }
+    const duration = completionForm.duration === '' ? null : Number(completionForm.duration)
+    if (duration !== null && (!Number.isInteger(duration) || duration < 1 || duration > 1440)) {
+      setCompletionError('Duration must be between 1 and 1440 minutes.')
       return
     }
     const id = String(action.id)
@@ -141,17 +210,50 @@ export default function ActionsWorkspace() {
     try {
       await neurocropApi.submitTodayActionFeedback(id, {
         status: 'completed',
-        note: notes[id] || '',
+        note: completionForm.note.trim(),
         executionDetails: {
-          type: 'equipment_checked',
-          adjustment: notes[id] || action.recommendedAction || 'Equipment checked',
-          durationMinutes: null,
+          type: completionForm.type,
+          adjustment: completionForm.adjustment.trim(),
+          durationMinutes: duration,
         },
         action,
       })
+      setCompletionItem(null)
+      setTab('history')
       await load()
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The result could not be saved.')
+      setCompletionError(reason instanceof Error ? reason.message : 'The performed work could not be recorded.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  async function fail() {
+    const item = completionItem
+    if (!item) return
+    const action = item.action || currentById.get(String(item.actionId))
+    if (!action) {
+      setCompletionError('This older check no longer has a matching action snapshot.')
+      return
+    }
+    if (!completionForm.adjustment.trim()) {
+      setCompletionError('Describe why the work could not be completed.')
+      return
+    }
+    const id = String(action.id)
+    setBusyId(id)
+    setCompletionError('')
+    try {
+      await neurocropApi.submitTodayActionFeedback(id, {
+        status: 'failed',
+        note: completionForm.adjustment.trim(),
+        action,
+      })
+      setCompletionItem(null)
+      setTab('history')
+      await load()
+    } catch (reason) {
+      setCompletionError(reason instanceof Error ? reason.message : 'The failed check could not be recorded.')
     } finally {
       setBusyId('')
     }
@@ -177,7 +279,7 @@ export default function ActionsWorkspace() {
         <i data-state="in_progress" /><strong>{inProgress.length}</strong><span>In progress</span>
       </button>
       <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
-        <i data-state="completed" /><strong>{history.filter((item) => item.status === 'completed').length}</strong><span>Completed</span>
+        <i data-state="completed" /><strong>{history.filter((item) => item.status === 'completed').length}</strong><span>Recorded checks</span>
       </button>
       <p><i className="fa-solid fa-circle-info" /><span><strong>History is auditable.</strong> Every result records the employee and time.</span></p>
     </section>
@@ -202,25 +304,43 @@ export default function ActionsWorkspace() {
           {filtered.map((item) => {
             const action = item.action || item
             const actionId = String(action.id || item.actionId)
-            const status = tab === 'open' ? 'open' : String(item.status || item.feedback?.status || 'open')
+            const workflowStatus = tab === 'open' ? 'open' : String(item.status || item.feedback?.status || 'open')
+            const status = displayStatus(item, workflowStatus)
             return <article className="nc-actions-row" key={`${tab}-${item.id || item.actionId}`}>
               <span><b className="nc-actions-status" data-state={status}><i />{labelStatus(status)}</b></span>
               <span><strong>{item.title || item.metricLabel || 'Recommended check'}</strong><small>{item.recommendedAction || item.metricLabel || ''}</small></span>
               <span><strong>{item.sectionName || 'Unknown section'}</strong><small>{item.areaName || 'Unknown area'}</small></span>
-              <span><strong>{item.createdByName || (status === 'open' ? 'Unassigned' : 'Current user')}</strong><small>{status === 'open' ? 'Not started' : 'Recorded account'}</small></span>
-              <span><strong>{status === 'open' ? relativeTime(item.observedAt) : relativeTime(item.createdAt)}</strong><small>{status === 'open' ? 'Condition detected' : 'Activity logged'}</small></span>
-              <span><strong>{status === 'open' ? 'Check required' : resultText(item)}</strong><small>{item.note || ''}</small></span>
+              <span><strong>{item.createdByName || (workflowStatus === 'open' ? 'Unassigned' : 'Current user')}</strong><small>{workflowStatus === 'open' ? 'Not started' : 'Recorded account'}</small></span>
+              <span><strong>{workflowStatus === 'open' ? relativeTime(item.observedAt) : relativeTime(item.createdAt)}</strong><small>{workflowStatus === 'open' ? 'Condition detected' : 'Activity logged'}</small></span>
+              <span><strong>{workflowStatus === 'open' ? 'Check required' : resultText(item)}</strong><small>{item.executionDetails?.adjustment || item.note || ''}</small></span>
               <span className="nc-actions-controls">
-                {status === 'open' && <button type="button" disabled={busyId === actionId} onClick={() => void start(item)}>Start</button>}
-                {status === 'in_progress' && <>
-                  <input value={notes[actionId] || ''} onChange={(event) => setNotes((current) => ({ ...current, [actionId]: event.target.value }))} placeholder="Result note" />
-                  <button type="button" disabled={busyId === actionId} onClick={() => void complete(item)}>Complete</button>
-                </>}
+                {workflowStatus === 'open' && <button type="button" disabled={busyId === actionId} onClick={() => void start(item)}>Start</button>}
+                {workflowStatus === 'in_progress' && <button type="button" disabled={busyId === actionId} onClick={() => openCompletion(item)}>Record work</button>}
               </span>
             </article>
           })}
           <footer>Showing {filtered.length} of {source.length} actions</footer>
-        </div>}
+      </div>}
     </section>
+    {completionItem && <div className="nc-actions-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setCompletionItem(null)}>
+      <section className="nc-actions-modal" role="dialog" aria-modal="true" aria-labelledby="record-work-title">
+        <header>
+          <div><p>Performed action</p><h2 id="record-work-title">Record work for {completionItem.sectionName || 'Section'}</h2><span>This records the employee action. Sensor verification starts after submission.</span></div>
+          <button type="button" onClick={() => setCompletionItem(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button>
+        </header>
+        <div className="nc-actions-form">
+          <label><span>What was done</span><select value={completionForm.type} onChange={(event) => setCompletionForm((current) => ({ ...current, type: event.target.value }))}><option value="">Select performed action</option>{executionTypes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+          <label><span>Actual change or finding</span><input value={completionForm.adjustment} onChange={(event) => setCompletionForm((current) => ({ ...current, adjustment: event.target.value }))} placeholder="Example: AC setpoint increased from 18 to 20 °C" maxLength={160} /></label>
+          <label><span>Duration, minutes (optional)</span><input type="number" min="1" max="1440" value={completionForm.duration} onChange={(event) => setCompletionForm((current) => ({ ...current, duration: event.target.value }))} /></label>
+          <label><span>Additional note (optional)</span><textarea value={completionForm.note} onChange={(event) => setCompletionForm((current) => ({ ...current, note: event.target.value }))} placeholder="Anything the next employee should know" maxLength={500} /></label>
+          {completionError && <p className="nc-actions-form-error"><i className="fa-solid fa-triangle-exclamation" />{completionError}</p>}
+        </div>
+        <footer>
+          <button type="button" onClick={() => setCompletionItem(null)}>Cancel</button>
+          <button type="button" className="danger" disabled={busyId === String((completionItem.action || completionItem).id || completionItem.actionId)} onClick={() => void fail()}>Could not complete</button>
+          <button type="button" className="primary" disabled={busyId === String((completionItem.action || completionItem).id || completionItem.actionId)} onClick={() => void complete()}>Submit for verification</button>
+        </footer>
+      </section>
+    </div>}
   </main>
 }

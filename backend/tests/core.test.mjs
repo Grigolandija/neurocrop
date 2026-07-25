@@ -8,7 +8,12 @@ import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
 import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
-import { buildTodayActions, evaluateActionOutcome, getActionVerificationPolicy } from '../today-actions.js';
+import {
+  buildTodayActions,
+  evaluateActionOutcome,
+  getActionVerificationPolicy,
+  isActionFeedbackTransitionAllowed
+} from '../today-actions.js';
 import { AGRONOMIC_INTERACTION_RULES } from '../agronomic-rules.js';
 import { invitationState } from '../invitation-state.js';
 import {
@@ -966,6 +971,17 @@ test('started checks remain explicitly in progress until completion is recorded'
   assert.equal(outcome.label, 'Check in progress');
 });
 
+test('action workflow cannot skip Start or restart the same submitted observation', () => {
+  assert.equal(isActionFeedbackTransitionAllowed(null, 'completed'), false);
+  assert.equal(isActionFeedbackTransitionAllowed('deferred', 'completed'), false);
+  assert.equal(isActionFeedbackTransitionAllowed('in_progress', 'completed'), true);
+  assert.equal(isActionFeedbackTransitionAllowed('completed', 'in_progress'), false);
+  assert.equal(isActionFeedbackTransitionAllowed(null, 'in_progress'), true);
+  assert.equal(isActionFeedbackTransitionAllowed('in_progress', 'in_progress'), false);
+  assert.equal(isActionFeedbackTransitionAllowed('in_progress', 'failed'), true);
+  assert.equal(isActionFeedbackTransitionAllowed(null, 'failed'), false);
+});
+
 test('action verification never interprets missing values as a real zero', () => {
   const outcome = evaluateActionOutcome(
     { metricId: 'humidity', value: null, target: [60, 70] },
@@ -1212,17 +1228,25 @@ test('action feedback is tenant-scoped, role-protected and keeps an immutable sn
   assert.match(route, /action_payload/);
   assert.match(route, /req\.user\.id/);
   assert.match(route, /pg_advisory_xact_lock/);
+  assert.match(route, /\[organizationId, `\$\{actionId\}\|\$\{observedAt\}`\]/);
   assert.match(route, /deduplicated: true/);
   assert.match(route, /allowedExecutionTypes/);
   assert.match(route, /\['in_progress', 'completed', 'deferred', 'failed'\]/);
   assert.match(route, /status === 'completed'/);
   assert.match(route, /execution_details/);
+  assert.match(route, /INVALID_ACTION_TRANSITION/);
+  assert.match(route, /Start the check before recording performed work/);
+  assert.match(route, /Record what was actually performed before requesting verification/);
 });
 
 test('live agronomic actions bypass browser and intermediary caches', () => {
   const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   const frontendApi = fs.readFileSync(new URL('../../src/services/api/neurocropApi.ts', import.meta.url), 'utf8');
   assert.match(api, /app\.get\('\/actions\/today'[\s\S]*?Cache-Control', 'no-store'/);
+  assert.match(api, /workflowAction:/);
+  assert.match(api, /feedback\.action_payload/);
+  assert.match(api, /getActionVerificationPolicy\(action\.metricId\)/);
+  assert.match(api, /completedVerificationEndsAt/);
   assert.match(frontendApi, /getTodayActions:[\s\S]*?cache: 'no-store'/);
 });
 

@@ -28,7 +28,12 @@ import { validateCropProfileMetrics } from './validation.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
 import { runMigrations } from './migrate.js';
 import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
-import { buildTodayActions, evaluateActionOutcome } from './today-actions.js';
+import {
+  buildTodayActions,
+  evaluateActionOutcome,
+  getActionVerificationPolicy,
+  isActionFeedbackTransitionAllowed
+} from './today-actions.js';
 import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
 import { startMeasurementRetention } from './measurement-retention.js';
 import { registerWorkflowRoutes } from './workflow-routes.js';
@@ -1360,7 +1365,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
     if (actionIds.length > 0) {
       const { rows } = await query(
         `SELECT DISTINCT ON (action_id)
-                id, action_id, status, note, execution_details, created_by, created_at
+                id, action_id, status, note, execution_details, action_payload, created_by, created_at
          FROM action_feedback
          WHERE organization_id=$1 AND action_id=ANY($2::text[])
          ORDER BY action_id, created_at DESC`,
@@ -1374,11 +1379,21 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       sectionId: requestedSectionId || null,
       actions: actions.map((action) => {
         const feedback = feedbackByActionId.get(action.id);
+        const verificationPolicy = getActionVerificationPolicy(action.metricId);
+        const feedbackCreatedAt = new Date(feedback?.created_at || 0).getTime();
+        const completedVerificationEndsAt = feedbackCreatedAt + verificationPolicy.windowMinutes * 60_000;
         const feedbackMatchesReading = feedback
           && (feedback.status === 'in_progress'
+            || (feedback.status === 'completed' && Date.now() <= completedVerificationEndsAt)
             || !action.observedAt
             || new Date(feedback.created_at) >= new Date(action.observedAt));
-        return { ...action, feedback: feedbackMatchesReading ? publicActionFeedback(feedback) : null };
+        return {
+          ...action,
+          feedback: feedbackMatchesReading ? publicActionFeedback(feedback) : null,
+          workflowAction: feedbackMatchesReading && feedback?.status === 'in_progress'
+            ? feedback.action_payload || null
+            : null
+        };
       })
     });
   } catch (e) {
@@ -1418,7 +1433,10 @@ app.post(
         'shading_adjusted', 'equipment_checked', 'other'
       ]);
       let executionDetails = null;
-      if (status === 'completed' && requestedExecutionDetails !== undefined && requestedExecutionDetails !== null) {
+      if (status === 'completed') {
+        if (!requestedExecutionDetails || typeof requestedExecutionDetails !== 'object' || Array.isArray(requestedExecutionDetails)) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Record what was actually performed before requesting verification' } });
+        }
         const type = String(requestedExecutionDetails?.type || '').trim();
         const adjustment = String(requestedExecutionDetails?.adjustment || '').trim();
         const durationValue = requestedExecutionDetails?.durationMinutes;
@@ -1428,7 +1446,7 @@ app.post(
         if (!allowedExecutionTypes.has(type)) {
           return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Select the action that was actually performed' } });
         }
-        if (adjustment.length > 160 || (type === 'other' && !adjustment)) {
+        if (!adjustment || adjustment.length > 160) {
           return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Describe the performed action in 160 characters or less' } });
         }
         if (durationMinutes !== null && (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440)) {
@@ -1453,7 +1471,7 @@ app.post(
       await client.query('BEGIN');
       await client.query(
         'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
-        [organizationId, `${actionId}|${observedAt}|${req.user.id}`]
+        [organizationId, `${actionId}|${observedAt}`]
       );
       const { rows: existingRows } = await client.query(
         `SELECT id, action_id, status, note, execution_details, created_by, created_at
@@ -1467,6 +1485,32 @@ app.post(
       if (existingRows[0]) {
         await client.query('COMMIT');
         return res.json({ feedback: publicActionFeedback(existingRows[0]), deduplicated: true });
+      }
+      const { rows: latestRows } = await client.query(
+        `SELECT status, created_by, created_at
+         FROM action_feedback
+         WHERE organization_id=$1 AND action_id=$2
+           AND COALESCE(action_payload->>'observedAt', 'unknown')=$3
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [organizationId, actionId, observedAt]
+      );
+      const latestFeedback = latestRows[0] || null;
+      if (!isActionFeedbackTransitionAllowed(latestFeedback?.status || null, status)) {
+        await client.query('ROLLBACK');
+        const message = status === 'completed'
+          ? 'Start the check before recording performed work'
+          : status === 'failed'
+            ? 'Start the check before recording that it could not be completed'
+            : latestFeedback?.status === 'in_progress'
+              ? 'This check is already in progress'
+              : 'This sensor observation has already been submitted for verification';
+        return res.status(409).json({
+          error: {
+            code: 'INVALID_ACTION_TRANSITION',
+            message
+          }
+        });
       }
 
       const { rows } = await client.query(

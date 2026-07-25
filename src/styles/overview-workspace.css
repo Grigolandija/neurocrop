@@ -1220,8 +1220,8 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   background: #d9922e;
 }
 
-.nc-workflow-status.checked i {
-  background: #4c955c;
+.nc-workflow-status.submitted i {
+  background: var(--color-info, #4f7890);
 }
 
 .nc-action-brief > div {
@@ -1316,7 +1316,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-action-item > header > div > span,
 .nc-action-recommendation > span,
-.nc-action-note > span,
+.nc-action-record label > span,
 .nc-action-values span {
   color: #718078;
   font-size: 10px;
@@ -1386,8 +1386,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   color: var(--ov-risk, #d95e49);
 }
 
-.nc-action-recommendation,
-.nc-action-note {
+.nc-action-recommendation {
   display: grid;
   gap: 8px;
   padding: 18px 20px 0;
@@ -1400,18 +1399,50 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   line-height: 1.5;
 }
 
-.nc-action-note textarea {
-  min-height: 84px;
-  padding: 11px 12px;
+.nc-action-record {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 18px 20px 0;
+}
+
+.nc-action-record label {
+  display: grid;
+  gap: 8px;
+}
+
+.nc-action-record label:nth-child(2),
+.nc-action-record label:nth-child(4) {
+  grid-column: 1 / -1;
+}
+
+.nc-action-record :is(input, select, textarea) {
+  width: 100%;
   border: 1px solid rgba(45, 83, 65, .17);
   border-radius: 9px;
+  outline: 0;
   background: #fff;
   color: #1d2d25;
   font: inherit;
+}
+
+.nc-action-record :is(input, select) {
+  min-height: 42px;
+  padding: 0 11px;
+}
+
+.nc-action-record textarea {
+  min-height: 84px;
+  padding: 11px 12px;
   resize: vertical;
 }
 
-.nc-action-note textarea:disabled {
+.nc-action-record :is(input, select, textarea):focus {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.nc-action-record :is(input, select, textarea):disabled {
   background: #f4f6f3;
   color: #607068;
 }
@@ -1803,6 +1834,14 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   .nc-action-item > header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .nc-action-record {
+    grid-template-columns: 1fr;
+  }
+
+  .nc-action-record label {
+    grid-column: 1;
   }
 
   .nc-overview-insights {

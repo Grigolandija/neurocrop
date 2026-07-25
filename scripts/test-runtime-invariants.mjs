@@ -129,6 +129,13 @@ assert(
     && actionsWorkspace.includes('createdByName')
     && actionsWorkspace.includes("status: 'in_progress'")
     && actionsWorkspace.includes("status: 'completed'")
+    && actionsWorkspace.includes("status: 'failed'")
+    && actionsWorkspace.includes('Record work')
+    && actionsWorkspace.includes('Submit for verification')
+    && actionsWorkspace.includes('item.workflowAction || item')
+    && actionsWorkspace.includes('window.setInterval')
+    && actionsWorkspace.includes("'Awaiting verification'")
+    && actionsWorkspace.includes("'Verified improvement'")
     && actionsWorkspaceStyles.includes('var(--color-surface)')
     && actionsWorkspaceStyles.includes('@media (max-width: 700px)'),
   "Actions must expose auditable employee history and working check controls in the shared responsive design system",
