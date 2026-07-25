@@ -615,11 +615,12 @@ export default function TrendsWorkspace() {
   const activeMetricKeys = [metricKey, ...secondaryMetricKeys.filter((key) => key !== metricKey)].slice(0, 3)
   const metricSelectionKey = activeMetricKeys.join(',')
   const areas = useMemo(() => [...new Map(sections.map((section) => [section.areaId, section.areaName])).entries()], [sections])
-  const areaSections = sections.filter((section) => !areaId || section.areaId === areaId)
-  const displayedAreaId = selectedSection?.areaId || areaId
-  const displayedAreaSections = selectedSection
-    ? sections.filter((section) => section.areaId === selectedSection.areaId)
-    : areaSections
+  const areaIdExists = areas.some(([id]) => id === areaId)
+  const displayedAreaId = selectedSection?.areaId || (areaIdExists ? areaId : areas[0]?.[0] || '')
+  const displayedAreaName = areas.find(([id]) => id === displayedAreaId)?.[1] || ''
+  const displayedAreaSections = sections.filter((section) => section.areaId === displayedAreaId)
+  const displayedSectionId = selectedSection?.id || displayedAreaSections[0]?.id || ''
+  const displayedSectionName = sections.find((section) => section.id === displayedSectionId)?.name || ''
   const availableMetrics = metrics.filter((metric) => selectedSection?.available.has(metric.key))
   const target = profileRange(profiles, selectedSection?.profileId || '', selectedMetric.key)
 
@@ -887,8 +888,8 @@ export default function TrendsWorkspace() {
     </header>
 
     <section className="nc-trends-context">
-      <AreaPicker areas={areas} selectedId={displayedAreaId} selectedLabel={selectedSection?.areaName || ''} onSelect={changeArea} />
-      <SectionPicker sections={displayedAreaSections} selectedId={selectedSection?.id || sectionId} selectedLabel={selectedSection?.name || ''} recentIds={recentSectionIds} onSelect={changeSection} />
+      <AreaPicker areas={areas} selectedId={displayedAreaId} selectedLabel={displayedAreaName} onSelect={changeArea} />
+      <SectionPicker sections={displayedAreaSections} selectedId={displayedSectionId} selectedLabel={displayedSectionName} recentIds={recentSectionIds} onSelect={changeSection} />
       <div className="nc-trends-range" role="group" aria-label="Trend period">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
       <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />Compare Sections</button>
     </section>
