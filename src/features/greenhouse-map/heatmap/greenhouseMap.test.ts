@@ -7,7 +7,7 @@ import { CONTOUR_INTERVALS, connectContourSegments, createContourSegments, getCo
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
-import { colorAt } from './heatmapColorScale'
+import { colorAt, HEATMAP_COLOR_BANDS, steppedColorAt, steppedGradient } from './heatmapColorScale'
 import { METRICS } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
@@ -86,6 +86,13 @@ describe('environment colour scale', () => {
     expect(colorAt(40, 40, 80, colors)).toEqual([242, 184, 75])
     expect(colorAt(60, 40, 80, colors)).toEqual([102, 199, 180])
     expect(colorAt(80, 40, 80, colors)).toEqual([47, 128, 195])
+  })
+  it('reduces the heatmap to a small set of distinct colour bands', () => {
+    const colors = METRICS['relative-humidity'].colors
+    expect(HEATMAP_COLOR_BANDS).toBe(8)
+    expect(steppedColorAt(51, 0, 100, colors)).toEqual(steppedColorAt(55, 0, 100, colors))
+    expect(steppedColorAt(10, 0, 100, colors)).not.toEqual(steppedColorAt(90, 0, 100, colors))
+    expect(steppedGradient(colors).match(/rgb\(/g)).toHaveLength(HEATMAP_COLOR_BANDS * 2)
   })
 })
 

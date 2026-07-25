@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
 import { CONTOUR_INTERVALS, createContourPaths } from '../heatmap/contourLines'
 import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
+import { steppedGradient } from '../heatmap/heatmapColorScale'
 import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
@@ -31,13 +32,6 @@ const objectColors: Record<string, { fill: string; stroke: string }> = {
   lighting: { fill: '#e1cc75', stroke: '#8a7532' }, labels: { fill: '#ece8dd', stroke: '#6f716c' },
 }
 const statusColors: Record<string, string> = { online: '#2f8760', warning: '#bd842b', offline: '#6d7470', unassigned: '#60758a', 'low-battery': '#b85b46', stale: '#936d3c' }
-
-const formatContourLabel = (level: number, metric: GreenhouseMap['heatmapSettings']['metric']) => {
-  if (metric === 'relative-humidity') return `${level}%`
-  if (metric === 'co2') return `${level} ppm`
-  if (metric === 'vpd') return `${level.toFixed(1)} kPa`
-  return `${level.toFixed(1)} °C`
-}
 
 function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
   object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; layerOpacity: number; viewScale: number
@@ -182,25 +176,6 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
         : coordinate / (heatmap.grid.height - 1) * map.dimensions.lengthM),
     }))
   }, [heatmap, map.dimensions.lengthM, map.dimensions.widthM, map.heatmapSettings.metric, showContours])
-  const contourLabels = useMemo(() => {
-    const bestByLevel = new Map<number, (typeof contourPaths)[number]>()
-    contourPaths.forEach((path) => {
-      const current = bestByLevel.get(path.level)
-      const score = path.points.length * (.5 + path.confidence)
-      const currentScore = current ? current.points.length * (.5 + current.confidence) : -1
-      if (score > currentScore) bestByLevel.set(path.level, path)
-    })
-    return [...bestByLevel.values()].map((path) => {
-      const pointCount = path.points.length / 2
-      const pointIndex = Math.floor(pointCount / 2) * 2
-      return {
-        level: path.level,
-        x: path.points[Math.min(pointIndex, path.points.length - 2)],
-        y: path.points[Math.min(pointIndex + 1, path.points.length - 1)],
-        label: formatContourLabel(path.level, map.heatmapSettings.metric),
-      }
-    })
-  }, [contourPaths, map.heatmapSettings.metric])
   const average = points.length ? points.reduce((sum, point) => sum + point.value, 0) / points.length : null
   const targetState = average === null || !target ? 'unknown' : average < target[0] ? 'low' : average > target[1] ? 'high' : 'optimal'
   const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
@@ -249,13 +224,6 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
           {contourPaths.map((path, index) => <Group key={`${path.level}-${index}`}>
             <Line points={path.points} stroke="#244f43" strokeWidth={1.3 / view.scale} opacity={path.confidence < .35 ? .28 : .52} lineCap="round" lineJoin="round" tension={.08} dash={path.confidence < .35 ? [6 / view.scale, 5 / view.scale] : undefined} perfectDrawEnabled={false} />
           </Group>)}
-          {contourLabels.map(({ level, x, y, label }) => {
-            const widthPx = Math.max(38, label.length * 6.3 + 12)
-            return <Group key={level} x={x - widthPx / view.scale / 2} y={y - 9 / view.scale}>
-              <Rect width={widthPx / view.scale} height={18 / view.scale} fill="rgba(250,252,248,.96)" stroke="#173f35" strokeWidth={1 / view.scale} cornerRadius={3 / view.scale} />
-              <Text width={widthPx / view.scale} height={18 / view.scale} text={label} align="center" verticalAlign="middle" fontFamily="IBM Plex Mono" fontStyle="bold" fontSize={10 / view.scale} fill="#173f35" />
-            </Group>
-          })}
         </Group> : null}
         {mode === 'signal' && visibleLayers.get('signal')?.visible ? map.objects.filter((object) => object.metadata.sensor).map((object) => {
           const quality = Math.max(.15, Math.min(1, ((object.metadata.sensor?.rssi ?? -120) + 120) / 55))
@@ -294,7 +262,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
     </div>
     {mode === 'environment' ? <div className="gh-heatmap-legend">
       <small>ESTIMATED ENVIRONMENT MAP</small><strong>{METRICS[map.heatmapSettings.metric].label}</strong>
-      {heatmap ? <><button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < 3} onClick={() => setShowContours((current) => !current)}><i className="fa-solid fa-lines-leaning" />{tr('Contours', 'Izolinijos')} · {CONTOUR_INTERVALS[map.heatmapSettings.metric]} {METRICS[map.heatmapSettings.metric].unit}</button><div className="gh-color-scale" style={{ background: `linear-gradient(90deg, ${METRICS[map.heatmapSettings.metric].colors.join(',')})` }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>{target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}<p>{tr('Whole Area', 'Visa Area')} · {tr('estimated from', 'apskaičiuota iš')} {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count < 3 ? <em>{tr('Contour lines need at least three valid sensors.', 'Izolinijoms reikia bent trijų tinkamų jutiklių.')}</em> : null}</> : <p>{tr('No valid online sensor data for this metric in this Area.', 'Nėra tinkamų aktyvių jutiklių šiam rodikliui šioje Area.')}</p>}
+      {heatmap ? <><button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < 3} onClick={() => setShowContours((current) => !current)}><i className="fa-solid fa-lines-leaning" />{tr('Contours', 'Izolinijos')} · {CONTOUR_INTERVALS[map.heatmapSettings.metric]} {METRICS[map.heatmapSettings.metric].unit}</button><div className="gh-color-scale" style={{ background: steppedGradient(METRICS[map.heatmapSettings.metric].colors) }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>{target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}<p>{tr('Whole Area', 'Visa Area')} · {tr('estimated from', 'apskaičiuota iš')} {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count < 3 ? <em>{tr('Contour lines need at least three valid sensors.', 'Izolinijoms reikia bent trijų tinkamų jutiklių.')}</em> : null}</> : <p>{tr('No valid online sensor data for this metric in this Area.', 'Nėra tinkamų aktyvių jutiklių šiam rodikliui šioje Area.')}</p>}
       <em>Interpolated estimate based on sensor locations. Values between sensors are not directly measured.</em>
     </div> : null}
     {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> Approximate planned sensor coverage, not a physical propagation model.</div> : null}

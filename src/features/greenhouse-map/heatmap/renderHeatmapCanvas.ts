@@ -1,4 +1,4 @@
-import { colorAt } from './heatmapColorScale'
+import { steppedColorAt } from './heatmapColorScale'
 import type { HeatmapGrid } from './heatmapTypes'
 
 export function renderHeatmapCanvas(grid: HeatmapGrid, colors: [string, string, string], opacity: number, showConfidence: boolean): HTMLCanvasElement {
@@ -11,8 +11,8 @@ export function renderHeatmapCanvas(grid: HeatmapGrid, colors: [string, string, 
   for (let y = 0; y < grid.height; y += 1) {
     for (let x = 0; x < grid.width; x += 1) {
       const source = y * grid.width + x
-      const target = ((grid.height - 1 - y) * grid.width + x) * 4
-      const [r, g, b] = colorAt(grid.values[source], grid.min, grid.max, colors)
+      const target = (y * grid.width + x) * 4
+      const [r, g, b] = steppedColorAt(grid.values[source], grid.min, grid.max, colors)
       const confidence = showConfidence ? grid.confidence[source] : 1
       image.data[target] = r
       image.data[target + 1] = g
