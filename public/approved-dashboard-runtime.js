@@ -8227,12 +8227,14 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         && value.getDate() === reference.getDate();
     }
 
-    function isAlertsPageItemReviewed(item, records = loadReviewedAlertRecords()) {
+    function isAlertsPageItemSnoozed(item, records = loadReviewedAlertRecords()) {
       const record = records[item.id];
-      if (record?.status === "snoozed" && Number(new Date(record.snoozedUntil)) > Date.now()) return true;
-      const reviewedAt = record?.resolvedAt || record?.acknowledgedAt;
-      if (!reviewedAt) return false;
-      return Date.now() - new Date(reviewedAt).getTime() < 24 * 60 * 60 * 1000;
+      return record?.status === "snoozed" && Number(new Date(record.snoozedUntil)) > Date.now();
+    }
+
+    function isAlertsPageItemAcknowledged(item, records = loadReviewedAlertRecords()) {
+      const record = records[item.id];
+      return record?.status === "acknowledged" || Boolean(record?.acknowledgedAt);
     }
 
     function getAlertsPageLocationTimestamp(zone) {
@@ -8288,8 +8290,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
               metricKey: result.key,
               title: `${definition?.label || result.key} ${direction}`,
               detail: Number.isFinite(result.value)
-                ? `${snapshot.zone.name} · ${formatValue(result.value, definition)}`
-                : snapshot.zone.name,
+                ? `${diagnosticText("Current", "Dabar")} ${formatValue(result.value, definition)} · ${diagnosticText("target", "tikslas")} ${optimal.length >= 2 ? `${formatValue(optimal[0], definition)}–${formatValue(optimal[1], definition)}` : diagnosticText("not configured", "nenustatytas")}`
+                : diagnosticText("Current value is unavailable", "Dabartinė reikšmė nepasiekiama"),
               timestamp,
               sortTime: timestamp ? new Date(timestamp).getTime() : 0,
               icon: "fa-triangle-exclamation"
@@ -8333,30 +8335,27 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
 
     function getAlertsPageView(items = currentAlertsPageItems) {
       const records = { ...loadReviewedAlertRecords(), ...backendAlertRecords };
-      const open = items.filter((item) => !isAlertsPageItemReviewed(item, records));
-      const resolved = Object.values(records)
-        .filter((record) => record?.item?.id && isSameLocalDay(record.resolvedAt || record.acknowledgedAt))
-        .map((record) => ({ ...record.item, acknowledgedAt: record.resolvedAt || record.acknowledgedAt, resolved: true }))
-        .sort((left, right) => new Date(right.acknowledgedAt).getTime() - new Date(left.acknowledgedAt).getTime());
+      const open = items
+        .filter((item) => !isAlertsPageItemSnoozed(item, records))
+        .map((item) => ({ ...item, acknowledged: isAlertsPageItemAcknowledged(item, records) }));
+      const acknowledged = open.filter((item) => item.acknowledged);
       const filters = [
-        { key: "open", label: diagnosticText("Open alerts", "Aktyvūs įspėjimai"), count: open.length },
+        { key: "open", label: diagnosticText("Active", "Aktyvūs"), count: open.length },
         { key: "critical", label: diagnosticText("Critical", "Kritiniai"), count: open.filter((item) => item.tone === "critical").length },
         { key: "warning", label: diagnosticText("Warnings", "Įspėjimai"), count: open.filter((item) => item.tone === "warning").length },
         { key: "offline", label: diagnosticText("Device offline", "Node be ryšio"), count: open.filter((item) => item.tone === "offline").length },
-        { key: "resolved", label: diagnosticText("Resolved today", "Išspręsta šiandien"), count: resolved.length }
+        { key: "acknowledged", label: diagnosticText("Seen", "Peržiūrėti"), count: acknowledged.length }
       ];
-      const visible = activeAlertsPageFilterKey === "resolved"
-        ? resolved
+      const visible = activeAlertsPageFilterKey === "acknowledged"
+        ? acknowledged
         : activeAlertsPageFilterKey === "open"
           ? open
           : open.filter((item) => item.tone === activeAlertsPageFilterKey);
-      return { records, open, resolved, filters, visible };
+      return { records, open, acknowledged, filters, visible };
     }
 
     function renderAlertsPageCard(item) {
-      const toneLabel = item.resolved
-        ? diagnosticText("Reviewed", "Peržiūrėta")
-        : item.tone === "critical"
+      const toneLabel = item.tone === "critical"
           ? diagnosticText("Critical", "Kritinis")
           : item.tone === "warning"
             ? diagnosticText("Warning", "Įspėjimas")
@@ -8365,24 +8364,21 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const canManage = ["owner", "admin", "grower", "technician"].includes(getLoginSession()?.role);
       const actionDisabled = pending || !canManage;
       return `
-        <article class="nc-alert-card" data-tone="${escapeAttribute(item.resolved ? "resolved" : item.tone)}">
-          <span class="nc-alert-card-icon" aria-hidden="true"><i class="fa-solid ${escapeAttribute(item.resolved ? "fa-check" : item.icon)}"></i></span>
+        <article class="nc-alert-card" data-tone="${escapeAttribute(item.tone)}">
+          <span class="nc-alert-card-icon" aria-hidden="true"><i class="fa-solid ${escapeAttribute(item.icon)}"></i></span>
           <div class="nc-alert-card-body">
             <div class="nc-alert-card-meta">
-              <span class="nc-alert-status" data-tone="${escapeAttribute(item.resolved ? "resolved" : item.tone)}"><i class="fa-solid fa-circle" aria-hidden="true"></i>${escapeHtml(toneLabel)}</span>
-              <time>${escapeHtml(formatAlertsPageTimestamp(item.resolved ? item.acknowledgedAt : item.timestamp))}</time>
+              <span><span class="nc-alert-status" data-tone="${escapeAttribute(item.tone)}"><i class="fa-solid fa-circle" aria-hidden="true"></i>${escapeHtml(toneLabel)}</span>${item.acknowledged ? `<span class="nc-alert-seen"><i class="fa-solid fa-check" aria-hidden="true"></i>${escapeHtml(diagnosticText("Seen", "Peržiūrėta"))}</span>` : ""}</span>
+              <time>${escapeHtml(formatAlertsPageTimestamp(item.timestamp))}</time>
             </div>
             <h3>${escapeHtml(item.title)}</h3>
             <p>${escapeHtml(item.detail)}</p>
             <div class="nc-alert-location"><span>${escapeHtml(item.siteName)}</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i><span>${escapeHtml(item.zoneName)}</span></div>
           </div>
           <div class="nc-alert-card-actions">
-            <button type="button" class="nc-alert-secondary-action" data-alerts-view-context="${escapeAttribute(item.id)}">${escapeHtml(diagnosticText("View context", "Atidaryti vietą"))}</button>
-            ${item.resolved ? "" : `
-              <button type="button" class="nc-alert-secondary-action" data-alerts-snooze="${escapeAttribute(item.id)}" ${actionDisabled ? "disabled" : ""}>${escapeHtml(diagnosticText("Snooze 1h", "Atidėti 1 val."))}</button>
-              <button type="button" class="nc-alert-secondary-action" data-alerts-resolve="${escapeAttribute(item.id)}" ${actionDisabled ? "disabled" : ""}>${escapeHtml(diagnosticText("Resolve", "Išspręsti"))}</button>
-              <button type="button" class="nc-alert-primary-action" data-alerts-acknowledge="${escapeAttribute(item.id)}" ${actionDisabled ? "disabled" : ""}>${pending ? `<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>` : ""}${escapeHtml(diagnosticText("Acknowledge", "Patvirtinti"))}</button>
-            `}
+            <button type="button" class="nc-alert-secondary-action" data-alerts-view-context="${escapeAttribute(item.id)}">${escapeHtml(diagnosticText("View live context", "Atidaryti gyvą būseną"))}</button>
+            <button type="button" class="nc-alert-secondary-action" data-alerts-snooze="${escapeAttribute(item.id)}" ${actionDisabled ? "disabled" : ""}>${escapeHtml(diagnosticText("Mute 1h", "Nutildyti 1 val."))}</button>
+            <button type="button" class="nc-alert-primary-action" data-alerts-acknowledge="${escapeAttribute(item.id)}" ${actionDisabled || item.acknowledged ? "disabled" : ""}>${pending ? `<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>` : ""}${escapeHtml(item.acknowledged ? diagnosticText("Seen", "Peržiūrėta") : diagnosticText("Mark as seen", "Pažymėti peržiūrėtu"))}</button>
           </div>
         </article>
       `;
@@ -8393,8 +8389,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const view = getAlertsPageView(currentAlertsPageItems);
       const activeFilter = view.filters.find((filter) => filter.key === activeAlertsPageFilterKey) || view.filters[0];
       if (!view.filters.some((filter) => filter.key === activeAlertsPageFilterKey)) activeAlertsPageFilterKey = "open";
-      const emptyTitle = activeAlertsPageFilterKey === "resolved"
-        ? diagnosticText("Nothing has been reviewed today", "Šiandien dar niekas neperžiūrėta")
+      const emptyTitle = activeAlertsPageFilterKey === "acknowledged"
+        ? diagnosticText("No active alerts have been seen", "Nė vienas aktyvus įspėjimas dar neperžiūrėtas")
         : diagnosticText("No alerts in this view", "Šiame vaizde įspėjimų nėra");
       const emptyText = activeAlertsPageFilterKey === "open"
         ? diagnosticText("Current growing conditions and device reporting are within the configured limits.", "Dabartinės auginimo sąlygos ir node ryšys atitinka nustatytas ribas.")
@@ -8407,9 +8403,9 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
             <div>
               <p class="nc-alerts-eyebrow">${escapeHtml(diagnosticText("Operational attention", "Operacinis dėmesys"))}</p>
               <h1>${escapeHtml(diagnosticText("Alerts", "Įspėjimai"))}</h1>
-              <p class="nc-alerts-description">${escapeHtml(diagnosticText("Prioritized environmental and device events. Acknowledge only after the physical condition has been checked.", "Prioritetiniai aplinkos ir įrenginių įvykiai. Patvirtinkite tik fiziškai patikrinę situaciją."))}</p>
+              <p class="nc-alerts-description">${escapeHtml(diagnosticText("Live sensor deviations and device connectivity events. Alerts explain what is happening; employee work, assignment, and verification are managed in Actions.", "Gyvi sensorių nukrypimai ir įrenginių ryšio įvykiai. Alerts parodo, kas vyksta; darbuotojų darbai, priskyrimas ir patikra valdomi Actions puslapyje."))}</p>
             </div>
-            <button type="button" class="nc-alerts-review-all" data-alerts-mark-reviewed ${view.open.length === 0 || activeAlertsPageFilterKey === "resolved" || !canManage ? "disabled" : ""}><i class="fa-solid fa-check-double" aria-hidden="true"></i>${escapeHtml(diagnosticText("Mark reviewed", "Pažymėti peržiūrėta"))}</button>
+            <button type="button" class="nc-alerts-review-all" data-alerts-mark-reviewed ${view.open.every((item) => item.acknowledged) || !canManage ? "disabled" : ""}><i class="fa-solid fa-check-double" aria-hidden="true"></i>${escapeHtml(diagnosticText("Mark all as seen", "Pažymėti visus peržiūrėtais"))}</button>
           </header>
           ${alertsPageFeedback.text ? `<div class="nc-alerts-feedback" data-tone="${escapeAttribute(alertsPageFeedback.tone || "info")}" role="status">${escapeHtml(alertsPageFeedback.text)}</div>` : ""}
           <div class="nc-alerts-layout">
@@ -8430,6 +8426,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
     function storeReviewedAlertItem(item) {
       const records = loadReviewedAlertRecords();
       records[item.id] = {
+        status: "acknowledged",
         acknowledgedAt: new Date().toISOString(),
         item: {
           id: item.id,
@@ -8471,8 +8468,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         alertsPageFeedback = {
           tone: "success",
           text: pendingItems.length === 1
-            ? diagnosticText("Alert marked as reviewed.", "Įspėjimas pažymėtas peržiūrėtu.")
-            : diagnosticText(`${pendingItems.length} alerts marked as reviewed.`, `${pendingItems.length} įspėjimai pažymėti peržiūrėtais.`)
+            ? diagnosticText("Alert marked as seen. The live condition remains active.", "Įspėjimas pažymėtas peržiūrėtu. Gyva sąlyga lieka aktyvi.")
+            : diagnosticText(`${pendingItems.length} alerts marked as seen. Live conditions remain active.`, `${pendingItems.length} įspėjimai pažymėti peržiūrėtais. Gyvos sąlygos lieka aktyvios.`)
         };
       } catch (error) {
         alertsPageFeedback = { tone: "danger", text: error?.message || diagnosticText("Alert could not be acknowledged.", "Nepavyko patvirtinti įspėjimo.") };
@@ -8482,14 +8479,12 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       }
     }
 
-    async function updateAlertsPageItemWorkflow(item, action) {
+    async function snoozeAlertsPageItem(item) {
       if (!item || alertsPagePendingIds.has(item.id) || !window.NeuroCropApi?.isConnected?.()) return;
       alertsPagePendingIds.add(item.id);
       renderDashboard();
       try {
-        const response = action === "snooze"
-          ? await window.NeuroCropApi.snoozeAlert(item.id, { minutes: 60, context: item })
-          : await window.NeuroCropApi.resolveAlert(item.id, { context: item });
+        const response = await window.NeuroCropApi.snoozeAlert(item.id, { minutes: 60, context: item });
         if (!response?.alert) throw new Error(diagnosticText("Alert workflow was not saved.", "Įspėjimo veiksmas nebuvo išsaugotas."));
         backendAlertRecords[item.id] = {
           ...response.alert,
@@ -8497,9 +8492,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         };
         alertsPageFeedback = {
           tone: "success",
-          text: action === "snooze"
-            ? diagnosticText("Alert snoozed for one hour.", "Įspėjimas atidėtas vienai valandai.")
-            : diagnosticText("Alert resolved and added to the organization audit trail.", "Įspėjimas išspręstas ir įrašytas į organizacijos veiksmų istoriją.")
+          text: diagnosticText("Alert muted for one hour. This does not resolve the live condition.", "Įspėjimas nutildytas vienai valandai. Tai neišsprendžia gyvos sąlygos.")
         };
       } catch (error) {
         alertsPageFeedback = { tone: "danger", text: error?.message || diagnosticText("Alert workflow could not be saved.", "Nepavyko išsaugoti įspėjimo veiksmo.") };
@@ -15879,7 +15872,7 @@ function buildTrendMetricOptions(options) {
       const contextButton = event.target.closest("[data-alerts-view-context]");
       if (contextButton) {
         const view = getAlertsPageView(currentAlertsPageItems);
-        const item = [...view.open, ...view.resolved].find((candidate) => candidate.id === contextButton.dataset.alertsViewContext);
+        const item = view.open.find((candidate) => candidate.id === contextButton.dataset.alertsViewContext);
         if (!item) return;
         if (item.nodeId) {
           activePrimaryPage = "nodes";
@@ -15905,20 +15898,13 @@ function buildTrendMetricOptions(options) {
       const snoozeButton = event.target.closest("[data-alerts-snooze]");
       if (snoozeButton) {
         const item = currentAlertsPageItems.find((candidate) => candidate.id === snoozeButton.dataset.alertsSnooze);
-        updateAlertsPageItemWorkflow(item, "snooze");
-        return;
-      }
-
-      const resolveButton = event.target.closest("[data-alerts-resolve]");
-      if (resolveButton) {
-        const item = currentAlertsPageItems.find((candidate) => candidate.id === resolveButton.dataset.alertsResolve);
-        updateAlertsPageItemWorkflow(item, "resolve");
+        snoozeAlertsPageItem(item);
         return;
       }
 
       const markReviewedButton = event.target.closest("[data-alerts-mark-reviewed]");
       if (markReviewedButton) {
-        acknowledgeAlertsPageItems(getAlertsPageView(currentAlertsPageItems).open);
+        acknowledgeAlertsPageItems(getAlertsPageView(currentAlertsPageItems).open.filter((item) => !item.acknowledged));
       }
     });
 

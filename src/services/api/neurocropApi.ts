@@ -46,7 +46,7 @@ export const neurocropApi = {
   submitTodayActionFeedback: (actionId: string, payload: Payload) => request(`/actions/today/${encoded(actionId)}/feedback`, { method: 'POST', body: json(payload) }),
   assignTodayAction: (actionId: string, payload: Payload) => request(`/actions/today/${encoded(actionId)}/assignment`, { method: 'POST', body: json(payload) }),
   resetActions: () => request('/actions/reset', { method: 'DELETE', body: json({ confirm: 'RESET' }) }),
-  getAlerts: (status = 'all') => request(`/alerts${queryString({ status })}`),
+  getAlerts: (status = 'all') => request(`/alerts${queryString({ status })}`, { cache: 'no-store' }),
   acknowledgeAlert: (id: string, payload: Payload = {}) => request(`/alerts/${encoded(id)}/acknowledge`, { method: 'POST', body: json(payload) }),
   snoozeAlert: (id: string, payload: Payload) => request(`/alerts/${encoded(id)}/snooze`, { method: 'POST', body: json(payload) }),
   resolveAlert: (id: string, payload: Payload = {}) => request(`/alerts/${encoded(id)}/resolve`, { method: 'POST', body: json(payload) }),

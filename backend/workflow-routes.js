@@ -123,6 +123,7 @@ async function requireAlert(req, res) {
 export function registerWorkflowRoutes(app) {
   app.get('/alerts', requireUserAuth, async (req, res, next) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const status = String(req.query.status || 'all');
       if (!ALERT_STATUSES.has(status)) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unknown alert status' } });
