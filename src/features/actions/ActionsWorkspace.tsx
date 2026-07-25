@@ -83,7 +83,11 @@ export default function ActionsWorkspace() {
   const [completionError, setCompletionError] = useState('')
   const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [loading, setLoading] = useState(true)
+  const [canReset, setCanReset] = useState(false)
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetBusy, setResetBusy] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -107,10 +111,12 @@ export default function ActionsWorkspace() {
     Promise.all([
       neurocropApi.getTodayActions(),
       neurocropApi.getActionHistory(100),
-    ]).then(([todayPayload, historyPayload]) => {
+      neurocropApi.getCurrentUser(),
+    ]).then(([todayPayload, historyPayload, userPayload]) => {
       if (!active) return
       setToday(asArray((todayPayload as JsonRecord)?.actions))
       setHistory(asArray((historyPayload as JsonRecord)?.items))
+      setCanReset(['owner', 'admin'].includes(String((userPayload as JsonRecord)?.user?.role || '')))
     }).catch((reason) => {
       if (active) setError(reason instanceof Error ? reason.message : 'Actions could not be loaded.')
     }).finally(() => {
@@ -146,10 +152,17 @@ export default function ActionsWorkspace() {
       }
     })
     const ids = new Set(current.map((item) => String(item.id)))
-    return [...current, ...history.filter((item) => item.status === 'in_progress' && !ids.has(String(item.actionId)))]
+    const activeHistory = history.filter((item) =>
+      (item.status === 'in_progress' || displayStatus(item, String(item.status)) === 'awaiting_verification')
+      && !ids.has(String(item.actionId)),
+    )
+    return [...current, ...activeHistory]
   }, [history, today])
 
-  const source = tab === 'open' ? open : tab === 'in_progress' ? inProgress : history
+  const recordedHistory = useMemo(() => history.filter((item) =>
+    item.status !== 'in_progress' && displayStatus(item, String(item.status)) !== 'awaiting_verification',
+  ), [history])
+  const source = tab === 'open' ? open : tab === 'in_progress' ? inProgress : recordedHistory
   const areas = useMemo(() => [...new Set([...today, ...history].map((item) => String(item.areaName || '')).filter(Boolean))].sort(), [history, today])
   const employees = useMemo(() => [...new Set(history.map((item) => String(item.createdByName || '')).filter(Boolean))].sort(), [history])
   const filtered = useMemo(() => source.filter((item) => {
@@ -259,6 +272,24 @@ export default function ActionsWorkspace() {
     }
   }
 
+  async function resetActions() {
+    setResetBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const payload = await neurocropApi.resetActions() as JsonRecord
+      const deletedCount = Number(payload?.deletedCount || 0)
+      setResetOpen(false)
+      setTab('open')
+      setNotice(`${deletedCount} action record${deletedCount === 1 ? '' : 's'} reset. Live conditions are now available as new checks.`)
+      await load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Actions could not be reset.')
+    } finally {
+      setResetBusy(false)
+    }
+  }
+
   return <main className="nc-actions-page">
     <header className="nc-actions-head">
       <div>
@@ -266,9 +297,14 @@ export default function ActionsWorkspace() {
         <h1>Actions</h1>
         <span>See what needs attention, who performed each check, and whether conditions improved.</span>
       </div>
-      <button type="button" className="nc-actions-refresh" onClick={() => void load()}>
-        <i className="fa-solid fa-rotate" /> Refresh
-      </button>
+      <div className="nc-actions-head-controls">
+        {canReset && <button type="button" className="nc-actions-reset" onClick={() => setResetOpen(true)}>
+          <i className="fa-solid fa-arrow-rotate-left" /> Reset actions
+        </button>}
+        <button type="button" className="nc-actions-refresh" onClick={() => void load()}>
+          <i className="fa-solid fa-rotate" /> Refresh
+        </button>
+      </div>
     </header>
 
     <section className="nc-actions-summary" aria-label="Action summary">
@@ -279,12 +315,13 @@ export default function ActionsWorkspace() {
         <i data-state="in_progress" /><strong>{inProgress.length}</strong><span>In progress</span>
       </button>
       <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
-        <i data-state="completed" /><strong>{history.filter((item) => item.status === 'completed').length}</strong><span>Recorded checks</span>
+        <i data-state="completed" /><strong>{recordedHistory.length}</strong><span>Recorded checks</span>
       </button>
       <p><i className="fa-solid fa-circle-info" /><span><strong>History is auditable.</strong> Every result records the employee and time.</span></p>
     </section>
 
     {error && <div className="nc-actions-feedback"><i className="fa-solid fa-triangle-exclamation" /><span>{error}</span></div>}
+    {notice && <div className="nc-actions-notice"><i className="fa-solid fa-circle-check" /><span>{notice}</span></div>}
 
     <section className="nc-actions-shell">
       <div className="nc-actions-toolbar">
@@ -339,6 +376,25 @@ export default function ActionsWorkspace() {
           <button type="button" onClick={() => setCompletionItem(null)}>Cancel</button>
           <button type="button" className="danger" disabled={busyId === String((completionItem.action || completionItem).id || completionItem.actionId)} onClick={() => void fail()}>Could not complete</button>
           <button type="button" className="primary" disabled={busyId === String((completionItem.action || completionItem).id || completionItem.actionId)} onClick={() => void complete()}>Submit for verification</button>
+        </footer>
+      </section>
+    </div>}
+    {resetOpen && <div className="nc-actions-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setResetOpen(false)}>
+      <section className="nc-actions-modal nc-actions-reset-modal" role="dialog" aria-modal="true" aria-labelledby="reset-actions-title">
+        <header>
+          <div><p>Administrator tool</p><h2 id="reset-actions-title">Reset all action records?</h2><span>This is intended for clearing test activity before client use.</span></div>
+          <button type="button" onClick={() => setResetOpen(false)} aria-label="Close"><i className="fa-solid fa-xmark" /></button>
+        </header>
+        <div className="nc-actions-reset-copy">
+          <p><strong>Deleted:</strong> open workflow progress, recorded work, and verification history for this organization.</p>
+          <p><strong>Kept:</strong> sensor readings, Areas, Sections, Nodes, crop profiles, and alerts.</p>
+          <p>Any condition that is still outside target will immediately return as a new Open check.</p>
+        </div>
+        <footer>
+          <button type="button" disabled={resetBusy} onClick={() => setResetOpen(false)}>Cancel</button>
+          <button type="button" className="danger" disabled={resetBusy} onClick={() => void resetActions()}>
+            {resetBusy ? 'Resetting…' : 'Reset action records'}
+          </button>
         </footer>
       </section>
     </div>}

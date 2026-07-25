@@ -592,7 +592,7 @@ function EvidenceDrawer({ model, row, onClose }: {
           : <MiniTrend points={trendPoints} target={row.target} unit={row.unit} />
         : null}
       <dl>
-        <div><dt>7-day Growing Score</dt><dd>{score === null ? 'Not available' : `${score} / 100`}</dd></div>
+        <div><dt>Current overall score</dt><dd>{score === null ? 'Not available' : `${score} / 100`}</dd></div>
         {row ? <div><dt>Crop profile</dt><dd>{row.crop}</dd></div> : null}
         <div><dt>Data confidence</dt><dd>{row?.reporting || model.reporting} · updated {row?.updated || model.updated}</dd></div>
       </dl>
@@ -1002,7 +1002,7 @@ export default function OverviewWorkspace() {
               </div>
             </div>
             <div className="nc-growing-score">
-              <span>7-day Growing Score</span>
+              <span>Current Growing Score</span>
               <p><strong>{model.growingScore ?? '—'}</strong>{model.growingScore === null ? null : <small>/ 100</small>}</p>
               {model.scoreDriver ? <em>Limited by {model.scoreDriver.toLowerCase()}</em> : null}
             </div>
@@ -1012,7 +1012,7 @@ export default function OverviewWorkspace() {
               <i><span /></i>
               <div className="nc-section-identity"><strong>{row.name}</strong><small>{row.crop}</small></div>
               <div className="nc-section-score">
-                <span>7-day score</span>
+                <span>Current overall score</span>
                 <strong style={{ color: scoreColor(row.score) }}>{row.score ?? '—'}{row.score === null ? null : <small>/100</small>}</strong>
               </div>
               <p>
@@ -1026,7 +1026,7 @@ export default function OverviewWorkspace() {
             </button>)}
           </div>
           <div className="nc-coverage-footer">
-            <figcaption><i className="fa-solid fa-circle-check" />Growing Score summarizes overall conditions; status highlights current target deviations.</figcaption>
+            <figcaption><i className="fa-solid fa-circle-check" />Current Growing Score combines all available metrics; status and deviation show the limiting condition.</figcaption>
             <button type="button" onClick={() => navigate('/sections')}>View all {model.rows.length} Sections <i className="fa-solid fa-arrow-right" /></button>
           </div>
         </figure>

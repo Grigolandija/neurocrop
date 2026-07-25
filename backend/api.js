@@ -1613,6 +1613,29 @@ app.get('/actions/history', requireAuth, async (req, res) => {
   }
 });
 
+app.delete('/actions/reset', requireAuth, requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    if (String(req.body?.confirm || '') !== 'RESET') {
+      return res.status(400).json({
+        error: { code: 'CONFIRMATION_REQUIRED', message: 'Type RESET to confirm the action reset' }
+      });
+    }
+    const organizationId = getOrganizationId(req);
+    const result = await query(
+      `DELETE FROM action_feedback
+       WHERE organization_id=$1`,
+      [organizationId]
+    );
+    res.json({
+      reset: true,
+      deletedCount: result.rowCount || 0
+    });
+  } catch (e) {
+    console.error('[api] DELETE /actions/reset:', e.message);
+    res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  }
+});
+
 app.get('/actions/overview-summary', requireAuth, async (req, res) => {
   try {
     const organizationId = getOrganizationId(req);

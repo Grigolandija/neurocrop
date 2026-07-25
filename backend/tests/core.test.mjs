@@ -1279,6 +1279,20 @@ test('action history is tenant-scoped and verifies outcomes from section measure
   assert.match(route, /\saction,\s/);
 });
 
+test('action reset is tenant-scoped, administrator-only and explicitly confirmed', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.delete('/actions/reset'");
+  const route = source.slice(routeStart, source.indexOf("app.get('/actions/overview-summary'", routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /requireRole\('owner', 'admin'\)/);
+  assert.match(route, /req\.body\?\.confirm/);
+  assert.match(route, /!== 'RESET'/);
+  assert.match(route, /DELETE FROM action_feedback/);
+  assert.match(route, /WHERE organization_id=\$1/);
+  assert.match(route, /\[organizationId\]/);
+  assert.doesNotMatch(route, /measurements|crop_profiles|nodes/);
+});
+
 test('latest readings expose a one-hour change from a bounded historical baseline', () => {
   const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   const routeStart = source.indexOf("app.get('/readings/latest'");
