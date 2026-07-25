@@ -3,11 +3,11 @@ import { createDemoMap } from '../demo'
 import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, worldToScreen } from '../geometry'
 import { mapRepository, validateMap } from '../services/mapRepository'
 import { calculateConfidence } from './calculateConfidenceGrid'
-import { CONTOUR_INTERVALS, connectContourSegments, createContourSegments, getContourLevels } from './contourLines'
+import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, connectContourSegments, createContourSegments, getContourLevels } from './contourLines'
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
-import { colorAt, HEATMAP_COLOR_BANDS, steppedColorAt, steppedGradient } from './heatmapColorScale'
+import { bandedColorAt, bandedGradient, colorAt } from './heatmapColorScale'
 import { METRICS } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
@@ -92,12 +92,14 @@ describe('environment colour scale', () => {
     expect(colorAt(60, 40, 80, colors)).toEqual([102, 199, 180])
     expect(colorAt(80, 40, 80, colors)).toEqual([47, 128, 195])
   })
-  it('reduces the heatmap to a small set of distinct colour bands', () => {
-    const colors = METRICS['relative-humidity'].colors
-    expect(HEATMAP_COLOR_BANDS).toBe(16)
-    expect(steppedColorAt(51, 0, 100, colors)).toEqual(steppedColorAt(55, 0, 100, colors))
-    expect(steppedColorAt(10, 0, 100, colors)).not.toEqual(steppedColorAt(90, 0, 100, colors))
-    expect(steppedGradient(colors).match(/rgb\(/g)).toHaveLength(HEATMAP_COLOR_BANDS * 2)
+  it('uses metric bands whose boundaries align with the major contour levels', () => {
+    Object.values(METRIC_LEVELS).forEach(({ colorInterval, contourInterval }) => {
+      expect(contourInterval / colorInterval).toBeCloseTo(Math.round(contourInterval / colorInterval))
+    })
+    const colors = METRICS['air-temperature'].colors
+    expect(COLOR_INTERVALS['air-temperature']).toBe(0.25)
+    expect(bandedColorAt(22.99, 20, 30, colors, 0.25)).not.toEqual(bandedColorAt(23.01, 20, 30, colors, 0.25))
+    expect(bandedGradient(20, 25, colors, 0.25).match(/rgb\(/g)).toHaveLength(40)
   })
 })
 

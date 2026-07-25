@@ -1,9 +1,9 @@
 import Konva from 'konva'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
-import { CONTOUR_INTERVALS, createContourPaths } from '../heatmap/contourLines'
+import { COLOR_INTERVALS, CONTOUR_INTERVALS, createContourPaths } from '../heatmap/contourLines'
 import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
-import { steppedGradient } from '../heatmap/heatmapColorScale'
+import { bandedGradient } from '../heatmap/heatmapColorScale'
 import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
@@ -63,18 +63,18 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
     }}
   >
     {isSection ? <>
-      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(255,255,255,.35)' : object.metadata.color ?? colors.fill} opacity={environmentView ? 1 : selected ? .2 : .11} stroke={selected ? '#d89222' : environmentView ? 'rgba(54,78,69,.46)' : object.metadata.color ?? colors.stroke} strokeWidth={selected ? 2 / viewScale : environmentView ? 1 / viewScale : 1.2 / viewScale} dash={environmentView ? [6 / viewScale, 4 / viewScale] : [8 / viewScale, 5 / viewScale]} cornerRadius={4 / viewScale} />
-      <Text x={8 / viewScale} y={7 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={section?.sectionName ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.max(.18, 12 / viewScale)} fontStyle="bold" fill="#244d41" opacity={environmentView ? .68 : 1} />
-      <Text x={8 / viewScale} y={23 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={`${section?.nodeCount ?? 0} node${section?.nodeCount === 1 ? '' : 's'}${section?.cropProfile ? ` · ${section.cropProfile}` : ''}`} fontFamily="IBM Plex Mono" fontSize={Math.max(.13, 9 / viewScale)} fill="#557168" opacity={environmentView ? .68 : 1} />
+      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(0,0,0,.35)' : object.metadata.color ?? colors.fill} opacity={environmentView ? 1 : selected ? .2 : .11} stroke={selected ? '#d89222' : environmentView ? 'rgba(255,255,255,.42)' : object.metadata.color ?? colors.stroke} strokeWidth={selected ? 2 / viewScale : environmentView ? 1 / viewScale : 1.2 / viewScale} dash={environmentView ? [6 / viewScale, 4 / viewScale] : [8 / viewScale, 5 / viewScale]} cornerRadius={4 / viewScale} />
+      <Text x={8 / viewScale} y={7 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={section?.sectionName ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.max(.18, 12 / viewScale)} fontStyle="bold" fill={environmentView ? '#fff' : '#244d41'} opacity={environmentView ? .76 : 1} />
+      <Text x={8 / viewScale} y={23 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={`${section?.nodeCount ?? 0} node${section?.nodeCount === 1 ? '' : 's'}${section?.cropProfile ? ` · ${section.cropProfile}` : ''}`} fontFamily="IBM Plex Mono" fontSize={Math.max(.13, 9 / viewScale)} fill={environmentView ? '#fff' : '#557168'} opacity={environmentView ? .68 : 1} />
     </> : isSensor ? <>
       <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .5} fill="#173e35" stroke={selected ? '#f0bd4f' : '#fff'} strokeWidth={selected ? Math.max(sensorSize * .12, 2 / viewScale) : Math.max(sensorSize * .07, 1.2 / viewScale)} shadowColor="#10251f" shadowBlur={Math.max(sensorSize * .2, 3 / viewScale)} shadowOpacity={.35} />
       <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .2} fill={statusColors[sensor?.status ?? 'unassigned']} />
       <Circle x={object.widthM * .8} y={object.lengthM * .18} radius={sensorSize * .14} fill={statusColors[sensor?.status ?? 'unassigned']} stroke="#fff" strokeWidth={Math.max(sensorSize * .035, .8 / viewScale)} />
       <Text x={object.widthM + 6 / viewScale} y={-1 / viewScale} width={Math.max(2.8, 150 / viewScale)} text={object.name} fontFamily="IBM Plex Sans" fontSize={labelFontSize} fontStyle="bold" fill="#183a31" />
     </> : <>
-      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(255,255,255,.35)' : object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : environmentView ? 'rgba(54,78,69,.46)' : colors.stroke} strokeWidth={selected ? .08 : environmentView ? 1 / viewScale : .035} dash={environmentView ? [6 / viewScale, 4 / viewScale] : object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
+      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(0,0,0,.35)' : object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : environmentView ? 'rgba(255,255,255,.42)' : colors.stroke} strokeWidth={selected ? .08 : environmentView ? 1 / viewScale : .035} dash={environmentView ? [6 / viewScale, 4 / viewScale] : object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
       {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} opacity={environmentView ? .68 : 1} /> : null}
-      <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.type === 'text-label' ? object.name : object.widthM > 1.2 && object.lengthM > .45 ? object.name : definition?.label ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill="#2d4038" opacity={environmentView ? .68 : 1} ellipsis wrap="none" />
+      <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.type === 'text-label' ? object.name : object.widthM > 1.2 && object.lengthM > .45 ? object.name : definition?.label ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill={environmentView ? '#fff' : '#2d4038'} opacity={environmentView ? .76 : 1} ellipsis wrap="none" />
     </>}
   </Group>
 }
@@ -134,6 +134,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
         canvas: renderHeatmapCanvas(
           grid,
           METRICS[metric].colors,
+          COLOR_INTERVALS[metric],
           map.heatmapSettings.opacity,
           map.heatmapSettings.showConfidence,
         ),
@@ -259,7 +260,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, target, 
     </div>
     {mode === 'environment' ? <div className="gh-heatmap-legend">
       <small>ESTIMATED ENVIRONMENT MAP</small><strong>{METRICS[map.heatmapSettings.metric].label}</strong>
-      {heatmap ? <><button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < 3} onClick={() => setShowContours((current) => !current)}><i className="fa-solid fa-lines-leaning" />{tr('Contours', 'Izolinijos')} · {CONTOUR_INTERVALS[map.heatmapSettings.metric]} {METRICS[map.heatmapSettings.metric].unit}</button><div className="gh-color-scale" style={{ background: steppedGradient(METRICS[map.heatmapSettings.metric].colors) }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>{target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}<p>{tr('Whole Area', 'Visa Area')} · {tr('estimated from', 'apskaičiuota iš')} {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count < 3 ? <em>{tr('Contour lines need at least three valid sensors.', 'Izolinijoms reikia bent trijų tinkamų jutiklių.')}</em> : null}</> : <p>{tr('No valid online sensor data for this metric in this Area.', 'Nėra tinkamų aktyvių jutiklių šiam rodikliui šioje Area.')}</p>}
+      {heatmap ? <><button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < 3} onClick={() => setShowContours((current) => !current)}><i className="fa-solid fa-lines-leaning" />{tr('Contours', 'Izolinijos')} · {CONTOUR_INTERVALS[map.heatmapSettings.metric]} {METRICS[map.heatmapSettings.metric].unit}</button><div className="gh-color-scale" style={{ background: bandedGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric].colors, COLOR_INTERVALS[map.heatmapSettings.metric]) }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>{target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}<p>{tr('Whole Area', 'Visa Area')} · {tr('estimated from', 'apskaičiuota iš')} {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count < 3 ? <em>{tr('Contour lines need at least three valid sensors.', 'Izolinijoms reikia bent trijų tinkamų jutiklių.')}</em> : null}</> : <p>{tr('No valid online sensor data for this metric in this Area.', 'Nėra tinkamų aktyvių jutiklių šiam rodikliui šioje Area.')}</p>}
       <em>Interpolated estimate based on sensor locations. Values between sensors are not directly measured.</em>
     </div> : null}
     {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> Approximate planned sensor coverage, not a physical propagation model.</div> : null}

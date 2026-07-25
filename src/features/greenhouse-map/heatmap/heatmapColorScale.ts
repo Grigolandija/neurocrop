@@ -1,5 +1,3 @@
-export const HEATMAP_COLOR_BANDS = 16
-
 export function parseHex(hex: string) {
   const value = hex.replace('#', '')
   return [Number.parseInt(value.slice(0, 2), 16), Number.parseInt(value.slice(2, 4), 16), Number.parseInt(value.slice(4, 6), 16)]
@@ -17,20 +15,27 @@ export function colorAt(value: number, min: number, max: number, colors: [string
   ]
 }
 
-export function steppedColorAt(value: number, min: number, max: number, colors: [string, string, string], bands = HEATMAP_COLOR_BANDS) {
-  const safeBands = Math.max(2, Math.round(bands))
-  const t = Math.max(0, Math.min(1, (value - min) / Math.max(max - min, 1e-6)))
-  const steppedT = Math.round(t * (safeBands - 1)) / (safeBands - 1)
-  return colorAt(min + steppedT * (max - min), min, max, colors)
+export function bandedColorAt(value: number, min: number, max: number, colors: [string, string, string], interval: number) {
+  const safeInterval = Number.isFinite(interval) && interval > 0 ? interval : Math.max(max - min, 1e-6)
+  const bandStart = Math.floor((value + safeInterval * 1e-9) / safeInterval) * safeInterval
+  const bandCenter = Math.max(min, Math.min(max, bandStart + safeInterval / 2))
+  return colorAt(bandCenter, min, max, colors)
 }
 
-export function steppedGradient(colors: [string, string, string], bands = HEATMAP_COLOR_BANDS) {
-  const safeBands = Math.max(2, Math.round(bands))
+export function bandedGradient(min: number, max: number, colors: [string, string, string], interval: number) {
+  const safeRange = Math.max(max - min, 1e-6)
+  const safeInterval = Number.isFinite(interval) && interval > 0 ? interval : safeRange
+  const boundaries = [min]
+  const first = Math.ceil((min + safeInterval * 1e-9) / safeInterval) * safeInterval
+  for (let boundary = first; boundary < max - safeInterval * 1e-9; boundary += safeInterval) boundaries.push(boundary)
+  boundaries.push(max)
   const stops: string[] = []
-  for (let index = 0; index < safeBands; index += 1) {
-    const [red, green, blue] = colorAt(index, 0, safeBands - 1, colors)
+  for (let index = 0; index < boundaries.length - 1; index += 1) {
+    const start = boundaries[index]
+    const end = boundaries[index + 1]
+    const [red, green, blue] = colorAt((start + end) / 2, min, max, colors)
     const color = `rgb(${red} ${green} ${blue})`
-    stops.push(`${color} ${index / safeBands * 100}%`, `${color} ${(index + 1) / safeBands * 100}%`)
+    stops.push(`${color} ${(start - min) / safeRange * 100}%`, `${color} ${(end - min) / safeRange * 100}%`)
   }
   return `linear-gradient(90deg, ${stops.join(', ')})`
 }

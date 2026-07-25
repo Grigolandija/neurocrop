@@ -1,13 +1,21 @@
 import type { MetricKey } from '../model'
 import type { HeatmapGrid } from './heatmapTypes'
 
-export const CONTOUR_INTERVALS: Record<MetricKey, number> = {
-  'air-temperature': 1,
-  'relative-humidity': 5,
-  co2: 100,
-  vpd: 0.1,
-  'root-temperature': 1,
+export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourInterval: number }> = {
+  'air-temperature': { colorInterval: 0.25, contourInterval: 1 },
+  'relative-humidity': { colorInterval: 2.5, contourInterval: 5 },
+  co2: { colorInterval: 50, contourInterval: 100 },
+  vpd: { colorInterval: 0.05, contourInterval: 0.1 },
+  'root-temperature': { colorInterval: 0.25, contourInterval: 1 },
 }
+
+export const COLOR_INTERVALS = Object.fromEntries(
+  Object.entries(METRIC_LEVELS).map(([metric, levels]) => [metric, levels.colorInterval]),
+) as Record<MetricKey, number>
+
+export const CONTOUR_INTERVALS = Object.fromEntries(
+  Object.entries(METRIC_LEVELS).map(([metric, levels]) => [metric, levels.contourInterval]),
+) as Record<MetricKey, number>
 
 export type ContourSegment = {
   level: number
