@@ -1718,9 +1718,10 @@
           const session = normalizeLoginSession(response?.user || { email: "" });
           if (!session.email) throw new Error("Authenticated user email is missing.");
           persistLoginSession(session);
-          // Opening an authenticated workspace is a new entry point: always begin
-          // on Overview with the backend-selected priority zone, never a stale site scope.
-          setLoginState(session, { resetWorkspace: true });
+          // A refresh must preserve a protected deep link. Only a fresh root entry
+          // resets to Overview; explicit sign-in still resets below.
+          const restoringProtectedRoute = window.location.pathname !== "/";
+          setLoginState(session, { resetWorkspace: !restoringProtectedRoute });
           return;
         } catch (error) {
           window.sessionStorage.removeItem(loginSessionKey);
