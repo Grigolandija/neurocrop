@@ -1260,6 +1260,7 @@
       nodesManagementShell: document.getElementById("nodesManagementShell"),
       alertsManagementSection: document.getElementById("alertsManagementSection"),
       alertsManagementShell: document.getElementById("alertsManagementShell"),
+      actionsManagementSection: document.getElementById("actionsManagementSection"),
       settingsManagementSection: document.getElementById("settingsManagementSection"),
       settingsManagementShell: document.getElementById("settingsManagementShell"),
       sidebarQuickActions: document.getElementById("sidebarQuickActions"),
@@ -1992,6 +1993,7 @@
       readings: { page: "readings", route: "/readings" },
       history: { page: "history", route: "/history" },
       alerts: { page: "alerts", route: "/alerts" },
+      actions: { page: "actions", route: "/actions" },
       settings: { page: "settings", route: "/settings" },
       organization: { page: "settings", route: "/organization", sidebarAction: "organization" },
       admin: { page: "admin", route: "/admin" },
@@ -2270,6 +2272,7 @@
         blocks: "blocksManagementSection",
         nodes: "nodesManagementSection",
         alerts: "alertsManagementSection",
+        actions: "actionsManagementSection",
         readings: "metricsSection",
         history: "historySection",
         settings: "settingsManagementSection",
@@ -4814,6 +4817,8 @@
         activeAction = "history";
       } else if (activePrimaryPage === "alerts") {
         activeAction = "alerts";
+      } else if (activePrimaryPage === "actions") {
+        activeAction = "actions";
       } else if (activePrimaryPage === "settings") {
         activeAction = sidebarActionOverride === "crop-profiles"
           ? "crop-profiles"
@@ -4924,6 +4929,14 @@
           renderDashboard();
           syncTopLevelRoute("/alerts");
           scrollToSection("alertsManagementSection", { behavior: "auto", highlight: false });
+          return;
+        case "actions":
+          activePrimaryPage = "actions";
+          sidebarActionOverride = null;
+          closeContextMenus();
+          renderDashboard();
+          syncTopLevelRoute("/actions");
+          scrollToSection("actionsManagementSection", { behavior: "auto", highlight: false });
           return;
         case "crop-profiles":
           activePrimaryPage = "settings";
@@ -13974,6 +13987,28 @@ function buildTrendMetricOptions(options) {
       renderZoneOptions();
       updateSidebarActionState();
 
+      if (activePrimaryPage === "actions") {
+        elements.experienceModeSection.hidden = true;
+        elements.locationsManagementSection.hidden = true;
+        elements.blocksManagementSection.hidden = true;
+        elements.nodesManagementSection.hidden = true;
+        elements.alertsManagementSection.hidden = true;
+        elements.actionsManagementSection.hidden = false;
+        elements.settingsManagementSection.hidden = true;
+        elements.overviewTriageSection.hidden = true;
+        elements.heroStatusPanel.hidden = true;
+        elements.todayPriorityPanel.hidden = true;
+        elements.metricsSection.hidden = true;
+        elements.historySection.hidden = true;
+        elements.sensorHealthSection.hidden = true;
+        elements.alertsSection.hidden = true;
+        elements.opsDockSection.hidden = true;
+        elements.detailedDiagnosticsSection.hidden = true;
+        elements.zoneImpactSection.hidden = true;
+        document.body.dataset.primaryPage = "actions";
+        return;
+      }
+
       if (activePrimaryPage === "alerts") {
         const snapshots = dashboardData.sites.flatMap((systemSite) =>
           (systemSite.zones || []).map((systemZone) => evaluateZoneSnapshot(systemSite, systemZone))
@@ -13983,6 +14018,7 @@ function buildTrendMetricOptions(options) {
         elements.blocksManagementSection.hidden = true;
         elements.nodesManagementSection.hidden = true;
         elements.alertsManagementSection.hidden = false;
+        elements.actionsManagementSection.hidden = true;
         elements.settingsManagementSection.hidden = true;
         elements.overviewTriageSection.hidden = true;
         elements.heroStatusPanel.hidden = true;
@@ -14002,6 +14038,7 @@ function buildTrendMetricOptions(options) {
       }
 
       elements.alertsManagementSection.hidden = true;
+      elements.actionsManagementSection.hidden = true;
 
       if (activePrimaryPage === "blocks") {
         activeBlockFilterSiteId = site.id;
@@ -14078,6 +14115,7 @@ function buildTrendMetricOptions(options) {
       elements.blocksManagementSection.hidden = true;
       elements.nodesManagementSection.hidden = true;
       elements.alertsManagementSection.hidden = true;
+      elements.actionsManagementSection.hidden = true;
       elements.settingsManagementSection.hidden = true;
       elements.heroStatusPanel.hidden = true;
       elements.todayPriorityPanel.hidden = true;
@@ -14136,9 +14174,10 @@ function buildTrendMetricOptions(options) {
       const isBlocksPage = activePrimaryPage === "blocks";
       const isNodesPage = activePrimaryPage === "nodes";
       const isAlertsPage = activePrimaryPage === "alerts";
+      const isActionsPage = activePrimaryPage === "actions";
       const isSettingsPage = activePrimaryPage === "settings";
       const isAdminPage = activePrimaryPage === "admin";
-      const showWorkspaceSetup = !isLocationsPage && !isBlocksPage && !isNodesPage && !isAlertsPage && !isSettingsPage && !isAdminPage;
+      const showWorkspaceSetup = !isLocationsPage && !isBlocksPage && !isNodesPage && !isAlertsPage && !isActionsPage && !isSettingsPage && !isAdminPage;
 
       elements.siteContextValue.textContent = diagnosticText("No areas", "Nėra area");
       elements.siteContextMeta.textContent = diagnosticText("Create the first area", "Sukurkite pirmą area");
@@ -14157,6 +14196,7 @@ function buildTrendMetricOptions(options) {
       elements.blocksManagementSection.hidden = !isBlocksPage;
       elements.nodesManagementSection.hidden = !isNodesPage;
       elements.alertsManagementSection.hidden = !isAlertsPage;
+      elements.actionsManagementSection.hidden = !isActionsPage;
       elements.settingsManagementSection.hidden = !(isSettingsPage || isAdminPage);
       elements.overviewTriageSection.hidden = !showWorkspaceSetup;
       elements.heroStatusPanel.hidden = true;
@@ -14205,11 +14245,12 @@ function buildTrendMetricOptions(options) {
       const isBlocksPage = activePrimaryPage === "blocks";
       const isNodesPage = activePrimaryPage === "nodes";
       const isAlertsPage = activePrimaryPage === "alerts";
+      const isActionsPage = activePrimaryPage === "actions";
       const isReadingsPage = activePrimaryPage === "readings";
       const isHistoryPage = activePrimaryPage === "history";
       const isSettingsPage = activePrimaryPage === "settings";
       const isAdminPage = activePrimaryPage === "admin";
-      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isAlertsPage || isSettingsPage || isAdminPage;
+      const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isAlertsPage || isActionsPage || isSettingsPage || isAdminPage;
       const isPrimaryWorkspacePage = isManagementPage || isHistoryPage || isReadingsPage;
       const site = getActiveSite();
       const zone = getActiveZone(site);
@@ -14883,6 +14924,7 @@ function buildTrendMetricOptions(options) {
       elements.blocksManagementSection.hidden = !isBlocksPage;
       elements.nodesManagementSection.hidden = !isNodesPage;
       elements.alertsManagementSection.hidden = !isAlertsPage;
+      elements.actionsManagementSection.hidden = !isActionsPage;
       elements.settingsManagementSection.hidden = !(isSettingsPage || isAdminPage);
       elements.overviewTriageSection.hidden = isPrimaryWorkspacePage || isDetailedExperienceMode;
       elements.detailedDiagnosticsSection.hidden = !isDetailedOverview;

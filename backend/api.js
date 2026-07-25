@@ -1349,7 +1349,12 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       };
     });
 
-    const actions = buildTodayActions(snapshots);
+    // Overview filters by Area client-side, so return enough checks for every
+    // Section instead of allowing the first three critical Sections to hide
+    // valid Watch checks in another Area.
+    const actions = buildTodayActions(snapshots, {
+      limit: Math.min(100, Math.max(3, snapshots.length * 2))
+    });
     const actionIds = actions.map((action) => action.id);
     let feedbackByActionId = new Map();
     if (actionIds.length > 0) {
@@ -1491,7 +1496,7 @@ app.post(
 app.get('/actions/history', requireAuth, async (req, res) => {
   try {
     const organizationId = getOrganizationId(req);
-    const limit = Math.max(1, Math.min(Math.floor(Number(req.query.limit) || 20), 50));
+    const limit = Math.max(1, Math.min(Math.floor(Number(req.query.limit) || 20), 100));
     const { rows: feedbackRows } = await query(
       `WITH latest_feedback AS (
          SELECT DISTINCT ON (action_id, COALESCE(action_payload->>'observedAt', 'unknown')) *
@@ -1552,6 +1557,7 @@ app.get('/actions/history', requireAuth, async (req, res) => {
           metricLabel: action.metricLabel || row.metric_id,
           title: action.title || 'Recommended action',
           unit: action.unit || METRIC_UNITS[row.metric_id] || '',
+          action,
           createdByName: row.created_by_name || null,
           outcome: evaluateActionOutcome(action, feedback, evidence)
         };

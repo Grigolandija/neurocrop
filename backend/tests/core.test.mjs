@@ -618,6 +618,25 @@ test('today actions exclude context-only light deviations', () => {
   assert.deepEqual(actions, []);
 });
 
+test('organization overview can return checks beyond the first three Sections', () => {
+  const profileMetrics = { airTemp: { optimal: [20, 22] } };
+  const scoreRules = buildScoreRules(profileMetrics);
+  const snapshots = Array.from({ length: 5 }, (_, index) => ({
+    section: {
+      id: `section-${index + 1}`,
+      area_id: index < 3 ? 'area-1' : 'area-2',
+      name: `Section ${index + 1}`
+    },
+    profileMetrics,
+    scoreRules,
+    evaluations: [evaluateMetricValue('airTemp', 28 + index, scoreRules)]
+  }));
+
+  const actions = buildTodayActions(snapshots, { limit: 10 });
+  assert.equal(actions.length, 5);
+  assert.equal(actions.some((action) => action.areaId === 'area-2'), true);
+});
+
 test('agronomic interaction catalogue has 25 complete and unique rules', () => {
   assert.equal(AGRONOMIC_INTERACTION_RULES.length, 25);
   assert.equal(new Set(AGRONOMIC_INTERACTION_RULES.map((rule) => rule.id)).size, 25);
@@ -1232,6 +1251,8 @@ test('action history is tenant-scoped and verifies outcomes from section measure
   assert.match(route, /metricSeriesSnapshot/);
   assert.match(route, /INTERVAL '4 hours'/);
   assert.match(route, /DISTINCT ON \(action_id, COALESCE\(action_payload->>'observedAt'/);
+  assert.match(route, /createdByName: row\.created_by_name/);
+  assert.match(route, /\saction,\s/);
 });
 
 test('latest readings expose a one-hour change from a bounded historical baseline', () => {

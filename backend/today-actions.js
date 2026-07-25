@@ -426,6 +426,7 @@ function buildCandidate(snapshot, evaluation) {
 }
 
 export function buildTodayActions(sectionSnapshots, { limit = 3 } = {}) {
+  const actionLimit = Math.max(1, Math.min(Number(limit) || 3, 100));
   const candidates = sectionSnapshots.flatMap((snapshot) => {
     const interactionCandidates = buildAgronomicInteractionCandidates(snapshot);
     const coveredMetrics = new Set(interactionCandidates.flatMap((candidate) => candidate.relatedMetrics || []));
@@ -455,7 +456,7 @@ export function buildTodayActions(sectionSnapshots, { limit = 3 } = {}) {
     if (selected.filter((item) => item.sectionId === candidate.sectionId).length >= 2) continue;
     selected.push(candidate);
     sectionGroupCounts.set(groupKey, 1);
-    if (selected.length >= Math.max(1, Math.min(Number(limit) || 3, 3))) break;
+    if (selected.length >= actionLimit) break;
   }
 
   return selected;

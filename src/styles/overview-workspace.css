@@ -404,6 +404,25 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   transform: translateX(4px);
 }
 
+.nc-overview-setup-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 6px 0;
+  background: transparent;
+  color: #587068;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nc-overview-setup-link:hover {
+  color: #247c6d;
+}
+
 .nc-overview-normal {
   background: rgba(78, 160, 91, .11);
   color: #4a9b59;

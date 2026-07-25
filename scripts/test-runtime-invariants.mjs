@@ -26,6 +26,8 @@ const areasWorkspace = await fs.readFile(path.join(root, "src/features/areas/Are
 const areasWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/areas-workspace.css"), "utf8");
 const sectionsWorkspace = await fs.readFile(path.join(root, "src/features/sections/SectionsWorkspace.tsx"), "utf8");
 const sectionsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/sections-workspace.css"), "utf8");
+const actionsWorkspace = await fs.readFile(path.join(root, "src/features/actions/ActionsWorkspace.tsx"), "utf8");
+const actionsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/actions-workspace.css"), "utf8");
 const settingsWorkspace = await fs.readFile(path.join(root, "src/features/settings/SettingsWorkspace.tsx"), "utf8");
 const organizationWorkspace = await fs.readFile(path.join(root, "src/features/settings/OrganizationWorkspace.tsx"), "utf8");
 const adminWorkspace = await fs.readFile(path.join(root, "src/features/settings/AdminWorkspace.tsx"), "utf8");
@@ -89,6 +91,10 @@ assert(
     && overviewWorkspace.includes('rowConditionSummary(row)')
     && overviewWorkspace.includes('rowCorrectionSummary(row)')
     && overviewWorkspace.includes("onClick={() => navigate('/sections')}>Review Section setup")
+    && overviewWorkspace.includes('fallbackWatchActions')
+    && overviewWorkspace.includes('Review {effectiveWatchActions.length} Watch check')
+    && overviewWorkspace.includes('actions={reviewActions}')
+    && overviewWorkspace.includes('Review setup for {unknownRows.length} unverified Section')
     && !overviewWorkspace.includes('href="/sections"'),
   "Overview Watch evidence must show the exact current value, target boundary and required correction",
 );
@@ -107,6 +113,26 @@ assert(markup.includes('id="sectionsWorkspaceMount"') && dashboardPage.includes(
 assert(sectionsWorkspace.includes('neurocropApi.getAreas()') && sectionsWorkspace.includes('neurocropApi.getSections()') && sectionsWorkspace.includes('neurocropApi.getNodes()') && sectionsWorkspace.includes('neurocropApi.getCropProfiles()'), "Sections must derive its directory, coverage and readiness from real management data");
 assert(sectionsWorkspace.includes('neurocropApi.createSection(') && sectionsWorkspace.includes('neurocropApi.updateSection(') && sectionsWorkspace.includes('neurocropApi.deleteSection(') && sectionsWorkspace.includes('duplicateSection') && sectionsWorkspace.includes('assignBulkProfile'), "Sections create, edit, duplicate, bulk profile assignment and deletion must call backend APIs");
 assert(sectionsWorkspace.includes("type ViewMode = 'directory' | 'coverage'") && sectionsWorkspace.includes('downloadCsv(') && sectionsWorkspace.includes('readiness(section)') && sectionsWorkspaceStyles.includes('var(--color-surface)') && !sectionsWorkspaceStyles.includes('var(--ink-'), "Sections must retain the transferred directory and coverage workflows while using the NeuroCrop design system rather than prototype colors");
+assert(
+  markup.includes('data-sidebar-action="actions"')
+    && markup.includes('id="actionsWorkspaceMount"')
+    && runtime.includes('actions: { page: "actions", route: "/actions" }')
+    && runtime.includes('case "actions":')
+    && runtime.includes('elements.actionsManagementSection.hidden = !isActionsPage')
+    && dashboardPage.includes("'/actions'")
+    && dashboardPage.includes('createPortal(<ActionsWorkspace />'),
+  "Actions must remain a first-class authenticated route instead of falling through to Login or another workspace",
+);
+assert(
+  actionsWorkspace.includes('neurocropApi.getTodayActions()')
+    && actionsWorkspace.includes('neurocropApi.getActionHistory(100)')
+    && actionsWorkspace.includes('createdByName')
+    && actionsWorkspace.includes("status: 'in_progress'")
+    && actionsWorkspace.includes("status: 'completed'")
+    && actionsWorkspaceStyles.includes('var(--color-surface)')
+    && actionsWorkspaceStyles.includes('@media (max-width: 700px)'),
+  "Actions must expose auditable employee history and working check controls in the shared responsive design system",
+);
 assert(
   !controlCenterE2e.includes(".triage-priority-card")
     && !controlCenterE2e.includes(".grower-command")

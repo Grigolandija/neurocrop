@@ -11,6 +11,7 @@ import AdminWorkspace from '../features/settings/AdminWorkspace'
 import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
 import OverviewWorkspace from '../features/overview/OverviewWorkspace'
 import SimulatorWorkspace from '../features/simulator/SimulatorWorkspace'
+import ActionsWorkspace from '../features/actions/ActionsWorkspace'
 import { installNeuroCropApi, neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
 
@@ -61,7 +62,7 @@ function notifyRuntimeRoute(pathname: string) {
 }
 
 const supportedRoutes = new Set([
-  '/', '/areas', '/sections', '/nodes', '/readings', '/alerts',
+  '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
   '/history', '/settings', '/organization', '/crop-profiles', '/admin',
   '/admin/integrations', '/simulator',
 ])
@@ -84,6 +85,7 @@ function ApprovedDashboard() {
   const [adminMount, setAdminMount] = useState<HTMLElement | null>(null)
   const [adminIntegrationsMount, setAdminIntegrationsMount] = useState<HTMLElement | null>(null)
   const [simulatorMount, setSimulatorMount] = useState<HTMLElement | null>(null)
+  const [actionsMount, setActionsMount] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     installNeuroCropApi()
@@ -100,6 +102,7 @@ function ApprovedDashboard() {
     setAdminMount(hostRef.current?.querySelector<HTMLElement>('#adminWorkspaceMount') || null)
     setAdminIntegrationsMount(hostRef.current?.querySelector<HTMLElement>('#adminIntegrationsMount') || null)
     setSimulatorMount(hostRef.current?.querySelector<HTMLElement>('#simulatorWorkspaceMount') || null)
+    setActionsMount(hostRef.current?.querySelector<HTMLElement>('#actionsWorkspaceMount') || null)
 
     document.body.classList.add('designer-app')
     document.body.dataset.dashboardState = 'optimal'
@@ -167,6 +170,7 @@ function ApprovedDashboard() {
       setAdminMount(null)
       setAdminIntegrationsMount(null)
       setSimulatorMount(null)
+      setActionsMount(null)
     }
   }, [navigate])
 
@@ -208,6 +212,9 @@ function ApprovedDashboard() {
       : null}
     {location.pathname === '/simulator' && simulatorMount
       ? createPortal(<SimulatorWorkspace />, simulatorMount)
+      : null}
+    {location.pathname === '/actions' && actionsMount
+      ? createPortal(<ActionsWorkspace />, actionsMount)
       : null}
   </>
 }

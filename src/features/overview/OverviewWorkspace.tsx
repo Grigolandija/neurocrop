@@ -389,8 +389,9 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     const direction = deviation === null ? 'unknown' : deviation > 0 ? 'above' : deviation < 0 ? 'below' : 'inside'
     const actionCanBeVerified = Boolean(action && currentValue !== null && target && deviation !== null)
     const conditionCanBeVerified = Boolean(currentValue !== null && target && deviation !== null)
+    const actionTone = statusTone(action?.state)
     const tone = actionCanBeVerified
-      ? 'action'
+      ? actionTone === 'watch' ? 'watch' : 'action'
       : conditionCanBeVerified ? statusTone(zone.conditionStatus) : action ? 'unknown' : statusTone(zone.conditionStatus)
     const score = tone === 'unknown' ? null : rawScore
     const rowMetricLabel = String(action?.metricLabel || metricLabel(metricKey))
@@ -428,9 +429,12 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   const reportingNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.reporting || zone.sensorCount || 0), 0)
   const totalNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.registered || zone.sensorCount || 0), 0)
   const availableScores = rows.map((row) => row.score).filter((score): score is number => score !== null)
-  const verifiedActions = areaActions.filter((action) =>
-    rows.some((row) => row.id === String(action.sectionId) && row.tone === 'action'),
+  const reviewableActions = areaActions.filter((action) =>
+    rows.some((row) => row.id === String(action.sectionId) && (row.tone === 'action' || row.tone === 'watch')),
   )
+  const priority = reviewableActions.find((action) =>
+    rows.some((row) => row.id === String(action.sectionId) && row.tone === 'action'),
+  ) || null
   const scoreDriver = rows
     .filter((row) => (row.tone === 'action' || row.tone === 'watch') && row.metricKey)
     .sort((left, right) => (left.score ?? 101) - (right.score ?? 101))[0]?.metricLabel || null
@@ -438,8 +442,8 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     areaId: String(site.id),
     areaName: String(site.name || 'Growing Area'),
     rows,
-    actions: verifiedActions,
-    priority: verifiedActions[0] || null,
+    actions: reviewableActions,
+    priority,
     reporting: `${reportingNodes} of ${totalNodes} nodes reporting`,
     updated: relativeTime(areaActions[0]?.observedAt || zones[0]?.computedAt),
     growingScore: availableScores.length
@@ -835,20 +839,54 @@ export default function OverviewWorkspace() {
     : model.priority?.title
   const headline = stable
     ? `All ${model.rows.length} Sections are stable.`
-    : actionHeadline || `${model.rows.length - verifiedRows.length} Sections cannot be verified.`
+    : actionHeadline
+      || (watchRows.length
+        ? `${watchRows.length} Section${watchRows.length === 1 ? ' needs' : 's need'} monitoring.`
+        : `${model.rows.length - verifiedRows.length} Sections cannot be verified.`)
   const explanation = stable
     ? 'Every Section is inside its current target range.'
     : model.priority?.ruleType === 'interaction'
       ? model.priority.reason
       : actionRows.length
       ? `${actionRows[0].metricLabel} is outside the active crop-profile target in ${actionRows.length} of ${model.rows.length} Sections.`
-      : model.priority?.reason || 'Current data or an active crop profile is missing.'
+      : watchRows.length
+        ? `${watchRows.length} Section${watchRows.length === 1 ? ' has' : 's have'} a current reading outside target. Review the recommended checks before the condition escalates.`
+        : model.priority?.reason || 'Current data or an active crop profile is missing.'
   const unknownRows = model.rows.filter((row) => row.tone === 'unknown')
   const visibleActions = model.actions.filter((action) =>
     actionRows.some((row) => row.id === String(action.sectionId)),
   )
-  const openChecks = visibleActions.filter((action) => action.feedback?.status !== 'in_progress').length
-  const inProgressChecks = visibleActions.filter((action) => action.feedback?.status === 'in_progress').length
+  const watchActions = model.actions.filter((action) =>
+    watchRows.some((row) => row.id === String(action.sectionId)),
+  )
+  const fallbackWatchActions = watchRows
+    .filter((row) => row.metricKey && row.currentValue !== null && row.target && (row.direction === 'above' || row.direction === 'below'))
+    .map((row) => ({
+      id: `${row.id}:${row.metricKey}:${row.direction === 'above' ? 'high' : 'low'}`,
+      areaId: model.areaId,
+      areaName: model.areaName,
+      sectionId: row.id,
+      sectionName: row.name,
+      metricId: row.metricKey,
+      metricLabel: row.metricLabel,
+      state: 'warning',
+      priority: 'monitor',
+      direction: row.direction === 'above' ? 'high' : 'low',
+      value: row.currentValue,
+      unit: row.unit,
+      target: row.target,
+      title: `Review ${row.metricLabel.toLowerCase()}`,
+      reason: row.detail,
+      recommendedAction: `${rowCorrectionSummary(row)} and verify the relevant controls and sensor placement.`,
+      expectedEffect: `${row.metricLabel} moves into the configured target range.`,
+      observedAt: null,
+      confidence: row.reporting.startsWith('0 of') ? 'medium' : 'high',
+    }))
+  const effectiveWatchActions = watchActions.length ? watchActions : fallbackWatchActions
+  const reviewActions = visibleActions.length ? visibleActions : effectiveWatchActions
+  const reviewRows = visibleActions.length ? actionRows : watchRows
+  const openChecks = reviewActions.filter((action) => action.feedback?.status !== 'in_progress').length
+  const inProgressChecks = reviewActions.filter((action) => action.feedback?.status === 'in_progress').length
   const completedToday = Number(summary.today?.completed || 0)
   const month = summary.month || {}
   const recentResults = asArray(summary.recentResults).slice(0, 3)
@@ -856,7 +894,9 @@ export default function OverviewWorkspace() {
     ? `All ${model.rows.length} Sections`
     : actionRows.length
       ? `Affects ${actionRows.length} of ${model.rows.length} Sections`
-      : `${unknownRows.length} of ${model.rows.length} Sections unverified`
+      : watchRows.length
+        ? `${watchRows.length} of ${model.rows.length} Sections on watch`
+        : `${unknownRows.length} of ${model.rows.length} Sections unverified`
 
   function openAreaEvidence() {
     setSelectedEvidenceRow(null)
@@ -889,7 +929,7 @@ export default function OverviewWorkspace() {
             </div>
           </div>
           <div className="nc-overview-kicker">
-            <span>{stable ? 'All systems normal' : model.priority ? 'Action recommended' : 'Setup required'}</span>
+            <span>{stable ? 'All systems normal' : model.priority ? 'Action recommended' : watchRows.length ? 'Monitoring recommended' : 'Setup required'}</span>
             <strong>{scopeLabel}</strong>
           </div>
           <h1>{headline}</h1>
@@ -898,7 +938,12 @@ export default function OverviewWorkspace() {
             ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Review {visibleActions.length} affected Section{visibleActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
             : stable
               ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />No action required</div>
-              : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>Review Section setup<i className="fa-solid fa-arrow-right" /></button>}
+              : effectiveWatchActions.length
+                ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Review {effectiveWatchActions.length} Watch check{effectiveWatchActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
+                : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>Review Section setup<i className="fa-solid fa-arrow-right" /></button>}
+          {unknownRows.length && effectiveWatchActions.length
+            ? <button className="nc-overview-setup-link" type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-sliders" />Review setup for {unknownRows.length} unverified Section{unknownRows.length === 1 ? '' : 's'}</button>
+            : null}
         </section>
 
         <figure className="nc-coverage" aria-labelledby="nc-coverage-title">
@@ -1003,6 +1048,6 @@ export default function OverviewWorkspace() {
       </article>
     </section>
     {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}
-    {actionOpen && visibleActions.length ? <ActionWorkflow actions={visibleActions} rows={actionRows} areaName={model.areaName} onClose={() => { setActionOpen(false); setRefreshKey((value) => value + 1) }} /> : null}
+    {actionOpen && reviewActions.length ? <ActionWorkflow actions={reviewActions} rows={reviewRows} areaName={model.areaName} onClose={() => { setActionOpen(false); setRefreshKey((value) => value + 1) }} /> : null}
   </div>
 }
