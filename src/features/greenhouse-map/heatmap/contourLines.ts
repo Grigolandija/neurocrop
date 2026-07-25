@@ -2,11 +2,11 @@ import type { MetricKey } from '../model'
 import type { HeatmapGrid } from './heatmapTypes'
 
 export const CONTOUR_INTERVALS: Record<MetricKey, number> = {
-  'air-temperature': 0.5,
+  'air-temperature': 1,
   'relative-humidity': 5,
   co2: 100,
   vpd: 0.1,
-  'root-temperature': 0.5,
+  'root-temperature': 1,
 }
 
 export type ContourSegment = {

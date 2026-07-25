@@ -91,10 +91,11 @@ describe('environment colour scale', () => {
 
 describe('heatmap contour lines', () => {
   it('uses meaningful fixed intervals for every metric', () => {
-    expect(CONTOUR_INTERVALS['air-temperature']).toBe(0.5)
+    expect(CONTOUR_INTERVALS['air-temperature']).toBe(1)
     expect(CONTOUR_INTERVALS['relative-humidity']).toBe(5)
     expect(CONTOUR_INTERVALS.co2).toBe(100)
     expect(CONTOUR_INTERVALS.vpd).toBe(0.1)
+    expect(CONTOUR_INTERVALS['root-temperature']).toBe(1)
   })
   it('creates only levels inside the measured range', () => {
     expect(getContourLevels(new Float32Array([21.2, 22.8]), 0.5)).toEqual([21.5, 22, 22.5])
