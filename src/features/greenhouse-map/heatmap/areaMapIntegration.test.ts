@@ -43,7 +43,13 @@ describe('Area Map API context integration', () => {
     const { mergeAreaMapContext } = await import('../services/areaMapRepository')
     const map = createDemoMap()
     map.areaId = 'area-1'
+    map.layers = [{ id: 'sections', name: 'Growing Sections', visible: true, locked: false, opacity: 1 }, ...map.layers]
     map.objects = [
+      {
+        id: 'legacy-section-north', type: 'section-zone', name: 'North tomatoes', xM: 0, yM: 0,
+        widthM: 10, lengthM: 8, rotationDeg: 0, layerId: 'sections', locked: false, visible: true,
+        metadata: { section: { sectionId: 'section-north', sectionName: 'North tomatoes', nodeCount: 1 } },
+      },
       {
         id: 'placed-real', type: 'sensor-node', name: 'Old name', xM: 3, yM: 2,
         widthM: .65, lengthM: .65, rotationDeg: 0, layerId: 'sensors', locked: false, visible: true,
@@ -57,6 +63,8 @@ describe('Area Map API context integration', () => {
     ]
     const merged = mergeAreaMapContext(map, { id: 'area-1', name: 'Production greenhouse' }, nodes)
     expect(merged.objects).toHaveLength(2)
+    expect(merged.objects.some((object) => object.type === 'section-zone')).toBe(false)
+    expect(merged.layers.some((layer) => layer.id === 'sections')).toBe(false)
     expect(merged.objects.find((object) => object.id === 'moved-away')).toBeUndefined()
     const placed = merged.objects.find((object) => object.id === 'placed-real')
     expect(placed?.xM).toBe(3)
@@ -66,19 +74,13 @@ describe('Area Map API context integration', () => {
     expect(merged.objects.some((object) => object.metadata.sensor?.devEui === '70b3d57ed0060002')).toBe(true)
   })
 
-  it('creates one editable map boundary for every existing Section', async () => {
+  it('keeps Sections as logical node assignments without inventing spatial boundaries', async () => {
     const { createAreaMap } = await import('../services/areaMapRepository')
     const map = createAreaMap({ id: 'area-1', name: 'Production greenhouse' }, nodes, sections)
     const zones = map.objects.filter((object) => object.type === 'section-zone')
-    expect(zones).toHaveLength(2)
-    expect(zones.map((zone) => zone.metadata.section?.sectionId)).toEqual(['section-north', 'section-south'])
-    expect(map.layers[0].id).toBe('sections')
-    const northZone = zones[0]
-    const northNode = map.objects.find((object) => object.metadata.sensor?.sectionId === 'section-north')!
-    expect(northNode.xM).toBeGreaterThanOrEqual(northZone.xM)
-    expect(northNode.xM + northNode.widthM).toBeLessThanOrEqual(northZone.xM + northZone.widthM)
-    expect(northNode.yM).toBeGreaterThanOrEqual(northZone.yM)
-    expect(northNode.yM + northNode.lengthM).toBeLessThanOrEqual(northZone.yM + northZone.lengthM)
+    expect(zones).toHaveLength(0)
+    expect(map.layers.some((layer) => layer.id === 'sections')).toBe(false)
+    expect(map.objects.map((object) => object.metadata.sensor?.sectionId)).toEqual(['section-north', 'section-south'])
   })
 
   it('scales node markers up with greenhouse dimensions', async () => {

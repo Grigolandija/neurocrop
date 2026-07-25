@@ -82,40 +82,6 @@ function normalizeNode(value: AreaMapNode): AreaMapNode {
 
 export { sensorMarkerSizeM } from '../geometry'
 
-const sectionColors = ['#4e927d', '#4f82a0', '#8a7bad', '#b08355', '#668b5a', '#a26078']
-
-function sectionZone(section: AreaMapSection, index: number, total: number, map: GreenhouseMap): GreenhouseObject {
-  const columns = Math.max(1, Math.ceil(Math.sqrt(total * map.dimensions.widthM / map.dimensions.lengthM)))
-  const rows = Math.max(1, Math.ceil(total / columns))
-  const cellWidth = map.dimensions.widthM / columns
-  const cellLength = map.dimensions.lengthM / rows
-  const column = index % columns
-  const row = Math.floor(index / columns)
-  const margin = Math.min(.25, cellWidth * .04, cellLength * .04)
-  return {
-    id: `section-${section.id}`,
-    type: 'section-zone',
-    name: section.name,
-    xM: column * cellWidth + margin,
-    yM: map.dimensions.lengthM - (row + 1) * cellLength + margin,
-    widthM: Math.max(.2, cellWidth - margin * 2),
-    lengthM: Math.max(.2, cellLength - margin * 2),
-    rotationDeg: 0,
-    layerId: 'sections',
-    locked: false,
-    visible: true,
-    metadata: {
-      color: sectionColors[index % sectionColors.length],
-      section: {
-        sectionId: section.id,
-        sectionName: section.name,
-        cropProfile: section.cropProfile,
-        nodeCount: section.nodes,
-      },
-    },
-  }
-}
-
 function sensorObject(node: AreaMapNode, index: number, map: GreenhouseMap): GreenhouseObject {
   const markerSize = sensorMarkerSizeM(map.dimensions)
   const columns = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, map.objects.length + 1) * map.dimensions.widthM / map.dimensions.lengthM)))
@@ -133,24 +99,8 @@ function sensorObject(node: AreaMapNode, index: number, map: GreenhouseMap): Gre
   }
 }
 
-function placeSensorInLinkedSection(object: GreenhouseObject, node: AreaMapNode, nodes: AreaMapNode[], map: GreenhouseMap) {
-  if (!node.sectionId) return object
-  const zone = map.objects.find((candidate) => candidate.type === 'section-zone' && candidate.metadata.section?.sectionId === node.sectionId)
-  if (!zone) return object
-  const sectionNodes = nodes.filter((candidate) => candidate.sectionId === node.sectionId)
-  const localIndex = Math.max(0, sectionNodes.indexOf(node))
-  const columns = Math.max(1, Math.ceil(Math.sqrt(sectionNodes.length * zone.widthM / zone.lengthM)))
-  const rows = Math.max(1, Math.ceil(sectionNodes.length / columns))
-  const column = localIndex % columns
-  const row = Math.floor(localIndex / columns)
-  return {
-    ...object,
-    xM: Math.min(zone.xM + zone.widthM - object.widthM, Math.max(zone.xM, zone.xM + (column + 1) * zone.widthM / (columns + 1) - object.widthM / 2)),
-    yM: Math.min(zone.yM + zone.lengthM - object.lengthM, Math.max(zone.yM, zone.yM + (row + 1) * zone.lengthM / (rows + 1) - object.lengthM / 2)),
-  }
-}
-
 export function createAreaMap(area: AreaSummary, nodes: AreaMapNode[], sections: AreaMapSection[] = []): GreenhouseMap {
+  void sections
   const timestamp = new Date().toISOString()
   const map: GreenhouseMap = {
     ...createDemoMap(),
@@ -162,43 +112,14 @@ export function createAreaMap(area: AreaSummary, nodes: AreaMapNode[], sections:
     createdAt: timestamp,
     updatedAt: timestamp,
   }
-  map.objects = sections.map((section, index) => sectionZone(section, index, sections.length, map))
   const normalizedNodes = nodes.map(normalizeNode)
-  map.objects.push(...normalizedNodes.map((node, index) => placeSensorInLinkedSection(sensorObject(node, index, map), node, normalizedNodes, map)))
+  map.objects = normalizedNodes.map((node, index) => sensorObject(node, index, map))
   return map
 }
 
 export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes: AreaMapNode[], sections: AreaMapSection[] = []): GreenhouseMap {
-  const layers = map.layers.some((layer) => layer.id === 'sections')
-    ? map.layers
-    : [{ id: 'sections', name: 'Growing Sections', visible: true, locked: false, opacity: 1 }, ...map.layers]
-  const sectionById = new Map(sections.map((section) => [section.id, section]))
-  const placedSections = new Set<string>()
-  const sectionObjects = map.objects.flatMap<GreenhouseObject>((object) => {
-    if (object.type !== 'section-zone') return []
-    const sectionId = object.metadata.section?.sectionId
-    const section = sectionId ? sectionById.get(sectionId) : undefined
-    if (!section) return []
-    placedSections.add(section.id)
-    return [{
-      ...object,
-      name: section.name,
-      layerId: 'sections',
-      metadata: {
-        ...object.metadata,
-        section: {
-          sectionId: section.id,
-          sectionName: section.name,
-          cropProfile: section.cropProfile,
-          nodeCount: section.nodes,
-        },
-      },
-    }]
-  })
-  sections.filter((section) => !placedSections.has(section.id)).forEach((section, index) => {
-    sectionObjects.push(sectionZone(section, index, sections.length, { ...map, layers }))
-  })
-
+  void sections
+  const layers = map.layers.filter((layer) => layer.id !== 'sections')
   const normalizedNodes = nodes.map(normalizeNode)
   const byDevEui = new Map(normalizedNodes.filter((node) => node.devEui).map((node) => [node.devEui!.toLowerCase(), node]))
   const placed = new Set<string>()
@@ -228,9 +149,9 @@ export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes
       },
     }]
   })
-  const next: GreenhouseMap = { ...map, areaId: area.id, layers, objects: [...sectionObjects, ...objects] }
+  const next: GreenhouseMap = { ...map, areaId: area.id, layers, objects }
   normalizedNodes.filter((node) => node.devEui && !placed.has(node.devEui.toLowerCase())).forEach((node, index) => {
-    next.objects.push(placeSensorInLinkedSection(sensorObject(node, index, next), node, normalizedNodes, next))
+    next.objects.push(sensorObject(node, index, next))
   })
   return next
 }

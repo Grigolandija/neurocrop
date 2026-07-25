@@ -8,7 +8,6 @@ import LayersPanel from './components/LayersPanel'
 import MapSetupGuide from './components/MapSetupGuide'
 import ObjectLibraryPanel from './components/ObjectLibraryPanel'
 import ObjectPropertiesPanel from './components/ObjectPropertiesPanel'
-import { sectionGeometrySummary } from './geometry'
 import { METRICS, type MapMode, type MetricKey } from './model'
 import { areaMapRepository, createAreaMap, mergeAreaMapContext, type AreaMapContext, type AreaMapNode, type AreaSummary } from './services/areaMapRepository'
 import { validateMap } from './services/mapRepository'
@@ -267,34 +266,6 @@ export default function GreenhouseMapTestPage() {
     setNotice({ tone: 'success', text: tr(`${node.displayName || node.nodeId} assigned to ${target.name}.`, `${node.displayName || node.nodeId} priskirtas prie ${target.name}.`) })
   }
 
-  const splitSection = (object: typeof editor.map.objects[number]) => {
-    const linked = object.metadata.section
-    const context = areaContextRef.current
-    if (!linked || !context || !activeAreaId) return
-    const newName = `${linked.sectionName} – split`
-    void areaMapRepository.createSection(activeAreaId, newName, linked.cropProfile || context.profiles[0]?.id || 'default')
-      .then((section) => {
-        const horizontal = object.widthM >= object.lengthM
-        const original = horizontal ? { widthM: object.widthM / 2 } : { lengthM: object.lengthM / 2 }
-        const copy = {
-          ...structuredClone(object),
-          id: `section-${section.id}`,
-          name: section.name,
-          xM: horizontal ? object.xM + object.widthM / 2 : object.xM,
-          yM: horizontal ? object.yM : object.yM + object.lengthM / 2,
-          widthM: horizontal ? object.widthM / 2 : object.widthM,
-          lengthM: horizontal ? object.lengthM : object.lengthM / 2,
-          metadata: { ...object.metadata, section: { sectionId: section.id, sectionName: section.name, cropProfile: section.cropProfile, nodeCount: 0 } },
-        }
-        editor.commit((map) => ({ ...map, objects: [...map.objects.map((candidate) => candidate.id === object.id ? { ...candidate, ...original } : candidate), copy] }))
-        const nextContext = { ...context, sections: [...context.sections, section] }
-        areaContextRef.current = nextContext
-        setAreaContext(nextContext)
-        setNotice({ tone: 'success', text: tr(`${linked.sectionName} boundary split.`, `${linked.sectionName} riba padalinta.`) })
-      })
-      .catch((error) => setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Section split failed.' }))
-  }
-
   const createFirstArea = () => {
     if (!newArea.name.trim() || creatingArea) return
     setCreatingArea(true)
@@ -325,54 +296,11 @@ export default function GreenhouseMapTestPage() {
     areaContextRef.current = context
     setAreaContext(context)
     editor.commit((map) => mergeAreaMapContext(map, context.area, context.nodes, context.sections))
-    setNotice({ tone: 'success', text: tr('Node connected and placed.', 'Node prijungtas ir išdėstytas.') })
+    setNotice({ tone: 'success', text: tr('Node connected. Place it at its physical installation point.', 'Node prijungtas. Padėkite jį fizinėje montavimo vietoje.') })
   }
 
   const moveOnCanvas = (positions: Array<{ id: string; xM: number; yM: number }>, record = true) => {
     editor.moveObjects(positions, record)
-    if (!integrated || !activeAreaId || !canEdit || !record || positions.length !== 1) return
-    const position = positions[0]
-    const object = editor.map.objects.find((candidate) => candidate.id === position.id)
-    const sensor = object?.metadata.sensor
-    if (!object || object.type !== 'sensor-node' || !sensor?.devEui) return
-    const center = { xM: position.xM + object.widthM / 2, yM: position.yM + object.lengthM / 2 }
-    const target = editor.map.objects.find((candidate) =>
-      candidate.type === 'section-zone' &&
-      center.xM >= candidate.xM && center.xM <= candidate.xM + candidate.widthM &&
-      center.yM >= candidate.yM && center.yM <= candidate.yM + candidate.lengthM)
-    const section = target?.metadata.section
-    if (!section || section.sectionId === sensor.sectionId) return
-    void areaMapRepository.assignNodeToSection(activeAreaId, sensor.devEui, section.sectionId)
-      .then(() => {
-        editor.commit((map) => ({
-          ...map,
-          objects: map.objects.map((candidate) => {
-            if (candidate.id === object.id) {
-              return { ...candidate, metadata: { ...candidate.metadata, sensor: { ...candidate.metadata.sensor!, sectionId: section.sectionId, sectionName: section.sectionName } } }
-            }
-            const candidateSection = candidate.metadata.section
-            if (!candidateSection) return candidate
-            const delta = candidateSection.sectionId === sensor.sectionId ? -1 : candidateSection.sectionId === section.sectionId ? 1 : 0
-            return delta ? { ...candidate, metadata: { ...candidate.metadata, section: { ...candidateSection, nodeCount: Math.max(0, (candidateSection.nodeCount ?? 0) + delta) } } } : candidate
-          }),
-        }), false)
-        if (areaContextRef.current) {
-          areaContextRef.current.nodes = areaContextRef.current.nodes.map((node) =>
-            node.devEui?.toLowerCase() === sensor.devEui?.toLowerCase()
-              ? { ...node, sectionId: section.sectionId, sectionName: section.sectionName }
-              : node)
-          areaContextRef.current.sections = areaContextRef.current.sections.map((candidate) => {
-            const delta = candidate.id === sensor.sectionId ? -1 : candidate.id === section.sectionId ? 1 : 0
-            return delta ? { ...candidate, nodes: Math.max(0, candidate.nodes + delta) } : candidate
-          })
-          setAreaContext({ ...areaContextRef.current, nodes: [...areaContextRef.current.nodes] })
-        }
-        setNotice({ tone: 'success', text: `${object.name} assigned to ${section.sectionName}.` })
-      })
-      .catch((error) => {
-        editor.moveObjects([{ id: object.id, xM: object.xM, yM: object.yM }], false)
-        setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Node Section assignment failed.' })
-      })
   }
 
   if (integrated && ['initializing', 'loading'].includes(syncState)) {
@@ -385,10 +313,8 @@ export default function GreenhouseMapTestPage() {
 
   const permissionReadOnly = integrated && !canEdit
   const canvasReadOnly = permissionReadOnly || !editing
-  const mapSections = editor.map.objects.filter((object) => object.type === 'section-zone' && object.metadata.section)
-  const geometry = sectionGeometrySummary(mapSections, editor.map.dimensions)
-  const selectedSection = mapSections.find((object) => object.metadata.section?.sectionId === sectionFilterId)
-  const selectedProfile = areaContext?.profiles.find((profile) => profile.id === selectedSection?.metadata.section?.cropProfile)
+  const selectedSection = areaContext?.sections.find((section) => section.id === sectionFilterId)
+  const selectedProfile = areaContext?.profiles.find((profile) => profile.id === selectedSection?.cropProfile)
   const profileMetricKey: Record<MetricKey, string> = { 'air-temperature': 'airTemp', 'relative-humidity': 'humidity', co2: 'co2', vpd: 'vpd', 'root-temperature': 'soilTemp' }
   const target = selectedProfile?.metrics?.[profileMetricKey[editor.map.heatmapSettings.metric]]?.optimal
   return <div className={`gh-app ${integrated ? 'gh-integrated' : ''} ${canvasReadOnly ? 'gh-readonly' : ''} gh-mobile-${mobilePanel}`}>
@@ -419,21 +345,16 @@ export default function GreenhouseMapTestPage() {
         <section className="gh-panel-section gh-view-settings">
           <header><div><small>INTERPOLATION</small><h2>View settings</h2></div><i className="fa-solid fa-sliders" /></header>
           <label className="gh-field wide"><span>Environment metric</span><select value={editor.map.heatmapSettings.metric} onChange={(event) => updateMetric(event.target.value as MetricKey)}>{(Object.keys(METRICS) as MetricKey[]).map((metric) => <option value={metric} key={metric}>{METRICS[metric].label}</option>)}</select></label>
-          <label className="gh-field wide"><span>Climate map area</span><select value={sectionFilterId} onChange={(event) => setSectionFilterId(event.target.value)}><option value="">Whole Area</option>{mapSections.map((object) => <option value={object.metadata.section!.sectionId} key={object.id}>{object.metadata.section!.sectionName}</option>)}</select></label>
+          <label className="gh-field wide"><span>Node group</span><select value={sectionFilterId} onChange={(event) => setSectionFilterId(event.target.value)}><option value="">All Area nodes</option>{areaContext?.sections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}</select></label>
           <div className="gh-field-row"><label className="gh-field"><span>IDW power</span><input type="number" min=".1" max="10" step=".1" value={editor.map.heatmapSettings.idwPower} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, idwPower: Math.max(.1, Number(event.target.value) || 2) } }))} /></label><label className="gh-field"><span>Heatmap opacity</span><input type="number" min="0" max="1" step=".05" value={editor.map.heatmapSettings.opacity} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, opacity: Math.max(0, Math.min(1, Number(event.target.value))) } }))} /></label></div>
           <div className="gh-toggle-row"><label><input type="checkbox" checked={editor.map.heatmapSettings.showConfidence} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, showConfidence: event.target.checked } }))} /><span>Confidence fade</span></label></div>
           <div className="gh-scale-toggle"><button className={editor.map.heatmapSettings.scaleMode === 'auto' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'auto' } }))}>Auto scale</button><button className={editor.map.heatmapSettings.scaleMode === 'manual' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'manual', manualMin: map.heatmapSettings.manualMin ?? METRICS[map.heatmapSettings.metric].bounds[0], manualMax: map.heatmapSettings.manualMax ?? METRICS[map.heatmapSettings.metric].bounds[1] } }))}>Manual</button></div>
           {editor.map.heatmapSettings.scaleMode === 'manual' ? <div className="gh-field-row"><label className="gh-field"><span>Minimum</span><input type="number" value={editor.map.heatmapSettings.manualMin ?? ''} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, manualMin: Number(event.target.value) } }))} /></label><label className="gh-field"><span>Maximum</span><input type="number" value={editor.map.heatmapSettings.manualMax ?? ''} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, manualMax: Number(event.target.value) } }))} /></label></div> : null}
         </section>
-        <section className="gh-panel-section gh-section-health">
-          <header><div><small>{tr('PLAN QUALITY', 'PLANO KOKYBĖ')}</small><h2>{tr('Section geometry', 'Sections geometrija')}</h2></div><span>{geometry.coveragePercent}%</span></header>
-          <p className={geometry.overlaps.length ? 'warning' : 'good'}><i className={`fa-solid ${geometry.overlaps.length ? 'fa-triangle-exclamation' : 'fa-circle-check'}`} /> {geometry.overlaps.length ? tr(`${geometry.overlaps.length} overlapping boundaries`, `Persidengiančios ribos: ${geometry.overlaps.length}`) : tr('No Section overlaps', 'Sections nepersidengia')}</p>
-          <p><i className="fa-solid fa-chart-area" /> {tr(`${geometry.uncoveredPercent}% of the Area is outside Sections`, `${geometry.uncoveredPercent}% Area nepriskirta Sections`)}</p>
-        </section>
         <LayersPanel layers={editor.map.layers} language={language} onChange={(layers) => editor.commit((map) => ({ ...map, layers }))} />
       </aside>
-      <GreenhouseCanvas map={editor.map} mode={mode} readOnly={canvasReadOnly} sectionFilterId={sectionFilterId || undefined} target={target} dailyView={dailyView} language={language} actions={areaContext?.actions ?? []} selectedIds={editor.selectedIds} snap={editor.snap} onSelect={(ids) => { editor.setSelectedIds(ids); if (ids.length) setMobilePanel('right') }} onMove={moveOnCanvas} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAdd={canvasReadOnly ? () => undefined : editor.addObject} />
-      <ObjectPropertiesPanel map={editor.map} selected={editor.selected} language={language} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAlign={canvasReadOnly ? () => undefined : align} onSplitSection={canvasReadOnly ? undefined : splitSection} />
+      <GreenhouseCanvas map={editor.map} mode={mode} readOnly={canvasReadOnly} measurementSectionId={sectionFilterId || undefined} highlightSectionId={sectionFilterId || undefined} target={target} dailyView={dailyView} language={language} actions={areaContext?.actions ?? []} selectedIds={editor.selectedIds} snap={editor.snap} onSelect={(ids) => { editor.setSelectedIds(ids); if (ids.length) setMobilePanel('right') }} onMove={moveOnCanvas} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAdd={canvasReadOnly ? () => undefined : editor.addObject} />
+      <ObjectPropertiesPanel map={editor.map} selected={editor.selected} language={language} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAlign={canvasReadOnly ? () => undefined : align} />
     </div>
     {showSetupGuide && areaContext ? <MapSetupGuide area={areaContext.area} map={editor.map} sections={areaContext.sections} nodes={areaContext.nodes} profiles={areaContext.profiles} language={language} onMapChange={(map) => editor.commit(() => map)} onCreateSection={createSectionFromGuide} onAssignNode={assignNodeFromGuide} onClaimNode={claimNodeFromGuide} onOpenSections={() => navigate('/sections')} onClose={() => { setShowSetupGuide(false); if (!permissionReadOnly) { setEditing(true); setMode('layout') } }} /> : null}
     {notice ? <button className={`gh-notice ${notice.tone}`} onClick={() => setNotice(null)}><i className={`fa-solid ${notice.tone === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation'}`} />{notice.text}<i className="fa-solid fa-xmark" /></button> : null}

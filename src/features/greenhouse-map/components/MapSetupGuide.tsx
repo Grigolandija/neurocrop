@@ -70,7 +70,7 @@ export default function MapSetupGuide({ area, map, sections, nodes, profiles, la
       {step === 1 ? <div className="gh-setup-step">
         <span className="gh-setup-icon"><i className="fa-solid fa-border-all" /></span>
         <h3>{sections.length ? tr(`${sections.length} Sections ready`, `Paruošta Sections: ${sections.length}`) : tr('Create at least one Section', 'Sukurkite bent vieną Section')}</h3>
-        <p>{tr('Sections are the real growing zones used by crop profiles, alerts and node assignments.', 'Sections yra realios auginimo zonos, naudojamos augalų profiliams, perspėjimams ir node priskyrimams.')}</p>
+        <p>{tr('Sections are logical crop groups used by profiles, alerts and node assignments. They do not divide the physical map automatically.', 'Sections yra loginės augalų grupės, naudojamos profiliams, perspėjimams ir node priskyrimams. Jos automatiškai nedalija fizinio žemėlapio.')}</p>
         <div className="gh-setup-list">{sections.map((section) => <span key={section.id}><i className="fa-solid fa-square" /><b>{section.name}</b><small>{section.nodes} node{section.nodes === 1 ? '' : 's'}</small></span>)}</div>
         <div className="gh-setup-inline-form">
           <input value={sectionName} onChange={(event) => setSectionName(event.target.value)} placeholder={tr('New Section name', 'Naujos Section pavadinimas')} />
@@ -83,7 +83,7 @@ export default function MapSetupGuide({ area, map, sections, nodes, profiles, la
       {step === 2 ? <div className="gh-setup-step">
         <span className="gh-setup-icon"><i className="fa-solid fa-microchip" /></span>
         <h3>{nodes.length ? tr(`${nodes.length} nodes placed`, `Išdėstyta nodes: ${nodes.length}`) : tr('No nodes assigned yet', 'Dar nėra priskirtų nodes')}</h3>
-        <p>{tr('Nodes are placed inside their linked Sections. Choose an assignment here or drag a node while editing.', 'Nodes išdėstomi susietose Sections. Priskirkite čia arba nutempkite node redagavimo režime.')}</p>
+        <p>{tr('Section assignment is logical. Assign the node here, then place it on the map where it is physically installed.', 'Priskyrimas prie Section yra loginis. Priskirkite node čia, o žemėlapyje padėkite ten, kur jis fiziškai sumontuotas.')}</p>
         <div className="gh-setup-list gh-setup-node-list">{nodes.map((node) => <span key={node.devEui || node.nodeId}><i className={`fa-solid fa-circle gh-node-${node.status}`} /><b>{node.displayName || node.nodeId || node.devEui}</b><select value={node.sectionId || ''} disabled={!node.devEui || Boolean(busy)} onChange={(event) => { setBusy(node.devEui || 'node'); void onAssignNode(node, event.target.value).finally(() => setBusy('')) }}><option value="">{tr('Unassigned', 'Nepriskirtas')}</option>{sections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}</select></span>)}</div>
         <div className="gh-setup-inline-form">
           <input value={devEui} maxLength={16} onChange={(event) => setDevEui(event.target.value.replace(/[^0-9a-f]/gi, '').toUpperCase())} placeholder="DevEUI · 16 HEX" />

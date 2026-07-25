@@ -26,7 +26,7 @@ function prepareReadOnlyMap(context: AreaMapContext, metric: MetricKey): Greenho
   const source = context.map
     ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections)
     : createAreaMap(context.area, context.nodes, context.sections)
-  const visibleLayerIds = new Set(['sections', 'structure', 'sensors', 'environment', 'labels'])
+  const visibleLayerIds = new Set(['structure', 'cultivation', 'irrigation', 'climate', 'lighting', 'sensors', 'environment', 'labels'])
   return {
     ...source,
     layers: source.layers.map((layer) => ({
@@ -35,7 +35,7 @@ function prepareReadOnlyMap(context: AreaMapContext, metric: MetricKey): Greenho
       locked: true,
       opacity: layer.id === 'environment' ? Math.max(.72, layer.opacity) : layer.opacity,
     })),
-    objects: source.objects.map((object) => ({ ...object, locked: true })),
+    objects: source.objects.flatMap((object) => object.type === 'section-zone' ? [] : [{ ...object, locked: true }]),
     heatmapSettings: {
       ...source.heatmapSettings,
       enabled: true,
@@ -115,7 +115,8 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
         map={map}
         mode="environment"
         readOnly
-        sectionFilterId={sectionId}
+        measurementSectionId={sectionId}
+        highlightSectionId={sectionId}
         target={target}
         selectedIds={selectedIds}
         snap={false}
