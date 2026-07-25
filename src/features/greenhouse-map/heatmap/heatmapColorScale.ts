@@ -1,4 +1,4 @@
-export const HEATMAP_COLOR_BANDS = 12
+export const HEATMAP_COLOR_BANDS = 16
 
 export function parseHex(hex: string) {
   const value = hex.replace('#', '')

@@ -94,7 +94,7 @@ describe('environment colour scale', () => {
   })
   it('reduces the heatmap to a small set of distinct colour bands', () => {
     const colors = METRICS['relative-humidity'].colors
-    expect(HEATMAP_COLOR_BANDS).toBe(12)
+    expect(HEATMAP_COLOR_BANDS).toBe(16)
     expect(steppedColorAt(51, 0, 100, colors)).toEqual(steppedColorAt(55, 0, 100, colors))
     expect(steppedColorAt(10, 0, 100, colors)).not.toEqual(steppedColorAt(90, 0, 100, colors))
     expect(steppedGradient(colors).match(/rgb\(/g)).toHaveLength(HEATMAP_COLOR_BANDS * 2)
