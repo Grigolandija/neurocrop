@@ -10,9 +10,6 @@ type Props = {
   map: GreenhouseMap
   mode: MapMode
   readOnly?: boolean
-  sectionFilterId?: string
-  measurementSectionId?: string
-  highlightSectionId?: string
   target?: [number, number]
   dailyView?: boolean
   language?: 'en' | 'lt'
@@ -33,8 +30,8 @@ const objectColors: Record<string, { fill: string; stroke: string }> = {
 }
 const statusColors: Record<string, string> = { online: '#2f8760', warning: '#bd842b', offline: '#6d7470', unassigned: '#60758a', 'low-battery': '#b85b46', stale: '#936d3c' }
 
-function ObjectShape({ object, map, selected, editable, muted, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
-  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; muted?: boolean; layerOpacity: number; viewScale: number
+function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
+  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; layerOpacity: number; viewScale: number
   onSelect: (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void
   onMove: (position: { id: string; xM: number; yM: number }, record?: boolean) => void
   onUpdate: Props['onUpdate']
@@ -52,7 +49,7 @@ function ObjectShape({ object, map, selected, editable, muted, layerOpacity, vie
   return <Group
     id={`gh-object-${object.id}`} name="map-object" x={object.xM} y={topY} rotation={object.rotationDeg}
     draggable={editable && !object.locked}
-    opacity={layerOpacity * (muted ? .24 : 1)}
+    opacity={layerOpacity}
     onClick={onSelect} onTap={onSelect}
     onDragEnd={(event) => onMove({ id: object.id, xM: event.target.x(), yM: map.dimensions.lengthM - event.target.y() - object.lengthM }, true)}
     onTransformEnd={(event) => {
@@ -82,7 +79,7 @@ function ObjectShape({ object, map, selected, editable, muted, layerOpacity, vie
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionFilterId, measurementSectionId, highlightSectionId, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -121,7 +118,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionF
     transformer.getLayer()?.batchDraw()
   }, [selectedIds, mode, map.objects])
 
-  const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric, measurementSectionId ?? sectionFilterId), [map, measurementSectionId, sectionFilterId])
+  const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric), [map])
   useEffect(() => {
     if (mode !== 'environment' || !map.heatmapSettings.enabled) {
       const clearTimer = window.setTimeout(() => setHeatmap(null), 0)
@@ -154,7 +151,6 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionF
 
   const visibleLayers = useMemo(() => new Map(map.layers.map((layer) => [layer.id, layer])), [map.layers])
   const orderedObjects = useMemo(() => map.layers.flatMap((layer) => map.objects.filter((object) => object.layerId === layer.id)), [map.layers, map.objects])
-  const selectedZone = map.objects.find((object) => object.type === 'section-zone' && object.metadata.section?.sectionId === sectionFilterId)
   const average = points.length ? points.reduce((sum, point) => sum + point.value, 0) / points.length : null
   const targetState = average === null || !target ? 'unknown' : average < target[0] ? 'low' : average > target[1] ? 'high' : 'optimal'
   const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
@@ -197,18 +193,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionF
         <Rect x={0} y={0} width={map.dimensions.widthM} height={map.dimensions.lengthM} fill="#f7f7f2" shadowColor="#152c25" shadowBlur={.35} shadowOpacity={.18} />
         {gridLines.map((line, index) => <Line key={index} points={line.points} stroke={line.major ? '#b5bcb4' : '#d9ddd7'} strokeWidth={(line.major ? 1.2 : .65) / view.scale} />)}
         {mode === 'environment' && heatmap && visibleLayers.get('environment')?.visible
-          ? selectedZone
-            ? <Group clipX={selectedZone.xM} clipY={map.dimensions.lengthM - selectedZone.yM - selectedZone.lengthM} clipWidth={selectedZone.widthM} clipHeight={selectedZone.lengthM}>
-                <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} opacity={visibleLayers.get('environment')?.opacity ?? 1} />
-              </Group>
-            : <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} opacity={visibleLayers.get('environment')?.opacity ?? 1} />
+          ? <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} opacity={visibleLayers.get('environment')?.opacity ?? 1} />
           : null}
-        {mode === 'environment' && selectedZone ? <>
-          <Rect x={0} y={0} width={map.dimensions.widthM} height={Math.max(0, map.dimensions.lengthM - selectedZone.yM - selectedZone.lengthM)} fill="#e5e9e4" opacity={.42} />
-          <Rect x={0} y={map.dimensions.lengthM - selectedZone.yM} width={map.dimensions.widthM} height={selectedZone.yM} fill="#e5e9e4" opacity={.42} />
-          <Rect x={0} y={map.dimensions.lengthM - selectedZone.yM - selectedZone.lengthM} width={selectedZone.xM} height={selectedZone.lengthM} fill="#e5e9e4" opacity={.42} />
-          <Rect x={selectedZone.xM + selectedZone.widthM} y={map.dimensions.lengthM - selectedZone.yM - selectedZone.lengthM} width={Math.max(0, map.dimensions.widthM - selectedZone.xM - selectedZone.widthM)} height={selectedZone.lengthM} fill="#e5e9e4" opacity={.42} />
-        </> : null}
         {mode === 'signal' && visibleLayers.get('signal')?.visible ? map.objects.filter((object) => object.metadata.sensor).map((object) => {
           const quality = Math.max(.15, Math.min(1, ((object.metadata.sensor?.rssi ?? -120) + 120) / 55))
           return <Circle key={object.id} x={object.xM + object.widthM / 2} y={map.dimensions.lengthM - object.yM - object.lengthM / 2} radius={2.5 + quality * 2.2} fill={quality > .65 ? '#3b8364' : quality > .38 ? '#b58a3d' : '#a45849'} opacity={.08 + quality * .12} />
@@ -219,7 +205,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionF
         {orderedObjects.map((object) => {
           const layer = visibleLayers.get(object.layerId)
           if (!object.visible || !layer?.visible) return null
-          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} muted={Boolean(highlightSectionId && object.metadata.sensor && object.metadata.sensor.sectionId !== highlightSectionId)} layerOpacity={layer.opacity} viewScale={view.scale}
+          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} layerOpacity={layer.opacity} viewScale={view.scale}
             onSelect={(event) => {
               event.cancelBubble = true
               const shift = event.evt.shiftKey
@@ -246,7 +232,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, sectionF
     </div>
     {mode === 'environment' ? <div className="gh-heatmap-legend">
       <small>ESTIMATED ENVIRONMENT MAP</small><strong>{METRICS[map.heatmapSettings.metric].label}</strong>
-      {heatmap ? <><div className="gh-color-scale" style={{ background: `linear-gradient(90deg, ${METRICS[map.heatmapSettings.metric].colors.join(',')})` }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>{target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}<p>{measurementSectionId || sectionFilterId ? tr('Selected Section nodes', 'Pasirinktos Section nodes') : tr('Whole Area', 'Visa Area')} · {tr('estimated from', 'apskaičiuota iš')} {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count === 1 ? <em>{tr('Low confidence: only one valid sensor.', 'Mažas patikimumas: tik vienas tinkamas jutiklis.')}</em> : null}</> : <p>{tr('No valid online sensor data for this metric and Section.', 'Nėra tinkamų aktyvių jutiklių šiam rodikliui ir Section.')}</p>}
+      {heatmap ? <><div className="gh-color-scale" style={{ background: `linear-gradient(90deg, ${METRICS[map.heatmapSettings.metric].colors.join(',')})` }} /><div><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>{target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}<p>{tr('Whole Area', 'Visa Area')} · {tr('estimated from', 'apskaičiuota iš')} {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>{heatmap.count === 1 ? <em>{tr('Low confidence: only one valid sensor.', 'Mažas patikimumas: tik vienas tinkamas jutiklis.')}</em> : null}</> : <p>{tr('No valid online sensor data for this metric in this Area.', 'Nėra tinkamų aktyvių jutiklių šiam rodikliui šioje Area.')}</p>}
       <em>Interpolated estimate based on sensor locations. Values between sensors are not directly measured.</em>
     </div> : null}
     {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> Approximate planned sensor coverage, not a physical propagation model.</div> : null}

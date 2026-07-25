@@ -23,7 +23,6 @@ export default function GreenhouseMapTestPage() {
   const [mode, setMode] = useState<MapMode>('layout')
   const [editing, setEditing] = useState(!integrated)
   const [showSetupGuide, setShowSetupGuide] = useState(false)
-  const [sectionFilterId, setSectionFilterId] = useState('')
   const [dailyView, setDailyView] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'none' | 'left' | 'right'>('none')
   const [language, setLanguage] = useState<'en' | 'lt'>(() => {
@@ -125,7 +124,6 @@ export default function GreenhouseMapTestPage() {
         editor.hydrate(next)
         setEditing(!integrated || !context.map)
         setShowSetupGuide(!context.map)
-        setSectionFilterId('')
         lastSyncedRef.current = JSON.stringify(next)
         setCanEdit(context.permissions.canEdit)
         setSyncState(context.permissions.canEdit ? 'saved' : 'readonly')
@@ -313,10 +311,6 @@ export default function GreenhouseMapTestPage() {
 
   const permissionReadOnly = integrated && !canEdit
   const canvasReadOnly = permissionReadOnly || !editing
-  const selectedSection = areaContext?.sections.find((section) => section.id === sectionFilterId)
-  const selectedProfile = areaContext?.profiles.find((profile) => profile.id === selectedSection?.cropProfile)
-  const profileMetricKey: Record<MetricKey, string> = { 'air-temperature': 'airTemp', 'relative-humidity': 'humidity', co2: 'co2', vpd: 'vpd', 'root-temperature': 'soilTemp' }
-  const target = selectedProfile?.metrics?.[profileMetricKey[editor.map.heatmapSettings.metric]]?.optimal
   return <div className={`gh-app ${integrated ? 'gh-integrated' : ''} ${canvasReadOnly ? 'gh-readonly' : ''} gh-mobile-${mobilePanel}`}>
     <GreenhouseMapToolbar mode={mode} metric={editor.map.heatmapSettings.metric} snap={editor.snap} editing={editing && !permissionReadOnly} language={language} canUndo={editing && !permissionReadOnly && editor.canUndo} canRedo={editing && !permissionReadOnly && editor.canRedo} selectedCount={editing && !permissionReadOnly ? editor.selected.length : 0}
       onMode={setMode} onMetric={updateMetric} onSnap={editor.setSnap} onUndo={permissionReadOnly ? () => undefined : editor.undo} onRedo={permissionReadOnly ? () => undefined : editor.redo} onDuplicate={canvasReadOnly ? () => undefined : editor.duplicateSelected} onDelete={canvasReadOnly ? () => undefined : editor.deleteSelected}
@@ -345,7 +339,6 @@ export default function GreenhouseMapTestPage() {
         <section className="gh-panel-section gh-view-settings">
           <header><div><small>INTERPOLATION</small><h2>View settings</h2></div><i className="fa-solid fa-sliders" /></header>
           <label className="gh-field wide"><span>Environment metric</span><select value={editor.map.heatmapSettings.metric} onChange={(event) => updateMetric(event.target.value as MetricKey)}>{(Object.keys(METRICS) as MetricKey[]).map((metric) => <option value={metric} key={metric}>{METRICS[metric].label}</option>)}</select></label>
-          <label className="gh-field wide"><span>Node group</span><select value={sectionFilterId} onChange={(event) => setSectionFilterId(event.target.value)}><option value="">All Area nodes</option>{areaContext?.sections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}</select></label>
           <div className="gh-field-row"><label className="gh-field"><span>IDW power</span><input type="number" min=".1" max="10" step=".1" value={editor.map.heatmapSettings.idwPower} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, idwPower: Math.max(.1, Number(event.target.value) || 2) } }))} /></label><label className="gh-field"><span>Heatmap opacity</span><input type="number" min="0" max="1" step=".05" value={editor.map.heatmapSettings.opacity} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, opacity: Math.max(0, Math.min(1, Number(event.target.value))) } }))} /></label></div>
           <div className="gh-toggle-row"><label><input type="checkbox" checked={editor.map.heatmapSettings.showConfidence} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, showConfidence: event.target.checked } }))} /><span>Confidence fade</span></label></div>
           <div className="gh-scale-toggle"><button className={editor.map.heatmapSettings.scaleMode === 'auto' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'auto' } }))}>Auto scale</button><button className={editor.map.heatmapSettings.scaleMode === 'manual' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'manual', manualMin: map.heatmapSettings.manualMin ?? METRICS[map.heatmapSettings.metric].bounds[0], manualMax: map.heatmapSettings.manualMax ?? METRICS[map.heatmapSettings.metric].bounds[1] } }))}>Manual</button></div>
@@ -353,7 +346,7 @@ export default function GreenhouseMapTestPage() {
         </section>
         <LayersPanel layers={editor.map.layers} language={language} onChange={(layers) => editor.commit((map) => ({ ...map, layers }))} />
       </aside>
-      <GreenhouseCanvas map={editor.map} mode={mode} readOnly={canvasReadOnly} measurementSectionId={sectionFilterId || undefined} highlightSectionId={sectionFilterId || undefined} target={target} dailyView={dailyView} language={language} actions={areaContext?.actions ?? []} selectedIds={editor.selectedIds} snap={editor.snap} onSelect={(ids) => { editor.setSelectedIds(ids); if (ids.length) setMobilePanel('right') }} onMove={moveOnCanvas} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAdd={canvasReadOnly ? () => undefined : editor.addObject} />
+      <GreenhouseCanvas map={editor.map} mode={mode} readOnly={canvasReadOnly} dailyView={dailyView} language={language} actions={areaContext?.actions ?? []} selectedIds={editor.selectedIds} snap={editor.snap} onSelect={(ids) => { editor.setSelectedIds(ids); if (ids.length) setMobilePanel('right') }} onMove={moveOnCanvas} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAdd={canvasReadOnly ? () => undefined : editor.addObject} />
       <ObjectPropertiesPanel map={editor.map} selected={editor.selected} language={language} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAlign={canvasReadOnly ? () => undefined : align} />
     </div>
     {showSetupGuide && areaContext ? <MapSetupGuide area={areaContext.area} map={editor.map} sections={areaContext.sections} nodes={areaContext.nodes} profiles={areaContext.profiles} language={language} onMapChange={(map) => editor.commit(() => map)} onCreateSection={createSectionFromGuide} onAssignNode={assignNodeFromGuide} onClaimNode={claimNodeFromGuide} onOpenSections={() => navigate('/sections')} onClose={() => { setShowSetupGuide(false); if (!permissionReadOnly) { setEditing(true); setMode('layout') } }} /> : null}

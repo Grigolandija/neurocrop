@@ -8,7 +8,7 @@ import {
   type AreaMapContext,
 } from '../greenhouse-map/services/areaMapRepository'
 
-const climateMetrics: MetricKey[] = ['air-temperature', 'relative-humidity', 'co2', 'vpd', 'root-temperature']
+const climateMetrics: MetricKey[] = ['air-temperature', 'relative-humidity', 'co2', 'vpd']
 const profileMetricKeys: Record<MetricKey, string> = {
   'air-temperature': 'airTemp',
   'relative-humidity': 'humidity',
@@ -49,7 +49,6 @@ function prepareReadOnlyMap(context: AreaMapContext, metric: MetricKey): Greenho
 export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
   const [context, setContext] = useState<AreaMapContext | null>(null)
   const [metric, setMetric] = useState<MetricKey>('relative-humidity')
-  const [sectionId, setSectionId] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
@@ -66,7 +65,6 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
       .then((next) => {
         if (cancelled) return
         setContext(next)
-        setSectionId((current) => next.sections.some((section) => section.id === current) ? current : '')
         setStatus('ready')
       })
       .catch((loadError) => {
@@ -79,15 +77,14 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
   }, [areaId, refreshToken])
 
   const map = useMemo(() => context ? prepareReadOnlyMap(context, metric) : null, [context, metric])
-  const selectedSection = context?.sections.find((section) => section.id === sectionId)
-  const selectedProfile = context?.profiles.find((profile) => profile.id === selectedSection?.cropProfile)
-  const target = selectedProfile?.metrics?.[profileMetricKeys[metric]]?.optimal
   const selectedSensor = map?.objects.find((object) => object.id === selectedIds[0] && object.type === 'sensor-node')
   const selectedMeasurement = selectedSensor?.metadata.sensor?.measurements?.[METRICS[metric].field]
+  const selectedSection = context?.sections.find((section) => section.id === selectedSensor?.metadata.sensor?.sectionId)
+  const selectedProfile = context?.profiles.find((profile) => profile.id === selectedSection?.cropProfile)
+  const selectedTarget = selectedProfile?.metrics?.[profileMetricKeys[metric]]?.optimal
   const validNodes = map?.objects.filter((object) => {
     const sensor = object.metadata.sensor
     if (!sensor || sensor.status === 'offline' || sensor.status === 'stale') return false
-    if (sectionId && sensor.sectionId !== sectionId) return false
     return typeof sensor.measurements?.[METRICS[metric].field] === 'number'
   }).length ?? 0
 
@@ -107,7 +104,6 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
       </div>
       <div className="nc-climate-map-filters">
         <label><span>Metric</span><select value={metric} onChange={(event) => { setMetric(event.target.value as MetricKey); setSelectedIds([]) }}>{climateMetrics.map((key) => <option value={key} key={key}>{METRICS[key].label}</option>)}</select></label>
-        <label><span>Section</span><select value={sectionId} onChange={(event) => { setSectionId(event.target.value); setSelectedIds([]) }}><option value="">Whole Area</option>{context.sections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}</select></label>
       </div>
     </header>
     <div className="nc-climate-map-canvas">
@@ -115,9 +111,6 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
         map={map}
         mode="environment"
         readOnly
-        measurementSectionId={sectionId}
-        highlightSectionId={sectionId}
-        target={target}
         selectedIds={selectedIds}
         snap={false}
         onSelect={setSelectedIds}
@@ -130,9 +123,10 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
         <small>{selectedSensor.metadata.sensor?.sectionName || 'Unassigned node'}</small>
         <strong>{selectedSensor.name}</strong>
         <b>{typeof selectedMeasurement === 'number' ? selectedMeasurement.toFixed(metric === 'vpd' ? 2 : metric === 'co2' ? 0 : 1) : '—'} <em>{METRICS[metric].unit}</em></b>
+        {selectedTarget ? <span>Section target · {selectedTarget[0]}–{selectedTarget[1]} {METRICS[metric].unit}</span> : null}
         <span>{selectedSensor.metadata.sensor?.status || 'unknown'} · {selectedSensor.metadata.sensor?.lastSeenAt ? new Date(selectedSensor.metadata.sensor.lastSeenAt).toLocaleString() : 'No timestamp'}</span>
       </aside> : null}
     </div>
-    <footer><i className="fa-solid fa-circle-info" /> Interpolated values between nodes are estimates. Sensor positions can only be changed in Area Map.</footer>
+    <footer><i className="fa-solid fa-circle-info" /> The Area heatmap always uses every valid node. Section targets appear only after selecting a node.</footer>
   </section>
 }
