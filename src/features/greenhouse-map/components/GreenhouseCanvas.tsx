@@ -78,7 +78,6 @@ function ObjectShape({ object, map, selected, editable, layerOpacity, viewScale,
       {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} /> : null}
       <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.type === 'text-label' ? object.name : object.widthM > 1.2 && object.lengthM > .45 ? object.name : definition?.label ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill="#2d4038" ellipsis wrap="none" />
     </>}
-    {object.locked ? <Text x={Math.max(0, object.widthM - .28)} y={.06} text="" fontFamily="Font Awesome 7 Free" fontSize={.18} fill="#493f32" /> : null}
   </Group>
 }
 
