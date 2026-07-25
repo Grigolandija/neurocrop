@@ -28,7 +28,7 @@ export function createMeasurementGrid(points: MeasurementPoint[], widthM: number
     for (let x = 0; x < resolution.width; x += 1) {
       const index = y * resolution.width + x
       const xM = x / (resolution.width - 1) * widthM
-      const yM = y / (resolution.height - 1) * lengthM
+      const yM = lengthM - y / (resolution.height - 1) * lengthM
       const value = interpolateIdw(points, xM, yM, power)
       values[index] = Math.max(bounds[0], Math.min(bounds[1], value ?? scale.min))
       confidence[index] = calculateConfidence(points, xM, yM, diagonal)

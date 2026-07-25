@@ -3,6 +3,7 @@ import { createDemoMap } from '../demo'
 import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, worldToScreen } from '../geometry'
 import { mapRepository, validateMap } from '../services/mapRepository'
 import { calculateConfidence } from './calculateConfidenceGrid'
+import { CONTOUR_INTERVALS, createContourSegments, getContourLevels } from './contourLines'
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
@@ -67,6 +68,11 @@ describe('measurement filtering and grid sizing', () => {
     expect(Math.min(...(grid?.values ?? []))).toBeGreaterThanOrEqual(5)
     expect(Math.max(...(grid?.values ?? []))).toBeLessThanOrEqual(45)
   })
+  it('keeps physical north at the top and the origin at the bottom-left', () => {
+    const grid = createMeasurementGrid([point(0, 0, 10), point(0, 8, 30)], 20, 8, 'air-temperature', 2, { min: 10, max: 30 })!
+    expect(grid.values[0]).toBeCloseTo(30)
+    expect(grid.values[(grid.height - 1) * grid.width]).toBeCloseTo(10)
+  })
   it('honours valid manual scale limits', () => expect(getStableScale([20, 30], 'air-temperature', { min: 18, max: 32 })).toEqual({ min: 18, max: 32 }))
   it('reduces confidence with distance', () => {
     const points = [point(0, 0, 20), point(1, 0, 21)]
@@ -80,6 +86,31 @@ describe('environment colour scale', () => {
     expect(colorAt(40, 40, 80, colors)).toEqual([242, 184, 75])
     expect(colorAt(60, 40, 80, colors)).toEqual([102, 199, 180])
     expect(colorAt(80, 40, 80, colors)).toEqual([47, 128, 195])
+  })
+})
+
+describe('heatmap contour lines', () => {
+  it('uses meaningful fixed intervals for every metric', () => {
+    expect(CONTOUR_INTERVALS['air-temperature']).toBe(0.5)
+    expect(CONTOUR_INTERVALS['relative-humidity']).toBe(5)
+    expect(CONTOUR_INTERVALS.co2).toBe(100)
+    expect(CONTOUR_INTERVALS.vpd).toBe(0.1)
+  })
+  it('creates only levels inside the measured range', () => {
+    expect(getContourLevels(new Float32Array([21.2, 22.8]), 0.5)).toEqual([21.5, 22, 22.5])
+  })
+  it('extracts a line where a grid crosses a contour level', () => {
+    const segments = createContourSegments({
+      width: 2,
+      height: 2,
+      values: new Float32Array([0, 1, 0, 1]),
+      confidence: new Float32Array([1, 1, 1, 1]),
+      min: 0,
+      max: 1,
+      sensorCount: 3,
+    }, 0.5)
+    expect(segments).toHaveLength(1)
+    expect(segments[0]).toMatchObject({ level: 0.5, x1: 0.5, x2: 0.5, confidence: 1 })
   })
 })
 
