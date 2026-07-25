@@ -616,6 +616,10 @@ export default function TrendsWorkspace() {
   const metricSelectionKey = activeMetricKeys.join(',')
   const areas = useMemo(() => [...new Map(sections.map((section) => [section.areaId, section.areaName])).entries()], [sections])
   const areaSections = sections.filter((section) => !areaId || section.areaId === areaId)
+  const displayedAreaId = selectedSection?.areaId || areaId
+  const displayedAreaSections = selectedSection
+    ? sections.filter((section) => section.areaId === selectedSection.areaId)
+    : areaSections
   const availableMetrics = metrics.filter((metric) => selectedSection?.available.has(metric.key))
   const target = profileRange(profiles, selectedSection?.profileId || '', selectedMetric.key)
 
@@ -881,8 +885,8 @@ export default function TrendsWorkspace() {
     </header>
 
     <section className="nc-trends-context">
-      <AreaPicker areas={areas} selectedId={areaId} onSelect={changeArea} />
-      <SectionPicker sections={areaSections} selectedId={selectedSection?.id || ''} recentIds={recentSectionIds} onSelect={changeSection} />
+      <AreaPicker areas={areas} selectedId={displayedAreaId} onSelect={changeArea} />
+      <SectionPicker sections={displayedAreaSections} selectedId={selectedSection?.id || sectionId} recentIds={recentSectionIds} onSelect={changeSection} />
       <div className="nc-trends-range" role="group" aria-label="Trend period">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
       <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />Compare Sections</button>
     </section>
