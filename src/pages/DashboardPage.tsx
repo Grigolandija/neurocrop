@@ -188,6 +188,21 @@ function ApprovedDashboard() {
     }
   }, [location.pathname])
 
+  useEffect(() => {
+    if (location.pathname !== '/history' || !trendsMount) return
+    const historySection = trendsMount.closest<HTMLElement>('#historySection')
+    if (!historySection) return
+
+    // React owns the migrated Trends workspace even while the legacy shell still syncs routes.
+    const keepTrendsVisible = () => {
+      if (historySection.hidden) historySection.hidden = false
+    }
+    keepTrendsVisible()
+    const observer = new MutationObserver(keepTrendsVisible)
+    observer.observe(historySection, { attributes: true, attributeFilter: ['hidden'] })
+    return () => observer.disconnect()
+  }, [location.pathname, trendsMount])
+
   return <>
     <div ref={hostRef} />
     {location.pathname === '/' && overviewMount
