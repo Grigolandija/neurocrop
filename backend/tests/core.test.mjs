@@ -1015,6 +1015,36 @@ test('action verification uses a stable median and ignores later unrelated recov
   assert.equal(outcome.method, 'median-first-qualified-samples');
 });
 
+test('action verification upgrades improvement when a later stable window reaches target', () => {
+  const action = { metricId: 'airTemp', value: 19, target: [21, 22] };
+  const feedback = { status: 'completed', createdAt: '2026-07-14T12:00:00Z' };
+  const samples = [19.6, 20, 20.4, 21, 21.2, 21.4].map((value, index) => ({
+    value,
+    observedAt: `2026-07-14T12:${10 + index * 10}:00Z`
+  }));
+
+  const initiallyImproving = evaluateActionOutcome(
+    action,
+    feedback,
+    { samples },
+    '2026-07-14T12:31:00Z'
+  );
+  assert.equal(initiallyImproving.state, 'improving');
+  assert.equal(initiallyImproving.label, 'Improvement verified');
+
+  const targetReached = evaluateActionOutcome(
+    action,
+    feedback,
+    { samples },
+    '2026-07-14T12:51:00Z'
+  );
+  assert.equal(targetReached.state, 'target_reached');
+  assert.equal(targetReached.label, 'Target reached');
+  assert.equal(targetReached.currentValue, 21);
+  assert.equal(targetReached.observedAt, '2026-07-14T12:50:00Z');
+  assert.equal(targetReached.method, 'median-first-target-window');
+});
+
 test('action verification separates target reached, sensor noise and worsening', () => {
   const action = { metricId: 'humidity', value: 88, target: [60, 70] };
   const feedback = { status: 'completed', createdAt: '2026-07-14T12:00:00Z' };

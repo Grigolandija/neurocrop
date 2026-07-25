@@ -530,7 +530,8 @@ export function evaluateActionOutcome(action, feedback, evidence = {}, now = Dat
       return sample.value !== null
         && Number.isFinite(observedAtMs)
         && observedAtMs >= eligibleAtMs
-        && observedAtMs <= windowEndsAtMs;
+        && observedAtMs <= windowEndsAtMs
+        && (!Number.isFinite(nowMs) || observedAtMs <= nowMs);
     })
     .sort((left, right) => new Date(left.observedAt) - new Date(right.observedAt));
   const verificationSamples = eligibleSamples.slice(0, policy.minSamples);
@@ -544,7 +545,7 @@ export function evaluateActionOutcome(action, feedback, evidence = {}, now = Dat
     eligibleAt,
     windowEndsAt,
     method: 'median-first-qualified-samples',
-    modelVersion: '1.0.0'
+    modelVersion: '1.1.0'
   };
   if (Number.isFinite(nowMs) && nowMs < eligibleAtMs) {
     return { ...common, state: 'awaiting_data', label: 'Waiting for the verification window' };
@@ -566,10 +567,27 @@ export function evaluateActionOutcome(action, feedback, evidence = {}, now = Dat
   if (baselineDistance === null || currentDistance === null) {
     return { ...common, state: 'insufficient_data', label: 'Target or baseline is unavailable', currentValue, observedAt };
   }
-  if (currentDistance === 0) {
+
+  let targetWindow = null;
+  for (let index = 0; index <= eligibleSamples.length - policy.minSamples; index += 1) {
+    const candidate = eligibleSamples.slice(index, index + policy.minSamples);
+    const candidateValue = median(candidate.map((sample) => sample.value));
+    if (distanceFromTarget(candidateValue, action.target) === 0) {
+      targetWindow = { samples: candidate, value: candidateValue, index };
+      break;
+    }
+  }
+  if (targetWindow) {
+    const targetObservedAt = targetWindow.samples[targetWindow.samples.length - 1].observedAt;
     return {
-      ...common, state: 'target_reached', label: 'Target reached', currentValue, observedAt,
-      change: currentValue - Number(action.value), distanceImprovement: baselineDistance
+      ...common,
+      state: 'target_reached',
+      label: 'Target reached',
+      currentValue: targetWindow.value,
+      observedAt: targetObservedAt,
+      method: targetWindow.index === 0 ? common.method : 'median-first-target-window',
+      change: targetWindow.value - Number(action.value),
+      distanceImprovement: baselineDistance
     };
   }
 
@@ -578,7 +596,7 @@ export function evaluateActionOutcome(action, feedback, evidence = {}, now = Dat
   const improvement = baselineDistance - currentDistance;
   if (improvement > meaningfulChange) {
     return {
-      ...common, state: 'improving', label: 'Conditions are improving', currentValue, observedAt,
+      ...common, state: 'improving', label: 'Improvement verified', currentValue, observedAt,
       change: currentValue - Number(action.value), distanceImprovement: improvement
     };
   }
