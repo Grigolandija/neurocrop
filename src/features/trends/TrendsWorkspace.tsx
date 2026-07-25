@@ -600,6 +600,17 @@ export default function TrendsWorkspace() {
       const runtimeSections = sectionList({ sites: detail.sites }, {}, {})
       applyWorkspaceContext(runtimeSections, undefined, text(detail.siteId), text(detail.zoneId))
     }
+    const existingDashboardContext = (window as typeof window & {
+      NeuroCropDashboardContext?: { sites?: JsonRecord[]; siteId?: unknown; zoneId?: unknown }
+    }).NeuroCropDashboardContext
+    if (Array.isArray(existingDashboardContext?.sites) && existingDashboardContext.sites.length) {
+      applyWorkspaceContext(
+        sectionList({ sites: existingDashboardContext.sites }, {}, {}),
+        undefined,
+        text(existingDashboardContext.siteId),
+        text(existingDashboardContext.zoneId),
+      )
+    }
     void hydrateContext()
     window.addEventListener('neurocrop:api-connection', retryAfterAuthentication)
     window.addEventListener('neurocrop:context-change', syncRuntimeContext)
