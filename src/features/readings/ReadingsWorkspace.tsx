@@ -83,6 +83,27 @@ const presets = [
   { key: 'system', label: 'System', icon: 'fa-microchip', keys: ['batteryLevel'] },
 ] as const
 
+const readingsColumnsStorageKey = 'neurocrop-readings-columns-v1'
+const supportedMetricKeys = new Set(metrics.map((metric) => metric.key))
+
+function storedVisibleKeys() {
+  if (typeof window === 'undefined') return [...presets[0].keys]
+  try {
+    const stored: unknown = JSON.parse(window.localStorage.getItem(readingsColumnsStorageKey) || 'null')
+    if (!Array.isArray(stored)) return [...presets[0].keys]
+    const keys = [...new Set(stored.filter((key): key is string => typeof key === 'string' && supportedMetricKeys.has(key)))]
+    return keys.length ? keys : [...presets[0].keys]
+  } catch {
+    return [...presets[0].keys]
+  }
+}
+
+function matchingPreset(keys: string[]) {
+  return presets.find((preset) =>
+    preset.keys.length === keys.length && preset.keys.every((key, index) => key === keys[index])
+  )?.key || 'custom'
+}
+
 const qualityLabels: Record<ReadingQuality, string> = {
   live: 'Live', stale: 'Delayed', offline: 'Offline', 'no-data': 'No data',
   'not-installed': 'Not installed', calibration: 'Calibration needed',
@@ -389,8 +410,8 @@ export default function ReadingsWorkspace() {
   const [attentionOnly, setAttentionOnly] = useState(false)
   const [sortBy, setSortBy] = useState('severity')
   const [mode, setMode] = useState<ReadingMode>('value')
-  const [activePreset, setActivePreset] = useState('essential')
-  const [visibleKeys, setVisibleKeys] = useState<string[]>([...presets[0].keys])
+  const [activePreset, setActivePreset] = useState(() => matchingPreset(storedVisibleKeys()))
+  const [visibleKeys, setVisibleKeys] = useState<string[]>(storedVisibleKeys)
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [pinned, setPinned] = useState<string[]>([])
   const [drawerId, setDrawerId] = useState<string | null>(null)
@@ -401,6 +422,14 @@ export default function ReadingsWorkspace() {
   const [trendRange, setTrendRange] = useState<TrendRangeKey>('24h')
   const [trendPreviewHistory, setTrendPreviewHistory] = useState<PinnedHistoryState>({ status: 'empty', points: [] })
   const [refreshToken, setRefreshToken] = useState(0)
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(readingsColumnsStorageKey, JSON.stringify(visibleKeys))
+    } catch {
+      // Storage restrictions must not prevent the readings workspace from working.
+    }
+  }, [visibleKeys])
 
   useEffect(() => {
     let cancelled = false
