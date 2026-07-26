@@ -177,9 +177,11 @@ assert(
     && sharedTrendChart.includes('export function buildTrendChartOption(')
     && sharedTrendChart.includes('export function renderTrendChart(')
     && !runtime.includes('window.NeuroCropTrendCharts')
-    && runtime.includes('The React Trends workspace owns /history.')
+    && runtime.includes('The React Trends workspace owns /history; legacy chart DOM is not mounted.')
     && runtime.includes('elements.historySection.hidden = !isHistoryPage;')
     && !runtime.includes('function buildTrendEChartsOption(')
+    && markup.includes('<div id="trendsWorkspaceMount" aria-live="polite"></div>')
+    && !markup.includes('trend-history-shell')
     && readingsWorkspace.includes('Open full Trends')
     && runtime.includes('event.data.type !== "neurocrop:open-trend"')
     && runtime.includes('openTrendHistory(String(event.data.metricKey || ""))')
@@ -323,7 +325,7 @@ assert(
     && !runtime.includes('const lithuanianInterfaceText = {'),
   "Lithuanian translations must load before an LT session and on demand when the language changes",
 );
-assert(Buffer.byteLength(runtime) < 885_000, "The production runtime must stay below its second modularization budget");
+assert(Buffer.byteLength(runtime) < 810_000, "The production runtime must stay below its legacy Trends removal budget");
 assert(runtime.includes('function openActionCompletionModal(') && runtime.includes('data-management-modal-form="action-completion"') && runtime.includes('executionDetails: {') && runtime.includes('requestTodayPriorityFeedback('), "Completed actions must capture the intervention type and details before submission");
 assert(runtime.includes('const backendPriorityAction = availableBackendActions[0] || null') && runtime.includes('snapshotsByZoneId.get(backendPriorityAction.sectionId)') && runtime.includes('Do this first') && runtime.includes('Inspection route') && runtime.includes('data-site-id="${escapeAttribute(prioritySnapshot.site.id)}"'), "Simple Today must keep one farm-wide first action and preserve its Area and Section route context");
 assert(runtime.includes('class="grower-area-list"') && runtime.includes('class="grower-area-band"') && runtime.includes('class="grower-section-line"') && runtime.includes('data-overview-section-card') && runtime.includes('const sectionCard = event.target.closest("[data-overview-section-card]")') && styles.includes('.grower-area-list') && styles.includes('.grower-area-band + .grower-area-band'), "Simple Today must scale many Areas vertically and keep every Section directly reachable");

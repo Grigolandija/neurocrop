@@ -342,7 +342,6 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-events strong { font-size: 11px; text-transform: capitalize; }
 .designer-app .nc-trends-events small { color: var(--trends-muted); font-size: 11px; }
 
-body[data-primary-page="history"] #historySection > .trend-history-shell { display: none !important; }
 
 @media (max-width: 1050px) {
   .designer-app .nc-trends-context { grid-template-columns: 1fr 1fr; }

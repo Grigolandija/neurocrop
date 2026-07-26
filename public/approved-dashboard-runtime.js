@@ -945,36 +945,6 @@
       workbenchLensSummary: document.getElementById("workbenchLensSummary"),
       metricsGrid: document.getElementById("metricsGrid"),
       historySection: document.getElementById("historySection"),
-      trendHistoryTitle: document.getElementById("trendHistoryTitle"),
-      trendHistorySummary: document.getElementById("trendHistorySummary"),
-      trendHistoryStateChip: document.getElementById("trendHistoryStateChip"),
-      trendHistoryRangeMeta: document.getElementById("trendHistoryRangeMeta"),
-      trendHistoryExportButton: document.getElementById("trendHistoryExportButton"),
-      trendHistoryActiveAreaLabel: document.getElementById("trendHistoryActiveAreaLabel"),
-      trendHistoryActiveSectionLabel: document.getElementById("trendHistoryActiveSectionLabel"),
-      historyLocationTrigger: document.getElementById("historyLocationTrigger"),
-      historyLocationValue: document.getElementById("historyLocationValue"),
-      historyLocationScore: document.getElementById("historyLocationScore"),
-      historyLocationMenu: document.getElementById("historyLocationMenu"),
-      historyBlockTrigger: document.getElementById("historyBlockTrigger"),
-      historyBlockValue: document.getElementById("historyBlockValue"),
-      historyBlockScore: document.getElementById("historyBlockScore"),
-      historyBlockMenu: document.getElementById("historyBlockMenu"),
-      trendMetricBar: document.getElementById("trendMetricBar"),
-      trendPresentationBar: document.getElementById("trendPresentationBar"),
-      trendScaleBar: document.getElementById("trendScaleBar"),
-      trendRangeBar: document.getElementById("trendRangeBar"),
-      trendHistoryMetricLabel: document.getElementById("trendHistoryMetricLabel"),
-      trendHistoryMetricMeta: document.getElementById("trendHistoryMetricMeta"),
-      trendHistoryReadout: document.getElementById("trendHistoryReadout"),
-      trendHistoryChart: document.getElementById("trendHistoryChart"),
-      trendHistoryTooltip: document.getElementById("trendHistoryTooltip"),
-      trendHistoryStartLabel: document.getElementById("trendHistoryStartLabel"),
-      trendHistoryMidLabel: document.getElementById("trendHistoryMidLabel"),
-      trendHistoryEndLabel: document.getElementById("trendHistoryEndLabel"),
-      trendHistoryCallout: document.getElementById("trendHistoryCallout"),
-      trendHistoryBackendNote: document.getElementById("trendHistoryBackendNote"),
-      trendAnalyticsPanel: document.getElementById("trendAnalyticsPanel"),
       sensorHealthTitle: document.getElementById("sensorHealthTitle"),
       sensorHealthActionButton: document.getElementById("sensorHealthActionButton"),
       sensorHealthChip: document.getElementById("sensorHealthChip"),
@@ -1483,20 +1453,12 @@
     let activeInspectionRouteFilterKey = "focus";
     let activeWorkspaceFocus = "all";
     let activeTrendMetricKey = "";
-    let activeTrendMetricKeys = [];
-    let activeTrendRangeKey = "24h";
-    let activeTrendPresentation = "smoothed";
-    let activeTrendScaleMode = "detail";
     let expandedLiveMetricKey = "";
-    let currentTrendHistoryPoints = [];
-    let trendHistoryChartInstance = null;
-    let trendComparisonChartInstance = null;
     let trendHistoryRequestId = 0;
     let trendHistoryByKey = {};
     let trendHistoryStatusByKey = {};
     let dynamicsBySectionId = {};
     let dynamicsStatusBySectionId = {};
-    let trendComparisonZoneIds = [];
     const trendHistoryCacheTtlMs = 60 * 1000;
     const trendHistoryRetryDelayMs = 10 * 1000;
     let latestReadingsRequestIdBySectionId = {};
@@ -4936,7 +4898,6 @@
       activeViewScope = "zone";
       if (action.metricKey) {
         activeTrendMetricKey = action.metricKey;
-        activeTrendMetricKeys = [action.metricKey];
       }
       renderZoneOptions();
       resetCurrentReadingsFromActiveZone();
@@ -6071,7 +6032,6 @@
       viewportSyncFrame = window.requestAnimationFrame(() => {
         viewportSyncFrame = 0;
         syncStickyOffsets();
-        trendHistoryChartInstance?.resize();
       });
     }
 
@@ -6791,8 +6751,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
     function closeContextMenus() {
       setMenuState(elements.siteTrigger, elements.siteMenu, false);
       setMenuState(elements.zoneTrigger, elements.zoneMenu, false);
-      setMenuState(elements.historyLocationTrigger, elements.historyLocationMenu, false);
-      setMenuState(elements.historyBlockTrigger, elements.historyBlockMenu, false);
     }
 
     function scheduleDashboardRender() {
@@ -10233,8 +10191,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
 
     function resetTrendSelectionForContextChange() {
       activeTrendMetricKey = "";
-      activeTrendMetricKeys = [];
-      currentTrendHistoryPoints = [];
     }
 
 
@@ -10353,7 +10309,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
     function openTrendHistory(metricKey) {
       if (metricKey) {
         activeTrendMetricKey = metricKey;
-        activeTrendMetricKeys = [metricKey];
       }
       activePrimaryPage = "history";
       sidebarActionOverride = null;
@@ -10363,84 +10318,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       renderDashboard();
       syncTopLevelRoute("/history");
       scrollToSection("historySection");
-    }
-
-    function getCsvExportMetricKeys(zone) {
-      const profile = cropProfiles[zone?.profile] || getDefaultCropProfileTemplate();
-      const availableMetrics = new Set(zone?.availableMetrics || []);
-      if (availableMetrics.has("airTemp") && availableMetrics.has("humidity")) availableMetrics.add("vpd");
-      return Object.keys(profile.metrics || {}).filter((key) => availableMetrics.has(key));
-    }
-
-    function getCsvExportSectionOptions(siteId, selectedZoneId = "") {
-      const site = dashboardData.sites.find((item) => item.id === siteId);
-      const zones = site?.zones || [];
-      if (!zones.length) return `<option value="">No sections in this area</option>`;
-      return zones.map((zone) => `<option value="${escapeAttribute(zone.id)}" ${zone.id === selectedZoneId ? "selected" : ""}>${escapeHtml(zone.name)}</option>`).join("");
-    }
-
-    function openCsvExportModal() {
-      const site = getActiveSite();
-      const zone = getActiveZone(site);
-
-      if (!isApiDataMode() || activeViewScope === "site" || !zone?.id) return;
-      const metricKeys = getCsvExportMetricKeys(zone);
-      const profile = cropProfiles[zone.profile] || getDefaultCropProfileTemplate();
-
-      managementModalState = { type: "csv-export" };
-      elements.managementModalOverlay.innerHTML = `
-        <div class="management-modal-backdrop" data-management-modal-close></div>
-        <section class="management-modal-shell" role="dialog" aria-modal="true" aria-labelledby="csvExportTitle">
-          <header class="management-modal-header">
-            <div>
-              <p class="text-[11px] font-bold uppercase tracking-[0.24em] text-pine/56">Data export</p>
-              <h2 id="csvExportTitle" class="mt-1.5 font-display text-2xl font-bold text-ink">Download measurements</h2>
-              <p class="mt-2 text-sm leading-6 text-ink/60">Choose the section, period, and parameters to include in an Excel-friendly CSV file.</p>
-            </div>
-            <button type="button" class="management-modal-close actionable" data-management-modal-close aria-label="Close export"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-          </header>
-          <form class="management-modal-body" data-csv-export-form>
-            <div class="grid gap-4 sm:grid-cols-2">
-              <label class="block"><span class="text-sm font-semibold text-ink/72">Area</span><select name="csvAreaId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink">${dashboardData.sites.map((item) => `<option value="${escapeAttribute(item.id)}" ${item.id === site.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>
-              <label class="block"><span class="text-sm font-semibold text-ink/72">Section</span><select name="csvSectionId" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink">${getCsvExportSectionOptions(site.id, zone.id)}</select></label>
-              <label class="block"><span class="text-sm font-semibold text-ink/72">Period</span><select name="csvRange" class="mt-1.5 w-full rounded-[18px] border border-black/10 bg-white px-4 py-2.5 text-sm text-ink">${Object.entries(trendRangeConfig).map(([key, config]) => `<option value="${key}" ${key === activeTrendRangeKey ? "selected" : ""}>Last ${config.label}</option>`).join("")}</select></label>
-              <div class="rounded-[18px] bg-[#f8f3ea] px-4 py-3 text-sm leading-6 text-ink/60"><strong class="block text-ink">Format</strong>Semicolon-separated CSV with separate date and time columns, ready for Excel.</div>
-            </div>
-            <fieldset class="mt-5"><legend class="text-sm font-semibold text-ink/72">Parameters</legend><div class="mt-2 grid gap-2 sm:grid-cols-2">${metricKeys.map((key) => `<label class="flex items-center gap-2 rounded-xl border border-black/8 bg-white px-3 py-2 text-sm font-semibold text-ink"><input type="checkbox" name="csvMetric" value="${escapeAttribute(key)}" checked class="h-4 w-4 accent-[#21473b]"><span>${escapeHtml(profile.metrics[key]?.label || key)}${profile.metrics[key]?.unit ? ` (${escapeHtml(formatUnit(profile.metrics[key].unit))})` : ""}</span></label>`).join("") || `<p class="text-sm text-ink/60">No detected sensor metrics are available in this section yet.</p>`}</div></fieldset>
-            <p class="management-modal-error mt-4 rounded-[16px] bg-[#f9e3df] px-3.5 py-2.5 text-sm font-semibold text-ember" role="alert" hidden></p>
-            <div class="mt-5 flex gap-3"><button type="submit" class="actionable rounded-2xl bg-pine px-4 py-2.5 text-sm font-semibold text-white">Download CSV</button><button type="button" class="actionable rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink/72" data-management-modal-close>Cancel</button></div>
-          </form>
-        </section>
-      `;
-      elements.managementModalOverlay.hidden = false;
-      enhanceDashboardSelects(elements.managementModalOverlay);
-    }
-
-    async function submitCsvExport() {
-      const form = elements.managementModalOverlay.querySelector("[data-csv-export-form]");
-      const error = elements.managementModalOverlay.querySelector(".management-modal-error");
-      const data = new FormData(form);
-      const sectionId = String(data.get("csvSectionId") || "");
-      const rangeConfig = trendRangeConfig[String(data.get("csvRange") || "")] || trendRangeConfig["24h"];
-      const metrics = data.getAll("csvMetric").map(String).filter(Boolean);
-      if (!sectionId || metrics.length === 0) {
-        if (error) { error.textContent = "Choose a section and at least one parameter."; error.hidden = false; }
-        return;
-      }
-
-      try {
-        const to = new Date();
-        const from = new Date(to.getTime() - (rangeConfig.totalHours * 60 * 60 * 1000));
-        await window.NeuroCropApi.downloadMeasurementsCsv({
-          sectionId,
-          metrics: metrics.join(","),
-          from: from.toISOString(),
-          to: to.toISOString()
-        });
-        closeManagementModal();
-      } catch (error) {
-        if (error) { error.textContent = error instanceof Error ? error.message : "CSV export could not be generated."; error.hidden = false; }
-      }
     }
 
     function renderLiveReadingRow(key, definition, result, scopeSeed, zone, freshnessStatus = "live") {
@@ -13622,22 +13499,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         elements.unavailableMetricsGrid.innerHTML = "";
       }
 
-      // The React Trends workspace owns /history. Keep only its host visible and
-      // dispose any chart instance left by an older runtime during hot reload.
+      // The React Trends workspace owns /history; legacy chart DOM is not mounted.
       elements.historySection.hidden = !isHistoryPage;
-      if (elements.trendAnalyticsPanel) {
-        elements.trendAnalyticsPanel.hidden = true;
-        elements.trendAnalyticsPanel.innerHTML = "";
-      }
-      currentTrendHistoryPoints = [];
-      if (trendHistoryChartInstance) {
-        trendHistoryChartInstance.dispose();
-        trendHistoryChartInstance = null;
-      }
-      if (trendComparisonChartInstance) {
-        trendComparisonChartInstance.dispose();
-        trendComparisonChartInstance = null;
-      }
 
       if (!isSiteHotspotsView) {
         elements.zoneImpactGrid.innerHTML = renderInspectionRouteCards(filteredInspectionRouteItems, {
@@ -14680,12 +14543,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
     });
 
     elements.managementModalOverlay.addEventListener("submit", (event) => {
-      const csvForm = event.target.closest("[data-csv-export-form]");
-      if (csvForm) {
-        event.preventDefault();
-        submitCsvExport();
-        return;
-      }
       const form = event.target.closest("[data-management-modal-form]");
       if (!form) return;
       event.preventDefault();
@@ -14734,15 +14591,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           : `<option value="">Select an area first</option>`;
         sectionSelect.disabled = targetZones.length === 0;
         sectionSelect.required = targetZones.length > 0;
-        rebuildEnhancedSelect(sectionSelect);
-      }
-      if (event.target instanceof HTMLSelectElement && event.target.name === "csvAreaId") {
-        const sectionSelect = elements.managementModalOverlay.querySelector('[name="csvSectionId"]');
-        if (!(sectionSelect instanceof HTMLSelectElement)) return;
-        const targetSite = dashboardData.sites.find((site) => site.id === event.target.value);
-        const sections = targetSite?.zones || [];
-        sectionSelect.innerHTML = getCsvExportSectionOptions(event.target.value);
-        sectionSelect.disabled = sections.length === 0;
         rebuildEnhancedSelect(sectionSelect);
       }
     });
@@ -15213,7 +15061,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         const metricKey = actionButton.dataset.metricKey;
         if (metricKey) {
           activeTrendMetricKey = metricKey;
-          activeTrendMetricKeys = [metricKey];
         }
         runDashboardAction("history");
         return;
@@ -15259,7 +15106,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         const metricKey = actionButton.dataset.metricKey;
         if (metricKey) {
           activeTrendMetricKey = metricKey;
-          activeTrendMetricKeys = [metricKey];
         }
         runDashboardAction("history");
         return;
@@ -15352,160 +15198,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       if (!nextLensKey) return;
       activeWorkbenchLensKey = nextLensKey;
       renderDashboard();
-    });
-
-    elements.trendMetricBar.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-trend-metric]");
-      if (!button) return;
-      if (button.disabled) return;
-
-      const nextMetricKey = button.dataset.trendMetric;
-      if (!nextMetricKey) return;
-      const activeKeys = activeTrendMetricKeys.length > 0
-        ? [...activeTrendMetricKeys]
-        : (activeTrendMetricKey ? [activeTrendMetricKey] : []);
-      const existingIndex = activeKeys.indexOf(nextMetricKey);
-
-      if (existingIndex >= 0) {
-        if (activeKeys.length === 1) return;
-        activeKeys.splice(existingIndex, 1);
-      } else if (activeKeys.length >= 2) {
-        activeKeys[1] = nextMetricKey;
-      } else {
-        activeKeys.push(nextMetricKey);
-      }
-
-      activeTrendMetricKeys = activeKeys.slice(0, 2);
-      activeTrendMetricKey = activeTrendMetricKeys[0] || nextMetricKey;
-      renderDashboard();
-    });
-
-    elements.trendRangeBar.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-trend-range]");
-      if (!button) return;
-
-      const nextRangeKey = button.dataset.trendRange;
-      if (!trendRangeConfig[nextRangeKey] || nextRangeKey === activeTrendRangeKey) return;
-      activeTrendRangeKey = nextRangeKey;
-      renderDashboard();
-    });
-
-    elements.trendPresentationBar.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-trend-presentation]");
-      if (!button) return;
-      const nextPresentation = button.dataset.trendPresentation;
-      if (!['raw', 'smoothed'].includes(nextPresentation) || nextPresentation === activeTrendPresentation) return;
-      activeTrendPresentation = nextPresentation;
-      renderDashboard();
-    });
-
-    elements.trendScaleBar.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-trend-scale]");
-      if (!button) return;
-      const nextScaleMode = button.dataset.trendScale;
-      if (!["detail", "target"].includes(nextScaleMode) || nextScaleMode === activeTrendScaleMode) return;
-      activeTrendScaleMode = nextScaleMode;
-      renderDashboard();
-    });
-
-    elements.trendHistoryExportButton.addEventListener("click", openCsvExportModal);
-
-    elements.historyLocationTrigger.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const shouldOpen = elements.historyLocationTrigger.getAttribute("aria-expanded") !== "true";
-      closeContextMenus();
-      setMenuState(elements.historyLocationTrigger, elements.historyLocationMenu, shouldOpen);
-    });
-
-    elements.historyBlockTrigger.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const shouldOpen = elements.historyBlockTrigger.getAttribute("aria-expanded") !== "true";
-      closeContextMenus();
-      setMenuState(elements.historyBlockTrigger, elements.historyBlockMenu, shouldOpen);
-    });
-
-    elements.historyLocationMenu.addEventListener("click", (event) => {
-      const option = event.target.closest("[data-history-site-option]");
-      if (!option) return;
-      const nextSite = dashboardData.sites.find((item) => item.id === option.dataset.historyOptionId);
-      const nextZone = nextSite?.zones?.[0];
-      if (!nextSite || !nextZone) return;
-      activeSiteId = nextSite.id;
-      activeZoneId = nextZone.id;
-      activeViewScope = "zone";
-      normalizeActiveSelection({ preferCurrentZone: false });
-      resetTrendSelectionForContextChange();
-      renderZoneOptions();
-      resetCurrentReadingsFromActiveZone();
-      renderDashboard();
-    });
-
-    elements.historyBlockMenu.addEventListener("click", (event) => {
-      const option = event.target.closest("[data-history-zone-option]");
-      if (!option) return;
-      const nextZone = getActiveSite()?.zones?.find((item) => item.id === option.dataset.historyOptionId);
-      if (!nextZone) return;
-      activeZoneId = nextZone.id;
-      activeViewScope = "zone";
-      normalizeActiveSelection();
-      resetTrendSelectionForContextChange();
-      renderZoneOptions();
-      resetCurrentReadingsFromActiveZone();
-      renderDashboard();
-    });
-
-    elements.historySection.addEventListener("change", (event) => {
-      const input = event.target.closest("[data-trend-comparison-zone]");
-      if (!(input instanceof HTMLInputElement)) return;
-      const zoneId = input.dataset.trendComparisonZone;
-      if (!zoneId) return;
-      const selected = new Set(trendComparisonZoneIds);
-      if (input.checked) {
-        if (selected.size >= 6) {
-          input.checked = false;
-          return;
-        }
-        selected.add(zoneId);
-      } else {
-        selected.delete(zoneId);
-      }
-      trendComparisonZoneIds = [...selected];
-      renderDashboard();
-    });
-
-    elements.trendHistoryChart.addEventListener("pointermove", (event) => {
-      const svg = elements.trendHistoryChart.querySelector("svg");
-      const tooltip = elements.trendHistoryTooltip;
-      if (!svg || !tooltip || currentTrendHistoryPoints.length === 0) return;
-
-      const svgRect = svg.getBoundingClientRect();
-      const chartRect = elements.trendHistoryChart.getBoundingClientRect();
-      const viewBoxWidth = 980;
-      const plotLeft = 88;
-      const plotRight = 944;
-      const pointerX = ((event.clientX - svgRect.left) / svgRect.width) * viewBoxWidth;
-      if (pointerX < plotLeft || pointerX > plotRight) {
-        tooltip.hidden = true;
-        return;
-      }
-
-      const progress = (pointerX - plotLeft) / (plotRight - plotLeft);
-      const pointIndex = Math.round(progress * (currentTrendHistoryPoints.length - 1));
-      const point = currentTrendHistoryPoints[pointIndex];
-      if (!point) return;
-
-      const localX = Math.min(Math.max(event.clientX - chartRect.left, 82), chartRect.width - 82);
-      const localY = Math.max(event.clientY - chartRect.top, 58);
-      tooltip.innerHTML = Array.isArray(point.items) && point.items.length > 1
-        ? `<span class="trend-history-tooltip-time">${escapeHtml(point.time)}</span>${point.items.map((item) => `<span class="trend-history-tooltip-value">${escapeHtml(item.label)}: ${escapeHtml(item.value)}</span>`).join("")}`
-        : `<span class="trend-history-tooltip-value">${escapeHtml(point.value)}</span><span class="trend-history-tooltip-time">${escapeHtml(point.time)}</span>`;
-      tooltip.style.left = `${localX}px`;
-      tooltip.style.top = `${localY}px`;
-      tooltip.hidden = false;
-    });
-
-    elements.trendHistoryChart.addEventListener("pointerleave", () => {
-      if (elements.trendHistoryTooltip) elements.trendHistoryTooltip.hidden = true;
     });
 
     elements.globalSystemList.addEventListener("click", (event) => {
