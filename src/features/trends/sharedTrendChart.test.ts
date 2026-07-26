@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTrendChartOption, getTrendAxisDomain, type TrendMetric } from './sharedTrendChart'
+import { buildTrendChartOption, calculateTimeAwareEwma, getTrendAxisDomain, type TrendMetric } from './sharedTrendChart'
 
 const temperature: TrendMetric = {
   key: 'airTemp',
@@ -60,8 +60,16 @@ describe('shared trend chart', () => {
           point(11, 21),
         ],
       }],
-    }) as unknown as { series: Array<{ data: Array<[number, number]> }> }
+    }) as unknown as { series: Array<{ data: Array<[number, number, number]> }> }
 
-    expect(option.series[0].data.map((entry) => entry[1])).toEqual([20, 21])
+    expect(option.series[0].data.map((entry) => entry[2])).toEqual([20, 21])
+  })
+
+  it('uses elapsed time rather than point count for EWMA smoothing', () => {
+    const regular = calculateTimeAwareEwma([20, 26], [0, 10 * 60_000], 30, 10)
+    const delayed = calculateTimeAwareEwma([20, 26], [0, 60 * 60_000], 30, 10)
+
+    expect(regular[1]).toBeCloseTo(21.7, 1)
+    expect(delayed[1]).toBeCloseTo(25.2, 1)
   })
 })

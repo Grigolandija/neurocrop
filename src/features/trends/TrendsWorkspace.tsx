@@ -164,6 +164,10 @@ function historyPoints(payload: JsonRecord): Point[] {
     .sort((left, right) => new Date(left.observedAt).getTime() - new Date(right.observedAt).getTime())
 }
 
+function sectionAggregationLabel(aggregation: string | undefined) {
+  return String(aggregation || '').startsWith('section_peak_') ? 'section peak' : 'section median'
+}
+
 function profileRange(profiles: JsonRecord[], profileId: string, metricKey: string): [number, number] | null {
   const profile = profiles.find((item) => String(item.id || item.profileId) === profileId)
   const raw = profile?.metrics?.[metricKey]?.optimal
@@ -401,6 +405,7 @@ export default function TrendsWorkspace() {
   const [nodeHistoryError, setNodeHistoryError] = useState('')
   const [points, setPoints] = useState<Point[]>([])
   const [metricHistories, setMetricHistories] = useState<Record<string, Point[]>>({})
+  const [metricAggregations, setMetricAggregations] = useState<Record<string, string>>({})
   const [comparison, setComparison] = useState<ChartInput[]>([])
   const [analytics, setAnalytics] = useState<JsonRecord | null>(null)
   const [status, setStatus] = useState<LoadState>('loading')
@@ -550,6 +555,7 @@ export default function TrendsWorkspace() {
       queueMicrotask(() => {
         setPoints([])
         setMetricHistories({})
+        setMetricAggregations({})
         setAnalytics(null)
         setStatus('empty')
         setUpdatedAt(null)
@@ -574,14 +580,22 @@ export default function TrendsWorkspace() {
         from: from.toISOString(),
         to: to.toISOString(),
         stepMinutes: config.stepMinutes,
-      }).then((payload) => [key, historyPoints(payload as JsonRecord)] as const))),
+      }).then((payload) => {
+        const response = payload as JsonRecord
+        return [key, {
+          points: historyPoints(response),
+          aggregation: text(response.aggregation),
+        }] as const
+      }))),
       neurocropApi.getSectionAnalytics({ sectionId: selectedSection.id, metric: metricKey, from: from.toISOString(), to: to.toISOString(), stepMinutes: config.stepMinutes })
         .catch(() => null),
     ]).then(([histories, analyticsPayload]) => {
       if (!active) return
-      const nextHistories = Object.fromEntries(histories)
+      const nextHistories = Object.fromEntries(histories.map(([key, history]) => [key, history.points]))
+      const nextAggregations = Object.fromEntries(histories.map(([key, history]) => [key, history.aggregation]))
       const nextPoints = nextHistories[metricKey] || []
       setMetricHistories(nextHistories)
+      setMetricAggregations(nextAggregations)
       setPoints(nextPoints)
       setAnalytics(analyticsPayload as JsonRecord)
       setStatus(nextPoints.length > 1 ? 'ready' : 'empty')
@@ -590,6 +604,7 @@ export default function TrendsWorkspace() {
       if (!active) return
       setPoints([])
       setMetricHistories({})
+      setMetricAggregations({})
       setAnalytics(null)
       setError(reason instanceof Error ? reason.message : 'Trend data could not be loaded.')
       setStatus('error')
@@ -755,7 +770,8 @@ export default function TrendsWorkspace() {
   const coveragePct = expectedMinutes ? Math.min(100, Math.round(coveredMinutes / expectedMinutes * 100)) : null
   const showMeasuredConclusion = scope === 'section' && !compare && activeMetricKeys.length === 1 && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
   const events = Array.isArray(analytics?.events) ? analytics.events.slice(-6).reverse() : []
-  const sectionSeries = { name: `${selectedSection?.name || 'Selected section'} · section median`, points, color: chartColors[0] }
+  const selectedAggregationLabel = sectionAggregationLabel(metricAggregations[metricKey])
+  const sectionSeries = { name: `${selectedSection?.name || 'Selected section'} · ${selectedAggregationLabel}`, points, color: chartColors[0] }
   const chartSeries = scope === 'nodes'
     ? [sectionSeries, ...nodeSeries]
     : compare && comparison.length > 1
@@ -934,7 +950,7 @@ export default function TrendsWorkspace() {
 
     <section className="nc-trends-main">
       <article className="nc-trends-chart-card">
-        <header><div><p>{scope === 'nodes' ? 'Node comparison' : compare ? 'Section comparison' : activeMetricKeys.length > 1 ? 'Combined measured history' : 'Measured history'}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? `${selectedSection?.name} · Section median + ${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
+        <header><div><p>{scope === 'nodes' ? 'Node comparison' : compare ? 'Section comparison' : activeMetricKeys.length > 1 ? 'Combined measured history' : 'Measured history'}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? `${selectedSection?.name} · ${selectedAggregationLabel === 'section peak' ? 'Section peak' : 'Section median'} + ${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
         {showMeasuredConclusion ? <div className="nc-trends-chart-conclusion" data-tone={summary.tone}>
           <span>Measured conclusion</span>
           <strong>{summary.title}</strong>

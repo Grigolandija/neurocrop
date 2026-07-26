@@ -109,6 +109,41 @@ function normalizedPoints(points: TrendPoint[]) {
     .sort((left, right) => left.timestamp - right.timestamp)
 }
 
+function ewmaTimeConstantMinutes(metricKey: string) {
+  if (metricKey === 'co2') return 15
+  if (metricKey === 'lux') return 20
+  if (['airTemp', 'humidity', 'vpd'].includes(metricKey)) return 30
+  return null
+}
+
+export function calculateTimeAwareEwma(values: number[], timestamps: number[], timeConstantMinutes: number, fallbackIntervalMinutes: number) {
+  if (!values.length) return []
+  let filteredValue = Number(values[0])
+  return values.map((value, index) => {
+    const rawValue = Number(value)
+    if (!Number.isFinite(rawValue)) return filteredValue
+    if (index === 0 || !Number.isFinite(filteredValue)) {
+      filteredValue = rawValue
+      return filteredValue
+    }
+    const elapsedMinutes = timestamps[index] > timestamps[index - 1]
+      ? (timestamps[index] - timestamps[index - 1]) / 60_000
+      : fallbackIntervalMinutes
+    const alpha = 1 - Math.exp(-Math.max(elapsedMinutes, .01) / timeConstantMinutes)
+    filteredValue += alpha * (rawValue - filteredValue)
+    return filteredValue
+  })
+}
+
+function escapeHtml(value: unknown) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+}
+
 export function getTrendAxisDomain(values: number[], metric: TrendMetric, target: [number, number] | null) {
   if (metric.key === 'batteryLevel') return [0, 100] as const
   const finiteValues = values.map(Number).filter(Number.isFinite)
@@ -144,8 +179,17 @@ export function buildTrendChartOption(input: TrendChartInput) {
   if (!prepared.length) return null
 
   const { metric, target, rangeKey } = input
+  const fallbackIntervalMinutes = rangeKey === '24h' ? 10 : rangeKey === '7d' ? 60 : 240
+  const timeConstantMinutes = prepared.length === 1 ? ewmaTimeConstantMinutes(metric.key) : null
+  const displayed = prepared.map((series) => {
+    const rawValues = series.normalized.map((point) => point.value)
+    const timestamps = series.normalized.map((point) => point.timestamp)
+    return timeConstantMinutes
+      ? calculateTimeAwareEwma(rawValues, timestamps, timeConstantMinutes, fallbackIntervalMinutes)
+      : rawValues
+  })
   const colors = prepared.map((series, index) => seriesColor(series, metric, index, prepared.length))
-  const allValues = prepared.flatMap((series) => series.normalized.map((point) => point.value))
+  const allValues = displayed.flat()
   const [axisMinimum, axisMaximum] = getTrendAxisDomain(allValues, metric, target)
   const targetVisible = target
     ? [Math.max(target[0], axisMinimum), Math.min(target[1], axisMaximum)] as const
@@ -199,7 +243,22 @@ export function buildTrendChartOption(input: TrendChartInput) {
         crossStyle: { color: 'rgba(32, 37, 34, .38)', width: 1 },
         label: { backgroundColor: '#252b29', color: '#fff' },
       },
-      valueFormatter: (value: unknown) => valueLabel(Number(value)),
+      formatter: (rawParams: unknown) => {
+        const params = (Array.isArray(rawParams) ? rawParams : [rawParams]) as Array<{
+          axisValue?: number
+          seriesName?: string
+          value?: number[]
+          color?: string
+        }>
+        const first = params.find((param) => Array.isArray(param.value))
+        if (!first?.value) return ''
+        const timestamp = dateFormatter.format(new Date(Number(first.value[0])))
+        const rows = params.filter((param) => Array.isArray(param.value)).map((param) => {
+          const rawValue = Number(param.value?.[2] ?? param.value?.[1])
+          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:6px;"><span style="display:flex;align-items:center;gap:7px;"><i style="width:8px;height:8px;border-radius:50%;background:${escapeHtml(param.color || '#287f70')}"></i>${escapeHtml(param.seriesName || metric.label)}</span><strong>${escapeHtml(valueLabel(rawValue))}</strong></div>`
+        }).join('')
+        return `<div style="font-weight:500;color:rgba(255,255,255,.72)">${escapeHtml(timestamp)}</div>${rows}`
+      },
     },
     xAxis: {
       type: 'time',
@@ -243,7 +302,8 @@ export function buildTrendChartOption(input: TrendChartInput) {
       splitLine: { lineStyle: { color: 'rgba(216, 219, 215, .72)', width: 1 } },
     },
     series: prepared.map((item, index) => {
-      const values = item.normalized.map((point) => point.value)
+      const rawValues = item.normalized.map((point) => point.value)
+      const values = displayed[index]
       const minimum = Math.min(...values)
       const maximum = Math.max(...values)
       const minimumPoint = item.normalized[values.indexOf(minimum)]
@@ -256,13 +316,13 @@ export function buildTrendChartOption(input: TrendChartInput) {
         showSymbol: false,
         symbol: 'circle',
         symbolSize: 7,
-        smooth: rangeKey === '24h' ? .32 : false,
-        smoothMonotone: rangeKey === '24h' ? 'x' : undefined,
+        smooth: timeConstantMinutes || rangeKey === '24h' ? .32 : false,
+        smoothMonotone: timeConstantMinutes || rangeKey === '24h' ? 'x' : undefined,
         connectNulls: false,
         animation: false,
         lineStyle: { width: 2, cap: 'round', join: 'round' },
         emphasis: { focus: prepared.length > 1 ? 'series' : 'none' },
-        data: item.normalized.map((point) => [point.timestamp, point.value]),
+        data: item.normalized.map((point, pointIndex) => [point.timestamp, values[pointIndex], rawValues[pointIndex]]),
         markArea: firstSeries && hasVisibleTargetBand ? {
           silent: true,
           itemStyle: { color: colorWithAlpha(color, .09) },
