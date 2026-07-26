@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 // API records are intentionally open because dashboard and sensor payloads evolve independently.
@@ -343,36 +343,32 @@ function formatTimestampAge(timestamp: string | null) {
   return `${Math.round(age / 3600)} h ago`
 }
 
-function NodeMeasurementsPanel({ section, profile }: { section: SectionReading; profile?: JsonRecord }) {
+function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }: { section: SectionReading; profile?: JsonRecord; visibleMetrics: Metric[]; matrixStyle: CSSProperties }) {
   return <section className="nc-node-measurements" id={`nc-section-nodes-${section.id}`} aria-label={`${section.name} node measurements`}>
-    <header>
-      <span><i className="fa-solid fa-microchip" /><span><strong>Node measurements</strong><small>Individual latest values, before Section aggregation</small></span></span>
-      <b>{section.nodes.length} node{section.nodes.length === 1 ? '' : 's'}</b>
-    </header>
-    {section.nodes.length ? <div className="nc-node-measurement-list">{section.nodes.map((node, index) => {
+    <h3 className="sr-only">Node measurements</h3>
+    {section.nodes.length ? section.nodes.map((node, index) => {
       const nodeId = String(node.devEui || node.dev_eui || node.id || index)
       const latestAt = nodeLatestTimestamp(section, node)
-      const measurements = metrics.flatMap((metric) => {
-        const value = getNodeMetricValue(section, node, metric)
-        return value === null ? [] : [{ metric, value, quality: nodeMetricQuality(section, node, metric) }]
-      })
-      const overallQuality = latestAt
-        ? nodeMetricQuality(section, node, measurements[0]?.metric || metrics[0])
-        : 'offline'
-      return <article className="nc-node-measurement" key={nodeId}>
+      const nodeQualities = visibleMetrics.map((metric) => nodeMetricQuality(section, node, metric))
+      const overallQuality = nodeQualities.includes('live') ? 'live' : nodeQualities.includes('stale') ? 'stale' : 'offline'
+      return <div className="nc-node-measurement" style={matrixStyle} key={nodeId}>
         <div className="nc-node-measurement-identity">
-          <i className="fa-solid fa-microchip" />
+          <span className="nc-node-branch" aria-hidden="true" />
+          <i className="fa-solid fa-microchip" aria-hidden="true" />
           <span><strong>{String(node.name || node.id || nodeId)}</strong><small>{nodeId}</small></span>
-          <em data-quality={overallQuality}>{overallQuality === 'live' ? 'Current' : overallQuality === 'stale' ? 'Delayed' : 'Offline'}</em>
-          <time dateTime={latestAt || undefined}>{formatTimestampAge(latestAt)}</time>
         </div>
-        {measurements.length ? <div className="nc-node-measurement-values">{measurements.map(({ metric, value, quality }) => <div data-tone={nodeMetricTone(value, metric, profile)} data-quality={quality} key={metric.key}>
-          <span><i className={`fa-solid ${metric.icon}`} />{metric.label}</span>
-          <strong>{formatValue(value, metric)} <small>{metric.unit}</small></strong>
-          <em>{quality === 'live' ? 'Current' : quality === 'stale' ? 'Delayed' : 'Last known'}</em>
-        </div>)}</div> : <p className="nc-node-measurement-empty">This Node has not reported any measurements yet.</p>}
-      </article>
-    })}</div> : <p className="nc-node-measurement-empty">No Nodes are assigned to this Section.</p>}
+        {visibleMetrics.map((metric) => {
+          const value = getNodeMetricValue(section, node, metric)
+          const quality = nodeMetricQuality(section, node, metric)
+          return <div className="nc-node-measurement-value" data-tone={nodeMetricTone(value, metric, profile)} data-quality={quality} key={metric.key}>
+            <strong>{value === null ? 'No data' : <>{formatValue(value, metric)} <small>{metric.unit}</small></>}</strong>
+            <i aria-label={quality === 'live' ? 'Current' : quality === 'stale' ? 'Delayed' : value === null ? 'No data' : 'Last known'} />
+          </div>
+        })}
+        <span className="nc-node-measurement-freshness" data-quality={overallQuality}><strong>{formatTimestampAge(latestAt)}</strong><small>{overallQuality === 'live' ? 'Current' : overallQuality === 'stale' ? 'Delayed' : 'Offline'}</small></span>
+        <span className="nc-node-measurement-end" />
+      </div>
+    }) : <p className="nc-node-measurement-empty">No Nodes are assigned to this Section.</p>}
   </section>
 }
 
@@ -811,7 +807,7 @@ export default function ReadingsWorkspace() {
                 <span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)} · {section.nodes.length ? `${section.nodes.length} nodes` : 'No nodes'}</strong></span>
                 <button className="nc-reading-open" onClick={() => toggleSectionNodes(section.id)} aria-expanded={expanded} aria-controls={`nc-section-nodes-${section.id}`} aria-label={`${expanded ? 'Hide' : 'Show'} ${section.name} node measurements`}><i className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} /></button>
               </div>
-              {expanded ? <NodeMeasurementsPanel section={section} profile={profiles.get(section.profileId)} /> : null}
+              {expanded ? <NodeMeasurementsPanel section={section} profile={profiles.get(section.profileId)} visibleMetrics={visibleMetrics} matrixStyle={matrixStyle} /> : null}
             </Fragment>
           })}
           {status === 'ready' && !visibleSections.length ? <div className="nc-readings-empty">No sections match the selected filters.</div> : null}
