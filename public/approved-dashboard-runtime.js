@@ -801,7 +801,6 @@
       nodesManagementSection: document.getElementById("nodesManagementSection"),
       nodesManagementShell: document.getElementById("nodesManagementShell"),
       alertsManagementSection: document.getElementById("alertsManagementSection"),
-      alertsManagementShell: document.getElementById("alertsManagementShell"),
       actionsManagementSection: document.getElementById("actionsManagementSection"),
       settingsManagementSection: document.getElementById("settingsManagementSection"),
       settingsManagementShell: document.getElementById("settingsManagementShell"),
@@ -1461,12 +1460,9 @@
     let currentWorkbenchLenses = [];
     let dashboardRenderTimeoutId = null;
     let activeAlertRailFilterKey = "all";
-    let activeAlertsPageFilterKey = "open";
     let currentAlertsPageItems = [];
     let backendAlertRecords = {};
     let backendAlertsCanonicalLoaded = false;
-    let alertsPageFeedback = { tone: "", text: "" };
-    const alertsPagePendingIds = new Set();
     const reviewedAlertsStorageKey = "neurocrop-reviewed-alerts-v1";
     let activeSensorHealthFilterKey = "focus";
     let activeInspectionRouteFilterKey = "focus";
@@ -7657,22 +7653,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       }
     }
 
-    function saveReviewedAlertRecords(records) {
-      try {
-        localStorage.setItem(reviewedAlertsStorageKey, JSON.stringify(records));
-      } catch (error) {
-        // Review still applies to the current render when storage is unavailable.
-      }
-    }
-
-    function isSameLocalDay(timestamp, reference = new Date()) {
-      const value = new Date(timestamp);
-      return Number.isFinite(value.getTime())
-        && value.getFullYear() === reference.getFullYear()
-        && value.getMonth() === reference.getMonth()
-        && value.getDate() === reference.getDate();
-    }
-
     function isAlertsPageItemSnoozed(item, records = loadReviewedAlertRecords()) {
       const record = records[item.id];
       return record?.status === "snoozed" && Number(new Date(record.snoozedUntil)) > Date.now();
@@ -7689,23 +7669,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
         .map((value) => new Date(value).getTime())
         .filter(Number.isFinite);
       return timestamps.length > 0 ? new Date(Math.max(...timestamps)).toISOString() : null;
-    }
-
-    function formatAlertsPageTimestamp(timestamp) {
-      if (!timestamp) return diagnosticText("Current", "Dabar");
-      const date = new Date(timestamp);
-      if (!Number.isFinite(date.getTime())) return diagnosticText("Current", "Dabar");
-      const time = new Intl.DateTimeFormat(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", {
-        hour: "2-digit",
-        minute: "2-digit"
-      }).format(date);
-      if (isSameLocalDay(date)) return `${diagnosticText("Today", "Šiandien")} · ${time}`;
-      return new Intl.DateTimeFormat(interfaceLanguage === "lt" ? "lt-LT" : "en-GB", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit"
-      }).format(date);
     }
 
     function buildAlertsPageItems(globalSnapshots = []) {
@@ -7799,168 +7762,11 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const open = items
         .filter((item) => !isAlertsPageItemSnoozed(item, records))
         .map((item) => ({ ...item, acknowledged: isAlertsPageItemAcknowledged(item, records) }));
-      const acknowledged = open.filter((item) => item.acknowledged);
-      const filters = [
-        { key: "open", label: diagnosticText("Active", "Aktyvūs"), count: open.length },
-        { key: "critical", label: diagnosticText("Critical", "Kritiniai"), count: open.filter((item) => item.tone === "critical").length },
-        { key: "warning", label: diagnosticText("Warnings", "Įspėjimai"), count: open.filter((item) => item.tone === "warning").length },
-        { key: "offline", label: diagnosticText("Device offline", "Node be ryšio"), count: open.filter((item) => item.tone === "offline").length },
-        { key: "acknowledged", label: diagnosticText("Seen", "Peržiūrėti"), count: acknowledged.length }
-      ];
-      const visible = activeAlertsPageFilterKey === "acknowledged"
-        ? acknowledged
-        : activeAlertsPageFilterKey === "open"
-          ? open
-          : open.filter((item) => item.tone === activeAlertsPageFilterKey);
-      return { records, open, acknowledged, filters, visible };
-    }
-
-    function renderAlertsPageCard(item) {
-      const toneLabel = item.tone === "critical"
-          ? diagnosticText("Critical", "Kritinis")
-          : item.tone === "warning"
-            ? diagnosticText("Warning", "Įspėjimas")
-            : diagnosticText("Offline", "Be ryšio");
-      const pending = alertsPagePendingIds.has(item.id);
-      const canManage = ["owner", "admin", "grower", "technician"].includes(getLoginSession()?.role);
-      const actionDisabled = pending || !canManage;
-      return `
-        <article class="nc-alert-card" data-tone="${escapeAttribute(item.tone)}">
-          <span class="nc-alert-card-icon" aria-hidden="true"><i class="fa-solid ${escapeAttribute(item.icon)}"></i></span>
-          <div class="nc-alert-card-body">
-            <div class="nc-alert-card-meta">
-              <span><span class="nc-alert-status" data-tone="${escapeAttribute(item.tone)}"><i class="fa-solid fa-circle" aria-hidden="true"></i>${escapeHtml(toneLabel)}</span>${item.acknowledged ? `<span class="nc-alert-seen"><i class="fa-solid fa-check" aria-hidden="true"></i>${escapeHtml(diagnosticText("Seen", "Peržiūrėta"))}</span>` : ""}</span>
-              <time>${escapeHtml(formatAlertsPageTimestamp(item.timestamp))}</time>
-            </div>
-            <h3>${escapeHtml(item.title)}</h3>
-            <p>${escapeHtml(item.detail)}</p>
-            <div class="nc-alert-location"><span>${escapeHtml(item.siteName)}</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i><span>${escapeHtml(item.zoneName)}</span></div>
-          </div>
-          <div class="nc-alert-card-actions">
-            <button type="button" class="nc-alert-secondary-action" data-alerts-view-context="${escapeAttribute(item.id)}">${escapeHtml(diagnosticText("View live context", "Atidaryti gyvą būseną"))}</button>
-            <button type="button" class="nc-alert-secondary-action" data-alerts-snooze="${escapeAttribute(item.id)}" ${actionDisabled ? "disabled" : ""}>${escapeHtml(diagnosticText("Mute 1h", "Nutildyti 1 val."))}</button>
-            <button type="button" class="nc-alert-primary-action" data-alerts-acknowledge="${escapeAttribute(item.id)}" ${actionDisabled || item.acknowledged ? "disabled" : ""}>${pending ? `<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>` : ""}${escapeHtml(item.acknowledged ? diagnosticText("Seen", "Peržiūrėta") : diagnosticText("Mark as seen", "Pažymėti peržiūrėtu"))}</button>
-          </div>
-        </article>
-      `;
+      return { records, open };
     }
 
     function renderAlertsManagementPage(globalSnapshots = []) {
       currentAlertsPageItems = buildAlertsPageItems(globalSnapshots);
-      const view = getAlertsPageView(currentAlertsPageItems);
-      const activeFilter = view.filters.find((filter) => filter.key === activeAlertsPageFilterKey) || view.filters[0];
-      if (!view.filters.some((filter) => filter.key === activeAlertsPageFilterKey)) activeAlertsPageFilterKey = "open";
-      const emptyTitle = activeAlertsPageFilterKey === "acknowledged"
-        ? diagnosticText("No active alerts have been seen", "Nė vienas aktyvus įspėjimas dar neperžiūrėtas")
-        : diagnosticText("No alerts in this view", "Šiame vaizde įspėjimų nėra");
-      const emptyText = activeAlertsPageFilterKey === "open"
-        ? diagnosticText("Current growing conditions and device reporting are within the configured limits.", "Dabartinės auginimo sąlygos ir node ryšys atitinka nustatytas ribas.")
-        : diagnosticText("Choose another filter to review the rest of the operational queue.", "Pasirinkite kitą filtrą, kad peržiūrėtumėte likusius įrašus.");
-      const canManage = ["owner", "admin", "grower", "technician"].includes(getLoginSession()?.role);
-
-      elements.alertsManagementShell.innerHTML = `
-        <div class="nc-alerts-page">
-          <header class="nc-alerts-head">
-            <div>
-              <p class="nc-alerts-eyebrow">${escapeHtml(diagnosticText("Operational attention", "Operacinis dėmesys"))}</p>
-              <h1>${escapeHtml(diagnosticText("Alerts", "Įspėjimai"))}</h1>
-              <p class="nc-alerts-description">${escapeHtml(diagnosticText("Live sensor deviations and device connectivity events. Alerts explain what is happening; employee work, assignment, and verification are managed in Actions.", "Gyvi sensorių nukrypimai ir įrenginių ryšio įvykiai. Alerts parodo, kas vyksta; darbuotojų darbai, priskyrimas ir patikra valdomi Actions puslapyje."))}</p>
-            </div>
-            <button type="button" class="nc-alerts-review-all" data-alerts-mark-reviewed ${view.open.every((item) => item.acknowledged) || !canManage ? "disabled" : ""}><i class="fa-solid fa-check-double" aria-hidden="true"></i>${escapeHtml(diagnosticText("Mark all as seen", "Pažymėti visus peržiūrėtais"))}</button>
-          </header>
-          ${alertsPageFeedback.text ? `<div class="nc-alerts-feedback" data-tone="${escapeAttribute(alertsPageFeedback.tone || "info")}" role="status">${escapeHtml(alertsPageFeedback.text)}</div>` : ""}
-          <div class="nc-alerts-layout">
-            <aside class="nc-alerts-filters" aria-label="${escapeAttribute(diagnosticText("Alert views", "Įspėjimų filtrai"))}">
-              <p>${escapeHtml(diagnosticText("Status", "Būsena"))}</p>
-              <div role="list">
-                ${view.filters.map((filter, index) => `${index === 4 ? `<span class="nc-alert-filter-divider" aria-hidden="true"></span>` : ""}<button type="button" data-alerts-page-filter="${escapeAttribute(filter.key)}" data-active="${String(filter.key === activeAlertsPageFilterKey)}" aria-pressed="${String(filter.key === activeAlertsPageFilterKey)}"><span>${escapeHtml(filter.label)}</span><strong>${filter.count}</strong></button>`).join("")}
-              </div>
-            </aside>
-            <section class="nc-alerts-stream" aria-label="${escapeAttribute(activeFilter.label)}">
-              ${view.visible.length > 0 ? view.visible.map(renderAlertsPageCard).join("") : `<div class="nc-alerts-empty"><span><i class="fa-solid fa-check" aria-hidden="true"></i></span><h2>${escapeHtml(emptyTitle)}</h2><p>${escapeHtml(emptyText)}</p></div>`}
-            </section>
-          </div>
-        </div>
-      `;
-    }
-
-    function storeReviewedAlertItem(item) {
-      const records = loadReviewedAlertRecords();
-      records[item.id] = {
-        status: "acknowledged",
-        acknowledgedAt: new Date().toISOString(),
-        item: {
-          id: item.id,
-          kind: item.kind,
-          tone: item.tone,
-          siteId: item.siteId,
-          siteName: item.siteName,
-          zoneId: item.zoneId,
-          zoneName: item.zoneName,
-          nodeId: item.nodeId || "",
-          title: item.title,
-          detail: item.detail,
-          timestamp: item.timestamp,
-          icon: item.icon
-        }
-      };
-      saveReviewedAlertRecords(records);
-    }
-
-    async function acknowledgeAlertsPageItems(items) {
-      const pendingItems = items.filter((item) => item && !alertsPagePendingIds.has(item.id));
-      if (pendingItems.length === 0) return;
-      pendingItems.forEach((item) => alertsPagePendingIds.add(item.id));
-      renderDashboard();
-      try {
-        await Promise.all(pendingItems.map(async (item) => {
-          if (window.NeuroCropApi?.isConnected?.()) {
-            const response = await window.NeuroCropApi.acknowledgeAlert(item.id, { context: item });
-            if (response?.alert) {
-              backendAlertRecords[item.id] = {
-                ...response.alert,
-                acknowledgedAt: response.alert.acknowledgedAt || response.alert.updatedAt,
-                item: response.alert.context || item
-              };
-            }
-          }
-          storeReviewedAlertItem(item);
-        }));
-        alertsPageFeedback = {
-          tone: "success",
-          text: pendingItems.length === 1
-            ? diagnosticText("Alert marked as seen. The live condition remains active.", "Įspėjimas pažymėtas peržiūrėtu. Gyva sąlyga lieka aktyvi.")
-            : diagnosticText(`${pendingItems.length} alerts marked as seen. Live conditions remain active.`, `${pendingItems.length} įspėjimai pažymėti peržiūrėtais. Gyvos sąlygos lieka aktyvios.`)
-        };
-      } catch (error) {
-        alertsPageFeedback = { tone: "danger", text: error?.message || diagnosticText("Alert could not be acknowledged.", "Nepavyko patvirtinti įspėjimo.") };
-      } finally {
-        pendingItems.forEach((item) => alertsPagePendingIds.delete(item.id));
-        renderDashboard();
-      }
-    }
-
-    async function snoozeAlertsPageItem(item) {
-      if (!item || alertsPagePendingIds.has(item.id) || !window.NeuroCropApi?.isConnected?.()) return;
-      alertsPagePendingIds.add(item.id);
-      renderDashboard();
-      try {
-        const response = await window.NeuroCropApi.snoozeAlert(item.id, { minutes: 60, context: item });
-        if (!response?.alert) throw new Error(diagnosticText("Alert workflow was not saved.", "Įspėjimo veiksmas nebuvo išsaugotas."));
-        backendAlertRecords[item.id] = {
-          ...response.alert,
-          item: response.alert.context || item
-        };
-        alertsPageFeedback = {
-          tone: "success",
-          text: diagnosticText("Alert muted for one hour. This does not resolve the live condition.", "Įspėjimas nutildytas vienai valandai. Tai neišsprendžia gyvos sąlygos.")
-        };
-      } catch (error) {
-        alertsPageFeedback = { tone: "danger", text: error?.message || diagnosticText("Alert workflow could not be saved.", "Nepavyko išsaugoti įspėjimo veiksmo.") };
-      } finally {
-        alertsPagePendingIds.delete(item.id);
-        renderDashboard();
-      }
     }
 
     function getNodesManagementRecords() {
@@ -13859,54 +13665,6 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const openLiveButton = event.target.closest("[data-block-open-live-site-id]");
       if (openLiveButton) {
         openZoneDetail(openLiveButton.dataset.blockOpenLiveSiteId, openLiveButton.dataset.blockOpenLiveZoneId);
-      }
-    });
-
-    elements.alertsManagementSection.addEventListener("click", (event) => {
-      const filterButton = event.target.closest("[data-alerts-page-filter]");
-      if (filterButton) {
-        activeAlertsPageFilterKey = filterButton.dataset.alertsPageFilter || "open";
-        alertsPageFeedback = { tone: "", text: "" };
-        renderDashboard();
-        return;
-      }
-
-      const contextButton = event.target.closest("[data-alerts-view-context]");
-      if (contextButton) {
-        const view = getAlertsPageView(currentAlertsPageItems);
-        const item = view.open.find((candidate) => candidate.id === contextButton.dataset.alertsViewContext);
-        if (!item) return;
-        if (item.nodeId) {
-          activePrimaryPage = "nodes";
-          activeNodeDetailId = item.nodeId;
-          sidebarActionOverride = null;
-          closeContextMenus();
-          renderDashboard();
-          syncTopLevelRoute(`/nodes/${encodeURIComponent(item.nodeId)}`);
-          scrollToSection("nodesManagementSection", { behavior: "auto", highlight: false });
-          return;
-        }
-        openZoneDetail(item.siteId, item.zoneId, { behavior: "auto", highlight: false });
-        return;
-      }
-
-      const acknowledgeButton = event.target.closest("[data-alerts-acknowledge]");
-      if (acknowledgeButton) {
-        const item = currentAlertsPageItems.find((candidate) => candidate.id === acknowledgeButton.dataset.alertsAcknowledge);
-        acknowledgeAlertsPageItems(item ? [item] : []);
-        return;
-      }
-
-      const snoozeButton = event.target.closest("[data-alerts-snooze]");
-      if (snoozeButton) {
-        const item = currentAlertsPageItems.find((candidate) => candidate.id === snoozeButton.dataset.alertsSnooze);
-        snoozeAlertsPageItem(item);
-        return;
-      }
-
-      const markReviewedButton = event.target.closest("[data-alerts-mark-reviewed]");
-      if (markReviewedButton) {
-        acknowledgeAlertsPageItems(getAlertsPageView(currentAlertsPageItems).open.filter((item) => !item.acknowledged));
       }
     });
 

@@ -15,6 +15,7 @@ import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWo
 import OverviewWorkspace from '../features/overview/OverviewWorkspace'
 import SimulatorWorkspace from '../features/simulator/SimulatorWorkspace'
 import ActionsWorkspace from '../features/actions/ActionsWorkspace'
+import AlertsWorkspace from '../features/alerts/AlertsWorkspace'
 import TrendsWorkspace from '../features/trends/TrendsWorkspace'
 
 declare const __BUILD_VERSION__: string
@@ -155,6 +156,7 @@ function ApprovedDashboard() {
   const [adminIntegrationsMount, setAdminIntegrationsMount] = useState<HTMLElement | null>(null)
   const [simulatorMount, setSimulatorMount] = useState<HTMLElement | null>(null)
   const [actionsMount, setActionsMount] = useState<HTMLElement | null>(null)
+  const [alertsMount, setAlertsMount] = useState<HTMLElement | null>(null)
   const [trendsMount, setTrendsMount] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
@@ -175,6 +177,7 @@ function ApprovedDashboard() {
     setAdminIntegrationsMount(hostRef.current?.querySelector<HTMLElement>('#adminIntegrationsMount') || null)
     setSimulatorMount(hostRef.current?.querySelector<HTMLElement>('#simulatorWorkspaceMount') || null)
     setActionsMount(hostRef.current?.querySelector<HTMLElement>('#actionsWorkspaceMount') || null)
+    setAlertsMount(hostRef.current?.querySelector<HTMLElement>('#alertsManagementShell') || null)
     setTrendsMount(hostRef.current?.querySelector<HTMLElement>('#trendsWorkspaceMount') || null)
 
     document.body.classList.add('designer-app')
@@ -244,6 +247,7 @@ function ApprovedDashboard() {
       setAdminIntegrationsMount(null)
       setSimulatorMount(null)
       setActionsMount(null)
+      setAlertsMount(null)
       setTrendsMount(null)
     }
   }, [navigate])
@@ -316,6 +320,9 @@ function ApprovedDashboard() {
       : null}
     {location.pathname === '/actions' && actionsMount
       ? createPortal(<Suspense fallback={null}><ActionsWorkspace /></Suspense>, actionsMount)
+      : null}
+    {alertsMount
+      ? createPortal(<div hidden={location.pathname !== '/alerts'}><Suspense fallback={null}><AlertsWorkspace /></Suspense></div>, alertsMount)
       : null}
     {location.pathname === '/history' && trendsMount
       ? createPortal(<Suspense fallback={null}><TrendsWorkspace /></Suspense>, trendsMount)

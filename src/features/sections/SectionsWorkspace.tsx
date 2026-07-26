@@ -170,6 +170,7 @@ export default function SectionsWorkspace() {
   const navigate = useNavigate()
   const location = useLocation()
   const handledAreaCreate = useRef('')
+  const handledContext = useRef('')
   const [areas, setAreas] = useState<AreaOption[]>([])
   const [profiles, setProfiles] = useState<ProfileOption[]>([])
   const [sections, setSections] = useState<SectionRow[]>([])
@@ -209,6 +210,19 @@ export default function SectionsWorkspace() {
     setModalError('')
     setEditor({ mode: 'create', name: '', areaId: requestedAreaId, profileId: profiles[0].id })
   }, [areas, location.search, profiles])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const requestedSectionId = params.get('section') || ''
+    const requestedAreaId = params.get('area') || ''
+    if (!requestedSectionId || handledContext.current === location.search) return
+    const requestedSection = sections.find((section) => section.id === requestedSectionId)
+    if (!requestedSection) return
+    handledContext.current = location.search
+    setAreaFilter(requestedAreaId || requestedSection.areaId)
+    setCollapsedAreas((current) => (current ?? areas.map((area) => area.id)).filter((id) => id !== requestedSection.areaId))
+    setExpandedId(requestedSection.id)
+  }, [areas, location.search, sections])
 
   useEffect(() => {
     let cancelled = false
