@@ -1489,12 +1489,20 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 }
 
 .nc-overview-insights {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 18px;
+  overflow: hidden;
   padding: 24px 28px 32px;
-  background: #eef3eb;
+  background: linear-gradient(118deg, #fbfdf9 0%, #f4f8f1 52%, #edf4e9 100%);
+  isolation: isolate;
+}
+
+.nc-overview-insights > .nc-topographic-field {
+  z-index: 0;
+  opacity: .6;
 }
 
 .nc-overview-insight {
@@ -1547,25 +1555,29 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 }
 
 .nc-overview-climate-card {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgba(45, 83, 65, .13);
-  border-radius: 20px;
-  background: #fbfcf9;
-  box-shadow: 0 12px 30px rgba(31, 57, 44, .05);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .nc-overview-climate-card .nc-live-climate-map {
   border: 0;
   border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
 .nc-overview-climate-card .nc-overview-presentation > header {
   min-height: 7.2rem;
   align-items: flex-end;
+  border-bottom-color: rgba(43, 82, 62, .13);
   padding: 18px 26px 16px;
-  background: #fbfcf9;
+  background: transparent;
 }
 
 .nc-overview-climate-card .nc-overview-presentation > header > div:first-child {
@@ -1585,12 +1597,27 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   align-items: flex-end;
 }
 
+.nc-overview-climate-card .nc-overview-presentation .nc-climate-map-filters select,
+.nc-overview-climate-card .nc-overview-presentation .nc-climate-open-full {
+  border-color: rgba(43, 82, 62, .16);
+  background: rgba(239, 247, 235, .66);
+  backdrop-filter: blur(8px);
+}
+
 .nc-overview-climate-card .nc-climate-map-canvas {
   height: clamp(26rem, 42vw, 36rem);
+  background: transparent;
 }
 
 .nc-overview-climate-card .nc-climate-map-canvas .gh-canvas-shell {
   min-height: 0;
+  background: transparent;
+}
+
+.nc-overview-climate-card .nc-climate-map-legend-slot {
+  border-top-color: rgba(43, 82, 62, .13);
+  background: rgba(237, 245, 233, .58);
+  backdrop-filter: blur(10px);
 }
 
 .nc-result-list {

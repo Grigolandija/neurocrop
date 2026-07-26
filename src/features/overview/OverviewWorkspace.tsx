@@ -993,6 +993,7 @@ export default function OverviewWorkspace() {
       </footer>
     </section>
     <section className="nc-overview-insights" aria-label="Operational overview">
+      <TopographicField tone={overviewTone} />
       <article className="nc-overview-climate-card">
         <ReadingsClimateMap
           key={model.areaId}
