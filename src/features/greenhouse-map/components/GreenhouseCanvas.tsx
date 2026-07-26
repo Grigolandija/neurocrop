@@ -354,8 +354,6 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           y={map.dimensions.lengthM - point.yM}
           radius={3 / view.scale}
           fill="#111"
-          stroke="rgba(255,255,255,.72)"
-          strokeWidth={1 / view.scale}
         />)}
       </Layer> : null}
       <Layer listening={false}>
