@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "clean:stale-vendor": "node ./scripts/clean-stale-vendor.mjs",
+    "predev": "pnpm clean:stale-vendor",
     "dev": "vite",
+    "prebuild": "pnpm clean:stale-vendor",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test:state": "node ./scripts/test-state-engine.mjs",
