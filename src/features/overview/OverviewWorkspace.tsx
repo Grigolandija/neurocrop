@@ -780,12 +780,16 @@ export default function OverviewWorkspace() {
         if (!active) return
         setDashboard(enrichedDashboard)
         setActions(nextActions as JsonRecord)
+        setError('')
         setLoadState(asArray(enrichedDashboard?.sites).length ? 'ready' : 'empty')
       })
       .catch((reason) => {
         if (!active) return
         setError(reason instanceof Error ? reason.message : 'Overview could not be loaded.')
-        setLoadState('error')
+        // A background refresh must never replace an already usable Overview
+        // with a full-page error. Keep the last successful snapshot visible and
+        // let the next scheduled refresh recover from a transient API failure.
+        setLoadState((current) => current === 'loading' ? 'error' : current)
       })
     return () => { active = false }
   }, [refreshKey])

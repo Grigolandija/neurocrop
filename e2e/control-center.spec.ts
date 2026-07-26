@@ -64,9 +64,10 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page.getByRole('group', { name: 'Select active Area' })).toBeVisible()
   await expect(page.locator('.nc-coverage')).toBeVisible()
   await expect(page.locator('.nc-overview-trust')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Recommended checks' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Sensor verification after work' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Recorded operational value' })).toBeVisible()
+  await expect(page.locator('.nc-overview-insights')).toBeVisible()
+  await expect(page.locator('.nc-overview-climate-card')).toBeVisible()
   await expect(page.locator('.nc-value-card')).toContainText('Not configured')
   await expect(page.getByRole('button', { name: 'CI Area A', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
@@ -126,6 +127,9 @@ test('Live readings opens the API-backed cross-section measurement workspace', a
   await expect(page.locator('#zoneContextValue')).toHaveText('All sections')
   await expect(page.locator('#metricsSection')).toBeHidden()
   await expect(page.locator('.nc-readings-workspace')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Every current reading in one place' })).toBeVisible()
+  await expect(page.locator('.nc-workspace-view-switch')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Climate map' })).toHaveCount(0)
   await expect(page.locator('.nc-reading-presets button').filter({ hasText: 'Essential' })).toHaveClass(/active/)
   await expect(page.locator('.nc-readings-row:not(.nc-readings-row-head)')).toHaveCount(1)
   await expect(page.locator('.nc-reading-section strong')).toHaveText('CI Section A')
@@ -136,8 +140,9 @@ test('Live readings opens the API-backed cross-section measurement workspace', a
   expect(visibleMetricColumns).toBeLessThanOrEqual(6)
 
   await page.locator('.nc-reading-section button').first().click()
-  await expect(page.locator('.nc-readings-drawer')).toBeVisible()
-  await expect(page.locator('.nc-readings-drawer')).toContainText('CI Section A')
+  await expect(page.locator('.nc-node-measurements')).toBeVisible()
+  await expect(page.locator('.nc-node-measurements')).toContainText('Node measurements')
+  await expect(page.locator('.nc-node-measurement')).toHaveCount(1)
 })
 
 test('Trends opens the historical analysis workspace with persistent context and decision support', async ({ page }) => {

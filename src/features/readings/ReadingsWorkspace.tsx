@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
 
 // API records are intentionally open because dashboard and sensor payloads evolve independently.
@@ -280,6 +280,102 @@ function formatAge(section: SectionReading) {
   return `${Math.round(age / 3600)} h ago`
 }
 
+function normalizedNodeId(value: unknown) {
+  return String(value || '').replace(/[^a-fA-F0-9]/g, '').toLowerCase()
+}
+
+function getNodeSource(section: SectionReading, node: JsonRecord, metric: Metric): JsonRecord | null {
+  const nodeId = normalizedNodeId(node.devEui || node.dev_eui || node.id)
+  const sources = asArray<JsonRecord>(getObservation(section, metric)?.nodes)
+  return sources.find((source) => normalizedNodeId(source.devEui || source.dev_eui || source.nodeId) === nodeId) || null
+}
+
+function getNodeMetricValue(section: SectionReading, node: JsonRecord, metric: Metric) {
+  const sourceValue = numeric(getNodeSource(section, node, metric)?.value)
+  if (sourceValue !== null) return sourceValue
+  return metric.key === 'batteryLevel' ? numeric(node.level ?? node.batteryPercent) : null
+}
+
+function nodeMetricQuality(section: SectionReading, node: JsonRecord, metric: Metric): Extract<ReadingQuality, 'live' | 'stale' | 'offline' | 'no-data'> {
+  const source = getNodeSource(section, node, metric)
+  const observedAt = source?.observedAt || (metric.key === 'batteryLevel' ? node.lastReceivedAt || node.lastSeen : null)
+  const observedMs = observedAt ? new Date(observedAt).getTime() : NaN
+  if (!Number.isFinite(observedMs) || getNodeMetricValue(section, node, metric) === null) return 'no-data'
+  const expected = Math.max(30, numeric(source?.expectedIntervalSec) || numeric(section.latest?.expectedUplinkIntervalSec) || 600)
+  const age = Math.max(0, (Date.now() - observedMs) / 1000)
+  if (age > expected * 6) return 'offline'
+  if (age > expected * 2.5) return 'stale'
+  return 'live'
+}
+
+function nodeMetricTone(value: number | null, metric: Metric, profile: JsonRecord | undefined): ReadingTone {
+  if (value === null) return 'neutral'
+  const optimal = getRange(profile, metric)
+  if (!optimal) return 'neutral'
+  if (value >= optimal[0] && value <= optimal[1]) return 'good'
+  const critical = getRange(profile, metric, 'critical')
+  if (critical) {
+    const wrapsOptimal = critical[0] <= optimal[0] && critical[1] >= optimal[1]
+    if (wrapsOptimal ? value < critical[0] || value > critical[1] : value >= critical[0] && value <= critical[1]) return 'critical'
+  }
+  return 'watch'
+}
+
+function nodeLatestTimestamp(section: SectionReading, node: JsonRecord) {
+  const timestamps = metrics.flatMap((metric) => {
+    const observedAt = getNodeSource(section, node, metric)?.observedAt
+    return observedAt ? [String(observedAt)] : []
+  })
+  const hardwareTimestamp = node.lastReceivedAt || node.lastSeen
+  if (hardwareTimestamp) timestamps.push(String(hardwareTimestamp))
+  return timestamps
+    .map((value) => ({ value, time: new Date(value).getTime() }))
+    .filter((item) => Number.isFinite(item.time))
+    .sort((left, right) => right.time - left.time)[0]?.value || null
+}
+
+function formatTimestampAge(timestamp: string | null) {
+  if (!timestamp) return 'No timestamp'
+  const age = Math.max(0, (Date.now() - new Date(timestamp).getTime()) / 1000)
+  if (!Number.isFinite(age)) return 'No timestamp'
+  if (age < 60) return `${Math.max(1, Math.round(age))} sec ago`
+  if (age < 3600) return `${Math.round(age / 60)} min ago`
+  return `${Math.round(age / 3600)} h ago`
+}
+
+function NodeMeasurementsPanel({ section, profile }: { section: SectionReading; profile?: JsonRecord }) {
+  return <section className="nc-node-measurements" id={`nc-section-nodes-${section.id}`} aria-label={`${section.name} node measurements`}>
+    <header>
+      <span><i className="fa-solid fa-microchip" /><span><strong>Node measurements</strong><small>Individual latest values, before Section aggregation</small></span></span>
+      <b>{section.nodes.length} node{section.nodes.length === 1 ? '' : 's'}</b>
+    </header>
+    {section.nodes.length ? <div className="nc-node-measurement-list">{section.nodes.map((node, index) => {
+      const nodeId = String(node.devEui || node.dev_eui || node.id || index)
+      const latestAt = nodeLatestTimestamp(section, node)
+      const measurements = metrics.flatMap((metric) => {
+        const value = getNodeMetricValue(section, node, metric)
+        return value === null ? [] : [{ metric, value, quality: nodeMetricQuality(section, node, metric) }]
+      })
+      const overallQuality = latestAt
+        ? nodeMetricQuality(section, node, measurements[0]?.metric || metrics[0])
+        : 'offline'
+      return <article className="nc-node-measurement" key={nodeId}>
+        <div className="nc-node-measurement-identity">
+          <i className="fa-solid fa-microchip" />
+          <span><strong>{String(node.name || node.id || nodeId)}</strong><small>{nodeId}</small></span>
+          <em data-quality={overallQuality}>{overallQuality === 'live' ? 'Current' : overallQuality === 'stale' ? 'Delayed' : 'Offline'}</em>
+          <time dateTime={latestAt || undefined}>{formatTimestampAge(latestAt)}</time>
+        </div>
+        {measurements.length ? <div className="nc-node-measurement-values">{measurements.map(({ metric, value, quality }) => <div data-tone={nodeMetricTone(value, metric, profile)} data-quality={quality} key={metric.key}>
+          <span><i className={`fa-solid ${metric.icon}`} />{metric.label}</span>
+          <strong>{formatValue(value, metric)} <small>{metric.unit}</small></strong>
+          <em>{quality === 'live' ? 'Current' : quality === 'stale' ? 'Delayed' : 'Last known'}</em>
+        </div>)}</div> : <p className="nc-node-measurement-empty">This Node has not reported any measurements yet.</p>}
+      </article>
+    })}</div> : <p className="nc-node-measurement-empty">No Nodes are assigned to this Section.</p>}
+  </section>
+}
+
 function normalizedDeviation(section: SectionReading, metricList: Metric[], profiles: Map<string, JsonRecord>) {
   return metricList.reduce((total, metric) => {
     const value = getValue(section, metric)
@@ -415,6 +511,7 @@ export default function ReadingsWorkspace() {
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [pinned, setPinned] = useState<string[]>([])
   const [drawerId, setDrawerId] = useState<string | null>(null)
+  const [expandedSectionId, setExpandedSectionId] = useState<string | null>(null)
   const [lensMetricKey, setLensMetricKey] = useState('humidity')
   const [pinnedHistory, setPinnedHistory] = useState<Record<string, PinnedHistoryState>>({})
   const [trendPreview, setTrendPreview] = useState<{ sectionId: string; metricKey: string } | null>(null)
@@ -643,6 +740,10 @@ export default function ReadingsWorkspace() {
     setPinned((current) => current.includes(id) ? current.filter((item) => item !== id) : current.length < 3 ? [...current, id] : current)
   }
 
+  function toggleSectionNodes(id: string) {
+    setExpandedSectionId((current) => current === id ? null : id)
+  }
+
   function openMetricTrend(section: SectionReading, metric: Metric) {
     window.postMessage({
       type: 'neurocrop:open-trend',
@@ -701,7 +802,18 @@ export default function ReadingsWorkspace() {
         <div className="nc-reading-display-row"><div className="nc-segmented" role="group" aria-label="Reading display"><button className={mode === 'value' ? 'active' : ''} onClick={() => setMode('value')}>Values</button><button className={mode === 'target' ? 'active' : ''} onClick={() => setMode('target')}>Against target</button><button className={mode === 'change' ? 'active' : ''} onClick={() => setMode('change')}>1h change</button></div><div className="nc-reading-legend"><span><i data-state="good" />Within crop target</span><span><i data-state="watch" />Outside target</span><span><i data-state="critical" />Critical</span><span><b />Data quality marker</span></div></div>
         <div className="nc-readings-matrix-scroll">
           <div className="nc-readings-row nc-readings-row-head" style={matrixStyle}><span>Section</span>{visibleMetrics.map((metric) => <span key={metric.key}>{metric.short}<small>{metric.unit}</small></span>)}<span>Latest data</span><span /></div>
-          {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)} title={`${section.name} · ${section.areaName} · ${section.profileName}`}><strong>{section.name}</strong></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-pressed={pinned.includes(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openTrendPreview(section, metric)} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)} · {section.nodes.length ? `${section.nodes.length} nodes` : 'No nodes'}</strong></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
+          {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => {
+            const expanded = expandedSectionId === section.id
+            return <Fragment key={section.id}>
+              <div className={`nc-readings-row ${expanded ? 'expanded' : ''}`} style={matrixStyle}>
+                <div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => toggleSectionNodes(section.id)} title={`${section.name} · ${section.areaName} · ${section.profileName}`} aria-expanded={expanded} aria-controls={`nc-section-nodes-${section.id}`}><strong>{section.name}</strong></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-pressed={pinned.includes(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>
+                {visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openTrendPreview(section, metric)} key={metric.key} />)}
+                <span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)} · {section.nodes.length ? `${section.nodes.length} nodes` : 'No nodes'}</strong></span>
+                <button className="nc-reading-open" onClick={() => toggleSectionNodes(section.id)} aria-expanded={expanded} aria-controls={`nc-section-nodes-${section.id}`} aria-label={`${expanded ? 'Hide' : 'Show'} ${section.name} node measurements`}><i className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} /></button>
+              </div>
+              {expanded ? <NodeMeasurementsPanel section={section} profile={profiles.get(section.profileId)} /> : null}
+            </Fragment>
+          })}
           {status === 'ready' && !visibleSections.length ? <div className="nc-readings-empty">No sections match the selected filters.</div> : null}
         </div>
       </>
