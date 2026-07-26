@@ -10,6 +10,7 @@ import '../styles/app-shell.css'
 import '../styles/operational-consistency.css'
 import '../styles/mobile-experience.css'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
+import WorkspaceLoading from '../components/WorkspaceLoading'
 import { installNeuroCropApi, neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
 import { installEChartsEngine } from '../vendor/echartsEngine'
@@ -400,12 +401,12 @@ function ApprovedDashboard() {
   return <>
     <div ref={hostRef} hidden={!allWorkspacesReady} />
     {!allWorkspacesReady
-      ? <main className="app-route-loading" aria-busy="true" aria-label="Loading every NeuroCrop workspace" />
+      ? <WorkspaceLoading />
       : null}
     {overviewMount
       ? createPortal(
           <div hidden={location.pathname !== '/'}>
-            <Suspense fallback={<div className="app-route-loading" aria-busy="true" aria-label="Loading Overview" />}>
+            <Suspense fallback={<WorkspaceLoading compact />}>
               <OverviewWorkspace />
             </Suspense>
           </div>,
@@ -468,7 +469,7 @@ export default function DashboardPage() {
 
   if (!isSupportedRoute(location.pathname)) return <Navigate to="/" replace />
   if (!dashboardReady) {
-    return <main className="app-route-loading" aria-busy="true" aria-label="Loading complete NeuroCrop workspace" />
+    return <WorkspaceLoading />
   }
   return <ApprovedDashboard />
 }

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import type { NeuroCropApi } from './services/api/neurocropApi'
 import type { NeuroCropFeatures } from './features/installFeatures'
+import WorkspaceLoading from './components/WorkspaceLoading'
 import './App.css'
 
 declare global {
@@ -28,7 +29,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const GreenhouseMapTestPage = lazy(() => import('./features/greenhouse-map/GreenhouseMapTestPage'))
 
 function RouteLoading() {
-  return <main className="app-route-loading" aria-busy="true" aria-label="Loading NeuroCrop" />
+  return <WorkspaceLoading />
 }
 
 export default function App() {
