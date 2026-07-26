@@ -98,6 +98,13 @@ export async function prefetchWorkspaceData() {
     neurocropApi.getSections(),
     neurocropApi.getNodes(),
     neurocropApi.getCropProfiles(),
+    // Warm the read-only account data used by Settings and Organization while
+    // Overview is active. The shared GET cache then serves the first route
+    // visit without another network round trip.
+    neurocropApi.getOrganizations(),
+    neurocropApi.getTeam(),
+    neurocropApi.getInvitations(),
+    neurocropApi.getSessions(),
   ])
 }
 
