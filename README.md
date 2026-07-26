@@ -4,13 +4,12 @@ Komandos Andriui:
 
 ```bash
 cd "/Users/andriusgrigas/Documents/New project/frontend"
+git switch main
+git pull --ff-only origin main
 git add -A
 git commit -m "UPD"
 git push origin main
-```
 
-
-```bash
 cd ~/neurocrop
 git pull --ff-only origin main
 pnpm install --frozen-lockfile
