@@ -1,7 +1,7 @@
 import { METRICS, OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type NodeStatus, type SensorNodeMetadata } from '../model'
 import { isWallMountedType } from '../geometry'
 import NumericInput from './NumericInput'
-import { ltObjectLabels } from './ObjectLibraryPanel'
+import { ltObjectLabels } from './objectLabels'
 
 type Props = {
   map: GreenhouseMap

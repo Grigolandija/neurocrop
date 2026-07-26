@@ -398,7 +398,10 @@
     let interfaceLanguageApplyQueued = false;
     let interfaceLanguage = (() => {
       try {
-        return window.localStorage.getItem(interfaceLanguageStorageKey) === "lt" ? "lt" : "en";
+        const storedLanguage = window.localStorage.getItem(interfaceLanguageStorageKey);
+        if (storedLanguage === "lt" || storedLanguage === "en") return storedLanguage;
+        const settings = JSON.parse(window.localStorage.getItem("neurocrop-dashboard-settings-v1") || "{}");
+        return settings.preferences?.locale === "lt-LT" ? "lt" : "en";
       } catch (error) {
         return "en";
       }
@@ -1309,6 +1312,37 @@
       "Workspace structure": "Darbo aplinkos struktūra",
       "Your access": "Jūsų prieiga",
       "Your workspace is ready": "Jūsų darbo aplinka paruošta",
+      "Access begins after the invitation is accepted.": "Prieiga suteikiama priėmus kvietimą.",
+      "Active Area": "Aktyvi erdvė",
+      "Active organization": "Aktyvi organizacija",
+      "Active sensors": "Aktyvūs sensoriai",
+      "Activity logged": "Veikla užregistruota",
+      "Add a section to begin monitoring.": "Norėdami pradėti stebėjimą, pridėkite sekciją.",
+      "Add to comparison": "Pridėti palyginimui",
+      "Administration options": "Administravimo parinktys",
+      "Administration sections": "Administravimo skyriai",
+      "Air": "Oras",
+      "Anything the next employee should know": "Informacija kitam darbuotojui",
+      "Choose Area for climate snapshot": "Pasirinkite erdvę klimato suvestinei",
+      "Delete “": "Ištrinti „",
+      "Deleted:": "Ištrinta:",
+      "Kept:": "Palikta:",
+      "Leave unassigned": "Palikti nepriskirtą",
+      "Live workspace": "Dabartinių duomenų aplinka",
+      "No coverage result": "Aprėpties rezultato nėra",
+      "Reading live server configuration status.": "Skaitoma dabartinė serverio konfigūracijos būsena.",
+      "Record work for": "Registruoti darbą:",
+      "Rule model 0.1": "Taisyklių modelis 0.1",
+      "Select an active user from the Users section and grant global administration deliberately.": "Naudotojų skiltyje pasirinkite aktyvų naudotoją ir sąmoningai suteikite jam visuotinę administravimo prieigą.",
+      "Select both Air temperature and Relative humidity to calculate VPD automatically.": "Pasirinkite oro temperatūrą ir santykinę drėgmę, kad VPD būtų apskaičiuotas automatiškai.",
+      "The selected profile will evaluate all": "Pasirinktas profilis įvertins visas",
+      "Toggle lock": "Perjungti užraktą",
+      "Toggle visibility": "Perjungti matomumą",
+      "greenhouses, rooms, or fields": "šiltnamiai, patalpos arba laukai",
+      "· Evidence": "· Pagrindimas",
+      "· Sources": "· Šaltiniai",
+      "· expires": "· galioja iki",
+      "· updated": "· atnaujinta",
       "Monitor": "Stebėjimas",
       "History": "Istorija",
       "Profiles": "Profiliai",

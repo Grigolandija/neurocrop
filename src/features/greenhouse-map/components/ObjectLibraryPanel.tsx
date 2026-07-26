@@ -1,13 +1,6 @@
 import { useState } from 'react'
 import { OBJECT_LIBRARY, type ObjectType } from '../model'
-
-export const ltObjectLabels: Partial<Record<ObjectType, string>> = {
-  'sensor-node': 'Jutiklio node', 'growing-table': 'Auginimo stalas', 'hydroponic-channel': 'Hidroponikos kanalas',
-  'growing-bed': 'Lysvė', rack: 'Lentyna', reservoir: 'Rezervuaras', 'irrigation-unit': 'Laistymo įrenginys',
-  fan: 'Ventiliatorius', heater: 'Šildytuvas', 'cooling-unit': 'Vėsinimo įrenginys', lamp: 'Lempa',
-  door: 'Durys', window: 'Langas', 'ventilation-opening': 'Vėdinimo anga', 'electrical-cabinet': 'Elektros skydas',
-  'technical-zone': 'Techninė zona', walkway: 'Takas', partition: 'Pertvara', 'text-label': 'Teksto etiketė', rectangle: 'Stačiakampis',
-}
+import { ltObjectLabels } from './objectLabels'
 
 export default function ObjectLibraryPanel({ language = 'en', onAdd }: { language?: 'en' | 'lt'; onAdd: (type: ObjectType) => void }) {
   const [query, setQuery] = useState('')

@@ -43,7 +43,7 @@ export default function GreenhouseMapTestPage() {
   const lastSyncedRef = useRef('')
   const remoteSaveTimerRef = useRef<number | undefined>(undefined)
   const savingRef = useRef(false)
-  const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
+  const tr = useCallback((english: string, lithuanian: string) => language === 'lt' ? lithuanian : english, [language])
   const toggleLanguage = () => {
     const next = language === 'en' ? 'lt' : 'en'
     setLanguage(next)
@@ -84,7 +84,7 @@ export default function GreenhouseMapTestPage() {
         setActiveAreaId(selected)
         if (!selected) {
           setSyncState('error')
-          setSyncMessage('Create an Area before opening Area Map Beta.')
+          setSyncMessage(tr('Create an Area before opening Area Map Beta.', 'Prieš atidarydami erdvės žemėlapį sukurkite erdvę.'))
         }
       })
       .catch((error) => {
@@ -92,11 +92,11 @@ export default function GreenhouseMapTestPage() {
         if (error instanceof Error && error.message.includes('session')) navigate('/', { replace: true })
         else {
           setSyncState('error')
-          setSyncMessage(error instanceof Error ? error.message : 'Areas could not be loaded.')
+          setSyncMessage(error instanceof Error ? error.message : tr('Areas could not be loaded.', 'Erdvių įkelti nepavyko.'))
         }
       })
     return () => { cancelled = true }
-  }, [betaEnabled, integrated, navigate, searchParams, setSearchParams])
+  }, [betaEnabled, integrated, navigate, searchParams, setSearchParams, tr])
 
   useEffect(() => {
     if (!integrated || !activeAreaId) return
@@ -116,14 +116,14 @@ export default function GreenhouseMapTestPage() {
         lastSyncedRef.current = JSON.stringify(next)
         setCanEdit(context.permissions.canEdit)
         setSyncState(context.permissions.canEdit ? 'saved' : 'readonly')
-        setSyncMessage(context.map ? `Revision ${context.revision}` : 'New Area map · not saved yet')
+        setSyncMessage(context.map ? `${tr('Revision', 'Versija')} ${context.revision}` : tr('New Area map · not saved yet', 'Naujas erdvės žemėlapis · dar neišsaugotas'))
       })
       .catch((error) => {
         if (cancelled) return
         if (error instanceof Error && error.message.includes('session')) navigate('/', { replace: true })
         else {
           setSyncState('error')
-          setSyncMessage(error instanceof Error ? error.message : 'Area map could not be loaded.')
+          setSyncMessage(error instanceof Error ? error.message : tr('Area map could not be loaded.', 'Erdvės žemėlapio įkelti nepavyko.'))
         }
       })
     return () => { cancelled = true }
@@ -140,15 +140,15 @@ export default function GreenhouseMapTestPage() {
     }
     savingRef.current = true
     setSyncState('saving')
-    setSyncMessage('Saving to NeuroCrop…')
+    setSyncMessage(tr('Saving to NeuroCrop…', 'Saugoma „NeuroCrop“…'))
     try {
       const result = await areaMapRepository.save(activeAreaId, editor.map, revisionRef.current)
       revisionRef.current = result.revision
       lastSyncedRef.current = serialized
       setSyncState('saved')
-      setSyncMessage(`Revision ${result.revision} · saved`)
+        setSyncMessage(`${tr('Revision', 'Versija')} ${result.revision} · ${tr('saved', 'išsaugota')}`)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Area map could not be saved.'
+      const message = error instanceof Error ? error.message : tr('Area map could not be saved.', 'Erdvės žemėlapio išsaugoti nepavyko.')
       const conflict = message.toLowerCase().includes('another session') || message.toLowerCase().includes('reload')
       setSyncState(conflict ? 'conflict' : 'error')
       setSyncMessage(message)
@@ -156,7 +156,7 @@ export default function GreenhouseMapTestPage() {
     } finally {
       savingRef.current = false
     }
-  }, [activeAreaId, canEdit, editor.map, integrated])
+  }, [activeAreaId, canEdit, editor.map, integrated, tr])
 
   useEffect(() => {
     if (!integrated || !activeAreaId || !canEdit || !lastSyncedRef.current || ['initializing', 'loading', 'saving', 'conflict'].includes(syncState)) return
@@ -192,7 +192,7 @@ export default function GreenhouseMapTestPage() {
     anchor.download = `${editor.map.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'greenhouse-map'}.json`
     anchor.click()
     URL.revokeObjectURL(url)
-    setNotice({ tone: 'success', text: 'Plan exported as validated JSON.' })
+    setNotice({ tone: 'success', text: tr('Plan exported as validated JSON.', 'Planas eksportuotas kaip patikrintas JSON failas.') })
   }
   const importFile = async (file?: File) => {
     if (!file) return
@@ -203,23 +203,25 @@ export default function GreenhouseMapTestPage() {
         ? mergeAreaMapContext({ ...result.map, areaId: activeAreaId }, areaContextRef.current.area, areaContextRef.current.nodes, areaContextRef.current.sections)
         : result.map
       editor.replace(imported)
-      setNotice({ tone: 'success', text: 'Plan imported successfully.' })
+      setNotice({ tone: 'success', text: tr('Plan imported successfully.', 'Planas sėkmingai importuotas.') })
     } catch (error) {
-      setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'The selected file is not valid NeuroCrop map JSON.' })
+      setNotice({ tone: 'error', text: error instanceof Error ? error.message : tr('The selected file is not valid NeuroCrop map JSON.', 'Pasirinktas failas nėra tinkamas „NeuroCrop“ žemėlapio JSON failas.') })
     } finally {
       if (inputRef.current) inputRef.current.value = ''
     }
   }
 
   const resetMap = () => {
-    const prompt = integrated ? 'Reset this Area map? Infrastructure placement will be replaced and assigned nodes will be placed automatically.' : 'Reset this plan to the NeuroCrop demo? Your local changes will be replaced.'
+    const prompt = integrated
+      ? tr('Reset this Area map? Infrastructure placement will be replaced and assigned nodes will be placed automatically.', 'Atkurti šį erdvės žemėlapį? Infrastruktūros išdėstymas bus pakeistas, o priskirti mazgai išdėstyti automatiškai.')
+      : tr('Reset this plan to the NeuroCrop demo? Your local changes will be replaced.', 'Atkurti „NeuroCrop“ demonstracinį planą? Vietiniai pakeitimai bus pakeisti.')
     if (!window.confirm(prompt)) return
     if (integrated && areaContextRef.current) {
       editor.hydrate(createAreaMap(areaContextRef.current.area, areaContextRef.current.nodes, areaContextRef.current.sections))
-      setNotice({ tone: 'success', text: 'Area map reset. The new layout will be saved automatically.' })
+      setNotice({ tone: 'success', text: tr('Area map reset. The new layout will be saved automatically.', 'Erdvės žemėlapis atkurtas. Naujas išdėstymas bus išsaugotas automatiškai.') })
     } else {
       editor.reset()
-      setNotice({ tone: 'success', text: 'Demo plan restored.' })
+      setNotice({ tone: 'success', text: tr('Demo plan restored.', 'Demonstracinis planas atkurtas.') })
     }
   }
 
@@ -235,14 +237,14 @@ export default function GreenhouseMapTestPage() {
           kind: String(record.area?.kind || newArea.kind),
           location: String(record.area?.location || newArea.location),
         }
-        if (!area.id) throw new Error('Area was created without an id.')
+        if (!area.id) throw new Error(tr('Area was created without an id.', 'Erdvė sukurta be ID.'))
         setAreas([area])
         setActiveAreaId(area.id)
         setSearchParams({ area: area.id }, { replace: true })
         setSyncState('loading')
         setSyncMessage('')
       })
-      .catch((error) => setSyncMessage(error instanceof Error ? error.message : 'Area could not be created.'))
+      .catch((error) => setSyncMessage(error instanceof Error ? error.message : tr('Area could not be created.', 'Erdvės sukurti nepavyko.')))
       .finally(() => setCreatingArea(false))
   }
 
@@ -271,7 +273,7 @@ export default function GreenhouseMapTestPage() {
   }
 
   if (integrated && syncState === 'error' && !activeAreaId) {
-    return <div className="gh-app gh-integrated-loading"><div className="gh-create-area"><i className="fa-solid fa-seedling" /><strong>{tr('Create your first greenhouse', 'Sukurkite pirmąjį šiltnamį')}</strong><span>{tr('Start here, then add Sections and connect nodes without leaving the map.', 'Pradėkite čia, tada pridėkite Sections ir prijunkite nodes neišeidami iš žemėlapio.')}</span><input value={newArea.name} onChange={(event) => setNewArea({ ...newArea, name: event.target.value })} placeholder={tr('Greenhouse name', 'Šiltnamio pavadinimas')} /><input value={newArea.location} onChange={(event) => setNewArea({ ...newArea, location: event.target.value })} placeholder={tr('Location (optional)', 'Vieta (nebūtina)')} /><button disabled={!newArea.name.trim() || creatingArea} onClick={createFirstArea}>{creatingArea ? tr('Creating…', 'Kuriama…') : tr('Create greenhouse', 'Sukurti šiltnamį')}</button>{syncMessage ? <small>{syncMessage}</small> : null}</div></div>
+    return <div className="gh-app gh-integrated-loading"><div className="gh-create-area"><i className="fa-solid fa-seedling" /><strong>{tr('Create your first greenhouse', 'Sukurkite pirmąjį šiltnamį')}</strong><span>{tr('Start here, then add Sections and connect nodes without leaving the map.', 'Pradėkite čia, tada pridėkite sekcijų ir prijunkite mazgų neišeidami iš žemėlapio.')}</span><input value={newArea.name} onChange={(event) => setNewArea({ ...newArea, name: event.target.value })} placeholder={tr('Greenhouse name', 'Šiltnamio pavadinimas')} /><input value={newArea.location} onChange={(event) => setNewArea({ ...newArea, location: event.target.value })} placeholder={tr('Location (optional)', 'Vieta (nebūtina)')} /><button disabled={!newArea.name.trim() || creatingArea} onClick={createFirstArea}>{creatingArea ? tr('Creating…', 'Kuriama…') : tr('Create greenhouse', 'Sukurti šiltnamį')}</button>{syncMessage ? <small>{syncMessage}</small> : null}</div></div>
   }
 
   const permissionReadOnly = integrated && !canEdit
@@ -281,7 +283,7 @@ export default function GreenhouseMapTestPage() {
       onMode={setMode} onMetric={updateMetric} onSnap={editor.setSnap} onUndo={permissionReadOnly ? () => undefined : editor.undo} onRedo={permissionReadOnly ? () => undefined : editor.redo} onCopy={canvasReadOnly ? () => undefined : editor.copySelected} onPaste={canvasReadOnly ? () => undefined : editor.pasteCopied} onDelete={canvasReadOnly ? () => undefined : editor.deleteSelected}
     />
     <div className="gh-action-strip">
-      <button onClick={() => void leaveMap()}><i className="fa-solid fa-arrow-left" /> {integrated ? tr('Back to Areas', 'Grįžti į Areas') : tr('Exit test lab', 'Uždaryti testą')}</button>
+      <button onClick={() => void leaveMap()}><i className="fa-solid fa-arrow-left" /> {integrated ? tr('Back to Areas', 'Grįžti į erdves') : tr('Exit test lab', 'Uždaryti testą')}</button>
       <span />
       {integrated ? <label className="gh-area-selector"><span>{tr('Area', 'Erdvė')}</span><select value={activeAreaId} onChange={(event) => { setSyncState('loading'); setSyncMessage(''); setActiveAreaId(event.target.value); setSearchParams({ area: event.target.value }, { replace: true }) }}>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label> : null}
       <small className={`gh-sync-state ${syncState}`}><i className={`fa-solid ${integrated ? syncState === 'saving' ? 'fa-arrows-rotate fa-spin' : syncState === 'conflict' || syncState === 'error' ? 'fa-triangle-exclamation' : permissionReadOnly ? 'fa-eye' : 'fa-cloud' : 'fa-flask'}`} /> {integrated ? permissionReadOnly ? tr('Read only · live API data', 'Tik skaitymui · dabartiniai API duomenys') : syncMessage || tr('Backend autosave ready', 'Automatinis išsaugojimas serveryje paruoštas') : tr('Local prototype · API disconnected', 'Vietinis prototipas · API neprijungta')}</small>
@@ -291,7 +293,7 @@ export default function GreenhouseMapTestPage() {
       <button className="gh-mobile-only" onClick={() => setMobilePanel((current) => current === 'left' ? 'none' : 'left')}><i className="fa-solid fa-sliders" /></button>
       <button className="gh-mobile-only" onClick={() => setMobilePanel((current) => current === 'right' ? 'none' : 'right')}><i className="fa-solid fa-circle-info" /></button>
       <button onClick={toggleLanguage}>{language.toUpperCase()}</button>
-      <button disabled={permissionReadOnly || syncState === 'saving'} onClick={() => { if (integrated) void saveRemote(); else { editor.save(); setNotice({ tone: 'success', text: 'Plan saved in this browser.' }) } }}><i className="fa-regular fa-floppy-disk" /> {syncState === 'saving' ? tr('Saving…', 'Saugoma…') : tr('Save', 'Išsaugoti')}</button>
+      <button disabled={permissionReadOnly || syncState === 'saving'} onClick={() => { if (integrated) void saveRemote(); else { editor.save(); setNotice({ tone: 'success', text: tr('Plan saved in this browser.', 'Planas išsaugotas šioje naršyklėje.') }) } }}><i className="fa-regular fa-floppy-disk" /> {syncState === 'saving' ? tr('Saving…', 'Saugoma…') : tr('Save', 'Išsaugoti')}</button>
       <button onClick={exportMap}><i className="fa-solid fa-arrow-up-from-bracket" /> {tr('Export JSON', 'Eksportuoti JSON')}</button>
       <button onClick={() => inputRef.current?.click()}><i className="fa-solid fa-arrow-down-to-bracket" /> {tr('Import JSON', 'Importuoti JSON')}</button>
       <input ref={inputRef} hidden type="file" accept="application/json,.json" onChange={(event) => void importFile(event.target.files?.[0])} />
@@ -302,12 +304,12 @@ export default function GreenhouseMapTestPage() {
         {!canvasReadOnly ? <GreenhouseSettingsPanel map={editor.map} language={language} onChange={(next) => editor.commit(() => next)} /> : null}
         {!canvasReadOnly ? <ObjectLibraryPanel language={language} onAdd={editor.addObject} /> : null}
         <section className="gh-panel-section gh-view-settings">
-          <header><div><small>INTERPOLATION</small><h2>View settings</h2></div><i className="fa-solid fa-sliders" /></header>
-          <label className="gh-field wide"><span>Environment metric</span><select value={editor.map.heatmapSettings.metric} onChange={(event) => updateMetric(event.target.value as MetricKey)}>{(Object.keys(METRICS) as MetricKey[]).map((metric) => <option value={metric} key={metric}>{METRICS[metric].label}</option>)}</select></label>
-          <div className="gh-field-row"><label className="gh-field"><span>IDW power</span><NumericInput min=".1" max="10" step=".1" value={editor.map.heatmapSettings.idwPower} onCommit={(value) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, idwPower: value ?? map.heatmapSettings.idwPower } }))} /></label><label className="gh-field"><span>Heatmap opacity</span><NumericInput min="0" max="1" step=".05" value={editor.map.heatmapSettings.opacity} onCommit={(value) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, opacity: value ?? map.heatmapSettings.opacity } }))} /></label></div>
-          <div className="gh-toggle-row"><label><input type="checkbox" checked={editor.map.heatmapSettings.showConfidence} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, showConfidence: event.target.checked } }))} /><span>Confidence fade</span></label></div>
-          <div className="gh-scale-toggle"><button className={editor.map.heatmapSettings.scaleMode === 'auto' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'auto' } }))}>Auto scale</button><button className={editor.map.heatmapSettings.scaleMode === 'manual' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'manual', manualMin: map.heatmapSettings.manualMin ?? METRICS[map.heatmapSettings.metric].bounds[0], manualMax: map.heatmapSettings.manualMax ?? METRICS[map.heatmapSettings.metric].bounds[1] } }))}>Manual</button></div>
-          {editor.map.heatmapSettings.scaleMode === 'manual' ? <div className="gh-field-row"><label className="gh-field"><span>Minimum</span><NumericInput allowEmpty value={editor.map.heatmapSettings.manualMin} onCommit={(value) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, manualMin: value } }))} /></label><label className="gh-field"><span>Maximum</span><NumericInput allowEmpty value={editor.map.heatmapSettings.manualMax} onCommit={(value) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, manualMax: value } }))} /></label></div> : null}
+          <header><div><small>{tr('INTERPOLATION', 'INTERPOLIACIJA')}</small><h2>{tr('View settings', 'Vaizdo nustatymai')}</h2></div><i className="fa-solid fa-sliders" /></header>
+          <label className="gh-field wide"><span>{tr('Environment metric', 'Aplinkos rodiklis')}</span><select value={editor.map.heatmapSettings.metric} onChange={(event) => updateMetric(event.target.value as MetricKey)}>{(Object.keys(METRICS) as MetricKey[]).map((metric) => <option value={metric} key={metric}>{language === 'lt' ? ({ 'air-temperature': 'Oro temperatūra', 'relative-humidity': 'Santykinė drėgmė', co2: 'CO₂', vpd: 'VPD', 'root-temperature': 'Šaknų zonos temperatūra' } as Record<string, string>)[metric] : METRICS[metric].label}</option>)}</select></label>
+          <div className="gh-field-row"><label className="gh-field"><span>{tr('IDW power', 'IDW laipsnis')}</span><NumericInput min=".1" max="10" step=".1" value={editor.map.heatmapSettings.idwPower} onCommit={(value) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, idwPower: value ?? map.heatmapSettings.idwPower } }))} /></label><label className="gh-field"><span>{tr('Heatmap opacity', 'Šilumos žemėlapio neskaidrumas')}</span><NumericInput min="0" max="1" step=".05" value={editor.map.heatmapSettings.opacity} onCommit={(value) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, opacity: value ?? map.heatmapSettings.opacity } }))} /></label></div>
+          <div className="gh-toggle-row"><label><input type="checkbox" checked={editor.map.heatmapSettings.showConfidence} onChange={(event) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, showConfidence: event.target.checked } }))} /><span>{tr('Confidence fade', 'Patikimumo išblukimas')}</span></label></div>
+          <div className="gh-scale-toggle"><button className={editor.map.heatmapSettings.scaleMode === 'auto' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'auto' } }))}>{tr('Auto scale', 'Automatinis mastelis')}</button><button className={editor.map.heatmapSettings.scaleMode === 'manual' ? 'active' : ''} onClick={() => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, scaleMode: 'manual', manualMin: map.heatmapSettings.manualMin ?? METRICS[map.heatmapSettings.metric].bounds[0], manualMax: map.heatmapSettings.manualMax ?? METRICS[map.heatmapSettings.metric].bounds[1] } }))}>{tr('Manual', 'Rankinis')}</button></div>
+          {editor.map.heatmapSettings.scaleMode === 'manual' ? <div className="gh-field-row"><label className="gh-field"><span>{tr('Minimum', 'Mažiausia')}</span><NumericInput allowEmpty value={editor.map.heatmapSettings.manualMin} onCommit={(value) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, manualMin: value } }))} /></label><label className="gh-field"><span>{tr('Maximum', 'Didžiausia')}</span><NumericInput allowEmpty value={editor.map.heatmapSettings.manualMax} onCommit={(value) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, manualMax: value } }))} /></label></div> : null}
         </section>
         <LayersPanel layers={editor.map.layers} language={language} onChange={(layers) => editor.commit((map) => ({ ...map, layers }))} />
       </aside>
