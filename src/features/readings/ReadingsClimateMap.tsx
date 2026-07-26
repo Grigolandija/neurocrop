@@ -6,6 +6,7 @@ import {
   type AreaMapContext,
 } from '../greenhouse-map/services/areaMapRepository'
 import { prepareReadOnlyClimateMap } from './prepareReadOnlyClimateMap'
+import '../../styles/climate-map.css'
 
 const climateMetrics: MetricKey[] = ['air-temperature', 'relative-humidity', 'co2', 'vpd']
 

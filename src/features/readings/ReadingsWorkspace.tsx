@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { renderTrendChart } from '../trends/sharedTrendChart'
+import '../../styles/climate-map.css'
 import '../../styles/readings-workspace.css'
 
 // API records are intentionally open because dashboard and sensor payloads evolve independently.
