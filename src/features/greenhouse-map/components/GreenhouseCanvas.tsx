@@ -58,6 +58,14 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   const topY = map.dimensions.lengthM - object.yM - object.lengthM
   const sensorSize = Math.max(object.widthM, object.lengthM)
   const labelFontSize = Math.max(sensorSize * .3, 11 / viewScale)
+  const objectLabel = object.name || definition?.label || object.type
+  const objectWidthPx = object.widthM * viewScale
+  const objectHeightPx = object.lengthM * viewScale
+  const labelInside = objectWidthPx >= 76 && objectHeightPx >= 26
+  const objectLabelWidthPx = Math.max(54, Math.min(labelInside ? objectWidthPx - 12 : 132, objectLabel.length * 5.8 + 18))
+  const objectLabelHeightPx = 20
+  const objectLabelX = labelInside ? 6 / viewScale : 0
+  const objectLabelY = labelInside ? (object.lengthM - objectLabelHeightPx / viewScale) / 2 : -24 / viewScale
   return <Group
     id={`gh-object-${object.id}`} name="map-object" x={object.xM} y={topY} rotation={object.rotationDeg}
     draggable={editable && !object.locked}
@@ -84,7 +92,12 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
     </> : <>
       <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(0,0,0,.2)' : object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : environmentView ? 'rgba(0,0,0,.48)' : colors.stroke} strokeWidth={selected ? .08 : environmentView ? 1 / viewScale : .035} dash={environmentView ? [6 / viewScale, 4 / viewScale] : object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
       {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} opacity={environmentView ? .68 : 1} /> : null}
-      <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.type === 'text-label' ? object.name : object.widthM > 1.2 && object.lengthM > .45 ? object.name : definition?.label ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill="#1e2c27" opacity={environmentView ? .76 : 1} ellipsis wrap="none" />
+      {object.type === 'text-label'
+        ? <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill="#1e2c27" opacity={environmentView ? .76 : 1} ellipsis wrap="none" />
+        : <Group x={objectLabelX} y={objectLabelY} listening={false}>
+          <Rect width={objectLabelWidthPx / viewScale} height={objectLabelHeightPx / viewScale} fill={environmentView ? '#ffffff' : '#254b40'} opacity={environmentView ? .66 : .92} cornerRadius={5 / viewScale} shadowColor="#102a22" shadowBlur={environmentView ? 0 : 4 / viewScale} shadowOpacity={environmentView ? 0 : .16} />
+          <Text x={8 / viewScale} y={4 / viewScale} width={Math.max(20, objectLabelWidthPx - 16) / viewScale} height={12 / viewScale} text={objectLabel} fontFamily="IBM Plex Sans" fontSize={10 / viewScale} fontStyle="bold" fill={environmentView ? '#1f4036' : '#f4f8f5'} ellipsis wrap="none" />
+        </Group>}
     </>}
   </Group>
 }
