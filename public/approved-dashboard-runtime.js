@@ -971,12 +971,6 @@
       headerContextSelectors: document.getElementById("headerContextSelectors")
     };
 
-    const heroContextBar = document.querySelector("#heroStatusPanel .hero-context-bar");
-    const heroScopeToggle = document.querySelector("#heroStatusPanel .scope-toggle");
-    if (elements.headerContextSelectors && heroContextBar && heroScopeToggle) {
-      elements.headerContextSelectors.append(heroContextBar, heroScopeToggle);
-    }
-
     // Keep optional simulation tools out of the primary overview hierarchy.
     if (elements.advancedToolsPanel && elements.zoneImpactSection) {
       elements.zoneImpactSection.insertAdjacentElement("afterend", elements.advancedToolsPanel);
