@@ -99,7 +99,7 @@ export default function AdminWorkspace() {
     try {
       const meResponse = await neurocropApi.getCurrentUser() as { user?: CurrentUser }
       if (!meResponse.user?.isPlatformAdmin) {
-        navigate('/', { replace: true })
+        if (window.location.pathname.startsWith('/admin')) navigate('/', { replace: true })
         return
       }
       const [organizationsResponse, usersResponse, requestsResponse] = await Promise.all([

@@ -368,7 +368,7 @@ export default function ActionsWorkspace() {
     return () => window.clearTimeout(timer)
   }, [notice])
 
-  return <main className="nc-actions-page">
+  return <main className="nc-actions-page" aria-busy={loading}>
     <header className="nc-actions-head">
       <div>
         <p>Operational follow-through</p>

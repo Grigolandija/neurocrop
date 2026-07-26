@@ -25,7 +25,8 @@ export default function AdminIntegrationsWorkspace() {
       try {
         const userResponse = await neurocropApi.getCurrentUser() as { user?: { isPlatformAdmin?: boolean } }
         if (!userResponse.user?.isPlatformAdmin) {
-          navigate('/', { replace: true })
+          if (window.location.pathname.startsWith('/admin')) navigate('/', { replace: true })
+          if (!cancelled) setState('ready')
           return
         }
         const response = await neurocropApi.getPlatformIntegrations() as { integrations?: Integration[] }

@@ -211,7 +211,7 @@ export default function SimulatorWorkspace() {
   const selectedMetricIds = new Set(parameters.map((item) => item.metricId))
   const derivedVpd = calculatedVpd(parameters)
 
-  return <main className="nc-simulator">
+  return <main className="nc-simulator" aria-busy={status === 'loading'}>
     <header className="nc-simulator-header">
       <div><p>Decision support</p><h1>Scenario Simulator</h1><span>Explore how 2–3 conditions interact without changing live data or equipment.</span></div>
       <div className="nc-simulator-model"><i className="fa-solid fa-flask" /><span><strong>Rule model 0.1</strong>Uses the same crop-profile targets as Overview</span></div>

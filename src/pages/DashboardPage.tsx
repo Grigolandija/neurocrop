@@ -221,6 +221,7 @@ function ApprovedDashboard() {
   const [trendsMount, setTrendsMount] = useState<HTMLElement | null>(null)
   const [nodesMount, setNodesMount] = useState<HTMLElement | null>(null)
   const [cropProfilesMount, setCropProfilesMount] = useState<HTMLElement | null>(null)
+  const [allWorkspacesReady, setAllWorkspacesReady] = useState(false)
 
   useEffect(() => {
     navigateRef.current = navigate
@@ -348,6 +349,8 @@ function ApprovedDashboard() {
         if (!element) return
         const shouldBeVisible = matches(location.pathname)
         if (element.hidden === shouldBeVisible) element.hidden = !shouldBeVisible
+        if (shouldBeVisible) element.style.removeProperty('display')
+        else element.style.setProperty('display', 'none', 'important')
       })
     }
 
@@ -360,54 +363,93 @@ function ApprovedDashboard() {
     return () => observer.disconnect()
   }, [location.pathname])
 
+  useEffect(() => {
+    const mounts = [
+      overviewMount, areasMount, sectionsMount, nodesMount, readingsMount, trendsMount,
+      alertsMount, actionsMount, cropProfilesMount, simulatorMount, settingsMount,
+      organizationMount, adminMount, adminIntegrationsMount,
+    ]
+    if (mounts.some((mount) => !mount)) return
+    const elements = mounts as HTMLElement[]
+    let readinessFrame = 0
+    const updateReadiness = () => {
+      const ready = elements.every((mount) =>
+        mount.childElementCount > 0 && !mount.querySelector('[aria-busy="true"]'))
+      if (!ready) return
+      window.cancelAnimationFrame(readinessFrame)
+      readinessFrame = window.requestAnimationFrame(() => setAllWorkspacesReady(true))
+    }
+    const observer = new MutationObserver(updateReadiness)
+    elements.forEach((mount) => observer.observe(mount, {
+      attributes: true,
+      attributeFilter: ['aria-busy'],
+      childList: true,
+      subtree: true,
+    }))
+    updateReadiness()
+    return () => {
+      window.cancelAnimationFrame(readinessFrame)
+      observer.disconnect()
+    }
+  }, [
+    actionsMount, adminIntegrationsMount, adminMount, alertsMount, areasMount,
+    cropProfilesMount, nodesMount, organizationMount, overviewMount, readingsMount,
+    sectionsMount, settingsMount, simulatorMount, trendsMount,
+  ])
+
   return <>
-    <div ref={hostRef} />
-    {location.pathname === '/' && overviewMount
+    <div ref={hostRef} hidden={!allWorkspacesReady} />
+    {!allWorkspacesReady
+      ? <main className="app-route-loading" aria-busy="true" aria-label="Loading every NeuroCrop workspace" />
+      : null}
+    {overviewMount
       ? createPortal(
-          <Suspense fallback={<div className="app-route-loading" aria-busy="true" aria-label="Loading Overview" />}>
-            <OverviewWorkspace />
-          </Suspense>,
+          <div hidden={location.pathname !== '/'}>
+            <Suspense fallback={<div className="app-route-loading" aria-busy="true" aria-label="Loading Overview" />}>
+              <OverviewWorkspace />
+            </Suspense>
+          </div>,
           overviewMount,
         )
       : null}
-    {location.pathname === '/readings' && readingsMount
-      ? createPortal(<Suspense fallback={null}><ReadingsWorkspace /></Suspense>, readingsMount)
+    {readingsMount
+      ? createPortal(<div hidden={location.pathname !== '/readings'}><Suspense fallback={<div aria-busy="true" />}><ReadingsWorkspace /></Suspense></div>, readingsMount)
       : null}
-    {location.pathname === '/areas' && areasMount
-      ? createPortal(<Suspense fallback={null}><AreasWorkspace /></Suspense>, areasMount)
+    {areasMount
+      ? createPortal(<div hidden={location.pathname !== '/areas'}><Suspense fallback={<div aria-busy="true" />}><AreasWorkspace /></Suspense></div>, areasMount)
       : null}
-    {location.pathname === '/sections' && sectionsMount
-      ? createPortal(<Suspense fallback={null}><SectionsWorkspace /></Suspense>, sectionsMount)
+    {sectionsMount
+      ? createPortal(<div hidden={location.pathname !== '/sections'}><Suspense fallback={<div aria-busy="true" />}><SectionsWorkspace /></Suspense></div>, sectionsMount)
       : null}
-    {location.pathname === '/settings' && settingsMount
-      ? createPortal(<Suspense fallback={null}><SettingsWorkspace /></Suspense>, settingsMount)
+    {settingsMount
+      ? createPortal(<div hidden={location.pathname !== '/settings'}><Suspense fallback={<div aria-busy="true" />}><SettingsWorkspace /></Suspense></div>, settingsMount)
       : null}
-    {location.pathname === '/organization' && organizationMount
-      ? createPortal(<Suspense fallback={null}><OrganizationWorkspace /></Suspense>, organizationMount)
+    {organizationMount
+      ? createPortal(<div hidden={location.pathname !== '/organization'}><Suspense fallback={<div aria-busy="true" />}><OrganizationWorkspace /></Suspense></div>, organizationMount)
       : null}
-    {location.pathname === '/admin' && adminMount
-      ? createPortal(<Suspense fallback={null}><AdminWorkspace /></Suspense>, adminMount)
+    {adminMount
+      ? createPortal(<div hidden={location.pathname !== '/admin'}><Suspense fallback={<div aria-busy="true" />}><AdminWorkspace /></Suspense></div>, adminMount)
       : null}
-    {location.pathname === '/admin/integrations' && adminIntegrationsMount
-      ? createPortal(<Suspense fallback={null}><AdminIntegrationsWorkspace /></Suspense>, adminIntegrationsMount)
+    {adminIntegrationsMount
+      ? createPortal(<div hidden={location.pathname !== '/admin/integrations'}><Suspense fallback={<div aria-busy="true" />}><AdminIntegrationsWorkspace /></Suspense></div>, adminIntegrationsMount)
       : null}
-    {location.pathname === '/simulator' && simulatorMount
-      ? createPortal(<Suspense fallback={null}><SimulatorWorkspace /></Suspense>, simulatorMount)
+    {simulatorMount
+      ? createPortal(<div hidden={location.pathname !== '/simulator'}><Suspense fallback={<div aria-busy="true" />}><SimulatorWorkspace /></Suspense></div>, simulatorMount)
       : null}
-    {location.pathname === '/actions' && actionsMount
-      ? createPortal(<Suspense fallback={null}><ActionsWorkspace /></Suspense>, actionsMount)
+    {actionsMount
+      ? createPortal(<div hidden={location.pathname !== '/actions'}><Suspense fallback={<div aria-busy="true" />}><ActionsWorkspace /></Suspense></div>, actionsMount)
       : null}
     {alertsMount
-      ? createPortal(<div hidden={location.pathname !== '/alerts'}><Suspense fallback={null}><AlertsWorkspace /></Suspense></div>, alertsMount)
+      ? createPortal(<div hidden={location.pathname !== '/alerts'}><Suspense fallback={<div aria-busy="true" />}><AlertsWorkspace /></Suspense></div>, alertsMount)
       : null}
-    {location.pathname === '/history' && trendsMount
-      ? createPortal(<Suspense fallback={null}><TrendsWorkspace /></Suspense>, trendsMount)
+    {trendsMount
+      ? createPortal(<div hidden={location.pathname !== '/history'}><Suspense fallback={<div aria-busy="true" />}><TrendsWorkspace /></Suspense></div>, trendsMount)
       : null}
     {nodesMount
-      ? createPortal(<div hidden={location.pathname !== '/nodes' && !/^\/nodes\/[^/]+$/.test(location.pathname)}><Suspense fallback={null}><NodesWorkspace /></Suspense></div>, nodesMount)
+      ? createPortal(<div hidden={location.pathname !== '/nodes' && !/^\/nodes\/[^/]+$/.test(location.pathname)}><Suspense fallback={<div aria-busy="true" />}><NodesWorkspace /></Suspense></div>, nodesMount)
       : null}
     {cropProfilesMount
-      ? createPortal(<div hidden={location.pathname !== '/crop-profiles'}><Suspense fallback={null}><CropProfilesWorkspace /></Suspense></div>, cropProfilesMount)
+      ? createPortal(<div hidden={location.pathname !== '/crop-profiles'}><Suspense fallback={<div aria-busy="true" />}><CropProfilesWorkspace /></Suspense></div>, cropProfilesMount)
       : null}
   </>
 }

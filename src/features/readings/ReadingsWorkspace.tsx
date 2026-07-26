@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useLocation } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { renderTrendChart } from '../trends/sharedTrendChart'
@@ -476,6 +477,7 @@ function TrendPreviewChart({ points, target, metric, periodLabel }: { points: Hi
 }
 
 export default function ReadingsWorkspace() {
+  const location = useLocation()
   const [sections, setSections] = useState<SectionReading[]>([])
   const [areaOptions, setAreaOptions] = useState<Array<[string, string]>>([])
   const [profiles, setProfiles] = useState<Map<string, JsonRecord>>(new Map())
@@ -501,11 +503,12 @@ export default function ReadingsWorkspace() {
   const hasLoadedRef = useRef(false)
 
   useEffect(() => {
+    if (location.pathname !== '/readings') return
     document.body.dataset.viewScope = 'site'
     const zoneContextValue = document.getElementById('zoneContextValue')
     if (zoneContextValue) zoneContextValue.textContent = 'All sections'
     return () => { delete document.body.dataset.viewScope }
-  }, [])
+  }, [location.pathname])
 
   useEffect(() => {
     try {

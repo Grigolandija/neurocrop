@@ -78,6 +78,15 @@ assert(
   'every workspace module and shared API payload must finish loading before the dashboard is shown',
 )
 assert(
+  dashboard.includes('const [allWorkspacesReady, setAllWorkspacesReady]')
+    && dashboard.includes('mount.childElementCount > 0')
+    && dashboard.includes("!mount.querySelector('[aria-busy=\"true\"]')")
+    && dashboard.includes('hidden={!allWorkspacesReady}')
+    && !dashboard.includes("location.pathname === '/readings' && readingsMount")
+    && !dashboard.includes("location.pathname === '/areas' && areasMount"),
+  'every React workspace must stay mounted and finish its initial data load before the dashboard becomes visible',
+)
+assert(
   source['src/App.tsx'].includes("lazy(() => import('./pages/DashboardPage'))")
     && source['src/App.tsx'].includes('<Suspense fallback='),
   'the authenticated application shell must remain code-split',

@@ -863,7 +863,7 @@ export default function TrendsWorkspace() {
     })
   }
 
-  return <main className="nc-trends-page">
+  return <main className="nc-trends-page" aria-busy={status === 'loading' || nodeHistoryLoading}>
     <header className="nc-trends-head">
       <div><p>Historical intelligence</p><h1>Trends</h1><span>See what changed, how long conditions stayed outside target, and whether intervention is working.</span></div>
       <div className="nc-trends-head-actions">
