@@ -816,14 +816,18 @@ export default function OverviewWorkspace() {
   useEffect(() => {
     const element = climateCardRef.current
     if (!element || climateMapReady) return
+    if (!('IntersectionObserver' in window)) {
+      setClimateMapReady(true)
+      return
+    }
     const observer = new IntersectionObserver(([entry]) => {
       if (!entry?.isIntersecting) return
       setClimateMapReady(true)
       observer.disconnect()
-    })
+    }, { rootMargin: '200px 0px' })
     observer.observe(element)
     return () => observer.disconnect()
-  }, [climateMapReady])
+  }, [climateMapReady, loadState])
 
   const areaOptions = useMemo(
     () => asArray(dashboard?.sites).map((site) => ({
