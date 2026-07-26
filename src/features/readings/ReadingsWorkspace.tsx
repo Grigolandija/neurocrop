@@ -501,6 +501,11 @@ export default function ReadingsWorkspace() {
   const hasLoadedRef = useRef(false)
 
   useEffect(() => {
+    document.body.dataset.viewScope = 'site'
+    return () => { delete document.body.dataset.viewScope }
+  }, [])
+
+  useEffect(() => {
     try {
       window.localStorage.setItem(readingsColumnsStorageKey, JSON.stringify(visibleKeys))
     } catch {

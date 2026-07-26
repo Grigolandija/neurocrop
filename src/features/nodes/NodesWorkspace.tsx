@@ -333,7 +333,7 @@ export default function NodesWorkspace() {
       setFeedback(`${editor.name.trim()} saved.`)
       window.dispatchEvent(new CustomEvent('neurocrop:workspace-structure-changed'))
       setRefreshToken((value) => value + 1)
-      if (routeNodeId) navigate(`/nodes/${encodeURIComponent(devEui)}`, { replace: true })
+      if (routeNodeId) navigate(`/nodes/${encodeURIComponent(devEui.toLowerCase())}`, { replace: true })
     } catch (mutationError) {
       setModalError(errorMessage(mutationError, 'The node could not be saved.'))
     } finally {
@@ -439,12 +439,12 @@ export default function NodesWorkspace() {
           const lastPayload = formatLastPayload(node, node, translate)
           const batteryLow = Number.isFinite(node.level) && Number(node.level) < 30
           return <tr key={node.devEui || node.id}>
-            <td><button type="button" className="nc-node-identity" onClick={() => navigate(`/nodes/${encodeURIComponent(node.devEui || node.id)}`)}><strong>{node.name}</strong><small>{node.devEui || node.id}</small></button></td>
+            <td><button type="button" className="nc-node-identity" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)}><strong>{node.name}</strong><small>{node.devEui || node.id}</small></button></td>
             <td><strong>{node.sectionName}</strong><small>{node.areaName}</small></td>
             <td><span className={`nc-status-new ${state.tone}`}><span className={`nc-state-dot ${state.tone}`} />{state.label}</span></td>
             <td><span className={`nc-node-battery ${batteryLow ? 'is-low' : ''}`}><i className={`fa-solid ${Number(node.level) < 25 ? 'fa-battery-quarter' : 'fa-battery-three-quarters'}`} />{Number.isFinite(node.level) ? `${node.transportStatus === 'offline' ? 'Last ' : ''}${node.level}%` : 'Battery unknown'}</span></td>
             <td>{Number.isFinite(node.rssi) ? `${node.rssi} dBm` : '—'}</td><td>{lastPayload.relative}</td>
-            <td><button type="button" className="nc-row-arrow" onClick={() => navigate(`/nodes/${encodeURIComponent(node.devEui || node.id)}`)} aria-label={`Open ${node.name} details`}><i className="fa-solid fa-chevron-right" /></button></td>
+            <td><button type="button" className="nc-row-arrow" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)} aria-label={`Open ${node.name} details`}><i className="fa-solid fa-chevron-right" /></button></td>
           </tr>
         }) : <tr><td colSpan={7} className="nc-node-empty">{nodes.length ? 'No nodes match these filters.' : 'No nodes registered yet.'}</td></tr>}
       </tbody></table></div>

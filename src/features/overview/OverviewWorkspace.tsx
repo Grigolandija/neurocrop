@@ -825,7 +825,7 @@ export default function OverviewWorkspace() {
 
   if (loadState === 'loading') return <section className="nc-overview-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><h1>Preparing your live overview</h1><p>Evaluating Sections against their active crop profiles.</p></section>
   if (loadState === 'error') return <section className="nc-overview-state" role="alert"><i className="fa-solid fa-cloud-arrow-down" /><h1>Overview could not be loaded</h1><p>{error}</p><button type="button" onClick={() => setRefreshKey((value) => value + 1)}>Try again</button></section>
-  if (loadState === 'empty' || !model) return <section className="nc-overview-state"><i className="fa-solid fa-seedling" /><h1>Your workspace is ready</h1><p>Create an Area and its first Section to begin monitoring.</p></section>
+  if (loadState === 'empty' || !model) return <section className="nc-overview-state"><i className="fa-solid fa-seedling" /><h1>Create your first Area</h1><p>Add its first Section to begin monitoring.</p></section>
 
   const actionRows = model.rows.filter((row) => row.tone === 'action')
   const watchRows = model.rows.filter((row) => row.tone === 'watch')
