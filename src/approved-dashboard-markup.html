@@ -37,13 +37,10 @@
           <span id="heroTimestampChip" hidden aria-hidden="true"></span>
         </div>
         <div class="header-status-card">
-          <label class="header-language-select">
-            <span class="sr-only">Language</span>
-            <select data-language-select aria-label="Language">
-              <option value="lt">LT</option>
-              <option value="en">EN</option>
-            </select>
-          </label>
+          <div class="language-switch header-language-select" role="group" aria-label="Language">
+            <button type="button" data-language-option="lt" data-active="false" aria-pressed="false">LT</button>
+            <button type="button" data-language-option="en" data-active="true" aria-pressed="true">EN</button>
+          </div>
           <span id="headerConnectionStatus" class="header-connection-status" data-connection="online">
             <span class="header-connection-dot"></span>
             <span id="headerConnectionLabel">Online</span>
