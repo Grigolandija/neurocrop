@@ -31,17 +31,12 @@ const SimulatorWorkspace = lazy(loadSimulatorWorkspace)
 const ActionsWorkspace = lazy(loadActionsWorkspace)
 const TrendsWorkspace = lazy(loadTrendsWorkspace)
 
-const backgroundWorkspaceLoaders = [
-  loadAreasWorkspace,
-  loadSectionsWorkspace,
-  loadReadingsWorkspace,
-  loadTrendsWorkspace,
-  loadActionsWorkspace,
-  loadSettingsWorkspace,
-  loadOrganizationWorkspace,
-  loadSimulatorWorkspace,
-  loadAdminWorkspace,
-  loadAdminIntegrationsWorkspace,
+const workspaceWarmupBatches = [
+  [loadAreasWorkspace, loadSectionsWorkspace],
+  [loadReadingsWorkspace, loadTrendsWorkspace],
+  [loadActionsWorkspace, loadSettingsWorkspace],
+  [loadOrganizationWorkspace, loadSimulatorWorkspace],
+  [loadAdminWorkspace, loadAdminIntegrationsWorkspace],
 ]
 
 const navigationIntentLoaders: Record<string, () => Promise<unknown>> = {
@@ -57,13 +52,10 @@ const navigationIntentLoaders: Record<string, () => Promise<unknown>> = {
   admin: loadAdminWorkspace,
 }
 
-async function prefetchRouteWorkspaces() {
-  await Promise.allSettled(backgroundWorkspaceLoaders.map((loadWorkspace) => loadWorkspace()))
-}
-
 let chartEnginePromise: Promise<void> | null = null
 let dashboardStorePromise: Promise<void> | null = null
 let lithuanianTranslationsPromise: Promise<void> | null = null
+let workspaceWarmupPromise: Promise<void> | null = null
 
 function routeNeedsCharts(pathname: string) {
   return pathname === '/history' || pathname === '/readings'
@@ -87,6 +79,43 @@ function ensureChartEngine() {
     document.body.appendChild(vendor)
   })
   return chartEnginePromise
+}
+
+function waitForBackgroundTurn() {
+  return new Promise<void>((resolve) => {
+    if ('scheduler' in window && typeof window.scheduler?.postTask === 'function') {
+      void window.scheduler.postTask(resolve, { priority: 'background' })
+      return
+    }
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(() => resolve(), { timeout: 1_000 })
+      return
+    }
+    setTimeout(resolve, 50)
+  })
+}
+
+function prefetchChartEngineAsset() {
+  if (window.echarts || document.querySelector('[data-neurocrop-vendor-prefetch]')) return
+  const prefetch = document.createElement('link')
+  prefetch.rel = 'prefetch'
+  prefetch.as = 'script'
+  prefetch.href = `/vendor/echarts.min.js?v=${__BUILD_VERSION__}`
+  prefetch.dataset.neurocropVendorPrefetch = 'true'
+  document.head.appendChild(prefetch)
+}
+
+function warmDashboardWorkspaces() {
+  if (workspaceWarmupPromise) return workspaceWarmupPromise
+  workspaceWarmupPromise = (async () => {
+    for (const batch of workspaceWarmupBatches) {
+      await waitForBackgroundTurn()
+      await Promise.allSettled(batch.map((loadWorkspace) => loadWorkspace()))
+    }
+    await waitForBackgroundTurn()
+    prefetchChartEngineAsset()
+  })()
+  return workspaceWarmupPromise
 }
 
 function ensureOptionalDashboardStore() {
@@ -257,6 +286,7 @@ function ApprovedDashboard() {
         } else {
           notifyRoute()
         }
+        void warmDashboardWorkspaces()
       }
       if (document.querySelector('script[data-neurocrop-runtime]')) {
         activateRuntime()
@@ -285,13 +315,6 @@ function ApprovedDashboard() {
     hostRef.current?.addEventListener('pointerover', preloadNavigationTarget)
     hostRef.current?.addEventListener('focusin', preloadNavigationTarget)
     window.NeuroCropLoadLithuanianTranslations = () => ensureLithuanianTranslations(true)
-    // Warm every navigation target immediately. Lazy routes still keep the
-    // initial bundle small, but users no longer need to visit each page once
-    // before switching between pages becomes instant.
-    void Promise.allSettled([
-      prefetchRouteWorkspaces(),
-      ensureChartEngine(),
-    ])
     void Promise.allSettled([
       ensureOptionalDashboardStore(),
       ensureLithuanianTranslations(),
