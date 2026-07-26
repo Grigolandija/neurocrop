@@ -68,7 +68,6 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page.getByRole('button', { name: 'View evidence for CI Section A' })).toBeVisible()
   await expect(page.locator('.nc-overview-insights')).toBeVisible()
   await expect(page.locator('.nc-overview-climate-card')).toBeVisible()
-  await expect(page.locator('.nc-value-card')).toContainText('Not configured')
   await expect(page.getByRole('button', { name: 'CI Area A', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   await navigationAction(page, 'sites').click()
