@@ -32,6 +32,11 @@ declare global {
     NEUROCROP_CONFIG?: { apiBaseUrl?: string; greenhouseMapBeta?: boolean }
     NeuroCropApi?: NeuroCropApi
     NeuroCropFeatures?: NeuroCropFeatures
+    NeuroCropI18n?: {
+      getLanguage: () => 'en' | 'lt'
+      setLanguage: (language: 'en' | 'lt') => void
+      translate: (value: string) => string
+    }
   }
 }
 

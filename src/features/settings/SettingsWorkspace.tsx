@@ -189,6 +189,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
         alerts: { ...(existing.alerts || {}), warningAfterMinutes: draft.warningAfterMinutes },
         notifications: { ...(existing.notifications || {}), emailEnabled: draft.emailEnabled, browserEnabled: draft.browserEnabled, smsEnabled: draft.smsEnabled, criticalOverride: draft.criticalOverride, quietStart: draft.quietStart, quietEnd: draft.quietEnd },
       }))
+      window.NeuroCropI18n?.setLanguage(draft.locale === 'lt-LT' ? 'lt' : 'en')
       if (JSON.stringify(draft) !== JSON.stringify(saved)) recordAudit('configuration', 'Saved workspace preferences', 'Display, notification, or escalation settings changed')
       setSaved(draft)
       setFeedback({ tone: 'success', text: 'Settings saved.' })

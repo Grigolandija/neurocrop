@@ -194,12 +194,9 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-node-measurement-value[data-tone="good"] { background: color-mix(in srgb, var(--color-success-soft) 42%, var(--color-surface)); }
 .nc-node-measurement-value[data-tone="watch"] { background: color-mix(in srgb, var(--color-warning-soft) 54%, var(--color-surface)); }
 .nc-node-measurement-value[data-tone="critical"] { background: color-mix(in srgb, var(--color-danger-soft) 58%, var(--color-surface)); }
-.nc-node-measurement-value strong { display: flex; min-width: 0; align-items: baseline; gap: var(--space-4); overflow: hidden; padding-right: var(--space-16); font-family: var(--font-technical); font-size: var(--type-body); font-weight: var(--weight-medium) !important; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.nc-node-measurement-value strong { display: flex; min-width: 0; align-items: baseline; gap: var(--space-4); overflow: hidden; font-family: var(--font-technical); font-size: var(--type-body); font-weight: var(--weight-medium) !important; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .nc-node-measurement-value strong > span { overflow: hidden; text-overflow: ellipsis; }
 .nc-node-measurement-value strong > small { flex: 0 0 auto; color: var(--color-text-secondary); font-family: var(--font-body); font-size: var(--type-micro); font-weight: var(--weight-regular); letter-spacing: 0; }
-.nc-node-measurement-value > i { position: absolute; top: var(--space-8); right: var(--space-8); width: .4rem; height: .4rem; border-radius: 50%; background: var(--color-success); }
-.nc-node-measurement-value[data-quality="stale"] > i { background: var(--color-stale); }
-.nc-node-measurement-value[data-quality="offline"] > i, .nc-node-measurement-value[data-quality="no-data"] > i { background: var(--color-offline); }
 .nc-node-measurement-value[data-quality="no-data"] { color: var(--color-disabled); }
 .nc-node-measurement-freshness { display: flex; min-height: 2.875rem; align-items: center; border-right: 1px solid var(--color-border); padding: var(--space-4) var(--space-12); white-space: nowrap; }
 .nc-node-measurement-freshness strong { font-size: var(--type-caption); }

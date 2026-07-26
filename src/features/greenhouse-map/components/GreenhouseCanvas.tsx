@@ -117,6 +117,9 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const [mouse, setMouse] = useState<{ xM: number; yM: number } | null>(null)
   const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; count: number; calculatedAt: Date } | null>(null)
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
+  const metricLabel = (key: GreenhouseMap['heatmapSettings']['metric']) => language === 'lt'
+    ? ({ 'air-temperature': 'Oro temperatūra', 'relative-humidity': 'Santykinė drėgmė', co2: 'CO₂', vpd: 'VPD', 'root-temperature': 'Šaknų zonos temperatūra' } as Record<string, string>)[key]
+    : METRICS[key].label
 
   const fit = useCallback(() => {
     const paddingX = readOnly ? 16 : 85
@@ -276,7 +279,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
   const editable = mode === 'layout' && !readOnly
   const heatmapLegend = mode === 'environment' ? <div className="gh-heatmap-legend">
-    <div className="gh-legend-heading"><small>{readOnly ? tr('CLIMATE RANGE', 'KLIMATO DIAPAZONAS') : 'ESTIMATED ENVIRONMENT MAP'}</small><strong>{METRICS[map.heatmapSettings.metric].label}</strong></div>
+    <div className="gh-legend-heading"><small>{readOnly ? tr('CLIMATE RANGE', 'KLIMATO DIAPAZONAS') : tr('ESTIMATED ENVIRONMENT MAP', 'APSKAIČIUOTAS APLINKOS ŽEMĖLAPIS')}</small><strong>{metricLabel(map.heatmapSettings.metric)}</strong></div>
     {heatmap ? <>
       <div className="gh-legend-scale">
         <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {CONTOUR_INTERVALS[map.heatmapSettings.metric]} {METRICS[map.heatmapSettings.metric].unit}</button>
@@ -286,10 +289,10 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       <div className="gh-legend-meta">
         {target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}
         <p><b>{heatmap.count} {tr('sensor sources', 'sensorių šaltiniai')}</b><span>{tr('Rendered', 'Atvaizduota')} {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></p>
-        {heatmap.count === MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Low-confidence directional estimate from 2 nodes.', 'Žemo patikimumo kryptinis įvertis pagal 2 node.')}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų node.')}</em> : null}
+        {heatmap.count === MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Low-confidence directional estimate from 2 nodes.', 'Žemo patikimumo kryptinis įvertis pagal 2 mazgus.')}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų mazgų.')}</em> : null}
         <em><i className="fa-solid fa-circle-info" /> {tr('Estimated between sensor locations.', 'Įvertinta tarp sensorių vietų.')}</em>
       </div>
-    </> : <div className="gh-legend-meta"><p>{tr('No valid online sensor data for this metric in this Area.', 'Nėra tinkamų aktyvių jutiklių šiam rodikliui šioje Area.')}</p></div>}
+    </> : <div className="gh-legend-meta"><p>{tr('No valid online sensor data for this metric in this Area.', 'Šiam šios erdvės rodikliui nėra tinkamų aktyvių sensorių duomenų.')}</p></div>}
   </div> : null
 
   return <main className="gh-canvas-shell" ref={hostRef}
@@ -380,21 +383,21 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       </Layer>
     </Stage>
     {!readOnly ? <div className="gh-view-controls">
-      <button className={panning ? 'active' : ''} onClick={() => setPanning(!panning)} title="Pan tool" aria-label="Pan tool"><i className="fa-solid fa-hand" /></button><span />
-      <button onClick={() => setView((current) => ({ ...current, scale: Math.max(8, current.scale / 1.15) }))} title="Zoom out" aria-label="Zoom out"><i className="fa-solid fa-minus" /></button>
-      <button onClick={() => setView((current) => ({ ...current, scale: Math.min(140, current.scale * 1.15) }))} title="Zoom in" aria-label="Zoom in"><i className="fa-solid fa-plus" /></button>
-      <button onClick={fit} title="Fit to screen" aria-label="Fit to screen"><i className="fa-solid fa-expand" /></button>
+      <button className={panning ? 'active' : ''} onClick={() => setPanning(!panning)} title={tr('Pan tool', 'Stūmimo įrankis')} aria-label={tr('Pan tool', 'Stūmimo įrankis')}><i className="fa-solid fa-hand" /></button><span />
+      <button onClick={() => setView((current) => ({ ...current, scale: Math.max(8, current.scale / 1.15) }))} title={tr('Zoom out', 'Mažinti')} aria-label={tr('Zoom out', 'Mažinti')}><i className="fa-solid fa-minus" /></button>
+      <button onClick={() => setView((current) => ({ ...current, scale: Math.min(140, current.scale * 1.15) }))} title={tr('Zoom in', 'Didinti')} aria-label={tr('Zoom in', 'Didinti')}><i className="fa-solid fa-plus" /></button>
+      <button onClick={fit} title={tr('Fit to screen', 'Sutalpinti ekrane')} aria-label={tr('Fit to screen', 'Sutalpinti ekrane')}><i className="fa-solid fa-expand" /></button>
     </div> : null}
     {heatmapLegend ? legendHost ? createPortal(heatmapLegend, legendHost) : heatmapLegend : null}
-    {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> Approximate planned sensor coverage, not a physical propagation model.</div> : null}
-    {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> Latest LoRa quality based on RSSI, SNR and node status. It is not a propagation map.</div> : null}
+    {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> {tr('Approximate planned sensor coverage, not a physical propagation model.', 'Apytikslė planuojama sensorių aprėptis, o ne fizinis signalo sklidimo modelis.')}</div> : null}
+    {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> {tr('Latest LoRa quality based on RSSI, SNR and node status. It is not a propagation map.', 'Naujausia LoRa ryšio kokybė pagal RSSI, SNR ir mazgo būseną. Tai nėra signalo sklidimo žemėlapis.')}</div> : null}
     {dailyView ? <aside className="gh-daily-summary">
-      <small>{tr('TODAY', 'ŠIANDIEN')}</small><h2>{actions.length || sensorIssues.length || (targetState !== 'optimal' && targetState !== 'unknown') ? tr('Items need attention', 'Reikia dėmesio') : tr('Area is stable', 'Area stabili')}</h2>
+      <small>{tr('TODAY', 'ŠIANDIEN')}</small><h2>{actions.length || sensorIssues.length || (targetState !== 'optimal' && targetState !== 'unknown') ? tr('Items need attention', 'Reikia dėmesio') : tr('Area is stable', 'Erdvė stabili')}</h2>
       {actions.slice(0, 3).map((action) => <p data-tone={action.priority === 'now' ? 'critical' : 'warning'} key={action.id}><i className="fa-solid fa-list-check" /><span><b>{action.title}</b>{action.sectionName} · {action.reason}</span></p>)}
-      {targetState !== 'optimal' && targetState !== 'unknown' ? <p data-tone="warning"><i className="fa-solid fa-temperature-half" /><span><b>{METRICS[map.heatmapSettings.metric].label}</b>{targetState === 'low' ? tr('Below crop target', 'Žemiau augalo tikslo') : tr('Above crop target', 'Virš augalo tikslo')}</span></p> : null}
+      {targetState !== 'optimal' && targetState !== 'unknown' ? <p data-tone="warning"><i className="fa-solid fa-temperature-half" /><span><b>{metricLabel(map.heatmapSettings.metric)}</b>{targetState === 'low' ? tr('Below crop target', 'Žemiau augalo tikslo') : tr('Above crop target', 'Virš augalo tikslo')}</span></p> : null}
       {sensorIssues.slice(0, Math.max(0, 3 - actions.length)).map((object) => <p data-tone={object.metadata.sensor?.status === 'offline' ? 'critical' : 'warning'} key={object.id}><i className="fa-solid fa-microchip" /><span><b>{object.name}</b>{object.metadata.sensor?.status}</span></p>)}
       {!actions.length && !sensorIssues.length && targetState === 'optimal' ? <p data-tone="good"><i className="fa-solid fa-circle-check" /><span><b>{tr('No priority actions', 'Nėra prioritetinių veiksmų')}</b>{tr('Current readings are inside target.', 'Dabartiniai rodmenys tiksliniame diapazone.')}</span></p> : null}
     </aside> : null}
-    {!readOnly ? <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> {mouse && mouse.xM >= 0 && mouse.yM >= 0 && mouse.xM <= map.dimensions.widthM && mouse.yM <= map.dimensions.lengthM ? `X ${mouse.xM.toFixed(2)} m · Y ${mouse.yM.toFixed(2)} m` : 'Outside plan'}</span><span>Grid {map.gridSizeM} m</span><span>Zoom {Math.round(view.scale / 40 * 100)}%</span><span>{selectedIds.length ? `${selectedIds.length} selected` : snap ? 'Snap enabled' : 'Free placement'}</span></footer> : null}
+    {!readOnly ? <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> {mouse && mouse.xM >= 0 && mouse.yM >= 0 && mouse.xM <= map.dimensions.widthM && mouse.yM <= map.dimensions.lengthM ? `X ${mouse.xM.toFixed(2)} m · Y ${mouse.yM.toFixed(2)} m` : tr('Outside plan', 'Už plano ribų')}</span><span>{tr('Grid', 'Tinklelis')} {map.gridSizeM} m</span><span>{tr('Zoom', 'Mastelis')} {Math.round(view.scale / 40 * 100)}%</span><span>{selectedIds.length ? `${selectedIds.length} ${tr('selected', 'pasirinkta')}` : snap ? tr('Snap enabled', 'Lygiavimas įjungtas') : tr('Free placement', 'Laisvas išdėstymas')}</span></footer> : null}
   </main>
 }

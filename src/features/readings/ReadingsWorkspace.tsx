@@ -363,7 +363,6 @@ function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }
           const qualityLabel = quality === 'live' ? 'Current' : quality === 'stale' ? 'Delayed' : value === null ? 'No data' : 'Last known'
           return <div className="nc-node-measurement-value" data-tone={nodeMetricTone(value, metric, profile)} data-quality={quality} aria-label={`${metric.label}: ${value === null ? 'No data' : `${formatValue(value, metric)} ${metric.unit}`}. ${qualityLabel}`} key={metric.key}>
             <strong>{value === null ? 'No data' : <><span>{formatValue(value, metric)}</span><small>{metric.unit}</small></>}</strong>
-            <i aria-hidden="true" />
           </div>
         })}
         <span className="nc-node-measurement-freshness" data-quality={overallQuality}><strong>{formatTimestampAge(latestAt)}</strong></span>

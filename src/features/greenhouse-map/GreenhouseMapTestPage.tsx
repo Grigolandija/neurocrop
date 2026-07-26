@@ -13,6 +13,7 @@ import { METRICS, type MapMode, type MetricKey } from './model'
 import { areaMapRepository, createAreaMap, mergeAreaMapContext, type AreaMapContext, type AreaSummary } from './services/areaMapRepository'
 import { validateMap } from './services/mapRepository'
 import { useMapEditor } from './useMapEditor'
+import { getInterfaceLanguage, setInterfaceLanguage } from '../../i18n'
 
 export default function GreenhouseMapTestPage() {
   const navigate = useNavigate()
@@ -26,14 +27,7 @@ export default function GreenhouseMapTestPage() {
   const [showSetupGuide, setShowSetupGuide] = useState(false)
   const [dailyView, setDailyView] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'none' | 'left' | 'right'>('none')
-  const [language, setLanguage] = useState<'en' | 'lt'>(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('neurocrop-dashboard-settings-v1') || '{}') as { preferences?: { locale?: string } }
-      return stored.preferences?.locale === 'lt-LT' ? 'lt' : 'en'
-    } catch {
-      return 'en'
-    }
-  })
+  const [language, setLanguage] = useState<'en' | 'lt'>(getInterfaceLanguage)
   const [newArea, setNewArea] = useState({ name: '', kind: 'Greenhouse', location: '' })
   const [creatingArea, setCreatingArea] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
@@ -53,13 +47,7 @@ export default function GreenhouseMapTestPage() {
   const toggleLanguage = () => {
     const next = language === 'en' ? 'lt' : 'en'
     setLanguage(next)
-    try {
-      const key = 'neurocrop-dashboard-settings-v1'
-      const stored = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, unknown> & { preferences?: Record<string, unknown> }
-      localStorage.setItem(key, JSON.stringify({ ...stored, preferences: { ...stored.preferences, locale: next === 'lt' ? 'lt-LT' : 'en-GB' } }))
-    } catch {
-      // Language switching remains available even when browser storage is blocked.
-    }
+    setInterfaceLanguage(next)
   }
 
   const updateMetric = (metric: MetricKey) => editor.commit((map) => ({ ...map, heatmapSettings: { ...map.heatmapSettings, metric } }))
@@ -279,7 +267,7 @@ export default function GreenhouseMapTestPage() {
   }
 
   if (integrated && ['initializing', 'loading'].includes(syncState)) {
-    return <div className="gh-app gh-integrated-loading"><div><i className="fa-solid fa-spinner fa-spin" /><strong>Loading Area Map Beta</strong><span>Connecting the plan with Areas, Nodes and latest sensor readings…</span></div></div>
+    return <div className="gh-app gh-integrated-loading"><div><i className="fa-solid fa-spinner fa-spin" /><strong>{tr('Loading Area Map Beta', 'Įkeliamas erdvės žemėlapis')}</strong><span>{tr('Connecting the plan with Areas, Nodes and latest sensor readings…', 'Planas susiejamas su erdvėmis, mazgais ir naujausiais sensorių rodmenimis…')}</span></div></div>
   }
 
   if (integrated && syncState === 'error' && !activeAreaId) {
@@ -295,8 +283,8 @@ export default function GreenhouseMapTestPage() {
     <div className="gh-action-strip">
       <button onClick={() => void leaveMap()}><i className="fa-solid fa-arrow-left" /> {integrated ? tr('Back to Areas', 'Grįžti į Areas') : tr('Exit test lab', 'Uždaryti testą')}</button>
       <span />
-      {integrated ? <label className="gh-area-selector"><span>Area</span><select value={activeAreaId} onChange={(event) => { setSyncState('loading'); setSyncMessage(''); setActiveAreaId(event.target.value); setSearchParams({ area: event.target.value }, { replace: true }) }}>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label> : null}
-      <small className={`gh-sync-state ${syncState}`}><i className={`fa-solid ${integrated ? syncState === 'saving' ? 'fa-arrows-rotate fa-spin' : syncState === 'conflict' || syncState === 'error' ? 'fa-triangle-exclamation' : permissionReadOnly ? 'fa-eye' : 'fa-cloud' : 'fa-flask'}`} /> {integrated ? permissionReadOnly ? 'Read only · live API data' : syncMessage || 'Backend autosave ready' : 'Local prototype · API disconnected'}</small>
+      {integrated ? <label className="gh-area-selector"><span>{tr('Area', 'Erdvė')}</span><select value={activeAreaId} onChange={(event) => { setSyncState('loading'); setSyncMessage(''); setActiveAreaId(event.target.value); setSearchParams({ area: event.target.value }, { replace: true }) }}>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label> : null}
+      <small className={`gh-sync-state ${syncState}`}><i className={`fa-solid ${integrated ? syncState === 'saving' ? 'fa-arrows-rotate fa-spin' : syncState === 'conflict' || syncState === 'error' ? 'fa-triangle-exclamation' : permissionReadOnly ? 'fa-eye' : 'fa-cloud' : 'fa-flask'}`} /> {integrated ? permissionReadOnly ? tr('Read only · live API data', 'Tik skaitymui · dabartiniai API duomenys') : syncMessage || tr('Backend autosave ready', 'Automatinis išsaugojimas serveryje paruoštas') : tr('Local prototype · API disconnected', 'Vietinis prototipas · API neprijungta')}</small>
       {integrated && !permissionReadOnly ? <button className={editing ? 'gh-edit-active' : ''} onClick={() => { setEditing((current) => !current); if (!editing) setMode('layout') }}><i className={`fa-solid ${editing ? 'fa-eye' : 'fa-pen-ruler'}`} /> {editing ? tr('Finish editing', 'Baigti redagavimą') : tr('Edit map', 'Redaguoti žemėlapį')}</button> : null}
       {integrated ? <button className={dailyView ? 'gh-edit-active' : ''} onClick={() => { setDailyView((current) => !current); setEditing(false); setMode('environment') }}><i className="fa-solid fa-list-check" /> {tr('Daily view', 'Dienos vaizdas')}</button> : null}
       {integrated ? <button onClick={() => setShowSetupGuide(true)}><i className="fa-regular fa-circle-question" /> {tr('Setup guide', 'Paruošimo vedlys')}</button> : null}
