@@ -814,6 +814,10 @@ export default function OverviewWorkspace() {
     return () => window.clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    if (loadState === 'empty') navigate('/areas', { replace: true })
+  }, [loadState, navigate])
+
   const areaOptions = useMemo(
     () => asArray(dashboard?.sites).map((site) => ({
       id: String(site.id),

@@ -502,6 +502,8 @@ export default function ReadingsWorkspace() {
 
   useEffect(() => {
     document.body.dataset.viewScope = 'site'
+    const zoneContextValue = document.getElementById('zoneContextValue')
+    if (zoneContextValue) zoneContextValue.textContent = 'All sections'
     return () => { delete document.body.dataset.viewScope }
   }, [])
 
