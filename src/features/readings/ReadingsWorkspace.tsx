@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import '../../styles/readings-workspace.css'
 
 // API records are intentionally open because dashboard and sensor payloads evolve independently.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

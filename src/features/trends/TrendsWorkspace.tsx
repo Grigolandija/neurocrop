@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import '../../styles/trends-workspace.css'
 
 // API records remain open because telemetry payloads can gain metrics independently.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -395,6 +395,7 @@
     const appliedInterfaceText = new WeakMap();
     const originalInterfaceAttributes = new WeakMap();
     const appliedInterfaceAttributes = new WeakMap();
+    const pendingInterfaceLanguageRoots = new Set();
     let interfaceLanguageApplyQueued = false;
     let interfaceLanguage = (() => {
       try {
@@ -1606,14 +1607,21 @@
       return text;
     }
 
+    function queryInterfaceElements(root, selector) {
+      const elements = [];
+      if (root instanceof Element && root.matches(selector)) elements.push(root);
+      if (root?.querySelectorAll) elements.push(...root.querySelectorAll(selector));
+      return elements;
+    }
+
     function applyInterfaceLanguage(root = document.body) {
       document.documentElement.lang = interfaceLanguage;
-      document.querySelectorAll("[data-language-option]").forEach((button) => {
+      queryInterfaceElements(root, "[data-language-option]").forEach((button) => {
         const isActive = button.dataset.languageOption === interfaceLanguage;
         button.dataset.active = String(isActive);
         button.setAttribute("aria-pressed", String(isActive));
       });
-      document.querySelectorAll("[data-language-select]").forEach((select) => {
+      queryInterfaceElements(root, "[data-language-select]").forEach((select) => {
         select.value = interfaceLanguage;
       });
 
@@ -1633,7 +1641,7 @@
         node = walker.nextNode();
       }
 
-      document.querySelectorAll("[placeholder], [title], [aria-label]").forEach((element) => {
+      queryInterfaceElements(root, "[placeholder], [title], [aria-label]").forEach((element) => {
         ["placeholder", "title", "aria-label"].forEach((attribute) => {
           if (!element.hasAttribute(attribute)) return;
           const originals = originalInterfaceAttributes.get(element) || {};
@@ -1651,12 +1659,31 @@
       });
     }
 
-    function queueInterfaceLanguageApply() {
+    function queueInterfaceLanguageApply(root = document.body) {
+      const nextRoot = root instanceof Element ? root : root?.parentElement;
+      if (!nextRoot || !nextRoot.isConnected) return;
+
+      if (nextRoot === document.body) {
+        pendingInterfaceLanguageRoots.clear();
+        pendingInterfaceLanguageRoots.add(document.body);
+      } else if (!pendingInterfaceLanguageRoots.has(document.body)) {
+        let isCovered = false;
+        pendingInterfaceLanguageRoots.forEach((pendingRoot) => {
+          if (pendingRoot.contains(nextRoot)) isCovered = true;
+          else if (nextRoot.contains(pendingRoot)) pendingInterfaceLanguageRoots.delete(pendingRoot);
+        });
+        if (!isCovered) pendingInterfaceLanguageRoots.add(nextRoot);
+      }
+
       if (interfaceLanguageApplyQueued) return;
       interfaceLanguageApplyQueued = true;
       window.requestAnimationFrame(() => {
         interfaceLanguageApplyQueued = false;
-        applyInterfaceLanguage();
+        const roots = [...pendingInterfaceLanguageRoots];
+        pendingInterfaceLanguageRoots.clear();
+        roots.forEach((pendingRoot) => {
+          if (pendingRoot.isConnected) applyInterfaceLanguage(pendingRoot);
+        });
       });
     }
 
@@ -1687,7 +1714,15 @@
       translate: translateInterfaceText
     };
 
-    new MutationObserver(() => queueInterfaceLanguageApply()).observe(document.body, {
+    new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === "childList") {
+          mutation.addedNodes.forEach((node) => queueInterfaceLanguageApply(node));
+          return;
+        }
+        queueInterfaceLanguageApply(mutation.target);
+      });
+    }).observe(document.body, {
       subtree: true,
       childList: true,
       characterData: true,

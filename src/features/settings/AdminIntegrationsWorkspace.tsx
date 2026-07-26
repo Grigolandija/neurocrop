@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import '../../styles/settings-workspace.css'
 
 type Integration = { id: string; name: string; detail: string; configured: boolean; state: string; endpoint?: string | null }
 

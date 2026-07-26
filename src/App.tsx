@@ -11,18 +11,9 @@ import './styles/neurocrop-color-system.css'
 import './styles/neurocrop-typography-system.css'
 import './styles/redesign-profiles.css'
 import './styles/redesign-alerts.css'
-import './styles/readings-workspace.css'
-import './styles/areas-workspace.css'
-import './styles/sections-workspace.css'
-import './styles/settings-workspace.css'
 import './styles/app-shell.css'
 import './styles/operational-consistency.css'
-import './styles/overview-workspace.css'
-import './styles/simulator-workspace.css'
-import './styles/actions-workspace.css'
-import './styles/trends-workspace.css'
 import './styles/mobile-experience.css'
-import './styles/greenhouse-map-test.css'
 
 declare global {
   interface Window {

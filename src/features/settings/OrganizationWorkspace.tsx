@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import '../../styles/settings-workspace.css'
 
 type User = { id: string; email: string; name: string; role: string; organizationId: string; organizationName: string }
 type Membership = { id: string; name: string; role: string }

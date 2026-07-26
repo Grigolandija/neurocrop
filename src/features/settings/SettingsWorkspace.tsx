@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import '../../styles/settings-workspace.css'
 
 type SettingsSection = 'workspace' | 'team' | 'notifications' | 'security' | 'audit'
 type User = { id: string; email: string; name: string; role: string; organizationName: string; isPlatformAdmin: boolean }
