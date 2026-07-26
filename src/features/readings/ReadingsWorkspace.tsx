@@ -86,7 +86,21 @@ const presets = [
 ] as const
 
 const readingsColumnsStorageKey = 'neurocrop-readings-columns-v1'
+const readingsViewStorageKey = 'neurocrop-readings-view'
 const supportedMetricKeys = new Set(metrics.map((metric) => metric.key))
+
+function pendingReadingsView(): { view: WorkspaceView; areaId: string } {
+  if (typeof window === 'undefined') return { view: 'table', areaId: 'all' }
+  try {
+    const pending = JSON.parse(window.sessionStorage.getItem(readingsViewStorageKey) || 'null')
+    window.sessionStorage.removeItem(readingsViewStorageKey)
+    return pending?.view === 'climate-map' && typeof pending.areaId === 'string'
+      ? { view: 'climate-map', areaId: pending.areaId }
+      : { view: 'table', areaId: 'all' }
+  } catch {
+    return { view: 'table', areaId: 'all' }
+  }
+}
 
 function storedVisibleKeys() {
   if (typeof window === 'undefined') return [...presets[0].keys]
@@ -402,13 +416,14 @@ function TrendPreviewChart({ points, target, metric, periodLabel }: { points: Hi
 }
 
 export default function ReadingsWorkspace() {
+  const [initialView] = useState(pendingReadingsView)
   const [sections, setSections] = useState<SectionReading[]>([])
   const [areaOptions, setAreaOptions] = useState<Array<[string, string]>>([])
   const [profiles, setProfiles] = useState<Map<string, JsonRecord>>(new Map())
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
-  const [areaFilter, setAreaFilter] = useState('all')
+  const [areaFilter, setAreaFilter] = useState(initialView.areaId)
   const [attentionOnly, setAttentionOnly] = useState(false)
   const [sortBy, setSortBy] = useState('severity')
   const [mode, setMode] = useState<ReadingMode>('value')
@@ -423,7 +438,7 @@ export default function ReadingsWorkspace() {
   const [trendRange, setTrendRange] = useState<TrendRangeKey>('24h')
   const [trendPreviewHistory, setTrendPreviewHistory] = useState<PinnedHistoryState>({ status: 'empty', points: [] })
   const [refreshToken, setRefreshToken] = useState(0)
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('table')
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initialView.view)
   const hasLoadedRef = useRef(false)
 
   useEffect(() => {

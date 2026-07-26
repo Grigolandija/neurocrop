@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import ReadingsClimateMap from '../readings/ReadingsClimateMap'
 import TopographicField from './TopographicField'
 
 // Dashboard payloads intentionally remain open because firmware and API versions
@@ -299,16 +300,6 @@ function formatDuration(value: unknown) {
   if (minutes < 60) return `${minutes} min`
   const hours = Math.floor(minutes / 60)
   const remainder = minutes % 60
-  return remainder ? `${hours} h ${remainder} min` : `${hours} h`
-}
-
-function formatMinutes(value: unknown) {
-  if (value === null || value === undefined || value === '') return 'Not available'
-  const minutes = Number(value)
-  if (!Number.isFinite(minutes)) return 'Not available'
-  if (minutes < 60) return `${Math.round(minutes)} min`
-  const hours = Math.floor(minutes / 60)
-  const remainder = Math.round(minutes % 60)
   return remainder ? `${hours} h ${remainder} min` : `${hours} h`
 }
 
@@ -854,6 +845,7 @@ export default function OverviewWorkspace() {
     () => asArray(dashboard?.sites).map((site) => ({
       id: String(site.id),
       name: String(site.name || 'Unnamed Area'),
+      sectionCount: Number(site.sectionCount ?? asArray(site.zones || site.sections).length),
     })),
     [dashboard],
   )
@@ -932,8 +924,6 @@ export default function OverviewWorkspace() {
   const openChecks = reviewActions.filter((action) => action.feedback?.status !== 'in_progress').length
   const inProgressChecks = reviewActions.filter((action) => action.feedback?.status === 'in_progress').length
   const recordedToday = Number(summary.today?.completed || 0)
-  const month = summary.month || {}
-  const recentResults = asArray(summary.recentResults).slice(0, 3)
   const scopeLabel = stable
     ? `All ${model.rows.length} Sections`
     : actionRows.length
@@ -957,6 +947,11 @@ export default function OverviewWorkspace() {
     window.dispatchEvent(new CustomEvent('neurocrop:overview-area-change', {
       detail: { siteId: areaId },
     }))
+  }
+
+  function openFullClimateMap(areaId: string) {
+    window.sessionStorage.setItem('neurocrop-readings-view', JSON.stringify({ view: 'climate-map', areaId }))
+    navigate('/readings')
   }
 
   const overviewTone = stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'
@@ -1048,47 +1043,15 @@ export default function OverviewWorkspace() {
         </div>
         <p>Checks are counted from real workflow activity recorded today.</p>
       </article>
-      <article className="nc-overview-insight nc-results-card">
-        <header><div><span>Action outcomes</span><h2>Sensor verification after work</h2></div><i className="fa-solid fa-wave-square" /></header>
-        {recentResults.length
-          ? <div className="nc-result-list">{recentResults.map((result) => {
-              const outcome = result.outcome || {}
-              const state = String(outcome.state || 'awaiting_data')
-              const baseline = outcome.baselineValue === null || outcome.baselineValue === undefined
-                ? Number.NaN
-                : Number(outcome.baselineValue)
-              const current = outcome.currentValue === null || outcome.currentValue === undefined
-                ? Number.NaN
-                : Number(outcome.currentValue)
-              const hasComparison = Number.isFinite(baseline) && Number.isFinite(current)
-              const label = state === 'target_reached'
-                ? 'Restored'
-                : state === 'improving'
-                  ? 'Improved'
-                  : state === 'worsened'
-                    ? 'Worse'
-                    : state === 'unchanged'
-                      ? 'No change'
-                      : state === 'insufficient_data'
-                        ? 'Not enough data'
-                        : 'Waiting for data'
-              return <div data-outcome={state} key={String(result.id)}>
-                <span><strong>{result.sectionName || 'Section'}</strong><small>{result.metricLabel || result.metricId || 'Condition'} · {relativeTime(result.createdAt)}</small></span>
-                <span><strong>{hasComparison ? `${formatMeasurement(baseline, normalizeUnit(result.unit))} → ${formatMeasurement(current, normalizeUnit(result.unit))}` : label}</strong><small>{hasComparison ? label : outcome.label || 'Collecting sensor readings'}</small></span>
-              </div>
-            })}</div>
-          : <div className="nc-insight-empty"><i className="fa-regular fa-clock" /><span><strong>No action outcomes yet</strong><small>Recorded work will appear after enough new sensor readings arrive.</small></span></div>}
-      </article>
-      <article className="nc-overview-insight nc-value-card">
-        <header><div><span>Value this month</span><h2>Recorded operational value</h2></div><i className="fa-solid fa-chart-line" /></header>
-        <dl>
-          <div><dt>Work records submitted</dt><dd>{Number(month.completed || 0)}</dd></div>
-          <div><dt>Conditions restored</dt><dd>{Number(month.conditionsRestored || 0)}</dd></div>
-          <div><dt>Improvement confirmed</dt><dd>{Number(month.improvementsConfirmed || 0)}</dd></div>
-          <div><dt>Median response time</dt><dd>{formatMinutes(month.medianResponseMinutes)}</dd></div>
-          <div><dt>Inspection time saved</dt><dd className="not-configured">Not configured</dd></div>
-        </dl>
-        <p>Time savings require a customer-specific manual inspection baseline.</p>
+      <article className="nc-overview-climate-card">
+        <header className="nc-overview-climate-toolbar">
+          <div>
+            <span>Live climate snapshot</span>
+            <nav className="nc-area-tabs" role="tablist" aria-label="Choose Area for climate snapshot">{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>
+          </div>
+          <button type="button" onClick={() => openFullClimateMap(model.areaId)}>Open in Readings <i className="fa-solid fa-arrow-right" /></button>
+        </header>
+        <ReadingsClimateMap key={model.areaId} areaId={model.areaId} refreshToken={refreshKey} />
       </article>
     </section>
     {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}

@@ -1490,7 +1490,8 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-overview-insights {
   display: grid;
-  grid-template-columns: minmax(230px, .9fr) minmax(360px, 1.35fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(250px, .65fr) minmax(0, 1.8fr);
+  align-items: start;
   gap: 18px;
   padding: 24px 28px 32px;
   background: #eef3eb;
@@ -1578,6 +1579,78 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   color: #718078;
   font-size: 11px;
   line-height: 1.5;
+}
+
+.nc-overview-climate-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(45, 83, 65, .13);
+  border-radius: 20px;
+  background: #fbfcf9;
+  box-shadow: 0 12px 30px rgba(31, 57, 44, .05);
+}
+
+.nc-overview-climate-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(45, 83, 65, .11);
+}
+
+.nc-overview-climate-toolbar > div {
+  min-width: 0;
+}
+
+.nc-overview-climate-toolbar > div > span {
+  display: block;
+  margin-bottom: 4px;
+  color: #718078;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.nc-overview-climate-toolbar .nc-area-tabs button {
+  min-height: 2.5rem;
+}
+
+.nc-overview-climate-toolbar > button {
+  min-height: 38px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(45, 83, 65, .16);
+  border-radius: 9px;
+  padding: 0 14px;
+  background: #fff;
+  color: #255f52;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.nc-overview-climate-toolbar > button i {
+  margin-left: 7px;
+}
+
+.nc-overview-climate-card .nc-live-climate-map {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.nc-overview-climate-card .nc-live-climate-map > header {
+  min-height: 4.75rem;
+}
+
+.nc-overview-climate-card .nc-climate-map-canvas {
+  height: clamp(26rem, 42vw, 36rem);
+}
+
+.nc-overview-climate-card .nc-climate-map-canvas .gh-canvas-shell {
+  min-height: 0;
 }
 
 .nc-result-list {
@@ -1712,11 +1785,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   }
 
   .nc-overview-insights {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .nc-value-card {
-    grid-column: 1 / -1;
+    grid-template-columns: 1fr;
   }
 
   .nc-overview-copy h1 {
@@ -1857,8 +1926,17 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
     padding: 18px 16px 26px;
   }
 
-  .nc-value-card {
-    grid-column: auto;
+  .nc-overview-climate-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .nc-overview-climate-toolbar > button {
+    width: 100%;
+  }
+
+  .nc-overview-climate-card .nc-climate-map-canvas {
+    height: 25rem;
   }
 
   .nc-result-list > div {
