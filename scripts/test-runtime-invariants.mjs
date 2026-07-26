@@ -24,6 +24,8 @@ const dashboardPage = await fs.readFile(path.join(root, "src/pages/DashboardPage
 const overviewWorkspace = await fs.readFile(path.join(root, "src/features/overview/OverviewWorkspace.tsx"), "utf8");
 const readingsWorkspace = await fs.readFile(path.join(root, "src/features/readings/ReadingsWorkspace.tsx"), "utf8");
 const readingsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/readings-workspace.css"), "utf8");
+const trendsWorkspace = await fs.readFile(path.join(root, "src/features/trends/TrendsWorkspace.tsx"), "utf8");
+const sharedTrendChart = await fs.readFile(path.join(root, "src/features/trends/sharedTrendChart.ts"), "utf8");
 const areasWorkspace = await fs.readFile(path.join(root, "src/features/areas/AreasWorkspace.tsx"), "utf8");
 const areasWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/areas-workspace.css"), "utf8");
 const sectionsWorkspace = await fs.readFile(path.join(root, "src/features/sections/SectionsWorkspace.tsx"), "utf8");
@@ -165,7 +167,25 @@ assert(settingsWorkspace.includes("import '../../styles/settings-workspace.css'"
 assert(readingsWorkspace.includes('neurocropApi.getAreas()') && readingsWorkspace.includes('neurocropApi.getSections()') && readingsWorkspace.includes('zone.area_id') && readingsWorkspace.includes('zone.crop_profile'), "Readings Area options and freshness counters must survive dashboard-shape differences by using the management endpoints and backend snake_case fields");
 assert(readingsWorkspace.includes('function getMetricFreshness(') && readingsWorkspace.includes('observation?.lastObservedAt') && readingsWorkspace.includes('observation?.expectedIntervalSec'), "Readings quality must follow each metric observation instead of borrowing the freshest Section timestamp");
 assert(readingsWorkspace.includes('neurocropApi.getHistory({') && readingsWorkspace.includes('function PinnedSparkline(') && readingsWorkspace.includes('Time ({periodLabel})') && readingsWorkspace.includes('Not enough history for a graph yet') && readingsWorkspaceStyles.includes('var(--chart-temperature)') && readingsWorkspaceStyles.includes('var(--chart-humidity)') && readingsWorkspaceStyles.includes('var(--chart-vpd)'), "Pinned Readings comparisons must render real backend history with named axes and the shared measurement palette instead of fabricating or status-coloring chart points");
-assert(readingsWorkspace.includes("type: 'neurocrop:open-trend'") && readingsWorkspace.includes('onOpenTrend={() => openTrendPreview(section, metric)}') && readingsWorkspace.includes("type TrendRangeKey = '24h' | '7d' | '30d'") && readingsWorkspace.includes('function TrendPreviewChart(') && readingsWorkspace.includes('NeuroCropTrendCharts') && readingsWorkspace.includes('Open full Trends') && runtime.includes('window.NeuroCropTrendCharts = Object.freeze({') && runtime.includes('const chartOption = buildTrendEChartsOption({') && runtime.includes('event.data.type !== "neurocrop:open-trend"') && runtime.includes('openTrendHistory(String(event.data.metricKey || ""))') && readingsWorkspaceStyles.includes('.nc-reading-cell:focus-visible') && readingsWorkspaceStyles.includes('.nc-trend-modal-backdrop { align-items: center; justify-content: center;'), "Every Readings measurement cell must open a centered modal rendered by the exact shared Trends ECharts option builder, with an explicit full Trends drill-down");
+assert(
+  readingsWorkspace.includes("type: 'neurocrop:open-trend'")
+    && readingsWorkspace.includes('onOpenTrend={() => openTrendPreview(section, metric)}')
+    && readingsWorkspace.includes("type TrendRangeKey = '24h' | '7d' | '30d'")
+    && readingsWorkspace.includes('function TrendPreviewChart(')
+    && readingsWorkspace.includes("import { renderTrendChart } from '../trends/sharedTrendChart'")
+    && trendsWorkspace.includes("import { renderTrendChart } from './sharedTrendChart'")
+    && sharedTrendChart.includes('export function buildTrendChartOption(')
+    && sharedTrendChart.includes('export function renderTrendChart(')
+    && !runtime.includes('window.NeuroCropTrendCharts')
+    && runtime.includes('const reactTrendsWorkspaceOwnsRoute = isHistoryPage && Boolean(document.getElementById("trendsWorkspaceMount"));')
+    && runtime.includes('const shouldHideTrendHistoryBase = reactTrendsWorkspaceOwnsRoute')
+    && readingsWorkspace.includes('Open full Trends')
+    && runtime.includes('event.data.type !== "neurocrop:open-trend"')
+    && runtime.includes('openTrendHistory(String(event.data.metricKey || ""))')
+    && readingsWorkspaceStyles.includes('.nc-reading-cell:focus-visible')
+    && readingsWorkspaceStyles.includes('.nc-trend-modal-backdrop { align-items: center; justify-content: center;'),
+  "Readings and Trends must use one typed React chart renderer without depending on a legacy window API",
+);
 assert(runtime.includes("if (!nextZone) {") && runtime.includes("renderDashboard();"), "empty areas must render instead of returning during hydration");
 assert(runtime.includes('elements.dashboardShell.setAttribute("aria-busy", "true")') && runtime.includes('elements.dashboardShell.removeAttribute("aria-busy")'), "dashboard hydration must expose its loading state without leaving the UI blank");
 assert(runtime.includes('let dashboardHydrationStatus = isApiDataMode() ? "idle" : "ready";') && runtime.includes('dashboardHydrationStatus = "empty";') && runtime.includes('dashboardHydrationStatus = hasUsableWorkspace ? "ready" : "error";'), "dashboard hydration must distinguish loading, empty and failed workspaces");

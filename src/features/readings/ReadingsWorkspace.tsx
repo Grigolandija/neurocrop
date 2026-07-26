@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { renderTrendChart } from '../trends/sharedTrendChart'
 import '../../styles/readings-workspace.css'
 
 // API records are intentionally open because dashboard and sensor payloads evolve independently.
@@ -42,23 +44,6 @@ type HistoryPoint = {
 type PinnedHistoryState = {
   status: 'loading' | 'ready' | 'empty' | 'error' | 'unsupported'
   points: HistoryPoint[]
-}
-
-type EChartsInstance = {
-  resize: () => void
-  dispose: () => void
-}
-
-type SharedTrendChartsApi = {
-  render: (element: HTMLElement, input: {
-    points: HistoryPoint[]
-    metricKey: string
-    label: string
-    unit: string
-    decimals: number
-    target: [number, number] | null
-    rangeKey: TrendRangeKey
-  }) => EChartsInstance | null
 }
 
 const metrics: Metric[] = [
@@ -468,17 +453,14 @@ function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }:
 
 function TrendPreviewChart({ points, target, metric, periodLabel }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; periodLabel: TrendRangeKey }) {
   const chartRef = useRef<HTMLDivElement>(null)
+  const { language } = useInterfaceLanguage()
 
   useEffect(() => {
-    const charts = (window as Window & { NeuroCropTrendCharts?: SharedTrendChartsApi }).NeuroCropTrendCharts
     const element = chartRef.current
-    if (!charts || !element || points.length < 2) return
-    const chart = charts.render(element, {
-      points,
-      metricKey: metric.key,
-      label: metric.label,
-      unit: metric.unit,
-      decimals: metric.decimals,
+    if (!element || points.length < 2) return
+    const chart = renderTrendChart(element, {
+      metric,
+      series: [{ name: metric.label, points }],
       target,
       rangeKey: periodLabel,
     })
@@ -487,7 +469,7 @@ function TrendPreviewChart({ points, target, metric, periodLabel }: { points: Hi
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(element)
     return () => { observer.disconnect(); chart.dispose() }
-  }, [metric, periodLabel, points, target])
+  }, [language, metric, periodLabel, points, target])
 
   return <div ref={chartRef} className="nc-trend-echart" role="img" aria-label={`${metric.label} ${periodLabel} trend chart`} />
 }

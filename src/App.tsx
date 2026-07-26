@@ -18,7 +18,6 @@ import './styles/mobile-experience.css'
 declare global {
   interface Window {
     echarts?: unknown
-    NeuroCropTrendCharts?: unknown
     NeuroCropStateEngine?: unknown
     NEUROCROP_CONFIG?: { apiBaseUrl?: string; greenhouseMapBeta?: boolean }
     NeuroCropApi?: NeuroCropApi
