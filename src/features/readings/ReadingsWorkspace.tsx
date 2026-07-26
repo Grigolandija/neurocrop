@@ -360,12 +360,13 @@ function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }
         {visibleMetrics.map((metric) => {
           const value = getNodeMetricValue(section, node, metric)
           const quality = nodeMetricQuality(section, node, metric)
-          return <div className="nc-node-measurement-value" data-tone={nodeMetricTone(value, metric, profile)} data-quality={quality} key={metric.key}>
-            <strong>{value === null ? 'No data' : <>{formatValue(value, metric)} <small>{metric.unit}</small></>}</strong>
-            <i aria-label={quality === 'live' ? 'Current' : quality === 'stale' ? 'Delayed' : value === null ? 'No data' : 'Last known'} />
+          const qualityLabel = quality === 'live' ? 'Current' : quality === 'stale' ? 'Delayed' : value === null ? 'No data' : 'Last known'
+          return <div className="nc-node-measurement-value" data-tone={nodeMetricTone(value, metric, profile)} data-quality={quality} aria-label={`${metric.label}: ${value === null ? 'No data' : `${formatValue(value, metric)} ${metric.unit}`}. ${qualityLabel}`} key={metric.key}>
+            <strong>{value === null ? 'No data' : <><span>{formatValue(value, metric)}</span><small>{metric.unit}</small></>}</strong>
+            <i aria-hidden="true" />
           </div>
         })}
-        <span className="nc-node-measurement-freshness" data-quality={overallQuality}><strong>{formatTimestampAge(latestAt)}</strong><small>{overallQuality === 'live' ? 'Current' : overallQuality === 'stale' ? 'Delayed' : 'Offline'}</small></span>
+        <span className="nc-node-measurement-freshness" data-quality={overallQuality}><strong>{formatTimestampAge(latestAt)}</strong></span>
         <span className="nc-node-measurement-end" />
       </div>
     }) : <p className="nc-node-measurement-empty">No Nodes are assigned to this Section.</p>}
