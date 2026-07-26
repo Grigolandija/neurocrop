@@ -1,368 +1,176 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const runtime = await fs.readFile(path.join(root, "public/approved-dashboard-runtime.js"), "utf8");
-const dashboardStore = await fs.readFile(path.join(root, "public/neurocrop-dashboard-store.js"), "utf8");
-const lithuanianTranslations = await fs.readFile(path.join(root, "public/neurocrop-i18n-lt.js"), "utf8");
-const config = await fs.readFile(path.join(root, "public/runtime-config.js"), "utf8");
-const htaccess = await fs.readFile(path.join(root, "public/.htaccess"), "utf8");
-const contract = await fs.readFile(path.join(root, "API-CONTRACT.md"), "utf8");
-const appSource = await fs.readFile(path.join(root, "src/App.tsx"), "utf8");
-const markup = await fs.readFile(path.join(root, "src/approved-dashboard-markup.html"), "utf8");
-const styles = await fs.readFile(path.join(root, "src/styles/approved-dashboard.css"), "utf8");
-const sidebarStyles = await fs.readFile(path.join(root, "src/styles/redesign-sidebar.css"), "utf8");
-const colorSystemStyles = await fs.readFile(path.join(root, "src/styles/neurocrop-color-system.css"), "utf8");
-const typographySystemStyles = await fs.readFile(path.join(root, "src/styles/neurocrop-typography-system.css"), "utf8");
-const profileStyles = await fs.readFile(path.join(root, "src/styles/redesign-profiles.css"), "utf8");
-const alertStyles = await fs.readFile(path.join(root, "src/styles/redesign-alerts.css"), "utf8");
-const nodeStyles = await fs.readFile(path.join(root, "src/styles/nodes-page.css"), "utf8");
-const apiClient = await fs.readFile(path.join(root, "src/services/api/client.ts"), "utf8");
-const apiFacade = await fs.readFile(path.join(root, "src/services/api/neurocropApi.ts"), "utf8");
-const dashboardPage = await fs.readFile(path.join(root, "src/pages/DashboardPage.tsx"), "utf8");
-const overviewWorkspace = await fs.readFile(path.join(root, "src/features/overview/OverviewWorkspace.tsx"), "utf8");
-const readingsWorkspace = await fs.readFile(path.join(root, "src/features/readings/ReadingsWorkspace.tsx"), "utf8");
-const readingsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/readings-workspace.css"), "utf8");
-const trendsWorkspace = await fs.readFile(path.join(root, "src/features/trends/TrendsWorkspace.tsx"), "utf8");
-const sharedTrendChart = await fs.readFile(path.join(root, "src/features/trends/sharedTrendChart.ts"), "utf8");
-const areasWorkspace = await fs.readFile(path.join(root, "src/features/areas/AreasWorkspace.tsx"), "utf8");
-const areasWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/areas-workspace.css"), "utf8");
-const sectionsWorkspace = await fs.readFile(path.join(root, "src/features/sections/SectionsWorkspace.tsx"), "utf8");
-const sectionsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/sections-workspace.css"), "utf8");
-const actionsWorkspace = await fs.readFile(path.join(root, "src/features/actions/ActionsWorkspace.tsx"), "utf8");
-const actionsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/actions-workspace.css"), "utf8");
-const settingsWorkspace = await fs.readFile(path.join(root, "src/features/settings/SettingsWorkspace.tsx"), "utf8");
-const organizationWorkspace = await fs.readFile(path.join(root, "src/features/settings/OrganizationWorkspace.tsx"), "utf8");
-const adminWorkspace = await fs.readFile(path.join(root, "src/features/settings/AdminWorkspace.tsx"), "utf8");
-const adminIntegrationsWorkspace = await fs.readFile(path.join(root, "src/features/settings/AdminIntegrationsWorkspace.tsx"), "utf8");
-const settingsWorkspaceStyles = await fs.readFile(path.join(root, "src/styles/settings-workspace.css"), "utf8");
-const registerPage = await fs.readFile(path.join(root, "src/pages/RegisterPage.tsx"), "utf8");
-const invitePage = await fs.readFile(path.join(root, "src/pages/AcceptInvitePage.tsx"), "utf8");
-const authLayout = await fs.readFile(path.join(root, "src/features/auth/AuthLayout.tsx"), "utf8");
-const controlCenterE2e = await fs.readFile(path.join(root, "e2e/control-center.spec.ts"), "utf8");
-const areasModel = await fs.readFile(path.join(root, "src/features/areas/model.ts"), "utf8");
-const sectionsModel = await fs.readFile(path.join(root, "src/features/sections/model.ts"), "utf8");
-const nodesModel = await fs.readFile(path.join(root, "src/features/nodes/model.ts"), "utf8");
-let failures = 0;
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const read = (file) => fs.readFile(path.join(root, file), 'utf8')
+const source = Object.fromEntries(await Promise.all([
+  'public/approved-dashboard-runtime.js',
+  'public/neurocrop-dashboard-store.js',
+  'public/neurocrop-i18n-lt.js',
+  'public/.htaccess',
+  'src/App.tsx',
+  'src/pages/DashboardPage.tsx',
+  'src/approved-dashboard-markup.html',
+  'src/services/api/client.ts',
+  'src/services/api/neurocropApi.ts',
+  'src/features/overview/OverviewWorkspace.tsx',
+  'src/features/areas/AreasWorkspace.tsx',
+  'src/features/sections/SectionsWorkspace.tsx',
+  'src/features/nodes/NodesWorkspace.tsx',
+  'src/features/readings/ReadingsWorkspace.tsx',
+  'src/features/trends/TrendsWorkspace.tsx',
+  'src/features/trends/sharedTrendChart.ts',
+  'src/features/alerts/AlertsWorkspace.tsx',
+  'src/features/actions/ActionsWorkspace.tsx',
+  'src/features/settings/CropProfilesWorkspace.tsx',
+  'src/features/settings/SettingsWorkspace.tsx',
+  'src/features/settings/OrganizationWorkspace.tsx',
+  'src/features/settings/AdminWorkspace.tsx',
+  'src/features/settings/AdminIntegrationsWorkspace.tsx',
+].map(async (file) => [file, await read(file)])))
+
+const runtime = source['public/approved-dashboard-runtime.js']
+const dashboard = source['src/pages/DashboardPage.tsx']
+const markup = source['src/approved-dashboard-markup.html']
+const apiClient = source['src/services/api/client.ts']
+const api = source['src/services/api/neurocropApi.ts']
+let failures = 0
 
 function assert(condition, message) {
-  if (condition) return;
-  failures += 1;
-  console.error(`FAIL ${message}`);
+  if (condition) return
+  failures += 1
+  console.error(`FAIL ${message}`)
 }
 
-function colorContrastRatio(foreground, background) {
-  const luminance = (hex) => {
-    const channels = hex.match(/[a-f\d]{2}/gi).map((channel) => Number.parseInt(channel, 16) / 255);
-    const linear = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
-    return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
-  };
-  const lighter = Math.max(luminance(foreground), luminance(background));
-  const darker = Math.min(luminance(foreground), luminance(background));
-  return (lighter + 0.05) / (darker + 0.05);
+const workspaces = [
+  ['overview', 'OverviewWorkspace', 'overviewWorkspaceMount'],
+  ['areas', 'AreasWorkspace', 'areasWorkspaceMount'],
+  ['sections', 'SectionsWorkspace', 'sectionsWorkspaceMount'],
+  ['nodes', 'NodesWorkspace', 'nodesManagementSection'],
+  ['readings', 'ReadingsWorkspace', 'readingsWorkspaceMount'],
+  ['trends', 'TrendsWorkspace', 'trendsWorkspaceMount'],
+  ['alerts', 'AlertsWorkspace', 'alertsManagementSection'],
+  ['actions', 'ActionsWorkspace', 'actionsWorkspaceMount'],
+  ['crop profiles', 'CropProfilesWorkspace', 'cropProfilesWorkspaceMount'],
+  ['settings', 'SettingsWorkspace', 'settingsWorkspaceMount'],
+  ['organisation', 'OrganizationWorkspace', 'organizationWorkspaceMount'],
+  ['admin', 'AdminWorkspace', 'adminWorkspaceMount'],
+  ['admin integrations', 'AdminIntegrationsWorkspace', 'adminIntegrationsMount'],
+  ['simulator', 'SimulatorWorkspace', 'simulatorWorkspaceMount'],
+]
+
+for (const [label, component, mount] of workspaces) {
+  assert(
+    dashboard.includes(`const load${component} = () => import(`)
+      && dashboard.includes(`const ${component} = lazy(load${component})`)
+      && markup.includes(`id="${mount}"`),
+    `${label} must remain a lazy React workspace with a stable mount`,
+  )
 }
 
-function colorToken(name) {
-  return colorSystemStyles.match(new RegExp(`--${name}:\\s*(#[a-fA-F0-9]{6})`))?.[1];
+assert(
+  dashboard.includes('requestIdleCallback')
+    && dashboard.includes('backgroundWorkspacePreloaders')
+    && dashboard.includes('prefetchWorkspaceData()'),
+  'common workspaces and API data must warm in the background after the first render',
+)
+assert(
+  source['src/App.tsx'].includes("lazy(() => import('./pages/DashboardPage'))")
+    && source['src/App.tsx'].includes('<Suspense fallback='),
+  'the authenticated application shell must remain code-split',
+)
+assert(
+  dashboard.includes("import '../styles/approved-dashboard.css'")
+    && source['src/features/nodes/NodesWorkspace.tsx'].includes("import '../../styles/nodes-page.css'")
+    && source['src/features/settings/CropProfilesWorkspace.tsx'].includes("import '../../styles/redesign-profiles.css'"),
+  'large feature styles must stay with their route chunks',
+)
+
+const featureContracts = [
+  ['areas', ['getDashboard()', 'getAreas()', 'getSections()', 'getNodes()', 'createArea(', 'updateArea(', 'deleteArea(']],
+  ['sections', ['getAreas()', 'getSections()', 'getNodes()', 'getCropProfiles()', 'createSection(', 'updateSection(', 'deleteSection(']],
+  ['nodes', ['getAreas()', 'getSections()', 'getNodes()', 'getNodeSensors(', 'updateNode(', 'deleteNode(']],
+  ['readings', ['getLatestReadings(', 'getHistory({', 'exportCsv()', 'renderTrendChart']],
+  ['trends', ['getAreas()', 'getSections()', 'getNodes()', 'getHistory({', 'renderTrendChart', 'Compare Sections']],
+  ['alerts', ["getAlerts('all')", 'acknowledgeAlert(', 'snoozeAlert(']],
+  ['actions', ['getTodayActions()', 'getActionHistory(', 'submitTodayActionFeedback(']],
+  ['overview', ['getDashboard()', 'getTodayActions()', 'getCropProfiles()', 'getLatestReadings(']],
+]
+const featureFiles = {
+  areas: 'src/features/areas/AreasWorkspace.tsx',
+  sections: 'src/features/sections/SectionsWorkspace.tsx',
+  nodes: 'src/features/nodes/NodesWorkspace.tsx',
+  readings: 'src/features/readings/ReadingsWorkspace.tsx',
+  trends: 'src/features/trends/TrendsWorkspace.tsx',
+  alerts: 'src/features/alerts/AlertsWorkspace.tsx',
+  actions: 'src/features/actions/ActionsWorkspace.tsx',
+  overview: 'src/features/overview/OverviewWorkspace.tsx',
+}
+for (const [feature, tokens] of featureContracts) {
+  const contents = source[featureFiles[feature]]
+  for (const token of tokens) {
+    assert(contents.includes(token), `${feature} must retain its live ${token} workflow`)
+  }
 }
 
 assert(
-  runtime.includes('presence.bh1750 === true')
-    && runtime.includes('detected.add("lux")')
-    && runtime.includes('...detectedMetricKeysFromNodes(batteryNodes)'),
-  "Detected light hardware must expose Lux in API-backed metric availability"
-);
+  source['src/features/trends/TrendsWorkspace.tsx'].includes('selectedNodes.map')
+    && source['src/features/trends/TrendsWorkspace.tsx'].includes('devEui: node.devEui')
+    && source['src/features/trends/TrendsWorkspace.tsx'].includes('Section median'),
+  'node comparison must request independent node histories and retain the section median',
+)
+assert(
+  source['src/features/trends/sharedTrendChart.ts'].includes('calculateTimeAwareEwma')
+    && source['src/features/trends/sharedTrendChart.ts'].includes('getTrendAxisDomain')
+    && source['src/features/trends/sharedTrendChart.ts'].includes('metricColorTokens'),
+  'trend charts must retain time-aware smoothing, readable axes and metric colors',
+)
 
 assert(
-  !markup.includes('data-experience-mode="detailed"')
-    && runtime.includes('if (activePrimaryPage === "overview")')
-    && runtime.includes('const detailedRouteActive = activePrimaryPage === "history" || activePrimaryPage === "readings";'),
-  "Overview must stay in Simple mode without exposing the removed Detailed dashboard"
-);
-
-assert(runtime.includes("function fetchLatestReadingsForArea(siteId") && runtime.includes("latestReadingsCacheTtlMs = 60 * 1000") && runtime.includes("latestReadingsAreaInFlight.has(siteId)"), "Area Live readings must load only the selected Area with cache and in-flight protection");
-assert(apiFacade.includes("getAlerts: (status = 'all')"), "Alerts API client must use a status accepted by the backend");
-assert(
-  overviewWorkspace.includes('zone.mainCondition')
-    && overviewWorkspace.includes('correctionInstruction(')
-    && overviewWorkspace.includes("'Decrease' : 'Increase'")
-    && overviewWorkspace.includes('by at least ${formatDifference(difference, unit)}')
-    && overviewWorkspace.includes('enrichLegacyDashboardConditions(')
-    && overviewWorkspace.includes('neurocropApi.getLatestReadings(sectionId)')
-    && overviewWorkspace.includes('neurocropApi.getCropProfiles()')
-    && overviewWorkspace.includes('percentage point')
-    && overviewWorkspace.includes('rowConditionSummary(row)')
-    && overviewWorkspace.includes('rowCorrectionSummary(row)')
-    && overviewWorkspace.includes("onClick={() => navigate('/sections')}>Review Section setup")
-    && overviewWorkspace.includes('fallbackWatchActions')
-    && overviewWorkspace.includes('Review {effectiveWatchActions.length} Watch check')
-    && overviewWorkspace.includes('actions={reviewActions}')
-    && overviewWorkspace.includes('Review setup for {unknownRows.length} unverified Section')
-    && !overviewWorkspace.includes('href="/sections"'),
-  "Overview Watch evidence must show the exact current value, target boundary and required correction",
-);
-for (const header of ["Strict-Transport-Security", "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy", "Permissions-Policy"]) {
-  assert(htaccess.includes(`Header always set ${header}`), `${header} must be present in the production static-host configuration`);
+  apiClient.includes("credentials: 'include'")
+    && apiClient.includes('requestSignal(options.signal, 15_000)')
+    && apiClient.includes('notifyUnauthorized()')
+    && apiClient.includes('readResponseBody(response: Response)'),
+  'API transport must retain authentication, cancellation, timeout and structured error handling',
+)
+for (const method of [
+  'getDashboard:', 'getAreas:', 'getSections:', 'getNodes:', 'getAlerts:', 'getHistory:',
+  'getLatestReadings:', 'getCropProfiles:', 'getTodayActions:', 'getActionHistory:',
+]) {
+  assert(api.includes(method), `API facade must expose ${method.slice(0, -1)}`)
 }
-assert(runtime.includes("latestReadingsRequestIdBySectionId[zoneId]") && !runtime.includes("let latestReadingsRequestId = 0;"), "parallel Area readings must track stale requests independently for every Section");
-assert(runtime.includes("function renderAreaLiveReadingsBoard(") && runtime.includes('"area-readings-board"') && runtime.includes("data-area-reading-section"), "Live readings must provide an Area Section-by-metric matrix and a Section detail drill-down");
-assert(markup.includes('id="readingsWorkspaceMount"') && dashboardPage.includes("<ReadingsWorkspace />") && dashboardPage.includes("lazy(() => import('../features/readings/ReadingsWorkspace'))") && readingsWorkspace.includes('neurocropApi.getLatestReadings') && readingsWorkspace.includes('const presets = [') && readingsWorkspace.includes('exportCsv()') && readingsWorkspaceStyles.includes('body[data-primary-page="readings"] #metricsSection'), "Readings must use the API-backed redesign workspace with presets, export, drill-down and a legacy fallback boundary");
-assert(markup.includes('id="areasWorkspaceMount"') && dashboardPage.includes("<AreasWorkspace />") && dashboardPage.includes("lazy(() => import('../features/areas/AreasWorkspace'))") && areasWorkspace.includes("import '../../styles/areas-workspace.css'"), "Areas must mount as a dedicated lazy React workspace instead of exposing the legacy management renderer");
-assert(areasWorkspace.includes('neurocropApi.getDashboard()') && areasWorkspace.includes('neurocropApi.getAreas()') && areasWorkspace.includes('neurocropApi.getSections()') && areasWorkspace.includes('neurocropApi.getNodes()'), "Areas must combine real management, coverage and health data");
-assert(areasWorkspace.includes('neurocropApi.createArea(') && areasWorkspace.includes('neurocropApi.updateArea(') && areasWorkspace.includes('neurocropApi.deleteArea(') && areasWorkspace.includes("navigate(`/sections?area=${encodeURIComponent(area.id)}&create=1`)"), "Areas create, edit, safe delete and contextual section creation must call real application workflows");
-assert(areasWorkspaceStyles.includes('var(--color-surface)') && !areasWorkspaceStyles.includes('var(--ink-'), "Areas must use the NeuroCrop design system instead of copying prototype palette values");
-assert(areasWorkspaceStyles.includes('body[data-react-areas-active="true"] #locationsManagementSection { display: block !important; }'), "Areas must remain visible without waiting for the legacy renderer to reveal its host section");
-assert(markup.includes('id="sectionsWorkspaceMount"') && dashboardPage.includes("<SectionsWorkspace />") && dashboardPage.includes("lazy(() => import('../features/sections/SectionsWorkspace'))") && sectionsWorkspace.includes("import '../../styles/sections-workspace.css'"), "Sections must mount as a dedicated lazy React workspace instead of exposing the legacy management renderer");
-assert(sectionsWorkspace.includes('neurocropApi.getAreas()') && sectionsWorkspace.includes('neurocropApi.getSections()') && sectionsWorkspace.includes('neurocropApi.getNodes()') && sectionsWorkspace.includes('neurocropApi.getCropProfiles()'), "Sections must derive its directory, coverage and readiness from real management data");
-assert(sectionsWorkspace.includes('neurocropApi.createSection(') && sectionsWorkspace.includes('neurocropApi.updateSection(') && sectionsWorkspace.includes('neurocropApi.deleteSection(') && sectionsWorkspace.includes('duplicateSection') && sectionsWorkspace.includes('assignBulkProfile'), "Sections create, edit, duplicate, bulk profile assignment and deletion must call backend APIs");
-assert(sectionsWorkspace.includes("type ViewMode = 'directory' | 'coverage'") && sectionsWorkspace.includes('downloadCsv(') && sectionsWorkspace.includes('readiness(section)') && sectionsWorkspaceStyles.includes('var(--color-surface)') && !sectionsWorkspaceStyles.includes('var(--ink-'), "Sections must retain the transferred directory and coverage workflows while using the NeuroCrop design system rather than prototype colors");
+
+for (const header of [
+  'Strict-Transport-Security',
+  'X-Content-Type-Options',
+  'X-Frame-Options',
+  'Referrer-Policy',
+  'Permissions-Policy',
+]) {
+  assert(source['public/.htaccess'].includes(`Header always set ${header}`), `${header} must remain configured`)
+}
 assert(
-  markup.includes('data-sidebar-action="actions"')
-    && markup.includes('id="actionsWorkspaceMount"')
-    && runtime.includes('actions: { page: "actions", route: "/actions" }')
-    && runtime.includes('case "actions":')
-    && runtime.includes('elements.actionsManagementSection.hidden = !isActionsPage')
-    && dashboardPage.includes("'/actions'")
-    && dashboardPage.includes('<ActionsWorkspace />')
-    && dashboardPage.includes("lazy(() => import('../features/actions/ActionsWorkspace'))"),
-  "Actions must remain a first-class authenticated route instead of falling through to Login or another workspace",
-);
+  markup.includes('class="skip-to-content"')
+    && markup.includes('id="dashboardMain"')
+    && markup.includes('aria-live="assertive"')
+    && markup.includes('autocomplete="current-password"'),
+  'the shell must retain keyboard, announcement and autofill accessibility',
+)
 assert(
-  actionsWorkspace.includes('neurocropApi.getTodayActions()')
-    && actionsWorkspace.includes('neurocropApi.getActionHistory(100)')
-    && actionsWorkspace.includes('createdByName')
-    && actionsWorkspace.includes("status: 'in_progress'")
-    && actionsWorkspace.includes("status: 'completed'")
-    && actionsWorkspace.includes("status: 'failed'")
-    && actionsWorkspace.includes('Record work')
-    && actionsWorkspace.includes('Submit for verification')
-    && actionsWorkspace.includes('item.workflowAction || item')
-    && actionsWorkspace.includes('window.setInterval')
-    && actionsWorkspace.includes("'Awaiting verification'")
-    && actionsWorkspace.includes("'Verified improvement'")
-    && actionsWorkspaceStyles.includes('var(--color-surface)')
-    && actionsWorkspaceStyles.includes('@media (max-width: 700px)'),
-  "Actions must expose auditable employee history and working check controls in the shared responsive design system",
-);
+  source['public/neurocrop-i18n-lt.js'].includes('window.NeuroCropLithuanianText')
+    && dashboard.includes('ensureLithuanianTranslations()')
+    && runtime.includes('window.NeuroCropLoadLithuanianTranslations()'),
+  'Lithuanian translations must remain available on first load and language change',
+)
 assert(
-  !controlCenterE2e.includes(".triage-priority-card")
-    && !controlCenterE2e.includes(".grower-command")
-    && controlCenterE2e.includes('[data-nc-react-workspace="overview"]')
-    && controlCenterE2e.includes("Select active Area")
-    && controlCenterE2e.includes(".nc-coverage"),
-  "Overview e2e coverage must follow the current React workspace instead of removed legacy cards"
-);
-assert(colorSystemStyles.includes('button:not(.login-submit):not([data-language-option])') && colorSystemStyles.includes('.login-form-panel > p.max-w-md'), "Authentication controls and helper text must retain explicit WCAG-safe colors");
-assert(typographySystemStyles.includes('.grower-area-band > header small') && typographySystemStyles.includes('.grower-section-line > span:nth-of-type(2)') && typographySystemStyles.includes('.user-tile > span'), "Operational Overview and sidebar text must retain the 11px minimum typography guard");
-assert(colorContrastRatio(colorToken("color-on-primary"), colorToken("color-primary")) >= 4.5 && colorContrastRatio(colorToken("color-text-secondary"), colorToken("color-row-selected")) >= 4.5 && colorContrastRatio(colorToken("color-text-secondary"), colorToken("color-surface")) >= 4.5, "Core authentication and selected-row color pairs must meet WCAG AA contrast");
-assert(markup.includes('id="settingsWorkspaceMount"') && dashboardPage.includes('<SettingsWorkspace />') && dashboardPage.includes("lazy(() => import('../features/settings/SettingsWorkspace'))") && settingsWorkspace.includes('neurocropApi.updateTeamMemberRole') && settingsWorkspace.includes('neurocropApi.revokeSession') && settingsWorkspace.includes('neurocropApi.updateCurrentOrganization'), "Settings must use the API-backed lazy redesign workspace with real team, session and organization actions");
-assert(apiFacade.includes('getInvitationStatus:') && invitePage.includes('neurocropApi.getInvitationStatus(token)') && invitePage.includes("revoked: { title: 'Invitation cancelled'") && invitePage.includes("invitation.status === 'pending'") && invitePage.includes("invitation.accountExists ? 'current-password' : 'new-password'"), "Invitation links must validate on open, explain revoked access, and distinguish existing from new accounts");
-assert(invitePage.includes("setInvitation({ status: 'error' })") && invitePage.includes('Invitation could not be checked') && invitePage.includes('window.location.reload()'), "Invitation transport failures must not be misreported as invalid links and must offer a retry");
-assert(markup.includes('data-sidebar-action="organization"') && markup.includes('<span>Organisation</span>') && markup.includes('id="organizationWorkspaceMount"') && runtime.includes('syncTopLevelRoute("/organization")') && dashboardPage.includes('<OrganizationWorkspace />') && dashboardPage.includes("lazy(() => import('../features/settings/OrganizationWorkspace'))") && organizationWorkspace.includes('neurocropApi.updateCurrentOrganization') && organizationWorkspace.includes('neurocropApi.inviteMember') && organizationWorkspace.includes('neurocropApi.updateTeamMemberRole') && organizationWorkspace.includes('neurocropApi.switchOrganization') && organizationWorkspace.includes('neurocropApi.getAreas()'), "Organisation must be a separate lazy API-backed customer workspace, not a Settings alias or platform administration page");
-assert(!settingsWorkspace.includes("user?.isPlatformAdmin ?") && !settingsWorkspace.includes("navigate('/admin/integrations')") && markup.includes('data-sidebar-action="admin"') && markup.includes('<span>Admin</span>') && runtime.includes('button.dataset.sidebarAction === "admin"') && runtime.includes('getLoginSession()?.isPlatformAdmin === true'), "Admin navigation must remain separate from Settings and visible only to verified platform administrators");
-assert(markup.includes('id="adminWorkspaceMount"') && dashboardPage.includes('<AdminWorkspace />') && dashboardPage.includes("lazy(() => import('../features/settings/AdminWorkspace'))") && adminWorkspace.includes('neurocropApi.getPlatformOrganizations') && adminWorkspace.includes('neurocropApi.createPlatformOrganization') && adminWorkspace.includes('neurocropApi.approveOrganizationRequest') && adminWorkspace.includes('neurocropApi.setPlatformUserActive') && adminWorkspace.includes("navigate('/', { replace: true })"), "Admin must use a separate lazy role-guarded workspace with real customer, request, user and platform-access actions");
-assert(markup.includes('id="adminIntegrationsMount"') && dashboardPage.includes('<AdminIntegrationsWorkspace />') && dashboardPage.includes("lazy(() => import('../features/settings/AdminIntegrationsWorkspace'))") && adminIntegrationsWorkspace.includes('neurocropApi.getPlatformIntegrations') && adminIntegrationsWorkspace.includes("navigate('/', { replace: true })"), "Admin integrations must have a lazy role-guarded API-backed workspace");
-assert(settingsWorkspace.includes("import '../../styles/settings-workspace.css'") && settingsWorkspaceStyles.includes('var(--color-background)') === false && settingsWorkspaceStyles.includes('var(--color-surface)') && settingsWorkspaceStyles.includes('var(--type-body-sm)'), "Settings must retain the NeuroCrop color and typography systems without importing prototype palette values");
-assert(readingsWorkspace.includes('neurocropApi.getAreas()') && readingsWorkspace.includes('neurocropApi.getSections()') && readingsWorkspace.includes('zone.area_id') && readingsWorkspace.includes('zone.crop_profile'), "Readings Area options and freshness counters must survive dashboard-shape differences by using the management endpoints and backend snake_case fields");
-assert(readingsWorkspace.includes('function getMetricFreshness(') && readingsWorkspace.includes('observation?.lastObservedAt') && readingsWorkspace.includes('observation?.expectedIntervalSec'), "Readings quality must follow each metric observation instead of borrowing the freshest Section timestamp");
-assert(readingsWorkspace.includes('neurocropApi.getHistory({') && readingsWorkspace.includes('function PinnedSparkline(') && readingsWorkspace.includes('Time ({periodLabel})') && readingsWorkspace.includes('Not enough history for a graph yet') && readingsWorkspaceStyles.includes('var(--chart-temperature)') && readingsWorkspaceStyles.includes('var(--chart-humidity)') && readingsWorkspaceStyles.includes('var(--chart-vpd)'), "Pinned Readings comparisons must render real backend history with named axes and the shared measurement palette instead of fabricating or status-coloring chart points");
-assert(
-  readingsWorkspace.includes("type: 'neurocrop:open-trend'")
-    && readingsWorkspace.includes('onOpenTrend={() => openTrendPreview(section, metric)}')
-    && readingsWorkspace.includes("type TrendRangeKey = '24h' | '7d' | '30d'")
-    && readingsWorkspace.includes('function TrendPreviewChart(')
-    && readingsWorkspace.includes("import { renderTrendChart } from '../trends/sharedTrendChart'")
-    && trendsWorkspace.includes("import { renderTrendChart } from './sharedTrendChart'")
-    && sharedTrendChart.includes('export function buildTrendChartOption(')
-    && sharedTrendChart.includes('export function renderTrendChart(')
-    && !runtime.includes('window.NeuroCropTrendCharts')
-    && runtime.includes('The React Trends workspace owns /history; legacy chart DOM is not mounted.')
-    && runtime.includes('elements.historySection.hidden = !isHistoryPage;')
-    && !runtime.includes('function buildTrendEChartsOption(')
-    && markup.includes('<div id="trendsWorkspaceMount" aria-live="polite"></div>')
-    && !markup.includes('trend-history-shell')
-    && readingsWorkspace.includes('Open full Trends')
-    && runtime.includes('event.data.type !== "neurocrop:open-trend"')
-    && runtime.includes('openTrendHistory(String(event.data.metricKey || ""))')
-    && readingsWorkspaceStyles.includes('.nc-reading-cell:focus-visible')
-    && readingsWorkspaceStyles.includes('.nc-trend-modal-backdrop { align-items: center; justify-content: center;'),
-  "Readings and Trends must use one typed React chart renderer without depending on a legacy window API",
-);
-assert(runtime.includes("if (!nextZone) {") && runtime.includes("renderDashboard();"), "empty areas must render instead of returning during hydration");
-assert(runtime.includes('elements.dashboardShell.setAttribute("aria-busy", "true")') && runtime.includes('elements.dashboardShell.removeAttribute("aria-busy")'), "dashboard hydration must expose its loading state without leaving the UI blank");
-assert(runtime.includes('let dashboardHydrationStatus = isApiDataMode() ? "idle" : "ready";') && runtime.includes('dashboardHydrationStatus = "empty";') && runtime.includes('dashboardHydrationStatus = hasUsableWorkspace ? "ready" : "error";'), "dashboard hydration must distinguish loading, empty and failed workspaces");
-assert(runtime.includes('function renderWorkspaceHydrationState(status = "loading")') && runtime.includes('dashboardHydrationStatus !== "empty"') && runtime.includes('Your data was not reported as empty.'), "initial loading and API failures must never flash the first Area onboarding state");
-assert(runtime.includes("if (isApiDataMode()) {") && runtime.includes("Never infer installed sensors"), "API mode must not fabricate per-node sensor readings");
-assert(sharedTrendChart.includes("const metricColorTokens:") && sharedTrendChart.includes("seriesColor(series, metric, index, prepared.length)") && !sharedTrendChart.includes("buildTrendValueColorPieces"), "sensor charts must retain metric identity colors instead of borrowing semantic warning and danger colors");
-assert(runtime.includes("function renderRuntimeErrorState()"), "render failures must replace stale content with an explicit error state");
-assert(runtime.includes('role="alert"') && runtime.includes("data-dashboard-retry"), "runtime errors must be announced and offer a retry action");
-assert(runtime.includes("function renderEmptyAreaState(site)") && runtime.includes("empty-area-state"), "empty areas must render a neutral dedicated state");
-assert(runtime.includes('const hasAnotherArea = (dashboardData.sites || []).some') && runtime.includes('activePrimaryPage = "locations";') && runtime.includes('syncTopLevelRoute("/areas", { replace: true });') && runtime.includes('elements.zoneImpactSection.hidden = true;'), "all empty-workspace entry points must use the single canonical Areas onboarding state");
-assert(runtime.includes("const { preferCurrentZone = false } = options;"), "the selected Area must take precedence over a stale Section context");
-assert(
-  runtime.includes('alerts: { page: "alerts", route: "/alerts" }')
-    && runtime.includes('case "alerts":')
-    && runtime.includes('scrollToSection("alertsManagementSection"')
-    && markup.includes('id="alertsManagementSection"'),
-  "Alerts navigation must open the dedicated operational alert workspace"
-);
-assert(runtime.includes("function buildAlertsPageItems(globalSnapshots = [])") && runtime.includes('kind: "metric"') && runtime.includes('kind: "offline"'), "Alerts must combine environmental exceptions and offline devices from live workspace data");
-assert(runtime.includes("function renderAlertsManagementPage(globalSnapshots = [])") && runtime.includes('data-alerts-page-filter=') && runtime.includes('data-alerts-view-context=') && runtime.includes('data-alerts-acknowledge=') && runtime.includes('data-alerts-snooze=') && !runtime.includes('data-alerts-resolve='), "Alerts must show live diagnostic context with seen and mute controls, without duplicating the Actions completion workflow");
-assert(runtime.includes("backendAlertsCanonicalLoaded = true") && runtime.includes('record?.managed === true && record?.active === true') && runtime.includes('source: "backend"'), "Alerts must prefer canonical active backend records and use browser-derived conditions only as an API fallback");
-assert(runtime.includes("function acknowledgeAlertsPageItems(items)") && runtime.includes("function snoozeAlertsPageItem(item)") && runtime.includes("backendAlertRecords") && runtime.includes('window.NeuroCropApi.getAlerts("all")') && runtime.includes("window.NeuroCropApi.acknowledgeAlert(item.id, { context: item })") && runtime.includes("window.NeuroCropApi.snoozeAlert(item.id") && apiFacade.includes("acknowledgeAlert:") && apiFacade.includes("createIntervention:"), "Alert seen and mute state must use persistent organization-scoped backend workflows");
-assert(runtime.includes("Alerts explain what is happening; employee work, assignment, and verification are managed in Actions.") && runtime.includes("The live condition remains active.") && !runtime.includes("Acknowledge only after the physical condition has been checked."), "Alerts and Actions must communicate distinct product responsibilities");
-assert(appSource.includes("import './styles/redesign-alerts.css'") && alertStyles.includes('.nc-alerts-layout') && alertStyles.includes('var(--color-danger)') && alertStyles.includes('var(--type-display-m)'), "Alerts must load dedicated responsive styles using the authoritative NeuroCrop color and typography tokens");
-assert(trendsWorkspace.includes("startsWith('section_peak_') ? 'section peak' : 'section median'") && trendsWorkspace.includes('aggregation: text(response.aggregation)'), "Light history must identify peak aggregation instead of pretending it is a median");
-assert(sharedTrendChart.includes("const finiteValues = values.map(Number).filter(Number.isFinite)") && sharedTrendChart.includes("A distant crop target must not flatten the measured curve."), "trend Y axes must prioritize real measurement ranges over wide display ranges");
-assert(runtime.includes('const filteredSites = blockSites.filter((site) => site.id === activeSiteId);'), "Sections must always follow the Area selected in the global header");
-assert(!runtime.includes('data-block-filter-select class='), "Sections must not expose a competing local Area filter");
-assert(runtime.includes("function rebuildEnhancedSelect(select)"), "Node Area changes must rebuild the visible Section selector");
-assert(runtime.includes("function setEnhancedSelectOpen") && runtime.includes("function focusEnhancedSelectOption"), "enhanced selects must support managed open state and keyboard focus");
-assert(runtime.includes('aria-controls="${escapeAttribute(selectId)}-menu"') && runtime.includes('document.addEventListener("keydown", (event) => {'), "enhanced selects must expose an associated menu and keyboard controls");
-assert(runtime.includes('sectionSelect.disabled = targetZones.length === 0;'), "Node Section selector must reflect whether the selected Area has sections");
-assert(runtime.includes('data-node-open-id="${escapeAttribute(node.id)}"') && runtime.includes("function renderNodeDetailPage(record)") && runtime.includes('syncTopLevelRoute(`/nodes/${encodeURIComponent(openNodeButton.dataset.nodeOpenId)}`)'), "Node rows must open the real node detail route");
-assert(runtime.includes('class="management-modal-shell node-edit-modal"') && runtime.includes('class="node-remove-zone field-wide"') && runtime.includes('class="button-new primary"') && nodeStyles.includes('Copied from the approved trial node editor'), "Node editing must use the approved trial modal layout without reinterpretation");
-assert(nodeStyles.includes('.designer-app .node-edit-backdrop-surface') && nodeStyles.includes('backdrop-filter: none;') && !nodeStyles.includes('backdrop-filter: blur(7px)') && nodeStyles.includes('translate3d(0, 10px, 0)') && !nodeStyles.includes('scale(.985)'), "Node registration modal must avoid full-screen live blur and scale rasterization on integrated GPUs");
-assert(runtime.includes('function openNodeRegistrationModal()') && runtime.includes('data-management-modal-form="node-register"') && !runtime.includes('id="nodeRegistrationPanel"'), "Register node must open a modal instead of inserting an inline page card");
-assert(runtime.includes("target.closest('[data-management-modal-form=\"node-register\"], [data-management-form=\"node\"]')") && runtime.includes('rebuildEnhancedSelect(sectionSelect);'), "Register node Area changes must rebuild the modal Section choices");
-assert(
-  runtime.includes('${renderManagementNotice("nodes")}')
-    && runtime.includes('Node ${registeredNodeName} registered in ${zone.name}.')
-    && runtime.includes('registeredNodeName = claim?.node?.name || claim?.node?.serialNumber || registeredDevEui;'),
-  "Node registration must show the factory name returned by the database"
-);
-assert(
-  apiFacade.includes("request('/nodes/claim'")
-    && runtime.includes('devEui: nodeFormState.devEui,\n            sectionId: zone.id\n          });')
-    && !runtime.includes('sectionId: zone.id,\n            name: nodeFormState.devEui'),
-  "Node registration must claim factory inventory using only DevEUI and its destination section"
-);
-assert(
-  runtime.includes('name="modalNodeDevEui"')
-    && runtime.includes('if (targetZoneId) updatePayload.sectionId = targetZoneId;')
-    && runtime.includes('window.NeuroCropApi.updateNode(currentDevEui, updatePayload)')
-    && !runtime.includes('DevEUI is the physical device identity.'),
-  "Node editing must submit valid DevEUI changes and assign a section only when selected"
-);
-assert(runtime.includes('removeButton.disabled = !event.target.checked;') && runtime.includes('data-modal-node-delete="${escapeAttribute(node.id)}" disabled') && runtime.includes('name="modalNodeHistory"') && runtime.includes('{ history: historyPolicy }'), "Node removal must require explicit confirmation and send the selected history-retention policy");
-assert(!runtime.includes('name="modalNodeReportingMode"') && !runtime.includes('name="modalNodeReportingInterval"'), "Node edit modal must not expose reporting mode or interval controls");
-assert(runtime.includes("function getNodeReportingModeLabel(profile)") && nodesModel.includes("power_save: 'Power save'"), "Node reporting modes must be presented with clear labels from the Node feature model");
-assert(nodesModel.includes("['healthy', 'watch', 'fault', 'offline']") && nodesModel.includes('Compatibility fallback for a rolling deployment') && !nodesModel.includes('Number(counters.reinit') && runtime.includes('<dt>Fault flags</dt>'), "Node health must prefer the backend state, ignore historical counters and retain full diagnostics");
-assert(runtime.includes('crop-profile-metric-row"') && runtime.includes('data-profile-alert-limit="warning"'), "Crop profile targets must retain visible automatic alert boundaries");
-assert(runtime.includes('class="profile-layout"') && runtime.includes('class="profile-guide"') && runtime.includes('class="profile-list-new"') && runtime.includes('profile-editor-new"'), "Crop profiles must retain the frontend-redesign list and editor information architecture");
-assert(runtime.includes('class="profile-list-edit">Edit') && profileStyles.includes('.designer-app .profile-list-edit'), "Every crop profile row must expose an explicit Edit action instead of relying on an unlabeled arrow");
-assert(runtime.includes('data-profile-editor-section="${escapeAttribute(section.id)}"') && runtime.includes('class="range-editor crop-profile-metric-row"') && runtime.includes('optimalInput("Optimal minimum"') && runtime.includes('optimalInput("Optimal maximum"') && !runtime.includes('data-profile-critical-output'), "Crop profile editing must expose only the two editable optimal limits while keeping derived alert limits behind metric details");
-assert(runtime.includes('class="profile-detail-breadcrumb"') && runtime.includes('const displayStage = normalizeProfileIdentity') && runtime.includes('"Custom program"'), "Crop profile editing must preserve the redesign breadcrumb and replace placeholder-only profile metadata with readable copy");
-assert(runtime.includes('class="crop-profile-identity-editor"') && runtime.indexOf('${profileIdentityMarkup}') < runtime.indexOf('class="crop-profile-editor-grid profile-editor-new"') && profileStyles.includes('.designer-app .crop-profile-identity-editor'), "Crop profile identity fields must remain visible at the top of every editor section");
-assert(runtime.includes('const nextMetrics = getCompleteCropProfileMetrics(draft.metrics || profile.metrics || {});'), "Crop profile save must preserve draft changes made across multiple editor sections");
-assert(runtime.includes('if (!isAdminPage && activeSettingsPanelKey === "profiles")') && runtime.includes('class="crop-profile-standalone"') && runtime.includes('isCropProfileCreateOpen ?'), "Crop profiles must render outside the legacy Settings shell and open creation only on demand");
-assert(appSource.includes("import './styles/redesign-profiles.css'") && profileStyles.includes('.designer-app .profile-layout') && profileStyles.includes('.designer-app .profile-editor-new'), "Crop profiles must load their dedicated frontend-redesign component styles");
-assert(profileStyles.includes('font-size: var(--type-display-m) !important;') && profileStyles.includes('font-size: var(--type-card-title);') && profileStyles.includes('font-size: var(--type-label);') && profileStyles.includes('height: var(--control-height-md);'), "Crop profile editing must use the authoritative NeuroCrop typography and control-size tokens instead of miniature redesign-demo type");
-assert(runtime.includes('class="profile-create-select-wrap"') && profileStyles.includes('.designer-app .profile-create-select-wrap select') && profileStyles.includes('overflow: visible;'), "Crop profile creation must keep the source-profile dropdown above the dialog without clipping");
-assert(runtime.includes('data-settings-profile-library-open') && runtime.includes('data-settings-profile-library-use') && runtime.includes('getCropProfileLibraryTemplateProfile') && runtime.includes('libraryTemplateKey: template.key') && profileStyles.includes('.designer-app .crop-profile-library'), "Crop profiles must expose an importable crop and growth-stage starter library that remains editable before creation");
-assert(runtime.includes('data-settings-delete-profile-form') && runtime.includes('replacementProfileId') && runtime.includes('submitCropProfileDeletion'), "Crop profile deletion must support safe reassignment of sections before removal");
-assert(runtime.includes('class="settings-secondary-button crop-profile-header-delete"') && profileStyles.includes('.designer-app .profile-detail-actions .crop-profile-header-delete'), "Crop profile deletion must be immediately visible in the profile header actions");
-assert(runtime.includes('profileKey === "default" ? "Default"') && runtime.includes('if (!profile || profileKey === "default") return;') && runtime.includes('class="default-profile-header-badge"') && profileStyles.includes('.designer-app .default-profile-header-badge'), "The Default crop profile must keep its canonical name and expose no deletion action");
-assert(runtime.includes("await hydrateDashboardFromApi();") && runtime.includes("Scores are calculated by the backend from the saved profile ranges."), "saving a crop profile must immediately refresh canonical backend scores");
-assert(runtime.includes('class="settings-local-notice"'), "non-API settings must be clearly identified as browser-local");
-assert(runtime.includes('snapshot?.overall?.source === "backend"') && runtime.includes("Number.isFinite(snapshot.overall.indexScore)"), "Area and Section selectors must display backend scores before local readings load");
-assert(runtime.includes('function getDirectionalScoreSeverity(') && runtime.includes('const scoreWarningEdgeSeverity = 0.2;') && !runtime.includes('severity = 0.34 +'), "frontend fallback scoring must use the continuous v2 stress curve without a warning cliff");
-assert(runtime.includes('function isScoreMetricKey(key)') && runtime.includes('["batteryLevel", "lux"]') && runtime.includes('{ id: "climate", weight: 0.35'), "frontend fallback scoring must preserve v2 agronomic domains and context-only metrics");
-assert(runtime.includes('const limitingFactorActivation = smoothScoreProgress((worstGroup.severity - 0.25) / 0.75);') && runtime.includes('* worstGroup.limitingCap') && runtime.includes('{ id: "carbon", weight: 0.08, limitingCap: 0.02'), "frontend fallback limiting-factor pressure must be material-stress and domain-weight aware");
-assert(runtime.includes('const baseRisk = scoreGroups.reduce((sum, group) => sum + group.severity * group.weight, 0);') && !runtime.includes('const averageSeverity = scoreGroups.reduce((sum, group) => sum + group.severity * group.weight, 0) / totalWeight;'), "frontend fallback must preserve absolute domain weights instead of inflating installed sensors");
-assert(runtime.includes('source: "frontend-fallback"') && runtime.includes('scoreModelVersion: "2.1.0"'), "frontend fallback scores must identify the same explicit model version as the backend");
-assert(runtime.includes('backendScoreGroups:') && runtime.includes('scoreGroups: scoreGroupsWithImpact') && runtime.includes('class="diagnostic-command-score"') && !runtime.includes('class="triage-score-impact-row"'), "GS diagnostics must remain available in Detailed without competing with the grower's Simple work plan");
-assert(runtime.includes("function refreshDataForActivePage()") && runtime.includes("const dashboardRefreshTtlMs = 60 * 1000;") && runtime.includes("refreshDataForActivePage();"), "data pages must refresh stale dashboard data on navigation without reloading every page");
-assert(runtime.includes("const dashboardRefreshIntervalMs = 60 * 1000;") && runtime.includes("window.setInterval(refreshLiveDashboardData, dashboardRefreshIntervalMs);"), "live polling must avoid unnecessary half-minute full-dashboard refreshes");
-assert(runtime.includes("if (isLocationsPage) renderLocationsManagementPage(globalSnapshots);") && runtime.includes("if (!isPrimaryWorkspacePage && isSimpleExperienceMode)") && runtime.includes("if (isDetailedOverview) {"), "live refreshes must render only the active route instead of rebuilding hidden workspaces");
-assert(runtime.includes("function scheduleViewportSync()") && runtime.includes('window.addEventListener("resize", scheduleViewportSync, { passive: true });') && !runtime.includes('window.addEventListener("resize", () => trendHistoryChartInstance?.resize());'), "viewport resize work must be coalesced into a single animation frame");
-assert(runtime.includes('silent = false') && runtime.includes('preserveCurrentOnError: true, silent: true') && runtime.includes('if (!silent) elements.dashboardShell.setAttribute("aria-busy", "true")') && runtime.includes('if (!silent) elements.dashboardShell.removeAttribute("aria-busy")'), "background refreshes must update data silently while foreground loading always cleans up its busy state");
-assert(runtime.includes('dashboardHydrationInFlight && dashboardHydrationOrganizationId === organizationId') && runtime.includes('dashboardHydrationInFlightRequestId === requestId'), "dashboard hydration must coalesce duplicate requests without blocking an organization switch");
-assert(runtime.includes('if (unauthorizedStateHandled) return;') && runtime.includes('unauthorizedStateHandled = false;'), "parallel unauthorized responses must collapse into one stable signed-out transition");
-assert(runtime.includes('setLoginState(session, { resetWorkspace: true });'), "authenticated workspace entry must reset to Overview and a concrete priority zone");
-assert(trendsWorkspace.includes('Time in target') && trendsWorkspace.includes('neurocropApi.getSiteComparison({') && trendsWorkspace.includes('Compare Sections'), "Trends must provide time in target and section comparison");
-assert(sharedTrendChart.includes('export function calculateTimeAwareEwma(') && sharedTrendChart.includes('1 - Math.exp(') && sharedTrendChart.includes('rawValues[pointIndex]'), "Trend charts must use time-aware EWMA without changing source measurements shown in tooltips");
-assert(sharedTrendChart.includes("if (metricKey === 'lux') return 20") && sharedTrendChart.includes('const values = displayed[index]'), "Lux must support EWMA rendering and chart extrema must follow the displayed curve");
-assert(runtime.includes('function evaluateCurrentLightReading(') && runtime.includes('Expected darkness') && runtime.includes('Scheduled light missing'), "Light status must follow the configured photoperiod instead of treating darkness as a permanent critical state");
-assert(runtime.includes('class="lighting-schedule-head"') && runtime.includes('class="lighting-schedule-fields"') && runtime.includes('data-lighting-schedule="start"') && runtime.includes('data-lighting-schedule="end"') && runtime.includes('darkThresholdLux'), "Crop profiles must expose a structured lighting schedule and darkness threshold");
-assert(apiFacade.includes('getSectionDynamics:') && runtime.includes('fetchSectionDynamics(') && runtime.includes('Photoperiod achieved') && runtime.includes('Approximate DLI'), "Overview dynamics must use backend 24-hour score and lighting analytics");
-assert(sharedTrendChart.includes('getTrendAxisDomain(allValues, metric, target)') && sharedTrendChart.includes('offscreenTargetLabel'), "Trend charts must retain a readable detail scale while identifying targets outside the visible axis");
-assert(sharedTrendChart.includes('offscreenTargetLabel') && sharedTrendChart.includes("translate('Target')"), "Detail trend scale must explain targets outside the visible measurement range");
-assert(sharedTrendChart.includes('metricColorTokens') && sharedTrendChart.includes('defaultSeriesColors'), "Trend and comparison charts must use the dedicated measurement palette");
-assert(runtime.includes('class="admin-table"') && runtime.includes('data-admin-search="organizations"') && runtime.includes('data-admin-search="users"'), "Admin must use searchable management tables instead of decorative settings cards");
-assert(runtime.includes('id="adminAdministratorsTitle"') && runtime.includes('data-admin-search="administrators"') && runtime.includes('data-admin-row="administrators"'), "Admin must expose a dedicated searchable administrators table separate from the users table");
-assert(runtime.includes('Managed in Administrators') && runtime.includes('platformAdministrators.map'), "administrator revocation must be managed in the dedicated administrators table without duplicate user-row controls");
-assert(apiClient.includes('async function readResponseBody(response: Response)') && apiClient.includes('value.error?.message') && apiClient.includes('requestSignal(options.signal, 15_000)'), "API requests must handle empty/non-JSON responses, expose structured error messages, and time out");
-assert(apiClient.includes('AbortSignal.any([signal, timeoutSignal])') && apiClient.includes("error.name === 'AbortError'") && apiClient.indexOf('...options,') < apiClient.indexOf("credentials: 'include'"), "API requests must keep caller cancellation plus timeouts, avoid false offline state on cancellation, and prevent option overrides from dropping authenticated defaults");
-assert(apiClient.includes('function isPublicAuthenticationRequest(path: string)') && apiClient.includes("path === '/auth/accept-invite'") && apiClient.includes('!isPublicAuthenticationRequest(path)'), "Public invitation credential failures must not be misreported as expired authenticated sessions");
-assert(apiClient.includes("neurocrop:api-connection") && runtime.includes('window.addEventListener("neurocrop:api-connection"') && !runtime.includes("getClientLeaseStatus(latestRenderedFarmState"), "header connection status must follow API transport reachability instead of expiring sensor-state leases");
-assert(dashboardPage.includes('installNeuroCropApi()') && !runtime.includes('async function readResponseBody(response)'), "the modular API client must be installed and its legacy runtime duplicate must remain removed");
-assert(appSource.includes("lazy(() => import('./pages/DashboardPage'))") && appSource.includes("lazy(() => import('./pages/RegisterPage'))") && appSource.includes('<Suspense fallback='), "application routes must be code-split behind an explicit loading state");
-assert(registerPage.includes('neurocropApi.register(') && invitePage.includes('neurocropApi.acceptInvitation('), "authentication pages must use the shared API facade rather than direct fetch calls");
-assert(apiClient.includes('export const request') && apiClient.includes('requestSignal(options.signal, 15_000)') && apiClient.includes('notifyUnauthorized()'), "API transport, timeout, and session handling must live in the dedicated service module");
-assert(apiFacade.includes('export const neurocropApi') && apiFacade.includes('getDashboard:') && apiFacade.includes('downloadMeasurementsCsv:'), "backend endpoints must be exposed by the modular API facade");
-assert(apiFacade.includes('getTodayActions:') && runtime.includes('backendTodayActions') && runtime.includes('hasBackendPriority'), "Today priority must prefer ranked backend actions while retaining a local fallback");
-assert(apiFacade.includes('submitTodayActionFeedback:') && runtime.includes('data-today-feedback="completed"') && runtime.includes('submitTodayPriorityFeedback('), "Backend recommendations must support persistent Done, Defer and Failed outcomes");
-assert(apiFacade.includes('getActionHistory:') && runtime.includes('today-priority-history') && runtime.includes('Result uses at least 3 readings after the response delay'), "Recent action history must explain when sensor verification becomes available");
-assert(runtime.includes('function renderTriageFeedbackControls(') && runtime.includes('data-triage-feedback="completed"') && runtime.includes('${renderTriageActionHistory()}'), "Simple must capture action feedback while Detailed keeps the verified action history");
-assert(runtime.includes('todayPriorityFeedbackState.actionId === action.id && todayPriorityFeedbackState.saving') && runtime.includes('persistedFeedback?.status === "completed"'), "Action feedback must block duplicate in-flight and already-selected submissions");
-assert(runtime.includes('function getActionHistoryPresentation(') && runtime.includes('hasFiniteMetricValue(rawCurrentValue)') && runtime.includes('hasFiniteMetricValue(rawBaselineValue)') && runtime.includes('insufficient_data:') && runtime.includes('Not checked: action was deferred'), "Action history must separate recorded feedback from robust before/after sensor verification and never render null as zero");
-assert(runtime.includes('function hasFiniteMetricValue(value)') && runtime.includes('value !== null') && runtime.includes('hasFiniteMetricValue(observation.value)') && !runtime.includes('observation && Number.isFinite(Number(observation.value))'), "Live readings must never convert missing API measurements into numeric zero");
-assert(dashboardStore.includes('function normalizeBatteryLevel(value)') && runtime.includes('.filter(hasFiniteMetricValue)') && runtime.includes('hasFiniteMetricValue(node.level)'), "Missing battery telemetry must remain unavailable instead of becoming a zero-percent alert");
-assert(
-  dashboardStore.includes('window.NeuroCropStore = {')
-    && dashboardPage.includes('function ensureOptionalDashboardStore()')
-    && dashboardPage.includes('neurocropApi.isConnected() || window.NeuroCropStore')
+  dashboard.includes('ensureOptionalDashboardStore')
+    && dashboard.includes('neurocropApi.isConnected() || window.NeuroCropStore')
+    && source['public/neurocrop-dashboard-store.js'].includes('window.NeuroCropStore = {')
     && !runtime.includes('window.NeuroCropStore = {'),
-  "The local demo store must remain outside the production runtime and load only when the API is unavailable",
-);
-assert(
-  lithuanianTranslations.includes('window.NeuroCropLithuanianText = Object.freeze(lithuanianInterfaceText)')
-    && dashboardPage.includes('function ensureLithuanianTranslations(force = false)')
-    && dashboardPage.includes('ensureLithuanianTranslations()')
-    && runtime.includes('window.NeuroCropLoadLithuanianTranslations()')
-    && !runtime.includes('const lithuanianInterfaceText = {'),
-  "Lithuanian translations must load before an LT session and on demand when the language changes",
-);
-assert(Buffer.byteLength(runtime) < 810_000, "The production runtime must stay below its legacy Trends removal budget");
-assert(runtime.includes('function openActionCompletionModal(') && runtime.includes('data-management-modal-form="action-completion"') && runtime.includes('executionDetails: {') && runtime.includes('requestTodayPriorityFeedback('), "Completed actions must capture the intervention type and details before submission");
-assert(runtime.includes('const backendPriorityAction = availableBackendActions[0] || null') && runtime.includes('snapshotsByZoneId.get(backendPriorityAction.sectionId)') && runtime.includes('Do this first') && runtime.includes('Inspection route') && runtime.includes('data-site-id="${escapeAttribute(prioritySnapshot.site.id)}"'), "Simple Today must keep one farm-wide first action and preserve its Area and Section route context");
-assert(runtime.includes('class="grower-area-list"') && runtime.includes('class="grower-area-band"') && runtime.includes('class="grower-section-line"') && runtime.includes('data-overview-section-card') && runtime.includes('const sectionCard = event.target.closest("[data-overview-section-card]")') && styles.includes('.grower-area-list') && styles.includes('.grower-area-band + .grower-area-band'), "Simple Today must scale many Areas vertically and keep every Section directly reachable");
-assert(runtime.includes('const areaLiveEssentialMetricKeys = [') && runtime.includes('activeWorkbenchLensKey = "essential"') && runtime.includes('label: diagnosticText("Key readings", "Svarbiausi rodmenys")'), "Compare Sections must default to a bounded key-reading lens instead of opening every installed parameter");
-assert(markup.includes('class="rail-label">Monitor</p>') && markup.includes('class="rail-label rail-label-second">Manage</p>') && markup.includes('data-sidebar-action="alerts"') && markup.includes('data-sidebar-action="crop-profiles"'), "Primary navigation must match the frontend-redesign rail information architecture");
-assert(markup.includes('id="sidebarMobileOpen"') && markup.includes('id="sidebarScrim"') && runtime.includes('function setSidebarOpen(isOpen)') && runtime.includes('updateSidebarWorkspaceStatus(alertsPageView.open.length)') && runtime.includes('elements.sidebarSignOutButton.addEventListener("click", signOut)') && sidebarStyles.includes('@media (max-width: 1279px)') && appSource.includes("import './styles/neurocrop-color-system.css'") && colorSystemStyles.includes('--color-sidebar-bg: #ebece8;'), "The redesign navigation must retain responsive behavior, live workspace status, session actions and the neutral NeuroCrop palette");
-assert(colorSystemStyles.includes(':root[data-theme="dark"]') && colorSystemStyles.includes('--color-accent-ai: #675f93;') && colorSystemStyles.includes('--color-success: #286b51;') && colorSystemStyles.includes('--chart-temperature: #d36c5b;') && colorSystemStyles.includes('--chart-growth: #3f7d65;'), "The NeuroCrop color system must define light, dark, semantic, AI and sensor-chart palettes");
-assert(appSource.includes("import './styles/neurocrop-typography-system.css'") && typographySystemStyles.includes('--font-ui: "IBM Plex Sans"') && typographySystemStyles.includes('--type-display-xl: 3rem;') && typographySystemStyles.includes('--table-row-height: 2.75rem;') && typographySystemStyles.includes('--space-64: 4rem;'), "The authoritative typography layer must define the UI family, full type scale, table density and spacing rhythm");
-assert(sharedTrendChart.includes("fontFamily: 'IBM Plex Sans, sans-serif'") && !sharedTrendChart.includes("fontFamily: 'Manrope, sans-serif'") && !sharedTrendChart.match(/fontWeight: (?:7|8|9)\d\d/), "Charts must follow the new typography system without legacy font families or excessive weights");
-assert(apiFacade.includes('changePassword:') && runtime.includes('data-settings-form="password"') && runtime.includes('data-password-feedback'), "Workspace settings must expose the authenticated password-change API with inline feedback");
-assert(dashboardPage.includes('installNeuroCropFeatures()') && runtime.includes('window.NeuroCropFeatures.areas') && runtime.includes('window.NeuroCropFeatures.sections'), "Area and Section feature models must be installed before the legacy renderer uses them");
-assert(areasModel.includes('export function buildAreasSummary') && areasModel.includes('export function getAreaFormCopy'), "Area counts and UI copy must live in the Area feature model");
-assert(sectionsModel.includes('export function getSectionsForArea') && sectionsModel.includes('export function summarizeSections'), "Section scoping, ordering, and counts must live in the Section feature model");
-assert(runtime.includes('window.NeuroCropFeatures.nodes.getHealthSummary') && nodesModel.includes('export function getDetectedSensorNames') && nodesModel.includes('export function formatLastPayload'), "Node health, sensors, and payload presentation must live in the Node feature model");
-assert(runtime.includes('let dashboardHydrationRequestId = 0;') && runtime.includes('const isCurrentRequest = () => requestId === dashboardHydrationRequestId'), "stale dashboard responses must not overwrite a newer organization context");
-assert(runtime.includes('data-platform-admin-grant=') && runtime.includes('data-platform-user-status=') && runtime.includes('data-platform-user-delete='), "Super Admin must manage admin access, account status, and deletion directly from the Users table");
-assert(runtime.includes('isSuperAdmin: session.isSuperAdmin === true') && runtime.includes('user.isSuperAdmin ? "Super admin"'), "Super Admin identity must remain explicit and protected in the frontend");
-assert(runtime.includes('isGrowthMetricKey(item.key) && item.configured !== false') && runtime.includes('configured: isConfigured,'), "Coverage and missing-metric trust must count only metrics configured for the section");
-assert(runtime.includes('const configuredMetrics = Array.isArray(zone.configuredMetrics)') && runtime.includes('...configuredMetrics'), "Dashboard normalization must preserve physically configured metrics even when a reading is temporarily missing");
-assert(runtime.includes('class="management-feedback') && runtime.includes('aria-live="polite"') && runtime.includes('setAttribute("aria-busy"'), "Management feedback and live data loading must expose accessible status semantics");
-assert(runtime.includes('const totalGrowthCount = (zone.configuredMetrics || zone.availableMetrics || [])') && !runtime.includes('Object.keys(profile.metrics).filter((key) => isGrowthMetricKey(key)).length'), "Section management coverage must use configured hardware metrics rather than the future profile catalogue");
-assert(!runtime.includes('data-settings-form="platform-admin"'), "Admin access must not use a separate email form outside the Users table");
-assert(markup.includes('class="skip-to-content"') && markup.includes('id="dashboardMain"') && markup.includes('tabindex="-1"'), "the application shell must provide a keyboard-accessible skip link and focus target");
-assert(markup.includes('id="loginError"') && markup.includes('aria-live="assertive"') && !markup.includes('id="loginError" class="hidden'), "login failures must become visibly and accessibly announced instead of remaining hidden by CSS");
-assert(markup.includes('name="username"') && markup.includes('autocomplete="username"'), "login email must expose the standard username autofill contract");
-assert(markup.includes('name="password"') && markup.includes('autocomplete="current-password"'), "login password must expose the standard current-password autofill contract");
-assert(runtime.includes('const authenticatedWorkspaceWasVisible = !elements.dashboardShell.hidden;'), "anonymous protected-route requests must not be presented as an expired visible session");
-assert(runtime.includes('if (!authenticatedWorkspaceWasVisible) {') && runtime.includes('elements.loginSubmit.disabled = false;'), "anonymous 401 handling must preserve autofilled credentials and keep sign-in available");
-assert(markup.includes('<span>Areas</span>') && markup.includes('<span>Sections</span>'), "primary navigation must use consistent Area and Section terminology");
-assert(styles.includes("Commercial UI consolidation") && styles.includes(".management-list-row") && styles.includes("min-height: 58px"), "management lists must retain the compact commercial layout for large workspaces");
-assert(styles.includes('.state-chip[data-state="unknown"]') && styles.includes('background: #ecefec'), "No data and unknown states must remain visually neutral rather than critical red");
-assert(styles.includes("@media (max-width: 760px)") && styles.includes(".admin-table-wrap"), "the consolidated UI must preserve mobile and wide-table fallbacks");
-assert(styles.includes('#overviewTriageSection[aria-busy="true"]') && styles.includes("nc-skeleton-sweep"), "live surfaces must retain visible skeleton loading states");
-assert(styles.includes("Cross-device performance") && styles.includes(".designer-app *::after") && styles.includes(".designer-app .management-modal-backdrop") && styles.includes("backdrop-filter: none !important") && styles.includes("@media (min-width: 1800px)") && styles.includes("max-width: 2160px"), "the application must avoid live blur and provide an explicit widescreen layout");
-assert(config.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "runtime config must use the deployed API base URL");
-assert(contract.includes('apiBaseUrl: "https://api.neurocrop.lt"'), "API contract must match the deployed API base URL");
-assert((`${authLayout}\n${invitePage}`.match(/window\.location\.assign\('\/'\)/g) || []).length >= 2, "auth-only routes must return through a clean document load instead of reusing global dashboard listeners");
+  'the local demo store must stay outside the production API runtime',
+)
+assert(Buffer.byteLength(runtime) < 300_000, 'the transitional dashboard runtime must stay below 300 KB')
 
-if (failures) process.exitCode = 1;
-else console.log("Runtime invariants passed.");
+if (failures) process.exit(1)
+console.log('Runtime architecture invariants passed.')

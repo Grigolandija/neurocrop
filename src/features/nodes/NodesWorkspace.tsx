@@ -224,11 +224,13 @@ export default function NodesWorkspace() {
 
   useEffect(() => {
     if (!selectedNode?.devEui) {
-      setSensors([])
+      queueMicrotask(() => setSensors([]))
       return
     }
     let cancelled = false
-    setSensorsLoading(true)
+    queueMicrotask(() => {
+      if (!cancelled) setSensorsLoading(true)
+    })
     neurocropApi.getNodeSensors(selectedNode.devEui)
       .then((payload) => {
         if (!cancelled) setSensors(records(payload, ['sensors']))

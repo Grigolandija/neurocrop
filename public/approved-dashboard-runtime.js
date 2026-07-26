@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars -- Transitional shell state remains until the remaining legacy controls are migrated. */
     const interfaceLanguageStorageKey = "neurocrop-interface-language-v1";
     const originalInterfaceText = new WeakMap();
     const appliedInterfaceText = new WeakMap();

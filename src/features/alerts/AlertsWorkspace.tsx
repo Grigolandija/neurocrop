@@ -103,8 +103,11 @@ export default function AlertsWorkspace() {
 
   useEffect(() => {
     document.body.dataset.reactAlertsActive = 'true'
-    void load()
-    return () => { delete document.body.dataset.reactAlertsActive }
+    const loadTimer = window.setTimeout(() => { void load() }, 0)
+    return () => {
+      window.clearTimeout(loadTimer)
+      delete document.body.dataset.reactAlertsActive
+    }
   }, [load])
 
   const openItems = useMemo(() => items.map((item) => ({ ...item })), [items])

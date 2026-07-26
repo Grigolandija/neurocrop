@@ -219,9 +219,11 @@ export default function SectionsWorkspace() {
     const requestedSection = sections.find((section) => section.id === requestedSectionId)
     if (!requestedSection) return
     handledContext.current = location.search
-    setAreaFilter(requestedAreaId || requestedSection.areaId)
-    setCollapsedAreas((current) => (current ?? areas.map((area) => area.id)).filter((id) => id !== requestedSection.areaId))
-    setExpandedId(requestedSection.id)
+    queueMicrotask(() => {
+      setAreaFilter(requestedAreaId || requestedSection.areaId)
+      setCollapsedAreas((current) => (current ?? areas.map((area) => area.id)).filter((id) => id !== requestedSection.areaId))
+      setExpandedId(requestedSection.id)
+    })
   }, [areas, location.search, sections])
 
   useEffect(() => {
