@@ -176,6 +176,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const visibleLayers = useMemo(() => new Map(map.layers.map((layer) => [layer.id, layer])), [map.layers])
   const orderedObjects = useMemo(() => map.layers.flatMap((layer) => map.objects.filter((object) => object.layerId === layer.id)), [map.layers, map.objects])
   const wallMountedSelection = useMemo(() => map.objects.some((object) => selectedIds.includes(object.id) && isWallMountedType(object.type)), [map.objects, selectedIds])
+  const showReadOnlySensorLocations = readOnly && mode === 'environment' && !visibleLayers.get('sensors')?.visible
   const contourPaths = useMemo(() => {
     if (!showContours || !heatmap || heatmap.count < MIN_CONTOUR_SENSOR_COUNT) return []
     return createContourPaths(heatmap.grid, CONTOUR_INTERVALS[map.heatmapSettings.metric]).map((path) => ({
@@ -345,6 +346,17 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           const widthPx = Math.max(38, label.length * 6.2)
           return <Text key={level} x={x - widthPx / view.scale / 2} y={y - 6 / view.scale} width={widthPx / view.scale} height={12 / view.scale} text={label} align="center" verticalAlign="middle" fontFamily="IBM Plex Mono" fontStyle="bold" fontSize={10 / view.scale} fill="#111" />
         })}
+      </Layer> : null}
+      {showReadOnlySensorLocations && points.length ? <Layer listening={false}>
+        {points.map((point, index) => <Circle
+          key={`${point.xM}-${point.yM}-${index}`}
+          x={point.xM}
+          y={map.dimensions.lengthM - point.yM}
+          radius={3 / view.scale}
+          fill="#111"
+          stroke="rgba(255,255,255,.72)"
+          strokeWidth={1 / view.scale}
+        />)}
       </Layer> : null}
       <Layer listening={false}>
         <Rect width={map.dimensions.widthM} height={map.dimensions.lengthM} stroke="#30483f" strokeWidth={Math.max(map.wallThicknessM, 2 / view.scale)} />
