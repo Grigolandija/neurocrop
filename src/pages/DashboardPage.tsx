@@ -27,6 +27,7 @@ import SimulatorWorkspace from '../features/simulator/SimulatorWorkspace'
 import ActionsWorkspace from '../features/actions/ActionsWorkspace'
 import AlertsWorkspace from '../features/alerts/AlertsWorkspace'
 import TrendsWorkspace from '../features/trends/TrendsWorkspace'
+import NodesWorkspace from '../features/nodes/NodesWorkspace'
 
 declare const __BUILD_VERSION__: string
 
@@ -168,6 +169,7 @@ function ApprovedDashboard() {
   const [actionsMount, setActionsMount] = useState<HTMLElement | null>(null)
   const [alertsMount, setAlertsMount] = useState<HTMLElement | null>(null)
   const [trendsMount, setTrendsMount] = useState<HTMLElement | null>(null)
+  const [nodesMount, setNodesMount] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     installNeuroCropApi()
@@ -189,6 +191,12 @@ function ApprovedDashboard() {
     setActionsMount(hostRef.current?.querySelector<HTMLElement>('#actionsWorkspaceMount') || null)
     setAlertsMount(hostRef.current?.querySelector<HTMLElement>('#alertsManagementShell') || null)
     setTrendsMount(hostRef.current?.querySelector<HTMLElement>('#trendsWorkspaceMount') || null)
+    const nodeHost = hostRef.current?.querySelector<HTMLElement>('#nodesManagementShell') || null
+    // The React workspace owns this host completely. Clear any server-independent
+    // legacy placeholder before the portal mounts so both implementations can
+    // never appear together during a direct /nodes refresh.
+    nodeHost?.replaceChildren()
+    setNodesMount(nodeHost)
 
     document.body.classList.add('designer-app')
     document.body.dataset.dashboardState = 'optimal'
@@ -259,6 +267,7 @@ function ApprovedDashboard() {
       setActionsMount(null)
       setAlertsMount(null)
       setTrendsMount(null)
+      setNodesMount(null)
     }
   }, [navigate])
 
@@ -336,6 +345,9 @@ function ApprovedDashboard() {
       : null}
     {location.pathname === '/history' && trendsMount
       ? createPortal(<Suspense fallback={null}><TrendsWorkspace /></Suspense>, trendsMount)
+      : null}
+    {nodesMount
+      ? createPortal(<div hidden={location.pathname !== '/nodes' && !/^\/nodes\/[^/]+$/.test(location.pathname)}><Suspense fallback={null}><NodesWorkspace /></Suspense></div>, nodesMount)
       : null}
   </>
 }

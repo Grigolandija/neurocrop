@@ -417,6 +417,69 @@
   color: var(--node-text);
 }
 
+.designer-app .nc-nodes-modal-layer {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.designer-app .nc-nodes-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: rgba(18, 29, 24, .48);
+  backdrop-filter: blur(4px);
+}
+
+.designer-app .nc-nodes-modal-layer > .management-modal-shell {
+  position: relative;
+  z-index: 1;
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+
+.designer-app #nodesManagementSection .nc-node-sensor-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.designer-app #nodesManagementSection .nc-node-sensor-config {
+  display: grid;
+  grid-template-columns: minmax(150px, .8fr) minmax(160px, 1fr) auto;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.designer-app #nodesManagementSection .nc-node-sensor-config :is(select, input, button) {
+  min-height: 34px;
+  border: 1px solid var(--node-border);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--node-surface);
+  color: var(--node-text);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.designer-app #nodesManagementSection .nc-node-sensor-config button {
+  border-color: var(--node-primary);
+  background: var(--node-primary);
+  color: #fff;
+}
+
+@media (max-width: 720px) {
+  .designer-app .nc-nodes-modal-layer { padding: 10px; }
+  .designer-app #nodesManagementSection .nc-node-sensor-config { grid-template-columns: 1fr; }
+}
+
 .designer-app #nodesManagementSection .node-detail-breadcrumbs {
   display: flex;
   align-items: center;
