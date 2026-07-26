@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
 import { installNeuroCropApi, neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
+import { installEChartsEngine } from '../vendor/echartsEngine'
 import AreasWorkspace from '../features/areas/AreasWorkspace'
 import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
 import SectionsWorkspace from '../features/sections/SectionsWorkspace'
@@ -18,7 +19,6 @@ import TrendsWorkspace from '../features/trends/TrendsWorkspace'
 
 declare const __BUILD_VERSION__: string
 
-let chartEnginePromise: Promise<void> | null = null
 let dashboardStorePromise: Promise<void> | null = null
 let lithuanianTranslationsPromise: Promise<void> | null = null
 
@@ -36,30 +36,6 @@ function preloadDashboardRuntimeAssets() {
     preload.dataset.neurocropPreload = key
     document.head.appendChild(preload)
   })
-}
-
-function routeNeedsCharts(pathname: string) {
-  return pathname === '/history' || pathname === '/readings'
-}
-
-function ensureChartEngine() {
-  if (window.echarts) return Promise.resolve()
-  if (chartEnginePromise) return chartEnginePromise
-  chartEnginePromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>('script[data-neurocrop-vendor]')
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true })
-      existing.addEventListener('error', () => reject(new Error('Chart engine could not be loaded.')), { once: true })
-      return
-    }
-    const vendor = document.createElement('script')
-    vendor.src = `/vendor/echarts.min.js?v=${__BUILD_VERSION__}`
-    vendor.dataset.neurocropVendor = 'true'
-    vendor.onload = () => resolve()
-    vendor.onerror = () => reject(new Error('Chart engine could not be loaded.'))
-    document.body.appendChild(vendor)
-  })
-  return chartEnginePromise
 }
 
 function ensureOptionalDashboardStore() {
@@ -184,6 +160,7 @@ function ApprovedDashboard() {
   useEffect(() => {
     installNeuroCropApi()
     installNeuroCropFeatures()
+    installEChartsEngine()
     preloadDashboardRuntimeAssets()
     if (hostRef.current && !hostRef.current.childElementCount) {
       hostRef.current.innerHTML = approvedMarkup
@@ -215,12 +192,7 @@ function ApprovedDashboard() {
     function attachRuntime() {
       const activateRuntime = () => {
         runtimeReady.current = true
-        const notifyRoute = () => notifyRuntimeRoute(window.location.pathname)
-        if (routeNeedsCharts(window.location.pathname)) {
-          ensureChartEngine().then(notifyRoute).catch(notifyRoute)
-        } else {
-          notifyRoute()
-        }
+        notifyRuntimeRoute(window.location.pathname)
       }
       if (document.querySelector('script[data-neurocrop-runtime]')) {
         activateRuntime()
@@ -247,7 +219,6 @@ function ApprovedDashboard() {
 
     window.addEventListener('message', handleMessage)
     window.NeuroCropLoadLithuanianTranslations = () => ensureLithuanianTranslations(true)
-    void ensureChartEngine().catch(() => undefined)
     void Promise.allSettled([
       ensureOptionalDashboardStore(),
       ensureLithuanianTranslations(),
@@ -279,12 +250,7 @@ function ApprovedDashboard() {
 
   useEffect(() => {
     if (!runtimeReady.current) return
-    const notifyRoute = () => notifyRuntimeRoute(location.pathname)
-    if (routeNeedsCharts(location.pathname)) {
-      ensureChartEngine().then(notifyRoute).catch(notifyRoute)
-    } else {
-      notifyRoute()
-    }
+    notifyRuntimeRoute(location.pathname)
   }, [location.pathname])
 
   useEffect(() => {
