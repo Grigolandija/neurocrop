@@ -3,6 +3,7 @@
 /* Page headers */
 .designer-app :is(
   .nc-areas-head,
+  .nc-sections-head,
   .nc-readings-hero,
   .nc-alerts-head,
   .nc-settings-page-head,
@@ -18,6 +19,7 @@
 
 .designer-app :is(
   .nc-areas-head p,
+  .nc-sections-head > div:first-child > p,
   .nc-readings-hero .nc-overline,
   .nc-alerts-eyebrow,
   .nc-settings-page-head > div:first-child > p,
@@ -35,6 +37,7 @@
 
 .designer-app :is(
   .nc-areas-head h1,
+  .nc-sections-head h1,
   .nc-readings-hero h1,
   .nc-alerts-head h1,
   .nc-settings-page-head h1,
@@ -52,6 +55,7 @@
 
 .designer-app :is(
   .nc-areas-head > div:first-child > span,
+  .nc-sections-head > div:first-child > span,
   .nc-readings-hero > div:first-child > p:last-child,
   .nc-alerts-description,
   .nc-settings-page-head > div:first-child > span,
@@ -119,6 +123,7 @@
 
 /* KPI strips */
 .designer-app .nc-areas-page,
+.designer-app .nc-sections-page,
 .designer-app #nodesManagementSection .node-fleet-page {
   display: block;
 }
@@ -531,6 +536,7 @@ body[data-primary-page="history"] .trend-history-chart-shell {
 @media (max-width: 700px) {
   .designer-app :is(
     .nc-areas-head,
+    .nc-sections-head,
     .nc-readings-hero,
     .nc-alerts-head,
     .nc-settings-page-head,
@@ -543,6 +549,7 @@ body[data-primary-page="history"] .trend-history-chart-shell {
 
   .designer-app :is(
     .nc-areas-head,
+    .nc-sections-head,
     .nc-readings-hero,
     .nc-alerts-head,
     .nc-settings-page-head,

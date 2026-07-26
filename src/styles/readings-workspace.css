@@ -218,12 +218,12 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-pinned-card-footer > button i { margin-left: var(--space-4); }
 
 .nc-signal-lens { margin-bottom: var(--space-24); border: 1px solid var(--color-border); border-radius: .75rem; background: var(--color-surface); }
-.nc-signal-lens > button { display: flex; width: 100%; min-height: 4rem; align-items: center; justify-content: space-between; gap: var(--space-20); border: 0; padding: var(--space-12) var(--space-16); background: transparent; color: var(--color-text); text-align: left; }
-.nc-signal-lens > button > span { display: flex; min-width: 0; align-items: center; gap: var(--space-12); }
-.nc-signal-lens > button > span > i { display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; place-items: center; border-radius: .55rem; background: var(--color-accent-ai-soft); color: var(--color-accent-ai); }
-.nc-signal-lens > button > span > span { display: grid; gap: 2px; }
-.nc-signal-lens > button strong { font-size: var(--type-body-sm); }
-.nc-signal-lens > button small { color: var(--color-text-tertiary); font-size: var(--type-caption); }
+.nc-signal-lens-head { display: flex; width: 100%; min-height: 4rem; align-items: center; gap: var(--space-20); padding: var(--space-12) var(--space-16); color: var(--color-text); }
+.nc-signal-lens-head > span { display: flex; min-width: 0; align-items: center; gap: var(--space-12); }
+.nc-signal-lens-head > span > i { display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; place-items: center; border-radius: .55rem; background: var(--color-accent-ai-soft); color: var(--color-accent-ai); }
+.nc-signal-lens-head > span > span { display: grid; gap: 2px; }
+.nc-signal-lens-head strong { font-size: var(--type-body-sm); }
+.nc-signal-lens-head small { color: var(--color-text-tertiary); font-size: var(--type-caption); }
 .nc-signal-lens-content { border-top: 1px solid var(--color-border); padding: var(--space-20) var(--space-16); }
 .nc-signal-lens-content > header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-24); margin-bottom: var(--space-16); }
 .nc-distribution-row { display: grid; grid-template-columns: minmax(14rem,.85fr) minmax(20rem,1.8fr) 7rem 2rem; min-height: 3.5rem; align-items: center; gap: var(--space-20); border-top: 1px solid var(--color-border); }
@@ -244,6 +244,8 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-distribution-row > strong small { color: var(--color-text-tertiary); font-size: var(--type-micro); }
 .nc-distribution-row > button { display: grid; width: 2rem; height: 2rem; place-items: center; border: 0; border-radius: .45rem; background: transparent; color: var(--color-neutral-400); }
 .nc-distribution-row > button:hover { background: var(--color-info-soft); color: var(--color-info); }
+.nc-distribution-row > button.pinned { background: var(--color-secondary); color: var(--color-on-primary); box-shadow: 0 0 0 .1875rem var(--color-focus-ring); }
+.nc-distribution-row > button.pinned:hover { background: var(--color-primary); color: var(--color-on-primary); }
 
 .nc-readings-drawer-backdrop { position: fixed; inset: 0; z-index: 180; display: flex; justify-content: flex-end; background: var(--color-overlay); animation: nc-fade-in .16s ease both; }
 .nc-readings-drawer { display: flex; width: min(35rem,calc(100vw - 3rem)); height: 100%; flex-direction: column; overflow: hidden; border-left: 1px solid var(--color-border); background: var(--color-surface); box-shadow: -1.5rem 0 3.75rem var(--color-shadow); animation: nc-drawer-in .2s ease both; }

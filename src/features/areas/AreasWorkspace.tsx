@@ -271,7 +271,7 @@ export default function AreasWorkspace() {
   return <div className="nc-areas-page">
     <header className="nc-areas-head">
       <div><p>Workspace structure</p><h1>Areas</h1><span>Top-level monitored environments: greenhouses, fields, rooms, and trial facilities.</span></div>
-      <button type="button" className="nc-areas-button primary" onClick={openCreate}><i className="fa-solid fa-plus" />Add area</button>
+      <button type="button" className="nc-areas-button primary" onClick={openCreate}><i className="fa-solid fa-plus" />Create area</button>
     </header>
 
     {feedback ? <div className={`nc-areas-feedback ${feedback.tone}`} role="status"><i className={`fa-solid ${feedback.tone === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation'}`} /><span>{feedback.message}</span><button type="button" onClick={() => setFeedback(null)} aria-label="Dismiss"><i className="fa-solid fa-xmark" /></button></div> : null}

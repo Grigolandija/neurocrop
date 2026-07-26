@@ -422,14 +422,14 @@ export default function SectionsWorkspace() {
     <section className="nc-sections-summary" aria-label="Section readiness summary">
       <div><strong>{counts.total}</strong><span>Active sections</span><small>Across {areas.length} areas</small></div>
       {(['ready', 'attention', 'unconfigured'] as const).map((state) => <button type="button" key={state} className={readinessFilter === state ? 'active' : ''} data-state={state} onClick={() => setReadinessFilter(readinessFilter === state ? 'all' : state)}><i /><strong>{counts[state]}</strong><span>{state === 'ready' ? 'Ready' : state === 'attention' ? 'Require attention' : 'Not configured'}</span></button>)}
-      <p><i className="fa-solid fa-circle-info" /><span><strong>Readiness is operational, not a growing score.</strong> It checks profile assignment, node coverage, and current data.</span></p>
     </section>
+    <p className="nc-sections-summary-note"><i className="fa-solid fa-circle-info" /><span><strong>Readiness is operational, not a growing score.</strong> It checks profile assignment, node coverage, and current data.</span></p>
 
     {feedback ? <div className="nc-sections-feedback" data-tone={feedback.tone} role="status"><i className={`fa-solid ${feedback.tone === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation'}`} /><span>{feedback.message}</span><button type="button" onClick={() => setFeedback(null)} aria-label="Dismiss"><i className="fa-solid fa-xmark" /></button></div> : null}
 
     <section className="nc-sections-shell">
       <div className="nc-sections-toolbar">
-        <label className="nc-sections-search"><i className="fa-solid fa-magnifying-glass" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search section, area or profile" />{query ? <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><i className="fa-solid fa-xmark" /></button> : null}</label>
+        <label className="nc-sections-search"><span>Search sections</span><i className="fa-solid fa-magnifying-glass" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Section, area or profile..." />{query ? <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><i className="fa-solid fa-xmark" /></button> : null}</label>
         <label><span>Area</span><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}><option value="all">All areas</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label>
         <label><span>Crop profile</span><select value={profileFilter} onChange={(event) => setProfileFilter(event.target.value)}><option value="all">All profiles</option>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name}</option>)}</select></label>
         <label><span>Sort</span><select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="area">Area, then name</option><option value="name">Section name</option><option value="profile">Crop profile</option><option value="freshness">Oldest data first</option></select></label>
