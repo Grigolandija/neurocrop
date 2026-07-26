@@ -7,17 +7,66 @@ import { installNeuroCropFeatures } from '../features/installFeatures'
 
 declare const __BUILD_VERSION__: string
 
-const AreasWorkspace = lazy(() => import('../features/areas/AreasWorkspace'))
-const ReadingsWorkspace = lazy(() => import('../features/readings/ReadingsWorkspace'))
-const SectionsWorkspace = lazy(() => import('../features/sections/SectionsWorkspace'))
-const SettingsWorkspace = lazy(() => import('../features/settings/SettingsWorkspace'))
-const OrganizationWorkspace = lazy(() => import('../features/settings/OrganizationWorkspace'))
-const AdminWorkspace = lazy(() => import('../features/settings/AdminWorkspace'))
-const AdminIntegrationsWorkspace = lazy(() => import('../features/settings/AdminIntegrationsWorkspace'))
-const OverviewWorkspace = lazy(() => import('../features/overview/OverviewWorkspace'))
-const SimulatorWorkspace = lazy(() => import('../features/simulator/SimulatorWorkspace'))
-const ActionsWorkspace = lazy(() => import('../features/actions/ActionsWorkspace'))
-const TrendsWorkspace = lazy(() => import('../features/trends/TrendsWorkspace'))
+const loadAreasWorkspace = () => import('../features/areas/AreasWorkspace')
+const loadReadingsWorkspace = () => import('../features/readings/ReadingsWorkspace')
+const loadSectionsWorkspace = () => import('../features/sections/SectionsWorkspace')
+const loadSettingsWorkspace = () => import('../features/settings/SettingsWorkspace')
+const loadOrganizationWorkspace = () => import('../features/settings/OrganizationWorkspace')
+const loadAdminWorkspace = () => import('../features/settings/AdminWorkspace')
+const loadAdminIntegrationsWorkspace = () => import('../features/settings/AdminIntegrationsWorkspace')
+const loadOverviewWorkspace = () => import('../features/overview/OverviewWorkspace')
+const loadSimulatorWorkspace = () => import('../features/simulator/SimulatorWorkspace')
+const loadActionsWorkspace = () => import('../features/actions/ActionsWorkspace')
+const loadTrendsWorkspace = () => import('../features/trends/TrendsWorkspace')
+
+const AreasWorkspace = lazy(loadAreasWorkspace)
+const ReadingsWorkspace = lazy(loadReadingsWorkspace)
+const SectionsWorkspace = lazy(loadSectionsWorkspace)
+const SettingsWorkspace = lazy(loadSettingsWorkspace)
+const OrganizationWorkspace = lazy(loadOrganizationWorkspace)
+const AdminWorkspace = lazy(loadAdminWorkspace)
+const AdminIntegrationsWorkspace = lazy(loadAdminIntegrationsWorkspace)
+const OverviewWorkspace = lazy(loadOverviewWorkspace)
+const SimulatorWorkspace = lazy(loadSimulatorWorkspace)
+const ActionsWorkspace = lazy(loadActionsWorkspace)
+const TrendsWorkspace = lazy(loadTrendsWorkspace)
+
+const backgroundWorkspaceLoaders = [
+  loadAreasWorkspace,
+  loadSectionsWorkspace,
+  loadReadingsWorkspace,
+  loadTrendsWorkspace,
+  loadActionsWorkspace,
+  loadSettingsWorkspace,
+  loadOrganizationWorkspace,
+  loadSimulatorWorkspace,
+  loadAdminWorkspace,
+  loadAdminIntegrationsWorkspace,
+]
+
+const navigationIntentLoaders: Record<string, () => Promise<unknown>> = {
+  sites: loadAreasWorkspace,
+  zones: loadSectionsWorkspace,
+  readings: loadReadingsWorkspace,
+  history: loadTrendsWorkspace,
+  actions: loadActionsWorkspace,
+  settings: loadSettingsWorkspace,
+  'crop-profiles': loadSettingsWorkspace,
+  organization: loadOrganizationWorkspace,
+  simulator: loadSimulatorWorkspace,
+  admin: loadAdminWorkspace,
+}
+
+async function prefetchRouteWorkspaces() {
+  for (const loadWorkspace of backgroundWorkspaceLoaders) {
+    if (document.hidden) return
+    try {
+      await loadWorkspace()
+    } catch {
+      // Navigation still performs the normal lazy-load retry.
+    }
+  }
+}
 
 let chartEnginePromise: Promise<void> | null = null
 let dashboardStorePromise: Promise<void> | null = null
@@ -196,6 +245,16 @@ function ApprovedDashboard() {
       if (route !== window.location.pathname) navigate(route, { replace: Boolean(payload.replace) })
     }
 
+    function preloadNavigationTarget(event: Event) {
+      const target = event.target instanceof Element
+        ? event.target.closest<HTMLElement>('[data-sidebar-action]')
+        : null
+      const loadWorkspace = target
+        ? navigationIntentLoaders[String(target.dataset.sidebarAction || '')]
+        : undefined
+      if (loadWorkspace) void loadWorkspace().catch(() => undefined)
+    }
+
     function attachRuntime() {
       const activateRuntime = () => {
         runtimeReady.current = true
@@ -230,6 +289,8 @@ function ApprovedDashboard() {
     }
 
     window.addEventListener('message', handleMessage)
+    hostRef.current?.addEventListener('pointerover', preloadNavigationTarget)
+    hostRef.current?.addEventListener('focusin', preloadNavigationTarget)
     window.NeuroCropLoadLithuanianTranslations = () => ensureLithuanianTranslations(true)
     void Promise.allSettled([
       ensureOptionalDashboardStore(),
@@ -241,7 +302,9 @@ function ApprovedDashboard() {
         void neurocropApi.getCurrentUser()
           .then((response) => {
             const user = (response as { user?: { email?: unknown } } | null)?.user
-            if (user?.email) return prefetchWorkspaceData()
+            if (!user?.email) return
+            void prefetchWorkspaceData()
+            void prefetchRouteWorkspaces()
           })
           .catch(() => undefined)
       }
@@ -257,6 +320,8 @@ function ApprovedDashboard() {
       if (prefetchIdleId !== null && 'cancelIdleCallback' in window) window.cancelIdleCallback(prefetchIdleId)
       delete window.NeuroCropLoadLithuanianTranslations
       window.removeEventListener('message', handleMessage)
+      hostRef.current?.removeEventListener('pointerover', preloadNavigationTarget)
+      hostRef.current?.removeEventListener('focusin', preloadNavigationTarget)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
       setAreasMount(null)
