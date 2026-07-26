@@ -1,4 +1,4 @@
 window.NEUROCROP_CONFIG = {
-  apiBaseUrl: "",
+  apiBaseUrl: "https://api.neurocrop.lt",
   greenhouseMapBeta: true
 };
