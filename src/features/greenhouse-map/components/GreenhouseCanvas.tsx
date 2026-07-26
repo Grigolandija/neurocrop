@@ -259,18 +259,18 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
   const editable = mode === 'layout' && !readOnly
   const heatmapLegend = mode === 'environment' ? <div className="gh-heatmap-legend">
-    <div className="gh-legend-heading"><small>ESTIMATED ENVIRONMENT MAP</small><strong>{METRICS[map.heatmapSettings.metric].label}</strong></div>
+    <div className="gh-legend-heading"><small>{readOnly ? tr('CLIMATE RANGE', 'KLIMATO DIAPAZONAS') : 'ESTIMATED ENVIRONMENT MAP'}</small><strong>{METRICS[map.heatmapSettings.metric].label}</strong></div>
     {heatmap ? <>
       <div className="gh-legend-scale">
-        <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)}><i className="fa-solid fa-lines-leaning" />{tr('Contours', 'Izolinijos')} · {CONTOUR_INTERVALS[map.heatmapSettings.metric]} {METRICS[map.heatmapSettings.metric].unit}</button>
+        <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {CONTOUR_INTERVALS[map.heatmapSettings.metric]} {METRICS[map.heatmapSettings.metric].unit}</button>
         <div className="gh-color-scale" style={{ background: bandedGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric].colors, COLOR_INTERVALS[map.heatmapSettings.metric]) }} />
         <div className="gh-legend-range"><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>
       </div>
       <div className="gh-legend-meta">
         {target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}
-        <p>{tr('Whole Area', 'Visa Area')} · {tr('estimated from', 'apskaičiuota iš')} {heatmap.count} sensor{heatmap.count === 1 ? '' : 's'} · {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+        <p><b>{heatmap.count} {tr('sensor sources', 'sensorių šaltiniai')}</b><span>{tr('Rendered', 'Atvaizduota')} {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></p>
         {heatmap.count === MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Low-confidence directional estimate from 2 nodes.', 'Žemo patikimumo kryptinis įvertis pagal 2 node.')}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų node.')}</em> : null}
-        <em>Interpolated estimate based on sensor locations. Values between sensors are not directly measured.</em>
+        <em><i className="fa-solid fa-circle-info" /> {tr('Estimated between sensor locations.', 'Įvertinta tarp sensorių vietų.')}</em>
       </div>
     </> : <div className="gh-legend-meta"><p>{tr('No valid online sensor data for this metric in this Area.', 'Nėra tinkamų aktyvių jutiklių šiam rodikliui šioje Area.')}</p></div>}
   </div> : null
@@ -296,7 +296,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         }
       }}
       onDragEnd={(event) => { if (event.target === event.target.getStage()) setView((current) => ({ ...current, x: event.target.x(), y: event.target.y() })) }}
-      draggable={panning} x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale}
+      draggable={panning || readOnly} x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale}
       onWheel={(event) => {
         event.evt.preventDefault()
         const stage = stageRef.current
@@ -358,16 +358,15 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       </Layer> : null}
       <Layer listening={false}>
         <Rect width={map.dimensions.widthM} height={map.dimensions.lengthM} stroke="#30483f" strokeWidth={Math.max(map.wallThicknessM, 2 / view.scale)} />
-        <Text x={0} y={map.dimensions.lengthM + 12 / view.scale} text={`0                                        X  ${map.dimensions.widthM} m →`} width={map.dimensions.widthM} align="center" fontSize={11 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" />
-        <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" />
+        {!readOnly ? <Text x={0} y={map.dimensions.lengthM + 12 / view.scale} text={`0                                        X  ${map.dimensions.widthM} m →`} width={map.dimensions.widthM} align="center" fontSize={11 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
+        {!readOnly ? <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
       </Layer>
     </Stage>
     <div className="gh-view-controls">
-      <button className={panning ? 'active' : ''} onClick={() => setPanning(!panning)} title="Pan tool"><i className="fa-solid fa-hand" /></button>
-      <span />
-      <button onClick={() => setView((current) => ({ ...current, scale: Math.min(140, current.scale * 1.15) }))} title="Zoom in"><i className="fa-solid fa-plus" /></button>
-      <button onClick={() => setView((current) => ({ ...current, scale: Math.max(8, current.scale / 1.15) }))} title="Zoom out"><i className="fa-solid fa-minus" /></button>
-      <button onClick={fit} title="Fit to screen"><i className="fa-solid fa-expand" /></button>
+      {!readOnly ? <><button className={panning ? 'active' : ''} onClick={() => setPanning(!panning)} title="Pan tool" aria-label="Pan tool"><i className="fa-solid fa-hand" /></button><span /></> : null}
+      <button onClick={() => setView((current) => ({ ...current, scale: Math.max(8, current.scale / 1.15) }))} title="Zoom out" aria-label="Zoom out"><i className="fa-solid fa-minus" /></button>
+      <button onClick={() => setView((current) => ({ ...current, scale: Math.min(140, current.scale * 1.15) }))} title="Zoom in" aria-label="Zoom in"><i className="fa-solid fa-plus" /></button>
+      <button onClick={fit} title="Fit to screen" aria-label="Fit to screen"><i className="fa-solid fa-expand" /></button>
     </div>
     {heatmapLegend ? legendHost ? createPortal(heatmapLegend, legendHost) : heatmapLegend : null}
     {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> Approximate planned sensor coverage, not a physical propagation model.</div> : null}
@@ -379,6 +378,6 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       {sensorIssues.slice(0, Math.max(0, 3 - actions.length)).map((object) => <p data-tone={object.metadata.sensor?.status === 'offline' ? 'critical' : 'warning'} key={object.id}><i className="fa-solid fa-microchip" /><span><b>{object.name}</b>{object.metadata.sensor?.status}</span></p>)}
       {!actions.length && !sensorIssues.length && targetState === 'optimal' ? <p data-tone="good"><i className="fa-solid fa-circle-check" /><span><b>{tr('No priority actions', 'Nėra prioritetinių veiksmų')}</b>{tr('Current readings are inside target.', 'Dabartiniai rodmenys tiksliniame diapazone.')}</span></p> : null}
     </aside> : null}
-    <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> {mouse && mouse.xM >= 0 && mouse.yM >= 0 && mouse.xM <= map.dimensions.widthM && mouse.yM <= map.dimensions.lengthM ? `X ${mouse.xM.toFixed(2)} m · Y ${mouse.yM.toFixed(2)} m` : 'Outside plan'}</span><span>Grid {map.gridSizeM} m</span><span>Zoom {Math.round(view.scale / 40 * 100)}%</span><span>{readOnly ? tr('Read only', 'Tik peržiūra') : selectedIds.length ? `${selectedIds.length} selected` : snap ? 'Snap enabled' : 'Free placement'}</span></footer>
+    {!readOnly ? <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> {mouse && mouse.xM >= 0 && mouse.yM >= 0 && mouse.xM <= map.dimensions.widthM && mouse.yM <= map.dimensions.lengthM ? `X ${mouse.xM.toFixed(2)} m · Y ${mouse.yM.toFixed(2)} m` : 'Outside plan'}</span><span>Grid {map.gridSizeM} m</span><span>Zoom {Math.round(view.scale / 40 * 100)}%</span><span>{selectedIds.length ? `${selectedIds.length} selected` : snap ? 'Snap enabled' : 'Free placement'}</span></footer> : null}
   </main>
 }

@@ -65,11 +65,22 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
   }, [areaId, refreshToken])
 
   const map = useMemo(() => context ? prepareReadOnlyClimateMap(context, metric) : null, [context, metric])
-  const validNodes = map?.objects.filter((object) => {
+  const validSensorObjects = map?.objects.filter((object) => {
     const sensor = object.metadata.sensor
     if (!sensor || sensor.status === 'offline' || sensor.status === 'stale') return false
     return typeof sensor.measurements?.[METRICS[metric].field] === 'number'
-  }).length ?? 0
+  }) ?? []
+  const validNodes = validSensorObjects.length
+  const latestMeasurementAt = validSensorObjects.reduce<Date | null>((latest, object) => {
+    const measuredAt = object.metadata.sensor?.measurements?.measuredAt
+    if (!measuredAt) return latest
+    const candidate = new Date(measuredAt)
+    if (Number.isNaN(candidate.getTime())) return latest
+    return !latest || candidate > latest ? candidate : latest
+  }, null)
+  const updatedLabel = latestMeasurementAt
+    ? `Updated ${latestMeasurementAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : 'Timestamp unavailable'
 
   if (status === 'error') {
     return <div className="nc-climate-map-state" data-state="error"><i className="fa-solid fa-triangle-exclamation" /><strong>Climate map could not be loaded</strong><span>{error}</span></div>
@@ -81,12 +92,13 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
   return <section className="nc-live-climate-map" aria-label={`${context.area.name} live climate map`}>
     <header>
       <div>
-        <p className="nc-overline">Read-only spatial view</p>
+        <p className="nc-overline">Live climate map</p>
         <h3>{context.area.name}</h3>
-        <span><i className="fa-solid fa-circle" /> Live estimate from {validNodes} valid node{validNodes === 1 ? '' : 's'}{updating ? <em className="nc-climate-refresh"><i className="fa-solid fa-rotate fa-spin" /> Updating…</em> : error ? <em className="nc-climate-refresh" data-state="warning" title={error}><i className="fa-solid fa-triangle-exclamation" /> Update delayed</em> : null}</span>
+        <span><i className="fa-solid fa-circle" /> Live · {validNodes} sensor source{validNodes === 1 ? '' : 's'} · {updatedLabel}{updating ? <em className="nc-climate-refresh"><i className="fa-solid fa-rotate fa-spin" /> Updating…</em> : error ? <em className="nc-climate-refresh" data-state="warning" title={error}><i className="fa-solid fa-triangle-exclamation" /> Update delayed</em> : null}</span>
       </div>
       <div className="nc-climate-map-filters">
         <label><span>Metric</span><select value={metric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{climateMetrics.map((key) => <option value={key} key={key}>{METRICS[key].label}</option>)}</select></label>
+        <span className="nc-climate-lock"><i className="fa-solid fa-lock" />Read only</span>
       </div>
     </header>
     <div className="nc-climate-map-canvas">
@@ -104,6 +116,5 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
       />
     </div>
     <div className="nc-climate-map-legend-slot" ref={setLegendHost} />
-    <footer><i className="fa-solid fa-circle-info" /> The Area heatmap uses every valid node. Hardware details remain available in Nodes.</footer>
   </section>
 }
