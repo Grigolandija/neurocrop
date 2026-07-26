@@ -20,6 +20,7 @@ const ActionsWorkspace = lazy(() => import('../features/actions/ActionsWorkspace
 const TrendsWorkspace = lazy(() => import('../features/trends/TrendsWorkspace'))
 
 let chartEnginePromise: Promise<void> | null = null
+let dashboardStorePromise: Promise<void> | null = null
 
 function routeNeedsCharts(pathname: string) {
   return pathname === '/history' || pathname === '/readings'
@@ -43,6 +44,26 @@ function ensureChartEngine() {
     document.body.appendChild(vendor)
   })
   return chartEnginePromise
+}
+
+function ensureOptionalDashboardStore() {
+  if (neurocropApi.isConnected() || window.NeuroCropStore) return Promise.resolve()
+  if (dashboardStorePromise) return dashboardStorePromise
+  dashboardStorePromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-neurocrop-store]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error('Local dashboard store could not be loaded.')), { once: true })
+      return
+    }
+    const store = document.createElement('script')
+    store.src = `/neurocrop-dashboard-store.js?v=${__BUILD_VERSION__}`
+    store.dataset.neurocropStore = 'true'
+    store.onload = () => resolve()
+    store.onerror = () => reject(new Error('Local dashboard store could not be loaded.'))
+    document.body.appendChild(store)
+  })
+  return dashboardStorePromise
 }
 
 function notifyRuntimeRoute(pathname: string) {
@@ -176,7 +197,7 @@ function ApprovedDashboard() {
     }
 
     window.addEventListener('message', handleMessage)
-    loadRuntime()
+    void ensureOptionalDashboardStore().then(loadRuntime, loadRuntime)
     let prefetchIdleId: number | null = null
     const prefetchTimer = window.setTimeout(() => {
       const prefetch = () => {

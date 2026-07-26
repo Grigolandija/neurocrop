@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const runtime = await fs.readFile(path.join(root, "public/approved-dashboard-runtime.js"), "utf8");
+const dashboardStore = await fs.readFile(path.join(root, "public/neurocrop-dashboard-store.js"), "utf8");
 const config = await fs.readFile(path.join(root, "public/runtime-config.js"), "utf8");
 const htaccess = await fs.readFile(path.join(root, "public/.htaccess"), "utf8");
 const contract = await fs.readFile(path.join(root, "API-CONTRACT.md"), "utf8");
@@ -284,7 +285,15 @@ assert(runtime.includes('function renderTriageFeedbackControls(') && runtime.inc
 assert(runtime.includes('todayPriorityFeedbackState.actionId === action.id && todayPriorityFeedbackState.saving') && runtime.includes('persistedFeedback?.status === "completed"'), "Action feedback must block duplicate in-flight and already-selected submissions");
 assert(runtime.includes('function getActionHistoryPresentation(') && runtime.includes('hasFiniteMetricValue(rawCurrentValue)') && runtime.includes('hasFiniteMetricValue(rawBaselineValue)') && runtime.includes('insufficient_data:') && runtime.includes('Not checked: action was deferred'), "Action history must separate recorded feedback from robust before/after sensor verification and never render null as zero");
 assert(runtime.includes('function hasFiniteMetricValue(value)') && runtime.includes('value !== null') && runtime.includes('hasFiniteMetricValue(observation.value)') && !runtime.includes('observation && Number.isFinite(Number(observation.value))'), "Live readings must never convert missing API measurements into numeric zero");
-assert(runtime.includes('function normalizeBatteryLevel(value)') && runtime.includes('.filter(hasFiniteMetricValue)') && runtime.includes('hasFiniteMetricValue(node.level)'), "Missing battery telemetry must remain unavailable instead of becoming a zero-percent alert");
+assert(dashboardStore.includes('function normalizeBatteryLevel(value)') && runtime.includes('.filter(hasFiniteMetricValue)') && runtime.includes('hasFiniteMetricValue(node.level)'), "Missing battery telemetry must remain unavailable instead of becoming a zero-percent alert");
+assert(
+  dashboardStore.includes('window.NeuroCropStore = {')
+    && dashboardPage.includes('function ensureOptionalDashboardStore()')
+    && dashboardPage.includes('neurocropApi.isConnected() || window.NeuroCropStore')
+    && !runtime.includes('window.NeuroCropStore = {'),
+  "The local demo store must remain outside the production runtime and load only when the API is unavailable",
+);
+assert(Buffer.byteLength(runtime) < 950_000, "The production runtime must stay below its first modularization budget");
 assert(runtime.includes('function openActionCompletionModal(') && runtime.includes('data-management-modal-form="action-completion"') && runtime.includes('executionDetails: {') && runtime.includes('requestTodayPriorityFeedback('), "Completed actions must capture the intervention type and details before submission");
 assert(runtime.includes('const backendPriorityAction = availableBackendActions[0] || null') && runtime.includes('snapshotsByZoneId.get(backendPriorityAction.sectionId)') && runtime.includes('Do this first') && runtime.includes('Inspection route') && runtime.includes('data-site-id="${escapeAttribute(prioritySnapshot.site.id)}"'), "Simple Today must keep one farm-wide first action and preserve its Area and Section route context");
 assert(runtime.includes('class="grower-area-list"') && runtime.includes('class="grower-area-band"') && runtime.includes('class="grower-section-line"') && runtime.includes('data-overview-section-card') && runtime.includes('const sectionCard = event.target.closest("[data-overview-section-card]")') && styles.includes('.grower-area-list') && styles.includes('.grower-area-band + .grower-area-band'), "Simple Today must scale many Areas vertically and keep every Section directly reachable");
