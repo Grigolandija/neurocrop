@@ -102,8 +102,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
 
   const fit = useCallback(() => {
-    const paddingX = readOnly ? 54 : 85
-    const paddingY = readOnly ? 38 : 90
+    const paddingX = readOnly ? 16 : 85
+    const paddingY = readOnly ? 16 : 90
     const scale = Math.max(2, Math.min((size.width - paddingX * 2) / map.dimensions.widthM, (size.height - paddingY * 2) / map.dimensions.lengthM))
     setView({ scale, x: (size.width - map.dimensions.widthM * scale) / 2, y: (size.height - map.dimensions.lengthM * scale) / 2 })
   }, [map.dimensions.lengthM, map.dimensions.widthM, readOnly, size])
@@ -295,9 +295,9 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           if (panning) event.target.getStage()?.startDrag()
         }
       }}
-      onDragEnd={(event) => { if (event.target === event.target.getStage()) setView((current) => ({ ...current, x: event.target.x(), y: event.target.y() })) }}
-      draggable={panning || readOnly} x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale}
-      onWheel={(event) => {
+      onDragEnd={(event) => { if (!readOnly && event.target === event.target.getStage()) setView((current) => ({ ...current, x: event.target.x(), y: event.target.y() })) }}
+      draggable={!readOnly && panning} x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale}
+      onWheel={readOnly ? undefined : (event) => {
         event.evt.preventDefault()
         const stage = stageRef.current
         const pointer = stage?.getPointerPosition()
@@ -362,12 +362,12 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         {!readOnly ? <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
       </Layer>
     </Stage>
-    <div className="gh-view-controls">
-      {!readOnly ? <><button className={panning ? 'active' : ''} onClick={() => setPanning(!panning)} title="Pan tool" aria-label="Pan tool"><i className="fa-solid fa-hand" /></button><span /></> : null}
+    {!readOnly ? <div className="gh-view-controls">
+      <button className={panning ? 'active' : ''} onClick={() => setPanning(!panning)} title="Pan tool" aria-label="Pan tool"><i className="fa-solid fa-hand" /></button><span />
       <button onClick={() => setView((current) => ({ ...current, scale: Math.max(8, current.scale / 1.15) }))} title="Zoom out" aria-label="Zoom out"><i className="fa-solid fa-minus" /></button>
       <button onClick={() => setView((current) => ({ ...current, scale: Math.min(140, current.scale * 1.15) }))} title="Zoom in" aria-label="Zoom in"><i className="fa-solid fa-plus" /></button>
       <button onClick={fit} title="Fit to screen" aria-label="Fit to screen"><i className="fa-solid fa-expand" /></button>
-    </div>
+    </div> : null}
     {heatmapLegend ? legendHost ? createPortal(heatmapLegend, legendHost) : heatmapLegend : null}
     {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> Approximate planned sensor coverage, not a physical propagation model.</div> : null}
     {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> Latest LoRa quality based on RSSI, SNR and node status. It is not a propagation map.</div> : null}
