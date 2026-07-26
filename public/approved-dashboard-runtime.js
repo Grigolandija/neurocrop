@@ -1451,7 +1451,6 @@
       "areas": "erdvės",
       "sections": "sekcijos",
       "nodes": "mazgai",
-      "actions": "veiksmai",
       "active": "aktyvūs",
       "pending invitations": "laukiantys kvietimai",
       "registered nodes": "užregistruoti mazgai",
