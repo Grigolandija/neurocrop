@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import '../../styles/redesign-profiles.css'
 
 // Profile metric payloads are intentionally extensible for new firmware sensors.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

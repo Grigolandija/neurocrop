@@ -1,13 +1,11 @@
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import '../styles/approved-dashboard.css'
-import '../styles/nodes-page.css'
 import '../styles/typography-system.css'
 import '../styles/redesign-sidebar.css'
 import '../styles/neurocrop-color-system.css'
 import '../styles/neurocrop-typography-system.css'
-import '../styles/redesign-profiles.css'
 import '../styles/app-shell.css'
 import '../styles/operational-consistency.css'
 import '../styles/mobile-experience.css'
@@ -15,20 +13,64 @@ import approvedMarkup from '../approved-dashboard-markup.html?raw'
 import { installNeuroCropApi, neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
 import { installEChartsEngine } from '../vendor/echartsEngine'
-import AreasWorkspace from '../features/areas/AreasWorkspace'
-import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
-import SectionsWorkspace from '../features/sections/SectionsWorkspace'
-import SettingsWorkspace from '../features/settings/SettingsWorkspace'
-import OrganizationWorkspace from '../features/settings/OrganizationWorkspace'
-import AdminWorkspace from '../features/settings/AdminWorkspace'
-import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
-import OverviewWorkspace from '../features/overview/OverviewWorkspace'
-import SimulatorWorkspace from '../features/simulator/SimulatorWorkspace'
-import ActionsWorkspace from '../features/actions/ActionsWorkspace'
-import AlertsWorkspace from '../features/alerts/AlertsWorkspace'
-import TrendsWorkspace from '../features/trends/TrendsWorkspace'
-import NodesWorkspace from '../features/nodes/NodesWorkspace'
-import CropProfilesWorkspace from '../features/settings/CropProfilesWorkspace'
+const loadAreasWorkspace = () => import('../features/areas/AreasWorkspace')
+const loadReadingsWorkspace = () => import('../features/readings/ReadingsWorkspace')
+const loadSectionsWorkspace = () => import('../features/sections/SectionsWorkspace')
+const loadSettingsWorkspace = () => import('../features/settings/SettingsWorkspace')
+const loadOrganizationWorkspace = () => import('../features/settings/OrganizationWorkspace')
+const loadAdminWorkspace = () => import('../features/settings/AdminWorkspace')
+const loadAdminIntegrationsWorkspace = () => import('../features/settings/AdminIntegrationsWorkspace')
+const loadOverviewWorkspace = () => import('../features/overview/OverviewWorkspace')
+const loadSimulatorWorkspace = () => import('../features/simulator/SimulatorWorkspace')
+const loadActionsWorkspace = () => import('../features/actions/ActionsWorkspace')
+const loadAlertsWorkspace = () => import('../features/alerts/AlertsWorkspace')
+const loadTrendsWorkspace = () => import('../features/trends/TrendsWorkspace')
+const loadNodesWorkspace = () => import('../features/nodes/NodesWorkspace')
+const loadCropProfilesWorkspace = () => import('../features/settings/CropProfilesWorkspace')
+
+const AreasWorkspace = lazy(loadAreasWorkspace)
+const ReadingsWorkspace = lazy(loadReadingsWorkspace)
+const SectionsWorkspace = lazy(loadSectionsWorkspace)
+const SettingsWorkspace = lazy(loadSettingsWorkspace)
+const OrganizationWorkspace = lazy(loadOrganizationWorkspace)
+const AdminWorkspace = lazy(loadAdminWorkspace)
+const AdminIntegrationsWorkspace = lazy(loadAdminIntegrationsWorkspace)
+const OverviewWorkspace = lazy(loadOverviewWorkspace)
+const SimulatorWorkspace = lazy(loadSimulatorWorkspace)
+const ActionsWorkspace = lazy(loadActionsWorkspace)
+const AlertsWorkspace = lazy(loadAlertsWorkspace)
+const TrendsWorkspace = lazy(loadTrendsWorkspace)
+const NodesWorkspace = lazy(loadNodesWorkspace)
+const CropProfilesWorkspace = lazy(loadCropProfilesWorkspace)
+
+const backgroundWorkspacePreloaders = [
+  loadAreasWorkspace,
+  loadReadingsWorkspace,
+  loadSectionsWorkspace,
+  loadSettingsWorkspace,
+  loadOrganizationWorkspace,
+  loadActionsWorkspace,
+  loadTrendsWorkspace,
+  loadSimulatorWorkspace,
+]
+
+function scheduleBackgroundWorkspacePreload() {
+  const warm = () => {
+    backgroundWorkspacePreloaders.forEach((loadWorkspace) => {
+      void loadWorkspace().catch(() => undefined)
+    })
+  }
+  const idleWindow = window as typeof window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+    cancelIdleCallback?: (id: number) => void
+  }
+  if (idleWindow.requestIdleCallback) {
+    const idleId = idleWindow.requestIdleCallback(warm, { timeout: 2_500 })
+    return () => idleWindow.cancelIdleCallback?.(idleId)
+  }
+  const timeoutId = window.setTimeout(warm, 800)
+  return () => window.clearTimeout(timeoutId)
+}
 
 declare const __BUILD_VERSION__: string
 
@@ -183,6 +225,7 @@ function ApprovedDashboard() {
     installNeuroCropFeatures()
     installEChartsEngine()
     preloadDashboardRuntimeAssets()
+    const cancelBackgroundPreload = scheduleBackgroundWorkspacePreload()
     if (hostRef.current && !hostRef.current.childElementCount) {
       hostRef.current.innerHTML = approvedMarkup
     }
@@ -261,6 +304,7 @@ function ApprovedDashboard() {
 
     return () => {
       delete window.NeuroCropLoadLithuanianTranslations
+      cancelBackgroundPreload()
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
