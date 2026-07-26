@@ -989,6 +989,9 @@
       "Advanced": "Išplėstiniai",
       "Advanced administration": "Išplėstinis administravimas",
       "Agronomic diagnosis": "Agronominė diagnozė",
+      "Emerging": "Besiformuojanti",
+      "Emerging canopy heat risk": "Besiformuojanti lapijos perkaitimo rizika",
+      "Check ventilation and heating balance.": "Patikrinkite vėdinimo ir šildymo pusiausvyrą.",
       "Agronomic targets live in Crop profiles": "Agronominiai tikslai nustatomi kultūrų profiliuose",
       "All available signals are within expected state.": "Visi pasiekiami signalai atitinka tikėtiną būseną.",
       "All nodes assigned": "Visi mazgai priskirti",
@@ -1489,10 +1492,37 @@
         return `${leading}Sekcijoje ${humidityPriority[1]}, erdvėje ${humidityPriority[2]}, rodiklis yra žemiau tikslo per ${humidityPriority[3]}. Tikėtinas poveikis: VPD priartės prie tikslo ir sumažės augalų vandens streso rizika.${trailing}`;
       }
 
+      const overviewDeviation = core.match(/^(\d+) Sections? (?:is|are) up to (.+) (above|below) target\.$/i);
+      if (overviewDeviation) {
+        const count = Number(overviewDeviation[1]);
+        const sectionWord = count === 1 ? "sekcija" : "sekcijos";
+        const direction = overviewDeviation[3].toLowerCase() === "above" ? "virš tikslo" : "žemiau tikslo";
+        return `${leading}${count} ${sectionWord} nuo tikslo nukrypusi iki ${overviewDeviation[2]} ${direction}.${trailing}`;
+      }
+
+      const cropProfileOutside = core.match(/^(.+) is outside the active crop-profile target in (\d+) of (\d+) Sections\.$/i);
+      if (cropProfileOutside) {
+        const metric = lithuanianInterfaceText[cropProfileOutside[1]] || cropProfileOutside[1];
+        return `${leading}${metric} neatitinka aktyvaus kultūros profilio tikslo ${cropProfileOutside[2]} iš ${cropProfileOutside[3]} sekcijų.${trailing}`;
+      }
+
+      const canopyHeatRisk = core.match(/^Air temperature is (.+) above target\. Low relative humidity increases drying demand, while VPD remains inside its configured target\. This is an emerging canopy heat risk; leaf temperature and persistence over time would confirm plant-level heat stress\.$/i);
+      if (canopyHeatRisk) {
+        return `${leading}Oro temperatūra yra ${canopyHeatRisk[1]} virš tikslo. Maža santykinė drėgmė didina džiūvimo poreikį, o VPD išlieka nustatytose tikslinėse ribose. Tai besiformuojanti lapijos perkaitimo rizika; lapų temperatūra ir būklės trukmė padėtų patvirtinti augalų šiluminį stresą.${trailing}`;
+      }
+
       const patterns = [
         [/^(\d+)\s+sec ago$/i, "prieš $1 sek."],
         [/^(\d+)\s+min ago$/i, "prieš $1 min."],
         [/^(\d+)\s+h ago$/i, "prieš $1 val."],
+        [/^(\d+)\s+needs action$/i, "$1 reikia veiksmo"],
+        [/^(\d+)\s+watch$/i, "$1 stebima"],
+        [/^(\d+)\s+stable$/i, "$1 stabilios"],
+        [/^Affects\s+(\d+)\s+of\s+(\d+)\s+Sections$/i, "Paveikia $1 iš $2 sekcijų"],
+        [/^(\d+)\s+of\s+(\d+)\s+nodes reporting$/i, "$1 iš $2 mazgų siunčia duomenis"],
+        [/^(\d+)\s+actions?\s+·\s+(\d+)\s+watch conditions?$/i, "$1 veiksmai · $2 stebimos sąlygos"],
+        [/^(.+)\s+above target$/i, "$1 virš tikslo"],
+        [/^(.+)\s+below target$/i, "$1 žemiau tikslo"],
         [/^(\d+)\s+sections monitored$/i, "Stebimos sekcijos: $1"],
         [/^(\d+)\s+active\s+·\s+(\d+)\s+pending$/i, "$1 aktyvūs · $2 laukia"],
         [/^(\d+)\s+configured nodes$/i, "Sukonfigūruoti mazgai: $1"],
