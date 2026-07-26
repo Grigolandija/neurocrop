@@ -866,48 +866,72 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .app-route-loading {
-  min-height: 100vh;
-  box-sizing: border-box;
-  display: grid;
-  place-items: center;
-  padding: 32px;
-  color: #20352d;
-  background:
-    linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.72) 48%, transparent 66%),
-    #f3eee4;
-  background-size: 220% 100%;
-  animation: route-loading-sweep 1.2s ease-in-out infinite;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483000 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  display: grid !important;
+  place-items: center !important;
+  margin: 0 !important;
+  padding: 32px !important;
+  overflow: hidden !important;
+  color: #20352d !important;
+  background: #f3eee4 !important;
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
 }
 
 .app-route-loading--compact {
-  min-height: 70vh;
+  min-height: 0 !important;
 }
 
-.app-route-loading-card {
-  width: min(460px, calc(100vw - 48px));
-  box-sizing: border-box;
-  display: grid;
-  justify-items: center;
-  padding: 38px 40px 34px;
-  font-family: Arial, Helvetica, sans-serif;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(31, 91, 72, 0.13);
-  border-radius: 24px;
-  box-shadow: 0 24px 70px rgba(31, 55, 46, 0.12);
-  backdrop-filter: blur(12px);
+.app-route-loading > .app-route-loading-card {
+  width: 460px !important;
+  height: 340px !important;
+  min-width: 460px !important;
+  min-height: 340px !important;
+  max-width: 460px !important;
+  max-height: 340px !important;
+  box-sizing: border-box !important;
+  contain: layout paint style;
+  display: grid !important;
+  grid-template-rows: 58px 18px 72px 52px 6px !important;
+  row-gap: 12px !important;
+  align-content: center !important;
+  justify-items: center !important;
+  margin: 0 !important;
+  padding: 30px 40px !important;
+  overflow: hidden !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  text-align: center !important;
+  background: #fff !important;
+  border: 1px solid rgba(31, 91, 72, 0.13) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 24px 70px rgba(31, 55, 46, 0.12) !important;
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
 }
 
-.app-route-loading-logo {
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  margin-bottom: 14px;
-  color: #287b63;
-  background: #e7f4ed;
-  border-radius: 17px;
-  box-shadow: 0 10px 25px rgba(40, 123, 99, 0.14);
+.app-route-loading > .app-route-loading-card > .app-route-loading-logo {
+  display: grid !important;
+  place-items: center !important;
+  width: 58px !important;
+  height: 58px !important;
+  margin: 0 !important;
+  color: #287b63 !important;
+  background: #e7f4ed !important;
+  border-radius: 17px !important;
+  box-shadow: 0 10px 25px rgba(40, 123, 99, 0.14) !important;
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
 }
 
 .app-route-loading-logo svg {
@@ -920,42 +944,74 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   stroke-linejoin: round;
 }
 
-.app-route-loading-brand {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: #287b63;
+.app-route-loading > .app-route-loading-card > .app-route-loading-brand {
+  width: 100% !important;
+  height: 18px !important;
+  margin: 0 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  line-height: 18px !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+  color: #287b63 !important;
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
 }
 
-.app-route-loading .app-route-loading-card h1 {
-  min-height: 36px;
-  margin: 9px 0 10px;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 36px;
-  letter-spacing: -.03em;
+.app-route-loading > .app-route-loading-card > h1 {
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 72px !important;
+  min-height: 72px !important;
+  max-height: 72px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  line-height: 36px !important;
+  letter-spacing: -.03em !important;
+  color: #20352d !important;
   animation: none !important;
   transition: none !important;
   transform: none !important;
 }
 
-.app-route-loading-card p {
-  max-width: 365px;
-  margin: 0;
-  color: #66756f;
-  font-size: 14px;
-  line-height: 1.55;
+.app-route-loading > .app-route-loading-card > p {
+  box-sizing: border-box !important;
+  width: 365px !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  max-height: 52px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  color: #66756f !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 22px !important;
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
 }
 
-.app-route-loading-progress {
-  width: 100%;
-  height: 6px;
-  margin-top: 25px;
-  overflow: hidden;
-  background: #dfe9e4;
-  border-radius: 999px;
+.app-route-loading > .app-route-loading-card > .app-route-loading-progress {
+  align-self: end !important;
+  width: 100% !important;
+  height: 6px !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  background: #dfe9e4 !important;
+  border-radius: 999px !important;
+  transform: none !important;
+  transition: none !important;
 }
 
 .app-route-loading-progress > span {
@@ -967,31 +1023,42 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   animation: route-loading-progress 1.05s ease-in-out infinite;
 }
 
-@keyframes route-loading-sweep {
-  to { background-position: -120% 0; }
-}
-
 @keyframes route-loading-progress {
   from { transform: translateX(-115%); }
   to { transform: translateX(250%); }
 }
 
 @media (max-width: 560px) {
-  .app-route-loading { padding: 20px; }
-  .app-route-loading-card {
-    width: 100%;
-    padding: 32px 24px 28px;
-    border-radius: 20px;
+  .app-route-loading {
+    padding: 20px !important;
   }
-  .app-route-loading .app-route-loading-card h1 {
-    min-height: 64px;
-    font-size: 27px;
-    line-height: 32px;
+  .app-route-loading > .app-route-loading-card {
+    width: calc(100vw - 40px) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 40px) !important;
+    height: 360px !important;
+    min-height: 360px !important;
+    max-height: 360px !important;
+    grid-template-rows: 58px 18px 80px 66px 6px !important;
+    padding: 30px 24px !important;
+    border-radius: 20px !important;
+  }
+  .app-route-loading > .app-route-loading-card > h1 {
+    height: 80px !important;
+    min-height: 80px !important;
+    max-height: 80px !important;
+    font-size: 27px !important;
+    line-height: 32px !important;
+  }
+  .app-route-loading > .app-route-loading-card > p {
+    width: 100% !important;
+    height: 66px !important;
+    min-height: 66px !important;
+    max-height: 66px !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-route-loading,
   .app-route-loading-progress > span {
     animation-duration: 2.4s;
   }
