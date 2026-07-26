@@ -2205,10 +2205,18 @@ app.get('/history', requireAuth, async (req, res) => {
     const stepMinutes = allowedStepMinutes.has(requestedStepMinutes) ? requestedStepMinutes : 5;
     const bucketSeconds = stepMinutes * 60;
 
-    const devEuis = await getSectionDevEuis(section.id, getOrganizationId(req), { includeArchived: true });
-    if (!devEuis.length) {
+    const sectionDevEuis = await getSectionDevEuis(section.id, getOrganizationId(req), { includeArchived: true });
+    if (!sectionDevEuis.length) {
       return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
     }
+    const requestedDevEui = req.query.devEui ? normalizeDevEui(req.query.devEui) : '';
+    if (requestedDevEui && !/^[0-9a-f]{16}$/.test(requestedDevEui)) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid devEui' } });
+    }
+    if (requestedDevEui && !sectionDevEuis.includes(requestedDevEui)) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node is not assigned to this section' } });
+    }
+    const devEuis = requestedDevEui ? [requestedDevEui] : sectionDevEuis;
 
     const bucketExpression = `to_timestamp(floor(extract(epoch FROM time) / ${bucketSeconds}) * ${bucketSeconds})`;
     let points;
@@ -2263,9 +2271,10 @@ app.get('/history', requireAuth, async (req, res) => {
 
     res.json({
       sectionId,
+      devEui: requestedDevEui || null,
       metric,
       unit: METRIC_UNITS[metric] || '',
-      aggregation: `${metric === 'lux' ? 'section_peak' : 'section_median'}_${stepMinutes}m`,
+      aggregation: `${requestedDevEui ? 'node' : metric === 'lux' ? 'section_peak' : 'section_median'}_${stepMinutes}m`,
       stepMinutes,
       points,
       revision: `history-${Date.now()}`

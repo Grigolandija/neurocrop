@@ -5,8 +5,10 @@ import { neurocropApi } from '../../services/api/neurocropApi'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonRecord = Record<string, any>
 type RangeKey = '24h' | '7d' | '30d'
+type TrendScope = 'section' | 'nodes'
 type Point = { observedAt: string; value: number }
 type Section = { id: string; name: string; areaId: string; areaName: string; profileId: string; available: Set<string> }
+type NodeOption = { devEui: string; name: string; sectionId: string; transportStatus: string }
 type Metric = { key: string; label: string; short: string; unit: string; decimals: number; icon: string }
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 
@@ -64,6 +66,20 @@ function sectionAreaId(section: JsonRecord) {
 
 function sectionProfileId(section: JsonRecord) {
   return text(section.profile?.id || section.profile || section.profileId || section.profile_id || section.cropProfile || section.crop_profile, 'default')
+}
+
+function nodeList(payload: JsonRecord): NodeOption[] {
+  return arrays(payload, ['nodes', 'items']).map((node): NodeOption | null => {
+    const devEui = text(node.devEui || node.dev_eui).trim().toLowerCase()
+    const sectionId = text(node.sectionId || node.section_id)
+    if (!devEui || !sectionId) return null
+    return {
+      devEui,
+      name: text(node.name || node.nodeName || node.node_name || node.id, devEui),
+      sectionId,
+      transportStatus: text(node.transportStatus || node.transport_status, 'unknown'),
+    }
+  }).filter((node): node is NodeOption => Boolean(node))
 }
 
 function metricSet(section: JsonRecord) {
@@ -501,6 +517,7 @@ export default function TrendsWorkspace() {
   const retryContextAfterLoginRef = useRef(false)
   const sectionsRef = useRef<Section[]>([])
   const [sections, setSections] = useState<Section[]>([])
+  const [nodes, setNodes] = useState<NodeOption[]>([])
   const [profiles, setProfiles] = useState<JsonRecord[]>([])
   const [areaId, setAreaId] = useState(String(stored.areaId || ''))
   const [sectionId, setSectionId] = useState(String(stored.sectionId || ''))
@@ -509,9 +526,15 @@ export default function TrendsWorkspace() {
     Array.isArray(stored.secondaryMetricKeys) ? stored.secondaryMetricKeys.map(String).slice(0, 2) : [],
   )
   const [range, setRange] = useState<RangeKey>(['24h', '7d', '30d'].includes(stored.range) ? stored.range : '24h')
+  const [scope, setScope] = useState<TrendScope>(stored.scope === 'nodes' ? 'nodes' : 'section')
   const [recentSectionIds, setRecentSectionIds] = useState<string[]>(Array.isArray(stored.recentSectionIds) ? stored.recentSectionIds.map(String).slice(0, 5) : [])
   const [compare, setCompare] = useState(false)
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(
+    Array.isArray(stored.selectedNodeIds) ? stored.selectedNodeIds.map(String).slice(0, 5) : [],
+  )
+  const [nodeSeries, setNodeSeries] = useState<ChartInput[]>([])
+  const [nodeHistoryLoading, setNodeHistoryLoading] = useState(false)
   const [points, setPoints] = useState<Point[]>([])
   const [metricHistories, setMetricHistories] = useState<Record<string, Point[]>>({})
   const [comparison, setComparison] = useState<ChartInput[]>([])
@@ -532,6 +555,11 @@ export default function TrendsWorkspace() {
   const displayedAreaId = selectedSection?.areaId || (areaIdExists ? areaId : areas[0]?.[0] || '')
   const displayedAreaSections = sections.filter((section) => section.areaId === displayedAreaId)
   const displayedSectionId = selectedSection?.id || displayedAreaSections[0]?.id || ''
+  const sectionNodes = useMemo(
+    () => nodes.filter((node) => node.sectionId === selectedSection?.id),
+    [nodes, selectedSection?.id],
+  )
+  const sectionNodeKey = sectionNodes.map((node) => node.devEui).join(',')
   const availableMetrics = metrics.filter((metric) => selectedSection?.available.has(metric.key))
   const target = profileRange(profiles, selectedSection?.profileId || '', selectedMetric.key)
 
@@ -559,11 +587,12 @@ export default function TrendsWorkspace() {
       hydrationBusyRef.current = true
       retryContextAfterLoginRef.current = false
       try {
-        const [dashboardResult, areaResult, sectionResult, profileResult] = await Promise.allSettled([
+        const [dashboardResult, areaResult, sectionResult, profileResult, nodeResult] = await Promise.allSettled([
           neurocropApi.getDashboard(),
           neurocropApi.getAreas(),
           neurocropApi.getSections(),
           neurocropApi.getCropProfiles(),
+          neurocropApi.getNodes(),
         ])
         if (!active) return
         if (dashboardResult.status === 'rejected' && sectionResult.status === 'rejected') throw dashboardResult.reason
@@ -573,7 +602,9 @@ export default function TrendsWorkspace() {
         const profilePayload = profileResult.status === 'fulfilled' ? profileResult.value as JsonRecord : {}
         const nextSections = sectionList(dashboardPayload, areaPayload, sectionPayload)
         const nextProfiles = arrays(profilePayload, ['profiles', 'items'])
+        const nodePayload = nodeResult.status === 'fulfilled' ? nodeResult.value as JsonRecord : {}
         applyWorkspaceContext(nextSections, nextProfiles)
+        setNodes(nodeList(nodePayload))
       } catch (reason) {
         if (!active) return
         retryContextAfterLoginRef.current = true
@@ -664,7 +695,7 @@ export default function TrendsWorkspace() {
     const config = rangeConfig[range]
     const to = new Date()
     const from = new Date(to.getTime() - config.hours * 60 * 60 * 1000)
-    const requestedMetricKeys = compare ? [metricKey] : activeMetricKeys
+    const requestedMetricKeys = compare || scope === 'nodes' ? [metricKey] : activeMetricKeys
     let active = true
     queueMicrotask(() => {
       if (!active) return
@@ -702,7 +733,7 @@ export default function TrendsWorkspace() {
     return () => { active = false }
   // metricSelectionKey intentionally represents the complete ordered metric selection.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compare, metricKey, metricSelectionKey, range, refreshToken, selectedSection])
+  }, [compare, metricKey, metricSelectionKey, range, refreshToken, scope, selectedSection])
 
   useEffect(() => {
     if (!selectedSection) return
@@ -711,10 +742,12 @@ export default function TrendsWorkspace() {
       sectionId: selectedSection.id,
       metricKey,
       range,
+      scope,
       recentSectionIds,
       secondaryMetricKeys,
+      selectedNodeIds,
     }))
-  }, [metricKey, range, recentSectionIds, secondaryMetricKeys, selectedSection])
+  }, [metricKey, range, recentSectionIds, scope, secondaryMetricKeys, selectedNodeIds, selectedSection])
 
   useEffect(() => {
     if (!compare || !selectedSection || comparisonIds.length < 2) {
@@ -760,6 +793,66 @@ export default function TrendsWorkspace() {
     return () => { active = false }
   }, [metricKey, sections, selectedSection])
 
+  useEffect(() => {
+    if (scope !== 'nodes') {
+      queueMicrotask(() => {
+        setNodeSeries([])
+        setNodeHistoryLoading(false)
+      })
+      return
+    }
+    const eligibleIds = sectionNodes.map((node) => node.devEui)
+    queueMicrotask(() => {
+      setCompare(false)
+      setSecondaryMetricKeys([])
+      setSelectedNodeIds((current) => {
+        const valid = current.filter((id) => eligibleIds.includes(id)).slice(0, 5)
+        return valid.length ? valid : eligibleIds.slice(0, 3)
+      })
+    })
+  // sectionNodes is represented by its stable identity list to avoid resetting selection on unrelated renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, sectionNodeKey, selectedSection?.id])
+
+  useEffect(() => {
+    if (scope !== 'nodes' || !selectedSection || !selectedNodeIds.length) {
+      queueMicrotask(() => {
+        setNodeSeries([])
+        setNodeHistoryLoading(false)
+      })
+      return
+    }
+    const config = rangeConfig[range]
+    const to = new Date()
+    const from = new Date(to.getTime() - config.hours * 60 * 60 * 1000)
+    const selectedNodes = sectionNodes.filter((node) => selectedNodeIds.includes(node.devEui)).slice(0, 5)
+    let active = true
+    queueMicrotask(() => {
+      if (active) setNodeHistoryLoading(true)
+    })
+    Promise.all(selectedNodes.map((node, index) => neurocropApi.getHistory({
+      sectionId: selectedSection.id,
+      devEui: node.devEui,
+      metric: metricKey,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      stepMinutes: config.stepMinutes,
+    }).then((payload) => ({
+      name: node.name,
+      points: historyPoints(payload as JsonRecord),
+      color: chartColors[(index + 1) % chartColors.length],
+    })).catch(() => ({
+      name: node.name,
+      points: [],
+      color: chartColors[(index + 1) % chartColors.length],
+    })))).then((series) => {
+      if (!active) return
+      setNodeSeries(series)
+      setNodeHistoryLoading(false)
+    })
+    return () => { active = false }
+  }, [metricKey, range, refreshToken, scope, sectionNodes, selectedNodeIds, selectedSection])
+
   const values = points.map((point) => point.value)
   const current = values.at(-1) ?? null
   const first = values[0] ?? null
@@ -775,11 +868,14 @@ export default function TrendsWorkspace() {
     ? Math.min(100, Math.max(0, Math.round(optimalMinutes / expectedMinutes * 100)))
     : null
   const coveragePct = expectedMinutes ? Math.min(100, Math.round(coveredMinutes / expectedMinutes * 100)) : null
-  const showMeasuredConclusion = !compare && activeMetricKeys.length === 1 && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
+  const showMeasuredConclusion = scope === 'section' && !compare && activeMetricKeys.length === 1 && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
   const events = Array.isArray(analytics?.events) ? analytics.events.slice(-6).reverse() : []
-  const chartSeries = compare && comparison.length > 1
-    ? comparison
-    : [{ name: selectedSection?.name || 'Selected section', points, color: chartColors[0] }]
+  const sectionSeries = { name: `${selectedSection?.name || 'Selected section'} · section median`, points, color: chartColors[0] }
+  const chartSeries = scope === 'nodes'
+    ? [sectionSeries, ...nodeSeries]
+    : compare && comparison.length > 1
+      ? comparison
+      : [sectionSeries]
   const metricChartItems = activeMetricKeys.map((key, index) => {
     const metric = metrics.find((item) => item.key === key) || metrics[0]
     return {
@@ -809,8 +905,9 @@ export default function TrendsWorkspace() {
 
   function toggleMetric(nextMetricKey: string) {
     const selectedKeys = activeMetricKeys
-    if (compare) {
+    if (compare || scope === 'nodes') {
       setMetricKey(nextMetricKey)
+      setSecondaryMetricKeys([])
       return
     }
     if (selectedKeys.includes(nextMetricKey)) {
@@ -835,6 +932,20 @@ export default function TrendsWorkspace() {
     setComparisonIds((current) => current.includes(id)
       ? current.length > 1 ? current.filter((item) => item !== id) : current
       : [...current, id].slice(0, 6))
+  }
+
+  function changeScope(nextScope: TrendScope) {
+    setScope(nextScope)
+    if (nextScope === 'nodes') {
+      setCompare(false)
+      setSecondaryMetricKeys([])
+    }
+  }
+
+  function toggleNode(devEui: string) {
+    setSelectedNodeIds((current) => current.includes(devEui)
+      ? current.filter((id) => id !== devEui)
+      : current.length < 5 ? [...current, devEui] : current)
   }
 
   function exportCsv() {
@@ -885,22 +996,26 @@ export default function TrendsWorkspace() {
             </select>
           : <span className="nc-trends-select-skeleton" aria-label="Preparing Section selection" />}
       </label>
+      <div className="nc-trends-scope" role="group" aria-label="Trend data level">
+        <button type="button" className={scope === 'section' ? 'active' : ''} aria-pressed={scope === 'section'} onClick={() => changeScope('section')}><i className="fa-solid fa-layer-group" />Section</button>
+        <button type="button" className={scope === 'nodes' ? 'active' : ''} aria-pressed={scope === 'nodes'} onClick={() => changeScope('nodes')}><i className="fa-solid fa-microchip" />Nodes</button>
+      </div>
       <div className="nc-trends-range" role="group" aria-label="Trend period">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
-      <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />Compare Sections</button>
+      {scope === 'section' ? <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />Compare Sections</button> : null}
     </section>
 
     <section className="nc-trends-metric-controls">
       <div className="nc-trends-metric-presets">
-        <span>{compare ? 'Select one parameter for comparison' : `Select up to 3 parameters · ${activeMetricKeys.length}/3 selected`}</span>
-        {!compare ? <div>
+        <span>{scope === 'nodes' ? 'Select one parameter to compare between nodes' : compare ? 'Select one parameter for comparison' : `Select up to 3 parameters · ${activeMetricKeys.length}/3 selected`}</span>
+        {scope === 'section' && !compare ? <div>
           <button type="button" onClick={() => applyMetricPreset(['airTemp', 'humidity', 'vpd'])}>Climate</button>
           <button type="button" onClick={() => applyMetricPreset(['soilMoisture', 'ec', 'ph'])}>Root zone</button>
         </div> : null}
       </div>
       <nav className="nc-trends-metrics" aria-label="Metric">{(availableMetrics.length ? availableMetrics : metrics.slice(0, 4)).map((metric) => {
-        const selectedIndex = (compare ? [metricKey] : activeMetricKeys).indexOf(metric.key)
+        const selectedIndex = (compare || scope === 'nodes' ? [metricKey] : activeMetricKeys).indexOf(metric.key)
         const selected = selectedIndex >= 0
-        const selectionLimitReached = !compare && !selected && activeMetricKeys.length >= 3
+        const selectionLimitReached = scope === 'section' && !compare && !selected && activeMetricKeys.length >= 3
         return <button type="button" data-active={selected} aria-pressed={selected} disabled={selectionLimitReached} title={selectionLimitReached ? 'Remove a selected parameter before adding another.' : undefined} onClick={() => toggleMetric(metric.key)} key={metric.key}>
           <i className={`fa-solid ${metric.icon}`} />
           <span>{metric.short}</span>
@@ -910,6 +1025,19 @@ export default function TrendsWorkspace() {
     </section>
 
     {compare ? <section className="nc-trends-comparison-picker"><div><strong>Compare Sections</strong><span>Select 2–6 Sections in {selectedSection?.areaName}.</span></div><div>{sections.filter((section) => section.areaId === selectedSection?.areaId && section.available.has(metricKey)).map((section) => <label key={section.id}><input type="checkbox" checked={comparisonIds.includes(section.id)} onChange={() => toggleComparison(section.id)} /><span>{section.name}</span></label>)}</div></section> : null}
+    {scope === 'nodes' ? <section className="nc-trends-comparison-picker nc-trends-node-picker">
+      <div><strong>Compare Nodes</strong><span>The Section median stays visible. Select up to 5 Nodes · {selectedNodeIds.length}/5 selected.</span></div>
+      <div>{sectionNodes.length
+        ? sectionNodes.map((node) => {
+            const selected = selectedNodeIds.includes(node.devEui)
+            const disabled = !selected && selectedNodeIds.length >= 5
+            return <label key={node.devEui} title={`${node.devEui} · ${node.transportStatus}`}>
+              <input type="checkbox" checked={selected} disabled={disabled} onChange={() => toggleNode(node.devEui)} />
+              <span><i data-status={node.transportStatus} />{node.name}</span>
+            </label>
+          })
+        : <p>No Nodes are assigned to this Section.</p>}</div>
+    </section> : null}
 
     <section className="nc-trends-kpis">
       <article><small>Current</small><strong>{format(current, selectedMetric)} <em>{selectedMetric.unit}</em></strong><span>{target ? `Target ${format(target[0], selectedMetric)}–${format(target[1], selectedMetric)} ${selectedMetric.unit}` : 'Target not configured'}</span></article>
@@ -920,14 +1048,16 @@ export default function TrendsWorkspace() {
 
     <section className="nc-trends-main">
       <article className="nc-trends-chart-card">
-        <header><div><p>{compare ? 'Section comparison' : activeMetricKeys.length > 1 ? 'Combined measured history' : 'Measured history'}</p><h2>{compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
+        <header><div><p>{scope === 'nodes' ? 'Node comparison' : compare ? 'Section comparison' : activeMetricKeys.length > 1 ? 'Combined measured history' : 'Measured history'}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? `${selectedSection?.name} · Section median + ${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
         {showMeasuredConclusion ? <div className="nc-trends-chart-conclusion" data-tone={summary.tone}>
           <span>Measured conclusion</span>
           <strong>{summary.title}</strong>
           <p>{summary.body}</p>
         </div> : null}
         {selectedSection && (status === 'ready' || comparison.length > 1)
-          ? compare
+          ? scope === 'nodes'
+            ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
+            : compare
             ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
             : activeMetricKeys.length > 1
               ? <MultiMetricChart items={metricChartItems} range={range} />

@@ -47,7 +47,7 @@
 
 .designer-app .nc-trends-context {
   display: grid;
-  grid-template-columns: minmax(160px, .7fr) minmax(220px, 1fr) auto auto;
+  grid-template-columns: minmax(160px, .7fr) minmax(220px, 1fr) auto auto auto;
   align-items: end;
   gap: 12px;
   border: 1px solid var(--trends-line);
@@ -132,6 +132,27 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-range { display: flex; height: 44px; border: 1px solid var(--trends-line); border-radius: 9px; padding: 3px; background: #f0f2ef; }
 .designer-app .nc-trends-range button { min-width: 54px; border-radius: 6px; background: transparent; color: var(--trends-muted); font-size: 12px; font-weight: 650; }
 .designer-app .nc-trends-range button.active { background: #fff; color: var(--trends-ink); box-shadow: 0 2px 7px rgba(26, 43, 34, .1); }
+.designer-app .nc-trends-scope {
+  display: flex;
+  height: 44px;
+  border: 1px solid var(--trends-line);
+  border-radius: 9px;
+  padding: 3px;
+  background: #f0f2ef;
+}
+.designer-app .nc-trends-scope button {
+  display: inline-flex;
+  min-width: 82px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--trends-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.designer-app .nc-trends-scope button.active { background: #fff; color: #216b5f; box-shadow: 0 2px 7px rgba(26, 43, 34, .1); }
 .designer-app .nc-trends-compare-toggle.active { border-color: #5b7e91; background: #edf5f8; color: #315e75; }
 
 .designer-app .nc-trends-metric-controls {
@@ -212,6 +233,14 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-comparison-picker input { position: absolute; opacity: 0; pointer-events: none; }
 .designer-app .nc-trends-comparison-picker label span { display: block; border: 1px solid #cbd9df; border-radius: 999px; padding: 7px 11px; background: #fff; color: #5f7068; font-size: 11px; font-weight: 650; }
 .designer-app .nc-trends-comparison-picker label:has(input:checked) span { border-color: #547c8f; background: #547c8f; color: #fff; }
+.designer-app .nc-trends-comparison-picker label:has(input:disabled) { cursor: not-allowed; opacity: .45; }
+.designer-app .nc-trends-node-picker label span { display: inline-flex; align-items: center; gap: 7px; }
+.designer-app .nc-trends-node-picker label span i { width: 7px; height: 7px; border-radius: 50%; background: #a5ada8; }
+.designer-app .nc-trends-node-picker label span i[data-status="live"] { background: #3b9365; }
+.designer-app .nc-trends-node-picker label span i[data-status="delayed"],
+.designer-app .nc-trends-node-picker label span i[data-status="stale"] { background: #d59a2a; }
+.designer-app .nc-trends-node-picker label span i[data-status="offline"] { background: #d35e49; }
+.designer-app .nc-trends-node-picker > div:last-child > p { margin: 0; color: var(--trends-muted); font-size: 12px; }
 
 .designer-app .nc-trends-kpis {
   display: grid;
