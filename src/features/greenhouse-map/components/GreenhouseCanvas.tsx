@@ -52,8 +52,8 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   const definition = OBJECT_LIBRARY.find((item) => item.type === object.type)
   const isSensor = object.type === 'sensor-node'
   const isSection = object.type === 'section-zone'
+  const wallMounted = isWallMountedType(object.type)
   const sensor = object.metadata.sensor
-  const section = object.metadata.section
   const colors = objectColors[object.layerId] ?? objectColors.structure
   const topY = map.dimensions.lengthM - object.yM - object.lengthM
   const sensorSize = Math.max(object.widthM, object.lengthM)
@@ -61,11 +61,19 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   const objectLabel = object.name || definition?.label || object.type
   const objectWidthPx = object.widthM * viewScale
   const objectHeightPx = object.lengthM * viewScale
-  const labelInside = objectWidthPx >= 76 && objectHeightPx >= 26
-  const objectLabelWidthPx = Math.max(54, Math.min(labelInside ? objectWidthPx - 12 : 132, objectLabel.length * 5.8 + 18))
-  const objectLabelHeightPx = 20
-  const objectLabelX = labelInside ? 6 / viewScale : 0
-  const objectLabelY = labelInside ? (object.lengthM - objectLabelHeightPx / viewScale) / 2 : -24 / viewScale
+  const mapLabelFontPx = Math.max(10, Math.min(14, objectHeightPx * .22))
+  const wall = object.metadata.wallMount?.wall
+  const wallLabelWidthPx = Math.max(68, Math.min(132, objectLabel.length * 6.4))
+  const wallLabelPosition = wall === 'west'
+    ? { x: object.widthM + 8 / viewScale, y: object.lengthM / 2 - 9 / viewScale }
+    : wall === 'east'
+      ? { x: -(wallLabelWidthPx + 8) / viewScale, y: object.lengthM / 2 - 9 / viewScale }
+      : wall === 'north'
+        ? { x: object.widthM / 2 - wallLabelWidthPx / viewScale / 2, y: object.lengthM + 7 / viewScale }
+        : { x: object.widthM / 2 - wallLabelWidthPx / viewScale / 2, y: -25 / viewScale }
+  const mapObjectLabel = wallMounted
+    ? <Text {...wallLabelPosition} width={wallLabelWidthPx / viewScale} height={18 / viewScale} text={objectLabel} align="center" verticalAlign="middle" fontFamily="IBM Plex Sans" fontSize={10 / viewScale} fontStyle="bold" fill="#203b33" stroke="rgba(247,249,246,.92)" strokeWidth={2.4 / viewScale} fillAfterStrokeEnabled ellipsis wrap="none" />
+    : <Text x={8 / viewScale} y={0} width={Math.max(4, objectWidthPx - 16) / viewScale} height={object.lengthM} text={objectLabel} align="center" verticalAlign="middle" fontFamily="IBM Plex Sans" fontSize={mapLabelFontPx / viewScale} fontStyle="bold" fill="#203b33" stroke="rgba(247,249,246,.78)" strokeWidth={2.2 / viewScale} fillAfterStrokeEnabled opacity={environmentView ? .78 : .94} ellipsis wrap="none" />
   return <Group
     id={`gh-object-${object.id}`} name="map-object" x={object.xM} y={topY} rotation={object.rotationDeg}
     draggable={editable && !object.locked}
@@ -82,8 +90,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   >
     {isSection ? <>
       <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(0,0,0,.2)' : object.metadata.color ?? colors.fill} opacity={environmentView ? 1 : selected ? .2 : .11} stroke={selected ? '#d89222' : environmentView ? 'rgba(0,0,0,.48)' : object.metadata.color ?? colors.stroke} strokeWidth={selected ? 2 / viewScale : environmentView ? 1 / viewScale : 1.2 / viewScale} dash={environmentView ? [6 / viewScale, 4 / viewScale] : [8 / viewScale, 5 / viewScale]} cornerRadius={4 / viewScale} />
-      <Text x={8 / viewScale} y={7 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={section?.sectionName ?? object.name} fontFamily="IBM Plex Sans" fontSize={Math.max(.18, 12 / viewScale)} fontStyle="bold" fill="#244d41" opacity={environmentView ? .76 : 1} />
-      <Text x={8 / viewScale} y={23 / viewScale} width={Math.max(.2, object.widthM - 16 / viewScale)} text={`${section?.nodeCount ?? 0} node${section?.nodeCount === 1 ? '' : 's'}${section?.cropProfile ? ` · ${section.cropProfile}` : ''}`} fontFamily="IBM Plex Mono" fontSize={Math.max(.13, 9 / viewScale)} fill="#557168" opacity={environmentView ? .68 : 1} />
+      {mapObjectLabel}
     </> : isSensor ? <>
       <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .5} fill="#173e35" stroke={selected ? '#f0bd4f' : '#fff'} strokeWidth={selected ? Math.max(sensorSize * .12, 2 / viewScale) : Math.max(sensorSize * .07, 1.2 / viewScale)} shadowColor="#10251f" shadowBlur={Math.max(sensorSize * .2, 3 / viewScale)} shadowOpacity={.35} />
       <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .2} fill={statusColors[sensor?.status ?? 'unassigned']} />
@@ -94,10 +101,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
       {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} opacity={environmentView ? .68 : 1} /> : null}
       {object.type === 'text-label'
         ? <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill="#1e2c27" opacity={environmentView ? .76 : 1} ellipsis wrap="none" />
-        : <Group x={objectLabelX} y={objectLabelY} listening={false}>
-          <Rect width={objectLabelWidthPx / viewScale} height={objectLabelHeightPx / viewScale} fill={environmentView ? '#ffffff' : '#254b40'} opacity={environmentView ? .66 : .92} cornerRadius={5 / viewScale} shadowColor="#102a22" shadowBlur={environmentView ? 0 : 4 / viewScale} shadowOpacity={environmentView ? 0 : .16} />
-          <Text x={8 / viewScale} y={4 / viewScale} width={Math.max(20, objectLabelWidthPx - 16) / viewScale} height={12 / viewScale} text={objectLabel} fontFamily="IBM Plex Sans" fontSize={10 / viewScale} fontStyle="bold" fill={environmentView ? '#1f4036' : '#f4f8f5'} ellipsis wrap="none" />
-        </Group>}
+        : mapObjectLabel}
     </>}
   </Group>
 }
