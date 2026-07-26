@@ -3,16 +3,9 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import type { NeuroCropApi } from './services/api/neurocropApi'
 import type { NeuroCropFeatures } from './features/installFeatures'
 import './App.css'
-import './styles/approved-dashboard.css'
-import './styles/nodes-page.css'
 import './styles/typography-system.css'
-import './styles/redesign-sidebar.css'
 import './styles/neurocrop-color-system.css'
 import './styles/neurocrop-typography-system.css'
-import './styles/redesign-profiles.css'
-import './styles/app-shell.css'
-import './styles/operational-consistency.css'
-import './styles/mobile-experience.css'
 
 declare global {
   interface Window {

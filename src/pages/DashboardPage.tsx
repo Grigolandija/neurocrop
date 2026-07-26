@@ -17,6 +17,13 @@ import SimulatorWorkspace from '../features/simulator/SimulatorWorkspace'
 import ActionsWorkspace from '../features/actions/ActionsWorkspace'
 import AlertsWorkspace from '../features/alerts/AlertsWorkspace'
 import TrendsWorkspace from '../features/trends/TrendsWorkspace'
+import '../styles/approved-dashboard.css'
+import '../styles/nodes-page.css'
+import '../styles/redesign-sidebar.css'
+import '../styles/redesign-profiles.css'
+import '../styles/app-shell.css'
+import '../styles/operational-consistency.css'
+import '../styles/mobile-experience.css'
 
 declare const __BUILD_VERSION__: string
 
