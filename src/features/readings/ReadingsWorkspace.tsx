@@ -424,6 +424,7 @@ export default function ReadingsWorkspace() {
   const [trendPreviewHistory, setTrendPreviewHistory] = useState<PinnedHistoryState>({ status: 'empty', points: [] })
   const [refreshToken, setRefreshToken] = useState(0)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('table')
+  const hasLoadedRef = useRef(false)
 
   useEffect(() => {
     try {
@@ -436,7 +437,8 @@ export default function ReadingsWorkspace() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      setStatus('loading')
+      const initialLoad = !hasLoadedRef.current
+      if (initialLoad) setStatus('loading')
       setRefreshing(true)
       setError('')
       try {
@@ -499,6 +501,7 @@ export default function ReadingsWorkspace() {
         }))
         setPinned((current) => current.filter((id) => baseSections.some((section) => section.id === id)))
         setStatus('ready')
+        hasLoadedRef.current = true
 
         const latestResults = await mapWithConcurrency(baseSections, 6, async (section) => {
           try {
@@ -521,8 +524,8 @@ export default function ReadingsWorkspace() {
         }))
       } catch (loadError) {
         if (cancelled) return
-        setStatus('error')
         setError(loadError instanceof Error ? loadError.message : 'Live readings could not be loaded.')
+        setStatus(hasLoadedRef.current ? 'ready' : 'error')
       } finally {
         if (!cancelled) setRefreshing(false)
       }

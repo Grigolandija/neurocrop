@@ -56,6 +56,9 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-live-climate-map > header h3 { margin: 0; font-size: var(--type-h2); }
 .nc-live-climate-map > header > div:first-child > span { display: flex; align-items: center; gap: var(--space-8); margin-top: var(--space-4); color: var(--color-text-tertiary); font-size: var(--type-caption); }
 .nc-live-climate-map > header > div:first-child > span i { color: var(--color-success); font-size: .5rem; }
+.nc-climate-refresh { display: inline-flex; align-items: center; gap: var(--space-4); margin-left: var(--space-4); color: var(--color-text-tertiary); font-size: var(--type-micro); font-style: normal; }
+.nc-climate-refresh i { color: var(--color-secondary) !important; font-size: var(--type-micro) !important; }
+.nc-climate-refresh[data-state="warning"], .nc-climate-refresh[data-state="warning"] i { color: var(--color-warning) !important; }
 .nc-climate-map-filters { display: flex; align-items: flex-end; gap: var(--space-12); }
 .nc-climate-map-filters label { display: grid; gap: var(--space-4); }
 .nc-climate-map-filters label span { color: var(--color-text-tertiary); font-size: var(--type-micro); }
