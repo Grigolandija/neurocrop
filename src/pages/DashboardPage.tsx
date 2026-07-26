@@ -73,6 +73,27 @@ function isSupportedRoute(pathname: string) {
   return supportedRoutes.has(routePathname) || /^\/nodes\/[^/]+$/.test(routePathname)
 }
 
+const routeOwnedSections = [
+  { id: 'locationsManagementSection', matches: (pathname: string) => pathname === '/areas' },
+  { id: 'blocksManagementSection', matches: (pathname: string) => pathname === '/sections' },
+  { id: 'nodesManagementSection', matches: (pathname: string) => pathname === '/nodes' || /^\/nodes\/[^/]+$/.test(pathname) },
+  { id: 'alertsManagementSection', matches: (pathname: string) => pathname === '/alerts' },
+  { id: 'actionsManagementSection', matches: (pathname: string) => pathname === '/actions' },
+  {
+    id: 'settingsManagementSection',
+    matches: (pathname: string) => [
+      '/settings',
+      '/organization',
+      '/crop-profiles',
+      '/admin',
+      '/admin/integrations',
+      '/simulator',
+    ].includes(pathname),
+  },
+  { id: 'metricsSection', matches: (pathname: string) => pathname === '/readings' },
+  { id: 'historySection', matches: (pathname: string) => pathname === '/history' },
+]
+
 function ApprovedDashboard() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -194,19 +215,31 @@ function ApprovedDashboard() {
   }, [location.pathname])
 
   useEffect(() => {
-    if (location.pathname !== '/history' || !trendsMount) return
-    const historySection = trendsMount.closest<HTMLElement>('#historySection')
-    if (!historySection) return
+    if (!hostRef.current) return
+    const sections = routeOwnedSections
+      .map((section) => ({
+        ...section,
+        element: hostRef.current?.querySelector<HTMLElement>(`#${section.id}`) || null,
+      }))
 
-    // React owns the migrated Trends workspace even while the legacy shell still syncs routes.
-    const keepTrendsVisible = () => {
-      if (historySection.hidden) historySection.hidden = false
+    // Route ownership is enforced in one place so an asynchronous legacy render
+    // cannot leave content from the previous page visible after navigation.
+    const synchronizeVisibility = () => {
+      sections.forEach(({ element, matches }) => {
+        if (!element) return
+        const shouldBeVisible = matches(location.pathname)
+        if (element.hidden === shouldBeVisible) element.hidden = !shouldBeVisible
+      })
     }
-    keepTrendsVisible()
-    const observer = new MutationObserver(keepTrendsVisible)
-    observer.observe(historySection, { attributes: true, attributeFilter: ['hidden'] })
+
+    synchronizeVisibility()
+    const observer = new MutationObserver(synchronizeVisibility)
+    sections.forEach(({ element }) => {
+      if (!element) return
+      observer.observe(element, { attributes: true, attributeFilter: ['hidden'] })
+    })
     return () => observer.disconnect()
-  }, [location.pathname, trendsMount])
+  }, [location.pathname])
 
   return <>
     <div ref={hostRef} />
