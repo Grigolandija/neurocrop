@@ -6,6 +6,31 @@
   margin: 0 auto;
 }
 
+.designer-app .nc-profile-state {
+  display: grid;
+  min-height: 55vh;
+  place-items: center;
+  align-content: center;
+  gap: 1rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.designer-app .nc-profile-state > i { color: var(--color-secondary); font-size: 1.75rem; }
+.designer-app .nc-profile-state h2 { margin: 0; color: var(--color-text); font-size: 1.75rem; }
+
+.designer-app .nc-profile-modal-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  border: 1px solid var(--color-critical-border);
+  border-radius: .625rem;
+  padding: .75rem 1rem;
+  background: var(--color-critical-soft);
+  color: var(--color-critical);
+  font-size: .8125rem;
+  font-weight: 600;
+}
+
 .designer-app .crop-profile-standalone {
   min-height: calc(100vh - var(--dashboard-header-height, 44px) - 2rem);
   padding: 2.75rem 0 var(--space-10, 2.5rem);

@@ -28,6 +28,7 @@ import ActionsWorkspace from '../features/actions/ActionsWorkspace'
 import AlertsWorkspace from '../features/alerts/AlertsWorkspace'
 import TrendsWorkspace from '../features/trends/TrendsWorkspace'
 import NodesWorkspace from '../features/nodes/NodesWorkspace'
+import CropProfilesWorkspace from '../features/settings/CropProfilesWorkspace'
 
 declare const __BUILD_VERSION__: string
 
@@ -171,6 +172,7 @@ function ApprovedDashboard() {
   const [alertsMount, setAlertsMount] = useState<HTMLElement | null>(null)
   const [trendsMount, setTrendsMount] = useState<HTMLElement | null>(null)
   const [nodesMount, setNodesMount] = useState<HTMLElement | null>(null)
+  const [cropProfilesMount, setCropProfilesMount] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     navigateRef.current = navigate
@@ -202,6 +204,7 @@ function ApprovedDashboard() {
     // never appear together during a direct /nodes refresh.
     nodeHost?.replaceChildren()
     setNodesMount(nodeHost)
+    setCropProfilesMount(hostRef.current?.querySelector<HTMLElement>('#cropProfilesWorkspaceMount') || null)
 
     document.body.classList.add('designer-app')
     document.body.dataset.dashboardState = 'optimal'
@@ -273,6 +276,7 @@ function ApprovedDashboard() {
       setAlertsMount(null)
       setTrendsMount(null)
       setNodesMount(null)
+      setCropProfilesMount(null)
     }
   }, [])
 
@@ -353,6 +357,9 @@ function ApprovedDashboard() {
       : null}
     {nodesMount
       ? createPortal(<div hidden={location.pathname !== '/nodes' && !/^\/nodes\/[^/]+$/.test(location.pathname)}><Suspense fallback={null}><NodesWorkspace /></Suspense></div>, nodesMount)
+      : null}
+    {cropProfilesMount
+      ? createPortal(<div hidden={location.pathname !== '/crop-profiles'}><Suspense fallback={null}><CropProfilesWorkspace /></Suspense></div>, cropProfilesMount)
       : null}
   </>
 }

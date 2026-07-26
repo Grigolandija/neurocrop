@@ -7595,6 +7595,17 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
 
 
     function renderSettingsManagementPage(globalSnapshots) {
+      if (
+        activePrimaryPage === "settings"
+        && sidebarActionOverride === "crop-profiles"
+        && (
+          document.body.dataset.reactCropProfilesActive === "true"
+          || document.querySelector("[data-react-crop-profiles]")
+        )
+      ) {
+        elements.settingsManagementShell.innerHTML = "";
+        return;
+      }
       const currentSession = getLoginSession();
       const isPlatformAdmin = Boolean(currentSession?.isPlatformAdmin);
       const isAdminPage = activePrimaryPage === "admin";
