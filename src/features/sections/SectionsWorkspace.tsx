@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import '../../styles/sections-workspace.css'
 
 // Management payloads can contain both dashboard and API naming conventions.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

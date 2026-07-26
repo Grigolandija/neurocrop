@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { renderTrendChart } from './sharedTrendChart'
+import '../../styles/trends-workspace.css'
 
 // API records remain open because telemetry payloads can gain metrics independently.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,6 +164,10 @@ function historyPoints(payload: JsonRecord): Point[] {
     .sort((left, right) => new Date(left.observedAt).getTime() - new Date(right.observedAt).getTime())
 }
 
+function sectionAggregationLabel(aggregation: string | undefined) {
+  return String(aggregation || '').startsWith('section_peak_') ? 'section peak' : 'section median'
+}
+
 function profileRange(profiles: JsonRecord[], profileId: string, metricKey: string): [number, number] | null {
   const profile = profiles.find((item) => String(item.id || item.profileId) === profileId)
   const raw = profile?.metrics?.[metricKey]?.optimal
@@ -212,159 +219,27 @@ type MetricChartInput = {
 
 function TrendChart({ series, metric, target, range }: { series: ChartInput[]; metric: Metric; target: [number, number] | null; range: RangeKey }) {
   const ref = useRef<HTMLDivElement>(null)
+  const { language } = useInterfaceLanguage()
   useEffect(() => {
-    const sharedRenderer = (window as typeof window & {
-      NeuroCropTrendCharts?: {
-        render: (
-          element: HTMLElement,
-          input: {
-            points: Point[]
-            metricKey: string
-            label: string
-            unit: string
-            decimals: number
-            target: [number, number] | null
-            rangeKey: RangeKey
-          },
-        ) => { resize: () => void; dispose: () => void } | null
-      }
-    }).NeuroCropTrendCharts
-    if (ref.current && series.length === 1 && sharedRenderer?.render) {
-      const chart = sharedRenderer.render(ref.current, {
-        points: series[0].points,
-        metricKey: metric.key,
-        label: metric.label,
-        unit: metric.unit,
-        decimals: metric.decimals,
-        target,
-        rangeKey: range,
-      })
-      if (!chart) return
-      const observer = new ResizeObserver(() => chart.resize())
-      observer.observe(ref.current)
-      return () => {
-        observer.disconnect()
-        chart.dispose()
-      }
-    }
-
-    const echarts = window.echarts as {
-      init?: (element: HTMLElement) => { setOption: (option: JsonRecord) => void; resize: () => void; dispose: () => void }
-    } | undefined
-    if (!ref.current || !echarts?.init || !series.some((item) => item.points.length > 1)) return
-    const chart = echarts.init(ref.current)
-    const comparisonValues = series.flatMap((item) => item.points.map((point) => point.value))
-    const domainValues = target ? [...comparisonValues, ...target] : comparisonValues
-    const domainMinimum = Math.min(...domainValues)
-    const domainMaximum = Math.max(...domainValues)
-    const domainPadding = Math.max((domainMaximum - domainMinimum) * .12, 10 ** -metric.decimals * 4)
-    const axisMinimum = metric.key === 'batteryLevel' ? 0 : domainMinimum - domainPadding
-    const axisMaximum = metric.key === 'batteryLevel' ? 100 : domainMaximum + domainPadding
-    chart.setOption({
-      animation: false,
-      color: series.map((item) => item.color),
-      textStyle: { fontFamily: 'IBM Plex Sans, sans-serif', color: '#202522' },
-      grid: { left: 88, right: 36, top: 58, bottom: 52 },
-      legend: {
-        top: 10,
-        left: 88,
-        right: 36,
-        type: 'scroll',
-        itemWidth: 18,
-        itemHeight: 3,
-        icon: 'roundRect',
-        textStyle: { color: '#5d655f', fontSize: 12, fontWeight: 500 },
-      },
-      tooltip: {
-        trigger: 'axis',
-        confine: true,
-        backgroundColor: 'rgba(37, 43, 41, .97)',
-        borderColor: 'rgba(255, 255, 255, .22)',
-        borderWidth: 1,
-        padding: [10, 12],
-        textStyle: { color: '#fff', fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 12 },
-        axisPointer: {
-          type: 'cross',
-          lineStyle: { color: 'rgba(32, 37, 34, .38)', width: 1 },
-          crossStyle: { color: 'rgba(32, 37, 34, .38)', width: 1 },
-          label: { backgroundColor: '#252b29', color: '#fff' },
-        },
-        valueFormatter: (value: unknown) => `${format(Number(value), metric)} ${metric.unit}`,
-      },
-      xAxis: {
-        type: 'time',
-        boundaryGap: false,
-        name: `Time (${range})`,
-        nameLocation: 'middle',
-        nameGap: 34,
-        axisLine: { show: true, lineStyle: { color: 'rgba(32, 37, 34, .30)', width: 1.2 } },
-        axisTick: { show: true, lineStyle: { color: 'rgba(32, 37, 34, .30)' } },
-        axisLabel: { color: '#5d655f', fontSize: 11, fontWeight: 500, hideOverlap: true },
-        nameTextStyle: { color: '#5d655f', fontSize: 11, fontWeight: 600 },
-        splitLine: { show: false },
-      },
-      yAxis: {
-        type: 'value',
-        min: axisMinimum,
-        max: axisMaximum,
-        splitNumber: 4,
-        name: `${metric.short} (${metric.unit})`,
-        nameLocation: 'middle',
-        nameGap: 56,
-        axisLine: { show: true, lineStyle: { color: series[0].color, width: 1.2 } },
-        axisTick: { show: true, lineStyle: { color: series[0].color } },
-        axisLabel: { color: series[0].color, fontSize: 12, fontWeight: 500, margin: 12, formatter: (value: number) => format(value, metric) },
-        nameTextStyle: { color: series[0].color, fontSize: 12, fontWeight: 600 },
-        splitLine: { lineStyle: { color: 'rgba(216, 219, 215, .72)', width: 1 } },
-      },
-      series: series.map((item, index) => ({
-        name: item.name,
-        type: 'line',
-        showSymbol: false,
-        smooth: range === '24h' ? .32 : false,
-        smoothMonotone: range === '24h' ? 'x' : undefined,
-        connectNulls: false,
-        animation: false,
-        lineStyle: { width: 2, cap: 'round', join: 'round' },
-        emphasis: { focus: 'series' },
-        data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value]),
-        markArea: index === 0 && target ? {
-          silent: true,
-          itemStyle: { color: 'rgba(40, 127, 112, .09)' },
-          data: [[{ yAxis: target[0] }, { yAxis: target[1] }]],
-        } : undefined,
-        markLine: index === 0 && target ? {
-          silent: true,
-          symbol: ['none', 'none'],
-          lineStyle: { color: series[0].color, width: 1.25, type: 'dashed', opacity: .72 },
-          label: {
-            show: true,
-            position: 'insideStartTop',
-            color: series[0].color,
-            fontSize: 11,
-            fontWeight: 600,
-            backgroundColor: 'rgba(255, 255, 255, .92)',
-            borderColor: 'rgba(216, 219, 215, .75)',
-            borderWidth: 1,
-            borderRadius: 8,
-            padding: [4, 7],
-          },
-          data: [
-            { yAxis: target[0], label: { formatter: `Selected target min ${format(target[0], metric)} ${metric.unit}` } },
-            { yAxis: target[1], label: { formatter: `Selected target max ${format(target[1], metric)} ${metric.unit}` } },
-          ],
-        } : undefined,
-      })),
+    const element = ref.current
+    if (!element) return
+    const chart = renderTrendChart(element, {
+      metric,
+      series,
+      target,
+      rangeKey: range,
     })
+    if (!chart) return
     const observer = new ResizeObserver(() => chart.resize())
-    observer.observe(ref.current)
+    observer.observe(element)
     return () => { observer.disconnect(); chart.dispose() }
-  }, [metric, range, series, target])
+  }, [language, metric, range, series, target])
   return <div className="nc-trends-chart" ref={ref} role="img" aria-label={`${metric.label}, ${range} trend`} />
 }
 
 function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: RangeKey }) {
   const ref = useRef<HTMLDivElement>(null)
+  const { language } = useInterfaceLanguage()
   useEffect(() => {
     const echarts = window.echarts as {
       init?: (element: HTMLElement) => { setOption: (option: JsonRecord) => void; resize: () => void; dispose: () => void }
@@ -373,17 +248,9 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
     if (!ref.current || !visibleItems.length) return
     if (visibleItems.length === 1) {
       const item = visibleItems[0]
-      const sharedRenderer = (window as typeof window & {
-        NeuroCropTrendCharts?: {
-          render: (element: HTMLElement, input: JsonRecord) => { resize: () => void; dispose: () => void } | null
-        }
-      }).NeuroCropTrendCharts
-      const singleChart = sharedRenderer?.render(ref.current, {
-        points: item.points,
-        metricKey: item.metric.key,
-        label: item.metric.label,
-        unit: item.metric.unit,
-        decimals: item.metric.decimals,
+      const singleChart = renderTrendChart(ref.current, {
+        metric: item.metric,
+        series: [{ name: item.metric.label, color: item.color, points: item.points }],
         target: item.target,
         rangeKey: range,
       })
@@ -507,7 +374,7 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
       observer.disconnect()
       chart.dispose()
     }
-  }, [items, range])
+  }, [items, language, range])
   return <div className="nc-trends-chart nc-trends-multi-chart" ref={ref} role="img" aria-label={`${items.map((item) => item.metric.label).join(', ')}, ${range} trend`} />
 }
 
@@ -538,6 +405,7 @@ export default function TrendsWorkspace() {
   const [nodeHistoryError, setNodeHistoryError] = useState('')
   const [points, setPoints] = useState<Point[]>([])
   const [metricHistories, setMetricHistories] = useState<Record<string, Point[]>>({})
+  const [metricAggregations, setMetricAggregations] = useState<Record<string, string>>({})
   const [comparison, setComparison] = useState<ChartInput[]>([])
   const [analytics, setAnalytics] = useState<JsonRecord | null>(null)
   const [status, setStatus] = useState<LoadState>('loading')
@@ -687,6 +555,7 @@ export default function TrendsWorkspace() {
       queueMicrotask(() => {
         setPoints([])
         setMetricHistories({})
+        setMetricAggregations({})
         setAnalytics(null)
         setStatus('empty')
         setUpdatedAt(null)
@@ -711,14 +580,22 @@ export default function TrendsWorkspace() {
         from: from.toISOString(),
         to: to.toISOString(),
         stepMinutes: config.stepMinutes,
-      }).then((payload) => [key, historyPoints(payload as JsonRecord)] as const))),
+      }).then((payload) => {
+        const response = payload as JsonRecord
+        return [key, {
+          points: historyPoints(response),
+          aggregation: text(response.aggregation),
+        }] as const
+      }))),
       neurocropApi.getSectionAnalytics({ sectionId: selectedSection.id, metric: metricKey, from: from.toISOString(), to: to.toISOString(), stepMinutes: config.stepMinutes })
         .catch(() => null),
     ]).then(([histories, analyticsPayload]) => {
       if (!active) return
-      const nextHistories = Object.fromEntries(histories)
+      const nextHistories = Object.fromEntries(histories.map(([key, history]) => [key, history.points]))
+      const nextAggregations = Object.fromEntries(histories.map(([key, history]) => [key, history.aggregation]))
       const nextPoints = nextHistories[metricKey] || []
       setMetricHistories(nextHistories)
+      setMetricAggregations(nextAggregations)
       setPoints(nextPoints)
       setAnalytics(analyticsPayload as JsonRecord)
       setStatus(nextPoints.length > 1 ? 'ready' : 'empty')
@@ -727,6 +604,7 @@ export default function TrendsWorkspace() {
       if (!active) return
       setPoints([])
       setMetricHistories({})
+      setMetricAggregations({})
       setAnalytics(null)
       setError(reason instanceof Error ? reason.message : 'Trend data could not be loaded.')
       setStatus('error')
@@ -892,7 +770,8 @@ export default function TrendsWorkspace() {
   const coveragePct = expectedMinutes ? Math.min(100, Math.round(coveredMinutes / expectedMinutes * 100)) : null
   const showMeasuredConclusion = scope === 'section' && !compare && activeMetricKeys.length === 1 && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
   const events = Array.isArray(analytics?.events) ? analytics.events.slice(-6).reverse() : []
-  const sectionSeries = { name: `${selectedSection?.name || 'Selected section'} · section median`, points, color: chartColors[0] }
+  const selectedAggregationLabel = sectionAggregationLabel(metricAggregations[metricKey])
+  const sectionSeries = { name: `${selectedSection?.name || 'Selected section'} · ${selectedAggregationLabel}`, points, color: chartColors[0] }
   const chartSeries = scope === 'nodes'
     ? [sectionSeries, ...nodeSeries]
     : compare && comparison.length > 1
@@ -1071,7 +950,7 @@ export default function TrendsWorkspace() {
 
     <section className="nc-trends-main">
       <article className="nc-trends-chart-card">
-        <header><div><p>{scope === 'nodes' ? 'Node comparison' : compare ? 'Section comparison' : activeMetricKeys.length > 1 ? 'Combined measured history' : 'Measured history'}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? `${selectedSection?.name} · Section median + ${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
+        <header><div><p>{scope === 'nodes' ? 'Node comparison' : compare ? 'Section comparison' : activeMetricKeys.length > 1 ? 'Combined measured history' : 'Measured history'}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? `${selectedSection?.name} · ${selectedAggregationLabel === 'section peak' ? 'Section peak' : 'Section median'} + ${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
         {showMeasuredConclusion ? <div className="nc-trends-chart-conclusion" data-tone={summary.tone}>
           <span>Measured conclusion</span>
           <strong>{summary.title}</strong>

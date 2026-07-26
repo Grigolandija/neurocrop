@@ -14,8 +14,9 @@
     "test:runtime": "node ./scripts/test-runtime-invariants.mjs",
     "test:e2e": "node ./scripts/run-e2e.mjs",
     "test:e2e:playwright": "playwright test",
-    "test": "pnpm test:state && pnpm test:runtime && pnpm test:greenhouse-map",
+    "test": "pnpm test:state && pnpm test:runtime && pnpm test:greenhouse-map && pnpm test:trend-chart",
     "test:greenhouse-map": "vitest run src/features/greenhouse-map",
+    "test:trend-chart": "vitest run src/features/trends/sharedTrendChart.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

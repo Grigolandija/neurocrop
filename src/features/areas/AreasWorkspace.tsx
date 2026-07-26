@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import '../../styles/areas-workspace.css'
 
 // API payloads include both current management fields and dashboard aliases.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

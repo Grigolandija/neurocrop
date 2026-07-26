@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import '../../styles/simulator-workspace.css'
 
 type JsonRecord = Record<string, unknown>
 type ScenarioParameter = { metricId: string; value: number }

@@ -64,11 +64,10 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page.getByRole('group', { name: 'Select active Area' })).toBeVisible()
   await expect(page.locator('.nc-coverage')).toBeVisible()
   await expect(page.locator('.nc-overview-trust')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Sensor verification after work' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Recorded operational value' })).toBeVisible()
+  await expect(page.locator('.nc-coverage').getByText('Live status', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'View evidence for CI Section A' })).toBeVisible()
   await expect(page.locator('.nc-overview-insights')).toBeVisible()
   await expect(page.locator('.nc-overview-climate-card')).toBeVisible()
-  await expect(page.locator('.nc-value-card')).toContainText('Not configured')
   await expect(page.getByRole('button', { name: 'CI Area A', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   await navigationAction(page, 'sites').click()
@@ -78,6 +77,24 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page).toHaveURL(/\/nodes$/)
   await navigationAction(page, 'history').click()
   await expect(page).toHaveURL(/\/history$/)
+})
+
+test('Lithuanian translations load on demand and persist after refresh', async ({ page }) => {
+  await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  await expect(page.locator('script[data-neurocrop-i18n-lt]')).toHaveCount(0)
+
+  await page.locator('[data-language-option="lt"]:visible').first().click()
+
+  await expect(navigationAction(page, 'overview')).toContainText('Apžvalga')
+  await expect(page.locator('script[data-neurocrop-i18n-lt]')).toHaveCount(1)
+  await expect(page.locator('html')).toHaveAttribute('lang', 'lt')
+
+  await page.reload()
+
+  await expect(page.locator('#dashboardShell')).toBeVisible()
+  await expect(navigationAction(page, 'overview')).toContainText('Apžvalga')
+  await expect(page.locator('script[data-neurocrop-i18n-lt]')).toHaveCount(1)
+  await expect(page.locator('html')).toHaveAttribute('lang', 'lt')
 })
 
 test('Nodes inventory displays registered hardware without an Area or Section', async ({ page }) => {

@@ -1,24 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
-import AreasWorkspace from '../features/areas/AreasWorkspace'
-import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
-import SectionsWorkspace from '../features/sections/SectionsWorkspace'
-import SettingsWorkspace from '../features/settings/SettingsWorkspace'
-import OrganizationWorkspace from '../features/settings/OrganizationWorkspace'
-import AdminWorkspace from '../features/settings/AdminWorkspace'
-import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
-import OverviewWorkspace from '../features/overview/OverviewWorkspace'
-import SimulatorWorkspace from '../features/simulator/SimulatorWorkspace'
-import ActionsWorkspace from '../features/actions/ActionsWorkspace'
-import TrendsWorkspace from '../features/trends/TrendsWorkspace'
 import { installNeuroCropApi, neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
 
 declare const __BUILD_VERSION__: string
 
+const AreasWorkspace = lazy(() => import('../features/areas/AreasWorkspace'))
+const ReadingsWorkspace = lazy(() => import('../features/readings/ReadingsWorkspace'))
+const SectionsWorkspace = lazy(() => import('../features/sections/SectionsWorkspace'))
+const SettingsWorkspace = lazy(() => import('../features/settings/SettingsWorkspace'))
+const OrganizationWorkspace = lazy(() => import('../features/settings/OrganizationWorkspace'))
+const AdminWorkspace = lazy(() => import('../features/settings/AdminWorkspace'))
+const AdminIntegrationsWorkspace = lazy(() => import('../features/settings/AdminIntegrationsWorkspace'))
+const OverviewWorkspace = lazy(() => import('../features/overview/OverviewWorkspace'))
+const SimulatorWorkspace = lazy(() => import('../features/simulator/SimulatorWorkspace'))
+const ActionsWorkspace = lazy(() => import('../features/actions/ActionsWorkspace'))
+const TrendsWorkspace = lazy(() => import('../features/trends/TrendsWorkspace'))
+
 let chartEnginePromise: Promise<void> | null = null
+let dashboardStorePromise: Promise<void> | null = null
+let lithuanianTranslationsPromise: Promise<void> | null = null
 
 function routeNeedsCharts(pathname: string) {
   return pathname === '/history' || pathname === '/readings'
@@ -35,13 +38,65 @@ function ensureChartEngine() {
       return
     }
     const vendor = document.createElement('script')
-    vendor.src = '/vendor/echarts.min.js'
+    vendor.src = `/vendor/echarts.min.js?v=${__BUILD_VERSION__}`
     vendor.dataset.neurocropVendor = 'true'
     vendor.onload = () => resolve()
     vendor.onerror = () => reject(new Error('Chart engine could not be loaded.'))
     document.body.appendChild(vendor)
   })
   return chartEnginePromise
+}
+
+function ensureOptionalDashboardStore() {
+  if (neurocropApi.isConnected() || window.NeuroCropStore) return Promise.resolve()
+  if (dashboardStorePromise) return dashboardStorePromise
+  dashboardStorePromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-neurocrop-store]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error('Local dashboard store could not be loaded.')), { once: true })
+      return
+    }
+    const store = document.createElement('script')
+    store.src = `/neurocrop-dashboard-store.js?v=${__BUILD_VERSION__}`
+    store.dataset.neurocropStore = 'true'
+    store.onload = () => resolve()
+    store.onerror = () => reject(new Error('Local dashboard store could not be loaded.'))
+    document.body.appendChild(store)
+  })
+  return dashboardStorePromise
+}
+
+function prefersLithuanianInterface() {
+  try {
+    const storedLanguage = window.localStorage.getItem('neurocrop-interface-language-v1')
+    if (storedLanguage === 'lt' || storedLanguage === 'en') return storedLanguage === 'lt'
+    const settings = JSON.parse(window.localStorage.getItem('neurocrop-dashboard-settings-v1') || '{}')
+    return settings?.preferences?.locale === 'lt-LT'
+  } catch {
+    return false
+  }
+}
+
+function ensureLithuanianTranslations(force = false) {
+  if (window.NeuroCropLithuanianText) return Promise.resolve()
+  if (!force && !prefersLithuanianInterface()) return Promise.resolve()
+  if (lithuanianTranslationsPromise) return lithuanianTranslationsPromise
+  lithuanianTranslationsPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-neurocrop-i18n-lt]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error('Lithuanian translations could not be loaded.')), { once: true })
+      return
+    }
+    const translations = document.createElement('script')
+    translations.src = `/neurocrop-i18n-lt.js?v=${__BUILD_VERSION__}`
+    translations.dataset.neurocropI18nLt = 'true'
+    translations.onload = () => resolve()
+    translations.onerror = () => reject(new Error('Lithuanian translations could not be loaded.'))
+    document.body.appendChild(translations)
+  })
+  return lithuanianTranslationsPromise
 }
 
 function notifyRuntimeRoute(pathname: string) {
@@ -175,19 +230,32 @@ function ApprovedDashboard() {
     }
 
     window.addEventListener('message', handleMessage)
-    loadRuntime()
-    const warmupTimer = window.setTimeout(() => {
-      void neurocropApi.getCurrentUser()
-        .then((response) => {
-          const user = (response as { user?: { email?: unknown } } | null)?.user
-          if (user?.email) return prefetchWorkspaceData()
-        })
-        .catch(() => undefined)
-      void ensureChartEngine().catch(() => undefined)
-    }, 250)
+    window.NeuroCropLoadLithuanianTranslations = () => ensureLithuanianTranslations(true)
+    void Promise.allSettled([
+      ensureOptionalDashboardStore(),
+      ensureLithuanianTranslations(),
+    ]).then(loadRuntime)
+    let prefetchIdleId: number | null = null
+    const prefetchTimer = window.setTimeout(() => {
+      const prefetch = () => {
+        void neurocropApi.getCurrentUser()
+          .then((response) => {
+            const user = (response as { user?: { email?: unknown } } | null)?.user
+            if (user?.email) return prefetchWorkspaceData()
+          })
+          .catch(() => undefined)
+      }
+      if ('requestIdleCallback' in window) {
+        prefetchIdleId = window.requestIdleCallback(prefetch, { timeout: 3_000 })
+      } else {
+        prefetch()
+      }
+    }, 2_000)
 
     return () => {
-      window.clearTimeout(warmupTimer)
+      window.clearTimeout(prefetchTimer)
+      if (prefetchIdleId !== null && 'cancelIdleCallback' in window) window.cancelIdleCallback(prefetchIdleId)
+      delete window.NeuroCropLoadLithuanianTranslations
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
@@ -244,37 +312,37 @@ function ApprovedDashboard() {
   return <>
     <div ref={hostRef} />
     {location.pathname === '/' && overviewMount
-      ? createPortal(<OverviewWorkspace />, overviewMount)
+      ? createPortal(<Suspense fallback={null}><OverviewWorkspace /></Suspense>, overviewMount)
       : null}
     {location.pathname === '/readings' && readingsMount
-      ? createPortal(<ReadingsWorkspace />, readingsMount)
+      ? createPortal(<Suspense fallback={null}><ReadingsWorkspace /></Suspense>, readingsMount)
       : null}
     {location.pathname === '/areas' && areasMount
-      ? createPortal(<AreasWorkspace />, areasMount)
+      ? createPortal(<Suspense fallback={null}><AreasWorkspace /></Suspense>, areasMount)
       : null}
     {location.pathname === '/sections' && sectionsMount
-      ? createPortal(<SectionsWorkspace />, sectionsMount)
+      ? createPortal(<Suspense fallback={null}><SectionsWorkspace /></Suspense>, sectionsMount)
       : null}
     {location.pathname === '/settings' && settingsMount
-      ? createPortal(<SettingsWorkspace />, settingsMount)
+      ? createPortal(<Suspense fallback={null}><SettingsWorkspace /></Suspense>, settingsMount)
       : null}
     {location.pathname === '/organization' && organizationMount
-      ? createPortal(<OrganizationWorkspace />, organizationMount)
+      ? createPortal(<Suspense fallback={null}><OrganizationWorkspace /></Suspense>, organizationMount)
       : null}
     {location.pathname === '/admin' && adminMount
-      ? createPortal(<AdminWorkspace />, adminMount)
+      ? createPortal(<Suspense fallback={null}><AdminWorkspace /></Suspense>, adminMount)
       : null}
     {location.pathname === '/admin/integrations' && adminIntegrationsMount
-      ? createPortal(<AdminIntegrationsWorkspace />, adminIntegrationsMount)
+      ? createPortal(<Suspense fallback={null}><AdminIntegrationsWorkspace /></Suspense>, adminIntegrationsMount)
       : null}
     {location.pathname === '/simulator' && simulatorMount
-      ? createPortal(<SimulatorWorkspace />, simulatorMount)
+      ? createPortal(<Suspense fallback={null}><SimulatorWorkspace /></Suspense>, simulatorMount)
       : null}
     {location.pathname === '/actions' && actionsMount
-      ? createPortal(<ActionsWorkspace />, actionsMount)
+      ? createPortal(<Suspense fallback={null}><ActionsWorkspace /></Suspense>, actionsMount)
       : null}
     {location.pathname === '/history' && trendsMount
-      ? createPortal(<TrendsWorkspace />, trendsMount)
+      ? createPortal(<Suspense fallback={null}><TrendsWorkspace /></Suspense>, trendsMount)
       : null}
   </>
 }

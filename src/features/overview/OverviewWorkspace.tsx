@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
-import ReadingsClimateMap from '../readings/ReadingsClimateMap'
 import TopographicField from './TopographicField'
+import '../../styles/overview-workspace.css'
+
+const ReadingsClimateMap = lazy(() => import('../readings/ReadingsClimateMap'))
 
 // Dashboard payloads intentionally remain open because firmware and API versions
 // can add telemetry fields without requiring an Overview release.
@@ -758,6 +760,10 @@ export default function OverviewWorkspace() {
   const [selectedEvidenceRow, setSelectedEvidenceRow] = useState<OverviewRow | null>(null)
   const [actionOpen, setActionOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [climateMapReady, setClimateMapReady] = useState(
+    () => typeof window !== 'undefined' && !('IntersectionObserver' in window),
+  )
+  const climateCardRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const updateContext = (event: Event) => {
@@ -806,6 +812,18 @@ export default function OverviewWorkspace() {
     }, 60_000)
     return () => window.clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    const element = climateCardRef.current
+    if (!element || climateMapReady) return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return
+      setClimateMapReady(true)
+      observer.disconnect()
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [climateMapReady])
 
   const areaOptions = useMemo(
     () => asArray(dashboard?.sites).map((site) => ({
@@ -993,14 +1011,18 @@ export default function OverviewWorkspace() {
     </section>
     <section className="nc-overview-insights" aria-label="Operational overview">
       <TopographicField tone={overviewTone} />
-      <article className="nc-overview-climate-card">
-        <ReadingsClimateMap
-          key={model.areaId}
-          areaId={model.areaId}
-          refreshToken={refreshKey}
-          presentation="overview"
-          areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label="Choose Area for climate snapshot">{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
-        />
+      <article className="nc-overview-climate-card" ref={climateCardRef}>
+        {climateMapReady
+          ? <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>Loading live climate map…</strong></div>}>
+              <ReadingsClimateMap
+                key={model.areaId}
+                areaId={model.areaId}
+                refreshToken={refreshKey}
+                presentation="overview"
+                areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label="Choose Area for climate snapshot">{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
+              />
+            </Suspense>
+          : <div className="nc-climate-map-state" data-state="deferred" aria-busy="true"><i className="fa-solid fa-map" /><strong>Live climate map</strong><span>Scroll to load the current Area view.</span></div>}
       </article>
     </section>
     {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}
