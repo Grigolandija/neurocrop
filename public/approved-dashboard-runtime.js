@@ -11492,6 +11492,66 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       document.body.dataset.primaryPage = activePrimaryPage;
     }
 
+    const reactOwnedPrimaryPages = new Set([
+      "overview",
+      "locations",
+      "blocks",
+      "nodes",
+      "alerts",
+      "actions",
+      "readings",
+      "history",
+      "settings",
+      "admin"
+    ]);
+
+    function renderReactOwnedRouteShell() {
+      if (!reactOwnedPrimaryPages.has(activePrimaryPage)) return false;
+
+      const isLocationsPage = activePrimaryPage === "locations";
+      const isBlocksPage = activePrimaryPage === "blocks";
+      const isNodesPage = activePrimaryPage === "nodes";
+      const isAlertsPage = activePrimaryPage === "alerts";
+      const isActionsPage = activePrimaryPage === "actions";
+      const isReadingsPage = activePrimaryPage === "readings";
+      const isHistoryPage = activePrimaryPage === "history";
+      const isSettingsPage = activePrimaryPage === "settings" || activePrimaryPage === "admin";
+
+      elements.experienceModeSection.hidden = true;
+      elements.locationsManagementSection.hidden = !isLocationsPage;
+      elements.blocksManagementSection.hidden = !isBlocksPage;
+      elements.nodesManagementSection.hidden = !isNodesPage;
+      elements.alertsManagementSection.hidden = !isAlertsPage;
+      elements.actionsManagementSection.hidden = !isActionsPage;
+      elements.settingsManagementSection.hidden = !isSettingsPage;
+      elements.overviewTriageSection.hidden = true;
+      elements.heroStatusPanel.hidden = true;
+      elements.todayPriorityPanel.hidden = true;
+      elements.metricsSection.hidden = !isReadingsPage;
+      elements.historySection.hidden = !isHistoryPage;
+      elements.sensorHealthSection.hidden = true;
+      elements.alertsSection.hidden = true;
+      elements.opsDockSection.hidden = true;
+      elements.detailedDiagnosticsSection.hidden = true;
+      elements.zoneImpactSection.hidden = true;
+      if (elements.advancedToolsPanel) {
+        elements.advancedToolsPanel.hidden = true;
+        elements.advancedToolsPanel.open = false;
+      }
+      if (elements.sidebarQuickActions) elements.sidebarQuickActions.hidden = true;
+
+      if (backendAlertsCanonicalLoaded) {
+        currentAlertsPageItems = buildAlertsPageItems([]);
+      }
+      updateSidebarWorkspaceStatus(getAlertsPageView(currentAlertsPageItems).open.length);
+      updateSidebarActionState();
+      document.body.dataset.dashboardState = "neutral";
+      document.body.dataset.primaryPage = activePrimaryPage;
+      applyInterfaceLanguage();
+      syncStickyOffsets();
+      return true;
+    }
+
     function renderDashboardUnsafe(options = {}) {
       const isLocationsPage = activePrimaryPage === "locations";
       const isBlocksPage = activePrimaryPage === "blocks";
@@ -11505,6 +11565,7 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const isAdminPage = activePrimaryPage === "admin";
       const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isAlertsPage || isActionsPage || isSettingsPage || isAdminPage;
       const isPrimaryWorkspacePage = isOverviewPage || isManagementPage || isHistoryPage || isReadingsPage;
+      if (renderReactOwnedRouteShell()) return;
       const site = getActiveSite();
       const zone = getActiveZone(site);
       if (!site) {
