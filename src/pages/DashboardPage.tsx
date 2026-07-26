@@ -1,61 +1,26 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import approvedMarkup from '../approved-dashboard-markup.html?raw'
 import { installNeuroCropApi, neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { installNeuroCropFeatures } from '../features/installFeatures'
+import AreasWorkspace from '../features/areas/AreasWorkspace'
+import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
+import SectionsWorkspace from '../features/sections/SectionsWorkspace'
+import SettingsWorkspace from '../features/settings/SettingsWorkspace'
+import OrganizationWorkspace from '../features/settings/OrganizationWorkspace'
+import AdminWorkspace from '../features/settings/AdminWorkspace'
+import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
+import OverviewWorkspace from '../features/overview/OverviewWorkspace'
+import SimulatorWorkspace from '../features/simulator/SimulatorWorkspace'
+import ActionsWorkspace from '../features/actions/ActionsWorkspace'
+import TrendsWorkspace from '../features/trends/TrendsWorkspace'
 
 declare const __BUILD_VERSION__: string
-
-const loadAreasWorkspace = () => import('../features/areas/AreasWorkspace')
-const loadReadingsWorkspace = () => import('../features/readings/ReadingsWorkspace')
-const loadSectionsWorkspace = () => import('../features/sections/SectionsWorkspace')
-const loadSettingsWorkspace = () => import('../features/settings/SettingsWorkspace')
-const loadOrganizationWorkspace = () => import('../features/settings/OrganizationWorkspace')
-const loadAdminWorkspace = () => import('../features/settings/AdminWorkspace')
-const loadAdminIntegrationsWorkspace = () => import('../features/settings/AdminIntegrationsWorkspace')
-const loadOverviewWorkspace = () => import('../features/overview/OverviewWorkspace')
-const loadSimulatorWorkspace = () => import('../features/simulator/SimulatorWorkspace')
-const loadActionsWorkspace = () => import('../features/actions/ActionsWorkspace')
-const loadTrendsWorkspace = () => import('../features/trends/TrendsWorkspace')
-
-const AreasWorkspace = lazy(loadAreasWorkspace)
-const ReadingsWorkspace = lazy(loadReadingsWorkspace)
-const SectionsWorkspace = lazy(loadSectionsWorkspace)
-const SettingsWorkspace = lazy(loadSettingsWorkspace)
-const OrganizationWorkspace = lazy(loadOrganizationWorkspace)
-const AdminWorkspace = lazy(loadAdminWorkspace)
-const AdminIntegrationsWorkspace = lazy(loadAdminIntegrationsWorkspace)
-const OverviewWorkspace = lazy(loadOverviewWorkspace)
-const SimulatorWorkspace = lazy(loadSimulatorWorkspace)
-const ActionsWorkspace = lazy(loadActionsWorkspace)
-const TrendsWorkspace = lazy(loadTrendsWorkspace)
-
-const workspaceWarmupBatches = [
-  [loadAreasWorkspace, loadSectionsWorkspace],
-  [loadReadingsWorkspace, loadTrendsWorkspace],
-  [loadActionsWorkspace, loadSettingsWorkspace],
-  [loadOrganizationWorkspace, loadSimulatorWorkspace],
-  [loadAdminWorkspace, loadAdminIntegrationsWorkspace],
-]
-
-const navigationIntentLoaders: Record<string, () => Promise<unknown>> = {
-  sites: loadAreasWorkspace,
-  zones: loadSectionsWorkspace,
-  readings: loadReadingsWorkspace,
-  history: loadTrendsWorkspace,
-  actions: loadActionsWorkspace,
-  settings: loadSettingsWorkspace,
-  'crop-profiles': loadSettingsWorkspace,
-  organization: loadOrganizationWorkspace,
-  simulator: loadSimulatorWorkspace,
-  admin: loadAdminWorkspace,
-}
 
 let chartEnginePromise: Promise<void> | null = null
 let dashboardStorePromise: Promise<void> | null = null
 let lithuanianTranslationsPromise: Promise<void> | null = null
-let workspaceWarmupPromise: Promise<void> | null = null
 
 function preloadDashboardRuntimeAssets() {
   const assets = [
@@ -95,43 +60,6 @@ function ensureChartEngine() {
     document.body.appendChild(vendor)
   })
   return chartEnginePromise
-}
-
-function waitForBackgroundTurn() {
-  return new Promise<void>((resolve) => {
-    if ('scheduler' in window && typeof window.scheduler?.postTask === 'function') {
-      void window.scheduler.postTask(resolve, { priority: 'background' })
-      return
-    }
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(() => resolve(), { timeout: 1_000 })
-      return
-    }
-    setTimeout(resolve, 50)
-  })
-}
-
-function prefetchChartEngineAsset() {
-  if (window.echarts || document.querySelector('[data-neurocrop-vendor-prefetch]')) return
-  const prefetch = document.createElement('link')
-  prefetch.rel = 'prefetch'
-  prefetch.as = 'script'
-  prefetch.href = `/vendor/echarts.min.js?v=${__BUILD_VERSION__}`
-  prefetch.dataset.neurocropVendorPrefetch = 'true'
-  document.head.appendChild(prefetch)
-}
-
-function warmDashboardWorkspaces() {
-  if (workspaceWarmupPromise) return workspaceWarmupPromise
-  workspaceWarmupPromise = (async () => {
-    for (const batch of workspaceWarmupBatches) {
-      await waitForBackgroundTurn()
-      await Promise.allSettled(batch.map((loadWorkspace) => loadWorkspace()))
-    }
-    await waitForBackgroundTurn()
-    prefetchChartEngineAsset()
-  })()
-  return workspaceWarmupPromise
 }
 
 function ensureOptionalDashboardStore() {
@@ -284,16 +212,6 @@ function ApprovedDashboard() {
       if (route !== window.location.pathname) navigate(route, { replace: Boolean(payload.replace) })
     }
 
-    function preloadNavigationTarget(event: Event) {
-      const target = event.target instanceof Element
-        ? event.target.closest<HTMLElement>('[data-sidebar-action]')
-        : null
-      const loadWorkspace = target
-        ? navigationIntentLoaders[String(target.dataset.sidebarAction || '')]
-        : undefined
-      if (loadWorkspace) void loadWorkspace().catch(() => undefined)
-    }
-
     function attachRuntime() {
       const activateRuntime = () => {
         runtimeReady.current = true
@@ -303,7 +221,6 @@ function ApprovedDashboard() {
         } else {
           notifyRoute()
         }
-        void warmDashboardWorkspaces()
       }
       if (document.querySelector('script[data-neurocrop-runtime]')) {
         activateRuntime()
@@ -329,9 +246,8 @@ function ApprovedDashboard() {
     }
 
     window.addEventListener('message', handleMessage)
-    hostRef.current?.addEventListener('pointerover', preloadNavigationTarget)
-    hostRef.current?.addEventListener('focusin', preloadNavigationTarget)
     window.NeuroCropLoadLithuanianTranslations = () => ensureLithuanianTranslations(true)
+    void ensureChartEngine().catch(() => undefined)
     void Promise.allSettled([
       ensureOptionalDashboardStore(),
       ensureLithuanianTranslations(),
@@ -346,8 +262,6 @@ function ApprovedDashboard() {
     return () => {
       delete window.NeuroCropLoadLithuanianTranslations
       window.removeEventListener('message', handleMessage)
-      hostRef.current?.removeEventListener('pointerover', preloadNavigationTarget)
-      hostRef.current?.removeEventListener('focusin', preloadNavigationTarget)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
       setAreasMount(null)
