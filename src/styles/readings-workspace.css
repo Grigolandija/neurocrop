@@ -64,6 +64,9 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-climate-map-filters label { display: grid; min-width: 12rem; gap: var(--space-4); }
 .nc-climate-map-filters label span { color: var(--color-text-tertiary); font-size: var(--type-micro); }
 .nc-climate-map-filters select { min-width: 11rem; min-height: var(--control-height-sm); border: 1px solid var(--color-border); border-radius: .5rem; padding: 0 2rem 0 var(--space-8); background: var(--color-surface); color: var(--color-text); font-size: var(--type-caption); }
+.nc-climate-open-full { min-height: var(--control-height-sm); align-self: end; border: 1px solid var(--color-border); border-radius: .55rem; padding: 0 var(--space-12); background: var(--color-surface); color: var(--color-secondary); font-size: var(--type-caption); font-weight: var(--weight-semibold); white-space: nowrap; }
+.nc-climate-open-full:hover { border-color: var(--color-border-strong); background: var(--color-card-hover); }
+.nc-climate-open-full i { margin-left: var(--space-8); }
 .nc-climate-lock { display: inline-flex; min-height: 1.8rem; align-items: center; gap: 6px; border: 1px solid var(--color-border); border-radius: 99px; padding: 0 var(--space-8); background: color-mix(in srgb,var(--color-surface-subtle) 72%,transparent); color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-medium); white-space: nowrap; }
 .nc-climate-lock i { color: var(--color-secondary); font-size: .65rem; }
 .nc-climate-map-canvas { position: relative; height: clamp(38rem,72vh,56rem); background: #e8ece8; }

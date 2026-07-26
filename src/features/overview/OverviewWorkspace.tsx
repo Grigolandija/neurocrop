@@ -994,14 +994,14 @@ export default function OverviewWorkspace() {
     </section>
     <section className="nc-overview-insights" aria-label="Operational overview">
       <article className="nc-overview-climate-card">
-        <header className="nc-overview-climate-toolbar">
-          <div>
-            <span>Live climate snapshot</span>
-            <nav className="nc-area-tabs" role="tablist" aria-label="Choose Area for climate snapshot">{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>
-          </div>
-          <button type="button" onClick={() => openFullClimateMap(model.areaId)}>Open in Readings <i className="fa-solid fa-arrow-right" /></button>
-        </header>
-        <ReadingsClimateMap key={model.areaId} areaId={model.areaId} refreshToken={refreshKey} />
+        <ReadingsClimateMap
+          key={model.areaId}
+          areaId={model.areaId}
+          refreshToken={refreshKey}
+          presentation="overview"
+          areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label="Choose Area for climate snapshot">{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
+          onOpenFull={() => openFullClimateMap(model.areaId)}
+        />
       </article>
     </section>
     {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}

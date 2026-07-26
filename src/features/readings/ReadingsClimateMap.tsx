@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import GreenhouseCanvas from '../greenhouse-map/components/GreenhouseCanvas'
 import { METRICS, type MetricKey } from '../greenhouse-map/model'
 import {
@@ -12,9 +12,12 @@ const climateMetrics: MetricKey[] = ['air-temperature', 'relative-humidity', 'co
 type Props = {
   areaId: string
   refreshToken: number
+  presentation?: 'readings' | 'overview'
+  areaNavigation?: ReactNode
+  onOpenFull?: () => void
 }
 
-export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
+export default function ReadingsClimateMap({ areaId, refreshToken, presentation = 'readings', areaNavigation, onOpenFull }: Props) {
   const [context, setContext] = useState<AreaMapContext | null>(null)
   const [metric, setMetric] = useState<MetricKey>('relative-humidity')
   const [legendHost, setLegendHost] = useState<HTMLDivElement | null>(null)
@@ -89,16 +92,18 @@ export default function ReadingsClimateMap({ areaId, refreshToken }: Props) {
     return <div className="nc-climate-map-state" data-state={status}><i className="fa-solid fa-spinner fa-spin" /><strong>Loading live climate map…</strong><span>Combining the saved Area plan with current node readings.</span></div>
   }
 
-  return <section className="nc-live-climate-map" aria-label={`${context.area.name} live climate map`}>
+  const overviewPresentation = presentation === 'overview'
+
+  return <section className={`nc-live-climate-map ${overviewPresentation ? 'nc-overview-presentation' : ''}`} aria-label={`${context.area.name} live climate map`}>
     <header>
       <div>
-        <p className="nc-overline">Live climate map</p>
-        <h3>{context.area.name}</h3>
+        <p className="nc-overline">{overviewPresentation ? 'Live climate snapshot' : 'Live climate map'}</p>
+        {overviewPresentation ? areaNavigation : <h3>{context.area.name}</h3>}
         <span><i className="fa-solid fa-circle" /> Live · {validNodes} sensor source{validNodes === 1 ? '' : 's'} · {updatedLabel}{updating ? <em className="nc-climate-refresh"><i className="fa-solid fa-rotate fa-spin" /> Updating…</em> : error ? <em className="nc-climate-refresh" data-state="warning" title={error}><i className="fa-solid fa-triangle-exclamation" /> Update delayed</em> : null}</span>
       </div>
       <div className="nc-climate-map-filters">
         <label><span>Metric</span><select value={metric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{climateMetrics.map((key) => <option value={key} key={key}>{METRICS[key].label}</option>)}</select></label>
-        <span className="nc-climate-lock"><i className="fa-solid fa-lock" />Read only</span>
+        {overviewPresentation && onOpenFull ? <button className="nc-climate-open-full" type="button" onClick={onOpenFull}>Open in Readings <i className="fa-solid fa-arrow-right" /></button> : <span className="nc-climate-lock"><i className="fa-solid fa-lock" />Read only</span>}
       </div>
     </header>
     <div className="nc-climate-map-canvas">
