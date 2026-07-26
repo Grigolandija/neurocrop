@@ -692,16 +692,15 @@ export default function ReadingsWorkspace() {
 
     <section className="nc-readings-matrix" aria-labelledby="nc-readings-title">
       <header><div><p className="nc-overline">Live readings</p><h2 id="nc-readings-title">{workspaceView === 'table' ? 'Every current reading in one place' : 'See where conditions differ inside the Area'}</h2><span>{workspaceView === 'table' ? 'Choose a working set instead of forcing all 13 parameters onto every screen.' : 'A read-only spatial estimate built from current node values and their saved positions.'}</span></div><div className="nc-workspace-view-switch nc-segmented" role="group" aria-label="Readings view"><button className={workspaceView === 'table' ? 'active' : ''} onClick={() => setWorkspaceView('table')}><i className="fa-solid fa-table-list" />Table</button><button className={workspaceView === 'climate-map' ? 'active' : ''} onClick={() => setWorkspaceView('climate-map')} disabled={!areaOptions.length}><i className="fa-solid fa-map" />Climate map</button></div></header>
-      <div className={`nc-readings-controls ${workspaceView === 'climate-map' ? 'climate-map' : ''}`}>
-        {workspaceView === 'table'
-          ? <div className="nc-area-tabs" role="tablist" aria-label="Filter by Area"><button type="button" role="tab" aria-selected={areaFilter === 'all'} className={areaFilter === 'all' ? 'active' : ''} onClick={() => setAreaFilter('all')}>All areas <b aria-label={`${sections.length} sections`}>{sections.length}</b></button>{areaOptions.map(([id, name]) => {
+      <div className="nc-readings-controls">
+        <div className="nc-area-tabs" role="tablist" aria-label={workspaceView === 'table' ? 'Filter by Area' : 'Choose Area for climate map'}>
+          {workspaceView === 'table' ? <button type="button" role="tab" aria-selected={areaFilter === 'all'} className={areaFilter === 'all' ? 'active' : ''} onClick={() => setAreaFilter('all')}>All areas <b aria-label={`${sections.length} sections`}>{sections.length}</b></button> : null}
+          {areaOptions.map(([id, name]) => {
             const sectionCount = sections.filter((section) => section.areaId === id).length
-            return <button type="button" role="tab" aria-selected={areaFilter === id} className={areaFilter === id ? 'active' : ''} onClick={() => setAreaFilter(id)} key={id}>{name}<b aria-label={`${sectionCount} sections`}>{sectionCount}</b></button>
-          })}</div>
-          : <label className="nc-climate-area-picker"><span>Viewing Area</span><div><i className="fa-solid fa-map-location-dot" /><select aria-label="Choose Area for climate map" value={activeAreaFilter} onChange={(event) => setAreaFilter(event.target.value)}>{areaOptions.map(([id, name]) => {
-            const sectionCount = sections.filter((section) => section.areaId === id).length
-            return <option value={id} key={id}>{name} — {sectionCount} {sectionCount === 1 ? 'Section' : 'Sections'}</option>
-          })}</select><i className="fa-solid fa-chevron-down" /></div></label>}
+            const active = (workspaceView === 'climate-map' ? activeAreaFilter : areaFilter) === id
+            return <button type="button" role="tab" aria-selected={active} className={active ? 'active' : ''} onClick={() => setAreaFilter(id)} key={id}>{name}<b aria-label={`${sectionCount} sections`}>{sectionCount}</b></button>
+          })}
+        </div>
         {workspaceView === 'table' ? <div className="nc-readings-control-actions"><button type="button" className={attentionOnly ? 'active' : ''} onClick={() => setAttentionOnly(!attentionOnly)}><i className="fa-solid fa-filter" />Needs attention</button><label className="nc-sort"><span>Sort</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="severity">Most outside target</option><option value="freshest">Freshest data</option><option value="oldest">Oldest data</option><option value="area">Area</option><option value="section">Section</option></select></label></div> : null}
       </div>
       {workspaceView === 'table' ? <>

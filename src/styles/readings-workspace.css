@@ -129,14 +129,6 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-area-tabs button.active { border-bottom-color: var(--color-secondary); color: var(--color-text); }
 .nc-area-tabs button b { display: inline-grid; min-width: 1.3rem; height: 1.3rem; place-items: center; margin-left: var(--space-8); border-radius: 99px; background: var(--color-surface-subtle); color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-semibold); }
 .nc-area-tabs button.active b { background: var(--color-info-soft); color: var(--color-secondary); }
-.nc-readings-controls.climate-map { align-items: center; justify-content: flex-start; border-block: 1px solid var(--color-border); padding: var(--space-12) 0 var(--space-16); }
-.nc-climate-area-picker { display: grid; gap: var(--space-6,6px); }
-.nc-climate-area-picker > span { color: var(--color-secondary) !important; font-size: var(--type-micro) !important; font-weight: var(--weight-semibold) !important; letter-spacing: var(--tracking-overline); text-transform: uppercase; }
-.nc-climate-area-picker > div { display: grid; min-width: 22rem; min-height: 3.25rem; grid-template-columns: 2.7rem minmax(0,1fr) 2.25rem; align-items: center; overflow: hidden; border: 1px solid color-mix(in srgb,var(--color-secondary) 72%,var(--color-border)); border-radius: .75rem; background: var(--color-surface); box-shadow: 0 .25rem .9rem color-mix(in srgb,var(--color-shadow) 45%,transparent); }
-.nc-climate-area-picker > div > i:first-child { display: grid; height: 100%; place-items: center; border-right: 1px solid var(--color-border); background: var(--color-info-soft); color: var(--color-secondary); }
-.nc-climate-area-picker > div > i:last-child { color: var(--color-text-tertiary); font-size: .7rem; pointer-events: none; }
-.nc-readings-controls .nc-climate-area-picker select { width: 100%; min-height: 3.1rem; border: 0; outline: 0; padding: 0 var(--space-12); appearance: none; background: transparent; color: var(--color-text); font-size: var(--type-body-sm); font-weight: var(--weight-semibold); }
-.nc-climate-area-picker > div:focus-within { border-color: var(--color-focus); box-shadow: 0 0 0 3px var(--color-focus-ring); }
 .nc-readings-control-actions { display: flex; flex: 0 0 auto; align-items: flex-end; gap: var(--space-12); }
 .nc-readings-controls label { display: grid; gap: var(--space-4); }
 .nc-readings-controls label > span { color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-medium); }
@@ -317,7 +309,7 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
   .nc-readings-hero h1 { font-size: var(--type-h1) !important; }.nc-readings-actions { flex-wrap: wrap; }.nc-readings-actions > span { width: 100%; border: 0; padding-right: 0; }
   .nc-readings-health { grid-template-columns: 1fr; }.nc-readings-health > div { border-right: 0; border-bottom: 1px solid var(--color-border); }.nc-readings-health > p { grid-column: auto; border-top: 0; }
   .nc-readings-matrix > header { grid-template-columns: 1fr; align-items: start; }.nc-segmented { width: 100%; overflow-x: auto; }.nc-segmented button { flex: 1; white-space: nowrap; }
-  .nc-readings-viewbar, .nc-readings-controls { align-items: stretch; flex-direction: column; }.nc-column-control > button { width: 100%; }.nc-column-menu { right: auto; left: 0; }.nc-area-tabs { width: 100%; }.nc-climate-area-picker > div { width: 100%; min-width: 0; }.nc-readings-control-actions { align-items: stretch; flex-direction: column; }.nc-readings-controls select { width: 100%; }
+  .nc-readings-viewbar, .nc-readings-controls { align-items: stretch; flex-direction: column; }.nc-column-control > button { width: 100%; }.nc-column-menu { right: auto; left: 0; }.nc-area-tabs { width: 100%; }.nc-readings-control-actions { align-items: stretch; flex-direction: column; }.nc-readings-controls select { width: 100%; }
   .nc-reading-display-row, .nc-live-climate-map > header, .nc-climate-map-filters { align-items: stretch; flex-direction: column; }.nc-climate-map-filters select { width: 100%; }.nc-climate-lock { align-self: flex-start; }.nc-climate-map-canvas { height: 31rem; }.nc-reading-legend { justify-content: flex-start; overflow-x: auto; }.nc-pinned-comparison > header, .nc-signal-lens-content > header { align-items: stretch; flex-direction: column; }
   .nc-climate-map-legend-slot .gh-heatmap-legend { grid-template-columns: 1fr; gap: var(--space-12); }
   .nc-climate-map-legend-slot :is(.gh-legend-scale,.gh-legend-meta) { grid-column: auto; border-top: 1px solid var(--color-border); border-left: 0; margin: 0; padding: var(--space-12) 0 0; }
