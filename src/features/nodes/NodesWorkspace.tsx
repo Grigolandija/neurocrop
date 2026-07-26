@@ -223,6 +223,10 @@ export default function NodesWorkspace() {
     : null
 
   useEffect(() => {
+    if (status === 'ready' && !areas.length) navigate('/areas', { replace: true })
+  }, [areas.length, navigate, status])
+
+  useEffect(() => {
     if (!selectedNode?.devEui) {
       queueMicrotask(() => setSensors([]))
       return
@@ -276,7 +280,7 @@ export default function NodesWorkspace() {
       node,
       name: node.name,
       devEui: node.devEui,
-      areaId: node.areaId || areas[0]?.id || '',
+      areaId: node.areaId || '',
       sectionId: node.sectionId,
       history: 'keep',
       confirmed: false,
