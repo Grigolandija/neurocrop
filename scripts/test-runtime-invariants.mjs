@@ -70,10 +70,12 @@ for (const [label, component, mount] of workspaces) {
 }
 
 assert(
-  dashboard.includes('requestIdleCallback')
-    && dashboard.includes('backgroundWorkspacePreloaders')
-    && dashboard.includes('prefetchWorkspaceData()'),
-  'common workspaces and API data must warm in the background after the first render',
+  dashboard.includes('allWorkspacePreloaders')
+    && dashboard.includes('Promise.all(allWorkspacePreloaders.map')
+    && dashboard.includes('await prefetchWorkspaceData()')
+    && dashboard.includes('if (!dashboardReady)')
+    && !dashboard.includes('requestIdleCallback'),
+  'every workspace module and shared API payload must finish loading before the dashboard is shown',
 )
 assert(
   source['src/App.tsx'].includes("lazy(() => import('./pages/DashboardPage'))")

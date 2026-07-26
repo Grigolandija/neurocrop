@@ -40,13 +40,13 @@ export const neurocropApi = {
   setPlatformUserActive: (id: string, active: boolean) => request(`/platform/users/${encoded(id)}/status`, { method: 'PATCH', body: json({ active }) }),
   deletePlatformUser: (id: string) => request(`/platform/users/${encoded(id)}?confirm=delete`, { method: 'DELETE' }),
   getDashboard: () => request('/dashboard'),
-  getTodayActions: (sectionId?: string) => request(`/actions/today${queryString({ sectionId })}`, { cache: 'no-store' }),
-  getActionHistory: (limit = 20) => request(`/actions/history${queryString({ limit })}`, { cache: 'no-store' }),
+  getTodayActions: (sectionId?: string) => request(`/actions/today${queryString({ sectionId })}`),
+  getActionHistory: (limit = 20) => request(`/actions/history${queryString({ limit })}`),
   getActionOverviewSummary: (areaId?: string) => request(`/actions/overview-summary${queryString({ areaId })}`),
   submitTodayActionFeedback: (actionId: string, payload: Payload) => request(`/actions/today/${encoded(actionId)}/feedback`, { method: 'POST', body: json(payload) }),
   assignTodayAction: (actionId: string, payload: Payload) => request(`/actions/today/${encoded(actionId)}/assignment`, { method: 'POST', body: json(payload) }),
   resetActions: () => request('/actions/reset', { method: 'DELETE', body: json({ confirm: 'RESET' }) }),
-  getAlerts: (status = 'all') => request(`/alerts${queryString({ status })}`, { cache: 'no-store' }),
+  getAlerts: (status = 'all') => request(`/alerts${queryString({ status })}`),
   acknowledgeAlert: (id: string, payload: Payload = {}) => request(`/alerts/${encoded(id)}/acknowledge`, { method: 'POST', body: json(payload) }),
   snoozeAlert: (id: string, payload: Payload) => request(`/alerts/${encoded(id)}/snooze`, { method: 'POST', body: json(payload) }),
   resolveAlert: (id: string, payload: Payload = {}) => request(`/alerts/${encoded(id)}/resolve`, { method: 'POST', body: json(payload) }),
@@ -98,6 +98,9 @@ export async function prefetchWorkspaceData() {
     neurocropApi.getSections(),
     neurocropApi.getNodes(),
     neurocropApi.getCropProfiles(),
+    neurocropApi.getTodayActions(),
+    neurocropApi.getActionHistory(100),
+    neurocropApi.getAlerts('all'),
     // Warm the read-only account data used by Settings and Organization while
     // Overview is active. The shared GET cache then serves the first route
     // visit without another network round trip.

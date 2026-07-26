@@ -43,33 +43,39 @@ const TrendsWorkspace = lazy(loadTrendsWorkspace)
 const NodesWorkspace = lazy(loadNodesWorkspace)
 const CropProfilesWorkspace = lazy(loadCropProfilesWorkspace)
 
-const backgroundWorkspacePreloaders = [
+const allWorkspacePreloaders = [
+  loadOverviewWorkspace,
   loadAreasWorkspace,
-  loadReadingsWorkspace,
   loadSectionsWorkspace,
+  loadNodesWorkspace,
+  loadReadingsWorkspace,
+  loadTrendsWorkspace,
+  loadAlertsWorkspace,
+  loadActionsWorkspace,
+  loadCropProfilesWorkspace,
+  loadSimulatorWorkspace,
   loadSettingsWorkspace,
   loadOrganizationWorkspace,
-  loadActionsWorkspace,
-  loadTrendsWorkspace,
-  loadSimulatorWorkspace,
+  loadAdminWorkspace,
+  loadAdminIntegrationsWorkspace,
 ]
 
-function scheduleBackgroundWorkspacePreload() {
-  const warm = () => {
-    backgroundWorkspacePreloaders.forEach((loadWorkspace) => {
-      void loadWorkspace().catch(() => undefined)
+let completeDashboardBootstrapPromise: Promise<void> | null = null
+
+function preloadCompleteDashboard() {
+  if (completeDashboardBootstrapPromise) return completeDashboardBootstrapPromise
+  preloadDashboardRuntimeAssets()
+  completeDashboardBootstrapPromise = Promise.all(allWorkspacePreloaders.map((loadWorkspace) => loadWorkspace()))
+    .then(async () => {
+      try {
+        const response = await neurocropApi.getCurrentUser() as { user?: { email?: unknown } } | null
+        if (response?.user?.email) await prefetchWorkspaceData()
+      } catch {
+        // A signed-out visitor still needs the complete application bundle so
+        // the first authenticated navigation is instant after login.
+      }
     })
-  }
-  const idleWindow = window as typeof window & {
-    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
-    cancelIdleCallback?: (id: number) => void
-  }
-  if (idleWindow.requestIdleCallback) {
-    const idleId = idleWindow.requestIdleCallback(warm, { timeout: 2_500 })
-    return () => idleWindow.cancelIdleCallback?.(idleId)
-  }
-  const timeoutId = window.setTimeout(warm, 800)
-  return () => window.clearTimeout(timeoutId)
+  return completeDashboardBootstrapPromise
 }
 
 declare const __BUILD_VERSION__: string
@@ -225,7 +231,6 @@ function ApprovedDashboard() {
     installNeuroCropFeatures()
     installEChartsEngine()
     preloadDashboardRuntimeAssets()
-    const cancelBackgroundPreload = scheduleBackgroundWorkspacePreload()
     if (hostRef.current && !hostRef.current.childElementCount) {
       hostRef.current.innerHTML = approvedMarkup
     }
@@ -304,7 +309,6 @@ function ApprovedDashboard() {
 
     return () => {
       delete window.NeuroCropLoadLithuanianTranslations
-      cancelBackgroundPreload()
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)
@@ -410,5 +414,19 @@ function ApprovedDashboard() {
 
 export default function DashboardPage() {
   const location = useLocation()
-  return isSupportedRoute(location.pathname) ? <ApprovedDashboard /> : <Navigate to="/" replace />
+  const [dashboardReady, setDashboardReady] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void preloadCompleteDashboard().finally(() => {
+      if (active) setDashboardReady(true)
+    })
+    return () => { active = false }
+  }, [])
+
+  if (!isSupportedRoute(location.pathname)) return <Navigate to="/" replace />
+  if (!dashboardReady) {
+    return <main className="app-route-loading" aria-busy="true" aria-label="Loading complete NeuroCrop workspace" />
+  }
+  return <ApprovedDashboard />
 }
