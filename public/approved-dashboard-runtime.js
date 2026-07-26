@@ -983,6 +983,25 @@
       elements.advancedToolsPanel.classList.add("standalone-advanced-tools");
     }
 
+    function hideRetiredOverviewSurfaces() {
+      [
+        elements.experienceModeSection,
+        elements.overviewTriageSection,
+        elements.heroStatusPanel,
+        elements.todayPriorityPanel,
+        elements.metricsSection,
+        elements.historySection,
+        elements.sensorHealthSection,
+        elements.alertsSection,
+        elements.opsDockSection,
+        elements.detailedDiagnosticsSection,
+        elements.zoneImpactSection,
+        elements.advancedToolsPanel
+      ].forEach((element) => {
+        if (element) element.hidden = true;
+      });
+    }
+
     const loginSessionKey = "neurocrop-dashboard-session-v1";
 
     function getLoginSession() {
@@ -12074,6 +12093,14 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       renderZoneOptions();
       updateSidebarActionState();
 
+      if (activePrimaryPage === "overview") {
+        hideRetiredOverviewSurfaces();
+        document.body.dataset.dashboardState = "neutral";
+        document.body.dataset.viewScope = "site";
+        document.body.dataset.primaryPage = "overview";
+        return;
+      }
+
       if (activePrimaryPage === "actions") {
         elements.experienceModeSection.hidden = true;
         elements.locationsManagementSection.hidden = true;
@@ -12183,9 +12210,17 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
 
     function renderWorkspaceHydrationState(status = "loading") {
       const isError = status === "error";
+      const reactOverviewOwnsRoute = activePrimaryPage === "overview";
       renderSiteOptions();
       renderZoneOptions();
       updateSidebarActionState();
+
+      if (reactOverviewOwnsRoute) {
+        hideRetiredOverviewSurfaces();
+        document.body.dataset.dashboardState = "neutral";
+        document.body.dataset.primaryPage = "overview";
+        return;
+      }
 
       elements.siteContextValue.textContent = diagnosticText("Loading areas", "Kraunamos area");
       elements.siteContextMeta.textContent = diagnosticText("Fetching workspace data", "Gaunami workspace duomenys");
@@ -12219,9 +12254,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       }
       if (elements.sidebarQuickActions) elements.sidebarQuickActions.hidden = true;
 
-      elements.overviewTriageSection.hidden = false;
-      elements.overviewTriageSection.dataset.state = "neutral";
-      elements.overviewTriageSection.innerHTML = `
+      elements.overviewTriageSection.hidden = reactOverviewOwnsRoute;
+      if (!reactOverviewOwnsRoute) {
+        elements.overviewTriageSection.dataset.state = "neutral";
+        elements.overviewTriageSection.innerHTML = `
         <section class="empty-area-state" role="${isError ? "alert" : "status"}" aria-live="polite">
           <p class="triage-eyebrow">${escapeHtml(diagnosticText(isError ? "Connection problem" : "Loading workspace", isError ? "Ryšio problema" : "Kraunamas workspace"))}</p>
           <h2>${escapeHtml(diagnosticText(isError ? "Workspace could not be loaded" : "Getting your growing areas ready", isError ? "Nepavyko įkelti workspace" : "Ruošiamos jūsų auginimo area"))}</h2>
@@ -12239,13 +12275,14 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
           `}
         </section>
       `;
+      }
 
       document.body.dataset.dashboardState = "neutral";
       document.body.dataset.primaryPage = activePrimaryPage;
     }
 
     function renderEmptyWorkspaceState() {
-      const workspaceDependentPages = new Set(["overview", "blocks", "nodes", "readings", "history"]);
+      const workspaceDependentPages = new Set(["blocks", "nodes", "readings", "history"]);
       const hasUnassignedNodeInventory = activePrimaryPage === "nodes"
         && Array.isArray(backendNodeInventory)
         && backendNodeInventory.length > 0;
@@ -12267,7 +12304,9 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const isActionsPage = activePrimaryPage === "actions";
       const isSettingsPage = activePrimaryPage === "settings";
       const isAdminPage = activePrimaryPage === "admin";
-      const showWorkspaceSetup = !isLocationsPage && !isBlocksPage && !isNodesPage && !isAlertsPage && !isActionsPage && !isSettingsPage && !isAdminPage;
+      const showWorkspaceSetup = activePrimaryPage !== "overview"
+        && !isLocationsPage && !isBlocksPage && !isNodesPage && !isAlertsPage
+        && !isActionsPage && !isSettingsPage && !isAdminPage;
 
       elements.siteContextValue.textContent = diagnosticText("No areas", "Nėra area");
       elements.siteContextMeta.textContent = diagnosticText("Create the first area", "Sukurkite pirmą area");
@@ -12336,12 +12375,13 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const isNodesPage = activePrimaryPage === "nodes";
       const isAlertsPage = activePrimaryPage === "alerts";
       const isActionsPage = activePrimaryPage === "actions";
+      const isOverviewPage = activePrimaryPage === "overview";
       const isReadingsPage = activePrimaryPage === "readings";
       const isHistoryPage = activePrimaryPage === "history";
       const isSettingsPage = activePrimaryPage === "settings";
       const isAdminPage = activePrimaryPage === "admin";
       const isManagementPage = isLocationsPage || isBlocksPage || isNodesPage || isAlertsPage || isActionsPage || isSettingsPage || isAdminPage;
-      const isPrimaryWorkspacePage = isManagementPage || isHistoryPage || isReadingsPage;
+      const isPrimaryWorkspacePage = isOverviewPage || isManagementPage || isHistoryPage || isReadingsPage;
       const site = getActiveSite();
       const zone = getActiveZone(site);
       if (!site) {
@@ -12457,6 +12497,16 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       const alertsPageView = getAlertsPageView(currentAlertsPageItems);
       updateSidebarWorkspaceStatus(alertsPageView.open.length);
       if (isAlertsPage) renderAlertsManagementPage(globalSnapshots);
+      if (isOverviewPage) {
+        hideRetiredOverviewSurfaces();
+        document.body.dataset.dashboardState = globalState;
+        document.body.dataset.primaryPage = "overview";
+        updateSidebarActionState();
+        syncStickyOffsets();
+        applyInterfaceLanguage();
+        persistActiveContext();
+        return;
+      }
       const criticalSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "critical");
       const warningSystemIssues = allSystemIssues.filter((snapshot) => snapshot.overall.state === "warning");
       const currentSiteSystemIssues = allSystemIssues.filter((snapshot) => snapshot.site.id === site.id);
@@ -12898,47 +12948,8 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
       if (isNodesPage) renderNodesManagementPage();
       if (isSettingsPage || isAdminPage) renderSettingsManagementPage(globalSnapshots);
 
-      if (!isPrimaryWorkspacePage && isSimpleExperienceMode) {
-        renderOverviewTriage({
-          site,
-          zone,
-          profile,
-          results,
-          displayedOverallState,
-          globalState,
-          allSystemIssues,
-          systemLowBatteryNodes,
-          unavailableCount,
-          availableResults,
-          growthResults,
-          siteSnapshots,
-          globalSnapshots,
-          isSiteView,
-          timestamp
-        });
-      }
-
-      if (isDetailedOverview) {
-        const detailedSnapshot = isSiteView && weakestSiteSnapshot
-          ? weakestSiteSnapshot
-          : { zone, profile, results };
-        const detailedGrowthResults = detailedSnapshot.results.filter((item) => isGrowthMetricKey(item.key) && item.configured !== false);
-        renderDetailedDiagnostics({
-          site,
-          zone: detailedSnapshot.zone,
-          profile: detailedSnapshot.profile,
-          results: detailedSnapshot.results,
-          growthResults: detailedGrowthResults,
-          availableResults: detailedGrowthResults.filter((item) => item.available !== false),
-          unavailableResults: detailedGrowthResults.filter((item) => item.available === false),
-          displayedOverallState,
-          siteSnapshots,
-          zoneBatteryNodes: isSiteView ? siteBatteryNodes : zoneBatteryNodes,
-          coverageOverride: isSiteView ? getCoverageStatsFromSiteSnapshots(siteSnapshots) : null,
-          isSiteView,
-          timestamp
-        });
-      }
+      // Overview is fully owned by the React workspace. The retired dashboard
+      // renderer must never populate its former surfaces during refresh.
 
       elements.experienceModeTitle.textContent = isDetailedExperienceMode ? "Detailed analysis view" : "Simple client view";
       elements.experienceModeSummary.textContent = isDetailedExperienceMode
@@ -13530,6 +13541,10 @@ function buildSiteAverageSummaries(siteSnapshots, options = {}) {
     }
 
     function renderRuntimeErrorState() {
+      if (activePrimaryPage === "overview") {
+        hideRetiredOverviewSurfaces();
+        return;
+      }
       const errorTitle = diagnosticText("View unavailable", "Rodinys nepasiekiamas");
       const errorNote = diagnosticText(
         "The rest of the workspace remains available. Retry this view or choose another page.",

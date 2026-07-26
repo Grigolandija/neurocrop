@@ -200,7 +200,9 @@
           <div id="simulatorWorkspaceMount"></div>
         </section>
 
-        <section id="opsDockSection" class="ops-dock-shell section-jump-target">
+        <div id="overviewWorkspaceMount" aria-live="polite"></div>
+
+        <section id="opsDockSection" class="ops-dock-shell section-jump-target" data-retired-overview hidden>
           <div class="ops-dock-panel">
             <div class="ops-dock-top">
               <div class="min-w-0">
@@ -247,7 +249,7 @@
           </div>
         </section>
 
-        <section id="alertsSection" class="mb-6">
+        <section id="alertsSection" class="mb-6" data-retired-overview hidden>
           <div id="globalSystemCard" data-state="optimal" data-collapsed="true" class="global-system-card section-jump-target p-5 md:p-6">
             <i class="global-system-toggle fa-solid fa-chevron-down"></i>
             <div class="flex items-center justify-between gap-4" data-global-system-toggle>
@@ -292,12 +294,12 @@
           </div>
         </section>
 
-        <section id="todayPriorityPanel" class="today-priority-panel section-jump-target" hidden>
+        <section id="todayPriorityPanel" class="today-priority-panel section-jump-target" data-retired-overview hidden>
           <div id="todayPriorityMain" class="today-priority-main"></div>
           <div id="todayPriorityAlerts" class="today-priority-alerts"></div>
         </section>
 
-        <section id="heroStatusPanel" data-state="optimal" class="surface hero-panel section-jump-target rounded-[40px] p-4 md:p-6 lg:p-7">
+        <section id="heroStatusPanel" data-state="optimal" class="surface hero-panel section-jump-target rounded-[40px] p-4 md:p-6 lg:p-7" data-retired-overview hidden>
           <div class="hero-content-grid grid gap-8">
             <div class="hero-main-stack min-w-0">
               <div class="hero-top-row flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -631,14 +633,13 @@
           </div>
         </section>
 
-        <div id="overviewWorkspaceMount" aria-live="polite"></div>
-        <section id="overviewTriageSection" class="overview-triage section-jump-target" hidden></section>
+        <section id="overviewTriageSection" class="overview-triage section-jump-target" data-retired-overview hidden></section>
 
-        <section id="detailedDiagnosticsSection" class="detailed-diagnostics section-jump-target" hidden></section>
+        <section id="detailedDiagnosticsSection" class="detailed-diagnostics section-jump-target" data-retired-overview hidden></section>
 
         <div id="readingsWorkspaceMount" aria-live="polite"></div>
 
-        <section id="metricsSection" class="section-jump-target">
+        <section id="metricsSection" class="section-jump-target" data-retired-overview hidden>
           <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <p id="metricsSectionKicker" class="text-xs uppercase tracking-[0.30em] text-pine/56">Metrics</p>
@@ -678,7 +679,7 @@
           <div id="trendsWorkspaceMount" aria-live="polite"></div>
         </section>
 
-        <section id="sensorHealthSection" class="section-jump-target mt-6">
+        <section id="sensorHealthSection" class="section-jump-target mt-6" data-retired-overview hidden>
           <div class="surface rounded-[34px] p-5 md:p-6">
             <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
@@ -707,7 +708,7 @@
           </div>
         </section>
 
-        <section id="zoneImpactSection" class="section-jump-target mt-6">
+        <section id="zoneImpactSection" class="section-jump-target mt-6" data-retired-overview hidden>
           <div class="surface rounded-[34px] p-6 md:p-7">
             <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>

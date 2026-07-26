@@ -312,7 +312,12 @@ function ApprovedDashboard() {
   return <>
     <div ref={hostRef} />
     {location.pathname === '/' && overviewMount
-      ? createPortal(<Suspense fallback={null}><OverviewWorkspace /></Suspense>, overviewMount)
+      ? createPortal(
+          <Suspense fallback={<div className="app-route-loading" aria-busy="true" aria-label="Loading Overview" />}>
+            <OverviewWorkspace />
+          </Suspense>,
+          overviewMount,
+        )
       : null}
     {location.pathname === '/readings' && readingsMount
       ? createPortal(<Suspense fallback={null}><ReadingsWorkspace /></Suspense>, readingsMount)

@@ -15364,3 +15364,6 @@ body[data-primary-page="readings"][data-view-scope="site"] .workbench-lens-summa
   .area-live-summary-card:last-child { border-top: 1px solid var(--nc-border); }
   .area-live-matrix { min-width: var(--area-live-min-width); }
 }
+    .designer-app [data-retired-overview][hidden] {
+      display: none !important;
+    }
