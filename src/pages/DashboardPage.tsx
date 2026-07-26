@@ -57,6 +57,22 @@ let dashboardStorePromise: Promise<void> | null = null
 let lithuanianTranslationsPromise: Promise<void> | null = null
 let workspaceWarmupPromise: Promise<void> | null = null
 
+function preloadDashboardRuntimeAssets() {
+  const assets = [
+    ['/neurocrop-state-engine.js', 'state-engine'],
+    ['/approved-dashboard-runtime.js', 'dashboard-runtime'],
+  ] as const
+  assets.forEach(([path, key]) => {
+    if (document.querySelector(`[data-neurocrop-preload="${key}"]`)) return
+    const preload = document.createElement('link')
+    preload.rel = 'preload'
+    preload.as = 'script'
+    preload.href = `${path}?v=${__BUILD_VERSION__}`
+    preload.dataset.neurocropPreload = key
+    document.head.appendChild(preload)
+  })
+}
+
 function routeNeedsCharts(pathname: string) {
   return pathname === '/history' || pathname === '/readings'
 }
@@ -240,6 +256,7 @@ function ApprovedDashboard() {
   useEffect(() => {
     installNeuroCropApi()
     installNeuroCropFeatures()
+    preloadDashboardRuntimeAssets()
     if (hostRef.current && !hostRef.current.childElementCount) {
       hostRef.current.innerHTML = approvedMarkup
     }
