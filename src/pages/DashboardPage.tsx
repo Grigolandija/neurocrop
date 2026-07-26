@@ -157,6 +157,7 @@ function ApprovedDashboard() {
   const location = useLocation()
   const hostRef = useRef<HTMLDivElement>(null)
   const runtimeReady = useRef(false)
+  const navigateRef = useRef(navigate)
   const [readingsMount, setReadingsMount] = useState<HTMLElement | null>(null)
   const [areasMount, setAreasMount] = useState<HTMLElement | null>(null)
   const [overviewMount, setOverviewMount] = useState<HTMLElement | null>(null)
@@ -170,6 +171,10 @@ function ApprovedDashboard() {
   const [alertsMount, setAlertsMount] = useState<HTMLElement | null>(null)
   const [trendsMount, setTrendsMount] = useState<HTMLElement | null>(null)
   const [nodesMount, setNodesMount] = useState<HTMLElement | null>(null)
+
+  useEffect(() => {
+    navigateRef.current = navigate
+  }, [navigate])
 
   useEffect(() => {
     installNeuroCropApi()
@@ -207,7 +212,7 @@ function ApprovedDashboard() {
       const payload = event.data
       if (!payload || payload.type !== 'neurocrop:navigate') return
       const route = isSupportedRoute(payload.route) ? payload.route : '/'
-      if (route !== window.location.pathname) navigate(route, { replace: Boolean(payload.replace) })
+      if (route !== window.location.pathname) navigateRef.current(route, { replace: Boolean(payload.replace) })
     }
 
     function attachRuntime() {
@@ -269,7 +274,7 @@ function ApprovedDashboard() {
       setTrendsMount(null)
       setNodesMount(null)
     }
-  }, [navigate])
+  }, [])
 
   useEffect(() => {
     if (!runtimeReady.current) return
