@@ -18,7 +18,7 @@ type Props = {
 
 export default function ReadingsClimateMap({ areaId, refreshToken, presentation = 'readings', areaNavigation }: Props) {
   const [context, setContext] = useState<AreaMapContext | null>(null)
-  const [metric, setMetric] = useState<MetricKey>('relative-humidity')
+  const [metric, setMetric] = useState<MetricKey>('air-temperature')
   const [legendHost, setLegendHost] = useState<HTMLDivElement | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [updating, setUpdating] = useState(false)
