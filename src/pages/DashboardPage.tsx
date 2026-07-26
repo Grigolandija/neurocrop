@@ -58,14 +58,7 @@ const navigationIntentLoaders: Record<string, () => Promise<unknown>> = {
 }
 
 async function prefetchRouteWorkspaces() {
-  for (const loadWorkspace of backgroundWorkspaceLoaders) {
-    if (document.hidden) return
-    try {
-      await loadWorkspace()
-    } catch {
-      // Navigation still performs the normal lazy-load retry.
-    }
-  }
+  await Promise.allSettled(backgroundWorkspaceLoaders.map((loadWorkspace) => loadWorkspace()))
 }
 
 let chartEnginePromise: Promise<void> | null = null
@@ -292,32 +285,25 @@ function ApprovedDashboard() {
     hostRef.current?.addEventListener('pointerover', preloadNavigationTarget)
     hostRef.current?.addEventListener('focusin', preloadNavigationTarget)
     window.NeuroCropLoadLithuanianTranslations = () => ensureLithuanianTranslations(true)
+    // Warm every navigation target immediately. Lazy routes still keep the
+    // initial bundle small, but users no longer need to visit each page once
+    // before switching between pages becomes instant.
+    void Promise.allSettled([
+      prefetchRouteWorkspaces(),
+      ensureChartEngine(),
+    ])
     void Promise.allSettled([
       ensureOptionalDashboardStore(),
       ensureLithuanianTranslations(),
     ]).then(loadRuntime)
-    let prefetchIdleId: number | null = null
-    const prefetchTimer = window.setTimeout(() => {
-      const prefetch = () => {
-        void neurocropApi.getCurrentUser()
-          .then((response) => {
-            const user = (response as { user?: { email?: unknown } } | null)?.user
-            if (!user?.email) return
-            void prefetchWorkspaceData()
-            void prefetchRouteWorkspaces()
-          })
-          .catch(() => undefined)
-      }
-      if ('requestIdleCallback' in window) {
-        prefetchIdleId = window.requestIdleCallback(prefetch, { timeout: 3_000 })
-      } else {
-        prefetch()
-      }
-    }, 2_000)
+    void neurocropApi.getCurrentUser()
+      .then((response) => {
+        const user = (response as { user?: { email?: unknown } } | null)?.user
+        if (user?.email) void prefetchWorkspaceData()
+      })
+      .catch(() => undefined)
 
     return () => {
-      window.clearTimeout(prefetchTimer)
-      if (prefetchIdleId !== null && 'cancelIdleCallback' in window) window.cancelIdleCallback(prefetchIdleId)
       delete window.NeuroCropLoadLithuanianTranslations
       window.removeEventListener('message', handleMessage)
       hostRef.current?.removeEventListener('pointerover', preloadNavigationTarget)
