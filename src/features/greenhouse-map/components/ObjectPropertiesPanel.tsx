@@ -1,4 +1,5 @@
 import { METRICS, OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type NodeStatus, type SensorNodeMetadata } from '../model'
+import { isWallMountedType } from '../geometry'
 import NumericInput from './NumericInput'
 
 type Props = {
@@ -15,6 +16,7 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
     {(['left', 'center', 'right', 'bottom', 'middle', 'top'] as const).map((edge) => <button key={edge} onClick={() => onAlign(edge)}><i className={`fa-solid fa-align-${edge === 'middle' ? 'center' : edge}`} />{edge}</button>)}
   </div></section></aside>
   const object = selected[0]
+  const wallMounted = isWallMountedType(object.type)
   const sensor = object.metadata.sensor
   const patchMetadata = (metadata: Partial<GreenhouseObject['metadata']>) => onUpdate(object.id, { metadata: { ...object.metadata, ...metadata } })
   const patchSensor = (update: Partial<SensorNodeMetadata>) => patchMetadata({ sensor: { ...sensor!, ...update } })
@@ -37,9 +39,10 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
         <label className="gh-field"><span>Length <em>m</em></span><NumericInput min=".05" step=".05" value={Number(object.lengthM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { lengthM: value ?? object.lengthM })} /></label>
       </div>}
       <div className="gh-field-row">
-        <label className="gh-field"><span>Rotation <em>°</em></span><NumericInput value={Number(object.rotationDeg.toFixed(1))} onCommit={(value) => onUpdate(object.id, { rotationDeg: value ?? object.rotationDeg })} /></label>
+        {wallMounted ? <label className="gh-field"><span>{tr('Mounted wall', 'Tvirtinimo siena')}</span><input value={object.metadata.wallMount?.wall ?? tr('Automatic', 'Automatinė')} readOnly /></label> : <label className="gh-field"><span>Rotation <em>°</em></span><NumericInput value={Number(object.rotationDeg.toFixed(1))} onCommit={(value) => onUpdate(object.id, { rotationDeg: value ?? object.rotationDeg })} /></label>}
         <label className="gh-field"><span>Layer</span><select value={object.layerId} onChange={(event) => onUpdate(object.id, { layerId: event.target.value })}>{map.layers.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
       </div>
+      {wallMounted ? <p className="gh-muted"><i className="fa-solid fa-magnet" /> {tr('This object stays attached to the nearest perimeter wall. Drag it toward another wall to remount it.', 'Šis objektas lieka pritvirtintas prie artimiausios perimetro sienos. Nutempkite prie kitos sienos, kad pakeistumėte tvirtinimą.')}</p> : null}
       <div className="gh-toggle-row">
         <label><input type="checkbox" checked={object.visible} onChange={(event) => onUpdate(object.id, { visible: event.target.checked })} /><span>Visible</span></label>
         <label><input type="checkbox" checked={object.locked} onChange={(event) => onUpdate(object.id, { locked: event.target.checked })} /><span>Locked</span></label>

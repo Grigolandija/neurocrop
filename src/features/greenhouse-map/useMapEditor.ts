@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type ObjectType } from './model'
-import { clampObjectPosition, sensorMarkerSizeM, snapSectionToWalls, snapValue } from './geometry'
+import { clampObjectPosition, isWallMountedType, sensorMarkerSizeM, snapSectionToWalls, snapValue, snapWallMountedObject } from './geometry'
 import { mapRepository } from './services/mapRepository'
 
 type History = { past: GreenhouseMap[]; present: GreenhouseMap; future: GreenhouseMap[] }
@@ -11,7 +11,7 @@ function createObject(type: ObjectType, map: GreenhouseMap, xM?: number, yM?: nu
   const [widthM, lengthM] = definition.size
   const position = clampObjectPosition(xM ?? map.dimensions.widthM / 2 - widthM / 2, yM ?? map.dimensions.lengthM / 2 - lengthM / 2, widthM, lengthM, map.dimensions.widthM, map.dimensions.lengthM)
   const id = `${type}-${crypto.randomUUID().slice(0, 8)}`
-  return {
+  const object: GreenhouseObject = {
     id, type, name: `${definition.label} ${map.objects.filter((object) => object.type === type).length + 1}`,
     ...position, widthM, lengthM, rotationDeg: 0, layerId: definition.layerId, locked: false, visible: true,
     metadata: type === 'sensor-node' ? {
@@ -22,6 +22,7 @@ function createObject(type: ObjectType, map: GreenhouseMap, xM?: number, yM?: nu
       },
     } : {},
   }
+  return isWallMountedType(type) ? snapWallMountedObject(object, map.dimensions) : object
 }
 
 export function useMapEditor() {
@@ -38,9 +39,12 @@ export function useMapEditor() {
       const next = {
         ...produced,
         objects: produced.objects.map((object) => {
-          if (object.type !== 'sensor-node') return object
-          const position = clampObjectPosition(object.xM, object.yM, markerSize, markerSize, produced.dimensions.widthM, produced.dimensions.lengthM)
-          return { ...object, ...position, widthM: markerSize, lengthM: markerSize }
+          if (object.type === 'sensor-node') {
+            const position = clampObjectPosition(object.xM, object.yM, markerSize, markerSize, produced.dimensions.widthM, produced.dimensions.lengthM)
+            return { ...object, ...position, widthM: markerSize, lengthM: markerSize }
+          }
+          if (isWallMountedType(object.type)) return snapWallMountedObject(object, produced.dimensions, object.metadata.wallMount?.wall)
+          return object
         }),
         updatedAt: new Date().toISOString(),
       }
@@ -58,7 +62,13 @@ export function useMapEditor() {
   }, [map])
 
   const updateObject = useCallback((id: string, patch: Partial<GreenhouseObject>, record = true) => {
-    commit((current) => ({ ...current, objects: current.objects.map((object) => object.id === id ? { ...object, ...patch } : object) }), record)
+    commit((current) => ({ ...current, objects: current.objects.map((object) => {
+      if (object.id !== id) return object
+      const updated = { ...object, ...patch }
+      if (!isWallMountedType(updated.type)) return updated
+      const positionChanged = patch.xM !== undefined || patch.yM !== undefined || patch.type !== undefined
+      return snapWallMountedObject(updated, current.dimensions, positionChanged ? undefined : object.metadata.wallMount?.wall)
+    }) }), record)
   }, [commit])
 
   const addObject = useCallback((type: ObjectType, xM?: number, yM?: number) => {
@@ -90,7 +100,9 @@ export function useMapEditor() {
       objects: current.objects.map((object) => {
         const position = positions.find((item) => item.id === object.id)
         if (!position || object.locked) return object
-        const clamped = clampObjectPosition(snapValue(position.xM, current.gridSizeM, snap), snapValue(position.yM, current.gridSizeM, snap), object.widthM, object.lengthM, current.dimensions.widthM, current.dimensions.lengthM)
+        const snapped = { ...object, xM: snapValue(position.xM, current.gridSizeM, snap), yM: snapValue(position.yM, current.gridSizeM, snap) }
+        if (isWallMountedType(object.type)) return snapWallMountedObject(snapped, current.dimensions)
+        const clamped = clampObjectPosition(snapped.xM, snapped.yM, object.widthM, object.lengthM, current.dimensions.widthM, current.dimensions.lengthM)
         return object.type === 'section-zone'
           ? snapSectionToWalls({ ...object, ...clamped }, current.dimensions, current.gridSizeM)
           : { ...object, ...clamped }

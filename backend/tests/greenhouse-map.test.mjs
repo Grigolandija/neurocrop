@@ -53,6 +53,22 @@ test('greenhouse map validation rejects duplicate ids, unknown layers and invali
   assert.match(validateGreenhouseMap(invalidPower).message, /IDW power/i);
 });
 
+test('greenhouse map validation accepts wall-mounted openings and rejects detached mounts', () => {
+  const map = validMap();
+  map.layers.push({ id: 'structure', name: 'Structure', visible: true, locked: false, opacity: 1 });
+  const door = {
+    id: 'door-east', type: 'door', name: 'East door', xM: 19.8, yM: 2,
+    widthM: 0.2, lengthM: 1.2, rotationDeg: 0, layerId: 'structure',
+    visible: true, locked: false, metadata: { wallMount: { wall: 'east', offsetM: 2 } }
+  };
+  map.objects.push(door);
+  assert.deepEqual(validateGreenhouseMap(map), { valid: true });
+
+  const detached = structuredClone(map);
+  detached.objects[1].xM = 19.5;
+  assert.match(validateGreenhouseMap(detached).message, /detached from its perimeter wall/i);
+});
+
 test('Area Map routes are authenticated, role protected and organization scoped', async () => {
   const source = await fs.readFile(new URL('../greenhouse-map-routes.js', import.meta.url), 'utf8');
   assert.match(source, /app\.get\('\/areas\/:areaId\/map', requireUserAuth/);

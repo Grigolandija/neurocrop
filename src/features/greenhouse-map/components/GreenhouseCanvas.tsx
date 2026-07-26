@@ -8,6 +8,7 @@ import { bandedGradient } from '../heatmap/heatmapColorScale'
 import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
+import { isWallMountedType } from '../geometry'
 import { METRICS, OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type MapMode, type ObjectType } from '../model'
 
 type Props = {
@@ -174,6 +175,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
 
   const visibleLayers = useMemo(() => new Map(map.layers.map((layer) => [layer.id, layer])), [map.layers])
   const orderedObjects = useMemo(() => map.layers.flatMap((layer) => map.objects.filter((object) => object.layerId === layer.id)), [map.layers, map.objects])
+  const wallMountedSelection = useMemo(() => map.objects.some((object) => selectedIds.includes(object.id) && isWallMountedType(object.type)), [map.objects, selectedIds])
   const contourPaths = useMemo(() => {
     if (!showContours || !heatmap || heatmap.count < MIN_CONTOUR_SENSOR_COUNT) return []
     return createContourPaths(heatmap.grid, CONTOUR_INTERVALS[map.heatmapSettings.metric]).map((path) => ({
@@ -336,7 +338,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
             onUpdate={onUpdate}
           />
         })}
-        <Transformer ref={transformerRef} rotateEnabled={editable} resizeEnabled={editable} flipEnabled={false} borderStroke="#d89222" anchorStroke="#d89222" anchorFill="#fff" anchorSize={9} borderStrokeWidth={1.5} rotateAnchorOffset={24} />
+        <Transformer ref={transformerRef} rotateEnabled={editable && !wallMountedSelection} resizeEnabled={editable} flipEnabled={false} borderStroke="#d89222" anchorStroke="#d89222" anchorFill="#fff" anchorSize={9} borderStrokeWidth={1.5} rotateAnchorOffset={24} />
       </Layer>
       {mode === 'environment' && showContours && contourLabels.length ? <Layer listening={false}>
         {contourLabels.map(({ level, x, y, label }) => {

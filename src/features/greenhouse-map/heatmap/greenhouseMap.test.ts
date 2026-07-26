@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createDemoMap } from '../demo'
-import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, worldToScreen } from '../geometry'
+import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, snapWallMountedObject, worldToScreen } from '../geometry'
 import { mapRepository, validateMap } from '../services/mapRepository'
 import { calculateConfidence } from './calculateConfidenceGrid'
 import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_COUNT, connectContourSegments, createContourSegments, getContourLevels } from './contourLines'
@@ -164,6 +164,40 @@ describe('coordinates, snap and persistence validation', () => {
     const snapped = snapSectionToWalls({ id: 'a', xM: .2, yM: 2.8, widthM: 4, lengthM: 2 }, { widthM: 10, lengthM: 5 }, .25)
     expect(snapped.xM).toBe(0)
     expect(snapped.yM).toBe(3)
+  })
+  it('mounts doors to the nearest perimeter wall with rotation-safe dimensions', () => {
+    const map = createDemoMap()
+    const door = {
+      ...map.objects.find((object) => object.type === 'door')!,
+      xM: 19.4,
+      yM: 2,
+      widthM: 1.2,
+      lengthM: .2,
+      rotationDeg: 87,
+    }
+    const snapped = snapWallMountedObject(door, map.dimensions)
+    expect(snapped.metadata.wallMount).toEqual({ wall: 'east', offsetM: 1.5 })
+    expect(snapped.xM).toBe(19.8)
+    expect(snapped.yM).toBe(1.5)
+    expect(snapped.widthM).toBe(.2)
+    expect(snapped.lengthM).toBe(1.2)
+    expect(snapped.rotationDeg).toBe(0)
+    expect(validateMap({ ...map, objects: map.objects.map((object) => object.id === door.id ? snapped : object) }).ok).toBe(true)
+  })
+  it('keeps a resized wall opening inside its mounted wall segment', () => {
+    const map = createDemoMap()
+    const opening = {
+      ...map.objects.find((object) => object.type === 'door')!,
+      xM: 19.8,
+      yM: 7.7,
+      widthM: .2,
+      lengthM: 2,
+      metadata: { wallMount: { wall: 'east' as const, offsetM: 7.7 } },
+    }
+    const snapped = snapWallMountedObject(opening, map.dimensions, 'east')
+    expect(snapped.yM).toBe(6)
+    expect(snapped.yM + snapped.lengthM).toBe(8)
+    expect(snapped.metadata.wallMount).toEqual({ wall: 'east', offsetM: 6 })
   })
   it('rejects invalid imported dimensions and coordinates without mutation', () => {
     const map = createDemoMap()

@@ -4,6 +4,8 @@ import type { GreenhouseMap, GreenhouseObject, MapLayer } from '../model'
 const STORAGE_KEY = 'neurocrop:greenhouse-map-test:v1'
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
+const wallMountedTypes = new Set(['door', 'window', 'ventilation-opening'])
+const perimeterWalls = new Set(['south', 'north', 'west', 'east'])
 
 export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | { ok: false; error: string } {
   if (!value || typeof value !== 'object') return { ok: false, error: 'JSON root must be an object.' }
@@ -22,8 +24,17 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
     if (!object || typeof object !== 'object' || typeof object.id !== 'string' || typeof object.type !== 'string') return { ok: false, error: `Object ${index + 1} is invalid.` }
     if (![object.xM, object.yM, object.widthM, object.lengthM, object.rotationDeg].every(finite)) return { ok: false, error: `Object ${object.id} contains an invalid number.` }
     if (object.widthM <= 0 || object.lengthM <= 0 || object.xM < 0 || object.yM < 0) return { ok: false, error: `Object ${object.id} has negative coordinates or invalid dimensions.` }
-    if (object.xM + object.widthM > map.dimensions.widthM || object.yM + object.lengthM > map.dimensions.lengthM) return { ok: false, error: `Object ${object.id} is outside the greenhouse.` }
+    if (object.xM + object.widthM > map.dimensions.widthM + 1e-6 || object.yM + object.lengthM > map.dimensions.lengthM + 1e-6) return { ok: false, error: `Object ${object.id} is outside the greenhouse.` }
     if (!layerIds.has(object.layerId)) return { ok: false, error: `Object ${object.id} references an unknown layer.` }
+    const wallMount = object.metadata?.wallMount
+    if (wallMount !== undefined) {
+      if (!wallMountedTypes.has(object.type) || !perimeterWalls.has(wallMount.wall) || !finite(wallMount.offsetM) || wallMount.offsetM < 0) return { ok: false, error: `Object ${object.id} has an invalid wall mount.` }
+      const touchesWall = wallMount.wall === 'south' ? Math.abs(object.yM) <= 1e-6
+        : wallMount.wall === 'north' ? Math.abs(object.yM + object.lengthM - map.dimensions.lengthM) <= 1e-6
+          : wallMount.wall === 'west' ? Math.abs(object.xM) <= 1e-6
+            : Math.abs(object.xM + object.widthM - map.dimensions.widthM) <= 1e-6
+      if (!touchesWall) return { ok: false, error: `Object ${object.id} is detached from its perimeter wall.` }
+    }
   }
   const heatmap = map.heatmapSettings
   if (

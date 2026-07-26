@@ -41,6 +41,10 @@ export type ObjectMetadata = {
   status?: string
   notes?: string
   color?: string
+  wallMount?: {
+    wall: 'south' | 'north' | 'west' | 'east'
+    offsetM: number
+  }
   sensor?: SensorNodeMetadata
   section?: {
     sectionId: string

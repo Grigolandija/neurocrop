@@ -1,4 +1,13 @@
+import type { GreenhouseObject, ObjectType } from './model'
+
 export type ViewTransform = { scale: number; offsetX: number; offsetY: number }
+export type PerimeterWall = 'south' | 'north' | 'west' | 'east'
+
+const wallMountedTypes = new Set<ObjectType>(['door', 'window', 'ventilation-opening'])
+
+export function isWallMountedType(type: ObjectType) {
+  return wallMountedTypes.has(type)
+}
 
 export function worldToScreen(xM: number, yM: number, heightM: number, transform: ViewTransform) {
   return { x: transform.offsetX + xM * transform.scale, y: transform.offsetY + (heightM - yM) * transform.scale }
@@ -21,6 +30,43 @@ export function clampObjectPosition(xM: number, yM: number, widthM: number, leng
 
 export function sensorMarkerSizeM(dimensions: { widthM: number; lengthM: number }) {
   return Math.max(.16, Math.min(1.5, Math.min(dimensions.widthM, dimensions.lengthM) * .06))
+}
+
+const clamp = (value: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(maximum, value))
+
+export function snapWallMountedObject<T extends GreenhouseObject>(
+  object: T,
+  dimensions: { widthM: number; lengthM: number },
+  preferredWall?: PerimeterWall,
+): T {
+  if (!isWallMountedType(object.type)) return object
+
+  const centerX = object.xM + object.widthM / 2
+  const centerY = object.yM + object.lengthM / 2
+  const wall = preferredWall ?? ([
+    ['west', Math.abs(centerX)],
+    ['east', Math.abs(dimensions.widthM - centerX)],
+    ['south', Math.abs(centerY)],
+    ['north', Math.abs(dimensions.lengthM - centerY)],
+  ] as Array<[PerimeterWall, number]>).reduce((closest, candidate) => candidate[1] < closest[1] ? candidate : closest)[0]
+
+  const horizontal = wall === 'south' || wall === 'north'
+  const maximumSpan = horizontal ? dimensions.widthM : dimensions.lengthM
+  const maximumThickness = horizontal ? dimensions.lengthM : dimensions.widthM
+  const spanM = Math.min(maximumSpan, Math.max(object.widthM, object.lengthM))
+  const thicknessM = Math.min(maximumThickness, Math.min(object.widthM, object.lengthM))
+  const alongWallCenter = horizontal ? centerX : centerY
+  const offsetM = clamp(alongWallCenter - spanM / 2, 0, Math.max(0, maximumSpan - spanM))
+
+  return {
+    ...object,
+    xM: wall === 'west' ? 0 : wall === 'east' ? dimensions.widthM - thicknessM : offsetM,
+    yM: wall === 'south' ? 0 : wall === 'north' ? dimensions.lengthM - thicknessM : offsetM,
+    widthM: horizontal ? spanM : thicknessM,
+    lengthM: horizontal ? thicknessM : spanM,
+    rotationDeg: 0,
+    metadata: { ...object.metadata, wallMount: { wall, offsetM } },
+  }
 }
 
 type Rectangle = { id: string; xM: number; yM: number; widthM: number; lengthM: number }

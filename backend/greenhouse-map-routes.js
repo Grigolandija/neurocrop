@@ -8,6 +8,8 @@ const MAX_OBJECTS = 2000;
 const MAX_LAYERS = 50;
 const MAX_MAP_BYTES = 900_000;
 const writableRoles = ['owner', 'admin', 'grower', 'technician'];
+const wallMountedTypes = new Set(['door', 'window', 'ventilation-opening']);
+const perimeterWalls = new Set(['south', 'north', 'west', 'east']);
 
 function finite(value) {
   return typeof value === 'number' && Number.isFinite(value);
@@ -47,6 +49,17 @@ export function validateGreenhouseMap(value) {
     if (object.xM + object.widthM > value.dimensions.widthM + 1e-6 || object.yM + object.lengthM > value.dimensions.lengthM + 1e-6) return validationError(`Object ${object.id} is outside the greenhouse`);
     if (!layerIds.has(object.layerId) || typeof object.visible !== 'boolean' || typeof object.locked !== 'boolean') return validationError(`Object ${object.id} has invalid layer or visibility state`);
     if (object.metadata !== undefined && (!object.metadata || typeof object.metadata !== 'object' || Array.isArray(object.metadata))) return validationError(`Object ${object.id} metadata must be an object`);
+    const wallMount = object.metadata?.wallMount;
+    if (wallMount !== undefined) {
+      if (!wallMountedTypes.has(object.type) || !wallMount || typeof wallMount !== 'object' || Array.isArray(wallMount) || !perimeterWalls.has(wallMount.wall) || !finite(wallMount.offsetM) || wallMount.offsetM < 0) {
+        return validationError(`Object ${object.id} has an invalid wall mount`);
+      }
+      const touchesWall = wallMount.wall === 'south' ? Math.abs(object.yM) <= 1e-6
+        : wallMount.wall === 'north' ? Math.abs(object.yM + object.lengthM - value.dimensions.lengthM) <= 1e-6
+          : wallMount.wall === 'west' ? Math.abs(object.xM) <= 1e-6
+            : Math.abs(object.xM + object.widthM - value.dimensions.widthM) <= 1e-6;
+      if (!touchesWall) return validationError(`Object ${object.id} is detached from its perimeter wall`);
+    }
   }
 
   if (!value.heatmapSettings || typeof value.heatmapSettings !== 'object') return validationError('Heatmap settings are required');
