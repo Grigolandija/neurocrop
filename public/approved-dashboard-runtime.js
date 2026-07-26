@@ -430,6 +430,7 @@
       "section median": "sekcijos mediana",
       "Select one parameter to compare between nodes": "Pasirinkite vieną rodiklį mazgams palyginti",
       "No Nodes are assigned to this Section.": "Šiai sekcijai nepriskirta mazgų.",
+      "Node history is unavailable because the API has not applied the Node filter.": "Mazgų istorija nepasiekiama, nes API nepritaikė mazgo filtro.",
       "Alerts": "Perspėjimai",
       "Trends": "Tendencijos",
       "Settings": "Nustatymai",

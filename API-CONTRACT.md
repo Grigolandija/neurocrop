@@ -470,11 +470,13 @@ Area trynimo body:
 
 ```text
 GET /history?sectionId=...&metric=humidity&from=...&to=...
+GET /history?sectionId=...&devEui=...&metric=humidity&from=...&to=...
 ```
 
 ```json
 {
   "sectionId": "tomato-rear",
+  "devEui": null,
   "metric": "humidity",
   "unit": "%",
   "points": [
@@ -494,6 +496,12 @@ GET /history?sectionId=...&metric=humidity&from=...&to=...
   "revision": "history-r17"
 }
 ```
+
+`devEui` yra neprivalomas. Kai jis pateiktas, backend patikrina, kad mazgas
+priklauso prisijungusio naudotojo organizacijai ir pasirinktai sekcijai, tada
+grąžina tik to mazgo istoriją. Atsakyme turi būti tas pats `devEui`, o
+`aggregation` reikšmė turi prasidėti `node_`. Be `devEui` grąžinama sekcijos
+agreguota istorija.
 
 Taškai neprivalo būti gauti tą pačią sekundę. Backend turi grąžinti tikrus
 `observedAt`; grafikas juos braižo laiko ašyje. `receivedAt` naudojamas

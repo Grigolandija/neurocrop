@@ -241,6 +241,19 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-node-picker label span i[data-status="stale"] { background: #d59a2a; }
 .designer-app .nc-trends-node-picker label span i[data-status="offline"] { background: #d35e49; }
 .designer-app .nc-trends-node-picker > div:last-child > p { margin: 0; color: var(--trends-muted); font-size: 12px; }
+.designer-app .nc-trends-node-picker:has(.nc-trends-node-error) { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+.designer-app .nc-trends-node-error {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  border-top: 1px solid #ead6cf;
+  padding-top: 10px;
+  color: #a64838;
+  font-size: 12px;
+  font-weight: 650;
+}
 
 .designer-app .nc-trends-kpis {
   display: grid;

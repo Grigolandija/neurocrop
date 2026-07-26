@@ -535,6 +535,7 @@ export default function TrendsWorkspace() {
   )
   const [nodeSeries, setNodeSeries] = useState<ChartInput[]>([])
   const [nodeHistoryLoading, setNodeHistoryLoading] = useState(false)
+  const [nodeHistoryError, setNodeHistoryError] = useState('')
   const [points, setPoints] = useState<Point[]>([])
   const [metricHistories, setMetricHistories] = useState<Record<string, Point[]>>({})
   const [comparison, setComparison] = useState<ChartInput[]>([])
@@ -798,6 +799,7 @@ export default function TrendsWorkspace() {
       queueMicrotask(() => {
         setNodeSeries([])
         setNodeHistoryLoading(false)
+        setNodeHistoryError('')
       })
       return
     }
@@ -819,6 +821,7 @@ export default function TrendsWorkspace() {
       queueMicrotask(() => {
         setNodeSeries([])
         setNodeHistoryLoading(false)
+        setNodeHistoryError('')
       })
       return
     }
@@ -828,7 +831,9 @@ export default function TrendsWorkspace() {
     const selectedNodes = sectionNodes.filter((node) => selectedNodeIds.includes(node.devEui)).slice(0, 5)
     let active = true
     queueMicrotask(() => {
-      if (active) setNodeHistoryLoading(true)
+      if (!active) return
+      setNodeHistoryLoading(true)
+      setNodeHistoryError('')
     })
     Promise.all(selectedNodes.map((node, index) => neurocropApi.getHistory({
       sectionId: selectedSection.id,
@@ -837,17 +842,34 @@ export default function TrendsWorkspace() {
       from: from.toISOString(),
       to: to.toISOString(),
       stepMinutes: config.stepMinutes,
-    }).then((payload) => ({
-      name: node.name,
-      points: historyPoints(payload as JsonRecord),
-      color: chartColors[(index + 1) % chartColors.length],
-    })).catch(() => ({
-      name: node.name,
-      points: [],
-      color: chartColors[(index + 1) % chartColors.length],
-    })))).then((series) => {
+    }).then((payload) => {
+      const response = payload as JsonRecord
+      const responseDevEui = text(response.devEui).trim().toLowerCase()
+      const aggregation = text(response.aggregation)
+      if (responseDevEui !== node.devEui || !aggregation.startsWith('node_')) {
+        throw new Error('The API returned Section history instead of Node history.')
+      }
+      return {
+        series: {
+          name: node.name,
+          points: historyPoints(response),
+          color: chartColors[(index + 1) % chartColors.length],
+        },
+        failed: false,
+      }
+    }).catch(() => ({
+      series: {
+        name: node.name,
+        points: [],
+        color: chartColors[(index + 1) % chartColors.length],
+      },
+      failed: true,
+    })))).then((results) => {
       if (!active) return
-      setNodeSeries(series)
+      setNodeSeries(results.filter((result) => !result.failed).map((result) => result.series))
+      setNodeHistoryError(results.some((result) => result.failed)
+        ? 'Node history is unavailable because the API has not applied the Node filter.'
+        : '')
       setNodeHistoryLoading(false)
     })
     return () => { active = false }
@@ -1037,6 +1059,7 @@ export default function TrendsWorkspace() {
             </label>
           })
         : <p>No Nodes are assigned to this Section.</p>}</div>
+      {nodeHistoryError ? <p className="nc-trends-node-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{nodeHistoryError}</p> : null}
     </section> : null}
 
     <section className="nc-trends-kpis">
