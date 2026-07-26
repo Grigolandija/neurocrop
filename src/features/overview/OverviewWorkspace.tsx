@@ -48,12 +48,6 @@ type TrendPoint = {
   value: number
 }
 
-type OverviewSummary = {
-  today?: JsonRecord
-  month?: JsonRecord
-  recentResults?: JsonRecord[]
-}
-
 const demoDashboard = {
   sites: [
     {
@@ -102,19 +96,6 @@ const demoActions = [{
   confidence: 'high',
   observedAt: new Date().toISOString(),
 }]
-
-const demoSummary: OverviewSummary = {
-  today: { checksRecorded: 0, inProgress: 0, completed: 0 },
-  month: {
-    checksRecorded: 0,
-    inProgress: 0,
-    completed: 0,
-    conditionsRestored: 0,
-    improvementsConfirmed: 0,
-    medianResponseMinutes: null,
-  },
-  recentResults: [],
-}
 
 const METRIC_LABELS: Record<string, string> = {
   airTemp: 'Air temperature',
@@ -770,7 +751,6 @@ export default function OverviewWorkspace() {
   const navigate = useNavigate()
   const [dashboard, setDashboard] = useState<JsonRecord | null>(null)
   const [actions, setActions] = useState<JsonRecord | null>(null)
-  const [summary, setSummary] = useState<OverviewSummary>(demoSummary)
   const [selectedAreaId, setSelectedAreaId] = useState(readSelectedAreaId)
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [error, setError] = useState('')
@@ -814,24 +794,6 @@ export default function OverviewWorkspace() {
     () => dashboard && actions ? buildModel(dashboard, actions, selectedAreaId) : null,
     [dashboard, actions, selectedAreaId],
   )
-
-  useEffect(() => {
-    let active = true
-    if (!model?.areaId) {
-      return () => { active = false }
-    }
-    if (!neurocropApi.isConnected()) {
-      return () => { active = false }
-    }
-    neurocropApi.getActionOverviewSummary(model.areaId)
-      .then((nextSummary) => {
-        if (active) setSummary(nextSummary as OverviewSummary)
-      })
-      .catch(() => {
-        if (active) setSummary(demoSummary)
-      })
-    return () => { active = false }
-  }, [model?.areaId, refreshKey])
 
   useEffect(() => {
     if (!neurocropApi.isConnected()) return
@@ -921,9 +883,6 @@ export default function OverviewWorkspace() {
   const effectiveWatchActions = watchActions.length ? watchActions : fallbackWatchActions
   const reviewActions = visibleActions.length ? visibleActions : effectiveWatchActions
   const reviewRows = visibleActions.length ? actionRows : watchRows
-  const openChecks = reviewActions.filter((action) => action.feedback?.status !== 'in_progress').length
-  const inProgressChecks = reviewActions.filter((action) => action.feedback?.status === 'in_progress').length
-  const recordedToday = Number(summary.today?.completed || 0)
   const scopeLabel = stable
     ? `All ${model.rows.length} Sections`
     : actionRows.length
@@ -1034,15 +993,6 @@ export default function OverviewWorkspace() {
       </footer>
     </section>
     <section className="nc-overview-insights" aria-label="Operational overview">
-      <article className="nc-overview-insight nc-progress-card">
-        <header><div><span>Today’s progress</span><h2>Recommended checks</h2></div><i className="fa-solid fa-list-check" /></header>
-        <div className="nc-progress-stats">
-          <div data-tone="open"><strong>{openChecks}</strong><span>Open</span></div>
-          <div data-tone="progress"><strong>{inProgressChecks}</strong><span>In progress</span></div>
-          <div data-tone="done"><strong>{recordedToday}</strong><span>Recorded</span></div>
-        </div>
-        <p>Checks are counted from real workflow activity recorded today.</p>
-      </article>
       <article className="nc-overview-climate-card">
         <header className="nc-overview-climate-toolbar">
           <div>

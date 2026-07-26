@@ -1490,7 +1490,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-overview-insights {
   display: grid;
-  grid-template-columns: minmax(250px, .65fr) minmax(0, 1.8fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 18px;
   padding: 24px 28px 32px;
@@ -1538,41 +1538,6 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   background: #e5f1e8;
   color: #2f7c70;
 }
-
-.nc-progress-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border: 1px solid rgba(45, 83, 65, .11);
-  border-radius: 14px;
-  background: #fff;
-}
-
-.nc-progress-stats > div {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-  padding: 17px 12px;
-  border-right: 1px solid rgba(45, 83, 65, .11);
-  text-align: center;
-}
-
-.nc-progress-stats > div:last-child {
-  border-right: 0;
-}
-
-.nc-progress-stats strong {
-  font-size: 24px;
-}
-
-.nc-progress-stats span {
-  color: #718078;
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.nc-progress-stats [data-tone="open"] strong { color: #d95e49; }
-.nc-progress-stats [data-tone="progress"] strong { color: #d9922e; }
-.nc-progress-stats [data-tone="done"] strong { color: #499557; }
 
 .nc-overview-insight > p {
   margin: 16px 0 0;
