@@ -187,7 +187,8 @@ export default function GreenhouseMapTestPage() {
         if (event.shiftKey) editor.redo()
         else editor.undo()
       }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') { event.preventDefault(); editor.duplicateSelected() }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') { event.preventDefault(); editor.copySelected() }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v') { event.preventDefault(); editor.pasteCopied() }
       if (event.key === 'Delete' || event.key === 'Backspace') editor.deleteSelected()
       if (event.key === 'Escape') editor.setSelectedIds([])
     }
@@ -288,8 +289,8 @@ export default function GreenhouseMapTestPage() {
   const permissionReadOnly = integrated && !canEdit
   const canvasReadOnly = permissionReadOnly || !editing
   return <div className={`gh-app ${integrated ? 'gh-integrated' : ''} ${canvasReadOnly ? 'gh-readonly' : ''} gh-mobile-${mobilePanel}`}>
-    <GreenhouseMapToolbar mode={mode} metric={editor.map.heatmapSettings.metric} snap={editor.snap} editing={editing && !permissionReadOnly} language={language} canUndo={editing && !permissionReadOnly && editor.canUndo} canRedo={editing && !permissionReadOnly && editor.canRedo} selectedCount={editing && !permissionReadOnly ? editor.selected.length : 0}
-      onMode={setMode} onMetric={updateMetric} onSnap={editor.setSnap} onUndo={permissionReadOnly ? () => undefined : editor.undo} onRedo={permissionReadOnly ? () => undefined : editor.redo} onDuplicate={canvasReadOnly ? () => undefined : editor.duplicateSelected} onDelete={canvasReadOnly ? () => undefined : editor.deleteSelected}
+    <GreenhouseMapToolbar mode={mode} metric={editor.map.heatmapSettings.metric} snap={editor.snap} editing={editing && !permissionReadOnly} language={language} canUndo={editing && !permissionReadOnly && editor.canUndo} canRedo={editing && !permissionReadOnly && editor.canRedo} selectedCount={editing && !permissionReadOnly ? editor.selected.length : 0} duplicableSelectedCount={editing && !permissionReadOnly ? editor.duplicableSelectedCount : 0} canPaste={editing && !permissionReadOnly && editor.canPaste}
+      onMode={setMode} onMetric={updateMetric} onSnap={editor.setSnap} onUndo={permissionReadOnly ? () => undefined : editor.undo} onRedo={permissionReadOnly ? () => undefined : editor.redo} onCopy={canvasReadOnly ? () => undefined : editor.copySelected} onPaste={canvasReadOnly ? () => undefined : editor.pasteCopied} onDelete={canvasReadOnly ? () => undefined : editor.deleteSelected}
     />
     <div className="gh-action-strip">
       <button onClick={() => void leaveMap()}><i className="fa-solid fa-arrow-left" /> {integrated ? tr('Back to Areas', 'Grįžti į Areas') : tr('Exit test lab', 'Uždaryti testą')}</button>
@@ -323,7 +324,7 @@ export default function GreenhouseMapTestPage() {
         <LayersPanel layers={editor.map.layers} language={language} onChange={(layers) => editor.commit((map) => ({ ...map, layers }))} />
       </aside>
       <GreenhouseCanvas map={editor.map} mode={mode} readOnly={canvasReadOnly} dailyView={dailyView} language={language} actions={areaContext?.actions ?? []} selectedIds={editor.selectedIds} snap={editor.snap} onSelect={(ids) => { editor.setSelectedIds(ids); if (ids.length) setMobilePanel('right') }} onMove={moveOnCanvas} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAdd={canvasReadOnly ? () => undefined : editor.addObject} />
-      <ObjectPropertiesPanel map={editor.map} selected={editor.selected} language={language} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAlign={canvasReadOnly ? () => undefined : align} />
+      <ObjectPropertiesPanel map={editor.map} selected={editor.selected} language={language} onUpdate={canvasReadOnly ? () => undefined : editor.updateObject} onAlign={canvasReadOnly ? () => undefined : align} onCopy={canvasReadOnly ? () => undefined : editor.copySelected} onPaste={canvasReadOnly ? () => undefined : editor.pasteCopied} canPaste={!canvasReadOnly && editor.canPaste} />
     </div>
     {showSetupGuide && areaContext ? <MapSetupGuide area={areaContext.area} map={editor.map} nodes={areaContext.nodes} language={language} onMapChange={(map) => editor.commit(() => map)} onOpenNodes={() => navigate('/nodes')} onClose={() => { setShowSetupGuide(false); if (!permissionReadOnly) { setEditing(true); setMode('layout') } }} /> : null}
     {notice ? <button className={`gh-notice ${notice.tone}`} onClick={() => setNotice(null)}><i className={`fa-solid ${notice.tone === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation'}`} />{notice.text}<i className="fa-solid fa-xmark" /></button> : null}

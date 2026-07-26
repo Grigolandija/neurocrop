@@ -5,6 +5,33 @@ import { mapRepository } from './services/mapRepository'
 
 type History = { past: GreenhouseMap[]; present: GreenhouseMap; future: GreenhouseMap[] }
 const clone = (map: GreenhouseMap): GreenhouseMap => structuredClone(map)
+const canDuplicateObject = (object: GreenhouseObject) => object.type !== 'section-zone' && object.type !== 'sensor-node'
+
+function duplicateName(object: GreenhouseObject, objects: GreenhouseObject[]) {
+  const base = object.name.replace(/ copy(?: \d+)?$/i, '')
+  const names = new Set(objects.map((candidate) => candidate.name.toLocaleLowerCase()))
+  let name = `${base} copy`
+  let number = 2
+  while (names.has(name.toLocaleLowerCase())) {
+    name = `${base} copy ${number}`
+    number += 1
+  }
+  return name
+}
+
+function duplicatePosition(object: GreenhouseObject, map: GreenhouseMap) {
+  const offset = Math.max(map.gridSizeM * 3, Math.min(.5, Math.min(object.widthM, object.lengthM) * .2))
+  const candidates = [
+    [object.xM + offset, object.yM + offset],
+    [object.xM - offset, object.yM - offset],
+    [object.xM + offset, object.yM - offset],
+    [object.xM - offset, object.yM + offset],
+  ]
+  return candidates
+    .map(([xM, yM]) => clampObjectPosition(xM, yM, object.widthM, object.lengthM, map.dimensions.widthM, map.dimensions.lengthM))
+    .find((position) => Math.abs(position.xM - object.xM) > .001 || Math.abs(position.yM - object.yM) > .001)
+    ?? { xM: object.xM, yM: object.yM }
+}
 
 function createObject(type: ObjectType, map: GreenhouseMap, xM?: number, yM?: number): GreenhouseObject {
   const definition = OBJECT_LIBRARY.find((entry) => entry.type === type) ?? OBJECT_LIBRARY[0]
@@ -28,6 +55,7 @@ function createObject(type: ObjectType, map: GreenhouseMap, xM?: number, yM?: nu
 export function useMapEditor() {
   const [history, setHistory] = useState<History>(() => ({ past: [], present: mapRepository.load(), future: [] }))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [copiedObjects, setCopiedObjects] = useState<GreenhouseObject[]>([])
   const [snap, setSnap] = useState(true)
   const saveTimer = useRef<number | undefined>(undefined)
   const map = history.present
@@ -83,16 +111,30 @@ export function useMapEditor() {
     setSelectedIds([])
   }, [commit, selectedIds])
 
-  const duplicateSelected = useCallback(() => {
-    const copies = map.objects.filter((object) => selectedIds.includes(object.id) && object.type !== 'section-zone').map((object) => {
+  const copySelected = useCallback(() => {
+    const copied = map.objects.filter((object) => selectedIds.includes(object.id) && canDuplicateObject(object))
+    if (!copied.length) return
+    setCopiedObjects(structuredClone(copied))
+  }, [map.objects, selectedIds])
+
+  const pasteCopied = useCallback(() => {
+    const copies: GreenhouseObject[] = []
+    copiedObjects.forEach((object) => {
       const id = `${object.type}-${crypto.randomUUID().slice(0, 8)}`
-      const position = clampObjectPosition(object.xM + map.gridSizeM * 2, object.yM + map.gridSizeM * 2, object.widthM, object.lengthM, map.dimensions.widthM, map.dimensions.lengthM)
-      return { ...clone({ ...map, objects: [object] }).objects[0], ...position, id, name: `${object.name} copy` }
+      const position = duplicatePosition(object, map)
+      copies.push({
+        ...clone({ ...map, objects: [object] }).objects[0],
+        ...position,
+        id,
+        name: duplicateName(object, [...map.objects, ...copies]),
+        locked: false,
+      })
     })
     if (!copies.length) return
     commit((current) => ({ ...current, objects: [...current.objects, ...copies] }))
     setSelectedIds(copies.map((object) => object.id))
-  }, [commit, map, selectedIds])
+    setCopiedObjects(structuredClone(copies))
+  }, [commit, copiedObjects, map])
 
   const moveObjects = useCallback((positions: Array<{ id: string; xM: number; yM: number }>, record = true) => {
     commit((current) => ({
@@ -133,9 +175,10 @@ export function useMapEditor() {
   const save = useCallback(() => mapRepository.save(map), [map])
 
   const selected = useMemo(() => map.objects.filter((object) => selectedIds.includes(object.id)), [map.objects, selectedIds])
+  const duplicableSelectedCount = useMemo(() => selected.filter(canDuplicateObject).length, [selected])
   return {
     map, selected, selectedIds, setSelectedIds, snap, setSnap, commit, updateObject, addObject, deleteSelected,
-    duplicateSelected, moveObjects, undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0,
+    copySelected, pasteCopied, duplicableSelectedCount, canPaste: copiedObjects.length > 0, moveObjects, undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0,
     reset, replace, hydrate, save,
   }
 }

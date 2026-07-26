@@ -7,6 +7,8 @@ type Props = {
   canUndo: boolean
   canRedo: boolean
   selectedCount: number
+  duplicableSelectedCount: number
+  canPaste: boolean
   editing: boolean
   language: 'en' | 'lt'
   onMode: (mode: MapMode) => void
@@ -14,7 +16,8 @@ type Props = {
   onSnap: (value: boolean) => void
   onUndo: () => void
   onRedo: () => void
-  onDuplicate: () => void
+  onCopy: () => void
+  onPaste: () => void
   onDelete: () => void
 }
 
@@ -39,7 +42,8 @@ export default function GreenhouseMapToolbar(props: Props) {
       <span />
       <button disabled={!props.canUndo} onClick={props.onUndo} title="Undo"><i className="fa-solid fa-rotate-left" /></button>
       <button disabled={!props.canRedo} onClick={props.onRedo} title="Redo"><i className="fa-solid fa-rotate-right" /></button>
-      <button disabled={!props.selectedCount} onClick={props.onDuplicate} title="Duplicate"><i className="fa-regular fa-copy" /></button>
+      <button disabled={!props.duplicableSelectedCount} onClick={props.onCopy} title={tr('Copy selected objects (Ctrl/Cmd + C)', 'Kopijuoti pasirinktus objektus (Ctrl/Cmd + C)')}><i className="fa-regular fa-copy" /> {tr('Copy', 'Kopijuoti')}</button>
+      <button disabled={!props.canPaste} onClick={props.onPaste} title={tr('Paste copied objects (Ctrl/Cmd + V)', 'Įdėti nukopijuotus objektus (Ctrl/Cmd + V)')}><i className="fa-regular fa-clipboard" /> {tr('Paste', 'Įdėti')}</button>
       <button className="danger" disabled={!props.selectedCount} onClick={props.onDelete} title="Delete"><i className="fa-regular fa-trash-can" /></button>
     </div>
   </header>

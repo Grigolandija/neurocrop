@@ -7,14 +7,17 @@ type Props = {
   selected: GreenhouseObject[]
   onUpdate: (id: string, patch: Partial<GreenhouseObject>) => void
   onAlign: (edge: 'left' | 'center' | 'right' | 'bottom' | 'middle' | 'top') => void
+  onCopy: () => void
+  onPaste: () => void
+  canPaste: boolean
   language?: 'en' | 'lt'
 }
-export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign, language = 'en' }: Props) {
+export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign, onCopy, onPaste, canPaste, language = 'en' }: Props) {
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
   if (!selected.length) return <aside className="gh-right-panel"><div className="gh-empty-selection"><span><i className="fa-solid fa-arrow-pointer" /></span><h2>{tr('No object selected', 'Objektas nepasirinktas')}</h2><p>{tr('Select an object on the plan to inspect exact coordinates, dimensions and operational data.', 'Pasirinkite objektą plane, kad matytumėte koordinates, matmenis ir veikimo duomenis.')}</p><small>{tr('Shift-click to select multiple objects.', 'Shift + paspaudimas pasirenka kelis objektus.')}</small></div></aside>
   if (selected.length > 1) return <aside className="gh-right-panel"><section className="gh-properties"><header><small>MULTI-SELECTION</small><h2>{selected.length} objects selected</h2></header><p className="gh-muted">Align selected objects to their shared bounds.</p><div className="gh-align-grid">
     {(['left', 'center', 'right', 'bottom', 'middle', 'top'] as const).map((edge) => <button key={edge} onClick={() => onAlign(edge)}><i className={`fa-solid fa-align-${edge === 'middle' ? 'center' : edge}`} />{edge}</button>)}
-  </div></section></aside>
+  </div>{selected.some((object) => object.type !== 'section-zone' && object.type !== 'sensor-node') ? <button className="gh-inspector-action" type="button" onClick={onCopy}><i className="fa-regular fa-copy" />{tr('Copy selected objects', 'Kopijuoti pasirinktus objektus')} · Ctrl/Cmd + C</button> : null}{canPaste ? <button className="gh-inspector-action" type="button" onClick={onPaste}><i className="fa-regular fa-clipboard" />{tr('Paste copied objects', 'Įdėti nukopijuotus objektus')} · Ctrl/Cmd + V</button> : null}</section></aside>
   const object = selected[0]
   const wallMounted = isWallMountedType(object.type)
   const sensor = object.metadata.sensor
@@ -47,6 +50,8 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
         <label><input type="checkbox" checked={object.visible} onChange={(event) => onUpdate(object.id, { visible: event.target.checked })} /><span>Visible</span></label>
         <label><input type="checkbox" checked={object.locked} onChange={(event) => onUpdate(object.id, { locked: event.target.checked })} /><span>Locked</span></label>
       </div>
+      {object.type !== 'section-zone' && object.type !== 'sensor-node' ? <button className="gh-inspector-action" type="button" onClick={onCopy}><i className="fa-regular fa-copy" />{tr('Copy object', 'Kopijuoti objektą')} · Ctrl/Cmd + C</button> : null}
+      {canPaste ? <button className="gh-inspector-action" type="button" onClick={onPaste}><i className="fa-regular fa-clipboard" />{tr('Paste copied object', 'Įdėti nukopijuotą objektą')} · Ctrl/Cmd + V</button> : null}
       <label className="gh-field wide"><span>Status</span><input value={object.metadata.status ?? ''} placeholder="Optional status" onChange={(event) => patchMetadata({ status: event.target.value })} /></label>
       <label className="gh-field wide"><span>Notes</span><textarea value={object.metadata.notes ?? ''} placeholder="Installation or planning notes…" onChange={(event) => patchMetadata({ notes: event.target.value })} /></label>
     </section>
