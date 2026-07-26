@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
-import ReadingsClimateMap from './ReadingsClimateMap'
 
 // API records are intentionally open because dashboard and sensor payloads evolve independently.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -9,7 +8,6 @@ type ReadingMode = 'value' | 'target' | 'change'
 type TrendRangeKey = '24h' | '7d' | '30d'
 type ReadingQuality = 'live' | 'stale' | 'offline' | 'no-data' | 'not-installed' | 'calibration'
 type ReadingTone = 'good' | 'watch' | 'critical' | 'neutral'
-type WorkspaceView = 'table' | 'climate-map'
 
 type Metric = {
   key: string
@@ -86,21 +84,7 @@ const presets = [
 ] as const
 
 const readingsColumnsStorageKey = 'neurocrop-readings-columns-v1'
-const readingsViewStorageKey = 'neurocrop-readings-view'
 const supportedMetricKeys = new Set(metrics.map((metric) => metric.key))
-
-function pendingReadingsView(): { view: WorkspaceView; areaId: string } {
-  if (typeof window === 'undefined') return { view: 'table', areaId: 'all' }
-  try {
-    const pending = JSON.parse(window.sessionStorage.getItem(readingsViewStorageKey) || 'null')
-    window.sessionStorage.removeItem(readingsViewStorageKey)
-    return pending?.view === 'climate-map' && typeof pending.areaId === 'string'
-      ? { view: 'climate-map', areaId: pending.areaId }
-      : { view: 'table', areaId: 'all' }
-  } catch {
-    return { view: 'table', areaId: 'all' }
-  }
-}
 
 function storedVisibleKeys() {
   if (typeof window === 'undefined') return [...presets[0].keys]
@@ -416,14 +400,13 @@ function TrendPreviewChart({ points, target, metric, periodLabel }: { points: Hi
 }
 
 export default function ReadingsWorkspace() {
-  const [initialView] = useState(pendingReadingsView)
   const [sections, setSections] = useState<SectionReading[]>([])
   const [areaOptions, setAreaOptions] = useState<Array<[string, string]>>([])
   const [profiles, setProfiles] = useState<Map<string, JsonRecord>>(new Map())
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
-  const [areaFilter, setAreaFilter] = useState(initialView.areaId)
+  const [areaFilter, setAreaFilter] = useState('all')
   const [attentionOnly, setAttentionOnly] = useState(false)
   const [sortBy, setSortBy] = useState('severity')
   const [mode, setMode] = useState<ReadingMode>('value')
@@ -438,7 +421,6 @@ export default function ReadingsWorkspace() {
   const [trendRange, setTrendRange] = useState<TrendRangeKey>('24h')
   const [trendPreviewHistory, setTrendPreviewHistory] = useState<PinnedHistoryState>({ status: 'empty', points: [] })
   const [refreshToken, setRefreshToken] = useState(0)
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initialView.view)
   const hasLoadedRef = useRef(false)
 
   useEffect(() => {
@@ -647,10 +629,6 @@ export default function ReadingsWorkspace() {
   const pinnedSections = pinned.map((id) => sections.find((section) => section.id === id)).filter((section): section is SectionReading => Boolean(section))
   const lensMetric = metrics.find((metric) => metric.key === lensMetricKey) || metrics[0]
   const matrixStyle = { gridTemplateColumns: `minmax(15rem,1.3fr) repeat(${visibleMetrics.length},minmax(7.5rem,.7fr)) minmax(7.75rem,.72fr) 2.5rem`, minWidth: `${27 + visibleMetrics.length * 8}rem` }
-  const activeAreaFilter = workspaceView === 'climate-map' && areaFilter === 'all'
-    ? areaOptions[0]?.[0] || ''
-    : areaFilter
-
   function selectPreset(preset: typeof presets[number]) {
     setActivePreset(preset.key)
     setVisibleKeys([...preset.keys])
@@ -706,19 +684,19 @@ export default function ReadingsWorkspace() {
     <section className="nc-readings-health" aria-label="Live data availability"><div><b>{readingsUnavailable ? '—' : freshness.live}</b><span><strong>Current</strong><small>Arriving on schedule</small></span></div><div data-state="stale"><b>{readingsUnavailable ? '—' : freshness.stale}</b><span><strong>Delayed</strong><small>Usable, clearly marked</small></span></div><div data-state="offline"><b>{readingsUnavailable ? '—' : freshness.offline}</b><span><strong>Interrupted</strong><small>No current aggregate</small></span></div><p><i className="fa-solid fa-circle-info" /> Missing, stale and uninstalled sensors are never converted to zero.</p></section>
 
     <section className="nc-readings-matrix" aria-labelledby="nc-readings-title">
-      <header><div><p className="nc-overline">Live readings</p><h2 id="nc-readings-title">{workspaceView === 'table' ? 'Every current reading in one place' : 'See where conditions differ inside the Area'}</h2><span>{workspaceView === 'table' ? 'Choose a working set instead of forcing all 13 parameters onto every screen.' : 'A read-only spatial estimate built from current node values and their saved positions.'}</span></div><div className="nc-workspace-view-switch nc-segmented" role="group" aria-label="Readings view"><button className={workspaceView === 'table' ? 'active' : ''} onClick={() => setWorkspaceView('table')}><i className="fa-solid fa-table-list" />Table</button><button className={workspaceView === 'climate-map' ? 'active' : ''} onClick={() => setWorkspaceView('climate-map')} disabled={!areaOptions.length}><i className="fa-solid fa-map" />Climate map</button></div></header>
+      <header><div><p className="nc-overline">Live readings</p><h2 id="nc-readings-title">Every current reading in one place</h2><span>Choose a working set instead of forcing all 13 parameters onto every screen.</span></div></header>
       <div className="nc-readings-controls">
-        <div className="nc-area-tabs" role="tablist" aria-label={workspaceView === 'table' ? 'Filter by Area' : 'Choose Area for climate map'}>
-          {workspaceView === 'table' ? <button type="button" role="tab" aria-selected={areaFilter === 'all'} className={areaFilter === 'all' ? 'active' : ''} onClick={() => setAreaFilter('all')}>All areas <b aria-label={`${sections.length} sections`}>{sections.length}</b></button> : null}
+        <div className="nc-area-tabs" role="tablist" aria-label="Filter by Area">
+          <button type="button" role="tab" aria-selected={areaFilter === 'all'} className={areaFilter === 'all' ? 'active' : ''} onClick={() => setAreaFilter('all')}>All areas <b aria-label={`${sections.length} sections`}>{sections.length}</b></button>
           {areaOptions.map(([id, name]) => {
             const sectionCount = sections.filter((section) => section.areaId === id).length
-            const active = (workspaceView === 'climate-map' ? activeAreaFilter : areaFilter) === id
+            const active = areaFilter === id
             return <button type="button" role="tab" aria-selected={active} className={active ? 'active' : ''} onClick={() => setAreaFilter(id)} key={id}>{name}<b aria-label={`${sectionCount} sections`}>{sectionCount}</b></button>
           })}
         </div>
-        {workspaceView === 'table' ? <div className="nc-readings-control-actions"><button type="button" className={attentionOnly ? 'active' : ''} onClick={() => setAttentionOnly(!attentionOnly)}><i className="fa-solid fa-filter" />Needs attention</button><label className="nc-sort"><span>Sort</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="severity">Most outside target</option><option value="freshest">Freshest data</option><option value="oldest">Oldest data</option><option value="area">Area</option><option value="section">Section</option></select></label></div> : null}
+        <div className="nc-readings-control-actions"><button type="button" className={attentionOnly ? 'active' : ''} onClick={() => setAttentionOnly(!attentionOnly)}><i className="fa-solid fa-filter" />Needs attention</button><label className="nc-sort"><span>Sort</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="severity">Most outside target</option><option value="freshest">Freshest data</option><option value="oldest">Oldest data</option><option value="area">Area</option><option value="section">Section</option></select></label></div>
       </div>
-      {workspaceView === 'table' ? <>
+      <>
         <div className="nc-readings-viewbar"><div className="nc-reading-presets">{presets.map((preset) => <button type="button" className={activePreset === preset.key ? 'active' : ''} onClick={() => selectPreset(preset)} key={preset.key}><i className={`fa-solid ${preset.icon}`} />{preset.label}<b>{preset.keys.length}</b></button>)}</div><div className="nc-column-control"><button type="button" className={columnsOpen ? 'active' : ''} onClick={() => setColumnsOpen(!columnsOpen)}><i className="fa-solid fa-table-columns" />Columns <b>{visibleMetrics.length}/13</b></button>{columnsOpen ? <div className="nc-column-menu"><header><strong>Visible parameters</strong><button onClick={() => setColumnsOpen(false)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header>{(['climate', 'root', 'lighting', 'system'] as const).map((group) => <fieldset key={group}><legend>{group === 'root' ? 'Root zone' : group}</legend>{metrics.filter((metric) => metric.group === group).map((metric) => <label key={metric.key}><input type="checkbox" checked={visibleKeys.includes(metric.key)} onChange={() => toggleMetric(metric.key)} /><i className={`fa-solid ${metric.icon}`} /><span>{metric.label}</span><small>{metric.unit}</small></label>)}</fieldset>)}</div> : null}</div></div>
         <div className="nc-reading-display-row"><div className="nc-segmented" role="group" aria-label="Reading display"><button className={mode === 'value' ? 'active' : ''} onClick={() => setMode('value')}>Values</button><button className={mode === 'target' ? 'active' : ''} onClick={() => setMode('target')}>Against target</button><button className={mode === 'change' ? 'active' : ''} onClick={() => setMode('change')}>1h change</button></div><div className="nc-reading-legend"><span><i data-state="good" />Within crop target</span><span><i data-state="watch" />Outside target</span><span><i data-state="critical" />Critical</span><span><b />Data quality marker</span></div></div>
         <div className="nc-readings-matrix-scroll">
@@ -726,10 +704,10 @@ export default function ReadingsWorkspace() {
           {status === 'loading' && !sections.length ? Array.from({ length: 4 }, (_, index) => <div className="nc-reading-skeleton" key={index} />) : visibleSections.map((section) => <div className="nc-readings-row" style={matrixStyle} key={section.id}><div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => setDrawerId(section.id)} title={`${section.name} · ${section.areaName} · ${section.profileName}`}><strong>{section.name}</strong></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-pressed={pinned.includes(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>{visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openTrendPreview(section, metric)} key={metric.key} />)}<span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)} · {section.nodes.length ? `${section.nodes.length} nodes` : 'No nodes'}</strong></span><button className="nc-reading-open" onClick={() => setDrawerId(section.id)} aria-label={`Inspect ${section.name}`}><i className="fa-solid fa-arrow-right" /></button></div>)}
           {status === 'ready' && !visibleSections.length ? <div className="nc-readings-empty">No sections match the selected filters.</div> : null}
         </div>
-      </> : activeAreaFilter ? <ReadingsClimateMap key={activeAreaFilter} areaId={activeAreaFilter} refreshToken={refreshToken} /> : <div className="nc-climate-map-state"><strong>Select an Area to open its climate map.</strong></div>}
+      </>
     </section>
 
-    {workspaceView === 'table' && pinnedSections.length ? <section className="nc-pinned-comparison"><header><div><p className="nc-overline">Pinned comparison · {pinnedSections.length}/3</p><h2>Keep the sections you are managing together</h2></div><label><span>Compare</span><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></label></header><div>{pinnedSections.map((section) => {
+    {pinnedSections.length ? <section className="nc-pinned-comparison"><header><div><p className="nc-overline">Pinned comparison · {pinnedSections.length}/3</p><h2>Keep the sections you are managing together</h2></div><label><span>Compare</span><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></label></header><div>{pinnedSections.map((section) => {
       const value = getValue(section, lensMetric)
       const profile = profiles.get(section.profileId)
       const target = getRange(profile, lensMetric)
@@ -748,7 +726,7 @@ export default function ReadingsWorkspace() {
       </article>
     })}</div></section> : null}
 
-    {workspaceView === 'table' ? <section className="nc-signal-lens"><header className="nc-signal-lens-head"><span><i className="fa-solid fa-chart-simple" /><span><strong>Profile-normalized signal lens</strong><small>Compare one parameter across different crop targets when you need deeper analysis.</small></span></span></header><div className="nc-signal-lens-content"><header><h2>{lensMetric.label} across sections</h2><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></header>{visibleSections.map((section) => { const value = getValue(section, lensMetric); const visual = getDistributionVisual(section, lensMetric, profiles.get(section.profileId)); const isPinned = pinned.includes(section.id); return <div className="nc-distribution-row" key={section.id}><span><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></span><div className="nc-distribution-track">{visual.zones.map((zone, index) => <span data-tone={zone.tone} style={{ left: `${zone.left}%`, width: `${zone.width}%` }} key={index} />)}<i style={{ left: `${visual.marker}%` }} data-tone={getTone(section, lensMetric, profiles.get(section.profileId))} /></div><strong>{formatValue(value, lensMetric)} <small>{lensMetric.unit}</small></strong><button type="button" className={isPinned ? 'pinned' : ''} onClick={() => togglePin(section.id)} disabled={!isPinned && pinned.length >= 3} aria-pressed={isPinned} aria-label={`${isPinned ? 'Remove' : 'Add'} ${section.name} ${isPinned ? 'from' : 'to'} comparison`} title={isPinned ? 'Selected for comparison' : 'Add to comparison'}><i className="fa-solid fa-thumbtack" /></button></div>})}</div></section> : null}
+    <section className="nc-signal-lens"><header className="nc-signal-lens-head"><span><i className="fa-solid fa-chart-simple" /><span><strong>Profile-normalized signal lens</strong><small>Compare one parameter across different crop targets when you need deeper analysis.</small></span></span></header><div className="nc-signal-lens-content"><header><h2>{lensMetric.label} across sections</h2><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></header>{visibleSections.map((section) => { const value = getValue(section, lensMetric); const visual = getDistributionVisual(section, lensMetric, profiles.get(section.profileId)); const isPinned = pinned.includes(section.id); return <div className="nc-distribution-row" key={section.id}><span><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></span><div className="nc-distribution-track">{visual.zones.map((zone, index) => <span data-tone={zone.tone} style={{ left: `${zone.left}%`, width: `${zone.width}%` }} key={index} />)}<i style={{ left: `${visual.marker}%` }} data-tone={getTone(section, lensMetric, profiles.get(section.profileId))} /></div><strong>{formatValue(value, lensMetric)} <small>{lensMetric.unit}</small></strong><button type="button" className={isPinned ? 'pinned' : ''} onClick={() => togglePin(section.id)} disabled={!isPinned && pinned.length >= 3} aria-pressed={isPinned} aria-label={`${isPinned ? 'Remove' : 'Add'} ${section.name} ${isPinned ? 'from' : 'to'} comparison`} title={isPinned ? 'Selected for comparison' : 'Add to comparison'}><i className="fa-solid fa-thumbtack" /></button></div>})}</div></section>
 
     {trendPreviewSection && trendPreviewMetric ? <div className="nc-readings-drawer-backdrop nc-trend-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setTrendPreview(null) }}><aside className="nc-readings-drawer nc-trend-preview" role="dialog" aria-modal="true" aria-label={`${trendPreviewSection.name} ${trendPreviewMetric.label} trend`}><header><div><p className="nc-overline">Measurement trend</p><h2>{trendPreviewMetric.label}</h2><span>{trendPreviewSection.areaName} · {trendPreviewSection.name}</span></div><button type="button" onClick={() => setTrendPreview(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header><div className="nc-trend-preview-body"><div className="nc-trend-current" data-tone={getTone(trendPreviewSection, trendPreviewMetric, profiles.get(trendPreviewSection.profileId))}><span><small>Current reading</small><strong>{formatValue(getValue(trendPreviewSection, trendPreviewMetric), trendPreviewMetric)} <em>{trendPreviewMetric.unit}</em></strong></span><span><small>Crop target</small><strong>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)?.map((bound) => formatValue(bound, trendPreviewMetric)).join('–') || 'Not set'} <em>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric) ? trendPreviewMetric.unit : ''}</em></strong></span></div><div className="nc-trend-range" role="group" aria-label="Trend period">{(Object.keys(trendRanges) as TrendRangeKey[]).map((range) => <button type="button" className={trendRange === range ? 'active' : ''} onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setTrendRange(range) }} key={range}>{range}</button>)}</div>{trendPreviewHistory.status === 'ready' ? <TrendPreviewChart points={trendPreviewHistory.points} target={getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)} metric={trendPreviewMetric} periodLabel={trendRange} /> : <div className="nc-trend-preview-state" data-state={trendPreviewHistory.status}>{trendPreviewHistory.status === 'loading' ? 'Loading measurement history…' : trendPreviewHistory.status === 'error' ? 'History could not be loaded' : 'Not enough measurements for this period'}</div>}<p className="nc-trend-preview-note"><i className="fa-solid fa-circle-info" /> Chart values are aggregated from this Section's sensor history. Drag or scroll the chart to inspect dense periods.</p></div><footer><button type="button" onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setRefreshToken((value) => value + 1) }}><i className="fa-solid fa-rotate" />Refresh</button><button type="button" className="primary" onClick={() => { setTrendPreview(null); openMetricTrend(trendPreviewSection, trendPreviewMetric) }}>Open full Trends <i className="fa-solid fa-arrow-right" /></button></footer></aside></div> : null}
 

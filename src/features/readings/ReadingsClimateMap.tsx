@@ -14,10 +14,9 @@ type Props = {
   refreshToken: number
   presentation?: 'readings' | 'overview'
   areaNavigation?: ReactNode
-  onOpenFull?: () => void
 }
 
-export default function ReadingsClimateMap({ areaId, refreshToken, presentation = 'readings', areaNavigation, onOpenFull }: Props) {
+export default function ReadingsClimateMap({ areaId, refreshToken, presentation = 'readings', areaNavigation }: Props) {
   const [context, setContext] = useState<AreaMapContext | null>(null)
   const [metric, setMetric] = useState<MetricKey>('relative-humidity')
   const [legendHost, setLegendHost] = useState<HTMLDivElement | null>(null)
@@ -103,7 +102,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       </div>
       <div className="nc-climate-map-filters">
         <label><span>Metric</span><select value={metric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{climateMetrics.map((key) => <option value={key} key={key}>{METRICS[key].label}</option>)}</select></label>
-        {overviewPresentation && onOpenFull ? <button className="nc-climate-open-full" type="button" onClick={onOpenFull}>Open in Readings <i className="fa-solid fa-arrow-right" /></button> : <span className="nc-climate-lock"><i className="fa-solid fa-lock" />Read only</span>}
+        <span className="nc-climate-lock"><i className="fa-solid fa-lock" />Read only</span>
       </div>
     </header>
     <div className="nc-climate-map-canvas">

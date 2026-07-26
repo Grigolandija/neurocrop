@@ -908,11 +908,6 @@ export default function OverviewWorkspace() {
     }))
   }
 
-  function openFullClimateMap(areaId: string) {
-    window.sessionStorage.setItem('neurocrop-readings-view', JSON.stringify({ view: 'climate-map', areaId }))
-    navigate('/readings')
-  }
-
   const overviewTone = stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'
 
   return <div className={`nc-overview ${overviewTone}`} data-nc-react-workspace="overview">
@@ -1001,7 +996,6 @@ export default function OverviewWorkspace() {
           refreshToken={refreshKey}
           presentation="overview"
           areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label="Choose Area for climate snapshot">{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
-          onOpenFull={() => openFullClimateMap(model.areaId)}
         />
       </article>
     </section>
