@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const runtime = await fs.readFile(path.join(root, "public/approved-dashboard-runtime.js"), "utf8");
 const dashboardStore = await fs.readFile(path.join(root, "public/neurocrop-dashboard-store.js"), "utf8");
+const lithuanianTranslations = await fs.readFile(path.join(root, "public/neurocrop-i18n-lt.js"), "utf8");
 const config = await fs.readFile(path.join(root, "public/runtime-config.js"), "utf8");
 const htaccess = await fs.readFile(path.join(root, "public/.htaccess"), "utf8");
 const contract = await fs.readFile(path.join(root, "API-CONTRACT.md"), "utf8");
@@ -293,7 +294,15 @@ assert(
     && !runtime.includes('window.NeuroCropStore = {'),
   "The local demo store must remain outside the production runtime and load only when the API is unavailable",
 );
-assert(Buffer.byteLength(runtime) < 950_000, "The production runtime must stay below its first modularization budget");
+assert(
+  lithuanianTranslations.includes('window.NeuroCropLithuanianText = Object.freeze(lithuanianInterfaceText)')
+    && dashboardPage.includes('function ensureLithuanianTranslations(force = false)')
+    && dashboardPage.includes('ensureLithuanianTranslations()')
+    && runtime.includes('window.NeuroCropLoadLithuanianTranslations()')
+    && !runtime.includes('const lithuanianInterfaceText = {'),
+  "Lithuanian translations must load before an LT session and on demand when the language changes",
+);
+assert(Buffer.byteLength(runtime) < 885_000, "The production runtime must stay below its second modularization budget");
 assert(runtime.includes('function openActionCompletionModal(') && runtime.includes('data-management-modal-form="action-completion"') && runtime.includes('executionDetails: {') && runtime.includes('requestTodayPriorityFeedback('), "Completed actions must capture the intervention type and details before submission");
 assert(runtime.includes('const backendPriorityAction = availableBackendActions[0] || null') && runtime.includes('snapshotsByZoneId.get(backendPriorityAction.sectionId)') && runtime.includes('Do this first') && runtime.includes('Inspection route') && runtime.includes('data-site-id="${escapeAttribute(prioritySnapshot.site.id)}"'), "Simple Today must keep one farm-wide first action and preserve its Area and Section route context");
 assert(runtime.includes('class="grower-area-list"') && runtime.includes('class="grower-area-band"') && runtime.includes('class="grower-section-line"') && runtime.includes('data-overview-section-card') && runtime.includes('const sectionCard = event.target.closest("[data-overview-section-card]")') && styles.includes('.grower-area-list') && styles.includes('.grower-area-band + .grower-area-band'), "Simple Today must scale many Areas vertically and keep every Section directly reachable");

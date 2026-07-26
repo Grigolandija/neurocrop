@@ -24,6 +24,8 @@ declare global {
     NeuroCropApi?: NeuroCropApi
     NeuroCropFeatures?: NeuroCropFeatures
     NeuroCropStore?: unknown
+    NeuroCropLithuanianText?: Readonly<Record<string, string>>
+    NeuroCropLoadLithuanianTranslations?: () => Promise<void>
     NeuroCropI18n?: {
       getLanguage: () => 'en' | 'lt'
       setLanguage: (language: 'en' | 'lt') => void

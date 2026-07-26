@@ -21,6 +21,7 @@ const TrendsWorkspace = lazy(() => import('../features/trends/TrendsWorkspace'))
 
 let chartEnginePromise: Promise<void> | null = null
 let dashboardStorePromise: Promise<void> | null = null
+let lithuanianTranslationsPromise: Promise<void> | null = null
 
 function routeNeedsCharts(pathname: string) {
   return pathname === '/history' || pathname === '/readings'
@@ -64,6 +65,38 @@ function ensureOptionalDashboardStore() {
     document.body.appendChild(store)
   })
   return dashboardStorePromise
+}
+
+function prefersLithuanianInterface() {
+  try {
+    const storedLanguage = window.localStorage.getItem('neurocrop-interface-language-v1')
+    if (storedLanguage === 'lt' || storedLanguage === 'en') return storedLanguage === 'lt'
+    const settings = JSON.parse(window.localStorage.getItem('neurocrop-dashboard-settings-v1') || '{}')
+    return settings?.preferences?.locale === 'lt-LT'
+  } catch {
+    return false
+  }
+}
+
+function ensureLithuanianTranslations(force = false) {
+  if (window.NeuroCropLithuanianText) return Promise.resolve()
+  if (!force && !prefersLithuanianInterface()) return Promise.resolve()
+  if (lithuanianTranslationsPromise) return lithuanianTranslationsPromise
+  lithuanianTranslationsPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-neurocrop-i18n-lt]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error('Lithuanian translations could not be loaded.')), { once: true })
+      return
+    }
+    const translations = document.createElement('script')
+    translations.src = `/neurocrop-i18n-lt.js?v=${__BUILD_VERSION__}`
+    translations.dataset.neurocropI18nLt = 'true'
+    translations.onload = () => resolve()
+    translations.onerror = () => reject(new Error('Lithuanian translations could not be loaded.'))
+    document.body.appendChild(translations)
+  })
+  return lithuanianTranslationsPromise
 }
 
 function notifyRuntimeRoute(pathname: string) {
@@ -197,7 +230,11 @@ function ApprovedDashboard() {
     }
 
     window.addEventListener('message', handleMessage)
-    void ensureOptionalDashboardStore().then(loadRuntime, loadRuntime)
+    window.NeuroCropLoadLithuanianTranslations = () => ensureLithuanianTranslations(true)
+    void Promise.allSettled([
+      ensureOptionalDashboardStore(),
+      ensureLithuanianTranslations(),
+    ]).then(loadRuntime)
     let prefetchIdleId: number | null = null
     const prefetchTimer = window.setTimeout(() => {
       const prefetch = () => {
@@ -218,6 +255,7 @@ function ApprovedDashboard() {
     return () => {
       window.clearTimeout(prefetchTimer)
       if (prefetchIdleId !== null && 'cancelIdleCallback' in window) window.cancelIdleCallback(prefetchIdleId)
+      delete window.NeuroCropLoadLithuanianTranslations
       window.removeEventListener('message', handleMessage)
       document.body.classList.remove('designer-app')
       setReadingsMount(null)

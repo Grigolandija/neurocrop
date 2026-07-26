@@ -79,6 +79,24 @@ test('tenant dashboard selects a real Area and Section and supports navigation',
   await expect(page).toHaveURL(/\/history$/)
 })
 
+test('Lithuanian translations load on demand and persist after refresh', async ({ page }) => {
+  await authenticate(page, 'tenant-a@ci.neurocrop.test')
+  await expect(page.locator('script[data-neurocrop-i18n-lt]')).toHaveCount(0)
+
+  await page.locator('[data-language-option="lt"]:visible').first().click()
+
+  await expect(navigationAction(page, 'overview')).toContainText('Apžvalga')
+  await expect(page.locator('script[data-neurocrop-i18n-lt]')).toHaveCount(1)
+  await expect(page.locator('html')).toHaveAttribute('lang', 'lt')
+
+  await page.reload()
+
+  await expect(page.locator('#dashboardShell')).toBeVisible()
+  await expect(navigationAction(page, 'overview')).toContainText('Apžvalga')
+  await expect(page.locator('script[data-neurocrop-i18n-lt]')).toHaveCount(1)
+  await expect(page.locator('html')).toHaveAttribute('lang', 'lt')
+})
+
 test('Nodes inventory displays registered hardware without an Area or Section', async ({ page }) => {
   const retainedNodeName = 'E2E retained unassigned Node'
   await page.route('**/nodes', (route) => route.fulfill({
