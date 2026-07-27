@@ -24,7 +24,15 @@ import {
   normalizeTelemetryValue,
   redactConnectionUrl
 } from '../telemetry-values.js';
-import { getMeasurementRetentionDays, runMeasurementRetention } from '../measurement-retention.js';
+import {
+  getMeasurementRetentionDays,
+  getMeasurementRollupRetention,
+  runMeasurementRetention
+} from '../measurement-retention.js';
+import {
+  measurementRollupAverageSql,
+  measurementRollupResolution
+} from '../measurement-rollups.js';
 import { hashUserPassword, MAX_PASSWORD_LENGTH, sessionCookieClearOptions, sessionCookieOptions, verifyUserPassword } from '../auth-users.js';
 import { sendInvitationEmail } from '../email.js';
 import { simulateAgronomicScenario } from '../agronomic-simulator.js';
@@ -156,9 +164,18 @@ test('historical telemetry stores only metadata required by product queries', ()
 test('measurement retention is bounded, batched and protected by an advisory lock', async () => {
   assert.equal(getMeasurementRetentionDays({}), 35);
   assert.equal(getMeasurementRetentionDays({ MEASUREMENT_RETENTION_DAYS: '60' }), 60);
+  assert.deepEqual(getMeasurementRollupRetention({}), { 10: 93, 60: 1095 });
+  assert.deepEqual(getMeasurementRollupRetention({
+    MEASUREMENT_ROLLUP_10M_RETENTION_DAYS: '120',
+    MEASUREMENT_ROLLUP_60M_RETENTION_DAYS: '1460'
+  }), { 10: 120, 60: 1460 });
   assert.throws(
     () => getMeasurementRetentionDays({ MEASUREMENT_RETENTION_DAYS: '14' }),
     /between 31 and 365/
+  );
+  assert.throws(
+    () => getMeasurementRollupRetention({ MEASUREMENT_ROLLUP_10M_RETENTION_DAYS: '14' }),
+    /between 31 and 3650/
   );
 
   const calls = [];
@@ -184,10 +201,22 @@ test('measurement retention is bounded, batched and protected by an advisory loc
   );
 
   assert.equal(result.deleted, 3);
+  assert.equal(result.rollupsDeleted, 2);
   assert.equal(result.cutoff.toISOString(), '2026-06-19T12:00:00.000Z');
   assert.equal(calls.filter((call) => call.sql.includes('DELETE FROM measurements')).length, 2);
+  assert.equal(calls.filter((call) => call.sql.includes('DELETE FROM measurement_rollups')).length, 2);
   assert.equal(calls.some((call) => call.sql === 'ANALYZE measurements'), true);
+  assert.equal(calls.some((call) => call.sql === 'ANALYZE measurement_rollups'), true);
   assert.equal(calls.at(-1).sql, 'release');
+});
+
+test('measurement rollups select the smallest supported stored resolution', () => {
+  assert.equal(measurementRollupResolution(5), null);
+  assert.equal(measurementRollupResolution(10), 10);
+  assert.equal(measurementRollupResolution(60), 60);
+  assert.equal(measurementRollupResolution(240), 60);
+  assert.equal(measurementRollupAverageSql('airTemp'), 'rollup.temperature_sum / NULLIF(rollup.temperature_count, 0)');
+  assert.equal(measurementRollupAverageSql('unknown'), null);
 });
 
 test('measurement presence remains compatible with older firmware without converting null to zero', () => {

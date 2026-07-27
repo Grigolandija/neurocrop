@@ -77,3 +77,19 @@ VACUUM (FULL, ANALYZE) measurements;
 
 `VACUUM FULL` takes an exclusive table lock, so it must not be run during active
 ingestion.
+
+## Measurement rollups
+
+`0021_measurement_rollups.sql` backfills per-Node 10-minute and hourly summaries
+from retained raw measurements. An `AFTER INSERT` trigger updates both
+resolutions in the same transaction as every accepted uplink, so Trends and the
+historical climate map never wait for a separate aggregation job.
+
+The 10-minute summaries are retained for 93 days by default and hourly summaries
+for 1095 days. The same bounded retention worker removes expired summaries.
+Override these windows with `MEASUREMENT_ROLLUP_10M_RETENTION_DAYS` (31–3650)
+and `MEASUREMENT_ROLLUP_60M_RETENTION_DAYS` (365–3650).
+
+The product currently exposes at most 31 days in Trends and 24 hours in the
+historical climate map. Longer aggregate retention is intentional: it permits
+future seasonal views without retaining every raw uplink.

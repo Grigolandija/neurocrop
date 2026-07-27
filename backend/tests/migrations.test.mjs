@@ -86,6 +86,19 @@ test('measurement storage migration prunes demo history and duplicate indexes', 
   assert.match(sql, /jsonb_strip_nulls\(jsonb_build_object/);
 });
 
+test('measurement rollups backfill history and stay synchronized by trigger', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0021_measurement_rollups.sql', import.meta.url), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS measurement_rollups/);
+  assert.match(sql, /bucket_minutes IN \(10, 60\)/);
+  assert.match(sql, /PRIMARY KEY \(bucket_minutes, dev_eui, bucket_start\)/);
+  assert.match(sql, /ON UPDATE CASCADE ON DELETE CASCADE/);
+  assert.match(sql, /LOCK TABLE measurements IN SHARE ROW EXCLUSIVE MODE/);
+  assert.match(sql, /INSERT INTO measurement_rollups[\s\S]*FROM measurements measurement/);
+  assert.match(sql, /CREATE TRIGGER measurements_update_rollups/);
+  assert.match(sql, /AFTER INSERT ON measurements/);
+  assert.match(sql, /ON CONFLICT \(bucket_minutes, dev_eui, bucket_start\) DO UPDATE SET/);
+});
+
 test('case-insensitive DevEUI operations have functional indexes', async () => {
   const migration = await fs.readFile(new URL('../migrations/0016_deveui_lookup_indexes.sql', import.meta.url), 'utf8');
   assert.match(migration, /idx_nodes_dev_eui_lower[\s\S]*lower\(dev_eui\)/);

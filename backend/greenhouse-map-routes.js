@@ -3,6 +3,7 @@ import { requireRole, requireUserAuth } from './auth-users.js';
 import { calcVPD } from './calculations.js';
 import { statusFromMeasurementTime } from './score.js';
 import { expectedUplinkIntervalSec } from './node-health.js';
+import { measurementRollupAverageSql } from './measurement-rollups.js';
 
 const MAX_OBJECTS = 2000;
 const MAX_LAYERS = 50;
@@ -187,41 +188,23 @@ function historicalNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function mapHistorySensorPresent(sensor) {
-  const value = `m.raw_object->'sensors'->'${sensor}'->>'present'`;
-  return `(${value} IS NULL OR lower(${value}) IN ('true', '1'))`;
-}
-
 async function getAreaMapHistory(devEuis, from, to) {
   const bucketSeconds = MAP_HISTORY_STEP_MINUTES * 60;
-  const bucketExpression = `to_timestamp(floor(extract(epoch FROM m.time) / ${bucketSeconds}) * ${bucketSeconds})`;
+  const alignedQueryFrom = new Date(Math.floor(from.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000);
   const rows = devEuis.length ? (await query(
-    `SELECT ${bucketExpression} AS observed_at,
-            lower(m.dev_eui) AS dev_eui,
-            MAX(m.time) AS measured_at,
-            percentile_cont(0.5) WITHIN GROUP (ORDER BY m.temperature)
-              FILTER (WHERE m.temperature BETWEEN -80 AND 80 AND ${mapHistorySensorPresent('sht45')}) AS air_temperature_c,
-            percentile_cont(0.5) WITHIN GROUP (ORDER BY m.humidity)
-              FILTER (WHERE m.humidity BETWEEN 0 AND 100 AND ${mapHistorySensorPresent('sht45')}) AS relative_humidity_percent,
-            percentile_cont(0.5) WITHIN GROUP (ORDER BY m.co2)
-              FILTER (WHERE m.co2 >= 0 AND ${mapHistorySensorPresent('scd41')}) AS co2_ppm,
-            percentile_cont(0.5) WITHIN GROUP (
-              ORDER BY (
-                0.6108::double precision
-                * exp((17.27 * m.temperature::double precision) / (m.temperature::double precision + 237.3))
-                * (1.0 - m.humidity::double precision / 100.0)
-              )
-            ) FILTER (
-              WHERE m.temperature BETWEEN -80 AND 80
-                AND m.humidity BETWEEN 0 AND 100
-                AND ${mapHistorySensorPresent('sht45')}
-            ) AS vpd_kpa
-     FROM measurements m
-     WHERE lower(m.dev_eui)=ANY($1::text[])
-       AND m.time BETWEEN $2 AND $3
-     GROUP BY observed_at, lower(m.dev_eui)
-     ORDER BY observed_at ASC, lower(m.dev_eui) ASC`,
-    [devEuis, from, to]
+    `SELECT rollup.bucket_start AS observed_at,
+            rollup.dev_eui,
+            rollup.measured_at,
+            ${measurementRollupAverageSql('airTemp')} AS air_temperature_c,
+            ${measurementRollupAverageSql('humidity')} AS relative_humidity_percent,
+            ${measurementRollupAverageSql('co2')} AS co2_ppm,
+            ${measurementRollupAverageSql('vpd')} AS vpd_kpa
+     FROM measurement_rollups rollup
+     WHERE rollup.bucket_minutes=$1
+       AND rollup.dev_eui=ANY($2::text[])
+       AND rollup.bucket_start BETWEEN $3 AND $4
+     ORDER BY rollup.bucket_start ASC, rollup.dev_eui ASC`,
+    [MAP_HISTORY_STEP_MINUTES, devEuis, alignedQueryFrom, to]
   )).rows : [];
 
   const alignedFrom = Math.floor(from.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000;

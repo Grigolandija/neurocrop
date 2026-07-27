@@ -36,6 +36,7 @@ import {
 } from './today-actions.js';
 import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
 import { startMeasurementRetention } from './measurement-retention.js';
+import { getMeasurementRollupSeries } from './measurement-rollups.js';
 import { registerWorkflowRoutes } from './workflow-routes.js';
 import { SIMULATOR_METRICS, simulateAgronomicScenario } from './agronomic-simulator.js';
 import { registerGreenhouseMapRoutes } from './greenhouse-map-routes.js';
@@ -2220,8 +2221,16 @@ app.get('/history', requireAuth, async (req, res) => {
 
     const bucketExpression = `to_timestamp(floor(extract(epoch FROM time) / ${bucketSeconds}) * ${bucketSeconds})`;
     let points;
+    const rollupPoints = await getMeasurementRollupSeries(devEuis, metric, from, to, stepMinutes);
 
-    if (metric === 'vpd') {
+    if (rollupPoints) {
+      points = rollupPoints.map((point) => ({
+        observedAt: point.observedAt,
+        receivedAt: point.observedAt,
+        value: point.value,
+        detectedLate: false
+      }));
+    } else if (metric === 'vpd') {
       const { rows } = await query(
         `SELECT ${bucketExpression} AS observed_at,
                 percentile_cont(0.5) WITHIN GROUP (ORDER BY ${VPD_SQL_EXPRESSION}) AS value
@@ -2329,6 +2338,8 @@ function analyticsStateForValue(value, rule) {
 async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes, options = {}) {
   const column = METRIC_TO_COLUMN[metric] || (metric === 'vpd' ? 'vpd' : null);
   if (!column) return [];
+  const rollupPoints = await getMeasurementRollupSeries(devEuis, metric, from, to, stepMinutes, options);
+  if (rollupPoints) return rollupPoints;
   const bucketSeconds = stepMinutes * 60;
   const bucketExpression = `to_timestamp(floor(extract(epoch FROM time) / ${bucketSeconds}) * ${bucketSeconds})`;
 
@@ -3146,6 +3157,10 @@ app.post('/nodes/claim', requireAuth, requireRole('owner', 'admin', 'technician'
       'DELETE FROM measurements WHERE dev_eui=$1',
       [devEui]
     );
+    const deletedRollups = await client.query(
+      'DELETE FROM measurement_rollups WHERE dev_eui=$1',
+      [devEui]
+    );
     const { rows } = await client.query(
       `UPDATE nodes SET
          organization_id=$2,
@@ -3173,6 +3188,7 @@ app.post('/nodes/claim', requireAuth, requireRole('owner', 'admin', 'technician'
     await client.query('COMMIT');
     res.json({
       clearedMeasurements: deletedMeasurements.rowCount || 0,
+      clearedMeasurementRollups: deletedRollups.rowCount || 0,
       node: {
         id: rows[0].name,
         devEui: rows[0].dev_eui,
