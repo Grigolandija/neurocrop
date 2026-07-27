@@ -57,6 +57,9 @@ test('production deployment waits for API and ingest processes', () => {
   const deploy = fs.readFileSync(new URL('../../deploy/deploy.sh', import.meta.url), 'utf8');
   assert.match(deploy, /docker inspect[\s\S]*neurocrop-ingest/);
   assert.match(deploy, /test "\$ingest_health" = healthy/);
+  assert.match(deploy, /docker builder prune --all --force --filter until=24h/);
+  assert.match(deploy, /docker image prune --force --filter until=24h/);
+  assert.ok(deploy.indexOf('test "$ingest_health" = healthy') < deploy.lastIndexOf('prune_stale_build_cache'));
 });
 
 test('ingest health follows a fresh MQTT readiness heartbeat', () => {

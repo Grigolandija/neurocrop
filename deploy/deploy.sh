@@ -23,6 +23,16 @@ prepare_secret() {
   chmod 640 "$secret_file"
 }
 
+prune_stale_build_cache() {
+  # Cache is never needed to run or roll back immutable images. Keep the most
+  # recent day to accelerate nearby builds without allowing CI cache to grow
+  # until it fills the production disk.
+  docker builder prune --all --force --filter until=24h >/dev/null 2>&1 \
+    || echo "Warning: stale Docker build cache cleanup failed." >&2
+  docker image prune --force --filter until=24h >/dev/null 2>&1 \
+    || echo "Warning: dangling Docker image cleanup failed." >&2
+}
+
 if test "$environment" = production; then
   for secret_file in \
     /opt/neurocrop-backend/.chirpstack_api_token \
@@ -62,6 +72,7 @@ for attempt in $(seq 1 30); do
       ingest_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' neurocrop-ingest 2>/dev/null || true)
       test "$ingest_health" = healthy || { sleep 2; continue; }
     fi
+    prune_stale_build_cache
     echo "$environment deployed: $image"
     exit 0
   fi
