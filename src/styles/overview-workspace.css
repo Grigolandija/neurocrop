@@ -346,8 +346,11 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-overview-copy h1 {
   display: flex;
+  height: 2.16em;
   min-height: 2.16em;
+  max-height: 2.16em;
   align-items: flex-end;
+  overflow: hidden;
   max-width: 600px;
   margin: 0;
   color: #15231c;
@@ -359,12 +362,18 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 }
 
 .nc-overview-copy > p {
+  display: -webkit-box;
+  height: 4.95em;
   min-height: 3.3em;
+  max-height: 4.95em;
+  overflow: hidden;
   max-width: 500px;
   margin: 34px 0 0;
   color: #5d6c64;
   font-size: clamp(17px, 1.35vw, 21px);
   line-height: 1.65;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .nc-overview-action,
@@ -1783,12 +1792,16 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   }
 
   .nc-overview-copy h1 {
-    min-height: 0;
+    height: 2.16em;
+    min-height: 2.16em;
+    max-height: 2.16em;
     font-size: 42px;
   }
 
   .nc-overview-copy > p {
-    min-height: 0;
+    height: 4.95em;
+    min-height: 4.95em;
+    max-height: 4.95em;
     margin-top: 24px;
     font-size: 16px;
   }
