@@ -7,6 +7,7 @@ import {
   type AreaMapContext,
   type AreaMapHistory,
 } from '../greenhouse-map/services/areaMapRepository'
+import { latestCompletedHistoryFrameIndex } from '../greenhouse-map/services/historyFrameSelection'
 import { prepareReadOnlyClimateMap } from './prepareReadOnlyClimateMap'
 import '../../styles/climate-map.css'
 
@@ -66,7 +67,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         }
         if (historyResult.status === 'fulfilled') {
           setHistory(historyResult.value)
-          setHistoryIndex(Math.max(0, historyResult.value.frames.length - 1))
+          setHistoryIndex(latestCompletedHistoryFrameIndex(historyResult.value))
           setHistoryError(historyResult.value.frames.some((frame) => frame.nodes.length)
             ? ''
             : 'No historical climate measurements are available in the last 24 hours.')
