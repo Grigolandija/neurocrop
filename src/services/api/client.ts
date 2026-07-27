@@ -4,10 +4,9 @@ const GET_CACHE_TTL_MS = 60_000
 const getCache = new Map<string, { expiresAt: number; value: unknown }>()
 const getRequestsInFlight = new Map<string, Promise<unknown>>()
 let cacheGeneration = 0
-let apiConnectionLost = false
-
-window.addEventListener('neurocrop:api-connection', (event) => {
-  apiConnectionLost = (event as CustomEvent<{ connected?: boolean }>).detail?.connected === false
+let apiConnectionLost = !getDashboardState().connected
+subscribeDashboardState(() => {
+  apiConnectionLost = !getDashboardState().connected
 })
 
 function apiBaseUrl() {
@@ -37,16 +36,6 @@ function responseErrorMessage(payload: unknown, fallback: string) {
   return String(payload || fallback).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-function notifyUnauthorized() {
-  window.dispatchEvent(new CustomEvent('neurocrop:unauthorized'))
-}
-
-function notifyApiConnection(connected: boolean) {
-  window.dispatchEvent(new CustomEvent('neurocrop:api-connection', {
-    detail: { connected },
-  }))
-}
-
 function isPublicAuthenticationRequest(path: string) {
   return path === '/auth/login'
     || path === '/auth/register'
@@ -59,11 +48,11 @@ async function fetchWithConnectionStatus(input: RequestInfo | URL, init: Request
   try {
     const response = await fetch(input, init)
     // Any HTTP response proves that the API transport is reachable, including 4xx/5xx.
-    notifyApiConnection(true)
+    setApiConnected(true)
     return response
   } catch (error) {
     // Cancelling an obsolete UI request does not mean the API went offline.
-    if (!(error instanceof DOMException && error.name === 'AbortError')) notifyApiConnection(false)
+    if (!(error instanceof DOMException && error.name === 'AbortError')) setApiConnected(false)
     throw error
   }
 }
@@ -177,3 +166,4 @@ export function queryString(params: Record<string, unknown> = {}) {
 export function isApiConnected() {
   return Boolean(String(window.NEUROCROP_CONFIG?.apiBaseUrl || '').trim())
 }
+import { notifyUnauthorized, setApiConnected, subscribeDashboardState, getDashboardState } from '../../state/dashboardStore'

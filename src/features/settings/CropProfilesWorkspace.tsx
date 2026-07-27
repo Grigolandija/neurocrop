@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { notifyWorkspaceStructureChanged } from '../../state/dashboardStore'
 import '../../styles/redesign-profiles.css'
 
 // Profile metric payloads are intentionally extensible for new firmware sensors.
@@ -254,7 +255,7 @@ export default function CropProfilesWorkspace() {
       const created = normalizeProfile(payload.profile || { ...source, id, ...createState })
       setCreateState(null); setSelectedId(created.id); setDraft(created)
       setFeedback(`${created.name} created. Review its targets before assigning sections.`)
-      window.dispatchEvent(new CustomEvent('neurocrop:workspace-structure-changed'))
+      notifyWorkspaceStructureChanged()
       setRefreshToken((value) => value + 1)
     } catch (mutationError) {
       setError(errorMessage(mutationError, 'Crop profile could not be created.'))
@@ -274,7 +275,7 @@ export default function CropProfilesWorkspace() {
       const created = normalizeProfile(payload.profile || { ...duplicateState.source, id, name: duplicateState.name })
       setDuplicateState(null); setSelectedId(created.id); setDraft(created)
       setFeedback(`${created.name} duplicated.`)
-      window.dispatchEvent(new CustomEvent('neurocrop:workspace-structure-changed'))
+      notifyWorkspaceStructureChanged()
       setRefreshToken((value) => value + 1)
     } catch (mutationError) {
       setError(errorMessage(mutationError, 'Crop profile could not be duplicated.'))
@@ -293,7 +294,7 @@ export default function CropProfilesWorkspace() {
       await neurocropApi.deleteCropProfile(deleteState.profile.id, { replacementProfileId: deleteState.replacementId || undefined })
       setDeleteState(null); setSelectedId(''); setDraft(null)
       setFeedback(`${deleteState.profile.name} deleted${assigned ? ` and ${assigned} assigned sections were updated` : ''}.`)
-      window.dispatchEvent(new CustomEvent('neurocrop:workspace-structure-changed'))
+      notifyWorkspaceStructureChanged()
       setRefreshToken((value) => value + 1)
     } catch (mutationError) {
       setError(errorMessage(mutationError, 'Crop profile could not be deleted.'))

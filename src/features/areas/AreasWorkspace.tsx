@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { notifyWorkspaceStructureChanged } from '../../state/dashboardStore'
 import '../../styles/areas-workspace.css'
 
 // API payloads include both current management fields and dashboard aliases.
@@ -237,7 +238,7 @@ export default function AreasWorkspace() {
       if (editor.mode === 'edit' && editor.id) await neurocropApi.updateArea(editor.id, payload)
       else {
         await neurocropApi.createArea(payload)
-        window.dispatchEvent(new CustomEvent('neurocrop:workspace-structure-changed'))
+        notifyWorkspaceStructureChanged()
       }
       setFeedback({ tone: 'success', message: editor.mode === 'edit' ? 'Area updated.' : 'Area created.' })
       setEditor(null)

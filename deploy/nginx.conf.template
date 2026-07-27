@@ -39,30 +39,6 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
   }
 
-  location = /approved-dashboard-runtime.js {
-    try_files $uri =404;
-    add_header Cache-Control "public, max-age=31536000, immutable";
-    add_header X-Content-Type-Options "nosniff" always;
-  }
-
-  location = /neurocrop-state-engine.js {
-    try_files $uri =404;
-    add_header Cache-Control "public, max-age=31536000, immutable";
-    add_header X-Content-Type-Options "nosniff" always;
-  }
-
-  location = /neurocrop-dashboard-store.js {
-    try_files $uri =404;
-    add_header Cache-Control "public, max-age=31536000, immutable";
-    add_header X-Content-Type-Options "nosniff" always;
-  }
-
-  location = /neurocrop-i18n-lt.js {
-    try_files $uri =404;
-    add_header Cache-Control "public, max-age=31536000, immutable";
-    add_header X-Content-Type-Options "nosniff" always;
-  }
-
   location /vendor/ {
     try_files $uri =404;
     add_header Cache-Control "public, max-age=31536000, immutable";

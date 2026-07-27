@@ -58,11 +58,11 @@ const metricColorTokens: Record<string, [string, string]> = {
 }
 
 function translate(value: string) {
-  return typeof window !== 'undefined' ? window.NeuroCropI18n?.translate(value) || value : value
+  return translateInterfaceText(value)
 }
 
 function locale() {
-  return typeof window !== 'undefined' && window.NeuroCropI18n?.getLanguage() === 'lt' ? 'lt-LT' : 'en-GB'
+  return getInterfaceLanguage() === 'lt' ? 'lt-LT' : 'en-GB'
 }
 
 function format(value: number, metric: TrendMetric) {
@@ -395,3 +395,4 @@ export function renderTrendChart(element: HTMLElement, input: TrendChartInput): 
   window.requestAnimationFrame(() => chart.resize())
   return chart
 }
+import { getInterfaceLanguage, translateInterfaceText } from '../../i18n'

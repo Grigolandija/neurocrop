@@ -590,16 +590,16 @@ Integracija laikoma baigta, kai:
 ## Svarbūs failai
 
 ```text
-src/App.tsx                         React Router ir patvirtinto UI modulio lifecycle
-src/approved-dashboard-markup.html patvirtinta UI DOM struktūra
-src/styles/approved-dashboard.css  patvirtintas UI stilių sluoksnis
-public/approved-dashboard-runtime.js patvirtinta sąveikų, grafikų ir API logika
-public/neurocrop-state-engine.js  duomenų šviežumo ir scope būsenos logika
-public/vendor/echarts.min.js        lokalus ECharts variklis
-public/runtime-config.js    API URL konfigūracija
-public/.htaccess            SPA route fallback Apache hostingui
-API-CONTRACT.md             endpointų ir JSON formatų sutartis
-tests/state-engine/         freshness golden-vector testai
+src/App.tsx                          React Router įėjimo taškas
+src/pages/DashboardPage.tsx          prisijungimas ir visų darbo aplinkų paruošimas
+src/components/DashboardShell.tsx    React antraštė, navigacija ir paskyros valdikliai
+src/state/dashboardStore.ts          bendra React konteksto ir ryšio būsena
+src/features/                        savarankiškos React darbo aplinkos
+src/styles/approved-dashboard.css    bendras UI stilių sluoksnis
+public/runtime-config.js             API URL konfigūracija
+public/.htaccess                     SPA route fallback Apache hostingui
+API-CONTRACT.md                      endpointų ir JSON formatų sutartis
+scripts/test-react-dashboard-invariants.mjs architektūros regresijų patikra
 ```
 
 Backend technologija nėra pririšta prie frontendo. Galima naudoti Node.js,

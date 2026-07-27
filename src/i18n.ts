@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 
 export type InterfaceLanguage = 'en' | 'lt'
 
 const languageStorageKey = 'neurocrop-interface-language-v1'
 const settingsStorageKey = 'neurocrop-dashboard-settings-v1'
+const languageListeners = new Set<() => void>()
+let activeLanguage: InterfaceLanguage | null = null
 
 const authTranslations: Record<string, string> = {
   'New account': 'Nauja paskyra',
@@ -56,9 +58,58 @@ const authTranslations: Record<string, string> = {
   'Try again': 'Bandyti dar kartą',
   'We could not accept this invitation.': 'Šio kvietimo priimti nepavyko.',
   'Language': 'Kalba',
+  'Sign out': 'Atsijungti',
+  'Monitor': 'Stebėjimas',
+  'Manage': 'Valdyti',
+  'Overview': 'Apžvalga',
+  'Areas': 'Erdvės',
+  'Sections': 'Sekcijos',
+  'Nodes': 'Mazgai',
+  'Readings': 'Rodmenys',
+  'Trends': 'Tendencijos',
+  'Alerts': 'Perspėjimai',
+  'Actions': 'Veiksmai',
+  'Profiles': 'Profiliai',
+  'Simulator': 'Simuliatorius',
+  'Settings': 'Nustatymai',
+  'Organisation': 'Organizacija',
+  'Admin': 'Administravimas',
+  'Online': 'Prisijungta',
+  'Offline': 'Neprisijungta',
+  'Systems online': 'Sistemos veikia',
+  'System attention': 'Reikia sistemos dėmesio',
+  'Workspace member': 'Darbo aplinkos narys',
+  'Open navigation': 'Atidaryti navigaciją',
+  'Close navigation': 'Uždaryti navigaciją',
+  'Low battery nodes': 'Mazgai su silpna baterija',
+  'Nodes below configured threshold': 'Mazgai žemiau nustatytos baterijos ribos',
+  'No low-battery nodes.': 'Nėra mazgų su silpna baterija.',
+  'Know what your crop needs next.': 'Žinokite, ko jūsų augalams reikia dabar.',
+  'A single workspace for live growing conditions, section history, alerts, and sensor health.': 'Viena sistema esamoms auginimo sąlygoms, sekcijų istorijai, perspėjimams ir sensorių būklei.',
+  'Workspace access': 'Prieiga prie sistemos',
+  'Sign in to NeuroCrop': 'Prisijungti prie „NeuroCrop“',
+  'Use the email address assigned to your farm workspace.': 'Naudokite jūsų ūkiui priskirtą el. pašto adresą.',
+  'Enter your password': 'Įveskite slaptažodį',
+  'Sign in': 'Prisijungti',
+  'Signing in…': 'Jungiamasi…',
+  'Need access?': 'Reikia prieigos?',
+  'Create account and request workspace': 'Sukurti paskyrą ir paprašyti darbo aplinkos',
+  'Skip to main content': 'Pereiti prie pagrindinio turinio',
+  'Air temperature': 'Oro temperatūra',
+  'Relative humidity': 'Santykinė drėgmė',
+  'Vapour pressure deficit': 'Garų slėgio deficitas',
+  'Carbon dioxide': 'Anglies dioksidas',
+  'Leaf temperature': 'Lapo temperatūra',
+  'Soil moisture': 'Substrato drėgmė',
+  'Soil temperature': 'Substrato temperatūra',
+  'Electrical conductivity': 'Elektrinis laidumas',
+  'Water temperature': 'Vandens temperatūra',
+  'Light': 'Apšvietimas',
+  'Battery level': 'Baterijos lygis',
 }
 
 export function getInterfaceLanguage(): InterfaceLanguage {
+  if (activeLanguage) return activeLanguage
   try {
     const stored = localStorage.getItem(languageStorageKey)
     if (stored === 'lt' || stored === 'en') return stored
@@ -70,10 +121,8 @@ export function getInterfaceLanguage(): InterfaceLanguage {
 }
 
 export function setInterfaceLanguage(language: InterfaceLanguage) {
-  if (window.NeuroCropI18n) {
-    window.NeuroCropI18n.setLanguage(language)
-    return
-  }
+  if (activeLanguage === language) return
+  activeLanguage = language
   try {
     localStorage.setItem(languageStorageKey, language)
     const settings = JSON.parse(localStorage.getItem(settingsStorageKey) || '{}') as Record<string, unknown> & { preferences?: Record<string, unknown> }
@@ -85,27 +134,27 @@ export function setInterfaceLanguage(language: InterfaceLanguage) {
     // The active page can still switch language if browser storage is unavailable.
   }
   document.documentElement.lang = language
-  window.dispatchEvent(new CustomEvent('neurocrop:language-change', { detail: { language } }))
+  languageListeners.forEach((listener) => listener())
 }
 
 export function useInterfaceLanguage() {
-  const [language, setLanguageState] = useState<InterfaceLanguage>(getInterfaceLanguage)
-
-  useEffect(() => {
-    document.documentElement.lang = language
-    const onLanguageChange = (event: Event) => {
-      const next = (event as CustomEvent<{ language?: InterfaceLanguage }>).detail?.language
-      setLanguageState(next === 'lt' ? 'lt' : 'en')
-    }
-    window.addEventListener('neurocrop:language-change', onLanguageChange)
-    return () => window.removeEventListener('neurocrop:language-change', onLanguageChange)
-  }, [language])
+  const language = useSyncExternalStore(
+    (listener) => {
+      languageListeners.add(listener)
+      return () => languageListeners.delete(listener)
+    },
+    getInterfaceLanguage,
+    () => 'en',
+  )
 
   const setLanguage = useCallback((next: InterfaceLanguage) => {
-    setLanguageState(next)
     setInterfaceLanguage(next)
   }, [])
 
   const t = useCallback((english: string) => language === 'lt' ? authTranslations[english] || english : english, [language])
   return { language, setLanguage, t }
+}
+
+export function translateInterfaceText(english: string) {
+  return getInterfaceLanguage() === 'lt' ? authTranslations[english] || english : english
 }

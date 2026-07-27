@@ -3,7 +3,6 @@ export default {
   content: [
     './index.html',
     './src/**/*.{ts,tsx,html}',
-    './public/approved-dashboard-runtime.js',
   ],
   theme: {
     extend: {

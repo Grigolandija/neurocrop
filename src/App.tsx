@@ -1,25 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
-import type { NeuroCropApi } from './services/api/neurocropApi'
-import type { NeuroCropFeatures } from './features/installFeatures'
 import WorkspaceLoading from './components/WorkspaceLoading'
 import './App.css'
 
 declare global {
   interface Window {
     echarts?: unknown
-    NeuroCropStateEngine?: unknown
     NEUROCROP_CONFIG?: { apiBaseUrl?: string; greenhouseMapBeta?: boolean }
-    NeuroCropApi?: NeuroCropApi
-    NeuroCropFeatures?: NeuroCropFeatures
-    NeuroCropStore?: unknown
-    NeuroCropLithuanianText?: Readonly<Record<string, string>>
-    NeuroCropLoadLithuanianTranslations?: () => Promise<void>
-    NeuroCropI18n?: {
-      getLanguage: () => 'en' | 'lt'
-      setLanguage: (language: 'en' | 'lt') => void
-      translate: (value: string) => string
-    }
   }
 }
 

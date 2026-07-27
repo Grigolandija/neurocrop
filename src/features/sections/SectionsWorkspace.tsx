@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { notifyWorkspaceStructureChanged as publishWorkspaceStructureChanged } from '../../state/dashboardStore'
 import '../../styles/sections-workspace.css'
 
 // Management payloads can contain both dashboard and API naming conventions.
@@ -365,7 +366,7 @@ export default function SectionsWorkspace() {
   }
 
   function notifyWorkspaceStructureChanged() {
-    window.dispatchEvent(new CustomEvent('neurocrop:workspace-structure-changed'))
+    publishWorkspaceStructureChanged()
   }
 
   async function saveSection(event: FormEvent) {

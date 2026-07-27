@@ -1,6 +1,12 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { Navigate, useLocation, useNavigate } from 'react-router'
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Navigate, useLocation } from 'react-router'
+import DashboardShell, { type DashboardUser } from '../components/DashboardShell'
+import WorkspaceLoading from '../components/WorkspaceLoading'
+import { useInterfaceLanguage } from '../i18n'
+import { invalidateRequestCache } from '../services/api/client'
+import { neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
+import { useDashboardState } from '../state/dashboardStore'
+import { installEChartsEngine } from '../vendor/echartsEngine'
 import '../styles/approved-dashboard.css'
 import '../styles/typography-system.css'
 import '../styles/redesign-sidebar.css'
@@ -9,11 +15,7 @@ import '../styles/neurocrop-typography-system.css'
 import '../styles/app-shell.css'
 import '../styles/operational-consistency.css'
 import '../styles/mobile-experience.css'
-import approvedMarkup from '../approved-dashboard-markup.html?raw'
-import WorkspaceLoading from '../components/WorkspaceLoading'
-import { installNeuroCropApi, neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
-import { installNeuroCropFeatures } from '../features/installFeatures'
-import { installEChartsEngine } from '../vendor/echartsEngine'
+
 const loadAreasWorkspace = () => import('../features/areas/AreasWorkspace')
 const loadReadingsWorkspace = () => import('../features/readings/ReadingsWorkspace')
 const loadSectionsWorkspace = () => import('../features/sections/SectionsWorkspace')
@@ -44,131 +46,12 @@ const TrendsWorkspace = lazy(loadTrendsWorkspace)
 const NodesWorkspace = lazy(loadNodesWorkspace)
 const CropProfilesWorkspace = lazy(loadCropProfilesWorkspace)
 
-const allWorkspacePreloaders = [
-  loadOverviewWorkspace,
-  loadAreasWorkspace,
-  loadSectionsWorkspace,
-  loadNodesWorkspace,
-  loadReadingsWorkspace,
-  loadTrendsWorkspace,
-  loadAlertsWorkspace,
-  loadActionsWorkspace,
-  loadCropProfilesWorkspace,
-  loadSimulatorWorkspace,
-  loadSettingsWorkspace,
-  loadOrganizationWorkspace,
-  loadAdminWorkspace,
-  loadAdminIntegrationsWorkspace,
+const preloaders = [
+  loadOverviewWorkspace, loadAreasWorkspace, loadSectionsWorkspace, loadNodesWorkspace,
+  loadReadingsWorkspace, loadTrendsWorkspace, loadAlertsWorkspace, loadActionsWorkspace,
+  loadCropProfilesWorkspace, loadSimulatorWorkspace, loadSettingsWorkspace,
+  loadOrganizationWorkspace, loadAdminWorkspace, loadAdminIntegrationsWorkspace,
 ]
-
-let completeDashboardBootstrapPromise: Promise<void> | null = null
-
-function preloadCompleteDashboard() {
-  if (completeDashboardBootstrapPromise) return completeDashboardBootstrapPromise
-  preloadDashboardRuntimeAssets()
-  completeDashboardBootstrapPromise = Promise.all(allWorkspacePreloaders.map((loadWorkspace) => loadWorkspace()))
-    .then(async () => {
-      try {
-        const response = await neurocropApi.getCurrentUser() as { user?: { email?: unknown } } | null
-        if (response?.user?.email) await prefetchWorkspaceData()
-      } catch {
-        // A signed-out visitor still needs the complete application bundle so
-        // the first authenticated navigation is instant after login.
-      }
-    })
-  return completeDashboardBootstrapPromise
-}
-
-declare const __BUILD_VERSION__: string
-
-let dashboardStorePromise: Promise<void> | null = null
-let lithuanianTranslationsPromise: Promise<void> | null = null
-
-function preloadDashboardRuntimeAssets() {
-  const assets = [
-    ['/neurocrop-state-engine.js', 'state-engine'],
-    ['/approved-dashboard-runtime.js', 'dashboard-runtime'],
-  ] as const
-  assets.forEach(([path, key]) => {
-    if (document.querySelector(`[data-neurocrop-preload="${key}"]`)) return
-    const preload = document.createElement('link')
-    preload.rel = 'preload'
-    preload.as = 'script'
-    preload.href = `${path}?v=${__BUILD_VERSION__}`
-    preload.dataset.neurocropPreload = key
-    document.head.appendChild(preload)
-  })
-}
-
-function ensureOptionalDashboardStore() {
-  if (neurocropApi.isConnected() || window.NeuroCropStore) return Promise.resolve()
-  if (dashboardStorePromise) return dashboardStorePromise
-  dashboardStorePromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>('script[data-neurocrop-store]')
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true })
-      existing.addEventListener('error', () => reject(new Error('Local dashboard store could not be loaded.')), { once: true })
-      return
-    }
-    const store = document.createElement('script')
-    store.src = `/neurocrop-dashboard-store.js?v=${__BUILD_VERSION__}`
-    store.dataset.neurocropStore = 'true'
-    store.onload = () => resolve()
-    store.onerror = () => reject(new Error('Local dashboard store could not be loaded.'))
-    document.body.appendChild(store)
-  })
-  return dashboardStorePromise
-}
-
-function prefersLithuanianInterface() {
-  try {
-    const storedLanguage = window.localStorage.getItem('neurocrop-interface-language-v1')
-    if (storedLanguage === 'lt' || storedLanguage === 'en') return storedLanguage === 'lt'
-    const settings = JSON.parse(window.localStorage.getItem('neurocrop-dashboard-settings-v1') || '{}')
-    return settings?.preferences?.locale === 'lt-LT'
-  } catch {
-    return false
-  }
-}
-
-function ensureLithuanianTranslations(force = false) {
-  if (window.NeuroCropLithuanianText) return Promise.resolve()
-  if (!force && !prefersLithuanianInterface()) return Promise.resolve()
-  if (lithuanianTranslationsPromise) return lithuanianTranslationsPromise
-  lithuanianTranslationsPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>('script[data-neurocrop-i18n-lt]')
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true })
-      existing.addEventListener('error', () => reject(new Error('Lithuanian translations could not be loaded.')), { once: true })
-      return
-    }
-    const translations = document.createElement('script')
-    translations.src = `/neurocrop-i18n-lt.js?v=${__BUILD_VERSION__}`
-    translations.dataset.neurocropI18nLt = 'true'
-    translations.onload = () => resolve()
-    translations.onerror = () => reject(new Error('Lithuanian translations could not be loaded.'))
-    document.body.appendChild(translations)
-  })
-  return lithuanianTranslationsPromise
-}
-
-function notifyRuntimeRoute(pathname: string) {
-  window.postMessage({ type: 'neurocrop:route', route: pathname }, window.location.origin)
-  if (pathname !== '/history') return
-  const pendingTrend = sessionStorage.getItem('neurocrop-pending-trend')
-  if (!pendingTrend) return
-  sessionStorage.removeItem('neurocrop-pending-trend')
-  window.requestAnimationFrame(() => {
-    try {
-      window.postMessage({
-        type: 'neurocrop:open-trend',
-        ...JSON.parse(pendingTrend),
-      }, window.location.origin)
-    } catch {
-      // Ignore an invalid local navigation payload and keep the default trend context.
-    }
-  })
-}
 
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
@@ -177,305 +60,165 @@ const supportedRoutes = new Set([
 ])
 
 function isSupportedRoute(pathname: string) {
-  const routePathname = String(pathname || '/').split(/[?#]/, 1)[0] || '/'
-  return supportedRoutes.has(routePathname) || /^\/nodes\/[^/]+$/.test(routePathname)
+  const route = String(pathname || '/').split(/[?#]/, 1)[0] || '/'
+  return supportedRoutes.has(route) || /^\/nodes\/[^/]+$/.test(route)
 }
 
-const routeOwnedSections = [
-  { id: 'locationsManagementSection', matches: (pathname: string) => pathname === '/areas' },
-  { id: 'blocksManagementSection', matches: (pathname: string) => pathname === '/sections' },
-  { id: 'nodesManagementSection', matches: (pathname: string) => pathname === '/nodes' || /^\/nodes\/[^/]+$/.test(pathname) },
-  { id: 'alertsManagementSection', matches: (pathname: string) => pathname === '/alerts' },
-  { id: 'actionsManagementSection', matches: (pathname: string) => pathname === '/actions' },
-  {
-    id: 'settingsManagementSection',
-    matches: (pathname: string) => [
-      '/settings',
-      '/organization',
-      '/crop-profiles',
-      '/admin',
-      '/admin/integrations',
-      '/simulator',
-    ].includes(pathname),
-  },
-  { id: 'metricsSection', matches: (pathname: string) => pathname === '/readings' },
-  { id: 'historySection', matches: (pathname: string) => pathname === '/history' },
-]
+function Login({ onAuthenticated }: { onAuthenticated: (user: DashboardUser) => void }) {
+  const { language, setLanguage, t } = useInterfaceLanguage()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
-function ApprovedDashboard() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const hostRef = useRef<HTMLDivElement>(null)
-  const runtimeReady = useRef(false)
-  const navigateRef = useRef(navigate)
-  const [readingsMount, setReadingsMount] = useState<HTMLElement | null>(null)
-  const [areasMount, setAreasMount] = useState<HTMLElement | null>(null)
-  const [overviewMount, setOverviewMount] = useState<HTMLElement | null>(null)
-  const [sectionsMount, setSectionsMount] = useState<HTMLElement | null>(null)
-  const [settingsMount, setSettingsMount] = useState<HTMLElement | null>(null)
-  const [organizationMount, setOrganizationMount] = useState<HTMLElement | null>(null)
-  const [adminMount, setAdminMount] = useState<HTMLElement | null>(null)
-  const [adminIntegrationsMount, setAdminIntegrationsMount] = useState<HTMLElement | null>(null)
-  const [simulatorMount, setSimulatorMount] = useState<HTMLElement | null>(null)
-  const [actionsMount, setActionsMount] = useState<HTMLElement | null>(null)
-  const [alertsMount, setAlertsMount] = useState<HTMLElement | null>(null)
-  const [trendsMount, setTrendsMount] = useState<HTMLElement | null>(null)
-  const [nodesMount, setNodesMount] = useState<HTMLElement | null>(null)
-  const [cropProfilesMount, setCropProfilesMount] = useState<HTMLElement | null>(null)
-  const [allWorkspacesReady, setAllWorkspacesReady] = useState(false)
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!email.trim() || !password || busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const response = await neurocropApi.login(email.trim(), password) as { user?: DashboardUser }
+      invalidateRequestCache()
+      const current = response.user || (await neurocropApi.getCurrentUser() as { user?: DashboardUser }).user
+      if (!current?.email) throw new Error('The account response is incomplete.')
+      await prefetchWorkspaceData()
+      onAuthenticated(current)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Sign in failed.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <main className="login-screen">
+      <div className="login-layout">
+        <aside className="login-aside">
+          <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white/12 text-xl text-[#f5c26b] ring-1 ring-white/16"><i className="fa-solid fa-seedling" /></div>
+          <p className="mt-10 text-xs font-bold uppercase tracking-[0.30em] text-white/58">NeuroCrop</p>
+          <h1 className="mt-3 max-w-sm font-display text-4xl font-bold leading-tight">{t('Know what your crop needs next.')}</h1>
+          <p className="mt-5 max-w-sm text-sm leading-7 text-white/70">{t('A single workspace for live growing conditions, section history, alerts, and sensor health.')}</p>
+          <div className="relative mt-12 flex items-center gap-3 text-sm font-semibold text-white/76"><span className="h-2.5 w-2.5 rounded-full bg-[#88c69f]" />{t('Workspace access')}</div>
+        </aside>
+        <section className="login-form-panel" aria-labelledby="loginTitle">
+          <div className="language-switch login-language-switch" role="group" aria-label={t('Language')}>
+            <button type="button" data-language-option="lt" data-active={language === 'lt'} aria-pressed={language === 'lt'} onClick={() => setLanguage('lt')}>LT</button>
+            <button type="button" data-language-option="en" data-active={language === 'en'} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-[0.26em] text-pine/52">{t('Workspace access')}</p>
+          <h2 id="loginTitle" className="mt-3 font-display text-3xl font-bold text-ink">{t('Sign in to NeuroCrop')}</h2>
+          <p className="mt-3 max-w-md text-sm leading-6 text-ink/60">{t('Use the email address assigned to your farm workspace.')}</p>
+          <form id="loginForm" className="mt-8 space-y-5" autoComplete="on" noValidate onSubmit={(event) => void submit(event)}>
+            <label className="block"><span className="text-sm font-bold text-ink/76">{t('Email address')}</span><input id="loginEmail" className="login-field mt-2" name="username" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@farm.com" required /></label>
+            <label className="block"><span className="text-sm font-bold text-ink/76">{t('Password')}</span><input id="loginPassword" className="login-field mt-2" name="password" type="password" autoComplete="current-password" maxLength={1024} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={t('Enter your password')} required /></label>
+            {error ? <p id="loginError" className="rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-[#8f3d2d]" role="alert">{error}</p> : null}
+            <button id="loginSubmit" type="submit" className="login-submit" disabled={busy || !email.trim() || !password}>{t(busy ? 'Signing in…' : 'Sign in')} <i className="fa-solid fa-arrow-right ml-2" /></button>
+          </form>
+          <p className="mt-7 text-xs leading-5 text-ink/46">{t('Need access?')} <a className="font-bold text-pine underline underline-offset-4" href="/register">{t('Create account and request workspace')}</a>.</p>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function Workspaces({ pathname }: { pathname: string }) {
+  const hostsRef = useRef<HTMLDivElement>(null)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    navigateRef.current = navigate
-  }, [navigate])
-
-  useEffect(() => {
-    installNeuroCropApi()
-    installNeuroCropFeatures()
-    installEChartsEngine()
-    preloadDashboardRuntimeAssets()
-    if (hostRef.current && !hostRef.current.childElementCount) {
-      hostRef.current.innerHTML = approvedMarkup
+    const root = hostsRef.current
+    if (!root) return
+    let frame = 0
+    const update = () => {
+      const hosts = Array.from(root.querySelectorAll<HTMLElement>('[data-workspace-host]'))
+      if (hosts.length !== 14 || hosts.some((host) => !host.childElementCount || host.querySelector('[aria-busy="true"]'))) return
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => setReady(true))
     }
-    setReadingsMount(hostRef.current?.querySelector<HTMLElement>('#readingsWorkspaceMount') || null)
-    setAreasMount(hostRef.current?.querySelector<HTMLElement>('#areasWorkspaceMount') || null)
-    setOverviewMount(hostRef.current?.querySelector<HTMLElement>('#overviewWorkspaceMount') || null)
-    setSectionsMount(hostRef.current?.querySelector<HTMLElement>('#sectionsWorkspaceMount') || null)
-    setSettingsMount(hostRef.current?.querySelector<HTMLElement>('#settingsWorkspaceMount') || null)
-    setOrganizationMount(hostRef.current?.querySelector<HTMLElement>('#organizationWorkspaceMount') || null)
-    setAdminMount(hostRef.current?.querySelector<HTMLElement>('#adminWorkspaceMount') || null)
-    setAdminIntegrationsMount(hostRef.current?.querySelector<HTMLElement>('#adminIntegrationsMount') || null)
-    setSimulatorMount(hostRef.current?.querySelector<HTMLElement>('#simulatorWorkspaceMount') || null)
-    setActionsMount(hostRef.current?.querySelector<HTMLElement>('#actionsWorkspaceMount') || null)
-    setAlertsMount(hostRef.current?.querySelector<HTMLElement>('#alertsManagementShell') || null)
-    setTrendsMount(hostRef.current?.querySelector<HTMLElement>('#trendsWorkspaceMount') || null)
-    const nodeHost = hostRef.current?.querySelector<HTMLElement>('#nodesManagementShell') || null
-    // The React workspace owns this host completely. Clear any server-independent
-    // legacy placeholder before the portal mounts so both implementations can
-    // never appear together during a direct /nodes refresh.
-    nodeHost?.replaceChildren()
-    setNodesMount(nodeHost)
-    setCropProfilesMount(hostRef.current?.querySelector<HTMLElement>('#cropProfilesWorkspaceMount') || null)
-
-    document.body.classList.add('designer-app')
-    document.body.dataset.dashboardState = 'optimal'
-    document.body.dataset.workspaceFocus = 'all'
-
-    function handleMessage(event: MessageEvent) {
-      if (event.origin !== window.location.origin) return
-      const payload = event.data
-      if (!payload || payload.type !== 'neurocrop:navigate') return
-      const route = isSupportedRoute(payload.route) ? payload.route : '/'
-      if (route !== window.location.pathname) navigateRef.current(route, { replace: Boolean(payload.replace) })
-    }
-
-    function attachRuntime() {
-      const activateRuntime = () => {
-        runtimeReady.current = true
-        notifyRuntimeRoute(window.location.pathname)
-      }
-      if (document.querySelector('script[data-neurocrop-runtime]')) {
-        activateRuntime()
-        return
-      }
-      const runtime = document.createElement('script')
-      runtime.src = `/approved-dashboard-runtime.js?v=${__BUILD_VERSION__}`
-      runtime.dataset.neurocropRuntime = 'true'
-      runtime.onload = activateRuntime
-      document.body.appendChild(runtime)
-    }
-
-    function loadRuntime() {
-      if (window.NeuroCropStateEngine) {
-        attachRuntime()
-        return
-      }
-      const stateEngine = document.createElement('script')
-      stateEngine.src = `/neurocrop-state-engine.js?v=${__BUILD_VERSION__}`
-      stateEngine.dataset.neurocropStateEngine = 'true'
-      stateEngine.onload = attachRuntime
-      document.body.appendChild(stateEngine)
-    }
-
-    window.addEventListener('message', handleMessage)
-    window.NeuroCropLoadLithuanianTranslations = () => ensureLithuanianTranslations(true)
-    void Promise.allSettled([
-      ensureOptionalDashboardStore(),
-      ensureLithuanianTranslations(),
-    ]).then(loadRuntime)
-    void neurocropApi.getCurrentUser()
-      .then((response) => {
-        const user = (response as { user?: { email?: unknown } } | null)?.user
-        if (user?.email) void prefetchWorkspaceData()
-      })
-      .catch(() => undefined)
-
-    return () => {
-      delete window.NeuroCropLoadLithuanianTranslations
-      window.removeEventListener('message', handleMessage)
-      document.body.classList.remove('designer-app')
-      setReadingsMount(null)
-      setAreasMount(null)
-      setOverviewMount(null)
-      setSectionsMount(null)
-      setSettingsMount(null)
-      setOrganizationMount(null)
-      setAdminMount(null)
-      setAdminIntegrationsMount(null)
-      setSimulatorMount(null)
-      setActionsMount(null)
-      setAlertsMount(null)
-      setTrendsMount(null)
-      setNodesMount(null)
-      setCropProfilesMount(null)
-    }
+    const observer = new MutationObserver(update)
+    observer.observe(root, { attributes: true, attributeFilter: ['aria-busy'], childList: true, subtree: true })
+    update()
+    return () => { cancelAnimationFrame(frame); observer.disconnect() }
   }, [])
 
-  useEffect(() => {
-    if (!runtimeReady.current) return
-    notifyRuntimeRoute(location.pathname)
-  }, [location.pathname])
+  const visible = (route: string) => route === '/nodes'
+    ? pathname === route || pathname.startsWith('/nodes/')
+    : pathname === route
+  const workspace = (route: string, content: ReactNode) => (
+    <div data-workspace-host hidden={!visible(route)}>
+      <Suspense fallback={<div aria-busy="true" />}>{content}</Suspense>
+    </div>
+  )
 
-  useEffect(() => {
-    if (!hostRef.current) return
-    const sections = routeOwnedSections
-      .map((section) => ({
-        ...section,
-        element: hostRef.current?.querySelector<HTMLElement>(`#${section.id}`) || null,
-      }))
-
-    // Route ownership is enforced in one place so an asynchronous legacy render
-    // cannot leave content from the previous page visible after navigation.
-    const synchronizeVisibility = () => {
-      sections.forEach(({ element, matches }) => {
-        if (!element) return
-        const shouldBeVisible = matches(location.pathname)
-        if (element.hidden === shouldBeVisible) element.hidden = !shouldBeVisible
-        if (shouldBeVisible) {
-          if (element.style.getPropertyValue('display')) element.style.removeProperty('display')
-        } else if (
-          element.style.getPropertyValue('display') !== 'none'
-          || element.style.getPropertyPriority('display') !== 'important'
-        ) {
-          element.style.setProperty('display', 'none', 'important')
-        }
-      })
-    }
-
-    synchronizeVisibility()
-    const observer = new MutationObserver(synchronizeVisibility)
-    sections.forEach(({ element }) => {
-      if (!element) return
-      observer.observe(element, { attributes: true, attributeFilter: ['hidden', 'style'] })
-    })
-    return () => observer.disconnect()
-  }, [location.pathname])
-
-  useEffect(() => {
-    const mounts = [
-      overviewMount, areasMount, sectionsMount, nodesMount, readingsMount, trendsMount,
-      alertsMount, actionsMount, cropProfilesMount, simulatorMount, settingsMount,
-      organizationMount, adminMount, adminIntegrationsMount,
-    ]
-    if (mounts.some((mount) => !mount)) return
-    const elements = mounts as HTMLElement[]
-    let readinessFrame = 0
-    const updateReadiness = () => {
-      const ready = elements.every((mount) =>
-        mount.childElementCount > 0 && !mount.querySelector('[aria-busy="true"]'))
-      if (!ready) return
-      window.cancelAnimationFrame(readinessFrame)
-      readinessFrame = window.requestAnimationFrame(() => setAllWorkspacesReady(true))
-    }
-    const observer = new MutationObserver(updateReadiness)
-    elements.forEach((mount) => observer.observe(mount, {
-      attributes: true,
-      attributeFilter: ['aria-busy'],
-      childList: true,
-      subtree: true,
-    }))
-    updateReadiness()
-    return () => {
-      window.cancelAnimationFrame(readinessFrame)
-      observer.disconnect()
-    }
-  }, [
-    actionsMount, adminIntegrationsMount, adminMount, alertsMount, areasMount,
-    cropProfilesMount, nodesMount, organizationMount, overviewMount, readingsMount,
-    sectionsMount, settingsMount, simulatorMount, trendsMount,
-  ])
-
-  return <>
-    <div ref={hostRef} hidden={!allWorkspacesReady} />
-    {!allWorkspacesReady
-      ? <WorkspaceLoading />
-      : null}
-    {overviewMount
-      ? createPortal(
-          <div hidden={location.pathname !== '/'}>
-            <Suspense fallback={<WorkspaceLoading compact />}>
-              <OverviewWorkspace />
-            </Suspense>
-          </div>,
-          overviewMount,
-        )
-      : null}
-    {readingsMount
-      ? createPortal(<div hidden={location.pathname !== '/readings'}><Suspense fallback={<div aria-busy="true" />}><ReadingsWorkspace /></Suspense></div>, readingsMount)
-      : null}
-    {areasMount
-      ? createPortal(<div hidden={location.pathname !== '/areas'}><Suspense fallback={<div aria-busy="true" />}><AreasWorkspace /></Suspense></div>, areasMount)
-      : null}
-    {sectionsMount
-      ? createPortal(<div hidden={location.pathname !== '/sections'}><Suspense fallback={<div aria-busy="true" />}><SectionsWorkspace /></Suspense></div>, sectionsMount)
-      : null}
-    {settingsMount
-      ? createPortal(<div hidden={location.pathname !== '/settings'}><Suspense fallback={<div aria-busy="true" />}><SettingsWorkspace /></Suspense></div>, settingsMount)
-      : null}
-    {organizationMount
-      ? createPortal(<div hidden={location.pathname !== '/organization'}><Suspense fallback={<div aria-busy="true" />}><OrganizationWorkspace /></Suspense></div>, organizationMount)
-      : null}
-    {adminMount
-      ? createPortal(<div hidden={location.pathname !== '/admin'}><Suspense fallback={<div aria-busy="true" />}><AdminWorkspace /></Suspense></div>, adminMount)
-      : null}
-    {adminIntegrationsMount
-      ? createPortal(<div hidden={location.pathname !== '/admin/integrations'}><Suspense fallback={<div aria-busy="true" />}><AdminIntegrationsWorkspace /></Suspense></div>, adminIntegrationsMount)
-      : null}
-    {simulatorMount
-      ? createPortal(<div hidden={location.pathname !== '/simulator'}><Suspense fallback={<div aria-busy="true" />}><SimulatorWorkspace /></Suspense></div>, simulatorMount)
-      : null}
-    {actionsMount
-      ? createPortal(<div hidden={location.pathname !== '/actions'}><Suspense fallback={<div aria-busy="true" />}><ActionsWorkspace /></Suspense></div>, actionsMount)
-      : null}
-    {alertsMount
-      ? createPortal(<div hidden={location.pathname !== '/alerts'}><Suspense fallback={<div aria-busy="true" />}><AlertsWorkspace /></Suspense></div>, alertsMount)
-      : null}
-    {trendsMount
-      ? createPortal(<div hidden={location.pathname !== '/history'}><Suspense fallback={<div aria-busy="true" />}><TrendsWorkspace /></Suspense></div>, trendsMount)
-      : null}
-    {nodesMount
-      ? createPortal(<div hidden={location.pathname !== '/nodes' && !/^\/nodes\/[^/]+$/.test(location.pathname)}><Suspense fallback={<div aria-busy="true" />}><NodesWorkspace /></Suspense></div>, nodesMount)
-      : null}
-    {cropProfilesMount
-      ? createPortal(<div hidden={location.pathname !== '/crop-profiles'}><Suspense fallback={<div aria-busy="true" />}><CropProfilesWorkspace /></Suspense></div>, cropProfilesMount)
-      : null}
-  </>
+  return (
+    <>
+      {!ready ? <WorkspaceLoading /> : null}
+      <div ref={hostsRef} hidden={!ready}>
+        {workspace('/', <OverviewWorkspace />)}
+        {workspace('/areas', <AreasWorkspace />)}
+        {workspace('/sections', <SectionsWorkspace />)}
+        {workspace('/nodes', <NodesWorkspace />)}
+        {workspace('/readings', <ReadingsWorkspace />)}
+        {workspace('/history', <TrendsWorkspace />)}
+        {workspace('/alerts', <AlertsWorkspace />)}
+        {workspace('/actions', <ActionsWorkspace />)}
+        {workspace('/crop-profiles', <CropProfilesWorkspace />)}
+        {workspace('/simulator', <SimulatorWorkspace />)}
+        {workspace('/settings', <SettingsWorkspace />)}
+        {workspace('/organization', <OrganizationWorkspace />)}
+        {workspace('/admin', <AdminWorkspace />)}
+        {workspace('/admin/integrations', <AdminIntegrationsWorkspace />)}
+      </div>
+    </>
+  )
 }
 
 export default function DashboardPage() {
   const location = useLocation()
-  const [dashboardReady, setDashboardReady] = useState(false)
+  const dashboardState = useDashboardState()
+  const [bootstrapped, setBootstrapped] = useState(false)
+  const [user, setUser] = useState<DashboardUser | null>(null)
 
   useEffect(() => {
+    document.body.classList.add('designer-app')
+    installEChartsEngine()
     let active = true
-    void preloadCompleteDashboard().finally(() => {
-      if (active) setDashboardReady(true)
-    })
-    return () => { active = false }
+    Promise.all(preloaders.map((load) => load()))
+      .then(async () => {
+        try {
+          const response = await neurocropApi.getCurrentUser() as { user?: DashboardUser }
+          if (response.user?.email) {
+            await prefetchWorkspaceData()
+            if (active) setUser(response.user)
+          }
+        } catch {
+          if (active) setUser(null)
+        }
+      })
+      .finally(() => { if (active) setBootstrapped(true) })
+    return () => {
+      active = false
+      document.body.classList.remove('designer-app')
+      delete document.body.dataset.primaryPage
+    }
   }, [])
 
+  useEffect(() => {
+    if (dashboardState.unauthorizedVersion) queueMicrotask(() => setUser(null))
+  }, [dashboardState.unauthorizedVersion])
+
   if (!isSupportedRoute(location.pathname)) return <Navigate to="/" replace />
-  if (!dashboardReady) {
-    return <WorkspaceLoading />
-  }
-  return <ApprovedDashboard />
+  if (!bootstrapped) return <WorkspaceLoading />
+  if (!user) return <Login onAuthenticated={setUser} />
+
+  return (
+    <DashboardShell user={user} onSignOut={async () => {
+      try { await neurocropApi.logout() } finally {
+        invalidateRequestCache()
+        setUser(null)
+      }
+    }}>
+      <Workspaces pathname={location.pathname} />
+    </DashboardShell>
+  )
 }

@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { openTrend } from '../../state/dashboardStore'
 import { renderTrendChart } from '../trends/sharedTrendChart'
 import '../../styles/climate-map.css'
 import '../../styles/readings-workspace.css'
@@ -477,6 +478,7 @@ function TrendPreviewChart({ points, target, metric, periodLabel }: { points: Hi
 }
 
 export default function ReadingsWorkspace() {
+  const navigate = useNavigate()
   const location = useLocation()
   const [sections, setSections] = useState<SectionReading[]>([])
   const [areaOptions, setAreaOptions] = useState<Array<[string, string]>>([])
@@ -735,12 +737,12 @@ export default function ReadingsWorkspace() {
   }
 
   function openMetricTrend(section: SectionReading, metric: Metric) {
-    window.postMessage({
-      type: 'neurocrop:open-trend',
+    openTrend({
       areaId: section.areaId,
       sectionId: section.id,
       metricKey: metric.key,
-    }, window.location.origin)
+    })
+    navigate('/history')
   }
 
   function openTrendPreview(section: SectionReading, metric: Metric) {
@@ -832,6 +834,6 @@ export default function ReadingsWorkspace() {
 
     {trendPreviewSection && trendPreviewMetric ? <div className="nc-readings-drawer-backdrop nc-trend-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setTrendPreview(null) }}><aside className="nc-readings-drawer nc-trend-preview" role="dialog" aria-modal="true" aria-label={`${trendPreviewSection.name} ${trendPreviewMetric.label} trend`}><header><div><p className="nc-overline">Measurement trend</p><h2>{trendPreviewMetric.label}</h2><span>{trendPreviewSection.areaName} · {trendPreviewSection.name}</span></div><button type="button" onClick={() => setTrendPreview(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header><div className="nc-trend-preview-body"><div className="nc-trend-current" data-tone={getTone(trendPreviewSection, trendPreviewMetric, profiles.get(trendPreviewSection.profileId))}><span><small>Current reading</small><strong>{formatValue(getValue(trendPreviewSection, trendPreviewMetric), trendPreviewMetric)} <em>{trendPreviewMetric.unit}</em></strong></span><span><small>Crop target</small><strong>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)?.map((bound) => formatValue(bound, trendPreviewMetric)).join('–') || 'Not set'} <em>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric) ? trendPreviewMetric.unit : ''}</em></strong></span></div><div className="nc-trend-range" role="group" aria-label="Trend period">{(Object.keys(trendRanges) as TrendRangeKey[]).map((range) => <button type="button" className={trendRange === range ? 'active' : ''} onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setTrendRange(range) }} key={range}>{range}</button>)}</div>{trendPreviewHistory.status === 'ready' ? <TrendPreviewChart points={trendPreviewHistory.points} target={getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)} metric={trendPreviewMetric} periodLabel={trendRange} /> : <div className="nc-trend-preview-state" data-state={trendPreviewHistory.status}>{trendPreviewHistory.status === 'loading' ? 'Loading measurement history…' : trendPreviewHistory.status === 'error' ? 'History could not be loaded' : 'Not enough measurements for this period'}</div>}<p className="nc-trend-preview-note"><i className="fa-solid fa-circle-info" /> Chart values are aggregated from this Section's sensor history. Drag or scroll the chart to inspect dense periods.</p></div><footer><button type="button" onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setRefreshToken((value) => value + 1) }}><i className="fa-solid fa-rotate" />Refresh</button><button type="button" className="primary" onClick={() => { setTrendPreview(null); openMetricTrend(trendPreviewSection, trendPreviewMetric) }}>Open full Trends <i className="fa-solid fa-arrow-right" /></button></footer></aside></div> : null}
 
-    {selectedSection ? <div className="nc-readings-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setDrawerId(null) }}><aside className="nc-readings-drawer" role="dialog" aria-modal="true" aria-label={`${selectedSection.name} readings`}><header><div><p className="nc-overline">Section detail</p><h2>{selectedSection.name}</h2><span>{selectedSection.areaName} · {selectedSection.profileName}</span></div><button onClick={() => setDrawerId(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header><div className="nc-drawer-summary"><i className="fa-solid fa-tower-broadcast" /><span><strong>{formatAge(selectedSection)}</strong><small>{selectedSection.nodes.length} configured nodes</small></span></div><div className="nc-drawer-metrics">{metrics.map((metric) => <div className="nc-drawer-metric" data-tone={getTone(selectedSection, metric, profiles.get(selectedSection.profileId))} key={metric.key}><span><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{qualityLabels[getQuality(selectedSection, metric)]}</small></span></span><span><strong>{formatValue(getValue(selectedSection, metric), metric)} {getValue(selectedSection, metric) === null ? '' : metric.unit}</strong><small>{getRange(profiles.get(selectedSection.profileId), metric)?.map((bound) => formatValue(bound, metric)).join('–') || 'No target'} {metric.unit}</small></span></div>)}</div><footer><button onClick={() => togglePin(selectedSection.id)} disabled={!pinned.includes(selectedSection.id) && pinned.length >= 3}><i className="fa-solid fa-thumbtack" />{pinned.includes(selectedSection.id) ? 'Unpin section' : 'Pin comparison'}</button><button className="primary" onClick={() => { window.postMessage({ type: 'neurocrop:navigate', route: '/sections' }, window.location.origin); setDrawerId(null) }}>Open Sections</button></footer></aside></div> : null}
+    {selectedSection ? <div className="nc-readings-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setDrawerId(null) }}><aside className="nc-readings-drawer" role="dialog" aria-modal="true" aria-label={`${selectedSection.name} readings`}><header><div><p className="nc-overline">Section detail</p><h2>{selectedSection.name}</h2><span>{selectedSection.areaName} · {selectedSection.profileName}</span></div><button onClick={() => setDrawerId(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button></header><div className="nc-drawer-summary"><i className="fa-solid fa-tower-broadcast" /><span><strong>{formatAge(selectedSection)}</strong><small>{selectedSection.nodes.length} configured nodes</small></span></div><div className="nc-drawer-metrics">{metrics.map((metric) => <div className="nc-drawer-metric" data-tone={getTone(selectedSection, metric, profiles.get(selectedSection.profileId))} key={metric.key}><span><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{qualityLabels[getQuality(selectedSection, metric)]}</small></span></span><span><strong>{formatValue(getValue(selectedSection, metric), metric)} {getValue(selectedSection, metric) === null ? '' : metric.unit}</strong><small>{getRange(profiles.get(selectedSection.profileId), metric)?.map((bound) => formatValue(bound, metric)).join('–') || 'No target'} {metric.unit}</small></span></div>)}</div><footer><button onClick={() => togglePin(selectedSection.id)} disabled={!pinned.includes(selectedSection.id) && pinned.length >= 3}><i className="fa-solid fa-thumbtack" />{pinned.includes(selectedSection.id) ? 'Unpin section' : 'Pin comparison'}</button><button className="primary" onClick={() => { navigate('/sections'); setDrawerId(null) }}>Open Sections</button></footer></aside></div> : null}
   </main>
 }

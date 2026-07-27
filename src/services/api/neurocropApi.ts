@@ -88,10 +88,6 @@ export const neurocropApi = {
   deleteNode: (devEui: string, options: { history?: 'keep' | 'delete' } = {}) => request(`/nodes/${encoded(devEui)}${queryString({ history: options.history || 'keep' })}`, { method: 'DELETE' }),
 }
 
-export function installNeuroCropApi() {
-  window.NeuroCropApi = neurocropApi
-}
-
 export async function prefetchWorkspaceData() {
   await Promise.allSettled([
     neurocropApi.getDashboard(),
@@ -111,5 +107,3 @@ export async function prefetchWorkspaceData() {
     neurocropApi.getSessions(),
   ])
 }
-
-export type NeuroCropApi = typeof neurocropApi

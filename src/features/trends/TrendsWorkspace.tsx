@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { consumeTrendIntent, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { renderTrendChart } from './sharedTrendChart'
 import '../../styles/trends-workspace.css'
 
@@ -379,6 +380,7 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
 }
 
 export default function TrendsWorkspace() {
+  const dashboardState = useDashboardState()
   const [stored] = useState(() => loadStoredSelection())
   const hydrationBusyRef = useRef(false)
   const retryContextAfterLoginRef = useRef(false)
@@ -386,8 +388,8 @@ export default function TrendsWorkspace() {
   const [sections, setSections] = useState<Section[]>([])
   const [nodes, setNodes] = useState<NodeOption[]>([])
   const [profiles, setProfiles] = useState<JsonRecord[]>([])
-  const [areaId, setAreaId] = useState(String(stored.areaId || ''))
-  const [sectionId, setSectionId] = useState(String(stored.sectionId || ''))
+  const [areaId, setAreaId] = useState(String(dashboardState.context.areaId || stored.areaId || ''))
+  const [sectionId, setSectionId] = useState(String(dashboardState.context.sectionId || stored.sectionId || ''))
   const [metricKey, setMetricKey] = useState(String(stored.metricKey || 'airTemp'))
   const [secondaryMetricKeys, setSecondaryMetricKeys] = useState<string[]>(
     Array.isArray(stored.secondaryMetricKeys) ? stored.secondaryMetricKeys.map(String).slice(0, 2) : [],
@@ -483,47 +485,32 @@ export default function TrendsWorkspace() {
         hydrationBusyRef.current = false
       }
     }
-    const retryAfterAuthentication = (event: Event) => {
-      const connected = (event as CustomEvent<{ connected?: boolean }>).detail?.connected !== false
-      if (connected && (retryContextAfterLoginRef.current || sectionsRef.current.length === 0)) void hydrateContext()
-    }
-    const syncRuntimeContext = (event: Event) => {
-      const detail = (event as CustomEvent<{ siteId?: unknown; zoneId?: unknown }>).detail
-      const nextAreaId = text(detail?.siteId)
-      const nextSectionId = text(detail?.zoneId)
-      if (nextAreaId) setAreaId(nextAreaId)
-      if (nextSectionId) setSectionId(nextSectionId)
-    }
-    const useDashboardContext = (event: Event) => {
-      const detail = (event as CustomEvent<{ sites?: JsonRecord[]; siteId?: unknown; zoneId?: unknown }>).detail
-      if (!Array.isArray(detail?.sites) || !detail.sites.length) return
-      const runtimeSections = sectionList({ sites: detail.sites }, {}, {})
-      applyWorkspaceContext(runtimeSections, undefined, text(detail.siteId), text(detail.zoneId))
-    }
-    const existingDashboardContext = (window as typeof window & {
-      NeuroCropDashboardContext?: { sites?: JsonRecord[]; siteId?: unknown; zoneId?: unknown }
-    }).NeuroCropDashboardContext
-    if (Array.isArray(existingDashboardContext?.sites) && existingDashboardContext.sites.length) {
-      applyWorkspaceContext(
-        sectionList({ sites: existingDashboardContext.sites }, {}, {}),
-        undefined,
-        text(existingDashboardContext.siteId),
-        text(existingDashboardContext.zoneId),
-      )
-    }
     void hydrateContext()
-    window.addEventListener('neurocrop:api-connection', retryAfterAuthentication)
-    window.addEventListener('neurocrop:context-change', syncRuntimeContext)
-    window.addEventListener('neurocrop:dashboard-context', useDashboardContext)
     return () => {
       active = false
-      window.removeEventListener('neurocrop:api-connection', retryAfterAuthentication)
-      window.removeEventListener('neurocrop:context-change', syncRuntimeContext)
-      window.removeEventListener('neurocrop:dashboard-context', useDashboardContext)
     }
     // Initial workspace hydration intentionally runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (dashboardState.connected && (retryContextAfterLoginRef.current || sectionsRef.current.length === 0)) {
+      retryContextAfterLoginRef.current = false
+    }
+  }, [dashboardState.connected])
+
+  useEffect(() => {
+    const nextAreaId = dashboardState.context.areaId
+    const nextSectionId = dashboardState.context.sectionId
+    queueMicrotask(() => {
+      if (nextAreaId && nextAreaId !== areaId) setAreaId(nextAreaId)
+      if (nextSectionId && nextSectionId !== sectionId) setSectionId(nextSectionId)
+    })
+  }, [areaId, dashboardState.context.areaId, dashboardState.context.sectionId, sectionId])
+
+  useEffect(() => {
+    if (areaId || sectionId) setDashboardContext({ areaId, sectionId })
+  }, [areaId, sectionId])
 
   useEffect(() => {
     if (!sections.length) return
@@ -540,15 +527,15 @@ export default function TrendsWorkspace() {
   }, [areaId, sectionId, sections])
 
   useEffect(() => {
-    const listener = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin || event.data?.type !== 'neurocrop:open-trend') return
-      if (event.data.areaId) setAreaId(String(event.data.areaId))
-      if (event.data.sectionId) setSectionId(String(event.data.sectionId))
-      if (event.data.metricKey) setMetricKey(String(event.data.metricKey))
-    }
-    window.addEventListener('message', listener)
-    return () => window.removeEventListener('message', listener)
-  }, [])
+    const intent = dashboardState.trendIntent
+    if (!intent) return
+    queueMicrotask(() => {
+      if (intent.areaId) setAreaId(String(intent.areaId))
+      if (intent.sectionId) setSectionId(String(intent.sectionId))
+      if (intent.metricKey) setMetricKey(String(intent.metricKey))
+      consumeTrendIntent()
+    })
+  }, [dashboardState.trendIntent])
 
   useEffect(() => {
     if (!selectedSection) {

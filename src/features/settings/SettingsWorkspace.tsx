@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { setInterfaceLanguage } from '../../i18n'
 import '../../styles/settings-workspace.css'
 
 type SettingsSection = 'workspace' | 'team' | 'notifications' | 'security' | 'audit'
@@ -190,7 +191,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
         alerts: { ...(existing.alerts || {}), warningAfterMinutes: draft.warningAfterMinutes },
         notifications: { ...(existing.notifications || {}), emailEnabled: draft.emailEnabled, browserEnabled: draft.browserEnabled, smsEnabled: draft.smsEnabled, criticalOverride: draft.criticalOverride, quietStart: draft.quietStart, quietEnd: draft.quietEnd },
       }))
-      window.NeuroCropI18n?.setLanguage(draft.locale === 'lt-LT' ? 'lt' : 'en')
+      setInterfaceLanguage(draft.locale === 'lt-LT' ? 'lt' : 'en')
       if (JSON.stringify(draft) !== JSON.stringify(saved)) recordAudit('configuration', 'Saved workspace preferences', 'Display, notification, or escalation settings changed')
       setSaved(draft)
       setFeedback({ tone: 'success', text: 'Settings saved.' })

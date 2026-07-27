@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { openTrend, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import TopographicField from './TopographicField'
 import '../../styles/overview-workspace.css'
 
@@ -131,16 +132,6 @@ const METRIC_UNITS: Record<string, string> = {
 
 function asArray(value: unknown): JsonRecord[] {
   return Array.isArray(value) ? value : []
-}
-
-function readSelectedAreaId() {
-  try {
-    const stored = JSON.parse(localStorage.getItem('neurocrop-active-context-v1') || 'null')
-    const scope = stored?.lastScopeKey
-    return String(stored?.contexts?.[scope]?.siteId || stored?.siteId || '')
-  } catch {
-    return ''
-  }
 }
 
 function statusTone(value: unknown): Tone {
@@ -529,11 +520,11 @@ function EvidenceDrawer({ model, row, onClose }: {
   function openTrends() {
     onClose()
     if (row?.metricKey) {
-      sessionStorage.setItem('neurocrop-pending-trend', JSON.stringify({
+      openTrend({
         areaId: model.areaId,
         sectionId: row.id,
         metricKey: row.metricKey,
-      }))
+      })
     }
     navigate('/history')
   }
@@ -752,9 +743,10 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
 
 export default function OverviewWorkspace() {
   const navigate = useNavigate()
+  const dashboardState = useDashboardState()
   const [dashboard, setDashboard] = useState<JsonRecord | null>(null)
   const [actions, setActions] = useState<JsonRecord | null>(null)
-  const [selectedAreaId, setSelectedAreaId] = useState(readSelectedAreaId)
+  const selectedAreaId = dashboardState.context.areaId
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [error, setError] = useState('')
   const [evidenceOpen, setEvidenceOpen] = useState(false)
@@ -764,15 +756,6 @@ export default function OverviewWorkspace() {
 
   useEffect(() => {
     void loadReadingsClimateMap()
-  }, [])
-
-  useEffect(() => {
-    const updateContext = (event: Event) => {
-      const detail = (event as CustomEvent<{ siteId?: string }>).detail
-      setSelectedAreaId(String(detail?.siteId || readSelectedAreaId()))
-    }
-    window.addEventListener('neurocrop:context-change', updateContext)
-    return () => window.removeEventListener('neurocrop:context-change', updateContext)
   }, [])
 
   useEffect(() => {
@@ -917,10 +900,7 @@ export default function OverviewWorkspace() {
   }
 
   function changeArea(areaId: string) {
-    setSelectedAreaId(areaId)
-    window.dispatchEvent(new CustomEvent('neurocrop:overview-area-change', {
-      detail: { siteId: areaId },
-    }))
+    setDashboardContext({ areaId, sectionId: '' })
   }
 
   const overviewTone = stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'
