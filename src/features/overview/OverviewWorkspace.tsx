@@ -811,8 +811,8 @@ export default function OverviewWorkspace() {
   )
 
   if (loadState === 'loading') return <section className="nc-overview-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><h1>{tx("Preparing your live overview")}</h1><p>{tx("Evaluating Sections against their active crop profiles.")}</p></section>
-  if (loadState === 'error') return <section className="nc-overview-state" role="alert"><i className="fa-solid fa-cloud-arrow-down" /><h1>{tx("Overview could not be loaded")}</h1><p>{error}</p><button type="button" onClick={() => setRefreshKey((value) => value + 1)}>{tx("Try again")}</button></section>
-  if (loadState === 'empty' || !model) return <section className="nc-overview-state"><i className="fa-solid fa-seedling" /><h1>{tx("Create your first Area")}</h1><p>{tx("Add its first Section to begin monitoring.")}</p></section>
+  if (loadState === 'error') return <section className="nc-overview-state" data-overview-heatmap-settled="true" role="alert"><i className="fa-solid fa-cloud-arrow-down" /><h1>{tx("Overview could not be loaded")}</h1><p>{error}</p><button type="button" onClick={() => setRefreshKey((value) => value + 1)}>{tx("Try again")}</button></section>
+  if (loadState === 'empty' || !model) return <section className="nc-overview-state" data-overview-heatmap-settled="true"><i className="fa-solid fa-seedling" /><h1>{tx("Create your first Area")}</h1><p>{tx("Add its first Section to begin monitoring.")}</p></section>
 
   const actionRows = model.rows.filter((row) => row.tone === 'action')
   const watchRows = model.rows.filter((row) => row.tone === 'watch')

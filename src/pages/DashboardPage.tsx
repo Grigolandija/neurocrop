@@ -67,12 +67,13 @@ function Workspaces({ pathname }: { pathname: string }) {
       if (
         hosts.length !== 14
         || hosts.some((host) => !host.childElementCount || host.querySelector('[data-workspace-suspense]'))
+        || !root.querySelector('[data-overview-heatmap-settled="true"]')
       ) return
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => setReady(true))
     }
     const observer = new MutationObserver(update)
-    observer.observe(root, { childList: true, subtree: true })
+    observer.observe(root, { attributes: true, childList: true, subtree: true })
     update()
     return () => { cancelAnimationFrame(frame); observer.disconnect() }
   }, [])

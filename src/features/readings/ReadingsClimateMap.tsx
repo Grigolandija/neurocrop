@@ -1,5 +1,5 @@
 import { translateInterfaceText as tx } from '../../i18n'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useInterfaceLanguage } from '../../i18n'
 import GreenhouseCanvas from '../greenhouse-map/components/GreenhouseCanvas'
 import { METRICS, type MetricKey } from '../greenhouse-map/model'
@@ -37,7 +37,9 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState('')
+  const [canvasReady, setCanvasReady] = useState(false)
   const contextRef = useRef<AreaMapContext | null>(null)
+  const handleCanvasRenderReady = useCallback(() => setCanvasReady(true), [])
 
   useEffect(() => {
     let cancelled = false
@@ -45,6 +47,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
     const hasPreviousArea = Boolean(contextRef.current)
     void Promise.resolve().then(() => {
       if (cancelled) return
+      setCanvasReady(false)
       if (hasPreviousArea) setUpdating(true)
       else {
         contextRef.current = null
@@ -189,7 +192,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
     : 'Timestamp unavailable'
 
   if (status === 'error') {
-    return <div className="nc-climate-map-state" data-state="error" aria-busy="false"><i className="fa-solid fa-triangle-exclamation" /><strong>{tx("Climate map could not be loaded")}</strong><span>{error}</span></div>
+    return <div className="nc-climate-map-state" data-state="error" data-overview-heatmap-settled={presentation === 'overview' ? 'true' : undefined} aria-busy="false"><i className="fa-solid fa-triangle-exclamation" /><strong>{tx("Climate map could not be loaded")}</strong><span>{error}</span></div>
   }
   if (status === 'loading' || !map || !context) {
     return <div className="nc-climate-map-state" data-state={status} aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong><span>{tx("Combining the saved Area plan with current and historical node readings.")}</span></div>
@@ -220,7 +223,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
     setPlaying((current) => !current)
   }
 
-  return <section className={`nc-live-climate-map ${overviewPresentation ? 'nc-overview-presentation' : ''}`} aria-label={`${context.area.name} live climate map`}>
+  return <section className={`nc-live-climate-map ${overviewPresentation ? 'nc-overview-presentation' : ''}`} data-overview-heatmap-settled={overviewPresentation && canvasReady ? 'true' : undefined} aria-label={`${context.area.name} live climate map`}>
     <header>
       <div>
         <p className="nc-overline">{timeMode === 'history' ? lithuanian ? 'Istorinis klimato žemėlapis' :tx("Historical climate map") : overviewPresentation ?tx("Live climate snapshot") :tx("Live climate map")}</p>
@@ -275,6 +278,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         onMove={() => undefined}
         onUpdate={() => undefined}
         onAdd={() => undefined}
+        onRenderReady={handleCanvasRenderReady}
       />
     </div>
     <div className="nc-climate-map-legend-slot" ref={setLegendHost} />

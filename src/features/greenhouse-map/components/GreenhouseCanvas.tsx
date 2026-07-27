@@ -27,6 +27,7 @@ type Props = {
   onMove: (positions: Array<{ id: string; xM: number; yM: number }>, record?: boolean) => void
   onUpdate: (id: string, patch: Partial<GreenhouseObject>, record?: boolean) => void
   onAdd: (type: ObjectType, xM?: number, yM?: number) => void
+  onRenderReady?: () => void
 }
 
 const objectColors: Record<string, { fill: string; stroke: string }> = {
@@ -107,7 +108,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -153,33 +154,57 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
 
   const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric), [map])
   useEffect(() => {
+    let firstPaintFrame = 0
+    let settledPaintFrame = 0
+    const signalRendered = () => {
+      firstPaintFrame = window.requestAnimationFrame(() => {
+        settledPaintFrame = window.requestAnimationFrame(() => onRenderReady?.())
+      })
+    }
     if (mode !== 'environment' || !map.heatmapSettings.enabled) {
-      const clearTimer = window.setTimeout(() => setHeatmap(null), 0)
-      return () => window.clearTimeout(clearTimer)
+      const clearTimer = window.setTimeout(() => {
+        setHeatmap(null)
+        signalRendered()
+      }, 0)
+      return () => {
+        window.clearTimeout(clearTimer)
+        window.cancelAnimationFrame(firstPaintFrame)
+        window.cancelAnimationFrame(settledPaintFrame)
+      }
     }
     const timer = window.setTimeout(() => {
-      const metric = map.heatmapSettings.metric
-      const scale = getStableScale(points.map((point) => point.value), metric, map.heatmapSettings.scaleMode === 'manual' ? { min: map.heatmapSettings.manualMin, max: map.heatmapSettings.manualMax } : undefined)
-      const grid = createMeasurementGrid(points, map.dimensions.widthM, map.dimensions.lengthM, metric, map.heatmapSettings.idwPower, scale)
-      if (!grid) { setHeatmap(null); return }
-      setHeatmap({
-        canvas: renderHeatmapCanvas(
-          grid,
-          METRICS[metric].colors,
-          COLOR_INTERVALS[metric],
-          map.heatmapSettings.opacity,
-          map.heatmapSettings.showConfidence,
-        ),
-        grid,
-        min: grid.min,
-        max: grid.max,
-        count: grid.sensorCount,
-        contourInterval: getAdaptiveContourInterval(metric, points.map((point) => point.value), grid.sensorCount),
-        calculatedAt: new Date(),
-      })
+      try {
+        const metric = map.heatmapSettings.metric
+        const scale = getStableScale(points.map((point) => point.value), metric, map.heatmapSettings.scaleMode === 'manual' ? { min: map.heatmapSettings.manualMin, max: map.heatmapSettings.manualMax } : undefined)
+        const grid = createMeasurementGrid(points, map.dimensions.widthM, map.dimensions.lengthM, metric, map.heatmapSettings.idwPower, scale)
+        if (!grid) setHeatmap(null)
+        else {
+          setHeatmap({
+            canvas: renderHeatmapCanvas(
+              grid,
+              METRICS[metric].colors,
+              COLOR_INTERVALS[metric],
+              map.heatmapSettings.opacity,
+              map.heatmapSettings.showConfidence,
+            ),
+            grid,
+            min: grid.min,
+            max: grid.max,
+            count: grid.sensorCount,
+            contourInterval: getAdaptiveContourInterval(metric, points.map((point) => point.value), grid.sensorCount),
+            calculatedAt: new Date(),
+          })
+        }
+      } finally {
+        signalRendered()
+      }
     }, 180)
-    return () => window.clearTimeout(timer)
-  }, [map.dimensions, map.heatmapSettings, mode, points])
+    return () => {
+      window.clearTimeout(timer)
+      window.cancelAnimationFrame(firstPaintFrame)
+      window.cancelAnimationFrame(settledPaintFrame)
+    }
+  }, [map.dimensions, map.heatmapSettings, mode, onRenderReady, points])
 
   const pointerWorld = useCallback(() => {
     const stage = stageRef.current
