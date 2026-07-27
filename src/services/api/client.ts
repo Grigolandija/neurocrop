@@ -5,6 +5,7 @@ const getCache = new Map<string, { expiresAt: number; value: unknown }>()
 const getRequestsInFlight = new Map<string, Promise<unknown>>()
 let cacheGeneration = 0
 let apiConnectionLost = !getDashboardState().connected
+let sessionCheckInFlight: Promise<boolean> | null = null
 subscribeDashboardState(() => {
   apiConnectionLost = !getDashboardState().connected
 })
@@ -62,6 +63,22 @@ function requestSignal(signal: AbortSignal | null | undefined, timeoutMs: number
   return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal
 }
 
+async function sessionHasEnded() {
+  if (!sessionCheckInFlight) {
+    sessionCheckInFlight = fetchWithConnectionStatus(`${apiBaseUrl()}/auth/me`, {
+      credentials: 'include',
+      signal: requestSignal(null, 15_000),
+      headers: { Accept: 'application/json' },
+    })
+      .then((response) => response.status === 401)
+      .catch(() => false)
+      .finally(() => {
+        sessionCheckInFlight = null
+      })
+  }
+  return await sessionCheckInFlight
+}
+
 export const request: ApiRequest = async <T>(path: string, options: RequestInit = {}) => {
   const method = String(options.method || 'GET').toUpperCase()
   const cacheable = method === 'GET' && !options.signal && options.cache !== 'no-store' && options.cache !== 'reload'
@@ -93,8 +110,10 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
       // An unauthenticated /auth/me response is the normal signed-out state, not
       // an expired-session event that should alarm the user.
       if (response.status === 401 && !isPublicAuthenticationRequest(path)) {
-        notifyUnauthorized()
-        throw new Error('Your session has ended. Please sign in again.')
+        if (await sessionHasEnded()) {
+          notifyUnauthorized()
+          throw new Error('Your session has ended. Please sign in again.')
+        }
       }
       const detail = await readResponseBody(response).catch(() => null)
       throw new Error(responseErrorMessage(detail, `API request failed with ${response.status}.`))
