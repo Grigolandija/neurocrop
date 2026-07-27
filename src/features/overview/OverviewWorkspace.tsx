@@ -1,6 +1,6 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { openTrend, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import '../../styles/overview-workspace.css'
@@ -742,6 +742,7 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
 }
 
 export default function OverviewWorkspace() {
+  const location = useLocation()
   const navigate = useNavigate()
   const dashboardState = useDashboardState()
   const [dashboard, setDashboard] = useState<JsonRecord | null>(null)
@@ -782,7 +783,7 @@ export default function OverviewWorkspace() {
         setLoadState((current) => current === 'loading' ? 'error' : current)
       })
     return () => { active = false }
-  }, [dashboardState.structureVersion, refreshKey])
+  }, [location.pathname, refreshKey])
 
   const model = useMemo(
     () => dashboard && actions ? buildModel(dashboard, actions, selectedAreaId) : null,

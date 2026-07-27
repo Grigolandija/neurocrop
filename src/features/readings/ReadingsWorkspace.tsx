@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
-import { openTrend, useWorkspaceStructureVersion } from '../../state/dashboardStore'
+import { openTrend } from '../../state/dashboardStore'
 import { renderTrendChart } from '../trends/sharedTrendChart'
 import '../../styles/climate-map.css'
 import '../../styles/readings-workspace.css'
@@ -479,7 +479,6 @@ function TrendPreviewChart({ points, target, metric, periodLabel }: { points: Hi
 }
 
 export default function ReadingsWorkspace() {
-  const structureVersion = useWorkspaceStructureVersion()
   const navigate = useNavigate()
   const location = useLocation()
   const [sections, setSections] = useState<SectionReading[]>([])
@@ -623,7 +622,7 @@ export default function ReadingsWorkspace() {
       if (!document.hidden) setRefreshToken((value) => value + 1)
     }, 60_000)
     return () => { cancelled = true; window.clearInterval(interval) }
-  }, [refreshToken, structureVersion])
+  }, [location.pathname, refreshToken])
 
   useEffect(() => {
     if (!drawerId && !trendPreview) return

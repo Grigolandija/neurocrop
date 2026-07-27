@@ -1,8 +1,8 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
-import { notifyWorkspaceStructureChanged, useWorkspaceStructureVersion } from '../../state/dashboardStore'
+import { notifyWorkspaceStructureChanged } from '../../state/dashboardStore'
 import '../../styles/areas-workspace.css'
 
 // API payloads include both current management fields and dashboard aliases.
@@ -113,7 +113,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export default function AreasWorkspace() {
-  const structureVersion = useWorkspaceStructureVersion()
+  const location = useLocation()
   const navigate = useNavigate()
   const greenhouseMapBeta = window.NEUROCROP_CONFIG?.greenhouseMapBeta === true
   const [areas, setAreas] = useState<AreaRow[]>([])
@@ -191,7 +191,7 @@ export default function AreasWorkspace() {
     }
     load()
     return () => { cancelled = true }
-  }, [refreshToken, structureVersion])
+  }, [location.pathname, refreshToken])
 
   useEffect(() => {
     if (!menuId) return

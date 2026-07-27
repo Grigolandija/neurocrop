@@ -2,7 +2,7 @@ import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
-import { notifyWorkspaceStructureChanged as publishWorkspaceStructureChanged, useWorkspaceStructureVersion } from '../../state/dashboardStore'
+import { notifyWorkspaceStructureChanged as publishWorkspaceStructureChanged } from '../../state/dashboardStore'
 import '../../styles/sections-workspace.css'
 
 // Management payloads can contain both dashboard and API naming conventions.
@@ -169,7 +169,6 @@ function downloadCsv(rows: SectionRow[]) {
 }
 
 export default function SectionsWorkspace() {
-  const structureVersion = useWorkspaceStructureVersion()
   const navigate = useNavigate()
   const location = useLocation()
   const handledAreaCreate = useRef('')
@@ -317,7 +316,7 @@ export default function SectionsWorkspace() {
     }
     load()
     return () => { cancelled = true }
-  }, [refreshToken, structureVersion])
+  }, [location.pathname, refreshToken])
 
   const counts = useMemo(() => ({
     total: sections.length,
