@@ -1552,6 +1552,8 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   z-index: 1;
   min-width: 0;
   overflow: hidden;
+  contain: layout paint;
+  isolation: isolate;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1599,6 +1601,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-overview-climate-card .nc-climate-map-canvas {
   height: clamp(26rem, 42vw, 36rem);
+  contain: strict;
   background: transparent;
 }
 

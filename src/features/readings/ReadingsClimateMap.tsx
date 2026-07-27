@@ -42,9 +42,10 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   useEffect(() => {
     let cancelled = false
     const hasCurrentArea = contextRef.current?.area.id === areaId
+    const hasPreviousArea = Boolean(contextRef.current)
     void Promise.resolve().then(() => {
       if (cancelled) return
-      if (hasCurrentArea) setUpdating(true)
+      if (hasPreviousArea) setUpdating(true)
       else {
         contextRef.current = null
         setContext(null)
@@ -84,7 +85,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         if (cancelled) return
         const message = loadError instanceof Error ? loadError.message : 'Climate map could not be loaded.'
         setError(message)
-        if (contextRef.current?.area.id === areaId) setStatus('ready')
+        if (contextRef.current) setStatus('ready')
         else {
           contextRef.current = null
           setContext(null)
