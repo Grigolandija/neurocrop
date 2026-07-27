@@ -18,14 +18,10 @@ test-results/
 *.zip
 .release/
 
-# Private NeuroCrop gateway factory and production integration
+# Private NeuroCrop factory desktop applications
 /gateway-factory/
 /node-factory/
 /.github/workflows/gateway-windows.yml
-/backend/gateway-factory-routes.js
-/backend/migrations/0008_gateway_factory.sql
-/backend/tests/gateway-factory.test.mjs
-/backend/tests/node-factory.test.mjs
 
 # Editor directories and files
 .vscode/*
