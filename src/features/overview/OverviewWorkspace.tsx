@@ -1,9 +1,12 @@
 import { translateInterfaceText as tx } from '../../i18n'
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { openTrend, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import '../../styles/overview-workspace.css'
+
+const loadReadingsClimateMap = () => import('../readings/ReadingsClimateMap')
+const ReadingsClimateMap = lazy(loadReadingsClimateMap)
 
 // Dashboard payloads intentionally remain open because firmware and API versions
 // can add telemetry fields without requiring an Overview release.
@@ -752,6 +755,10 @@ export default function OverviewWorkspace() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
+    void loadReadingsClimateMap()
+  }, [])
+
+  useEffect(() => {
     let active = true
     Promise.all(neurocropApi.isConnected()
       ? [neurocropApi.getDashboard(), neurocropApi.getTodayActions(), neurocropApi.getCropProfiles()]
@@ -973,6 +980,19 @@ export default function OverviewWorkspace() {
         <span>{actionRows.length} {tx("actions ·")} {watchRows.length} {tx("watch conditions")}</span>
         <button type="button" onClick={openAreaEvidence}>{tx("Open Area analysis")} <i className="fa-solid fa-arrow-right" /></button>
       </footer>
+    </section>
+    <section className="nc-overview-insights" aria-label={tx("Operational overview")}>
+      <article className="nc-overview-climate-card">
+        <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong></div>}>
+          <ReadingsClimateMap
+            key={model.areaId}
+            areaId={model.areaId}
+            refreshToken={refreshKey}
+            presentation="overview"
+            areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label={tx("Choose Area for climate snapshot")}>{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
+          />
+        </Suspense>
+      </article>
     </section>
     {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}
     {actionOpen && reviewActions.length ? <ActionWorkflow actions={reviewActions} rows={reviewRows} areaName={model.areaName} onClose={() => { setActionOpen(false); setRefreshKey((value) => value + 1) }} /> : null}
