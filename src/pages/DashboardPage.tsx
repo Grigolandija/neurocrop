@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import DashboardShell, { type DashboardUser } from '../components/DashboardShell'
 import WorkspaceLoading from '../components/WorkspaceLoading'
@@ -38,6 +38,23 @@ const TrendsWorkspace = lazy(loadTrendsWorkspace)
 const NodesWorkspace = lazy(loadNodesWorkspace)
 const CropProfilesWorkspace = lazy(loadCropProfilesWorkspace)
 
+const workspaceModuleLoaders = [
+  loadAreasWorkspace,
+  loadReadingsWorkspace,
+  loadSectionsWorkspace,
+  loadSettingsWorkspace,
+  loadOrganizationWorkspace,
+  loadAdminWorkspace,
+  loadAdminIntegrationsWorkspace,
+  loadOverviewWorkspace,
+  loadSimulatorWorkspace,
+  loadActionsWorkspace,
+  loadAlertsWorkspace,
+  loadTrendsWorkspace,
+  loadNodesWorkspace,
+  loadCropProfilesWorkspace,
+]
+
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
   '/history', '/settings', '/organization', '/crop-profiles', '/admin',
@@ -55,56 +72,60 @@ function isSupportedRoute(pathname: string) {
 
 function Workspaces({ pathname }: { pathname: string }) {
   const { language } = useInterfaceLanguage()
-  const hostsRef = useRef<HTMLDivElement>(null)
-  const [ready, setReady] = useState(false)
+  const hostRef = useRef<HTMLDivElement>(null)
+  const route = pathname.startsWith('/nodes/') ? '/nodes' : pathname
+  const [readyRoute, setReadyRoute] = useState('')
+  const ready = readyRoute === route
 
   useEffect(() => {
-    const root = hostsRef.current
-    if (!root) return
+    const host = hostRef.current
+    if (!host) return
     let frame = 0
     const update = () => {
-      const hosts = Array.from(root.querySelectorAll<HTMLElement>('[data-workspace-host]'))
-      if (
-        hosts.length !== 14
-        || hosts.some((host) => !host.childElementCount || host.querySelector('[data-workspace-suspense]'))
-        || !root.querySelector('[data-overview-heatmap-settled="true"]')
-      ) return
+      if (!host.childElementCount || host.querySelector('[data-workspace-suspense]')) return
+      if (route === '/' && !host.querySelector('[data-overview-heatmap-settled="true"]')) return
       cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => setReady(true))
+      frame = requestAnimationFrame(() => setReadyRoute(route))
     }
     const observer = new MutationObserver(update)
-    observer.observe(root, { attributes: true, childList: true, subtree: true })
+    observer.observe(host, { attributes: true, childList: true, subtree: true })
     update()
     return () => { cancelAnimationFrame(frame); observer.disconnect() }
-  }, [])
+  }, [route])
 
-  const visible = (route: string) => route === '/nodes'
-    ? pathname === route || pathname.startsWith('/nodes/')
-    : pathname === route
-  const workspace = (route: string, content: ReactNode) => (
-    <div id={workspaceHostIds[route]} data-workspace-host hidden={!visible(route)}>
-      <Suspense fallback={<div data-workspace-suspense aria-busy="true" />}>{content}</Suspense>
-    </div>
-  )
+  const workspace = (() => {
+    switch (route) {
+      case '/': return <OverviewWorkspace />
+      case '/areas': return <AreasWorkspace />
+      case '/sections': return <SectionsWorkspace />
+      case '/nodes': return <NodesWorkspace />
+      case '/readings': return <ReadingsWorkspace />
+      case '/history': return <TrendsWorkspace />
+      case '/alerts': return <AlertsWorkspace />
+      case '/actions': return <ActionsWorkspace />
+      case '/crop-profiles': return <CropProfilesWorkspace />
+      case '/simulator': return <SimulatorWorkspace />
+      case '/settings': return <SettingsWorkspace />
+      case '/organization': return <OrganizationWorkspace />
+      case '/admin': return <AdminWorkspace />
+      case '/admin/integrations': return <AdminIntegrationsWorkspace />
+      default: return null
+    }
+  })()
 
   return (
     <>
       {!ready ? <WorkspaceLoading /> : null}
-      <div ref={hostsRef} hidden={!ready} data-interface-language={language}>
-        {workspace('/', <OverviewWorkspace />)}
-        {workspace('/areas', <AreasWorkspace />)}
-        {workspace('/sections', <SectionsWorkspace />)}
-        {workspace('/nodes', <NodesWorkspace />)}
-        {workspace('/readings', <ReadingsWorkspace />)}
-        {workspace('/history', <TrendsWorkspace />)}
-        {workspace('/alerts', <AlertsWorkspace />)}
-        {workspace('/actions', <ActionsWorkspace />)}
-        {workspace('/crop-profiles', <CropProfilesWorkspace />)}
-        {workspace('/simulator', <SimulatorWorkspace />)}
-        {workspace('/settings', <SettingsWorkspace />)}
-        {workspace('/organization', <OrganizationWorkspace />)}
-        {workspace('/admin', <AdminWorkspace />)}
-        {workspace('/admin/integrations', <AdminIntegrationsWorkspace />)}
+      <div
+        ref={hostRef}
+        id={workspaceHostIds[route]}
+        hidden={!ready}
+        data-workspace-host
+        data-interface-language={language}
+      >
+        <Suspense fallback={<div data-workspace-suspense aria-busy="true" />}>
+          {workspace}
+        </Suspense>
       </div>
     </>
   )
@@ -122,6 +143,7 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
 
   useEffect(() => {
     installEChartsEngine()
+    void Promise.allSettled(workspaceModuleLoaders.map((load) => load()))
     void prefetchWorkspaceData()
     return () => {
       delete document.body.dataset.primaryPage
