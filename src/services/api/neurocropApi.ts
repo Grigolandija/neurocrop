@@ -27,6 +27,7 @@ export const neurocropApi = {
   getPlatformOrganizations: () => request('/platform/organizations'),
   getPlatformIntegrations: () => request('/platform/integrations'),
   getPlatformOrganizationNodes: (id: string) => request(`/platform/organizations/${encoded(id)}/nodes`),
+  getPlatformOrganizationMembers: (id: string) => request(`/platform/organizations/${encoded(id)}/members`),
   createPlatformOrganization: (payload: Payload) => request('/platform/organizations', { method: 'POST', body: json(payload) }),
   archivePlatformOrganization: (id: string) => request(`/platform/organizations/${encoded(id)}/archive`, { method: 'PATCH' }),
   restorePlatformOrganization: (id: string) => request(`/platform/organizations/${encoded(id)}/restore`, { method: 'PATCH' }),

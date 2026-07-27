@@ -213,6 +213,8 @@ input:checked + .nc-settings-switch::after { transform: translateX(1rem); }
 .nc-admin-table-wrap td > strong, .nc-admin-table-wrap td > small { display: block; }
 .nc-admin-table-wrap td > strong { font-size: var(--type-body-sm); font-weight: var(--weight-semibold); white-space: nowrap; }
 .nc-admin-table-wrap td > small { margin-top: .15rem; color: var(--color-text-tertiary); font-family: var(--font-technical); font-size: var(--type-caption); white-space: nowrap; }
+.nc-admin-member-link { display: inline-flex; align-items: center; gap: var(--space-4); margin-top: .15rem; padding: 0; background: transparent; color: var(--color-secondary); font-family: var(--font-technical); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
+.nc-admin-member-link:hover { color: var(--color-primary); text-decoration: underline; text-underline-offset: .15rem; }
 .nc-admin-row-actions { display: flex; justify-content: flex-end; gap: var(--space-4); }
 .nc-admin-row-actions button { display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid var(--color-border); border-radius: .5rem; background: var(--color-surface); color: var(--color-text-secondary); }
 .nc-admin-row-actions button:hover { border-color: var(--color-neutral-400); background: var(--color-surface-subtle); color: var(--color-text); }
@@ -245,6 +247,7 @@ input:checked + .nc-settings-switch::after { transform: translateX(1rem); }
 .nc-admin-diagnostics > header span { display: block; margin-top: var(--space-4); color: var(--color-text-tertiary); font-size: var(--type-caption); }
 .nc-admin-diagnostics > header button { display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border: 1px solid var(--color-border); border-radius: .625rem; background: var(--color-surface); color: var(--color-text-secondary); }
 .nc-admin-diagnostics > .nc-admin-table-wrap { max-height: calc(90vh - 7rem); }
+.nc-admin-members-dialog { width: min(62rem,100%); }
 
 .nc-organization-head { align-items: center; }
 .nc-organization-head-actions { display: flex; flex: 0 0 auto; align-items: flex-end; gap: var(--space-8); }

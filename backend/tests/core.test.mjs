@@ -1334,6 +1334,19 @@ test('platform node diagnostics are restricted to platform administrators', () =
   assert.match(route, /last_error_counters/);
 });
 
+test('platform organization members are visible only to platform administrators', () => {
+  const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.get('/platform/organizations/:organizationId/members'");
+  const route = source.slice(routeStart, source.indexOf("app.post('/platform/organizations'", routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /requirePlatformAdmin/);
+  assert.match(route, /FROM organization_memberships m/);
+  assert.match(route, /JOIN users u ON u\.id=m\.user_id/);
+  assert.match(route, /WHERE m\.organization_id=\$1/);
+  assert.match(route, /lastLoginAt/);
+  assert.match(route, /joinedAt/);
+});
+
 test('platform organization listing includes active node fault counts', () => {
   const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
   const routeStart = source.indexOf("app.get('/platform/organizations'");

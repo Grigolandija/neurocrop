@@ -421,6 +421,51 @@ export function registerPlatformOrganizationRoutes(app) {
     }
   });
 
+  app.get('/platform/organizations/:organizationId/members', requireUserAuth, requirePlatformAdmin, async (req, res, next) => {
+    const organizationId = String(req.params.organizationId || '').trim();
+    if (!organizationId) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Organization id is required' } });
+    }
+
+    try {
+      const { rows: organizationRows } = await query(
+        `SELECT id FROM organizations WHERE id=$1`,
+        [organizationId]
+      );
+      if (!organizationRows[0]) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+      }
+
+      const { rows } = await query(
+        `SELECT u.id, u.email, u.display_name, u.is_active, u.is_platform_admin,
+                u.is_super_admin, u.last_login_at, m.role, m.created_at AS joined_at
+         FROM organization_memberships m
+         JOIN users u ON u.id=m.user_id
+         WHERE m.organization_id=$1
+         ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
+                  lower(COALESCE(u.display_name, u.email)), lower(u.email)`,
+        [organizationId]
+      );
+
+      res.json({
+        organizationId,
+        members: rows.map((row) => ({
+          id: row.id,
+          email: row.email,
+          name: row.display_name,
+          role: row.role,
+          active: row.is_active,
+          isPlatformAdmin: row.is_platform_admin || row.is_super_admin,
+          isSuperAdmin: row.is_super_admin,
+          lastLoginAt: row.last_login_at,
+          joinedAt: row.joined_at
+        }))
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post('/platform/organizations', requireUserAuth, requirePlatformAdmin, async (req, res, next) => {
     const organizationName = normalizeName(req.body?.organizationName || req.body?.name);
     const ownerEmail = normalizeEmail(req.body?.ownerEmail || req.body?.email);
