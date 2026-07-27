@@ -10,7 +10,6 @@ type DashboardState = {
   unauthorizedVersion: number
   context: DashboardContext
   trendIntent: Record<string, unknown> | null
-  structureVersion: number
 }
 
 const contextStorageKey = 'neurocrop-active-context-v1'
@@ -38,7 +37,6 @@ let state: DashboardState = {
   unauthorizedVersion: 0,
   context: readContext(),
   trendIntent: null,
-  structureVersion: 0,
 }
 
 function publish(next: DashboardState) {
@@ -92,8 +90,4 @@ export function consumeTrendIntent() {
   const intent = state.trendIntent
   if (intent) publish({ ...state, trendIntent: null })
   return intent
-}
-
-export function notifyWorkspaceStructureChanged() {
-  publish({ ...state, structureVersion: state.structureVersion + 1 })
 }

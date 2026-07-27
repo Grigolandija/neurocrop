@@ -2,7 +2,6 @@ import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
-import { notifyWorkspaceStructureChanged } from '../../state/dashboardStore'
 import '../../styles/nodes-page.css'
 import {
   formatLastPayload,
@@ -316,7 +315,6 @@ export default function NodesWorkspace() {
       await neurocropApi.registerNode({ devEui, sectionId: registration.sectionId })
       setRegistration(null)
       setFeedback(`Node ${devEui} registered. It will appear when sensor readings begin arriving.`)
-      notifyWorkspaceStructureChanged()
       setRefreshToken((value) => value + 1)
     } catch (mutationError) {
       setModalError(errorMessage(mutationError, 'The node could not be registered.'))
@@ -337,7 +335,6 @@ export default function NodesWorkspace() {
       await neurocropApi.updateNode(editor.node.devEui, { name: editor.name.trim(), devEui, sectionId: editor.sectionId })
       setEditor(null)
       setFeedback(`${editor.name.trim()} saved.`)
-      notifyWorkspaceStructureChanged()
       setRefreshToken((value) => value + 1)
       if (routeNodeId) navigate(`/nodes/${encodeURIComponent(devEui.toLowerCase())}`, { replace: true })
     } catch (mutationError) {
@@ -357,7 +354,6 @@ export default function NodesWorkspace() {
       setFeedback(editor.history === 'delete'
         ? `${removedName} and its measurement history were permanently deleted.`
         : `${removedName} removed. Its measurement history was retained.`)
-      notifyWorkspaceStructureChanged()
       navigate('/nodes', { replace: true })
       setRefreshToken((value) => value + 1)
     } catch (mutationError) {
