@@ -1,3 +1,4 @@
+import { translateInterfaceText as tx } from '../i18n'
 import { useState, type FormEvent } from 'react'
 import { AuthLayout, BackToSignIn } from '../features/auth/AuthLayout'
 import { neurocropApi } from '../services/api/neurocropApi'
@@ -40,7 +41,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthLayout eyebrow="New account" title="Request your workspace." description="Create your user account first. NeuroCrop will approve the organization before sensor data is connected." panelTitleId="registerTitle" panelTitle="Create NeuroCrop access" panelDescription="Enter your details and the organization name you want to manage.">
+    <AuthLayout eyebrow="New account" title={tx("Request your workspace.")} description="Create your user account first. NeuroCrop will approve the organization before sensor data is connected." panelTitleId="registerTitle" panelTitle="Create NeuroCrop access" panelDescription="Enter your details and the organization name you want to manage.">
       <form className="mt-8 space-y-5" onSubmit={register} noValidate>
         <label className="block"><span className="text-sm font-bold text-ink/76">{t('Email address')}</span><input className="login-field mt-2" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required placeholder="you@farm.com" /></label>
         <label className="block"><span className="text-sm font-bold text-ink/76">{t('Your name')}</span><input className="login-field mt-2" value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" required placeholder={t('Full name')} /></label>

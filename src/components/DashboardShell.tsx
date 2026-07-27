@@ -1,3 +1,4 @@
+import { translateInterfaceText as tx } from '../i18n'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useInterfaceLanguage } from '../i18n'
@@ -141,7 +142,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
         <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
         <span>{t(item.label)}</span>
         {item.route === '/alerts' && alertCount > 0 ? <b className="nav-count">{alertCount}</b> : null}
-        {item.beta ? <small className="nav-beta-badge">Beta</small> : null}
+        {item.beta ? <small className="nav-beta-badge">{tx("Beta")}</small> : null}
       </button>
     )
   }
@@ -189,7 +190,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
           </div>
         </header>
         <aside id="dashboardSidebar" className={`dashboard-sidebar rail hidden shrink-0 xl:flex xl:flex-col${mobileOpen ? ' rail-open' : ''}`} aria-label="Primary navigation">
-          <div className="rail-brand"><span className="brand-mark"><i className="fa-solid fa-seedling" /></span><span className="brand-word"><strong>Neuro</strong>Crop</span><button className="rail-close" type="button" aria-label={t('Close navigation')} onClick={() => setMobileOpen(false)}><i className="fa-solid fa-xmark" /></button></div>
+          <div className="rail-brand"><span className="brand-mark"><i className="fa-solid fa-seedling" /></span><span className="brand-word"><strong>Neuro</strong>{tx("Crop")}</span><button className="rail-close" type="button" aria-label={t('Close navigation')} onClick={() => setMobileOpen(false)}><i className="fa-solid fa-xmark" /></button></div>
           <nav className="rail-nav">
             <p className="rail-label">{t('Monitor')}</p>
             {navigation.map(navButton)}

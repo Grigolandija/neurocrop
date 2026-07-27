@@ -1,3 +1,4 @@
+import { translateInterfaceText as tx } from '../i18n'
 import { useEffect, useState, type FormEvent } from 'react'
 import { AuthLayout, BackToSignIn } from '../features/auth/AuthLayout'
 import { neurocropApi } from '../services/api/neurocropApi'
@@ -89,7 +90,7 @@ export default function AcceptInvitePage() {
     : t(inactiveCopy?.description || '')
 
   return (
-    <AuthLayout eyebrow="Workspace invitation" title="Join your farm workspace." description="Use a verified invitation to create your account or connect an existing NeuroCrop account." panelTitleId="acceptInviteTitle" panelTitle={panelTitle} panelDescription={panelDescription}>
+    <AuthLayout eyebrow="Workspace invitation" title={tx("Join your farm workspace.")} description="Use a verified invitation to create your account or connect an existing NeuroCrop account." panelTitleId="acceptInviteTitle" panelTitle={panelTitle} panelDescription={panelDescription}>
       {invitation.status === 'pending' ? <form className="mt-8 space-y-5" onSubmit={acceptInvitation} noValidate autoComplete="on">
         {!invitation.accountExists ? <label className="block"><span className="text-sm font-bold text-ink/76">{t('Your name')}</span><input name="name" className="login-field mt-2" value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" required placeholder={t('Full name')} /></label> : null}
         <label className="block"><span className="text-sm font-bold text-ink/76">{t(invitation.accountExists ? 'Your NeuroCrop password' : 'Create a password')}</span><input name="password" className="login-field mt-2" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={invitation.accountExists ? 'current-password' : 'new-password'} minLength={invitation.accountExists ? undefined : 12} maxLength={1024} required placeholder={t(invitation.accountExists ? 'Enter your existing password' : 'At least 12 characters')} /></label>

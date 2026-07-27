@@ -1,3 +1,4 @@
+import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
@@ -852,55 +853,55 @@ export default function TrendsWorkspace() {
 
   return <main className="nc-trends-page" aria-busy={status === 'loading' || nodeHistoryLoading}>
     <header className="nc-trends-head">
-      <div><p>Historical intelligence</p><h1>Trends</h1><span>See what changed, how long conditions stayed outside target, and whether intervention is working.</span></div>
+      <div><p>{tx("Historical intelligence")}</p><h1>{tx("Trends")}</h1><span>{tx("See what changed, how long conditions stayed outside target, and whether intervention is working.")}</span></div>
       <div className="nc-trends-head-actions">
-        <button type="button" onClick={() => setRefreshToken((value) => value + 1)}><i className="fa-solid fa-rotate" />Refresh</button>
-        <button type="button" className="primary" onClick={exportCsv} disabled={!selectedSection}><i className="fa-solid fa-download" />Export CSV</button>
+        <button type="button" onClick={() => setRefreshToken((value) => value + 1)}><i className="fa-solid fa-rotate" />{tx("Refresh")}</button>
+        <button type="button" className="primary" onClick={exportCsv} disabled={!selectedSection}><i className="fa-solid fa-download" />{tx("Export CSV")}</button>
       </div>
     </header>
 
     <section className="nc-trends-context">
       <label>
-        <span>Area</span>
+        <span>{tx("Area")}</span>
         {areas.length
           ? <select
-              aria-label="Select Area"
+              aria-label={tx("Select Area")}
               value={displayedAreaId}
               onChange={(event) => changeArea(event.target.value)}
             >
               {areas.map(([id, name]) => <option value={id} key={id}>{name}</option>)}
             </select>
-          : <span className="nc-trends-select-skeleton" aria-label="Preparing Area selection" />}
+          : <span className="nc-trends-select-skeleton" aria-label={tx("Preparing Area selection")} />}
       </label>
       <label>
-        <span>Section</span>
+        <span>{tx("Section")}</span>
         {displayedAreaSections.length
           ? <select
-              aria-label="Select Section"
+              aria-label={tx("Select Section")}
               value={displayedSectionId}
               onChange={(event) => changeSection(event.target.value)}
             >
               {displayedAreaSections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>)}
             </select>
-          : <span className="nc-trends-select-skeleton" aria-label="Preparing Section selection" />}
+          : <span className="nc-trends-select-skeleton" aria-label={tx("Preparing Section selection")} />}
       </label>
-      <div className="nc-trends-scope" role="group" aria-label="Trend data level">
-        <button type="button" className={scope === 'section' ? 'active' : ''} aria-pressed={scope === 'section'} onClick={() => changeScope('section')}><i className="fa-solid fa-layer-group" />Section</button>
-        <button type="button" className={scope === 'nodes' ? 'active' : ''} aria-pressed={scope === 'nodes'} onClick={() => changeScope('nodes')}><i className="fa-solid fa-microchip" />Nodes</button>
+      <div className="nc-trends-scope" role="group" aria-label={tx("Trend data level")}>
+        <button type="button" className={scope === 'section' ? 'active' : ''} aria-pressed={scope === 'section'} onClick={() => changeScope('section')}><i className="fa-solid fa-layer-group" />{tx("Section")}</button>
+        <button type="button" className={scope === 'nodes' ? 'active' : ''} aria-pressed={scope === 'nodes'} onClick={() => changeScope('nodes')}><i className="fa-solid fa-microchip" />{tx("Nodes")}</button>
       </div>
-      <div className="nc-trends-range" role="group" aria-label="Trend period">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
-      {scope === 'section' ? <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />Compare Sections</button> : null}
+      <div className="nc-trends-range" role="group" aria-label={tx("Trend period")}>{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
+      {scope === 'section' ? <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />{tx("Compare Sections")}</button> : null}
     </section>
 
     <section className="nc-trends-metric-controls">
       <div className="nc-trends-metric-presets">
-        <span>{scope === 'nodes' ? 'Select one parameter to compare between nodes' : compare ? 'Select one parameter for comparison' : `Select up to 3 parameters · ${activeMetricKeys.length}/3 selected`}</span>
+        <span>{scope === 'nodes' ?tx("Select one parameter to compare between nodes") : compare ?tx("Select one parameter for comparison") : `Select up to 3 parameters · ${activeMetricKeys.length}/3 selected`}</span>
         {scope === 'section' && !compare ? <div>
-          <button type="button" onClick={() => applyMetricPreset(['airTemp', 'humidity', 'vpd'])}>Climate</button>
-          <button type="button" onClick={() => applyMetricPreset(['soilMoisture', 'ec', 'ph'])}>Root zone</button>
+          <button type="button" onClick={() => applyMetricPreset(['airTemp', 'humidity', 'vpd'])}>{tx("Climate")}</button>
+          <button type="button" onClick={() => applyMetricPreset(['soilMoisture', 'ec', 'ph'])}>{tx("Root zone")}</button>
         </div> : null}
       </div>
-      <nav className="nc-trends-metrics" aria-label="Metric">{(availableMetrics.length ? availableMetrics : metrics.slice(0, 4)).map((metric) => {
+      <nav className="nc-trends-metrics" aria-label={tx("Metric")}>{(availableMetrics.length ? availableMetrics : metrics.slice(0, 4)).map((metric) => {
         const selectedIndex = (compare || scope === 'nodes' ? [metricKey] : activeMetricKeys).indexOf(metric.key)
         const selected = selectedIndex >= 0
         const selectionLimitReached = scope === 'section' && !compare && !selected && activeMetricKeys.length >= 3
@@ -912,9 +913,9 @@ export default function TrendsWorkspace() {
       })}</nav>
     </section>
 
-    {compare ? <section className="nc-trends-comparison-picker"><div><strong>Compare Sections</strong><span>Select 2–6 Sections in {selectedSection?.areaName}.</span></div><div>{sections.filter((section) => section.areaId === selectedSection?.areaId && section.available.has(metricKey)).map((section) => <label key={section.id}><input type="checkbox" checked={comparisonIds.includes(section.id)} onChange={() => toggleComparison(section.id)} /><span>{section.name}</span></label>)}</div></section> : null}
+    {compare ? <section className="nc-trends-comparison-picker"><div><strong>{tx("Compare Sections")}</strong><span>{tx("Select 2–6 Sections in")} {selectedSection?.areaName}.</span></div><div>{sections.filter((section) => section.areaId === selectedSection?.areaId && section.available.has(metricKey)).map((section) => <label key={section.id}><input type="checkbox" checked={comparisonIds.includes(section.id)} onChange={() => toggleComparison(section.id)} /><span>{section.name}</span></label>)}</div></section> : null}
     {scope === 'nodes' ? <section className="nc-trends-comparison-picker nc-trends-node-picker">
-      <div><strong>Compare Nodes</strong><span>The Section median stays visible. Select up to 5 Nodes · {selectedNodeIds.length}/5 selected.</span></div>
+      <div><strong>{tx("Compare Nodes")}</strong><span>{tx("The Section median stays visible. Select up to 5 Nodes ·")} {selectedNodeIds.length}{tx("/5 selected.")}</span></div>
       <div>{sectionNodes.length
         ? sectionNodes.map((node) => {
             const selected = selectedNodeIds.includes(node.devEui)
@@ -924,22 +925,22 @@ export default function TrendsWorkspace() {
               <span><i data-status={node.transportStatus} />{node.name}</span>
             </label>
           })
-        : <p>No Nodes are assigned to this Section.</p>}</div>
+        : <p>{tx("No Nodes are assigned to this Section.")}</p>}</div>
       {nodeHistoryError ? <p className="nc-trends-node-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{nodeHistoryError}</p> : null}
     </section> : null}
 
     <section className="nc-trends-kpis">
-      <article><small>Current</small><strong>{format(current, selectedMetric)} <em>{selectedMetric.unit}</em></strong><span>{target ? `Target ${format(target[0], selectedMetric)}–${format(target[1], selectedMetric)} ${selectedMetric.unit}` : 'Target not configured'}</span></article>
-      <article data-tone={delta === null ? 'neutral' : 'info'}><small>Period change</small><strong>{delta === null ? '—' : `${delta > 0 ? '+' : ''}${format(delta, selectedMetric)}`} <em>{delta === null ? '' : selectedMetric.unit}</em></strong><span>{rangeConfig[range].label}</span></article>
-      <article><small>Observed range</small><strong>{format(minimum, selectedMetric)}–{format(maximum, selectedMetric)} <em>{selectedMetric.unit}</em></strong><span>Minimum to maximum</span></article>
-      <article data-tone={targetPct !== null && targetPct >= 80 ? 'good' : targetPct !== null && targetPct >= 50 ? 'watch' : 'critical'}><small>Time in target</small><strong>{targetPct === null ? '—' : `${targetPct}%`}</strong><span>{coveragePct === null ? 'No coverage result' : `${coveragePct}% sensor coverage`}</span></article>
+      <article><small>{tx("Current")}</small><strong>{format(current, selectedMetric)} <em>{selectedMetric.unit}</em></strong><span>{target ? `Target ${format(target[0], selectedMetric)}–${format(target[1], selectedMetric)} ${selectedMetric.unit}` :tx("Target not configured")}</span></article>
+      <article data-tone={delta === null ? 'neutral' : 'info'}><small>{tx("Period change")}</small><strong>{delta === null ? '—' : `${delta > 0 ? '+' : ''}${format(delta, selectedMetric)}`} <em>{delta === null ? '' : selectedMetric.unit}</em></strong><span>{rangeConfig[range].label}</span></article>
+      <article><small>{tx("Observed range")}</small><strong>{format(minimum, selectedMetric)}–{format(maximum, selectedMetric)} <em>{selectedMetric.unit}</em></strong><span>{tx("Minimum to maximum")}</span></article>
+      <article data-tone={targetPct !== null && targetPct >= 80 ? 'good' : targetPct !== null && targetPct >= 50 ? 'watch' : 'critical'}><small>{tx("Time in target")}</small><strong>{targetPct === null ? '—' : `${targetPct}%`}</strong><span>{coveragePct === null ?tx("No coverage result") : `${coveragePct}% sensor coverage`}</span></article>
     </section>
 
     <section className="nc-trends-main">
       <article className="nc-trends-chart-card">
-        <header><div><p>{scope === 'nodes' ? 'Node comparison' : compare ? 'Section comparison' : activeMetricKeys.length > 1 ? 'Combined measured history' : 'Measured history'}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? `${selectedSection?.name} · ${selectedAggregationLabel === 'section peak' ? 'Section peak' : 'Section median'} + ${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ? 'Loading…' : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not updated'}</span></header>
+        <header><div><p>{scope === 'nodes' ?tx("Node comparison") : compare ?tx("Section comparison") : activeMetricKeys.length > 1 ?tx("Combined measured history") :tx("Measured history")}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? `${selectedSection?.name} · ${selectedAggregationLabel === 'section peak' ? 'Section peak' : 'Section median'} + ${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ?tx("Loading…") : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` :tx("Not updated")}</span></header>
         {showMeasuredConclusion ? <div className="nc-trends-chart-conclusion" data-tone={summary.tone}>
-          <span>Measured conclusion</span>
+          <span>{tx("Measured conclusion")}</span>
           <strong>{summary.title}</strong>
           <p>{summary.body}</p>
         </div> : null}
@@ -951,24 +952,24 @@ export default function TrendsWorkspace() {
             : activeMetricKeys.length > 1
               ? <MultiMetricChart items={metricChartItems} range={range} />
               : <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
-          : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{!selectedSection ? 'Select an Area and Section' : status === 'loading' ? 'Loading measured history' : status === 'error' ? 'History could not be loaded' : 'Not enough measurements yet'}</strong><span>{!selectedSection ? 'Trend data is shown only for an explicitly selected Section.' : error || 'At least two measured points are required to draw a trend.'}</span></div>}
+          : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{!selectedSection ?tx("Select an Area and Section") : status === 'loading' ?tx("Loading measured history") : status === 'error' ?tx("History could not be loaded") :tx("Not enough measurements yet")}</strong><span>{!selectedSection ?tx("Trend data is shown only for an explicitly selected Section.") : error ||tx("At least two measured points are required to draw a trend.")}</span></div>}
       </article>
     </section>
 
     <section className="nc-trends-lower">
       <article className="nc-trends-target-card">
-        <header><div><p>Condition distribution</p><h2>Where the selected period went</h2></div><span>{rangeConfig[range].label}</span></header>
+        <header><div><p>{tx("Condition distribution")}</p><h2>{tx("Where the selected period went")}</h2></div><span>{rangeConfig[range].label}</span></header>
         <div className="nc-trends-distribution">
           {(['optimal', 'warning', 'critical', 'unavailable'] as const).map((key) => {
             const minutes = number(timeInTarget[key]) || 0
             const percentage = expectedMinutes ? Math.round(minutes / expectedMinutes * 100) : 0
-            return <div data-state={key} key={key}><span><i />{key === 'optimal' ? 'In target' : key === 'unavailable' ? 'No data' : key[0].toUpperCase() + key.slice(1)}</span><strong>{percentage}%</strong><small>{Math.round(minutes / 60)} h</small><em style={{ width: `${percentage}%` }} /></div>
+            return <div data-state={key} key={key}><span><i />{key === 'optimal' ?tx("In target") : key === 'unavailable' ?tx("No data") : key[0].toUpperCase() + key.slice(1)}</span><strong>{percentage}%</strong><small>{Math.round(minutes / 60)} h</small><em style={{ width: `${percentage}%` }} /></div>
           })}
         </div>
       </article>
       <article className="nc-trends-events">
-        <header><div><p>Sensor timeline</p><h2>Events in this period</h2></div><span>{events.length} detected</span></header>
-        <div>{events.length ? events.map((event: JsonRecord, index: number) => <div key={`${event.occurredAt}-${index}`}><i className={`fa-solid ${event.type === 'delivery_gap' ? 'fa-signal' : event.type === 'transmission_failed' ? 'fa-triangle-exclamation' : 'fa-microchip'}`} /><span><strong>{String(event.type || 'sensor_event').replaceAll('_', ' ')}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleString() : 'Time unavailable'}{event.durationMinutes ? ` · ${event.durationMinutes} min` : ''}</small></span></div>) : <div className="nc-trends-no-events"><i className="fa-solid fa-circle-check" /><span><strong>No device events detected</strong><small>The selected history window contains no reported delivery gaps or transport faults.</small></span></div>}</div>
+        <header><div><p>{tx("Sensor timeline")}</p><h2>{tx("Events in this period")}</h2></div><span>{events.length} {tx("detected")}</span></header>
+        <div>{events.length ? events.map((event: JsonRecord, index: number) => <div key={`${event.occurredAt}-${index}`}><i className={`fa-solid ${event.type === 'delivery_gap' ? 'fa-signal' : event.type === 'transmission_failed' ? 'fa-triangle-exclamation' : 'fa-microchip'}`} /><span><strong>{String(event.type || 'sensor_event').replaceAll('_', ' ')}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleString() :tx("Time unavailable")}{event.durationMinutes ? ` · ${event.durationMinutes} min` : ''}</small></span></div>) : <div className="nc-trends-no-events"><i className="fa-solid fa-circle-check" /><span><strong>{tx("No device events detected")}</strong><small>{tx("The selected history window contains no reported delivery gaps or transport faults.")}</small></span></div>}</div>
       </article>
     </section>
   </main>

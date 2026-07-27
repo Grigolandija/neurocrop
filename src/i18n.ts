@@ -1,4 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react'
+import { additionalLtTranslations } from './i18n.additional.lt'
+import { ltTranslations } from './i18n.lt'
 
 export type InterfaceLanguage = 'en' | 'lt'
 
@@ -8,6 +10,8 @@ const languageListeners = new Set<() => void>()
 let activeLanguage: InterfaceLanguage | null = null
 
 const authTranslations: Record<string, string> = {
+  ...ltTranslations,
+  ...additionalLtTranslations,
   'New account': 'Nauja paskyra',
   'Request your workspace.': 'Paprašykite darbo aplinkos.',
   'Create your user account first. NeuroCrop will approve the organization before sensor data is connected.': 'Pirmiausia sukurkite naudotojo paskyrą. „NeuroCrop“ patvirtins organizaciją prieš prijungiant sensorių duomenis.',

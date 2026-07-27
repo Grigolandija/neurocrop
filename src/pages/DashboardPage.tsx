@@ -126,6 +126,7 @@ function Login({ onAuthenticated }: { onAuthenticated: (user: DashboardUser) => 
 }
 
 function Workspaces({ pathname }: { pathname: string }) {
+  const { language } = useInterfaceLanguage()
   const hostsRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
 
@@ -157,7 +158,7 @@ function Workspaces({ pathname }: { pathname: string }) {
   return (
     <>
       {!ready ? <WorkspaceLoading /> : null}
-      <div ref={hostsRef} hidden={!ready}>
+      <div ref={hostsRef} hidden={!ready} data-interface-language={language}>
         {workspace('/', <OverviewWorkspace />)}
         {workspace('/areas', <AreasWorkspace />)}
         {workspace('/sections', <SectionsWorkspace />)}

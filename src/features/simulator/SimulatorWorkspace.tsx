@@ -1,3 +1,4 @@
+import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import '../../styles/simulator-workspace.css'
@@ -213,16 +214,16 @@ export default function SimulatorWorkspace() {
 
   return <main className="nc-simulator" aria-busy={status === 'loading'}>
     <header className="nc-simulator-header">
-      <div><p>Decision support</p><h1>Scenario Simulator</h1><span>Explore how 2–3 conditions interact without changing live data or equipment.</span></div>
-      <div className="nc-simulator-model"><i className="fa-solid fa-flask" /><span><strong>Rule model 0.1</strong>Uses the same crop-profile targets as Overview</span></div>
+      <div><p>{tx("Decision support")}</p><h1>{tx("Scenario Simulator")}</h1><span>{tx("Explore how 2–3 conditions interact without changing live data or equipment.")}</span></div>
+      <div className="nc-simulator-model"><i className="fa-solid fa-flask" /><span><strong>{tx("Rule model 0.1")}</strong>{tx("Uses the same crop-profile targets as Overview")}</span></div>
     </header>
 
     {error ? <div className="nc-simulator-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{error}</div> : null}
 
     <section className="nc-simulator-layout">
       <form className="nc-simulator-controls" onSubmit={(event) => { event.preventDefault(); void runSimulation() }}>
-        <header><span>Scenario inputs</span><strong>Choose conditions to test</strong></header>
-        <label className="nc-simulator-profile"><span>Crop profile</span><select value={profileId} onChange={(event) => selectProfile(event.target.value)} disabled={status === 'loading'}>{profiles.map((item) => <option value={String(item.id)} key={String(item.id)}>{String(item.name || 'Unnamed profile')}</option>)}</select></label>
+        <header><span>{tx("Scenario inputs")}</span><strong>{tx("Choose conditions to test")}</strong></header>
+        <label className="nc-simulator-profile"><span>{tx("Crop profile")}</span><select value={profileId} onChange={(event) => selectProfile(event.target.value)} disabled={status === 'loading'}>{profiles.map((item) => <option value={String(item.id)} key={String(item.id)}>{String(item.name || 'Unnamed profile')}</option>)}</select></label>
 
         <div className="nc-simulator-parameters">
           {parameters.map((parameter, index) => {
@@ -237,48 +238,48 @@ export default function SimulatorWorkspace() {
               </header>
               <div className="nc-simulator-value"><input type="number" min={bounds.min} max={bounds.max} step={bounds.step} value={parameter.value} onChange={(event) => updateValue(index, Number(event.target.value))} /><span>{METRIC_UNITS[parameter.metricId]}</span></div>
               <input type="range" min={bounds.min} max={bounds.max} step={bounds.step} value={parameter.value} onChange={(event) => updateValue(index, Number(event.target.value))} />
-              <footer><span>{bounds.min}</span><strong>{range ? `Target ${range[0]}–${range[1]} ${METRIC_UNITS[parameter.metricId]}` : 'No target'}</strong><span>{bounds.max}</span></footer>
+              <footer><span>{bounds.min}</span><strong>{range ? `Target ${range[0]}–${range[1]} ${METRIC_UNITS[parameter.metricId]}` :tx("No target")}</strong><span>{bounds.max}</span></footer>
             </article>
           })}
         </div>
 
         {derivedVpd !== null
-          ? <div className="nc-simulator-derived"><div><span>Derived parameter</span><strong>VPD</strong></div><b>{derivedVpd} kPa</b><p>Automatically calculated from air temperature and relative humidity.</p></div>
-          : <div className="nc-simulator-derived muted"><i className="fa-solid fa-calculator" /><p>Select both Air temperature and Relative humidity to calculate VPD automatically.</p></div>}
+          ? <div className="nc-simulator-derived"><div><span>{tx("Derived parameter")}</span><strong>VPD</strong></div><b>{derivedVpd} kPa</b><p>{tx("Automatically calculated from air temperature and relative humidity.")}</p></div>
+          : <div className="nc-simulator-derived muted"><i className="fa-solid fa-calculator" /><p>{tx("Select both Air temperature and Relative humidity to calculate VPD automatically.")}</p></div>}
 
-        {parameters.length < 3 && availableMetrics.length > parameters.length ? <button className="nc-simulator-add" type="button" onClick={addParameter}><i className="fa-solid fa-plus" />Add third parameter</button> : null}
+        {parameters.length < 3 && availableMetrics.length > parameters.length ? <button className="nc-simulator-add" type="button" onClick={addParameter}><i className="fa-solid fa-plus" />{tx("Add third parameter")}</button> : null}
 
-        <fieldset className="nc-simulator-duration"><legend>Assumed duration</legend><div>{[1, 10, 30, 60].map((minutes) => <button type="button" data-active={durationMinutes === minutes} onClick={() => { setDurationMinutes(minutes); setResult(null) }} key={minutes}>{minutes === 1 ? 'Snapshot' : `${minutes} min`}</button>)}</div><p>The model does not infer duration from the latest sensor timestamp.</p></fieldset>
+        <fieldset className="nc-simulator-duration"><legend>{tx("Assumed duration")}</legend><div>{[1, 10, 30, 60].map((minutes) => <button type="button" data-active={durationMinutes === minutes} onClick={() => { setDurationMinutes(minutes); setResult(null) }} key={minutes}>{minutes === 1 ?tx("Snapshot") : `${minutes} min`}</button>)}</div><p>{tx("The model does not infer duration from the latest sensor timestamp.")}</p></fieldset>
 
-        <button className="nc-simulator-run" type="submit" disabled={!profile || parameters.length < 2 || status === 'running'}>{status === 'running' ? <><i className="fa-solid fa-spinner fa-spin" />Running scenario</> : <><i className="fa-solid fa-play" />Run simulation</>}</button>
+        <button className="nc-simulator-run" type="submit" disabled={!profile || parameters.length < 2 || status === 'running'}>{status === 'running' ? <><i className="fa-solid fa-spinner fa-spin" />{tx("Running scenario")}</> : <><i className="fa-solid fa-play" />{tx("Run simulation")}</>}</button>
       </form>
 
       <section className="nc-simulator-result" data-tone={resultTone(result)}>
         {result && diagnosis
           ? <>
-              <header><div><span>Expected result</span><h2>{String(diagnosis.title || 'Scenario result')}</h2></div><strong>{String(diagnosis.label || 'Result')}</strong></header>
+              <header><div><span>{tx("Expected result")}</span><h2>{String(diagnosis.title || 'Scenario result')}</h2></div><strong>{String(diagnosis.label || 'Result')}</strong></header>
               <p className="nc-simulator-summary">{String(diagnosis.summary || '')}</p>
               {diagnosis.mechanism || diagnosis.likelyImpact || diagnosis.decision
                 ? <div className="nc-simulator-reasoning">
-                    {diagnosis.mechanism ? <article><span>Physiological mechanism</span><p>{String(diagnosis.mechanism)}</p></article> : null}
-                    {diagnosis.likelyImpact ? <article><span>Likely crop consequence</span><p>{String(diagnosis.likelyImpact)}</p></article> : null}
-                    {diagnosis.decision ? <article className="priority"><span>Decision priority</span><p>{String(diagnosis.decision)}</p></article> : null}
+                    {diagnosis.mechanism ? <article><span>{tx("Physiological mechanism")}</span><p>{String(diagnosis.mechanism)}</p></article> : null}
+                    {diagnosis.likelyImpact ? <article><span>{tx("Likely crop consequence")}</span><p>{String(diagnosis.likelyImpact)}</p></article> : null}
+                    {diagnosis.decision ? <article className="priority"><span>{tx("Decision priority")}</span><p>{String(diagnosis.decision)}</p></article> : null}
                   </div>
                 : null}
               {verifyNext.length || diagnosis.avoid
                 ? <div className="nc-simulator-guardrails">
-                    {verifyNext.length ? <article><span>Verify next</span><ul>{verifyNext.map((item) => <li key={item}>{item}</li>)}</ul></article> : null}
-                    {diagnosis.avoid ? <article className="avoid"><span>Avoid</span><p>{String(diagnosis.avoid)}</p></article> : null}
+                    {verifyNext.length ? <article><span>{tx("Verify next")}</span><ul>{verifyNext.map((item) => <li key={item}>{item}</li>)}</ul></article> : null}
+                    {diagnosis.avoid ? <article className="avoid"><span>{tx("Avoid")}</span><p>{String(diagnosis.avoid)}</p></article> : null}
                   </div>
                 : null}
               {evidenceRules.length || evidenceCodes.length
-                ? <p className="nc-simulator-evidence"><i className="fa-solid fa-book-open" />Catalog {evidenceRules.join(' + ')} · Evidence {String(evidence?.level || '—')} · Sources {evidenceCodes.join(', ')}</p>
+                ? <p className="nc-simulator-evidence"><i className="fa-solid fa-book-open" />{tx("Catalog")} {evidenceRules.join(' + ')} {tx("· Evidence")} {String(evidence?.level || '—')} {tx("· Sources")} {evidenceCodes.join(', ')}</p>
                 : null}
-              <div className="nc-simulator-score"><span>Simulated Growing Score</span><strong>{result.score === null || result.score === undefined ? '—' : `${result.score} / 100`}</strong><small>{result.mainDriver ? `Main driver: ${METRIC_LABELS[String(result.mainDriver)] || result.mainDriver}` : 'No limiting driver'}</small></div>
-              {action ? <article className="nc-simulator-action"><span>Recommended response</span><strong>{String(action.recommendedAction || 'Review the selected conditions.')}</strong><p>{String(action.expectedEffect || '')}</p></article> : <article className="nc-simulator-action stable"><i className="fa-solid fa-circle-check" /><strong>No corrective action is indicated by the selected values.</strong></article>}
-              <aside className="nc-simulator-limitations"><span>Model boundaries</span>{limitations.map((item) => <p key={item}><i className="fa-solid fa-circle-info" />{item}</p>)}</aside>
+              <div className="nc-simulator-score"><span>{tx("Simulated Growing Score")}</span><strong>{result.score === null || result.score === undefined ? '—' : `${result.score} / 100`}</strong><small>{result.mainDriver ? `Main driver: ${METRIC_LABELS[String(result.mainDriver)] || result.mainDriver}` :tx("No limiting driver")}</small></div>
+              {action ? <article className="nc-simulator-action"><span>{tx("Recommended response")}</span><strong>{String(action.recommendedAction || 'Review the selected conditions.')}</strong><p>{String(action.expectedEffect || '')}</p></article> : <article className="nc-simulator-action stable"><i className="fa-solid fa-circle-check" /><strong>{tx("No corrective action is indicated by the selected values.")}</strong></article>}
+              <aside className="nc-simulator-limitations"><span>{tx("Model boundaries")}</span>{limitations.map((item) => <p key={item}><i className="fa-solid fa-circle-info" />{item}</p>)}</aside>
             </>
-          : <div className="nc-simulator-empty"><i className="fa-solid fa-seedling" /><h2>Build a scenario</h2><p>Move the parameter values outside or within their crop-profile targets, choose a duration, and run the model.</p><div><span>1</span>Select a real crop profile</div><div><span>2</span>Adjust 2–3 parameters</div><div><span>3</span>Compare the expected response</div></div>}
+          : <div className="nc-simulator-empty"><i className="fa-solid fa-seedling" /><h2>{tx("Build a scenario")}</h2><p>{tx("Move the parameter values outside or within their crop-profile targets, choose a duration, and run the model.")}</p><div><span>1</span>{tx("Select a real crop profile")}</div><div><span>2</span>{tx("Adjust 2–3 parameters")}</div><div><span>3</span>{tx("Compare the expected response")}</div></div>}
       </section>
     </section>
   </main>

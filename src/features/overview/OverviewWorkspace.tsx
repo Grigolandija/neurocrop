@@ -1,3 +1,4 @@
+import { translateInterfaceText as tx } from '../../i18n'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
@@ -239,8 +240,8 @@ function AgronomicDiagnosis({ action }: { action: JsonRecord }) {
   const status = String(diagnosis.status || 'insufficient_data')
   const missingMetrics = asArray(diagnosis.missingMetrics).map((metric) => metricLabel(metric))
   return <section className="nc-related-evidence">
-    <header><span>Agronomic diagnosis</span><strong data-tone={status}>{diagnosis.label || 'Insufficient data'}</strong></header>
-    <h3>{diagnosis.title || action.title || 'Condition requires review'}</h3>
+    <header><span>{tx("Agronomic diagnosis")}</span><strong data-tone={status}>{diagnosis.label ||tx("Insufficient data")}</strong></header>
+    <h3>{diagnosis.title || action.title ||tx("Condition requires review")}</h3>
     <p className="nc-diagnosis-summary">{diagnosis.summary || action.reason}</p>
     {readings.length
       ? <div>
@@ -256,7 +257,7 @@ function AgronomicDiagnosis({ action }: { action: JsonRecord }) {
         </div>
       : null}
     {missingMetrics.length
-      ? <p className="nc-diagnosis-missing"><i className="fa-solid fa-circle-info" /> {missingMetrics.join(' or ')} data would increase confidence in this diagnosis.</p>
+      ? <p className="nc-diagnosis-missing"><i className="fa-solid fa-circle-info" /> {missingMetrics.join(' or ')} {tx("data would increase confidence in this diagnosis.")}</p>
       : null}
   </section>
 }
@@ -424,7 +425,7 @@ function MiniTrend({ points, target, unit }: {
   target: [number, number] | null
   unit: string
 }) {
-  if (points.length < 2) return <div className="nc-evidence-trend-empty">24-hour history is not available for this metric.</div>
+  if (points.length < 2) return <div className="nc-evidence-trend-empty">{tx("24-hour history is not available for this metric.")}</div>
   const width = 360
   const height = 112
   const padding = 10
@@ -442,14 +443,14 @@ function MiniTrend({ points, target, unit }: {
   const latest = points[points.length - 1]
 
   return <div className="nc-evidence-trend">
-    <div><span>24-hour trend</span><strong>{formatMeasurement(latest.value, unit)}</strong></div>
+    <div><span>{tx("24-hour trend")}</span><strong>{formatMeasurement(latest.value, unit)}</strong></div>
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`24-hour trend ending at ${formatMeasurement(latest.value, unit)}`}>
       {target ? <rect x={padding} y={targetTop} width={width - padding * 2} height={targetHeight} rx="4" /> : null}
       <polygon points={area} />
       <polyline points={line} />
       <circle cx={x(points.length - 1)} cy={y(latest.value)} r="4" />
     </svg>
-    <footer><span>24h ago</span><span>Now</span></footer>
+    <footer><span>{tx("24h ago")}</span><span>{tx("Now")}</span></footer>
   </div>
 }
 
@@ -537,34 +538,34 @@ function EvidenceDrawer({ model, row, onClose }: {
   return <div className="nc-overview-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <aside className="nc-overview-drawer" role="dialog" aria-modal="true" aria-labelledby="overview-evidence-title">
       <header>
-        <div><span>{row ? 'Section evidence' : 'Area evidence'}</span><h2 id="overview-evidence-title">{row?.name || model.areaName}</h2>{row ? <p>{model.areaName}</p> : null}</div>
-        <button type="button" onClick={onClose} aria-label="Close evidence"><i className="fa-solid fa-xmark" /></button>
+        <div><span>{row ?tx("Section evidence") :tx("Area evidence")}</span><h2 id="overview-evidence-title">{row?.name || model.areaName}</h2>{row ? <p>{model.areaName}</p> : null}</div>
+        <button type="button" onClick={onClose} aria-label={tx("Close evidence")}><i className="fa-solid fa-xmark" /></button>
       </header>
       <section className="nc-evidence-summary">
-        <span>Current conclusion</span>
+        <span>{tx("Current conclusion")}</span>
         <strong>{conclusion}</strong>
         <p>{evidence}</p>
       </section>
       {activeAction ? <AgronomicDiagnosis action={activeAction} /> : null}
       {row && row.currentValue !== null && row.target ? <section className="nc-evidence-metrics">
-        <div><span>Current</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
-        <div><span>Target</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : 'Not set'}</strong></div>
-        <div data-tone={row.tone}><span>Deviation</span><strong>{formatDeviation(row.deviation, row.direction, row.unit)}</strong></div>
-        <div><span>Latest reading</span><strong>{row.updated}</strong></div>
+        <div><span>{tx("Current")}</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
+        <div><span>{tx("Target")}</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` :tx("Not set")}</strong></div>
+        <div data-tone={row.tone}><span>{tx("Deviation")}</span><strong>{formatDeviation(row.deviation, row.direction, row.unit)}</strong></div>
+        <div><span>{tx("Latest reading")}</span><strong>{row.updated}</strong></div>
       </section> : null}
       {row && row.currentValue !== null && row.target
         ? trendState === 'loading'
-          ? <div className="nc-evidence-trend-empty loading">Loading 24-hour trend…</div>
+          ? <div className="nc-evidence-trend-empty loading">{tx("Loading 24-hour trend…")}</div>
           : <MiniTrend points={trendPoints} target={row.target} unit={row.unit} />
         : null}
       <dl>
-        <div><dt>Current overall score</dt><dd>{score === null ? 'Not available' : `${score} / 100`}</dd></div>
-        {row ? <div><dt>Crop profile</dt><dd>{row.crop}</dd></div> : null}
-        <div><dt>Data confidence</dt><dd>{row?.reporting || model.reporting} · updated {row?.updated || model.updated}</dd></div>
+        <div><dt>{tx("Current overall score")}</dt><dd>{score === null ?tx("Not available") : `${score} / 100`}</dd></div>
+        {row ? <div><dt>{tx("Crop profile")}</dt><dd>{row.crop}</dd></div> : null}
+        <div><dt>{tx("Data confidence")}</dt><dd>{row?.reporting || model.reporting} {tx("· updated")} {row?.updated || model.updated}</dd></div>
       </dl>
       <footer>
-        <button type="button" onClick={openSection}>Open Section</button>
-        <button type="button" className="primary" onClick={openTrends}>Open Trends <i className="fa-solid fa-arrow-right" /></button>
+        <button type="button" onClick={openSection}>{tx("Open Section")}</button>
+        <button type="button" className="primary" onClick={openTrends}>{tx("Open Trends")} <i className="fa-solid fa-arrow-right" /></button>
       </footer>
     </aside>
   </div>
@@ -671,12 +672,12 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
   return <div className="nc-overview-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <aside className="nc-overview-drawer nc-action-drawer nc-action-list-drawer" role="dialog" aria-modal="true" aria-labelledby="overview-action-title">
       <header>
-        <div><span>Recommended checks</span><h2 id="overview-action-title">Review {actions.length} affected Section{actions.length === 1 ? '' : 's'}</h2><p>{areaName}</p></div>
-        <button type="button" onClick={onClose} aria-label="Close action"><i className="fa-solid fa-xmark" /></button>
+        <div><span>{tx("Recommended checks")}</span><h2 id="overview-action-title">{tx("Review")} {actions.length} {tx("affected Section")}{actions.length === 1 ? '' : 's'}</h2><p>{areaName}</p></div>
+        <button type="button" onClick={onClose} aria-label={tx("Close action")}><i className="fa-solid fa-xmark" /></button>
       </header>
       <section className="nc-action-guidance">
         <i className="fa-solid fa-circle-info" />
-        <p>NeuroCrop recommends what to inspect. It does not control ventilation, heating, irrigation, or other equipment.</p>
+        <p>{tx("NeuroCrop recommends what to inspect. It does not control ventilation, heating, irrigation, or other equipment.")}</p>
       </section>
       <section className="nc-action-items">
         {actions.map((action) => {
@@ -688,54 +689,54 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
           const unit = row?.unit || normalizeUnit(action.unit)
           return <article className="nc-action-item" data-status={item.status} key={actionId}>
             <header>
-              <div><span>{action.metricLabel || 'Condition check'}</span><h3>{action.sectionName || row?.name || 'Unnamed Section'}</h3></div>
-              <span className={`nc-workflow-status ${item.status}`}><i />{item.status === 'submitted' ? 'Awaiting verification' : item.status === 'open' ? 'Not started' : 'In progress'}</span>
+              <div><span>{action.metricLabel ||tx("Condition check")}</span><h3>{action.sectionName || row?.name ||tx("Unnamed Section")}</h3></div>
+              <span className={`nc-workflow-status ${item.status}`}><i />{item.status === 'submitted' ?tx("Awaiting verification") : item.status === 'open' ?tx("Not started") :tx("In progress")}</span>
             </header>
             <div className="nc-action-values">
-              <div><span>Current</span><strong>{formatMeasurement(currentValue, unit)}</strong></div>
-              <div><span>Target</span><strong>{row?.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : formatTarget(targetRange(action.target), unit).replace(/^Target /, '')}</strong></div>
-              <div><span>Deviation</span><strong>{row ? formatDeviation(row.deviation, row.direction, row.unit) : action.reason}</strong></div>
-              <div><span>Latest reading</span><strong>{row?.updated || 'Unavailable'}</strong></div>
+              <div><span>{tx("Current")}</span><strong>{formatMeasurement(currentValue, unit)}</strong></div>
+              <div><span>{tx("Target")}</span><strong>{row?.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : formatTarget(targetRange(action.target), unit).replace(/^Target /, '')}</strong></div>
+              <div><span>{tx("Deviation")}</span><strong>{row ? formatDeviation(row.deviation, row.direction, row.unit) : action.reason}</strong></div>
+              <div><span>{tx("Latest reading")}</span><strong>{row?.updated ||tx("Unavailable")}</strong></div>
             </div>
             {action.ruleType === 'interaction'
-              ? <div className="nc-action-diagnosis"><span>Why NeuroCrop recommends this</span><strong>{action.title}</strong><p>{action.reason}</p></div>
+              ? <div className="nc-action-diagnosis"><span>{tx("Why NeuroCrop recommends this")}</span><strong>{action.title}</strong><p>{action.reason}</p></div>
               : null}
             <AgronomicDiagnosis action={action} />
-            <div className="nc-action-recommendation"><span>Recommended check</span><p>{action.recommendedAction || 'Inspect the relevant controls and sensor placement.'}</p></div>
+            <div className="nc-action-recommendation"><span>{tx("Recommended check")}</span><p>{action.recommendedAction ||tx("Inspect the relevant controls and sensor placement.")}</p></div>
             {item.status !== 'open'
               ? <div className="nc-action-record">
-                <label><span>What was done</span><select value={item.executionType} onChange={(event) => updateItem(actionId, { executionType: event.target.value })} disabled={item.status === 'submitted'}>
-                  <option value="">Select performed action</option>
-                  <option value="ventilation_increased">Ventilation increased</option>
-                  <option value="ventilation_reduced">Ventilation reduced</option>
-                  <option value="vents_opened">Vents opened</option>
-                  <option value="heating_increased">Heating increased</option>
-                  <option value="heating_reduced">Heating reduced</option>
-                  <option value="cooling_increased">Cooling increased</option>
-                  <option value="cooling_reduced">Cooling reduced</option>
-                  <option value="humidification_increased">Humidification increased</option>
-                  <option value="humidification_reduced">Humidification reduced</option>
-                  <option value="irrigation_adjusted">Irrigation adjusted</option>
-                  <option value="shading_adjusted">Shading adjusted</option>
-                  <option value="equipment_checked">Equipment checked</option>
-                  <option value="other">Other</option>
+                <label><span>{tx("What was done")}</span><select value={item.executionType} onChange={(event) => updateItem(actionId, { executionType: event.target.value })} disabled={item.status === 'submitted'}>
+                  <option value="">{tx("Select performed action")}</option>
+                  <option value="ventilation_increased">{tx("Ventilation increased")}</option>
+                  <option value="ventilation_reduced">{tx("Ventilation reduced")}</option>
+                  <option value="vents_opened">{tx("Vents opened")}</option>
+                  <option value="heating_increased">{tx("Heating increased")}</option>
+                  <option value="heating_reduced">{tx("Heating reduced")}</option>
+                  <option value="cooling_increased">{tx("Cooling increased")}</option>
+                  <option value="cooling_reduced">{tx("Cooling reduced")}</option>
+                  <option value="humidification_increased">{tx("Humidification increased")}</option>
+                  <option value="humidification_reduced">{tx("Humidification reduced")}</option>
+                  <option value="irrigation_adjusted">{tx("Irrigation adjusted")}</option>
+                  <option value="shading_adjusted">{tx("Shading adjusted")}</option>
+                  <option value="equipment_checked">{tx("Equipment checked")}</option>
+                  <option value="other">{tx("Other")}</option>
                 </select></label>
-                <label><span>Actual change or finding</span><input value={item.adjustment} onChange={(event) => updateItem(actionId, { adjustment: event.target.value })} placeholder="Example: AC setpoint increased from 18 to 20 °C" maxLength={160} disabled={item.status === 'submitted'} /></label>
-                <label><span>Duration, minutes (optional)</span><input type="number" min="1" max="1440" value={item.duration} onChange={(event) => updateItem(actionId, { duration: event.target.value })} disabled={item.status === 'submitted'} /></label>
-                <label><span>Additional note (optional)</span><textarea value={item.note} onChange={(event) => updateItem(actionId, { note: event.target.value })} placeholder="Anything the next employee should know" maxLength={500} disabled={item.status === 'submitted'} /></label>
+                <label><span>{tx("Actual change or finding")}</span><input value={item.adjustment} onChange={(event) => updateItem(actionId, { adjustment: event.target.value })} placeholder={tx("Example: AC setpoint increased from 18 to 20 °C")} maxLength={160} disabled={item.status === 'submitted'} /></label>
+                <label><span>{tx("Duration, minutes (optional)")}</span><input type="number" min="1" max="1440" value={item.duration} onChange={(event) => updateItem(actionId, { duration: event.target.value })} disabled={item.status === 'submitted'} /></label>
+                <label><span>{tx("Additional note (optional)")}</span><textarea value={item.note} onChange={(event) => updateItem(actionId, { note: event.target.value })} placeholder={tx("Anything the next employee should know")} maxLength={500} disabled={item.status === 'submitted'} /></label>
               </div>
               : null}
             {item.error ? <p className="nc-action-error" role="alert">{item.error}</p> : null}
             <footer>
               <button className={item.status === 'submitted' ? 'checked' : ''} type="button" onClick={() => completeAction(action)} disabled={item.status === 'submitting' || item.status === 'submitted'}>
-                {item.status === 'open' ? 'Start check' : item.status === 'submitted' ? 'Awaiting verification' : item.status === 'submitting' ? 'Saving…' : 'Submit for verification'}
+                {item.status === 'open' ?tx("Start check") : item.status === 'submitted' ?tx("Awaiting verification") : item.status === 'submitting' ?tx("Saving…") :tx("Submit for verification")}
               </button>
             </footer>
           </article>
         })}
       </section>
       <footer>
-        <button type="button" onClick={onClose}>Close</button>
+        <button type="button" onClick={onClose}>{tx("Close")}</button>
       </footer>
     </aside>
   </div>
@@ -810,9 +811,9 @@ export default function OverviewWorkspace() {
     [dashboard],
   )
 
-  if (loadState === 'loading') return <section className="nc-overview-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><h1>Preparing your live overview</h1><p>Evaluating Sections against their active crop profiles.</p></section>
-  if (loadState === 'error') return <section className="nc-overview-state" role="alert"><i className="fa-solid fa-cloud-arrow-down" /><h1>Overview could not be loaded</h1><p>{error}</p><button type="button" onClick={() => setRefreshKey((value) => value + 1)}>Try again</button></section>
-  if (loadState === 'empty' || !model) return <section className="nc-overview-state"><i className="fa-solid fa-seedling" /><h1>Create your first Area</h1><p>Add its first Section to begin monitoring.</p></section>
+  if (loadState === 'loading') return <section className="nc-overview-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><h1>{tx("Preparing your live overview")}</h1><p>{tx("Evaluating Sections against their active crop profiles.")}</p></section>
+  if (loadState === 'error') return <section className="nc-overview-state" role="alert"><i className="fa-solid fa-cloud-arrow-down" /><h1>{tx("Overview could not be loaded")}</h1><p>{error}</p><button type="button" onClick={() => setRefreshKey((value) => value + 1)}>{tx("Try again")}</button></section>
+  if (loadState === 'empty' || !model) return <section className="nc-overview-state"><i className="fa-solid fa-seedling" /><h1>{tx("Create your first Area")}</h1><p>{tx("Add its first Section to begin monitoring.")}</p></section>
 
   const actionRows = model.rows.filter((row) => row.tone === 'action')
   const watchRows = model.rows.filter((row) => row.tone === 'watch')
@@ -911,44 +912,44 @@ export default function OverviewWorkspace() {
       <div className="nc-overview-main">
         <section className="nc-overview-copy" aria-live="polite">
           <div className="nc-overview-area-picker">
-            <span>Active Area</span>
-            <div role="group" aria-label="Select active Area">
+            <span>{tx("Active Area")}</span>
+            <div role="group" aria-label={tx("Select active Area")}>
               {areaOptions.map((area) => <button type="button" key={area.id} data-active={area.id === model.areaId} aria-pressed={area.id === model.areaId} onClick={() => changeArea(area.id)}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>{area.name}</span></button>)}
             </div>
           </div>
           <div className="nc-overview-kicker">
-            <span>{stable ? 'All systems normal' : model.priority ? 'Action recommended' : watchRows.length ? 'Monitoring recommended' : 'Setup required'}</span>
+            <span>{stable ?tx("All systems normal") : model.priority ?tx("Action recommended") : watchRows.length ?tx("Monitoring recommended") :tx("Setup required")}</span>
             <strong>{scopeLabel}</strong>
           </div>
           <h1>{headline}</h1>
           <p>{explanation}</p>
           {model.priority
-            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Review {visibleActions.length} affected Section{visibleActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
+            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{tx("Review")} {visibleActions.length} {tx("affected Section")}{visibleActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
             : stable
-              ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />No action required</div>
+              ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />{tx("No action required")}</div>
               : effectiveWatchActions.length
-                ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>Review {effectiveWatchActions.length} Watch check{effectiveWatchActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
-                : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>Review Section setup<i className="fa-solid fa-arrow-right" /></button>}
+                ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{tx("Review")} {effectiveWatchActions.length} {tx("Watch check")}{effectiveWatchActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
+                : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>{tx("Review Section setup")}<i className="fa-solid fa-arrow-right" /></button>}
           {unknownRows.length && effectiveWatchActions.length
-            ? <button className="nc-overview-setup-link" type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-sliders" />Review setup for {unknownRows.length} unverified Section{unknownRows.length === 1 ? '' : 's'}</button>
+            ? <button className="nc-overview-setup-link" type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-sliders" />{tx("Review setup for")} {unknownRows.length} {tx("unverified Section")}{unknownRows.length === 1 ? '' : 's'}</button>
             : null}
         </section>
 
         <figure className="nc-coverage" aria-labelledby="nc-coverage-title">
           <div className="nc-coverage-summary">
             <div className="nc-section-summary">
-              <p id="nc-coverage-title">Live status</p>
+              <p id="nc-coverage-title">{tx("Live status")}</p>
               <div>
-                <span className="action"><i />{actionRows.length} need{actionRows.length === 1 ? 's' : ''} action</span>
-                <span className="watch"><i />{watchRows.length} watch</span>
-                <span className="good"><i />{stableRows.length} stable</span>
-                {unknownRows.length ? <span className="unknown"><i />{unknownRows.length} unverified</span> : null}
+                <span className="action"><i />{actionRows.length} {tx("need")}{actionRows.length === 1 ? 's' : ''} {tx("action")}</span>
+                <span className="watch"><i />{watchRows.length} {tx("watch")}</span>
+                <span className="good"><i />{stableRows.length} {tx("stable")}</span>
+                {unknownRows.length ? <span className="unknown"><i />{unknownRows.length} {tx("unverified")}</span> : null}
               </div>
             </div>
             <div className="nc-growing-score">
-              <span>Current Growing Score</span>
+              <span>{tx("Current Growing Score")}</span>
               <p><strong>{model.growingScore ?? '—'}</strong>{model.growingScore === null ? null : <small>/ 100</small>}</p>
-              {model.scoreDriver ? <em>Limited by {model.scoreDriver.toLowerCase()}</em> : null}
+              {model.scoreDriver ? <em>{tx("Limited by")} {model.scoreDriver.toLowerCase()}</em> : null}
             </div>
           </div>
           <div className="nc-coverage-list">
@@ -956,7 +957,7 @@ export default function OverviewWorkspace() {
               <i><span /></i>
               <div className="nc-section-identity"><strong>{row.name}</strong><small>{row.crop}</small></div>
               <div className="nc-section-score">
-                <span>Growing Score</span>
+                <span>{tx("Growing Score")}</span>
                 <strong style={{ color: scoreColor(row.score) }}>{row.score ?? '—'}{row.score === null ? null : <small>/100</small>}</strong>
               </div>
               <p>
@@ -970,28 +971,28 @@ export default function OverviewWorkspace() {
             </button>)}
           </div>
           <div className="nc-coverage-footer">
-            <figcaption><i className="fa-solid fa-circle-check" />Current Growing Score combines all available metrics; status and deviation show the limiting condition.</figcaption>
-            <button type="button" onClick={() => navigate('/sections')}>View all {model.rows.length} Sections <i className="fa-solid fa-arrow-right" /></button>
+            <figcaption><i className="fa-solid fa-circle-check" />{tx("Current Growing Score combines all available metrics; status and deviation show the limiting condition.")}</figcaption>
+            <button type="button" onClick={() => navigate('/sections')}>{tx("View all")} {model.rows.length} {tx("Sections")} <i className="fa-solid fa-arrow-right" /></button>
           </div>
         </figure>
       </div>
       <footer className="nc-overview-trust">
         <span><i />{model.reporting}</span>
         <span>{model.updated}</span>
-        <span>{actionRows.length} actions · {watchRows.length} watch conditions</span>
-        <button type="button" onClick={openAreaEvidence}>Open Area analysis <i className="fa-solid fa-arrow-right" /></button>
+        <span>{actionRows.length} {tx("actions ·")} {watchRows.length} {tx("watch conditions")}</span>
+        <button type="button" onClick={openAreaEvidence}>{tx("Open Area analysis")} <i className="fa-solid fa-arrow-right" /></button>
       </footer>
     </section>
-    <section className="nc-overview-insights" aria-label="Operational overview">
+    <section className="nc-overview-insights" aria-label={tx("Operational overview")}>
       <TopographicField tone={overviewTone} />
       <article className="nc-overview-climate-card">
-        <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>Loading live climate map…</strong></div>}>
+        <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong></div>}>
           <ReadingsClimateMap
             key={model.areaId}
             areaId={model.areaId}
             refreshToken={refreshKey}
             presentation="overview"
-            areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label="Choose Area for climate snapshot">{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
+            areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label={tx("Choose Area for climate snapshot")}>{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
           />
         </Suspense>
       </article>

@@ -1,3 +1,4 @@
+import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import '../../styles/actions-workspace.css'
@@ -371,35 +372,35 @@ export default function ActionsWorkspace() {
   return <main className="nc-actions-page" aria-busy={loading}>
     <header className="nc-actions-head">
       <div>
-        <p>Operational follow-through</p>
-        <h1>Actions</h1>
-        <span>See what needs attention, who performed each check, and whether conditions improved.</span>
+        <p>{tx("Operational follow-through")}</p>
+        <h1>{tx("Actions")}</h1>
+        <span>{tx("See what needs attention, who performed each check, and whether conditions improved.")}</span>
       </div>
       <div className="nc-actions-head-controls">
         <button type="button" className="nc-actions-refresh" onClick={() => void load()}>
-          <i className="fa-solid fa-rotate" /> Refresh
+          <i className="fa-solid fa-rotate" /> {tx("Refresh")}
         </button>
         {canReset && <div className="nc-actions-admin-menu">
-          <button type="button" className="nc-actions-more" aria-label="Administration options" aria-expanded={adminMenuOpen} onClick={() => setAdminMenuOpen((open) => !open)}>
+          <button type="button" className="nc-actions-more" aria-label={tx("Administration options")} aria-expanded={adminMenuOpen} onClick={() => setAdminMenuOpen((open) => !open)}>
             <i className="fa-solid fa-ellipsis" />
           </button>
-          {adminMenuOpen && <div><button type="button" onClick={() => { setAdminMenuOpen(false); setResetOpen(true) }}><i className="fa-solid fa-arrow-rotate-left" /> Reset action records</button></div>}
+          {adminMenuOpen && <div><button type="button" onClick={() => { setAdminMenuOpen(false); setResetOpen(true) }}><i className="fa-solid fa-arrow-rotate-left" /> {tx("Reset action records")}</button></div>}
         </div>}
       </div>
     </header>
 
-    <section className="nc-actions-summary" aria-label="Action summary">
+    <section className="nc-actions-summary" aria-label={tx("Action summary")}>
       <button type="button" className={tab === 'todo' ? 'active' : ''} onClick={() => setTab('todo')}>
-        <i data-state="open" /><strong>{todo.length}</strong><span>To do</span>
+        <i data-state="open" /><strong>{todo.length}</strong><span>{tx("To do")}</span>
       </button>
       <button type="button" className={tab === 'in_progress' ? 'active' : ''} onClick={() => setTab('in_progress')}>
-        <i data-state="in_progress" /><strong>{inProgress.length}</strong><span>In progress</span>
+        <i data-state="in_progress" /><strong>{inProgress.length}</strong><span>{tx("In progress")}</span>
       </button>
       <button type="button" className={tab === 'verification' ? 'active' : ''} onClick={() => setTab('verification')}>
-        <i data-state="verification" /><strong>{verification.length}</strong><span>Verification</span>
+        <i data-state="verification" /><strong>{verification.length}</strong><span>{tx("Verification")}</span>
       </button>
       <button type="button" className={tab === 'completed' ? 'active' : ''} onClick={() => setTab('completed')}>
-        <i data-state="completed" /><strong>{completed.length}</strong><span>Completed</span>
+        <i data-state="completed" /><strong>{completed.length}</strong><span>{tx("Completed")}</span>
       </button>
     </section>
 
@@ -410,17 +411,17 @@ export default function ActionsWorkspace() {
       <div className="nc-actions-toolbar">
         <label className="nc-actions-search">
           <i className="fa-solid fa-magnifying-glass" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search action, area, section or employee" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tx("Search action, area, section or employee")} />
         </label>
-        <label><span>Area</span><select value={area} onChange={(event) => setArea(event.target.value)}><option value="all">All areas</option>{areas.map((item) => <option key={item}>{item}</option>)}</select></label>
-        <label><span>Employee</span><select value={employee} onChange={(event) => setEmployee(event.target.value)}><option value="all">All employees</option><option value="mine">My actions</option>{employees.map((item) => <option key={item}>{item}</option>)}</select></label>
-        <label><span>Date</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+        <label><span>{tx("Area")}</span><select value={area} onChange={(event) => setArea(event.target.value)}><option value="all">{tx("All areas")}</option>{areas.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label><span>{tx("Employee")}</span><select value={employee} onChange={(event) => setEmployee(event.target.value)}><option value="all">{tx("All employees")}</option><option value="mine">{tx("My actions")}</option>{employees.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label><span>{tx("Date")}</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
       </div>
 
       {loading ? <div className="nc-actions-loading"><span /><span /><span /></div> : filtered.length === 0
-        ? <div className="nc-actions-empty"><i className="fa-solid fa-list-check" /><h2>No matching actions</h2><p>Change the filters or select another status.</p></div>
+        ? <div className="nc-actions-empty"><i className="fa-solid fa-list-check" /><h2>{tx("No matching actions")}</h2><p>{tx("Change the filters or select another status.")}</p></div>
         : <div className="nc-actions-table">
-          <div className="nc-actions-row head"><span>Status</span><span>Task</span><span>Location</span><span>Assignee</span><span>Due</span><span>Priority / result</span><span /></div>
+          <div className="nc-actions-row head"><span>{tx("Status")}</span><span>{tx("Task")}</span><span>{tx("Location")}</span><span>{tx("Assignee")}</span><span>{tx("Due")}</span><span>{tx("Priority / result")}</span><span /></div>
           {filtered.map((item) => {
             const action = item.action || item
             const actionId = String(action.id || item.actionId)
@@ -431,76 +432,76 @@ export default function ActionsWorkspace() {
             const workerName = assignment.assignedToName || item.createdByName || 'Unassigned'
             return <article className="nc-actions-row" key={`${tab}-${item.id || item.actionId}`}>
               <span><b className="nc-actions-status" data-state={status}><i />{labelStatus(status)}</b></span>
-              <span><strong>{item.title || item.metricLabel || 'Recommended check'}</strong><small>{item.recommendedAction || item.metricLabel || ''}</small></span>
-              <span><strong>{item.sectionName || 'Unknown section'}</strong><small>{item.areaName || 'Unknown area'}</small></span>
-              <span><strong>{workerName}</strong><small>{assignment.assignedTo ? 'Assigned employee' : workflowStatus === 'open' ? 'Not assigned' : 'Performed by'}</small></span>
-              <span><strong>{workflowStatus === 'open' ? dueLabel(assignment.dueAt) : relativeTime(item.createdAt)}</strong><small>{workflowStatus === 'open' ? relativeTime(item.observedAt) + ' detected' : 'Activity logged'}</small></span>
+              <span><strong>{item.title || item.metricLabel ||tx("Recommended check")}</strong><small>{item.recommendedAction || item.metricLabel || ''}</small></span>
+              <span><strong>{item.sectionName ||tx("Unknown section")}</strong><small>{item.areaName ||tx("Unknown area")}</small></span>
+              <span><strong>{workerName}</strong><small>{assignment.assignedTo ?tx("Assigned employee") : workflowStatus === 'open' ?tx("Not assigned") :tx("Performed by")}</small></span>
+              <span><strong>{workflowStatus === 'open' ? dueLabel(assignment.dueAt) : relativeTime(item.createdAt)}</strong><small>{workflowStatus === 'open' ? relativeTime(item.observedAt) + ' detected' :tx("Activity logged")}</small></span>
               <span>{workflowStatus === 'open'
-                ? <><b className="nc-actions-priority" data-priority={assignment.priority || 'normal'}>{priorityLabel(assignment.priority)}</b><small>{assignment.assignedByName ? `Assigned by ${assignment.assignedByName}` : 'Ready to assign'}</small></>
+                ? <><b className="nc-actions-priority" data-priority={assignment.priority || 'normal'}>{priorityLabel(assignment.priority)}</b><small>{assignment.assignedByName ? `Assigned by ${assignment.assignedByName}` :tx("Ready to assign")}</small></>
                 : <><strong>{resultText(item)}</strong><small>{item.executionDetails?.adjustment || item.note || ''}</small></>}</span>
               <span className="nc-actions-controls">
-                {workflowStatus === 'open' && ['owner', 'admin', 'grower'].includes(String(currentUser?.role || '')) && <button type="button" className="secondary" disabled={busyId === actionId} onClick={() => openAssignment(item)}>{assignment.assignedTo ? 'Reassign' : 'Assign'}</button>}
-                {workflowStatus === 'open' && <button type="button" disabled={busyId === actionId || !assignedToCurrentUser} title={!assignedToCurrentUser ? `Assigned to ${workerName}` : ''} onClick={() => void start(item)}>Start</button>}
-                {workflowStatus === 'in_progress' && <button type="button" disabled={busyId === actionId} onClick={() => openCompletion(item)}>Record work</button>}
+                {workflowStatus === 'open' && ['owner', 'admin', 'grower'].includes(String(currentUser?.role || '')) && <button type="button" className="secondary" disabled={busyId === actionId} onClick={() => openAssignment(item)}>{assignment.assignedTo ?tx("Reassign") :tx("Assign")}</button>}
+                {workflowStatus === 'open' && <button type="button" disabled={busyId === actionId || !assignedToCurrentUser} title={!assignedToCurrentUser ? `Assigned to ${workerName}` : ''} onClick={() => void start(item)}>{tx("Start")}</button>}
+                {workflowStatus === 'in_progress' && <button type="button" disabled={busyId === actionId} onClick={() => openCompletion(item)}>{tx("Record work")}</button>}
               </span>
             </article>
           })}
-          <footer>Showing {filtered.length} of {source.length} actions</footer>
+          <footer>{tx("Showing")} {filtered.length} {tx("of")} {source.length} {tx("actions")}</footer>
       </div>}
     </section>
     {assignmentItem && <div className="nc-actions-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setAssignmentItem(null)}>
       <section className="nc-actions-modal" role="dialog" aria-modal="true" aria-labelledby="assign-action-title">
         <header>
-          <div><p>Work assignment</p><h2 id="assign-action-title">Assign {assignmentItem.sectionName || 'Section'} check</h2><span>Choose who is responsible, how urgent it is, and when it should be completed.</span></div>
-          <button type="button" onClick={() => setAssignmentItem(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button>
+          <div><p>{tx("Work assignment")}</p><h2 id="assign-action-title">{tx("Assign")} {assignmentItem.sectionName ||tx("Section")} {tx("check")}</h2><span>{tx("Choose who is responsible, how urgent it is, and when it should be completed.")}</span></div>
+          <button type="button" onClick={() => setAssignmentItem(null)} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button>
         </header>
         <div className="nc-actions-form">
-          <label><span>Employee</span><select value={assignmentForm.assignedTo} onChange={(event) => setAssignmentForm((current) => ({ ...current, assignedTo: event.target.value }))}><option value="">Unassigned</option>{team.map((member) => <option value={member.id} key={member.id}>{member.name} · {member.role}</option>)}</select></label>
-          <label><span>Priority</span><select value={assignmentForm.priority} onChange={(event) => setAssignmentForm((current) => ({ ...current, priority: event.target.value }))}><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label>
-          <label><span>Due date (optional)</span><input type="datetime-local" value={assignmentForm.dueAt} onChange={(event) => setAssignmentForm((current) => ({ ...current, dueAt: event.target.value }))} /></label>
+          <label><span>{tx("Employee")}</span><select value={assignmentForm.assignedTo} onChange={(event) => setAssignmentForm((current) => ({ ...current, assignedTo: event.target.value }))}><option value="">{tx("Unassigned")}</option>{team.map((member) => <option value={member.id} key={member.id}>{member.name} · {member.role}</option>)}</select></label>
+          <label><span>{tx("Priority")}</span><select value={assignmentForm.priority} onChange={(event) => setAssignmentForm((current) => ({ ...current, priority: event.target.value }))}><option value="urgent">{tx("Urgent")}</option><option value="high">{tx("High")}</option><option value="normal">{tx("Normal")}</option><option value="low">{tx("Low")}</option></select></label>
+          <label><span>{tx("Due date (optional)")}</span><input type="datetime-local" value={assignmentForm.dueAt} onChange={(event) => setAssignmentForm((current) => ({ ...current, dueAt: event.target.value }))} /></label>
           {assignmentError && <p className="nc-actions-form-error"><i className="fa-solid fa-triangle-exclamation" />{assignmentError}</p>}
         </div>
         <footer>
-          <button type="button" onClick={() => setAssignmentItem(null)}>Cancel</button>
-          <button type="button" className="primary" disabled={busyId === String((assignmentItem.action || assignmentItem).id)} onClick={() => void saveAssignment()}>{assignmentForm.assignedTo ? 'Save assignment' : 'Leave unassigned'}</button>
+          <button type="button" onClick={() => setAssignmentItem(null)}>{tx("Cancel")}</button>
+          <button type="button" className="primary" disabled={busyId === String((assignmentItem.action || assignmentItem).id)} onClick={() => void saveAssignment()}>{assignmentForm.assignedTo ?tx("Save assignment") :tx("Leave unassigned")}</button>
         </footer>
       </section>
     </div>}
     {completionItem && <div className="nc-actions-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setCompletionItem(null)}>
       <section className="nc-actions-modal" role="dialog" aria-modal="true" aria-labelledby="record-work-title">
         <header>
-          <div><p>Performed action</p><h2 id="record-work-title">Record work for {completionItem.sectionName || 'Section'}</h2><span>This records the employee action. Sensor verification starts after submission.</span></div>
-          <button type="button" onClick={() => setCompletionItem(null)} aria-label="Close"><i className="fa-solid fa-xmark" /></button>
+          <div><p>{tx("Performed action")}</p><h2 id="record-work-title">{tx("Record work for")} {completionItem.sectionName ||tx("Section")}</h2><span>{tx("This records the employee action. Sensor verification starts after submission.")}</span></div>
+          <button type="button" onClick={() => setCompletionItem(null)} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button>
         </header>
         <div className="nc-actions-form">
-          <label><span>What was done</span><select value={completionForm.type} onChange={(event) => setCompletionForm((current) => ({ ...current, type: event.target.value }))}><option value="">Select performed action</option>{executionTypes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label><span>Actual change or finding</span><input value={completionForm.adjustment} onChange={(event) => setCompletionForm((current) => ({ ...current, adjustment: event.target.value }))} placeholder="Example: AC setpoint increased from 18 to 20 °C" maxLength={160} /></label>
-          <label><span>Duration, minutes (optional)</span><input type="number" min="1" max="1440" value={completionForm.duration} onChange={(event) => setCompletionForm((current) => ({ ...current, duration: event.target.value }))} /></label>
-          <label><span>Additional note (optional)</span><textarea value={completionForm.note} onChange={(event) => setCompletionForm((current) => ({ ...current, note: event.target.value }))} placeholder="Anything the next employee should know" maxLength={500} /></label>
+          <label><span>{tx("What was done")}</span><select value={completionForm.type} onChange={(event) => setCompletionForm((current) => ({ ...current, type: event.target.value }))}><option value="">{tx("Select performed action")}</option>{executionTypes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+          <label><span>{tx("Actual change or finding")}</span><input value={completionForm.adjustment} onChange={(event) => setCompletionForm((current) => ({ ...current, adjustment: event.target.value }))} placeholder={tx("Example: AC setpoint increased from 18 to 20 °C")} maxLength={160} /></label>
+          <label><span>{tx("Duration, minutes (optional)")}</span><input type="number" min="1" max="1440" value={completionForm.duration} onChange={(event) => setCompletionForm((current) => ({ ...current, duration: event.target.value }))} /></label>
+          <label><span>{tx("Additional note (optional)")}</span><textarea value={completionForm.note} onChange={(event) => setCompletionForm((current) => ({ ...current, note: event.target.value }))} placeholder={tx("Anything the next employee should know")} maxLength={500} /></label>
           {completionError && <p className="nc-actions-form-error"><i className="fa-solid fa-triangle-exclamation" />{completionError}</p>}
         </div>
         <footer>
-          <button type="button" onClick={() => setCompletionItem(null)}>Cancel</button>
-          <button type="button" className="danger" disabled={busyId === String((completionItem.action || completionItem).id || completionItem.actionId)} onClick={() => void fail()}>Could not complete</button>
-          <button type="button" className="primary" disabled={busyId === String((completionItem.action || completionItem).id || completionItem.actionId)} onClick={() => void complete()}>Submit for verification</button>
+          <button type="button" onClick={() => setCompletionItem(null)}>{tx("Cancel")}</button>
+          <button type="button" className="danger" disabled={busyId === String((completionItem.action || completionItem).id || completionItem.actionId)} onClick={() => void fail()}>{tx("Could not complete")}</button>
+          <button type="button" className="primary" disabled={busyId === String((completionItem.action || completionItem).id || completionItem.actionId)} onClick={() => void complete()}>{tx("Submit for verification")}</button>
         </footer>
       </section>
     </div>}
     {resetOpen && <div className="nc-actions-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setResetOpen(false)}>
       <section className="nc-actions-modal nc-actions-reset-modal" role="dialog" aria-modal="true" aria-labelledby="reset-actions-title">
         <header>
-          <div><p>Administrator tool</p><h2 id="reset-actions-title">Reset all action records?</h2><span>This is intended for clearing test activity before client use.</span></div>
-          <button type="button" onClick={() => setResetOpen(false)} aria-label="Close"><i className="fa-solid fa-xmark" /></button>
+          <div><p>{tx("Administrator tool")}</p><h2 id="reset-actions-title">{tx("Reset all action records?")}</h2><span>{tx("This is intended for clearing test activity before client use.")}</span></div>
+          <button type="button" onClick={() => setResetOpen(false)} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button>
         </header>
         <div className="nc-actions-reset-copy">
-          <p><strong>Deleted:</strong> open workflow progress, recorded work, and verification history for this organization.</p>
-          <p><strong>Kept:</strong> sensor readings, Areas, Sections, Nodes, crop profiles, and alerts.</p>
-          <p>Any condition that is still outside target will immediately return as a new Open check.</p>
+          <p><strong>{tx("Deleted:")}</strong> {tx("open workflow progress, recorded work, and verification history for this organization.")}</p>
+          <p><strong>{tx("Kept:")}</strong> {tx("sensor readings, Areas, Sections, Nodes, crop profiles, and alerts.")}</p>
+          <p>{tx("Any condition that is still outside target will immediately return as a new Open check.")}</p>
         </div>
         <footer>
-          <button type="button" disabled={resetBusy} onClick={() => setResetOpen(false)}>Cancel</button>
+          <button type="button" disabled={resetBusy} onClick={() => setResetOpen(false)}>{tx("Cancel")}</button>
           <button type="button" className="danger" disabled={resetBusy} onClick={() => void resetActions()}>
-            {resetBusy ? 'Resetting…' : 'Reset action records'}
+            {resetBusy ?tx("Resetting…") :tx("Reset action records")}
           </button>
         </footer>
       </section>

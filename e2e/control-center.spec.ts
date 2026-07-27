@@ -68,11 +68,28 @@ test('LT/EN belongs to React state, persists, and no legacy runtime is loaded', 
   await expect(page.locator('html')).toHaveAttribute('lang', 'lt')
   await expect(page.locator('script[src*="approved-dashboard-runtime"], script[src*="neurocrop-i18n-lt"]')).toHaveCount(0)
 
+  const localizedRoutes = [
+    ['sites', '.nc-areas-page', 'Erdvės'],
+    ['zones', '.nc-sections-page', 'Sekcijos'],
+    ['nodes', '.node-fleet-page', 'Sensorių mazgai'],
+    ['readings', '.nc-readings-workspace', 'Visi dabartiniai rodmenys vienoje vietoje'],
+    ['alerts', '.nc-alerts-page', 'Perspėjimai'],
+    ['actions', '.nc-actions-page', 'Veiksmai'],
+    ['crop-profiles', '[data-react-crop-profiles]', 'Kultūrų profiliai'],
+    ['settings', '.nc-settings-page', 'Nustatymai'],
+  ] as const
+  for (const [action, workspace, expectedText] of localizedRoutes) {
+    await navigation(page, action).click()
+    await expect(page.locator('[data-workspace-host]:not([hidden])').locator(workspace)).toContainText(expectedText)
+  }
+
   await page.reload()
   await expect(page.locator('#dashboardShell')).toBeVisible()
   await expect(navigation(page, 'overview')).toContainText('Apžvalga')
   await page.locator('[data-language-option="en"]:visible').click()
   await expect(navigation(page, 'overview')).toContainText('Overview')
+  await navigation(page, 'nodes').click()
+  await expect(page.locator('.node-fleet-page')).toContainText('Sensor nodes')
 })
 
 test('Nodes opens registered hardware and its detail without a refresh', async ({ page }) => {
