@@ -2,6 +2,7 @@ import type { MetricKey } from '../model'
 import type { HeatmapGrid } from './heatmapTypes'
 
 export const MIN_CONTOUR_SENSOR_COUNT = 2
+const MAX_CONTOUR_LEVELS = 6
 
 export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourInterval: number }> = {
   'air-temperature': { colorInterval: 0.25, contourInterval: 1 },
@@ -11,6 +12,14 @@ export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourIn
   'root-temperature': { colorInterval: 0.25, contourInterval: 1 },
 }
 
+const ADAPTIVE_CONTOUR_INTERVALS: Record<MetricKey, { candidates: number[]; lowConfidenceMinimum: number }> = {
+  'air-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
+  'relative-humidity': { candidates: [2, 5, 10, 20], lowConfidenceMinimum: 5 },
+  co2: { candidates: [50, 100, 250, 500, 1000], lowConfidenceMinimum: 100 },
+  vpd: { candidates: [0.05, 0.1, 0.2, 0.5, 1], lowConfidenceMinimum: 0.1 },
+  'root-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
+}
+
 export const COLOR_INTERVALS = Object.fromEntries(
   Object.entries(METRIC_LEVELS).map(([metric, levels]) => [metric, levels.colorInterval]),
 ) as Record<MetricKey, number>
@@ -18,6 +27,18 @@ export const COLOR_INTERVALS = Object.fromEntries(
 export const CONTOUR_INTERVALS = Object.fromEntries(
   Object.entries(METRIC_LEVELS).map(([metric, levels]) => [metric, levels.contourInterval]),
 ) as Record<MetricKey, number>
+
+export function getAdaptiveContourInterval(metric: MetricKey, values: number[], sensorCount: number): number {
+  const config = ADAPTIVE_CONTOUR_INTERVALS[metric]
+  const finiteValues = values.filter(Number.isFinite)
+  if (finiteValues.length < 2) return METRIC_LEVELS[metric].contourInterval
+  const span = Math.max(...finiteValues) - Math.min(...finiteValues)
+  if (!Number.isFinite(span) || span <= 0) return METRIC_LEVELS[metric].contourInterval
+  const minimum = sensorCount < 4 ? config.lowConfidenceMinimum : config.candidates[0]
+  return config.candidates.find((interval) =>
+    interval >= minimum && span / interval <= MAX_CONTOUR_LEVELS + 1e-9,
+  ) ?? config.candidates.at(-1)!
+}
 
 export type ContourSegment = {
   level: number

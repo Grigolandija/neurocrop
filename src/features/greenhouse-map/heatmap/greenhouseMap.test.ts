@@ -3,7 +3,7 @@ import { createDemoMap } from '../demo'
 import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, snapWallMountedObject, worldToScreen } from '../geometry'
 import { mapRepository, validateMap } from '../services/mapRepository'
 import { calculateConfidence } from './calculateConfidenceGrid'
-import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_COUNT, connectContourSegments, createContourSegments, getContourLevels } from './contourLines'
+import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_COUNT, connectContourSegments, createContourSegments, getAdaptiveContourInterval, getContourLevels } from './contourLines'
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
@@ -109,12 +109,28 @@ describe('heatmap contour lines', () => {
     expect(MIN_CONTOUR_SENSOR_COUNT).toBe(2)
   })
 
-  it('uses meaningful fixed intervals for every metric', () => {
+  it('keeps meaningful fallback intervals for every metric', () => {
     expect(CONTOUR_INTERVALS['air-temperature']).toBe(1)
     expect(CONTOUR_INTERVALS['relative-humidity']).toBe(5)
     expect(CONTOUR_INTERVALS.co2).toBe(100)
     expect(CONTOUR_INTERVALS.vpd).toBe(0.1)
     expect(CONTOUR_INTERVALS['root-temperature']).toBe(1)
+  })
+  it('adapts contour spacing to each metric range without exceeding six levels', () => {
+    expect(getAdaptiveContourInterval('relative-humidity', [40, 48], 5)).toBe(2)
+    expect(getAdaptiveContourInterval('relative-humidity', [40, 61], 5)).toBe(5)
+    expect(getAdaptiveContourInterval('air-temperature', [19, 22], 5)).toBe(0.5)
+    expect(getAdaptiveContourInterval('air-temperature', [16, 28], 5)).toBe(2)
+    expect(getAdaptiveContourInterval('co2', [500, 750], 5)).toBe(50)
+    expect(getAdaptiveContourInterval('co2', [400, 1600], 5)).toBe(250)
+    expect(getAdaptiveContourInterval('vpd', [0.8, 1.1], 5)).toBe(0.05)
+    expect(getAdaptiveContourInterval('vpd', [0.4, 2], 5)).toBe(0.5)
+  })
+  it('does not imply fine precision with fewer than four sensors', () => {
+    expect(getAdaptiveContourInterval('relative-humidity', [40, 48], 3)).toBe(5)
+    expect(getAdaptiveContourInterval('air-temperature', [19, 22], 2)).toBe(1)
+    expect(getAdaptiveContourInterval('co2', [500, 750], 3)).toBe(100)
+    expect(getAdaptiveContourInterval('vpd', [0.8, 1.1], 2)).toBe(0.1)
   })
   it('creates only levels inside the measured range', () => {
     expect(getContourLevels(new Float32Array([21.2, 22.8]), 0.5)).toEqual([21.5, 22, 22.5])

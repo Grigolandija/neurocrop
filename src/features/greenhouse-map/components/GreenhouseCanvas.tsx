@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
 import '../../../styles/greenhouse-map-test.css'
-import { COLOR_INTERVALS, CONTOUR_INTERVALS, createContourPaths, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
+import { COLOR_INTERVALS, createContourPaths, getAdaptiveContourInterval, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
 import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
 import { bandedGradient } from '../heatmap/heatmapColorScale'
 import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
@@ -116,7 +116,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const [panning, setPanning] = useState(false)
   const [showContours, setShowContours] = useState(true)
   const [mouse, setMouse] = useState<{ xM: number; yM: number } | null>(null)
-  const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; count: number; calculatedAt: Date } | null>(null)
+  const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; count: number; contourInterval: number; calculatedAt: Date } | null>(null)
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
   const metricLabel = (key: GreenhouseMap['heatmapSettings']['metric']) => language === 'lt'
     ? ({ 'air-temperature': 'Oro temperatūra', 'relative-humidity': 'Santykinė drėgmė', co2: 'CO₂', vpd: 'VPD', 'root-temperature': 'Šaknų zonos temperatūra' } as Record<string, string>)[key]
@@ -173,6 +173,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         min: grid.min,
         max: grid.max,
         count: grid.sensorCount,
+        contourInterval: getAdaptiveContourInterval(metric, points.map((point) => point.value), grid.sensorCount),
         calculatedAt: new Date(),
       })
     }, 180)
@@ -200,13 +201,13 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const showReadOnlySensorLocations = readOnly && mode === 'environment' && !visibleLayers.get('sensors')?.visible
   const contourPaths = useMemo(() => {
     if (!showContours || !heatmap || heatmap.count < MIN_CONTOUR_SENSOR_COUNT) return []
-    return createContourPaths(heatmap.grid, CONTOUR_INTERVALS[map.heatmapSettings.metric]).map((path) => ({
+    return createContourPaths(heatmap.grid, heatmap.contourInterval).map((path) => ({
       ...path,
       points: path.points.map((coordinate, index) => index % 2 === 0
         ? coordinate / (heatmap.grid.width - 1) * map.dimensions.widthM
         : coordinate / (heatmap.grid.height - 1) * map.dimensions.lengthM),
     }))
-  }, [heatmap, map.dimensions.lengthM, map.dimensions.widthM, map.heatmapSettings.metric, showContours])
+  }, [heatmap, map.dimensions.lengthM, map.dimensions.widthM, showContours])
   const contourLabels = useMemo(() => {
     const pathsByLevel = new Map<number, Array<(typeof contourPaths)[number]>>()
     contourPaths.forEach((path) => {
@@ -283,14 +284,14 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     <div className="gh-legend-heading"><small>{readOnly ? tr('CLIMATE RANGE', 'KLIMATO DIAPAZONAS') : tr('ESTIMATED ENVIRONMENT MAP', 'APSKAIČIUOTAS APLINKOS ŽEMĖLAPIS')}</small><strong>{metricLabel(map.heatmapSettings.metric)}</strong></div>
     {heatmap ? <>
       <div className="gh-legend-scale">
-        <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {CONTOUR_INTERVALS[map.heatmapSettings.metric]} {METRICS[map.heatmapSettings.metric].unit}</button>
+        <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)} title={tr('Contour spacing adapts to the measured range and data coverage.', 'Izolinijų žingsnis prisitaiko prie matuojamo diapazono ir duomenų padengimo.')}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {heatmap.contourInterval} {METRICS[map.heatmapSettings.metric].unit}</button>
         <div className="gh-color-scale" style={{ background: bandedGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric].colors, COLOR_INTERVALS[map.heatmapSettings.metric]) }} />
         <div className="gh-legend-range"><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>
       </div>
       <div className="gh-legend-meta">
         {target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}
         <p><b>{heatmap.count} {tr('sensor sources', 'sensorių šaltiniai')}</b><span>{tr('Rendered', 'Atvaizduota')} {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></p>
-        {heatmap.count === MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Low-confidence directional estimate from 2 nodes.', 'Žemo patikimumo kryptinis įvertis pagal 2 mazgus.')}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų mazgų.')}</em> : null}
+        {heatmap.count >= MIN_CONTOUR_SENSOR_COUNT && heatmap.count < 4 ? <em>{tr(`Contour spacing widened for limited coverage from ${heatmap.count} nodes.`, `Izolinijų žingsnis praplatintas dėl riboto ${heatmap.count} mazgų padengimo.`)}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų mazgų.')}</em> : null}
         <em><i className="fa-solid fa-circle-info" /> {tr('Estimated between sensor locations.', 'Įvertinta tarp sensorių vietų.')}</em>
       </div>
     </> : <div className="gh-legend-meta"><p>{tr('No valid online sensor data for this metric in this Area.', 'Šiam šios erdvės rodikliui nėra tinkamų aktyvių sensorių duomenų.')}</p></div>}
