@@ -212,14 +212,22 @@ export default function TopographicField({ tone }: { tone: TopographicTone }) {
     const canvas = canvasRef.current
     if (!canvas) return
     let frame = 0
+    let revealFrame = 0
     let lastSignature = ''
+    delete canvas.dataset.ready
     const render = () => {
       const bounds = canvas.getBoundingClientRect()
       const signature = `${Math.round(bounds.width)}:${Math.round(bounds.height)}:${tone}`
       if (signature === lastSignature) return
       lastSignature = signature
       window.cancelAnimationFrame(frame)
-      frame = window.requestAnimationFrame(() => drawField(canvas, tone))
+      window.cancelAnimationFrame(revealFrame)
+      frame = window.requestAnimationFrame(() => {
+        drawField(canvas, tone)
+        revealFrame = window.requestAnimationFrame(() => {
+          canvas.dataset.ready = 'true'
+        })
+      })
     }
     const observer = new ResizeObserver(render)
     observer.observe(canvas)
@@ -227,6 +235,8 @@ export default function TopographicField({ tone }: { tone: TopographicTone }) {
     return () => {
       observer.disconnect()
       window.cancelAnimationFrame(frame)
+      window.cancelAnimationFrame(revealFrame)
+      delete canvas.dataset.ready
     }
   }, [tone])
 
