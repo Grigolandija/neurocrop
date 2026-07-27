@@ -24,6 +24,8 @@ assert(!login.includes('prefetchWorkspaceData'), 'Login must transition before w
 assert(!dashboard.includes('?raw'), 'DashboardPage must not inject raw HTML.')
 assert(!dashboard.includes('createPortal'), 'Dashboard workspaces must not use legacy DOM portals.')
 assert(dashboard.includes("'/nodes': 'nodesManagementSection'"), 'The Nodes workspace host must preserve its scoped styling contract.')
+assert(dashboard.includes('data-workspace-suspense'), 'Workspace readiness must track only unresolved lazy modules.')
+assert(!dashboard.includes("host.querySelector('[aria-busy=\"true\"]')"), 'Nested data loaders must not block the authenticated workspace shell.')
 assert(shell.includes('useInterfaceLanguage'), 'DashboardShell must own the language control.')
 assert(shell.includes('useNavigate'), 'DashboardShell must own navigation.')
 assert(store.includes('useSyncExternalStore'), 'Shared dashboard state must expose a React external store.')

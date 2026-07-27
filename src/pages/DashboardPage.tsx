@@ -64,12 +64,15 @@ function Workspaces({ pathname }: { pathname: string }) {
     let frame = 0
     const update = () => {
       const hosts = Array.from(root.querySelectorAll<HTMLElement>('[data-workspace-host]'))
-      if (hosts.length !== 14 || hosts.some((host) => !host.childElementCount || host.querySelector('[aria-busy="true"]'))) return
+      if (
+        hosts.length !== 14
+        || hosts.some((host) => !host.childElementCount || host.querySelector('[data-workspace-suspense]'))
+      ) return
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => setReady(true))
     }
     const observer = new MutationObserver(update)
-    observer.observe(root, { attributes: true, attributeFilter: ['aria-busy'], childList: true, subtree: true })
+    observer.observe(root, { childList: true, subtree: true })
     update()
     return () => { cancelAnimationFrame(frame); observer.disconnect() }
   }, [])
@@ -79,7 +82,7 @@ function Workspaces({ pathname }: { pathname: string }) {
     : pathname === route
   const workspace = (route: string, content: ReactNode) => (
     <div id={workspaceHostIds[route]} data-workspace-host hidden={!visible(route)}>
-      <Suspense fallback={<div aria-busy="true" />}>{content}</Suspense>
+      <Suspense fallback={<div data-workspace-suspense aria-busy="true" />}>{content}</Suspense>
     </div>
   )
 
