@@ -424,6 +424,8 @@
   display: grid;
   place-items: center;
   padding: 24px;
+  isolation: isolate;
+  overscroll-behavior: contain;
 }
 
 .designer-app .nc-nodes-modal-backdrop {
@@ -433,7 +435,8 @@
   height: 100%;
   border: 0;
   background: rgba(18, 29, 24, .48);
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .designer-app .nc-nodes-modal-layer > .management-modal-shell {

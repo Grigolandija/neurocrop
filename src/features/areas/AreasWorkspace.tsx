@@ -1,6 +1,7 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
+import { ModalPortal } from '../../components/ModalPortal'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import '../../styles/areas-workspace.css'
 
@@ -331,24 +332,24 @@ export default function AreasWorkspace() {
       {status === 'ready' && areas.length ? <footer><span>{tx("Showing")} {visibleAreas.length} {tx("of")} {areas.length} {tx("areas")}</span><span><i /> {tx("Stable")} <i /> {tx("Watch")} <i /> {tx("Action required")}</span></footer> : null}
     </section>
 
-    {editor ? <div className="nc-areas-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setEditor(null) }}><form className="nc-areas-modal" onSubmit={saveArea} role="dialog" aria-modal="true" aria-labelledby="nc-area-editor-title">
+    {editor ? <ModalPortal><div className="nc-areas-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setEditor(null) }}><form className="nc-areas-modal" onSubmit={saveArea} role="dialog" aria-modal="true" aria-labelledby="nc-area-editor-title">
       <header><div><p>{editor.mode === 'create' ?tx("New environment") :tx("Area details")}</p><h2 id="nc-area-editor-title">{editor.mode === 'create' ?tx("Create area") :tx("Edit area")}</h2><span>{tx("Define the top-level location that will contain sections and sensor nodes.")}</span></div><button type="button" onClick={() => setEditor(null)} disabled={busy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>
       {modalError ? <div className="nc-areas-modal-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{modalError}</div> : null}
       <div className="nc-areas-form">
-        <label><span>{tx("Area name")}</span><input autoFocus required maxLength={120} value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} placeholder="e.g. North greenhouse" /></label>
+        <label><span>{tx("Area name")}</span><input required maxLength={120} value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} placeholder="e.g. North greenhouse" /></label>
         <label><span>{tx("Environment")}</span><select value={editor.kind} onChange={(event) => setEditor({ ...editor, kind: event.target.value })}>{areaKinds.map((kind) => <option value={kind} key={kind}>{kind}</option>)}</select></label>
         <label><span>{tx("Location")}</span><input maxLength={180} value={editor.location} onChange={(event) => setEditor({ ...editor, location: event.target.value })} placeholder="e.g. Kaunas district · Building 2" /></label>
       </div>
       <footer><button type="button" className="nc-areas-button secondary" onClick={() => setEditor(null)} disabled={busy}>{tx("Cancel")}</button><button type="submit" className="nc-areas-button primary" disabled={busy || !editor.name.trim()}>{busy ?tx("Saving…") : editor.mode === 'create' ?tx("Create area") :tx("Save changes")}</button></footer>
-    </form></div> : null}
+    </form></div></ModalPortal> : null}
 
-    {deleteState ? <div className="nc-areas-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setDeleteState(null) }}><section className="nc-areas-modal danger" role="dialog" aria-modal="true" aria-labelledby="nc-area-delete-title">
+    {deleteState ? <ModalPortal><div className="nc-areas-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setDeleteState(null) }}><section className="nc-areas-modal danger" role="dialog" aria-modal="true" aria-labelledby="nc-area-delete-title">
       <header><div><p>{tx("Destructive action")}</p><h2 id="nc-area-delete-title">{tx("Delete “")}{deleteState.name}”?</h2><span>{tx("This removes the area from the workspace. Choose what happens to its sections.")}</span></div><button type="button" onClick={() => setDeleteState(null)} disabled={busy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>
       {modalError ? <div className="nc-areas-modal-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{modalError}</div> : null}
       <div className="nc-area-delete-choice">
         {deleteState.sectionCount ? <><label><input type="radio" checked={deleteState.keepSections} onChange={() => setDeleteState({ ...deleteState, keepSections: true })} /><span><strong>{tx("Keep")} {deleteState.sectionCount} {tx("sections")}</strong><small>{tx("Sections become unassigned and can be moved to another area.")}</small></span></label><label><input type="radio" checked={!deleteState.keepSections} onChange={() => setDeleteState({ ...deleteState, keepSections: false })} /><span><strong>{tx("Delete area and sections")}</strong><small>{tx("This permanently removes all sections in the area.")}</small></span></label></> : <p>{tx("This area has no sections and can be safely removed.")}</p>}
       </div>
       <footer><button type="button" className="nc-areas-button secondary" onClick={() => setDeleteState(null)} disabled={busy}>{tx("Cancel")}</button><button type="button" className="nc-areas-button danger" onClick={deleteArea} disabled={busy}>{busy ?tx("Deleting…") :tx("Delete area")}</button></footer>
-    </section></div> : null}
+    </section></div></ModalPortal> : null}
   </div>
 }
