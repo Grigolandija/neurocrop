@@ -1,6 +1,9 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
+import LoginScreen from './components/LoginScreen'
 import WorkspaceLoading from './components/WorkspaceLoading'
+import type { DashboardUser } from './components/DashboardShell'
+import { neurocropApi } from './services/api/neurocropApi'
 import './App.css'
 
 declare global {
@@ -15,22 +18,44 @@ const AcceptInvitePage = lazy(() => import('./pages/AcceptInvitePage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const GreenhouseMapTestPage = lazy(() => import('./features/greenhouse-map/GreenhouseMapTestPage'))
 
-function RouteLoading() {
-  return <WorkspaceLoading />
+function MainRoute() {
+  const [user, setUser] = useState<DashboardUser | null>(null)
+
+  useEffect(() => {
+    document.body.classList.add('designer-app')
+    let active = true
+    void neurocropApi.getCurrentUser()
+      .then((response) => {
+        const current = (response as { user?: DashboardUser }).user
+        if (active && current?.email) setUser(current)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+      document.body.classList.remove('designer-app')
+      delete document.body.dataset.primaryPage
+    }
+  }, [])
+
+  if (!user) return <LoginScreen onAuthenticated={setUser} />
+
+  return (
+    <Suspense fallback={<WorkspaceLoading />}>
+      <DashboardPage user={user} onSignedOut={() => setUser(null)} />
+    </Suspense>
+  )
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Suspense fallback={<RouteLoading />}>
-        <Routes>
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/accept-invite" element={<AcceptInvitePage />} />
-          <Route path="/greenhouse-map-test" element={<GreenhouseMapTestPage />} />
-          <Route path="/area-map" element={<GreenhouseMapTestPage />} />
-          <Route path="*" element={<DashboardPage />} />
-        </Routes>
-      </Suspense>
+      <Routes>
+        <Route path="/register" element={<Suspense fallback={null}><RegisterPage /></Suspense>} />
+        <Route path="/accept-invite" element={<Suspense fallback={null}><AcceptInvitePage /></Suspense>} />
+        <Route path="/greenhouse-map-test" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />
+        <Route path="/area-map" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />
+        <Route path="*" element={<MainRoute />} />
+      </Routes>
     </BrowserRouter>
   )
 }

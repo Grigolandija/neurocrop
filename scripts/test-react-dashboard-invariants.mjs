@@ -4,7 +4,9 @@ import process from 'node:process'
 
 const root = process.cwd()
 const read = (file) => fs.readFile(path.join(root, file), 'utf8')
+const app = await read('src/App.tsx')
 const dashboard = await read('src/pages/DashboardPage.tsx')
+const login = await read('src/components/LoginScreen.tsx')
 const shell = await read('src/components/DashboardShell.tsx')
 const store = await read('src/state/dashboardStore.ts')
 const sourceFiles = (await fs.readdir(path.join(root, 'src'), { recursive: true }))
@@ -15,6 +17,10 @@ const failures = []
 const assert = (condition, message) => { if (!condition) failures.push(message) }
 
 assert(dashboard.includes('<DashboardShell'), 'DashboardPage must render the React DashboardShell.')
+assert(app.includes('if (!user) return <LoginScreen'), 'The login screen must render before authenticated workspace loading.')
+assert(app.includes('<Suspense fallback={<WorkspaceLoading />}>'), 'Workspace loading must be scoped to the authenticated dashboard.')
+assert(!dashboard.includes('if (!bootstrapped)'), 'DashboardPage must not block the login screen while workspace modules preload.')
+assert(!login.includes('prefetchWorkspaceData'), 'Login must transition before workspace data prefetching starts.')
 assert(!dashboard.includes('?raw'), 'DashboardPage must not inject raw HTML.')
 assert(!dashboard.includes('createPortal'), 'Dashboard workspaces must not use legacy DOM portals.')
 assert(dashboard.includes("'/nodes': 'nodesManagementSection'"), 'The Nodes workspace host must preserve its scoped styling contract.')
