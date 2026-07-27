@@ -97,7 +97,7 @@ export default function AlertsWorkspace() {
       setStatus('ready')
     } catch (loadError) {
       setStatus('error')
-      setError(errorMessage(loadError, copy('Alerts could not be loaded.', 'Įspėjimų įkelti nepavyko.')))
+      setError(errorMessage(loadError, copy('Alerts could not be loaded.', 'Perspėjimų įkelti nepavyko.')))
     }
   }, [copy])
 
@@ -152,7 +152,7 @@ export default function AlertsWorkspace() {
       setFeedback({
         tone: 'success',
         text: actionable.length === 1
-          ? copy('Alert marked as seen. The live condition remains active.', 'Įspėjimas pažymėtas peržiūrėtu. Gyva sąlyga lieka aktyvi.')
+          ? copy('Alert marked as seen. The live condition remains active.', 'Perspėjimas pažymėtas peržiūrėtu. Gyva sąlyga lieka aktyvi.')
           : copy(`${actionable.length} alerts marked as seen. Live conditions remain active.`, `${actionable.length} įspėjimai pažymėti peržiūrėtais. Gyvos sąlygos lieka aktyvios.`),
       })
     } catch (actionError) {
@@ -171,7 +171,7 @@ export default function AlertsWorkspace() {
       await load(false)
       setFeedback({
         tone: 'success',
-        text: copy('Alert muted for one hour. This does not resolve the live condition.', 'Įspėjimas nutildytas vienai valandai. Tai neišsprendžia gyvos sąlygos.'),
+        text: copy('Alert muted for one hour. This does not resolve the live condition.', 'Perspėjimas nutildytas vienai valandai. Tai neišsprendžia gyvos sąlygos.'),
       })
     } catch (actionError) {
       setFeedback({ tone: 'danger', text: errorMessage(actionError, copy('Alert workflow could not be saved.', 'Nepavyko išsaugoti įspėjimo veiksmo.')) })
@@ -211,10 +211,10 @@ export default function AlertsWorkspace() {
     <header className="nc-alerts-head">
       <div>
         <p className="nc-alerts-eyebrow">{copy('Operational attention', 'Operacinis dėmesys')}</p>
-        <h1>{copy('Alerts', 'Įspėjimai')}</h1>
+        <h1>{copy('Alerts', 'Perspėjimai')}</h1>
         <p className="nc-alerts-description">{copy(
           'Live sensor deviations and device connectivity events. Alerts explain what is happening; employee work, assignment, and verification are managed in Actions.',
-          'Gyvi sensorių nukrypimai ir įrenginių ryšio įvykiai. Įspėjimai parodo, kas vyksta; darbuotojų darbai, priskyrimas ir patikra valdomi Veiksmų puslapyje.',
+          'Gyvi sensorių nukrypimai ir įrenginių ryšio įvykiai. Perspėjimai parodo, kas vyksta; darbuotojų darbai, priskyrimas ir patikra valdomi Veiksmų puslapyje.',
         )}</p>
       </div>
       <button type="button" className="nc-alerts-review-all" onClick={() => void acknowledge(openItems)} disabled={!canManage || !openItems.some((item) => !item.acknowledged) || pendingIds.size > 0}>
@@ -223,10 +223,10 @@ export default function AlertsWorkspace() {
     </header>
 
     {feedback ? <div className="nc-alerts-feedback" data-tone={feedback.tone} role={feedback.tone === 'danger' ? 'alert' : 'status'}>{feedback.text}</div> : null}
-    {status === 'error' ? <div className="nc-alerts-empty" role="alert"><span><i className="fa-solid fa-cloud-arrow-down" /></span><h2>{copy('Alerts could not be loaded', 'Įspėjimų įkelti nepavyko')}</h2><p>{error}</p><button type="button" className="nc-alert-primary-action" onClick={() => void load()}>{copy('Try again', 'Bandyti dar kartą')}</button></div> : null}
+    {status === 'error' ? <div className="nc-alerts-empty" role="alert"><span><i className="fa-solid fa-cloud-arrow-down" /></span><h2>{copy('Alerts could not be loaded', 'Perspėjimų įkelti nepavyko')}</h2><p>{error}</p><button type="button" className="nc-alert-primary-action" onClick={() => void load()}>{copy('Try again', 'Bandyti dar kartą')}</button></div> : null}
     {status === 'loading' ? <div className="nc-alerts-empty" aria-busy="true"><span><i className="fa-solid fa-circle-notch fa-spin" /></span><h2>{copy('Loading alerts', 'Įkeliami įspėjimai')}</h2></div> : null}
     {status === 'ready' ? <div className="nc-alerts-layout">
-      <aside className="nc-alerts-filters" aria-label={copy('Alert views', 'Įspėjimų filtrai')}>
+      <aside className="nc-alerts-filters" aria-label={copy('Alert views', 'Perspėjimų filtrai')}>
         <p>{copy('Status', 'Būsena')}</p>
         <div role="list">{filters.map((item, index) => <span key={item.key} style={{ display: 'contents' }}>{index === 4 ? <span className="nc-alert-filter-divider" aria-hidden="true" /> : null}<button type="button" data-active={item.key === filter} aria-pressed={item.key === filter} onClick={() => { setFilter(item.key); setFeedback(null) }}><span>{item.label}</span><strong>{item.count}</strong></button></span>)}</div>
       </aside>
