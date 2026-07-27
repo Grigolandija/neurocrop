@@ -5,6 +5,14 @@ import WorkspaceLoading from './components/WorkspaceLoading'
 import type { DashboardUser } from './components/DashboardShell'
 import { neurocropApi } from './services/api/neurocropApi'
 import './App.css'
+import './styles/approved-dashboard.css'
+import './styles/typography-system.css'
+import './styles/redesign-sidebar.css'
+import './styles/neurocrop-color-system.css'
+import './styles/neurocrop-typography-system.css'
+import './styles/app-shell.css'
+import './styles/operational-consistency.css'
+import './styles/mobile-experience.css'
 
 declare global {
   interface Window {

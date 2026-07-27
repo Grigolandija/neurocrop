@@ -7,14 +7,6 @@ import { invalidateRequestCache } from '../services/api/client'
 import { neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
 import { installEChartsEngine } from '../vendor/echartsEngine'
-import '../styles/approved-dashboard.css'
-import '../styles/typography-system.css'
-import '../styles/redesign-sidebar.css'
-import '../styles/neurocrop-color-system.css'
-import '../styles/neurocrop-typography-system.css'
-import '../styles/app-shell.css'
-import '../styles/operational-consistency.css'
-import '../styles/mobile-experience.css'
 
 const loadAreasWorkspace = () => import('../features/areas/AreasWorkspace')
 const loadReadingsWorkspace = () => import('../features/readings/ReadingsWorkspace')

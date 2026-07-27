@@ -3,11 +3,6 @@ import { useInterfaceLanguage } from '../i18n'
 import { invalidateRequestCache } from '../services/api/client'
 import { neurocropApi } from '../services/api/neurocropApi'
 import type { DashboardUser } from './DashboardShell'
-import '../styles/approved-dashboard.css'
-import '../styles/typography-system.css'
-import '../styles/neurocrop-color-system.css'
-import '../styles/neurocrop-typography-system.css'
-import '../styles/mobile-experience.css'
 
 type LoginScreenProps = {
   onAuthenticated: (user: DashboardUser) => void
