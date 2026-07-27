@@ -2,7 +2,7 @@ import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
-import { notifyWorkspaceStructureChanged } from '../../state/dashboardStore'
+import { notifyWorkspaceStructureChanged, useWorkspaceStructureVersion } from '../../state/dashboardStore'
 import '../../styles/nodes-page.css'
 import {
   formatLastPayload,
@@ -156,6 +156,7 @@ const sensorRoles = [
 ] as const
 
 export default function NodesWorkspace() {
+  const structureVersion = useWorkspaceStructureVersion()
   const location = useLocation()
   const navigate = useNavigate()
   const [areas, setAreas] = useState<Area[]>([])
@@ -217,7 +218,7 @@ export default function NodesWorkspace() {
     }
     void load()
     return () => { cancelled = true }
-  }, [refreshToken])
+  }, [refreshToken, structureVersion])
 
   const routeNodeId = /^\/nodes\/([^/]+)$/.exec(location.pathname)?.[1]
   const selectedNode = routeNodeId

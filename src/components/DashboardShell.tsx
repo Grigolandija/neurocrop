@@ -94,7 +94,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
       }
     })
     return () => { active = false }
-  }, [])
+  }, [dashboardState.structureVersion])
 
   useEffect(() => {
     queueMicrotask(() => {

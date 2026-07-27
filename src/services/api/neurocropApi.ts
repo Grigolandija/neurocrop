@@ -1,9 +1,16 @@
-import { downloadFile, isApiConnected, queryString, request } from './client'
+import { downloadFile, invalidateRequestCache, isApiConnected, queryString, request } from './client'
 
 type Payload = Record<string, unknown>
 
 const json = (payload: Payload) => JSON.stringify(payload)
 const encoded = (value: string) => encodeURIComponent(value)
+const structuralMutation = async (path: string, options: RequestInit) => {
+  const result = await request(path, options)
+  // A GET may have started after the mutation request invalidated the cache but
+  // before the server committed it. Clear that potentially stale result again.
+  invalidateRequestCache()
+  return result
+}
 
 export const neurocropApi = {
   isConnected: isApiConnected,
@@ -69,13 +76,13 @@ export const neurocropApi = {
   assignMapNodeSection: (areaId: string, devEui: string, sectionId: string) => request(`/areas/${encoded(areaId)}/map/nodes/${encoded(devEui)}/section`, { method: 'PATCH', body: json({ sectionId }) }),
   getSections: (areaId?: string) => request(`/sections${queryString({ areaId })}`),
   getNodes: (sectionId?: string) => request(`/nodes${queryString({ sectionId })}`),
-  createArea: (payload: Payload) => request('/areas', { method: 'POST', body: json(payload) }),
-  updateArea: (id: string, payload: Payload) => request(`/areas/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
-  deleteArea: (id: string, options: { keepSections?: boolean } = {}) => request(`/areas/${encoded(id)}${queryString({ keepSections: options.keepSections ? 'true' : undefined })}`, { method: 'DELETE' }),
-  createSection: (payload: Payload) => request('/sections', { method: 'POST', body: json(payload) }),
-  updateSection: (id: string, payload: Payload) => request(`/sections/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
-  deleteSection: (id: string) => request(`/sections/${encoded(id)}`, { method: 'DELETE' }),
-  updateNode: (devEui: string, payload: Payload) => request(`/nodes/${encoded(devEui)}`, { method: 'PATCH', body: json(payload) }),
+  createArea: (payload: Payload) => structuralMutation('/areas', { method: 'POST', body: json(payload) }),
+  updateArea: (id: string, payload: Payload) => structuralMutation(`/areas/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
+  deleteArea: (id: string, options: { keepSections?: boolean } = {}) => structuralMutation(`/areas/${encoded(id)}${queryString({ keepSections: options.keepSections ? 'true' : undefined })}`, { method: 'DELETE' }),
+  createSection: (payload: Payload) => structuralMutation('/sections', { method: 'POST', body: json(payload) }),
+  updateSection: (id: string, payload: Payload) => structuralMutation(`/sections/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
+  deleteSection: (id: string) => structuralMutation(`/sections/${encoded(id)}`, { method: 'DELETE' }),
+  updateNode: (devEui: string, payload: Payload) => structuralMutation(`/nodes/${encoded(devEui)}`, { method: 'PATCH', body: json(payload) }),
   getNodeSensors: (devEui: string) => request(`/nodes/${encoded(devEui)}/sensors`),
   updateNodeSensor: (devEui: string, port: string, payload: Payload) => request(`/nodes/${encoded(devEui)}/sensors/${encoded(port)}`, { method: 'PATCH', body: json(payload) }),
   createCropProfile: (payload: Payload) => request('/crop-profiles', { method: 'POST', body: json(payload) }),
@@ -85,8 +92,8 @@ export const neurocropApi = {
     method: 'DELETE',
     body: options.replacementProfileId ? json({ replacementProfileId: options.replacementProfileId }) : undefined,
   }),
-  registerNode: (payload: Payload) => request('/nodes/claim', { method: 'POST', body: json(payload) }),
-  deleteNode: (devEui: string, options: { history?: 'keep' | 'delete' } = {}) => request(`/nodes/${encoded(devEui)}${queryString({ history: options.history || 'keep' })}`, { method: 'DELETE' }),
+  registerNode: (payload: Payload) => structuralMutation('/nodes/claim', { method: 'POST', body: json(payload) }),
+  deleteNode: (devEui: string, options: { history?: 'keep' | 'delete' } = {}) => structuralMutation(`/nodes/${encoded(devEui)}${queryString({ history: options.history || 'keep' })}`, { method: 'DELETE' }),
 }
 
 export async function prefetchWorkspaceData() {

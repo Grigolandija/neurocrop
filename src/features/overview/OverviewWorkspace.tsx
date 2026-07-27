@@ -782,7 +782,7 @@ export default function OverviewWorkspace() {
         setLoadState((current) => current === 'loading' ? 'error' : current)
       })
     return () => { active = false }
-  }, [refreshKey])
+  }, [dashboardState.structureVersion, refreshKey])
 
   const model = useMemo(
     () => dashboard && actions ? buildModel(dashboard, actions, selectedAreaId) : null,

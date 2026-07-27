@@ -59,6 +59,14 @@ export function useDashboardState() {
   return useSyncExternalStore(subscribeDashboardState, getDashboardState, getDashboardState)
 }
 
+export function useWorkspaceStructureVersion() {
+  return useSyncExternalStore(
+    subscribeDashboardState,
+    () => state.structureVersion,
+    () => state.structureVersion,
+  )
+}
+
 export function setApiConnected(connected: boolean) {
   if (state.connected === connected) return
   publish({ ...state, connected })

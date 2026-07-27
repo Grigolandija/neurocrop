@@ -2,6 +2,7 @@ import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { useWorkspaceStructureVersion } from '../../state/dashboardStore'
 import '../../styles/settings-workspace.css'
 
 type User = { id: string; email: string; name: string; role: string; organizationId: string; organizationName: string }
@@ -27,6 +28,7 @@ function errorMessage(reason: unknown) {
 }
 
 export default function OrganizationWorkspace() {
+  const structureVersion = useWorkspaceStructureVersion()
   const navigate = useNavigate()
   const [user, setUser] = useState<User | null>(null)
   const [memberships, setMemberships] = useState<Membership[]>([])
@@ -49,7 +51,7 @@ export default function OrganizationWorkspace() {
   useEffect(() => {
     document.body.dataset.reactOrganizationActive = 'true'
     return () => { delete document.body.dataset.reactOrganizationActive }
-  }, [])
+  }, [structureVersion])
 
   async function load() {
     setLoading(true)
