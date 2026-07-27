@@ -350,8 +350,14 @@ function ApprovedDashboard() {
         if (!element) return
         const shouldBeVisible = matches(location.pathname)
         if (element.hidden === shouldBeVisible) element.hidden = !shouldBeVisible
-        if (shouldBeVisible) element.style.removeProperty('display')
-        else element.style.setProperty('display', 'none', 'important')
+        if (shouldBeVisible) {
+          if (element.style.getPropertyValue('display')) element.style.removeProperty('display')
+        } else if (
+          element.style.getPropertyValue('display') !== 'none'
+          || element.style.getPropertyPriority('display') !== 'important'
+        ) {
+          element.style.setProperty('display', 'none', 'important')
+        }
       })
     }
 
@@ -359,7 +365,7 @@ function ApprovedDashboard() {
     const observer = new MutationObserver(synchronizeVisibility)
     sections.forEach(({ element }) => {
       if (!element) return
-      observer.observe(element, { attributes: true, attributeFilter: ['hidden'] })
+      observer.observe(element, { attributes: true, attributeFilter: ['hidden', 'style'] })
     })
     return () => observer.disconnect()
   }, [location.pathname])

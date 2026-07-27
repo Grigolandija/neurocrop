@@ -10,6 +10,8 @@ const MAX_MAP_BYTES = 900_000;
 const writableRoles = ['owner', 'admin', 'grower', 'technician'];
 const wallMountedTypes = new Set(['door', 'window', 'ventilation-opening']);
 const perimeterWalls = new Set(['south', 'north', 'west', 'east']);
+const MAP_HISTORY_STEP_MINUTES = 10;
+const MAP_HISTORY_MAX_RANGE_MS = 24 * 60 * 60 * 1000;
 
 function finite(value) {
   return typeof value === 'number' && Number.isFinite(value);
@@ -179,6 +181,76 @@ async function getAreaNodes(organizationId, areaId) {
   return rows.map(publicMapNode);
 }
 
+function historicalNumber(value) {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function mapHistorySensorPresent(sensor) {
+  const value = `m.raw_object->'sensors'->'${sensor}'->>'present'`;
+  return `(${value} IS NULL OR lower(${value}) IN ('true', '1'))`;
+}
+
+async function getAreaMapHistory(organizationId, areaId, from, to) {
+  const bucketSeconds = MAP_HISTORY_STEP_MINUTES * 60;
+  const bucketExpression = `to_timestamp(floor(extract(epoch FROM m.time) / ${bucketSeconds}) * ${bucketSeconds})`;
+  const { rows } = await query(
+    `SELECT ${bucketExpression} AS observed_at,
+            lower(n.dev_eui) AS dev_eui,
+            MAX(m.time) AS measured_at,
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY m.temperature)
+              FILTER (WHERE m.temperature BETWEEN -80 AND 80 AND ${mapHistorySensorPresent('sht45')}) AS air_temperature_c,
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY m.humidity)
+              FILTER (WHERE m.humidity BETWEEN 0 AND 100 AND ${mapHistorySensorPresent('sht45')}) AS relative_humidity_percent,
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY m.co2)
+              FILTER (WHERE m.co2 >= 0 AND ${mapHistorySensorPresent('scd41')}) AS co2_ppm,
+            percentile_cont(0.5) WITHIN GROUP (
+              ORDER BY (
+                0.6108::double precision
+                * exp((17.27 * m.temperature::double precision) / (m.temperature::double precision + 237.3))
+                * (1.0 - m.humidity::double precision / 100.0)
+              )
+            ) FILTER (
+              WHERE m.temperature BETWEEN -80 AND 80
+                AND m.humidity BETWEEN 0 AND 100
+                AND ${mapHistorySensorPresent('sht45')}
+            ) AS vpd_kpa
+     FROM nodes n
+     JOIN measurements m ON lower(m.dev_eui)=lower(n.dev_eui)
+     WHERE n.organization_id=$1
+       AND n.area_id=$2
+       AND n.archived_at IS NULL
+       AND m.time BETWEEN $3 AND $4
+     GROUP BY observed_at, lower(n.dev_eui)
+     ORDER BY observed_at ASC, lower(n.dev_eui) ASC`,
+    [organizationId, areaId, from, to]
+  );
+
+  const alignedFrom = Math.floor(from.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000;
+  const alignedTo = Math.floor(to.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000;
+  const frames = new Map();
+  for (let timestamp = alignedFrom; timestamp <= alignedTo; timestamp += bucketSeconds * 1000) {
+    frames.set(timestamp, { observedAt: new Date(timestamp).toISOString(), nodes: [] });
+  }
+  rows.forEach((row) => {
+    const timestamp = new Date(row.observed_at).getTime();
+    const frame = frames.get(timestamp);
+    if (!frame) return;
+    frame.nodes.push({
+      devEui: row.dev_eui,
+      measuredAt: row.measured_at,
+      measurements: {
+        airTemperatureC: historicalNumber(row.air_temperature_c),
+        relativeHumidityPercent: historicalNumber(row.relative_humidity_percent),
+        co2Ppm: historicalNumber(row.co2_ppm),
+        vpdKpa: historicalNumber(row.vpd_kpa)
+      }
+    });
+  });
+  return [...frames.values()];
+}
+
 export function registerGreenhouseMapRoutes(app) {
   app.patch('/areas/:areaId/map/nodes/:devEui/section', requireUserAuth, requireRole(...writableRoles), async (req, res, next) => {
     const organizationId = req.user.organizationId;
@@ -235,6 +307,44 @@ export function registerGreenhouseMapRoutes(app) {
         updatedAt: stored?.updated_at || null,
         nodes,
         permissions: { canEdit: writableRoles.includes(req.user.role) }
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/areas/:areaId/map/history', requireUserAuth, async (req, res, next) => {
+    const organizationId = req.user.organizationId;
+    const areaId = String(req.params.areaId || '').trim();
+    const to = req.query.to ? new Date(req.query.to) : new Date();
+    const from = req.query.from ? new Date(req.query.from) : new Date(to.getTime() - MAP_HISTORY_MAX_RANGE_MS);
+    if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || to <= from) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid map history date range' } });
+    }
+    if (to.getTime() - from.getTime() > MAP_HISTORY_MAX_RANGE_MS) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Map history is limited to 24 hours' } });
+    }
+    try {
+      const area = await getArea(organizationId, areaId);
+      if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
+      const [{ rows: nodeRows }, frames] = await Promise.all([
+        query(
+          `SELECT lower(dev_eui) AS dev_eui
+           FROM nodes
+           WHERE organization_id=$1 AND area_id=$2 AND archived_at IS NULL
+           ORDER BY created_at ASC`,
+          [organizationId, areaId]
+        ),
+        getAreaMapHistory(organizationId, areaId, from, to)
+      ]);
+      res.set('Cache-Control', 'private, max-age=30');
+      res.json({
+        areaId,
+        from: from.toISOString(),
+        to: to.toISOString(),
+        stepMinutes: MAP_HISTORY_STEP_MINUTES,
+        expectedNodes: nodeRows.map((row) => row.dev_eui),
+        frames
       });
     } catch (error) {
       next(error);

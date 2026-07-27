@@ -19,6 +19,8 @@ const source = Object.fromEntries(await Promise.all([
   'src/features/sections/SectionsWorkspace.tsx',
   'src/features/nodes/NodesWorkspace.tsx',
   'src/features/readings/ReadingsWorkspace.tsx',
+  'src/features/readings/ReadingsClimateMap.tsx',
+  'src/features/greenhouse-map/services/areaMapRepository.ts',
   'src/features/trends/TrendsWorkspace.tsx',
   'src/features/trends/sharedTrendChart.ts',
   'src/features/alerts/AlertsWorkspace.tsx',
@@ -87,6 +89,11 @@ assert(
   'every React workspace must stay mounted and finish its initial data load before the dashboard becomes visible',
 )
 assert(
+  dashboard.includes("attributeFilter: ['hidden', 'style']")
+    && dashboard.includes("element.style.setProperty('display', 'none', 'important')"),
+  'React route ownership must resist delayed legacy visibility changes',
+)
+assert(
   source['src/App.tsx'].includes("lazy(() => import('./pages/DashboardPage'))")
     && source['src/App.tsx'].includes('<Suspense fallback='),
   'the authenticated application shell must remain code-split',
@@ -130,6 +137,14 @@ assert(
     && source['src/features/trends/TrendsWorkspace.tsx'].includes('devEui: node.devEui')
     && source['src/features/trends/TrendsWorkspace.tsx'].includes('Section median'),
   'node comparison must request independent node histories and retain the section median',
+)
+assert(
+  source['src/services/api/neurocropApi.ts'].includes('getGreenhouseMapHistory:')
+    && source['src/features/greenhouse-map/services/areaMapRepository.ts'].includes('loadHistory(areaId: string)')
+    && source['src/features/readings/ReadingsClimateMap.tsx'].includes('24-hour history')
+    && source['src/features/readings/ReadingsClimateMap.tsx'].includes('type="range"')
+    && source['src/features/readings/ReadingsClimateMap.tsx'].includes('togglePlayback'),
+  'the read-only climate map must retain its 24-hour historical playback controls',
 )
 assert(
   source['src/features/trends/sharedTrendChart.ts'].includes('calculateTimeAwareEwma')

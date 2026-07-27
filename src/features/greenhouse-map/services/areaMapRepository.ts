@@ -38,6 +38,25 @@ export type AreaMapContext = {
   actions: AreaMapAction[]
   permissions: { canEdit: boolean }
 }
+export type AreaMapHistoryNode = {
+  devEui: string
+  measuredAt: string | null
+  measurements: {
+    airTemperatureC?: number
+    relativeHumidityPercent?: number
+    co2Ppm?: number
+    vpdKpa?: number
+  }
+}
+export type AreaMapHistoryFrame = { observedAt: string; nodes: AreaMapHistoryNode[] }
+export type AreaMapHistory = {
+  areaId: string
+  from: string
+  to: string
+  stepMinutes: number
+  expectedNodes: string[]
+  frames: AreaMapHistoryFrame[]
+}
 export type AreaMapSaveResult = { map: GreenhouseMap; revision: number; updatedAt: string }
 
 const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined
@@ -197,6 +216,34 @@ export const areaMapRepository = {
       priority: String(action.priority || 'today'),
     })).filter((action) => action.id)
     return { ...payload, nodes: Array.isArray(payload.nodes) ? payload.nodes : [], sections, profiles, actions }
+  },
+  async loadHistory(areaId: string): Promise<AreaMapHistory> {
+    const to = new Date()
+    const from = new Date(to.getTime() - 24 * 60 * 60 * 1000)
+    const payload = await neurocropApi.getGreenhouseMapHistory(areaId, {
+      from: from.toISOString(),
+      to: to.toISOString(),
+    }) as AreaMapHistory
+    return {
+      areaId,
+      from: String(payload.from || from.toISOString()),
+      to: String(payload.to || to.toISOString()),
+      stepMinutes: Number(payload.stepMinutes) || 10,
+      expectedNodes: Array.isArray(payload.expectedNodes) ? payload.expectedNodes.map(String) : [],
+      frames: Array.isArray(payload.frames) ? payload.frames.map((frame) => ({
+        observedAt: String(frame.observedAt),
+        nodes: Array.isArray(frame.nodes) ? frame.nodes.map((node) => ({
+          devEui: String(node.devEui || '').toLowerCase(),
+          measuredAt: node.measuredAt ? String(node.measuredAt) : null,
+          measurements: {
+            airTemperatureC: finite(node.measurements?.airTemperatureC),
+            relativeHumidityPercent: finite(node.measurements?.relativeHumidityPercent),
+            co2Ppm: finite(node.measurements?.co2Ppm),
+            vpdKpa: finite(node.measurements?.vpdKpa),
+          },
+        })).filter((node) => node.devEui) : [],
+      })).filter((frame) => !Number.isNaN(new Date(frame.observedAt).getTime())) : [],
+    }
   },
   async save(areaId: string, map: GreenhouseMap, expectedRevision: number): Promise<AreaMapSaveResult> {
     return await neurocropApi.saveGreenhouseMap(areaId, { map: { ...map, areaId }, expectedRevision }) as AreaMapSaveResult

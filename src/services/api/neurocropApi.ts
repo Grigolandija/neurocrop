@@ -63,6 +63,7 @@ export const neurocropApi = {
   downloadMeasurementsCsv: (params: Payload) => downloadFile(`/exports/measurements.csv${queryString(params)}`, 'neurocrop-measurements.csv'),
   getAreas: () => request('/areas'),
   getGreenhouseMap: (areaId: string) => request(`/areas/${encoded(areaId)}/map`, { cache: 'no-store' }),
+  getGreenhouseMapHistory: (areaId: string, params: Payload = {}) => request(`/areas/${encoded(areaId)}/map/history${queryString(params)}`),
   saveGreenhouseMap: (areaId: string, payload: Payload) => request(`/areas/${encoded(areaId)}/map`, { method: 'PATCH', body: json(payload) }),
   assignMapNodeSection: (areaId: string, devEui: string, sectionId: string) => request(`/areas/${encoded(areaId)}/map/nodes/${encoded(devEui)}/section`, { method: 'PATCH', body: json({ sectionId }) }),
   getSections: (areaId?: string) => request(`/sections${queryString({ areaId })}`),
