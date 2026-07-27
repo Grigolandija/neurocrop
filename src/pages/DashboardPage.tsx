@@ -59,6 +59,10 @@ const supportedRoutes = new Set([
   '/admin/integrations', '/simulator',
 ])
 
+const workspaceHostIds: Partial<Record<string, string>> = {
+  '/nodes': 'nodesManagementSection',
+}
+
 function isSupportedRoute(pathname: string) {
   const route = String(pathname || '/').split(/[?#]/, 1)[0] || '/'
   return supportedRoutes.has(route) || /^\/nodes\/[^/]+$/.test(route)
@@ -145,7 +149,7 @@ function Workspaces({ pathname }: { pathname: string }) {
     ? pathname === route || pathname.startsWith('/nodes/')
     : pathname === route
   const workspace = (route: string, content: ReactNode) => (
-    <div data-workspace-host hidden={!visible(route)}>
+    <div id={workspaceHostIds[route]} data-workspace-host hidden={!visible(route)}>
       <Suspense fallback={<div aria-busy="true" />}>{content}</Suspense>
     </div>
   )

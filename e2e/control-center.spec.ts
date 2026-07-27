@@ -78,7 +78,9 @@ test('LT/EN belongs to React state, persists, and no legacy runtime is loaded', 
 test('Nodes opens registered hardware and its detail without a refresh', async ({ page }) => {
   await authenticate(page)
   await navigation(page, 'nodes').click()
-  await expect(page.locator('.node-fleet-page')).toBeVisible()
+  const fleet = page.locator('#nodesManagementSection .node-fleet-page')
+  await expect(fleet).toBeVisible()
+  await expect(fleet).toHaveCSS('display', 'grid')
   const row = page.locator('.nc-node-table tbody tr').first()
   await expect(row).toBeVisible()
   await row.locator('.nc-node-identity').click()
