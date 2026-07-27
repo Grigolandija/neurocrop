@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveTrendContext } from './TrendsWorkspace'
+import { resolveTrendContext } from './resolveTrendContext'
 
 const sections = [
   { id: 'section-greenhouse-2', areaId: 'greenhouse-2' },
