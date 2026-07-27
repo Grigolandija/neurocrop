@@ -52,12 +52,12 @@ body[data-primary-page="overview"] #dashboardMain .metric-scale {
   }
 
   body[data-primary-page="overview"] .nc-overview-stage {
-    height: 100%;
+    height: auto;
     min-height: 0;
   }
 
   body[data-primary-page="overview"] .nc-overview-main {
-    height: 100%;
+    height: auto;
     min-height: 0;
   }
 }
@@ -141,7 +141,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-overview-stage {
   position: relative;
-  min-height: calc(100vh - 56px);
+  min-height: 0;
   overflow: hidden;
   border: 0;
   border-radius: 0;
@@ -248,8 +248,8 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   grid-template-columns: minmax(280px, .72fr) minmax(460px, 1.28fr);
   align-items: start;
   gap: clamp(30px, 4vw, 76px);
-  min-height: calc(100vh - 56px);
-  padding: clamp(88px, 13vh, 148px) clamp(38px, 4.8vw, 92px) 112px;
+  min-height: 0;
+  padding: clamp(56px, 7vh, 84px) clamp(38px, 4.8vw, 92px) 108px;
 }
 
 .nc-overview-copy {
