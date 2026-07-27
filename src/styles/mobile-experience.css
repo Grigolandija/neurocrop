@@ -27,12 +27,12 @@
     max-width: 100%;
   }
 
-  .designer-app .dashboard-sidebar {
+  .designer-app .dashboard-sidebar.rail {
     position: fixed !important;
     top: 0 !important;
     bottom: 0;
     left: 0;
-    z-index: 10020;
+    z-index: 10020 !important;
     width: min(21rem, 88vw) !important;
     max-height: 100dvh !important;
     overflow-y: auto !important;

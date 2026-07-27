@@ -56,7 +56,7 @@ test('React shell keeps every primary workspace mounted for instant navigation',
   for (const [action, route, workspace] of routes) {
     await navigation(page, action).click()
     await expect(page).toHaveURL(new RegExp(`${route.replace('/', '\\/')}$`))
-    await expect(page.locator(workspace)).toBeVisible()
+    await expect(page.locator('[data-workspace-host]:not([hidden])').locator(workspace)).toBeVisible()
     await expect(page.locator('.app-route-loading')).toHaveCount(0)
   }
 })
