@@ -615,8 +615,8 @@ export function registerPlatformOrganizationRoutes(app) {
       }
 
       summary.nodes = (await client.query(`DELETE FROM nodes WHERE organization_id=$1`, [organizationId])).rowCount;
-      summary.cropProfiles = (await client.query(`DELETE FROM crop_profiles WHERE organization_id=$1`, [organizationId])).rowCount;
       summary.sections = (await client.query(`DELETE FROM sections WHERE organization_id=$1`, [organizationId])).rowCount;
+      summary.cropProfiles = (await client.query(`DELETE FROM crop_profiles WHERE organization_id=$1`, [organizationId])).rowCount;
       summary.areas = (await client.query(`DELETE FROM areas WHERE organization_id=$1`, [organizationId])).rowCount;
       summary.sessions = (await client.query(`DELETE FROM auth_sessions WHERE organization_id=$1`, [organizationId])).rowCount;
       summary.invitations = (await client.query(`DELETE FROM invitations WHERE organization_id=$1`, [organizationId])).rowCount;

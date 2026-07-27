@@ -1347,6 +1347,19 @@ test('platform organization members are visible only to platform administrators'
   assert.match(route, /joinedAt/);
 });
 
+test('platform organization deletion removes sections before their crop profiles', () => {
+  const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.delete('/platform/organizations/:organizationId'");
+  const route = source.slice(routeStart, source.indexOf("app.get('/platform/admins'", routeStart));
+  const sectionsDelete = route.indexOf('DELETE FROM sections WHERE organization_id=$1');
+  const profilesDelete = route.indexOf('DELETE FROM crop_profiles WHERE organization_id=$1');
+
+  assert.ok(routeStart >= 0);
+  assert.ok(sectionsDelete >= 0);
+  assert.ok(profilesDelete >= 0);
+  assert.ok(sectionsDelete < profilesDelete);
+});
+
 test('platform organization listing includes active node fault counts', () => {
   const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
   const routeStart = source.indexOf("app.get('/platform/organizations'");
