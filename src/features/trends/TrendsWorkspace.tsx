@@ -1,6 +1,7 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInterfaceLanguage } from '../../i18n'
+import { useLocation } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { consumeTrendIntent, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { renderTrendChart } from './sharedTrendChart'
@@ -16,6 +17,34 @@ type Section = { id: string; name: string; areaId: string; areaName: string; pro
 type NodeOption = { devEui: string; name: string; sectionId: string; transportStatus: string }
 type Metric = { key: string; label: string; short: string; unit: string; decimals: number; icon: string }
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
+
+export function resolveTrendContext(
+  sections: Array<{ id: string; areaId: string }>,
+  currentAreaId: string,
+  currentSectionId: string,
+  requestedAreaId: string,
+  requestedSectionId: string,
+) {
+  const requestedSection = sections.find((section) => section.id === requestedSectionId)
+  if (requestedSection) return { areaId: requestedSection.areaId, sectionId: requestedSection.id }
+
+  if (requestedAreaId) {
+    const currentSection = sections.find((section) =>
+      section.id === currentSectionId && section.areaId === requestedAreaId)
+    const firstAreaSection = sections.find((section) => section.areaId === requestedAreaId)
+    return {
+      areaId: requestedAreaId,
+      sectionId: currentSection?.id || firstAreaSection?.id || '',
+    }
+  }
+
+  const currentSection = sections.find((section) => section.id === currentSectionId)
+  if (currentSection) return { areaId: currentSection.areaId, sectionId: currentSection.id }
+  const firstSection = sections.find((section) => section.areaId === currentAreaId) || sections[0]
+  return firstSection
+    ? { areaId: firstSection.areaId, sectionId: firstSection.id }
+    : { areaId: currentAreaId, sectionId: '' }
+}
 
 const metrics: Metric[] = [
   { key: 'airTemp', label: 'Air temperature', short: 'Temperature', unit: '°C', decimals: 1, icon: 'fa-temperature-half' },
@@ -381,6 +410,7 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
 }
 
 export default function TrendsWorkspace() {
+  const location = useLocation()
   const dashboardState = useDashboardState()
   const [stored] = useState(() => loadStoredSelection())
   const hydrationBusyRef = useRef(false)
@@ -503,15 +533,18 @@ export default function TrendsWorkspace() {
   useEffect(() => {
     const nextAreaId = dashboardState.context.areaId
     const nextSectionId = dashboardState.context.sectionId
+    const next = resolveTrendContext(sections, areaId, sectionId, nextAreaId, nextSectionId)
     queueMicrotask(() => {
-      if (nextAreaId && nextAreaId !== areaId) setAreaId(nextAreaId)
-      if (nextSectionId && nextSectionId !== sectionId) setSectionId(nextSectionId)
+      if (next.areaId !== areaId) setAreaId(next.areaId)
+      if (next.sectionId !== sectionId) setSectionId(next.sectionId)
     })
-  }, [areaId, dashboardState.context.areaId, dashboardState.context.sectionId, sectionId])
+  }, [areaId, dashboardState.context.areaId, dashboardState.context.sectionId, sectionId, sections])
 
   useEffect(() => {
-    if (areaId || sectionId) setDashboardContext({ areaId, sectionId })
-  }, [areaId, sectionId])
+    if (location.pathname === '/history' && (areaId || sectionId)) {
+      setDashboardContext({ areaId, sectionId })
+    }
+  }, [areaId, location.pathname, sectionId])
 
   useEffect(() => {
     if (!sections.length) return

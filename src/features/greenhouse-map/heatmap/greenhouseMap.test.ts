@@ -3,7 +3,7 @@ import { createDemoMap } from '../demo'
 import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, snapWallMountedObject, worldToScreen } from '../geometry'
 import { mapRepository, validateMap } from '../services/mapRepository'
 import { calculateConfidence } from './calculateConfidenceGrid'
-import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_COUNT, connectContourSegments, createContourSegments, getAdaptiveContourInterval, getContourLevels } from './contourLines'
+import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_COUNT, connectContourSegments, createContourPaths, createContourSegments, getAdaptiveContourInterval, getContourLevels } from './contourLines'
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
@@ -156,6 +156,20 @@ describe('heatmap contour lines', () => {
     expect(paths).toHaveLength(1)
     expect(paths[0].points).toEqual([0, 0, 1, 1, 2, 1.5])
     expect(paths[0].confidence).toBeCloseTo(0.9)
+  })
+  it('keeps a new Area with three collinear sensors bounded', () => {
+    const points = [
+      point(16.8, 5.05, 18.5),
+      point(10.05, 5.05, 25.14),
+      point(3.3, 5.05, 24.03),
+    ]
+    const scale = getStableScale(points.map(({ value }) => value), 'air-temperature')
+    const grid = createMeasurementGrid(points, 20, 10, 'air-temperature', 2, scale)!
+    const interval = getAdaptiveContourInterval('air-temperature', points.map(({ value }) => value), points.length)
+    const paths = createContourPaths(grid, interval)
+    expect(grid.width * grid.height).toBeLessThanOrEqual(28000)
+    expect(paths.length).toBeLessThan(100)
+    expect(paths.reduce((total, path) => total + path.points.length, 0)).toBeLessThan(10000)
   })
 })
 
