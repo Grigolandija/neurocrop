@@ -3,7 +3,6 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { openTrend, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
-import TopographicField from './TopographicField'
 import '../../styles/overview-workspace.css'
 
 const loadReadingsClimateMap = () => import('../readings/ReadingsClimateMap')
@@ -908,7 +907,6 @@ export default function OverviewWorkspace() {
 
   return <div className={`nc-overview ${overviewTone}`} data-nc-react-workspace="overview">
     <section className="nc-overview-stage">
-      <TopographicField tone={overviewTone} />
       <div className="nc-overview-main">
         <section className="nc-overview-copy" aria-live="polite">
           <div className="nc-overview-area-picker">
@@ -984,7 +982,6 @@ export default function OverviewWorkspace() {
       </footer>
     </section>
     <section className="nc-overview-insights" aria-label={tx("Operational overview")}>
-      <TopographicField tone={overviewTone} />
       <article className="nc-overview-climate-card">
         <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong></div>}>
           <ReadingsClimateMap
