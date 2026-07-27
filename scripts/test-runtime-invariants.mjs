@@ -143,7 +143,9 @@ assert(
     && source['src/features/greenhouse-map/services/areaMapRepository.ts'].includes('loadHistory(areaId: string)')
     && source['src/features/readings/ReadingsClimateMap.tsx'].includes('24-hour history')
     && source['src/features/readings/ReadingsClimateMap.tsx'].includes('type="range"')
-    && source['src/features/readings/ReadingsClimateMap.tsx'].includes('togglePlayback'),
+    && source['src/features/readings/ReadingsClimateMap.tsx'].includes('togglePlayback')
+    && source['src/features/readings/ReadingsClimateMap.tsx'].includes('historyLayout?.map || context.map')
+    && source['src/features/greenhouse-map/services/areaMapRepository.ts'].includes('layouts: Array.isArray(payload.layouts)'),
   'the read-only climate map must retain its 24-hour historical playback controls',
 )
 assert(

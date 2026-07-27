@@ -110,12 +110,45 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   }, [history, playing, timeMode])
 
   const historyFrame = timeMode === 'history' ? history?.frames[historyIndex] : null
+  const historyLayout = useMemo(() => {
+    if (!historyFrame) return null
+    const selectedAt = new Date(historyFrame.observedAt).getTime()
+    return history?.layouts.find((layout) => {
+      const validFrom = new Date(layout.validFrom).getTime()
+      const validTo = layout.validTo ? new Date(layout.validTo).getTime() : Number.POSITIVE_INFINITY
+      return validFrom <= selectedAt && selectedAt < validTo
+    }) || null
+  }, [history, historyFrame])
+  const historyLayoutNodes = useMemo(() => {
+    if (!context || !historyLayout) return null
+    const currentNodes = new Map(context.nodes
+      .filter((node) => node.devEui)
+      .map((node) => [node.devEui!.toLowerCase(), node]))
+    const seen = new Set<string>()
+    return historyLayout.map.objects.flatMap((object) => {
+      const configured = object.metadata.sensor
+      const devEui = configured?.devEui?.toLowerCase()
+      if (!configured || !devEui || seen.has(devEui)) return []
+      seen.add(devEui)
+      return [{
+        ...currentNodes.get(devEui),
+        ...configured,
+        devEui,
+        displayName: configured.displayName || object.name,
+        areaId: context.area.id,
+        status: 'warning' as const,
+        measurements: {},
+      }]
+    })
+  }, [context, historyLayout])
   const displayedContext = useMemo(() => {
     if (!context || !historyFrame) return context
     const frameNodes = new Map(historyFrame.nodes.map((node) => [node.devEui.toLowerCase(), node]))
+    const baseNodes = historyLayoutNodes || context.nodes
     return {
       ...context,
-      nodes: context.nodes.map((node) => {
+      map: historyLayout?.map || context.map,
+      nodes: baseNodes.map((node) => {
         const historical = node.devEui ? frameNodes.get(node.devEui.toLowerCase()) : undefined
         return {
           ...node,
@@ -128,7 +161,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         }
       }),
     }
-  }, [context, historyFrame])
+  }, [context, historyFrame, historyLayout, historyLayoutNodes])
   const map = useMemo(() => displayedContext ? prepareReadOnlyClimateMap(displayedContext, metric) : null, [displayedContext, metric])
   const validSensorObjects = map?.objects.filter((object) => {
     const sensor = object.metadata.sensor
@@ -161,8 +194,18 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
 
   const overviewPresentation = presentation === 'overview'
   const historyAvailable = Boolean(history?.frames.some((frame) => frame.nodes.length))
-  const expectedNodes = history?.expectedNodes.length || context.nodes.length
+  const expectedNodes = timeMode === 'history' && historyLayoutNodes
+    ? historyLayoutNodes.length
+    : history?.expectedNodes.length || context.nodes.length
   const coveragePercent = expectedNodes ? Math.round(validNodes / expectedNodes * 100) : 0
+  const layoutLabel = historyLayout?.source === 'recorded'
+    ? lithuanian ? 'istorinis planas' : 'recorded layout'
+    : historyLayout?.source === 'backfill'
+      ? lithuanian ? 'ankstesnio plano įvertis' : 'legacy layout estimate'
+      : lithuanian ? 'dabartinio plano atsarginis vaizdas' : 'current layout fallback'
+  const layoutTitle = historyLayout?.source === 'recorded'
+    ? lithuanian ? 'Naudojamas šiuo laiku galiojęs išsaugotas Area planas.' : 'Using the saved Area layout that was active at this time.'
+    : lithuanian ? 'Šiam laikui tikslios plano versijos nėra, todėl naudojamas artimiausias turimas išdėstymas.' : 'No exact layout revision exists for this time, so the closest available layout is used.'
   const selectTimeMode = (next: ClimateTimeMode) => {
     if (next === 'history' && !historyAvailable) return
     setTimeMode(next)
@@ -212,7 +255,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
             />
           </label>
           <strong>{new Date(history.frames[historyIndex].observedAt).toLocaleString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong>
-          <span className="nc-climate-coverage" title={lithuanian ? 'Istoriniai matavimai rodomi dabartinėse sensorių vietose.' : 'Historical measurements are shown at the current sensor positions.'}><i className="fa-solid fa-signal" /> {lithuanian ? 'Duomenų padengimas' : 'Data coverage'} {validNodes}/{expectedNodes} · {coveragePercent}% · {lithuanian ? 'dabartinės sensorių vietos' : 'current sensor positions'}</span>
+          <span className="nc-climate-coverage" title={layoutTitle}><i className="fa-solid fa-signal" /> {lithuanian ? 'Duomenų padengimas' : 'Data coverage'} {validNodes}/{expectedNodes} · {coveragePercent}% · {layoutLabel}</span>
         </div>
       : historyError
         ? <div className="nc-climate-history-warning"><i className="fa-solid fa-triangle-exclamation" /> {lithuanian ? 'Istorinis klimato žemėlapis nepasiekiamas:' : 'Historical climate map unavailable:'} {historyError}</div>

@@ -651,3 +651,18 @@ The authenticated user payload from `POST /auth/login` and `GET /auth/me` includ
 - Sensor objekto DevEUI turi priklausyti tai pačiai organizacijai ir Area.
 - Gyvi matavimai, baterija, RSSI ir SNR neįrašomi į plano JSON; jie sujungiami
   iš naujausio backend snapshot kiekvieno užkrovimo metu.
+
+`GET /areas/:areaId/map/history?from=...&to=...`
+
+- Reikalauja autentifikuotos NeuroCrop sesijos ir Area priklausomybės aktyviai
+  organizacijai.
+- Viena užklausa gali apimti ne daugiau kaip 24 valandas.
+- Grąžina 10 minučių matavimo kadrus kiekvienam Area Node: temperatūrą,
+  santykinę drėgmę, CO₂ ir VPD.
+- `layouts` masyve grąžinamos su laiko intervalu susikertančios Area plano
+  versijos (`validFrom`, `validTo`, `revision`, `source`).
+- `source: "recorded"` reiškia tiksliai tuo metu išsaugotą planą;
+  `source: "backfill"` reiškia iki pozicijų istorijos įdiegimo buvusio plano
+  įvertį.
+- Frontend kiekvienam matavimo kadrui privalo parinkti tuo metu galiojusį
+  `layout`, o ne naudoti dabartines sensorių koordinates.

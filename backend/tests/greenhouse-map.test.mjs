@@ -92,3 +92,13 @@ test('greenhouse map migration creates a tenant-scoped cascading record', async 
   assert.match(migration, /ON DELETE CASCADE/);
   assert.match(migration, /revision.*CHECK \(revision > 0\)/s);
 });
+
+test('greenhouse map layout history keeps one tenant-scoped active revision', async () => {
+  const migration = await fs.readFile(new URL('../migrations/0020_greenhouse_map_layout_history.sql', import.meta.url), 'utf8');
+  assert.match(migration, /PRIMARY KEY \(organization_id, area_id, revision\)/);
+  assert.match(migration, /FOREIGN KEY \(organization_id, area_id\)/);
+  assert.match(migration, /WHERE valid_to IS NULL/);
+  assert.match(migration, /source IN \('backfill', 'recorded'\)/);
+  assert.match(migration, /FROM greenhouse_maps/);
+  assert.match(migration, /ON DELETE CASCADE/);
+});

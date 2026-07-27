@@ -87,6 +87,11 @@ Area žemėlapiai saugomi PostgreSQL lentelėje `greenhouse_maps`. API naudoja
 aktyvios sesijos organizaciją, tikrina Area ir Node priklausomybę bei optimistinį
 `revision`, kad viena naršyklės sesija tyliai neperrašytų kitos.
 
+Nuo migracijos `0020_greenhouse_map_layout_history.sql` kiekvienas sėkmingai
+išsaugotas Area plano revision taip pat įrašomas į
+`greenhouse_map_layout_history`. Istorinis read-only heatmap pagal pasirinkto
+kadro laiką naudoja tuo metu galiojusį planą ir sensorių koordinates.
+
 Frontend užklausos siunčiamos su:
 
 ```js

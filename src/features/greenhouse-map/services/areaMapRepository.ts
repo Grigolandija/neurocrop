@@ -49,6 +49,13 @@ export type AreaMapHistoryNode = {
   }
 }
 export type AreaMapHistoryFrame = { observedAt: string; nodes: AreaMapHistoryNode[] }
+export type AreaMapHistoryLayout = {
+  revision: number
+  map: GreenhouseMap
+  validFrom: string
+  validTo: string | null
+  source: 'backfill' | 'recorded'
+}
 export type AreaMapHistory = {
   areaId: string
   from: string
@@ -56,6 +63,7 @@ export type AreaMapHistory = {
   stepMinutes: number
   expectedNodes: string[]
   frames: AreaMapHistoryFrame[]
+  layouts: AreaMapHistoryLayout[]
 }
 export type AreaMapSaveResult = { map: GreenhouseMap; revision: number; updatedAt: string }
 
@@ -243,6 +251,16 @@ export const areaMapRepository = {
           },
         })).filter((node) => node.devEui) : [],
       })).filter((frame) => !Number.isNaN(new Date(frame.observedAt).getTime())) : [],
+      layouts: Array.isArray(payload.layouts) ? payload.layouts.map((layout) => ({
+        revision: Number(layout.revision),
+        map: layout.map,
+        validFrom: String(layout.validFrom),
+        validTo: layout.validTo ? String(layout.validTo) : null,
+        source: layout.source === 'recorded' ? 'recorded' as const : 'backfill' as const,
+      })).filter((layout) =>
+        Number.isInteger(layout.revision)
+        && layout.map
+        && !Number.isNaN(new Date(layout.validFrom).getTime())) : [],
     }
   },
   async save(areaId: string, map: GreenhouseMap, expectedRevision: number): Promise<AreaMapSaveResult> {

@@ -1,4 +1,4 @@
-import { query } from './db.js';
+import { pool, query } from './db.js';
 import { requireRole, requireUserAuth } from './auth-users.js';
 import { calcVPD } from './calculations.js';
 import { statusFromMeasurementTime } from './score.js';
@@ -192,12 +192,12 @@ function mapHistorySensorPresent(sensor) {
   return `(${value} IS NULL OR lower(${value}) IN ('true', '1'))`;
 }
 
-async function getAreaMapHistory(organizationId, areaId, from, to) {
+async function getAreaMapHistory(devEuis, from, to) {
   const bucketSeconds = MAP_HISTORY_STEP_MINUTES * 60;
   const bucketExpression = `to_timestamp(floor(extract(epoch FROM m.time) / ${bucketSeconds}) * ${bucketSeconds})`;
-  const { rows } = await query(
+  const rows = devEuis.length ? (await query(
     `SELECT ${bucketExpression} AS observed_at,
-            lower(n.dev_eui) AS dev_eui,
+            lower(m.dev_eui) AS dev_eui,
             MAX(m.time) AS measured_at,
             percentile_cont(0.5) WITHIN GROUP (ORDER BY m.temperature)
               FILTER (WHERE m.temperature BETWEEN -80 AND 80 AND ${mapHistorySensorPresent('sht45')}) AS air_temperature_c,
@@ -216,16 +216,13 @@ async function getAreaMapHistory(organizationId, areaId, from, to) {
                 AND m.humidity BETWEEN 0 AND 100
                 AND ${mapHistorySensorPresent('sht45')}
             ) AS vpd_kpa
-     FROM nodes n
-     JOIN measurements m ON lower(m.dev_eui)=lower(n.dev_eui)
-     WHERE n.organization_id=$1
-       AND n.area_id=$2
-       AND n.archived_at IS NULL
-       AND m.time BETWEEN $3 AND $4
-     GROUP BY observed_at, lower(n.dev_eui)
-     ORDER BY observed_at ASC, lower(n.dev_eui) ASC`,
-    [organizationId, areaId, from, to]
-  );
+     FROM measurements m
+     WHERE lower(m.dev_eui)=ANY($1::text[])
+       AND m.time BETWEEN $2 AND $3
+     GROUP BY observed_at, lower(m.dev_eui)
+     ORDER BY observed_at ASC, lower(m.dev_eui) ASC`,
+    [devEuis, from, to]
+  )).rows : [];
 
   const alignedFrom = Math.floor(from.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000;
   const alignedTo = Math.floor(to.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000;
@@ -249,6 +246,26 @@ async function getAreaMapHistory(organizationId, areaId, from, to) {
     });
   });
   return [...frames.values()];
+}
+
+async function getAreaMapLayouts(organizationId, areaId, from, to) {
+  const { rows } = await query(
+    `SELECT revision, map_data, valid_from, valid_to, source
+     FROM greenhouse_map_layout_history
+     WHERE organization_id=$1
+       AND area_id=$2
+       AND valid_from <= $4
+       AND (valid_to IS NULL OR valid_to > $3)
+     ORDER BY valid_from ASC`,
+    [organizationId, areaId, from, to]
+  );
+  return rows.map((row) => ({
+    revision: Number(row.revision),
+    map: row.map_data,
+    validFrom: row.valid_from,
+    validTo: row.valid_to,
+    source: row.source
+  }));
 }
 
 export function registerGreenhouseMapRoutes(app) {
@@ -327,7 +344,7 @@ export function registerGreenhouseMapRoutes(app) {
     try {
       const area = await getArea(organizationId, areaId);
       if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
-      const [{ rows: nodeRows }, frames] = await Promise.all([
+      const [{ rows: nodeRows }, layouts] = await Promise.all([
         query(
           `SELECT lower(dev_eui) AS dev_eui
            FROM nodes
@@ -335,8 +352,18 @@ export function registerGreenhouseMapRoutes(app) {
            ORDER BY created_at ASC`,
           [organizationId, areaId]
         ),
-        getAreaMapHistory(organizationId, areaId, from, to)
+        getAreaMapLayouts(organizationId, areaId, from, to)
       ]);
+      const historicalDevEuis = layouts.flatMap((layout) =>
+        Array.isArray(layout.map?.objects)
+          ? layout.map.objects.map((object) =>
+              String(object?.metadata?.sensor?.devEui || '').trim().toLowerCase())
+          : []);
+      const devEuis = [...new Set([
+        ...nodeRows.map((row) => row.dev_eui),
+        ...historicalDevEuis
+      ].filter((devEui) => /^[0-9a-f]{16}$/.test(devEui)))];
+      const frames = await getAreaMapHistory(devEuis, from, to);
       res.set('Cache-Control', 'private, max-age=30');
       res.json({
         areaId,
@@ -344,7 +371,8 @@ export function registerGreenhouseMapRoutes(app) {
         to: to.toISOString(),
         stepMinutes: MAP_HISTORY_STEP_MINUTES,
         expectedNodes: nodeRows.map((row) => row.dev_eui),
-        frames
+        frames,
+        layouts
       });
     } catch (error) {
       next(error);
@@ -359,6 +387,7 @@ export function registerGreenhouseMapRoutes(app) {
     if (!validation.valid) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: validation.message } });
     if (!Number.isInteger(expectedRevision) || expectedRevision < 0) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'expectedRevision must be a non-negative integer' } });
 
+    let client;
     try {
       const area = await getArea(organizationId, areaId);
       if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
@@ -379,9 +408,11 @@ export function registerGreenhouseMapRoutes(app) {
         if (rows.length !== sensorDevEuis.length) return res.status(400).json({ error: { code: 'NODE_AREA_MISMATCH', message: 'One or more sensor nodes do not belong to this Area' } });
       }
 
+      client = await pool.connect();
+      await client.query('BEGIN');
       let result;
       if (expectedRevision === 0) {
-        result = await query(
+        result = await client.query(
           `INSERT INTO greenhouse_maps (organization_id, area_id, map_data, revision, updated_by)
            VALUES ($1, $2, $3::jsonb, 1, $4)
            ON CONFLICT (organization_id, area_id) DO NOTHING
@@ -389,7 +420,7 @@ export function registerGreenhouseMapRoutes(app) {
           [organizationId, areaId, JSON.stringify(sanitizedMap), req.user.id]
         );
       } else {
-        result = await query(
+        result = await client.query(
           `UPDATE greenhouse_maps
            SET map_data=$3::jsonb, revision=revision+1, updated_by=$4, updated_at=now()
            WHERE organization_id=$1 AND area_id=$2 AND revision=$5
@@ -398,24 +429,50 @@ export function registerGreenhouseMapRoutes(app) {
         );
       }
       if (!result.rows[0]) {
-        const current = await query(
+        const current = await client.query(
           `SELECT revision, updated_at FROM greenhouse_maps
            WHERE organization_id=$1 AND area_id=$2`,
           [organizationId, areaId]
         );
+        await client.query('ROLLBACK');
         return res.status(409).json({
           error: { code: 'MAP_REVISION_CONFLICT', message: 'This Area map was changed in another session. Reload it before saving again.' },
           revision: current.rows[0]?.revision || 0,
           updatedAt: current.rows[0]?.updated_at || null
         });
       }
+      const saved = result.rows[0];
+      await client.query(
+        `UPDATE greenhouse_map_layout_history
+         SET valid_to=$3
+         WHERE organization_id=$1 AND area_id=$2 AND valid_to IS NULL`,
+        [organizationId, areaId, saved.updated_at]
+      );
+      await client.query(
+        `INSERT INTO greenhouse_map_layout_history (
+           organization_id, area_id, revision, map_data, valid_from, source, recorded_by
+         )
+         VALUES ($1, $2, $3, $4::jsonb, $5, 'recorded', $6)`,
+        [
+          organizationId,
+          areaId,
+          saved.revision,
+          JSON.stringify(saved.map_data),
+          saved.updated_at,
+          req.user.id
+        ]
+      );
+      await client.query('COMMIT');
       res.json({
-        map: result.rows[0].map_data,
-        revision: result.rows[0].revision,
-        updatedAt: result.rows[0].updated_at
+        map: saved.map_data,
+        revision: saved.revision,
+        updatedAt: saved.updated_at
       });
     } catch (error) {
+      if (client) await client.query('ROLLBACK').catch(() => {});
       next(error);
+    } finally {
+      client?.release();
     }
   });
 }
