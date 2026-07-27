@@ -921,16 +921,18 @@ export default function OverviewWorkspace() {
           </div>
           <h1>{headline}</h1>
           <p>{explanation}</p>
-          {model.priority
-            ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{tx("Review")} {visibleActions.length} {tx("affected Section")}{visibleActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
-            : stable
-              ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />{tx("No action required")}</div>
-              : effectiveWatchActions.length
-                ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{tx("Review")} {effectiveWatchActions.length} {tx("Watch check")}{effectiveWatchActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
-                : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>{tx("Review Section setup")}<i className="fa-solid fa-arrow-right" /></button>}
-          {unknownRows.length && effectiveWatchActions.length
-            ? <button className="nc-overview-setup-link" type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-sliders" />{tx("Review setup for")} {unknownRows.length} {tx("unverified Section")}{unknownRows.length === 1 ? '' : 's'}</button>
-            : null}
+          <div className="nc-overview-actions-slot">
+            {model.priority
+              ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{tx("Review")} {visibleActions.length} {tx("affected Section")}{visibleActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
+              : stable
+                ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />{tx("No action required")}</div>
+                : effectiveWatchActions.length
+                  ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{tx("Review")} {effectiveWatchActions.length} {tx("Watch check")}{effectiveWatchActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
+                  : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>{tx("Review Section setup")}<i className="fa-solid fa-arrow-right" /></button>}
+            {unknownRows.length && effectiveWatchActions.length
+              ? <button className="nc-overview-setup-link" type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-sliders" />{tx("Review setup for")} {unknownRows.length} {tx("unverified Section")}{unknownRows.length === 1 ? '' : 's'}</button>
+              : null}
+          </div>
         </section>
 
         <figure className="nc-coverage" aria-labelledby="nc-coverage-title">

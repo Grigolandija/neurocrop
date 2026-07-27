@@ -376,6 +376,13 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   -webkit-line-clamp: 3;
 }
 
+.nc-overview-actions-slot {
+  height: 152px;
+  min-height: 152px;
+  max-height: 152px;
+  overflow: hidden;
+}
+
 .nc-overview-action,
 .nc-overview-normal {
   display: inline-flex;
@@ -1815,6 +1822,12 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   .nc-overview-normal {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .nc-overview-actions-slot {
+    height: 170px;
+    min-height: 170px;
+    max-height: 170px;
   }
 
   .nc-coverage-summary {
