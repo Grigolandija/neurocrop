@@ -8,7 +8,7 @@
     "predev": "pnpm clean:stale-vendor",
     "dev": "vite",
     "prebuild": "pnpm clean:stale-vendor",
-    "build": "tsc -b && vite build",
+    "build": "tsc -p tsconfig.app.json --incremental && tsc -p tsconfig.node.json --incremental && vite build",
     "lint": "eslint .",
     "test:architecture": "node ./scripts/test-react-dashboard-invariants.mjs",
     "test:e2e": "node ./scripts/run-e2e.mjs",
