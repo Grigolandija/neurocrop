@@ -114,6 +114,24 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-layer-list input { width: 44px; accent-color: #2f7259; }
 .gh-canvas-shell { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #e5e9e4; }
 .gh-canvas-shell canvas { display: block; }
+.gh-sensor-tooltip {
+  position: absolute;
+  z-index: 8;
+  display: grid;
+  min-width: 13rem;
+  gap: .18rem;
+  border: 1px solid rgba(39, 69, 59, .22);
+  border-radius: .65rem;
+  padding: .65rem .78rem;
+  color: #183a31;
+  background: rgba(250, 252, 249, .96);
+  box-shadow: 0 .55rem 1.5rem rgba(20, 43, 36, .2);
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+.gh-sensor-tooltip strong { overflow: hidden; font-size: .78rem; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.gh-sensor-tooltip span { color: #66776f; font-size: .68rem; line-height: 1.2; }
+.gh-sensor-tooltip b { font-family: "IBM Plex Mono", monospace; font-size: .95rem; line-height: 1.3; }
 .gh-view-controls {
   position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 1px; height: 34px;
   border: 1px solid #c4cec7; background: rgba(255,255,255,.96); box-shadow: 0 3px 10px rgba(31,49,42,.1);
