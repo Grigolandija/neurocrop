@@ -42,6 +42,9 @@ test('node factory restores an archived factory node deleted from ChirpStack', (
   assert.match(source, /getChirpstackDevice\(devEui\)/);
   assert.match(source, /createFactoryNodeKeysInChirpstack/);
   assert.match(source, /factory_provisioned_at=now\(\)/);
+  assert.match(source, /factory_status=CASE WHEN archived_at IS NOT NULL THEN 'unassigned'/);
+  assert.match(source, /archived_at=NULL/);
+  assert.match(source, /last_received_at=NULL/);
   assert.doesNotMatch(
     source.slice(
       source.indexOf("app.post('/node-factory/registrations'"),

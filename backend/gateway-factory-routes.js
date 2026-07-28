@@ -406,7 +406,25 @@ export function registerGatewayFactoryRoutes(app) {
         const { rows: restoredRows } = await client.query(
           `UPDATE nodes
            SET factory_firmware_version=COALESCE($2, factory_firmware_version),
-               factory_provisioned_at=now()
+               factory_provisioned_at=now(),
+               organization_id=CASE WHEN archived_at IS NOT NULL THEN NULL ELSE organization_id END,
+               area_id=CASE WHEN archived_at IS NOT NULL THEN NULL ELSE area_id END,
+               section_id=CASE WHEN archived_at IS NOT NULL THEN NULL ELSE section_id END,
+               name=CASE WHEN archived_at IS NOT NULL THEN factory_serial ELSE name END,
+               factory_status=CASE WHEN archived_at IS NOT NULL THEN 'unassigned' ELSE factory_status END,
+               archived_at=NULL,
+               last_seen=NULL,
+               last_received_at=NULL,
+               last_battery_mv=NULL,
+               last_battery_percent=NULL,
+               last_firmware_version=NULL,
+               last_profile=NULL,
+               last_rssi=NULL,
+               last_snr=NULL,
+               last_spreading_factor=NULL,
+               last_sensor_presence=NULL,
+               last_error_flags=NULL,
+               last_error_counters=NULL
            WHERE dev_eui=$1
            RETURNING dev_eui, name, factory_serial, factory_status, factory_firmware_version,
                      factory_provisioned_at, last_received_at`,
