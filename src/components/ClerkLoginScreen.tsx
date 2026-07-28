@@ -32,6 +32,7 @@ export default function ClerkLoginScreen() {
                 cardBox: 'clerk-login-card-box',
                 card: 'clerk-login-card',
                 footer: 'clerk-login-footer',
+                formButtonPrimary: 'clerk-login-primary-button',
               },
             }}
           />

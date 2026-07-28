@@ -1082,3 +1082,11 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
 .clerk-login-footer {
   background: transparent;
 }
+
+.clerk-login-primary-button {
+  color: #fff !important;
+}
+
+.clerk-login-primary-button:disabled {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
