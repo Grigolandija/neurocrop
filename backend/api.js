@@ -4,6 +4,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import { query, pool } from './db.js';
 import { calcVPD, calcDewPoint, calcAbsoluteHumidity } from './calculations.js';
+import { meanValue } from './statistics.js';
 import { METRIC_MAP, METRIC_UNITS, METRIC_TO_COLUMN, METRIC_INTERVAL_SEC } from './metrics.js';
 import {
   createUserSession,
@@ -2162,12 +2163,12 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     const observations = Object.fromEntries(
       Object.entries(sourcesByMetric).map(([metric, sources]) => {
         const values = sources.map((source) => source.value);
-        const value = medianValue(values);
+        const value = meanValue(values);
         const oneHourBaselineSources = oneHourBaselineSourcesByMetric[metric] || [];
         const oneHourBaselineByNode = new Map(
           oneHourBaselineSources.map((source) => [source.devEui, source.value])
         );
-        const oneHourChange = medianValue(sources.flatMap((source) => {
+        const oneHourChange = meanValue(sources.flatMap((source) => {
           const baseline = oneHourBaselineByNode.get(source.devEui);
           return Number.isFinite(baseline) ? [source.value - baseline] : [];
         }));
@@ -2182,6 +2183,7 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
           lastObservedAt: leastFreshSource.observedAt,
           expectedIntervalSec: leastFreshSource.expectedIntervalSec,
           unit: METRIC_UNITS[metric] || '',
+          aggregation: 'section_mean',
           reportingSensors: sources.length,
           range: { min: Math.min(...values), max: Math.max(...values) },
           nodes: sources

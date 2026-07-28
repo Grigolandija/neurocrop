@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import { calcAbsoluteHumidity, calcDewPoint, calcVPD } from '../calculations.js';
+import { meanValue } from '../statistics.js';
 import { getAllowedOrigins, getSessionCookieOptions, getTrustProxyHops, publicError } from '../config.js';
 import { buildCurrentMetricEvaluations, buildScoreFromMetricValues, buildScoreRules, buildSectionDashboardState, evaluateMetricValue, statusFromMeasurementTime } from '../score.js';
 import { validateCropProfileMetrics } from '../validation.js';
@@ -1534,6 +1535,21 @@ test('latest readings expose a one-hour change from a bounded historical baselin
   assert.match(route, /INTERVAL '40 minutes'/);
   assert.match(route, /oneHourBaselineSourcesByMetric/);
   assert.match(route, /change1h:/);
+});
+
+test('latest readings aggregate section values and changes with an arithmetic mean', () => {
+  assert.equal(meanValue([28.9, 19.4, 19.1, 19.3]), 21.675);
+  assert.equal(meanValue([40, 45, 56, 57]), 49.5);
+  assert.ok(Math.abs(meanValue([2.4, 1.24, 0.97, 0.97]) - 1.395) < 1e-12);
+  assert.equal(meanValue([null, undefined, 'not-a-number']), null);
+
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.get('/readings/latest'");
+  const route = source.slice(routeStart, source.indexOf("function historicalSensorPresenceCondition", routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /const value = meanValue\(values\)/);
+  assert.match(route, /const oneHourChange = meanValue\(/);
+  assert.match(route, /aggregation: 'section_mean'/);
 });
 
 test('latest readings keep the newest valid value per metric when uplinks are stale or partial', () => {
