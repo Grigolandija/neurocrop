@@ -409,7 +409,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         setView({ scale: nextScale, x: pointer.x - world.x * nextScale, y: pointer.y - world.y * nextScale })
       }}
     >
-      <Layer listening={false} imageSmoothingEnabled={false}>
+      <Layer listening={false} imageSmoothingEnabled>
         <Rect x={0} y={0} width={map.dimensions.widthM} height={map.dimensions.lengthM} fill="#f7f7f2" shadowColor="#152c25" shadowBlur={.35} shadowOpacity={.18} />
         {gridLines.map((line, index) => <Line key={index} points={line.points} stroke={line.major ? '#b5bcb4' : '#d9ddd7'} strokeWidth={(line.major ? 1.2 : .65) / view.scale} />)}
         {mode === 'environment' && heatmap && visibleLayers.get('environment')?.visible
