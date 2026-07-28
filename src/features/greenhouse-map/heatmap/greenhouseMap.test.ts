@@ -53,25 +53,29 @@ describe('measurement filtering and grid sizing', () => {
     expect(getValidMeasurementPoints(map, 'air-temperature', 'section-b')).toHaveLength(2)
   })
   it('keeps adaptive grids useful for very small greenhouses', () => {
-    const resolution = gridResolution(.2, .1)
-    expect(resolution.width).toBeGreaterThanOrEqual(100)
-    expect(resolution.width * resolution.height).toBeLessThanOrEqual(28000)
+    const resolution = gridResolution(.2, .1, .25)
+    expect(resolution).toMatchObject({ width: 1, height: 1 })
   })
   it('caps very large greenhouse grids', () => {
     const resolution = gridResolution(10000, 8000)
-    expect(resolution.width * resolution.height).toBeLessThanOrEqual(28000)
+    expect(resolution.width * resolution.height).toBeLessThanOrEqual(60000)
   })
   it('creates a bounded four-sensor grid', () => {
     const points = [point(0, 0, -50), point(20, 0, 20), point(0, 8, 25), point(20, 8, 90)]
-    const grid = createMeasurementGrid(points, 20, 8, 'air-temperature', 2, { min: 15, max: 35 })
+    const map = createDemoMap()
+    map.heatmapSettings.minimumSensorCount = 1
+    map.heatmapSettings.maxInfluenceDistanceM = 100
+    const grid = createMeasurementGrid(points, map, 'air-temperature', { min: 15, max: 35 })
     expect(grid?.sensorCount).toBe(4)
-    expect(Math.min(...(grid?.values ?? []))).toBeGreaterThanOrEqual(5)
-    expect(Math.max(...(grid?.values ?? []))).toBeLessThanOrEqual(45)
+    expect(Math.min(...[...(grid?.values ?? [])].filter(Number.isFinite))).toBeGreaterThanOrEqual(5)
+    expect(Math.max(...[...(grid?.values ?? [])].filter(Number.isFinite))).toBeLessThanOrEqual(45)
   })
   it('keeps physical north at the top and the origin at the bottom-left', () => {
-    const grid = createMeasurementGrid([point(0, 0, 10), point(0, 8, 30)], 20, 8, 'air-temperature', 2, { min: 10, max: 30 })!
-    expect(grid.values[0]).toBeCloseTo(30)
-    expect(grid.values[(grid.height - 1) * grid.width]).toBeCloseTo(10)
+    const map = createDemoMap()
+    map.heatmapSettings.minimumSensorCount = 1
+    map.heatmapSettings.maxInfluenceDistanceM = 100
+    const grid = createMeasurementGrid([point(0, 0, 10), point(0, 8, 30)], map, 'air-temperature', { min: 10, max: 30 })!
+    expect(grid.values[0]).toBeGreaterThan(grid.values[(grid.height - 1) * grid.width])
   })
   it('honours valid manual scale limits', () => expect(getStableScale([20, 30], 'air-temperature', { min: 18, max: 32 })).toEqual({ min: 18, max: 32 }))
   it('reduces confidence with distance', () => {
@@ -168,10 +172,13 @@ describe('heatmap contour lines', () => {
       point(3.3, 5.05, 24.03),
     ]
     const scale = getStableScale(points.map(({ value }) => value), 'air-temperature')
-    const grid = createMeasurementGrid(points, 20, 10, 'air-temperature', 2, scale)!
+    const map = createDemoMap()
+    map.dimensions.lengthM = 10
+    map.heatmapSettings.maxInfluenceDistanceM = 100
+    const grid = createMeasurementGrid(points, map, 'air-temperature', scale)!
     const interval = getAdaptiveContourInterval('air-temperature', points.map(({ value }) => value), points.length)
     const paths = createContourPaths(grid, interval)
-    expect(grid.width * grid.height).toBeLessThanOrEqual(28000)
+    expect(grid.width * grid.height).toBeLessThanOrEqual(60000)
     expect(paths.length).toBeLessThan(100)
     expect(paths.reduce((total, path) => total + path.points.length, 0)).toBeLessThan(10000)
   })

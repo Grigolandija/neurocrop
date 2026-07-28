@@ -6,10 +6,21 @@ export function getValidMeasurementPoints(map: GreenhouseMap, metric: MetricKey,
   return map.objects.flatMap((object) => {
     const sensor = object.metadata.sensor
     const value = sensor?.measurements?.[field]
-    if (object.type !== 'sensor-node' || !sensor || sensor.status === 'offline' || sensor.status === 'stale') return []
+    if (object.type !== 'sensor-node' || !sensor || sensor.status === 'offline' || sensor.status === 'stale' || sensor.status === 'unassigned') return []
     if (sectionId && sensor.sectionId !== sectionId) return []
     if (object.xM < 0 || object.yM < 0 || object.xM > map.dimensions.widthM || object.yM > map.dimensions.lengthM) return []
-    return typeof value === 'number' && Number.isFinite(value) ? [{ xM: object.xM + object.widthM / 2, yM: object.yM + object.lengthM / 2, value }] : []
+    const observedAt = sensor.measurements?.measuredAt || sensor.lastSeenAt
+    const observedAtMs = observedAt ? new Date(observedAt).getTime() : undefined
+    return typeof value === 'number' && Number.isFinite(value) ? [{
+      id: object.id,
+      name: sensor.displayName || object.name,
+      xM: object.xM + object.widthM / 2,
+      yM: object.yM + object.lengthM / 2,
+      value,
+      observedAtMs,
+      status: sensor.status,
+      zoneId: sensor.sectionId,
+    }] : []
   })
 }
 

@@ -116,6 +116,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const [showContours, setShowContours] = useState(true)
   const [mouse, setMouse] = useState<{ xM: number; yM: number } | null>(null)
   const [hoveredSensorId, setHoveredSensorId] = useState<string | null>(null)
+  const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null)
   const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; count: number; contourInterval: number; calculatedAt: Date } | null>(null)
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
   const metricLabel = (key: GreenhouseMap['heatmapSettings']['metric']) =>
@@ -173,7 +174,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       try {
         const metric = map.heatmapSettings.metric
         const scale = getStableScale(points.map((point) => point.value), metric, map.heatmapSettings.scaleMode === 'manual' ? { min: map.heatmapSettings.manualMin, max: map.heatmapSettings.manualMax } : undefined)
-        const grid = createMeasurementGrid(points, map.dimensions.widthM, map.dimensions.lengthM, metric, map.heatmapSettings.idwPower, scale)
+        const grid = createMeasurementGrid(points, map, metric, scale)
         if (!grid) setHeatmap(null)
         else {
           setHeatmap({
@@ -222,29 +223,55 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const visibleLayers = useMemo(() => new Map(map.layers.map((layer) => [layer.id, layer])), [map.layers])
   const orderedObjects = useMemo(() => map.layers.flatMap((layer) => map.objects.filter((object) => object.layerId === layer.id)), [map.layers, map.objects])
   const wallMountedSelection = useMemo(() => map.objects.some((object) => selectedIds.includes(object.id) && isWallMountedType(object.type)), [map.objects, selectedIds])
-  const showReadOnlySensorLocations = readOnly && mode === 'environment' && !visibleLayers.get('sensors')?.visible
+  const showReadOnlySensorLocations = readOnly && mode === 'environment'
   const readOnlySensorPoints = useMemo(() => {
     if (!showReadOnlySensorLocations) return []
     const field = METRICS[map.heatmapSettings.metric].field
     return map.objects.flatMap((object) => {
       const sensor = object.metadata.sensor
       const value = sensor?.measurements?.[field]
-      if (object.type !== 'sensor-node' || !sensor || sensor.status === 'offline' || sensor.status === 'stale') return []
-      if (typeof value !== 'number' || !Number.isFinite(value)) return []
+      if (object.type !== 'sensor-node' || !sensor) return []
       return [{
         id: object.id,
         name: sensor.displayName || object.name,
-        value,
+        value: typeof value === 'number' && Number.isFinite(value) ? value : null,
         xM: object.xM + object.widthM / 2,
         yM: object.yM + object.lengthM / 2,
+        measuredAt: sensor.measurements?.measuredAt || sensor.lastSeenAt,
+        status: sensor.status,
+        batteryPercent: sensor.batteryPercent,
+        rssi: sensor.rssi,
+        snr: sensor.snr,
       }]
     })
   }, [map.heatmapSettings.metric, map.objects, showReadOnlySensorLocations])
-  const hoveredSensor = readOnlySensorPoints.find((sensor) => sensor.id === hoveredSensorId) ?? null
-  const hoveredSensorTooltip = hoveredSensor ? {
-    left: Math.max(8, Math.min(size.width - 224, view.x + hoveredSensor.xM * view.scale + 12)),
-    top: Math.max(8, Math.min(size.height - 76, view.y + (map.dimensions.lengthM - hoveredSensor.yM) * view.scale - 58)),
+  const activeSensor = readOnlySensorPoints.find((sensor) => sensor.id === (selectedSensorId ?? hoveredSensorId)) ?? null
+  const sensorTooltip = activeSensor ? {
+    left: Math.max(8, Math.min(size.width - 252, view.x + activeSensor.xM * view.scale + 12)),
+    top: Math.max(8, Math.min(size.height - 188, view.y + (map.dimensions.lengthM - activeSensor.yM) * view.scale - 76)),
   } : null
+  const hoveredCell = useMemo(() => {
+    if (!mouse || !heatmap || mode !== 'environment' || activeSensor) return null
+    if (mouse.xM < 0 || mouse.yM < 0 || mouse.xM >= map.dimensions.widthM || mouse.yM >= map.dimensions.lengthM) return null
+    const column = Math.floor(mouse.xM / heatmap.grid.cellWidthM)
+    const row = Math.floor((map.dimensions.lengthM - mouse.yM) / heatmap.grid.cellHeightM)
+    if (column < 0 || row < 0 || column >= heatmap.grid.width || row >= heatmap.grid.height) return null
+    const index = row * heatmap.grid.width + column
+    const nearestIndex = heatmap.grid.nearestSensorIndices[index]
+    const confidence = heatmap.grid.confidence[index]
+    return {
+      value: heatmap.grid.dataMask[index] ? heatmap.grid.values[index] : null,
+      xM: (column + .5) * heatmap.grid.cellWidthM,
+      yM: map.dimensions.lengthM - (row + .5) * heatmap.grid.cellHeightM,
+      sensorCount: heatmap.grid.usedSensorCounts[index],
+      nearest: nearestIndex >= 0 ? heatmap.grid.points[nearestIndex] : undefined,
+      nearestDistanceM: heatmap.grid.nearestDistancesM[index],
+      confidence,
+      confidenceLabel: confidence >= .7 ? tr('High', 'Aukštas') : confidence >= .4 ? tr('Medium', 'Vidutinis') : tr('Low', 'Žemas'),
+      left: Math.max(8, Math.min(size.width - 244, view.x + mouse.xM * view.scale + 14)),
+      top: Math.max(8, Math.min(size.height - 176, view.y + (map.dimensions.lengthM - mouse.yM) * view.scale + 14)),
+    }
+  }, [activeSensor, heatmap, map.dimensions.lengthM, map.dimensions.widthM, mode, mouse, size.height, size.width, tr, view])
   const contourPaths = useMemo(() => {
     if (!showContours || !heatmap || heatmap.count < MIN_CONTOUR_SENSOR_COUNT) return []
     return createContourPaths(heatmap.grid, heatmap.contourInterval).map((path) => ({
@@ -340,7 +367,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       </div>
       <div className="gh-legend-meta">
         {target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}
-        <p><b>{heatmap.count} {tr('sensor sources', 'sensorių šaltiniai')}</b><span>{tr('Rendered', 'Atvaizduota')} {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></p>
+        <p><b>{heatmap.count} {tr('sensor sources', 'sensorių šaltiniai')}</b><span>{Math.round(heatmap.grid.dataCellCount / Math.max(1, heatmap.grid.width * heatmap.grid.height) * 100)}% {tr('raster coverage', 'rasterio padengimas')} · {heatmap.grid.cellWidthM.toFixed(2)} m</span><span>{tr('Rendered', 'Atvaizduota')} {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></p>
+        {!heatmap.grid.dataCellCount ? <em>{tr('No cells meet the distance, freshness and minimum-sensor rules.', 'Nė viena celė neatitinka atstumo, šviežumo ir minimalaus sensorių skaičiaus taisyklių.')}</em> : null}
         {!fixedTemperatureContours && heatmap.count >= MIN_CONTOUR_SENSOR_COUNT && heatmap.count < 4 ? <em>{tr(`Contour spacing widened for limited coverage from ${heatmap.count} nodes.`, `Izolinijų žingsnis praplatintas dėl riboto ${heatmap.count} mazgų padengimo.`)}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų mazgų.')}</em> : null}
         <em><i className="fa-solid fa-circle-info" /> {tr('Estimated between sensor locations.', 'Įvertinta tarp sensorių vietų.')}</em>
       </div>
@@ -364,6 +392,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       onMouseDown={(event) => {
         if (event.target === event.target.getStage()) {
           if (!event.evt.shiftKey) onSelect([])
+          setSelectedSensorId(null)
           if (panning) event.target.getStage()?.startDrag()
         }
       }}
@@ -384,7 +413,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         <Rect x={0} y={0} width={map.dimensions.widthM} height={map.dimensions.lengthM} fill="#f7f7f2" shadowColor="#152c25" shadowBlur={.35} shadowOpacity={.18} />
         {gridLines.map((line, index) => <Line key={index} points={line.points} stroke={line.major ? '#b5bcb4' : '#d9ddd7'} strokeWidth={(line.major ? 1.2 : .65) / view.scale} />)}
         {mode === 'environment' && heatmap && visibleLayers.get('environment')?.visible
-          ? <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} />
+          ? <KonvaImage image={heatmap.canvas} width={map.dimensions.widthM} height={map.dimensions.lengthM} imageSmoothingEnabled={false} perfectDrawEnabled={false} />
           : null}
         {mode === 'environment' && heatmap && showContours && heatmap.count >= MIN_CONTOUR_SENSOR_COUNT && visibleLayers.get('environment')?.visible ? <Group clipX={0} clipY={0} clipWidth={map.dimensions.widthM} clipHeight={map.dimensions.lengthM}>
           {contourPaths.map((path, index) => <Group key={`${path.level}-${index}`}>
@@ -434,9 +463,17 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
             if (stage) stage.container().style.cursor = 'default'
             setHoveredSensorId((current) => current === sensor.id ? null : current)
           }}
+          onClick={(event) => {
+            event.cancelBubble = true
+            setSelectedSensorId((current) => current === sensor.id ? null : sensor.id)
+          }}
+          onTap={(event) => {
+            event.cancelBubble = true
+            setSelectedSensorId((current) => current === sensor.id ? null : sensor.id)
+          }}
         >
           <Circle radius={10 / view.scale} fill="rgba(0,0,0,0.001)" />
-          <Circle radius={hoveredSensorId === sensor.id ? 4.5 / view.scale : 3 / view.scale} fill="#111" stroke="#fff" strokeWidth={hoveredSensorId === sensor.id ? 1.5 / view.scale : 0} />
+          <Circle radius={hoveredSensorId === sensor.id || selectedSensorId === sensor.id ? 4.5 / view.scale : 3 / view.scale} fill="#111" stroke={statusColors[sensor.status] ?? '#fff'} strokeWidth={hoveredSensorId === sensor.id || selectedSensorId === sensor.id ? 1.5 / view.scale : 1 / view.scale} />
         </Group>)}
       </Layer> : null}
       <Layer listening={false}>
@@ -445,14 +482,30 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         {!readOnly ? <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
       </Layer>
     </Stage>
-    {hoveredSensor && hoveredSensorTooltip ? <div
+    {activeSensor && sensorTooltip ? <div
       className="gh-sensor-tooltip"
-      style={{ left: hoveredSensorTooltip.left, top: hoveredSensorTooltip.top }}
+      style={{ left: sensorTooltip.left, top: sensorTooltip.top }}
       role="tooltip"
     >
-      <strong>{hoveredSensor.name}</strong>
+      <strong>{activeSensor.name}</strong>
       <span>{metricLabel(map.heatmapSettings.metric)}</span>
-      <b>{Number(hoveredSensor.value.toFixed(METRICS[map.heatmapSettings.metric].decimals))} {METRICS[map.heatmapSettings.metric].unit}</b>
+      <b>{activeSensor.value == null ? tr('No measurement', 'Nėra matavimo') : `${Number(activeSensor.value.toFixed(METRICS[map.heatmapSettings.metric].decimals))} ${METRICS[map.heatmapSettings.metric].unit}`}</b>
+      <dl>
+        <div><dt>{tr('Measured', 'Išmatuota')}</dt><dd>{activeSensor.measuredAt ? new Date(activeSensor.measuredAt).toLocaleString(language) : '—'}</dd></div>
+        <div><dt>{tr('Freshness', 'Šviežumas')}</dt><dd>{activeSensor.measuredAt ? `${Math.max(0, Math.round((Date.now() - new Date(activeSensor.measuredAt).getTime()) / 60_000))} min` : '—'} · {activeSensor.status}</dd></div>
+        <div><dt>{tr('Battery', 'Baterija')}</dt><dd>{activeSensor.batteryPercent == null ? '—' : `${activeSensor.batteryPercent}%`}</dd></div>
+        <div><dt>RSSI / SNR</dt><dd>{activeSensor.rssi == null ? '—' : `${activeSensor.rssi} dBm`} / {activeSensor.snr == null ? '—' : `${activeSensor.snr} dB`}</dd></div>
+      </dl>
+    </div> : null}
+    {hoveredCell ? <div className="gh-cell-tooltip" style={{ left: hoveredCell.left, top: hoveredCell.top }} role="tooltip">
+      <strong>{hoveredCell.value == null ? tr('No data', 'Nėra duomenų') : `${Number(hoveredCell.value.toFixed(METRICS[map.heatmapSettings.metric].decimals))} ${METRICS[map.heatmapSettings.metric].unit}`}</strong>
+      <span>X {hoveredCell.xM.toFixed(2)} m · Y {hoveredCell.yM.toFixed(2)} m</span>
+      <dl>
+        <div><dt>{tr('Sensors used', 'Naudota sensorių')}</dt><dd>{hoveredCell.sensorCount}</dd></div>
+        <div><dt>{tr('Nearest sensor', 'Artimiausias sensorius')}</dt><dd>{hoveredCell.nearest?.name ?? '—'}</dd></div>
+        <div><dt>{tr('Distance', 'Atstumas')}</dt><dd>{Number.isFinite(hoveredCell.nearestDistanceM) ? `${hoveredCell.nearestDistanceM.toFixed(2)} m` : '—'}</dd></div>
+        <div><dt>{tr('Confidence', 'Patikimumas')}</dt><dd>{hoveredCell.confidenceLabel} · {Math.round(hoveredCell.confidence * 100)}%</dd></div>
+      </dl>
     </div> : null}
     {!readOnly ? <div className="gh-view-controls">
       <button className={panning ? 'active' : ''} onClick={() => setPanning(!panning)} title={tr('Pan tool', 'Stūmimo įrankis')} aria-label={tr('Pan tool', 'Stūmimo įrankis')}><i className="fa-solid fa-hand" /></button><span />

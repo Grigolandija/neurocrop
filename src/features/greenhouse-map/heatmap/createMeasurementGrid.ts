@@ -1,38 +1,68 @@
-import { METRICS, type MetricKey } from '../model'
-import { calculateConfidence } from './calculateConfidenceGrid'
-import { interpolateIdw } from './idwInterpolation'
+import { METRICS, type GreenhouseMap, type GreenhouseObject, type MetricKey } from '../model'
+import { buildRasterGrid, rasterDimensions, type RasterBarrier, type RasterPoint, type RasterZone } from './rasterInterpolation'
 import type { HeatmapGrid, MeasurementPoint } from './heatmapTypes'
 
-export function gridResolution(widthM: number, lengthM: number) {
-  const longest = Math.max(widthM, lengthM)
-  const targetLong = longest < 2 ? 100 : longest > 500 ? 120 : 160
-  let width = Math.max(2, Math.round(targetLong * widthM / longest))
-  let height = Math.max(2, Math.round(targetLong * lengthM / longest))
-  const maxPoints = 28000
-  if (width * height > maxPoints) {
-    const ratio = Math.sqrt(maxPoints / (width * height))
-    width = Math.max(2, Math.floor(width * ratio))
-    height = Math.max(2, Math.floor(height * ratio))
-  }
-  return { width, height }
+function objectPolygon(object: GreenhouseObject): RasterPoint[] {
+  const angle = object.rotationDeg * Math.PI / 180
+  const cosine = Math.cos(angle)
+  const sine = Math.sin(angle)
+  return [
+    [0, 0],
+    [object.widthM, 0],
+    [object.widthM, object.lengthM],
+    [0, object.lengthM],
+  ].map(([x, y]) => ({
+    xM: object.xM + x * cosine - y * sine,
+    yM: object.yM + x * sine + y * cosine,
+  }))
 }
 
-export function createMeasurementGrid(points: MeasurementPoint[], widthM: number, lengthM: number, metric: MetricKey, power: number, scale: { min: number; max: number }): HeatmapGrid | null {
-  if (!points.length) return null
-  const resolution = gridResolution(widthM, lengthM)
-  const values = new Float32Array(resolution.width * resolution.height)
-  const confidence = new Float32Array(values.length)
-  const diagonal = Math.hypot(widthM, lengthM)
-  const bounds = METRICS[metric].bounds
-  for (let y = 0; y < resolution.height; y += 1) {
-    for (let x = 0; x < resolution.width; x += 1) {
-      const index = y * resolution.width + x
-      const xM = x / (resolution.width - 1) * widthM
-      const yM = lengthM - y / (resolution.height - 1) * lengthM
-      const value = interpolateIdw(points, xM, yM, power)
-      values[index] = Math.max(bounds[0], Math.min(bounds[1], value ?? scale.min))
-      confidence[index] = calculateConfidence(points, xM, yM, diagonal)
-    }
-  }
-  return { ...resolution, values, confidence, min: scale.min, max: scale.max, sensorCount: points.length }
+function rasterZones(map: GreenhouseMap): RasterZone[] {
+  return map.objects.flatMap((object) => object.type === 'section-zone' && object.visible
+    ? [{
+        id: object.metadata.section?.sectionId || object.id,
+        polygon: objectPolygon(object),
+      }]
+    : [])
+}
+
+function rasterBarriers(map: GreenhouseMap): RasterBarrier[] {
+  return map.objects.flatMap((object) => object.type === 'partition' && object.visible
+    ? [{ id: object.id, polygon: objectPolygon(object) }]
+    : [])
+}
+
+export function gridResolution(widthM: number, lengthM: number, cellSizeM = 0.5) {
+  return rasterDimensions(widthM, lengthM, cellSizeM)
+}
+
+export function createMeasurementGrid(
+  points: MeasurementPoint[],
+  map: GreenhouseMap,
+  metric: MetricKey,
+  scale: { min: number; max: number },
+  nowMs = Date.now(),
+): HeatmapGrid {
+  const settings = map.heatmapSettings
+  return buildRasterGrid(points, {
+    widthM: map.dimensions.widthM,
+    lengthM: map.dimensions.lengthM,
+    cellSizeM: settings.cellSizeM,
+    power: settings.idwPower,
+    nearestSensorCount: settings.nearestSensorCount,
+    minimumSensorCount: settings.minimumSensorCount,
+    maxInfluenceDistanceM: settings.maxInfluenceDistanceM,
+    maxReadingAgeMs: settings.maxReadingAgeMinutes * 60_000,
+    nowMs,
+    boundary: [
+      { xM: 0, yM: 0 },
+      { xM: map.dimensions.widthM, yM: 0 },
+      { xM: map.dimensions.widthM, yM: map.dimensions.lengthM },
+      { xM: 0, yM: map.dimensions.lengthM },
+    ],
+    zones: rasterZones(map),
+    barriers: rasterBarriers(map),
+    valueBounds: METRICS[metric].bounds,
+    scale,
+  })
 }

@@ -104,7 +104,10 @@ export function getContourLevels(values: Float32Array, interval: number): number
   return levels
 }
 
-export function createContourSegments(grid: HeatmapGrid, interval: number): ContourSegment[] {
+type ContourGrid = Pick<HeatmapGrid, 'width' | 'height' | 'values' | 'confidence'>
+  & Partial<Pick<HeatmapGrid, 'min' | 'max' | 'sensorCount'>>
+
+export function createContourSegments(grid: ContourGrid, interval: number): ContourSegment[] {
   const segments: ContourSegment[] = []
   const levels = getContourLevels(grid.values, interval)
   const valueAt = (x: number, y: number) => grid.values[y * grid.width + x]
@@ -117,6 +120,7 @@ export function createContourSegments(grid: HeatmapGrid, interval: number): Cont
         const topRight = valueAt(x + 1, y)
         const bottomRight = valueAt(x + 1, y + 1)
         const bottomLeft = valueAt(x, y + 1)
+        if (![topLeft, topRight, bottomRight, bottomLeft].every(Number.isFinite)) continue
         const cellCase =
           (topLeft >= level ? 8 : 0) |
           (topRight >= level ? 4 : 0) |
@@ -219,6 +223,6 @@ export function connectContourSegments(segments: ContourSegment[]): ContourPath[
   return paths
 }
 
-export function createContourPaths(grid: HeatmapGrid, interval: number): ContourPath[] {
+export function createContourPaths(grid: ContourGrid, interval: number): ContourPath[] {
   return connectContourSegments(createContourSegments(grid, interval))
 }

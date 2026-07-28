@@ -1,4 +1,4 @@
-import type { GreenhouseMap, GreenhouseObject, MapLayer, NodeStatus } from './model'
+import { DEFAULT_HEATMAP_SETTINGS, type GreenhouseMap, type GreenhouseObject, type MapLayer, type NodeStatus } from './model'
 
 export const DEFAULT_LAYERS: MapLayer[] = [
   ['structure', 'Greenhouse structure'], ['cultivation', 'Cultivation infrastructure'], ['irrigation', 'Irrigation'],
@@ -36,7 +36,7 @@ export function createDemoMap(): GreenhouseMap {
     shape: { type: 'rectangle' }, dimensions: { widthM: 20, lengthM: 8, heightM: 4.2 },
     gridSizeM: 0.5, orientationDeg: 90, wallThicknessM: 0.15,
     createdAt: timestamp, updatedAt: timestamp, layers: DEFAULT_LAYERS.map((layer) => ({ ...layer })),
-    heatmapSettings: { enabled: true, metric: 'air-temperature', interpolationMethod: 'idw', idwPower: 2, opacity: 0.88, scaleMode: 'auto', showConfidence: true },
+    heatmapSettings: { ...DEFAULT_HEATMAP_SETTINGS },
     objects: [
       base('table-west', 'growing-table', 'West table block', 1.3, 1.1, 7.2, 2.1, 'cultivation'),
       base('table-east', 'growing-table', 'East table block', 11.5, 4.8, 7.2, 2.1, 'cultivation'),

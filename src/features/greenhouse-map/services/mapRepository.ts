@@ -1,5 +1,5 @@
 import { createDemoMap } from '../demo'
-import { METRICS, type GreenhouseMap, type GreenhouseObject, type MapLayer } from '../model'
+import { METRICS, normalizeHeatmapSettings, type GreenhouseMap, type GreenhouseObject, type MapLayer } from '../model'
 
 const STORAGE_KEY = 'neurocrop:greenhouse-map-test:v1'
 
@@ -36,7 +36,8 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
       if (!touchesWall) return { ok: false, error: `Object ${object.id} is detached from its perimeter wall.` }
     }
   }
-  const heatmap = map.heatmapSettings
+  const heatmap = normalizeHeatmapSettings(map.heatmapSettings)
+  map.heatmapSettings = heatmap
   if (
     !heatmap ||
     typeof heatmap.enabled !== 'boolean' ||
@@ -47,6 +48,21 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
     !finite(heatmap.idwPower) ||
     heatmap.idwPower <= 0 ||
     heatmap.idwPower > 20 ||
+    !finite(heatmap.cellSizeM) ||
+    heatmap.cellSizeM < 0.1 ||
+    heatmap.cellSizeM > 5 ||
+    !Number.isInteger(heatmap.nearestSensorCount) ||
+    heatmap.nearestSensorCount < 3 ||
+    heatmap.nearestSensorCount > 5 ||
+    !Number.isInteger(heatmap.minimumSensorCount) ||
+    heatmap.minimumSensorCount < 1 ||
+    heatmap.minimumSensorCount > heatmap.nearestSensorCount ||
+    !finite(heatmap.maxInfluenceDistanceM) ||
+    heatmap.maxInfluenceDistanceM <= 0 ||
+    heatmap.maxInfluenceDistanceM > 10000 ||
+    !finite(heatmap.maxReadingAgeMinutes) ||
+    heatmap.maxReadingAgeMinutes <= 0 ||
+    heatmap.maxReadingAgeMinutes > 10080 ||
     !finite(heatmap.opacity) ||
     heatmap.opacity < 0 ||
     heatmap.opacity > 1

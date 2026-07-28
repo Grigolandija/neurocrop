@@ -101,11 +101,35 @@ export type HeatmapSettings = {
   metric: MetricKey
   interpolationMethod: 'idw'
   idwPower: number
+  cellSizeM: number
+  nearestSensorCount: number
+  minimumSensorCount: number
+  maxInfluenceDistanceM: number
+  maxReadingAgeMinutes: number
   opacity: number
   scaleMode: 'auto' | 'manual'
   manualMin?: number
   manualMax?: number
   showConfidence: boolean
+}
+
+export const DEFAULT_HEATMAP_SETTINGS: HeatmapSettings = {
+  enabled: true,
+  metric: 'air-temperature',
+  interpolationMethod: 'idw',
+  idwPower: 2,
+  cellSizeM: 0.5,
+  nearestSensorCount: 4,
+  minimumSensorCount: 3,
+  maxInfluenceDistanceM: 10,
+  maxReadingAgeMinutes: 30,
+  opacity: 0.88,
+  scaleMode: 'auto',
+  showConfidence: true,
+}
+
+export function normalizeHeatmapSettings(settings?: Partial<HeatmapSettings>): HeatmapSettings {
+  return { ...DEFAULT_HEATMAP_SETTINGS, ...settings }
 }
 
 export type GreenhouseMap = {
