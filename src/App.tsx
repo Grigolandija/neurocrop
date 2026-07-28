@@ -24,6 +24,8 @@ declare global {
 
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const AcceptInvitePage = lazy(() => import('./pages/AcceptInvitePage'))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const GreenhouseMapTestPage = lazy(() => import('./features/greenhouse-map/GreenhouseMapTestPage'))
 
@@ -75,6 +77,8 @@ export default function App() {
       <Routes>
         <Route path="/register" element={<Suspense fallback={null}><RegisterPage /></Suspense>} />
         <Route path="/accept-invite" element={<Suspense fallback={null}><AcceptInvitePage /></Suspense>} />
+        <Route path="/forgot-password" element={<Suspense fallback={null}><ForgotPasswordPage /></Suspense>} />
+        <Route path="/reset-password" element={<Suspense fallback={null}><ResetPasswordPage /></Suspense>} />
         <Route path="/greenhouse-map-test" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />
         <Route path="*" element={<MainRoute />} />
       </Routes>

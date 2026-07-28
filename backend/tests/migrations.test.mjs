@@ -99,6 +99,15 @@ test('measurement rollups backfill history and stay synchronized by trigger', as
   assert.match(sql, /ON CONFLICT \(bucket_minutes, dev_eui, bucket_start\) DO UPDATE SET/);
 });
 
+test('password reset migration stores only hashed, expiring, single-use tokens', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0024_password_reset_tokens.sql', import.meta.url), 'utf8');
+  assert.match(sql, /token_hash\s+TEXT NOT NULL UNIQUE/);
+  assert.match(sql, /expires_at\s+TIMESTAMPTZ NOT NULL/);
+  assert.match(sql, /used_at\s+TIMESTAMPTZ/);
+  assert.match(sql, /REFERENCES users\(id\) ON DELETE CASCADE/);
+  assert.doesNotMatch(sql, /\btoken\s+TEXT/);
+});
+
 test('case-insensitive DevEUI operations have functional indexes', async () => {
   const migration = await fs.readFile(new URL('../migrations/0016_deveui_lookup_indexes.sql', import.meta.url), 'utf8');
   assert.match(migration, /idx_nodes_dev_eui_lower[\s\S]*lower\(dev_eui\)/);

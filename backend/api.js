@@ -41,6 +41,7 @@ import { registerWorkflowRoutes } from './workflow-routes.js';
 import { SIMULATOR_METRICS, simulateAgronomicScenario } from './agronomic-simulator.js';
 import { registerGreenhouseMapRoutes } from './greenhouse-map-routes.js';
 import { registerGatewayFactoryRoutes } from './gateway-factory-routes.js';
+import { registerPasswordResetRoutes } from './password-reset-routes.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -98,6 +99,7 @@ registerPlatformOrganizationRoutes(app);
 registerWorkflowRoutes(app);
 registerGreenhouseMapRoutes(app);
 registerGatewayFactoryRoutes(app);
+registerPasswordResetRoutes(app);
 
 function getOrganizationId(req) {
   if (!req.user?.organizationId) throw new Error('Authenticated organization is missing');

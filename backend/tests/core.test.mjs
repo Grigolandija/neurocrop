@@ -34,7 +34,8 @@ import {
   measurementRollupResolution
 } from '../measurement-rollups.js';
 import { hashUserPassword, MAX_PASSWORD_LENGTH, sessionCookieClearOptions, sessionCookieOptions, verifyUserPassword } from '../auth-users.js';
-import { sendInvitationEmail } from '../email.js';
+import { sendInvitationEmail, sendPasswordResetEmail } from '../email.js';
+import { hashPasswordResetToken, passwordResetUrl } from '../password-reset-routes.js';
 import { simulateAgronomicScenario } from '../agronomic-simulator.js';
 import { buildCanonicalAlerts, buildCanonicalAlertState, canonicalAlertContext } from '../alert-lifecycle.js';
 
@@ -247,6 +248,55 @@ test('successful invitation delivery tolerates a non-JSON provider response', as
     if (originalKey === undefined) delete process.env.RESEND_API_KEY;
     else process.env.RESEND_API_KEY = originalKey;
   }
+});
+
+test('password reset tokens are hashed and links use the configured application URL', () => {
+  const token = 'private-reset-token';
+  assert.equal(hashPasswordResetToken(token), '4b893dee086a30bec9318e0c8b0dee3477e84171b752bbcbf77d7ace4edaeaa4');
+  assert.equal(
+    passwordResetUrl(token, { APP_BASE_URL: 'https://customer.example/' }),
+    'https://customer.example/reset-password?token=private-reset-token'
+  );
+});
+
+test('password reset email contains a single-use expiry notice without exposing provider configuration', async () => {
+  const originalKey = process.env.RESEND_API_KEY;
+  const originalFetch = globalThis.fetch;
+  let requestBody;
+  process.env.RESEND_API_KEY = 'test-key';
+  globalThis.fetch = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return { ok: true, text: async () => '{"id":"mail-1"}' };
+  };
+
+  try {
+    const result = await sendPasswordResetEmail({
+      to: 'grower@example.com',
+      displayName: 'Test Grower',
+      resetUrl: 'https://neurocrop.lt/reset-password?token=secret',
+      expiresInMinutes: 60
+    });
+    assert.equal(result.sent, true);
+    assert.deepEqual(requestBody.to, ['grower@example.com']);
+    assert.match(requestBody.subject, /Password reset/);
+    assert.match(requestBody.text, /expires in 60 minutes/);
+    assert.match(requestBody.html, /reset-password\?token=secret/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = originalKey;
+  }
+});
+
+test('password reset routes prevent account enumeration and revoke existing sessions', () => {
+  const source = fs.readFileSync(new URL('../password-reset-routes.js', import.meta.url), 'utf8');
+  assert.match(source, /GENERIC_REQUEST_MESSAGE/);
+  assert.match(source, /requestIpLimiter\.isLimited/);
+  assert.match(source, /requestEmailLimiter\.isLimited/);
+  assert.match(source, /p\.used_at IS NULL/);
+  assert.match(source, /p\.expires_at > now\(\)/);
+  assert.match(source, /UPDATE auth_sessions SET revoked_at=COALESCE\(revoked_at, now\(\)\)/);
+  assert.doesNotMatch(source, /res\.json\(\{[^}]*emailExists/);
 });
 
 test('production uptime confirms failures and cannot let notification errors mask the probe', () => {

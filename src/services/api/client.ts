@@ -41,6 +41,8 @@ function isPublicAuthenticationRequest(path: string) {
   return path === '/auth/login'
     || path === '/auth/register'
     || path === '/auth/accept-invite'
+    || path === '/auth/forgot-password'
+    || path === '/auth/reset-password'
     || path === '/auth/me'
     || path.startsWith('/auth/invitations/')
 }

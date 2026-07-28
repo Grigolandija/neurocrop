@@ -53,7 +53,13 @@ export default function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           <p className="mt-3 max-w-md text-sm leading-6 text-ink/60">{t('Use the email address assigned to your farm workspace.')}</p>
           <form id="loginForm" className="mt-8 space-y-5" autoComplete="on" noValidate onSubmit={(event) => void submit(event)}>
             <label className="block"><span className="text-sm font-bold text-ink/76">{t('Email address')}</span><input id="loginEmail" className="login-field mt-2" name="username" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@farm.com" required /></label>
-            <label className="block"><span className="text-sm font-bold text-ink/76">{t('Password')}</span><input id="loginPassword" className="login-field mt-2" name="password" type="password" autoComplete="current-password" maxLength={1024} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={t('Enter your password')} required /></label>
+            <label className="block">
+              <span className="flex items-center justify-between gap-4 text-sm font-bold text-ink/76">
+                <span>{t('Password')}</span>
+                <a className="text-xs text-pine underline underline-offset-4" href="/forgot-password">{t('Forgot password?')}</a>
+              </span>
+              <input id="loginPassword" className="login-field mt-2" name="password" type="password" autoComplete="current-password" maxLength={1024} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={t('Enter your password')} required />
+            </label>
             {error ? <p id="loginError" className="rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-[#8f3d2d]" role="alert">{error}</p> : null}
             <button id="loginSubmit" type="submit" className="login-submit" disabled={busy || !email.trim() || !password}>{t(busy ? 'Signing in…' : 'Sign in')} <i className="fa-solid fa-arrow-right ml-2" /></button>
           </form>
