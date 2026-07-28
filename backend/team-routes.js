@@ -490,7 +490,7 @@ export function registerTeamRoutes(app) {
       const password = String(req.body?.password || '');
       const displayName = String(req.body?.name || '').trim();
 
-      if (!token || !password) {
+      if (!token || (req.authProvider !== 'clerk' && !password)) {
         return res.status(400).json({
           error: { code: 'VALIDATION_ERROR', message: 'Invitation token and password are required' }
         });

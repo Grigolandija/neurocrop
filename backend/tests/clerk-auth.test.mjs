@@ -112,6 +112,7 @@ test('keeps invitation lookup public and reserves Clerk identity for acceptance'
 test('Clerk invitation acceptance verifies email and selects the invited organization', () => {
   const routeStart = teamRoutesSource.indexOf("app.post('/auth/accept-invite'");
   const route = teamRoutesSource.slice(routeStart);
+  assert.match(route, /!token \|\| \(req\.authProvider !== 'clerk' && !password\)/);
   assert.match(route, /req\.authProvider === 'clerk'/);
   assert.match(route, /INVITATION_EMAIL_MISMATCH/);
   assert.match(route, /INSERT INTO organization_memberships/);
