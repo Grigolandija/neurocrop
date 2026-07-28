@@ -1,5 +1,12 @@
 import type { AreaMapHistory } from './areaMapRepository'
 
+export function historyFrameEndIso(observedAt: string, stepMinutes: number): string | undefined {
+  const frameStart = new Date(observedAt).getTime()
+  const stepMs = stepMinutes * 60_000
+  if (!Number.isFinite(frameStart) || !Number.isFinite(stepMs) || stepMs <= 0) return undefined
+  return new Date(frameStart + stepMs).toISOString()
+}
+
 export function latestCompletedHistoryFrameIndex(history: AreaMapHistory): number {
   if (!history.frames.length) return 0
 

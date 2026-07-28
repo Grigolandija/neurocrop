@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { latestCompletedHistoryFrameIndex } from '../services/historyFrameSelection'
+import { historyFrameEndIso, latestCompletedHistoryFrameIndex } from '../services/historyFrameSelection'
 import type { AreaMapHistory } from '../services/areaMapRepository'
 
 function history(overrides: Partial<AreaMapHistory> = {}): AreaMapHistory {
@@ -32,5 +32,16 @@ describe('historical climate map initial frame', () => {
 
   it('falls back to the latest frame when interval metadata is invalid', () => {
     expect(latestCompletedHistoryFrameIndex(history({ to: 'invalid' }))).toBe(2)
+  })
+})
+
+describe('historical climate map freshness reference', () => {
+  it('uses the end of a ten-minute rollup interval', () => {
+    expect(historyFrameEndIso('2026-07-27T08:00:00.000Z', 10)).toBe('2026-07-27T08:10:00.000Z')
+  })
+
+  it('rejects invalid frame boundaries', () => {
+    expect(historyFrameEndIso('invalid', 10)).toBeUndefined()
+    expect(historyFrameEndIso('2026-07-27T08:00:00.000Z', 0)).toBeUndefined()
   })
 })

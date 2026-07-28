@@ -9,7 +9,7 @@ import {
   type AreaMapContext,
   type AreaMapHistory,
 } from '../greenhouse-map/services/areaMapRepository'
-import { latestCompletedHistoryFrameIndex } from '../greenhouse-map/services/historyFrameSelection'
+import { historyFrameEndIso, latestCompletedHistoryFrameIndex } from '../greenhouse-map/services/historyFrameSelection'
 import { prepareReadOnlyClimateMap } from './prepareReadOnlyClimateMap'
 import '../../styles/climate-map.css'
 
@@ -118,6 +118,9 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   }, [history, playing, timeMode])
 
   const historyFrame = timeMode === 'history' ? history?.frames[historyIndex] : null
+  const historyFrameEnd = historyFrame && history
+    ? historyFrameEndIso(historyFrame.observedAt, history.stepMinutes)
+    : undefined
   const historyLayout = useMemo(() => {
     if (!historyFrame) return null
     const selectedAt = new Date(historyFrame.observedAt).getTime()
@@ -305,7 +308,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         onUpdate={() => undefined}
         onAdd={() => undefined}
         onRenderReady={handleCanvasRenderReady}
-        referenceTime={historyFrame?.observedAt}
+        referenceTime={historyFrameEnd}
       />
     </div>
     <div className="nc-climate-map-legend-slot" ref={setLegendHost} />
