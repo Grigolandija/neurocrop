@@ -57,6 +57,16 @@ describe('raster IDW interpolation', () => {
     expect(result.usedSensorCount).toBe(1)
   })
 
+  it('allows two-sensor edge coverage but caps its confidence as low', () => {
+    const result = interpolateRasterCell([
+      point('a', 2, 2, 20),
+      point('b', 8, 2, 24),
+    ], 5, 5, options({ minimumSensorCount: 2 }))
+    expect(result.value).not.toBeNull()
+    expect(result.usedSensorCount).toBe(2)
+    expect(result.confidence).toBeLessThanOrEqual(0.38)
+  })
+
   it('keeps the same value for several equal sensors', () => {
     const points = [
       point('a', 2, 2, 50),
