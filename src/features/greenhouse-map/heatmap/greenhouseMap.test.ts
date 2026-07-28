@@ -62,8 +62,9 @@ describe('measurement filtering and grid sizing', () => {
   })
   it('migrates legacy raster settings while preserving later explicit choices', () => {
     expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: undefined, cellSizeM: 0.5 }).cellSizeM).toBe(0.25)
-    expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 4, cellSizeM: 0.5 }).cellSizeM).toBe(0.5)
-    expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 3, minimumSensorCount: 1 }).minimumSensorCount).toBe(3)
+    expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 5, cellSizeM: 0.5 }).cellSizeM).toBe(0.5)
+    expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 4, minimumSensorCount: 3 }).minimumSensorCount).toBe(2)
+    expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 5, minimumSensorCount: 2 }).minimumSensorCount).toBe(2)
   })
   it('creates a bounded four-sensor grid', () => {
     const points = [point(0, 0, -50), point(20, 0, 20), point(0, 8, 25), point(20, 8, 90)]
@@ -74,6 +75,19 @@ describe('measurement filtering and grid sizing', () => {
     expect(grid?.sensorCount).toBe(4)
     expect(Math.min(...[...(grid?.values ?? [])].filter(Number.isFinite))).toBeGreaterThanOrEqual(5)
     expect(Math.max(...[...(grid?.values ?? [])].filter(Number.isFinite))).toBeLessThanOrEqual(45)
+  })
+  it('keeps edge cells covered when a valid four-sensor map has two local neighbours', () => {
+    const points = [
+      point(1, 1, 24),
+      point(19, 1, 24.2),
+      point(1, 7, 24.1),
+      point(19, 7, 24.3),
+    ]
+    const map = createDemoMap()
+    map.heatmapSettings.minimumSensorCount = 2
+    map.heatmapSettings.maxInfluenceDistanceM = 15
+    const grid = createMeasurementGrid(points, map, 'air-temperature', { min: 22, max: 26 })
+    expect(grid.dataCellCount / (grid.width * grid.height)).toBeGreaterThan(0.95)
   })
   it('keeps physical north at the top and the origin at the bottom-left', () => {
     const map = createDemoMap()
