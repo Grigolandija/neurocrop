@@ -46,6 +46,18 @@ assert(
     && clerkLogin.includes('autoComplete="current-password"'),
   'Clerk sign-in must show email and password together and submit them as one password sign-in.'
 )
+assert(
+  clerkLogin.includes('signIn.resetPasswordEmailCode.sendCode()')
+    && clerkLogin.includes('signIn.resetPasswordEmailCode.verifyCode(')
+    && clerkLogin.includes('signIn.resetPasswordEmailCode.submitPassword(')
+    && clerkLogin.includes('<PasswordRecoveryForm'),
+  'Clerk password recovery must use the direct email-code flow before asking for a new password.'
+)
+assert(
+  !clerkLogin.includes('kitame žingsnyje pasirinkite „Forgot password?“')
+    && !clerkLogin.includes('then choose Forgot password?'),
+  'Password recovery must not send users back through the ordinary password sign-in flow.'
+)
 assert(app.includes('<Suspense fallback={<WorkspaceLoading />}>'), 'Workspace loading must be scoped to the authenticated dashboard.')
 assert(!dashboard.includes('if (!bootstrapped)'), 'DashboardPage must not block the login screen while workspace modules preload.')
 assert(!login.includes('prefetchWorkspaceData'), 'Login must transition before workspace data prefetching starts.')

@@ -1,4 +1,4 @@
-import { SignIn, SignUp, useSignIn } from '@clerk/react'
+import { SignUp, useSignIn } from '@clerk/react'
 import { useState, type FormEvent } from 'react'
 import { useInterfaceLanguage } from '../i18n'
 
@@ -160,6 +160,176 @@ function PasswordSignInForm({
   )
 }
 
+function PasswordRecoveryForm({
+  redirectUrl,
+  initialEmail = '',
+}: {
+  redirectUrl: string
+  initialEmail?: string
+}) {
+  const { language } = useInterfaceLanguage()
+  const { signIn, fetchStatus } = useSignIn()
+  const [step, setStep] = useState<'email' | 'code' | 'password'>('email')
+  const [email, setEmail] = useState(initialEmail)
+  const [code, setCode] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [error, setError] = useState('')
+  const busy = fetchStatus === 'fetching'
+
+  async function sendResetCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!email.trim() || busy) return
+    setError('')
+    try {
+      const resetResult = await signIn.reset()
+      if (resetResult.error) {
+        setError(clerkErrorMessage(resetResult.error, language === 'lt' ? 'Nepavyko pradėti slaptažodžio atkūrimo.' : 'Could not start password recovery.'))
+        return
+      }
+      const createResult = await signIn.create({ identifier: email.trim() })
+      if (createResult.error) {
+        setError(clerkErrorMessage(createResult.error, language === 'lt' ? 'Nepavyko rasti paskyros.' : 'Could not find the account.'))
+        return
+      }
+      const sendResult = await signIn.resetPasswordEmailCode.sendCode()
+      if (sendResult.error) {
+        setError(clerkErrorMessage(sendResult.error, language === 'lt' ? 'Nepavyko išsiųsti atkūrimo kodo.' : 'Could not send the recovery code.'))
+        return
+      }
+      setStep('code')
+    } catch (reason) {
+      setError(clerkErrorMessage(reason, language === 'lt' ? 'Nepavyko išsiųsti atkūrimo kodo.' : 'Could not send the recovery code.'))
+    }
+  }
+
+  async function verifyResetCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!code.trim() || busy) return
+    setError('')
+    try {
+      const result = await signIn.resetPasswordEmailCode.verifyCode({ code: code.trim() })
+      if (result.error) {
+        setError(clerkErrorMessage(result.error, language === 'lt' ? 'Atkūrimo kodas netinkamas.' : 'The recovery code is invalid.'))
+        return
+      }
+      if (signIn.status !== 'needs_new_password') {
+        setError(language === 'lt' ? 'Kodo patvirtinimas neužbaigtas. Bandykite dar kartą.' : 'Code verification is incomplete. Please try again.')
+        return
+      }
+      setStep('password')
+    } catch (reason) {
+      setError(clerkErrorMessage(reason, language === 'lt' ? 'Kodo patvirtinti nepavyko.' : 'Could not verify the code.'))
+    }
+  }
+
+  async function saveNewPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!password || !confirmation || busy) return
+    setError('')
+    if (password.length < 12) {
+      setError(language === 'lt' ? 'Naudokite bent 12 simbolių slaptažodį.' : 'Use a password with at least 12 characters.')
+      return
+    }
+    if (password !== confirmation) {
+      setError(language === 'lt' ? 'Slaptažodžiai nesutampa.' : 'The passwords do not match.')
+      return
+    }
+    try {
+      const result = await signIn.resetPasswordEmailCode.submitPassword({
+        password,
+        signOutOfOtherSessions: true,
+      })
+      if (result.error) {
+        setError(clerkErrorMessage(result.error, language === 'lt' ? 'Nepavyko pakeisti slaptažodžio.' : 'Could not change the password.'))
+        return
+      }
+      if (signIn.status !== 'complete') {
+        setError(language === 'lt' ? 'Slaptažodis pakeistas, bet prisijungimas neužbaigtas.' : 'The password changed, but sign-in is incomplete.')
+        return
+      }
+      const finalizeResult = await signIn.finalize({
+        navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(redirectUrl)),
+      })
+      if (finalizeResult.error) {
+        setError(clerkErrorMessage(finalizeResult.error, language === 'lt' ? 'Slaptažodis pakeistas. Prisijunkite iš naujo.' : 'Password changed. Please sign in again.'))
+      }
+    } catch (reason) {
+      setError(clerkErrorMessage(reason, language === 'lt' ? 'Nepavyko pakeisti slaptažodžio.' : 'Could not change the password.'))
+    }
+  }
+
+  const title = step === 'email'
+    ? (language === 'lt' ? 'Atkurkite slaptažodį' : 'Reset your password')
+    : step === 'code'
+      ? (language === 'lt' ? 'Įveskite atkūrimo kodą' : 'Enter the recovery code')
+      : (language === 'lt' ? 'Sukurkite naują slaptažodį' : 'Create a new password')
+  const description = step === 'email'
+    ? (language === 'lt' ? 'Įveskite paskyros el. paštą. Atsiųsime vienkartinį atkūrimo kodą.' : 'Enter your account email. We will send a one-time recovery code.')
+    : step === 'code'
+      ? (language === 'lt' ? `Kodą išsiuntėme adresu ${email}.` : `We sent a code to ${email}.`)
+      : (language === 'lt' ? 'Seno slaptažodžio nereikia. Pasirinkite naują.' : 'You do not need your old password. Choose a new one.')
+
+  return (
+    <div className="clerk-custom-login">
+      <p className="text-xs font-bold uppercase tracking-[0.26em] text-pine/52">
+        {language === 'lt' ? 'Paskyros atkūrimas' : 'Account recovery'}
+      </p>
+      <h2 className="mt-3 font-display text-3xl font-bold text-ink">{title}</h2>
+      <p className="mt-3 max-w-md text-sm leading-6 text-ink/60">{description}</p>
+
+      {step === 'email' ? (
+        <form className="mt-8 space-y-5" onSubmit={(event) => void sendResetCode(event)}>
+          <label className="block">
+            <span className="text-sm font-bold text-ink/76">{language === 'lt' ? 'El. pašto adresas' : 'Email address'}</span>
+            <input className="login-field mt-2" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@farm.com" required autoFocus />
+          </label>
+          {error ? <p className="rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-[#8f3d2d]" role="alert">{error}</p> : null}
+          <button type="submit" className="login-submit" disabled={busy || !email.trim()}>
+            {busy ? (language === 'lt' ? 'Siunčiama…' : 'Sending…') : (language === 'lt' ? 'Siųsti atkūrimo kodą' : 'Send recovery code')}
+          </button>
+          <a className="inline-block text-sm font-semibold text-pine underline underline-offset-4" href="/">
+            {language === 'lt' ? 'Grįžti į prisijungimą' : 'Back to sign in'}
+          </a>
+        </form>
+      ) : null}
+
+      {step === 'code' ? (
+        <form className="mt-8 space-y-5" onSubmit={(event) => void verifyResetCode(event)}>
+          <label className="block">
+            <span className="text-sm font-bold text-ink/76">{language === 'lt' ? 'Atkūrimo kodas' : 'Recovery code'}</span>
+            <input className="login-field mt-2" type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} required autoFocus />
+          </label>
+          {error ? <p className="rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-[#8f3d2d]" role="alert">{error}</p> : null}
+          <button type="submit" className="login-submit" disabled={busy || !code.trim()}>
+            {busy ? (language === 'lt' ? 'Tikrinama…' : 'Verifying…') : (language === 'lt' ? 'Patvirtinti kodą' : 'Verify code')}
+          </button>
+          <button type="button" className="text-sm font-semibold text-pine underline underline-offset-4" onClick={() => { setStep('email'); setCode(''); setError('') }}>
+            {language === 'lt' ? 'Naudoti kitą el. paštą' : 'Use another email'}
+          </button>
+        </form>
+      ) : null}
+
+      {step === 'password' ? (
+        <form className="mt-8 space-y-5" onSubmit={(event) => void saveNewPassword(event)}>
+          <label className="block">
+            <span className="text-sm font-bold text-ink/76">{language === 'lt' ? 'Naujas slaptažodis' : 'New password'}</span>
+            <input className="login-field mt-2" type="password" autoComplete="new-password" minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={language === 'lt' ? 'Bent 12 simbolių' : 'At least 12 characters'} required autoFocus />
+          </label>
+          <label className="block">
+            <span className="text-sm font-bold text-ink/76">{language === 'lt' ? 'Pakartokite naują slaptažodį' : 'Confirm new password'}</span>
+            <input className="login-field mt-2" type="password" autoComplete="new-password" minLength={12} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required />
+          </label>
+          {error ? <p className="rounded-2xl bg-[#f9e3df] px-4 py-3 text-sm font-semibold text-[#8f3d2d]" role="alert">{error}</p> : null}
+          <button type="submit" className="login-submit" disabled={busy || !password || !confirmation}>
+            {busy ? (language === 'lt' ? 'Keičiama…' : 'Changing…') : (language === 'lt' ? 'Pakeisti slaptažodį' : 'Change password')}
+          </button>
+        </form>
+      ) : null}
+    </div>
+  )
+}
+
 export default function ClerkLoginScreen({
   mode = 'sign-in',
   redirectUrl = '/',
@@ -210,21 +380,7 @@ export default function ClerkLoginScreen({
                 appearance={appearance}
               />
             : isRecovery
-              ? <>
-                <SignIn
-                  routing="hash"
-                  signUpUrl={signUpUrl}
-                  forceRedirectUrl={redirectUrl}
-                  fallbackRedirectUrl={redirectUrl}
-                  initialValues={initialEmail ? { emailAddress: initialEmail } : undefined}
-                  appearance={appearance}
-                />
-                <p className="clerk-recovery-note">
-                  {language === 'lt'
-                    ? 'Pamiršote slaptažodį? Įveskite el. paštą ir spauskite „Continue“ – kitame žingsnyje pasirinkite „Forgot password?“.'
-                    : 'Forgot your password? Enter your email and select Continue, then choose Forgot password?'}
-                </p>
-              </>
+              ? <PasswordRecoveryForm redirectUrl={redirectUrl} initialEmail={initialEmail} />
               : <PasswordSignInForm redirectUrl={redirectUrl} signUpUrl={signUpUrl} initialEmail={initialEmail} />}
         </section>
       </div>
