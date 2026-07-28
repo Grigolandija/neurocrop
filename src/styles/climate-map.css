@@ -56,6 +56,9 @@
 .nc-climate-map-state > strong { color: var(--color-text); font-size: var(--type-body); }
 .nc-climate-map-state > span { max-width: 32rem; font-size: var(--type-caption); }
 .nc-climate-map-state[data-state="error"] > i { color: var(--color-danger); }
+.nc-climate-map-state[data-state="unconfigured"] { min-height: 13rem; }
+.nc-climate-map-state[data-state="unconfigured"] > button { min-height: 2.5rem; margin-top: var(--space-8); border: 1px solid var(--color-secondary); border-radius: .55rem; padding: 0 var(--space-16); background: var(--color-secondary); color: var(--color-text-inverse); cursor: pointer; font: inherit; font-size: var(--type-caption); font-weight: var(--weight-semibold); }
+.nc-climate-map-state[data-state="unconfigured"] > button:hover { filter: brightness(.94); }
 .nc-area-tabs { display: flex; min-width: 0; align-items: center; gap: var(--space-4); overflow-x: auto; scrollbar-width: thin; }
 .nc-area-tabs button { min-height: 2.75rem; flex: 0 0 auto; border: 0; border-bottom: 3px solid transparent; padding: 0 var(--space-12); background: transparent; color: var(--color-text-tertiary); font-size: var(--type-caption); font-weight: var(--weight-medium); white-space: nowrap; }
 .nc-area-tabs button:hover { color: var(--color-text); }

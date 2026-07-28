@@ -1,5 +1,6 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
 import GreenhouseCanvas from '../greenhouse-map/components/GreenhouseCanvas'
 import { METRICS, type MetricKey } from '../greenhouse-map/model'
@@ -23,6 +24,7 @@ type Props = {
 }
 
 export default function ReadingsClimateMap({ areaId, refreshToken, presentation = 'readings', areaNavigation }: Props) {
+  const navigate = useNavigate()
   const { language } = useInterfaceLanguage()
   const lithuanian = language === 'lt'
   const locale = lithuanian ? 'lt-LT' : 'en-GB'
@@ -191,14 +193,23 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       })}`
     : 'Timestamp unavailable'
 
+  const overviewPresentation = presentation === 'overview'
+
   if (status === 'error') {
     return <div className="nc-climate-map-state" data-state="error" data-overview-heatmap-settled={presentation === 'overview' ? 'true' : undefined} aria-busy="false"><i className="fa-solid fa-triangle-exclamation" /><strong>{tx("Climate map could not be loaded")}</strong><span>{error}</span></div>
   }
   if (status === 'loading' || !map || !context) {
     return <div className="nc-climate-map-state" data-state={status} aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong><span>{tx("Combining the saved Area plan with current and historical node readings.")}</span></div>
   }
+  if (!context.map) {
+    return <div className="nc-climate-map-state" data-state="unconfigured" data-overview-heatmap-settled={overviewPresentation ? 'true' : undefined} aria-busy="false">
+      <i className="fa-solid fa-map-location-dot" />
+      <strong>{tx("Area map has not been created")}</strong>
+      <span>{tx("Create and save an Area Map before a live climate heatmap is shown here.")}</span>
+      {context.permissions.canEdit ? <button type="button" onClick={() => navigate(`/area-map?area=${encodeURIComponent(context.area.id)}`)}>{tx("Create Area Map")}</button> : null}
+    </div>
+  }
 
-  const overviewPresentation = presentation === 'overview'
   const historyAvailable = Boolean(history?.frames.some((frame) => frame.nodes.length))
   const expectedNodes = timeMode === 'history' && historyLayoutNodes
     ? historyLayoutNodes.length
