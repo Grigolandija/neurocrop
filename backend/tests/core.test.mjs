@@ -1411,6 +1411,28 @@ test('platform organization deletion removes sections before their crop profiles
   assert.ok(sectionsDelete < profilesDelete);
 });
 
+test('platform user deletion removes external identity and every user-owned access record', () => {
+  const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.delete('/platform/users/:userId'");
+  const route = source.slice(routeStart, source.indexOf("app.patch('/platform/organizations/:organizationId/archive'", routeStart));
+  const clerkDelete = route.indexOf('deleteClerkUserIdentity');
+  const localDelete = route.indexOf('DELETE FROM users WHERE id=$1');
+
+  assert.ok(routeStart >= 0);
+  assert.match(route, /requireSuperAdmin/);
+  assert.match(route, /clerk_user_id/);
+  assert.match(route, /DELETE FROM auth_sessions WHERE user_id=\$1/);
+  assert.match(route, /DELETE FROM clerk_session_contexts WHERE user_id=\$1/);
+  assert.match(route, /DELETE FROM password_reset_tokens WHERE user_id=\$1/);
+  assert.match(route, /DELETE FROM action_assignments WHERE assigned_to=\$1/);
+  assert.match(route, /DELETE FROM invitations WHERE lower\(email\)=lower\(\$1\)/);
+  assert.match(route, /DELETE FROM organization_requests WHERE user_id=\$1/);
+  assert.match(route, /DELETE FROM organization_memberships WHERE user_id=\$1/);
+  assert.ok(clerkDelete >= 0);
+  assert.ok(localDelete >= 0);
+  assert.ok(clerkDelete < localDelete, 'Clerk identity must be removed before the local account can be deleted');
+});
+
 test('platform organization listing includes active node fault counts', () => {
   const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
   const routeStart = source.indexOf("app.get('/platform/organizations'");

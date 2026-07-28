@@ -108,6 +108,18 @@ test('password reset migration stores only hashed, expiring, single-use tokens',
   assert.doesNotMatch(sql, /\btoken\s+TEXT/);
 });
 
+test('every organization is backfilled and protected with a default crop profile', async () => {
+  const sql = await fs.readFile(
+    new URL('../migrations/0026_default_crop_profile_invariant.sql', import.meta.url),
+    'utf8'
+  );
+  assert.match(sql, /CREATE OR REPLACE FUNCTION ensure_organization_default_crop_profile/);
+  assert.match(sql, /CREATE TRIGGER organizations_ensure_default_crop_profile/);
+  assert.match(sql, /AFTER INSERT ON organizations/);
+  assert.match(sql, /INSERT INTO crop_profiles[\s\S]*FROM organizations organization/);
+  assert.match(sql, /ON CONFLICT \(organization_id, id\) DO NOTHING/);
+});
+
 test('case-insensitive DevEUI operations have functional indexes', async () => {
   const migration = await fs.readFile(new URL('../migrations/0016_deveui_lookup_indexes.sql', import.meta.url), 'utf8');
   assert.match(migration, /idx_nodes_dev_eui_lower[\s\S]*lower\(dev_eui\)/);

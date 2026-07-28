@@ -4,6 +4,7 @@ import fs from 'fs';
 import { sendInvitationEmail } from './email.js';
 import { query, pool } from './db.js';
 import { requirePlatformAdmin, requireSuperAdmin, requireUserAuth } from './auth-users.js';
+import { deleteClerkUserIdentity } from './clerk-auth.js';
 import { statusFromMeasurementTime } from './score.js';
 import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
 
@@ -892,7 +893,8 @@ export function registerPlatformOrganizationRoutes(app) {
       client = await pool.connect();
       await client.query('BEGIN');
       const { rows: userRows } = await client.query(
-        `SELECT id, email, display_name, is_super_admin FROM users WHERE id=$1 FOR UPDATE`,
+        `SELECT id, email, display_name, is_super_admin, clerk_user_id
+         FROM users WHERE id=$1 FOR UPDATE`,
         [userId]
       );
       const user = userRows[0];
@@ -929,11 +931,19 @@ export function registerPlatformOrganizationRoutes(app) {
         });
       }
 
+      const clerkCleanup = await deleteClerkUserIdentity({
+        clerkUserId: user.clerk_user_id,
+        email: user.email
+      });
       const summary = {
         sessions: (await client.query(`DELETE FROM auth_sessions WHERE user_id=$1`, [userId])).rowCount,
+        clerkSessionContexts: (await client.query(`DELETE FROM clerk_session_contexts WHERE user_id=$1`, [userId])).rowCount,
+        passwordResetTokens: (await client.query(`DELETE FROM password_reset_tokens WHERE user_id=$1`, [userId])).rowCount,
+        actionAssignments: (await client.query(`DELETE FROM action_assignments WHERE assigned_to=$1`, [userId])).rowCount,
         invitations: (await client.query(`DELETE FROM invitations WHERE lower(email)=lower($1)`, [user.email])).rowCount,
         requests: (await client.query(`DELETE FROM organization_requests WHERE user_id=$1`, [userId])).rowCount,
-        memberships: (await client.query(`DELETE FROM organization_memberships WHERE user_id=$1`, [userId])).rowCount
+        memberships: (await client.query(`DELETE FROM organization_memberships WHERE user_id=$1`, [userId])).rowCount,
+        clerkUsers: clerkCleanup.deletedUserIds.length
       };
       const { rows } = await client.query(
         `DELETE FROM users WHERE id=$1 RETURNING id, email, display_name`,

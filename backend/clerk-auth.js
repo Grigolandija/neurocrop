@@ -28,6 +28,62 @@ function clerkSecretKey(env = process.env) {
   }
 }
 
+function isClerkNotFound(error) {
+  const status = Number(error?.status || error?.statusCode);
+  const codes = Array.isArray(error?.errors)
+    ? error.errors.map((item) => String(item?.code || ''))
+    : [];
+  return status === 404 || codes.includes('resource_not_found');
+}
+
+function clerkUserHasEmail(clerkUser, email) {
+  const normalized = normalizeEmail(email);
+  return Array.isArray(clerkUser?.emailAddresses)
+    && clerkUser.emailAddresses.some((address) => normalizeEmail(address?.emailAddress) === normalized);
+}
+
+export async function deleteClerkUserIdentity(
+  { clerkUserId, email },
+  { env = process.env, createClient = createClerkClient } = {}
+) {
+  const linkedUserId = String(clerkUserId || '').trim();
+  const normalizedEmail = normalizeEmail(email);
+  const secretKey = clerkSecretKey(env);
+
+  if (!secretKey) {
+    if (!linkedUserId) return { configured: false, deletedUserIds: [] };
+    const error = new Error('Clerk is required to delete this linked user identity');
+    error.code = 'CLERK_NOT_CONFIGURED';
+    error.status = 503;
+    throw error;
+  }
+
+  const clerk = createClient({ secretKey });
+  const userIds = new Set(linkedUserId ? [linkedUserId] : []);
+
+  if (normalizedEmail) {
+    const listed = await clerk.users.getUserList({
+      emailAddress: [normalizedEmail],
+      limit: 10
+    });
+    for (const clerkUser of listed.data || []) {
+      if (clerkUserHasEmail(clerkUser, normalizedEmail)) userIds.add(clerkUser.id);
+    }
+  }
+
+  const deletedUserIds = [];
+  for (const userId of userIds) {
+    try {
+      await clerk.users.deleteUser(userId);
+      deletedUserIds.push(userId);
+    } catch (error) {
+      if (!isClerkNotFound(error)) throw error;
+    }
+  }
+
+  return { configured: true, deletedUserIds };
+}
+
 function verifiedEmailFromClerkUser(clerkUser) {
   const addresses = Array.isArray(clerkUser?.emailAddresses) ? clerkUser.emailAddresses : [];
   const primary = addresses.find((address) => address.id === clerkUser.primaryEmailAddressId);
@@ -112,6 +168,18 @@ async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query
          INSERT INTO organization_memberships (organization_id, user_id, role, created_at)
          SELECT new_organization.id, new_user.id, 'owner', now()
          FROM new_organization, new_user
+         RETURNING organization_id
+       ), new_profile AS (
+         INSERT INTO crop_profiles (
+           id, organization_id, name, hero_name, stage, hint,
+           requires_review, metrics, created_at, updated_at
+         )
+         SELECT
+           'default', new_organization.id, 'Default', 'Default', 'Default',
+           'Universal starter profile. Review target ranges before assigning it to production sections.',
+           false, '{}'::jsonb, now(), now()
+         FROM new_organization
+         ON CONFLICT (organization_id, id) DO NOTHING
          RETURNING organization_id
        )
        SELECT id, email, display_name, is_active, is_platform_admin, is_super_admin
@@ -289,9 +357,11 @@ export async function updateClerkSessionOrganization(sessionId, userId, organiza
 
 export const clerkAuthInternals = {
   bearerToken,
+  clerkUserHasEmail,
   clerkSecretKey,
   configuredAuthorizedParties,
   displayNameFromClerkUser,
+  isClerkNotFound,
   isInvitationAcceptanceRequest,
   isInvitationStatusRequest,
   organizationNameFromClerkUser,

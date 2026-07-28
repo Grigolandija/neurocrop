@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { clerkAuthEnabled, clerkAuthInternals } from '../clerk-auth.js';
+import { clerkAuthEnabled, clerkAuthInternals, deleteClerkUserIdentity } from '../clerk-auth.js';
 
 const teamRoutesSource = fs.readFileSync(new URL('../team-routes.js', import.meta.url), 'utf8');
+const clerkAuthSource = fs.readFileSync(new URL('../clerk-auth.js', import.meta.url), 'utf8');
 
 test('extracts only a Bearer session token', () => {
   assert.equal(
@@ -60,6 +61,67 @@ test('reads Clerk configuration without exposing the secret', () => {
   );
 });
 
+test('deletes linked and exact-email Clerk identities without matching partial emails', async () => {
+  const deleted = [];
+  const createClient = ({ secretKey }) => {
+    assert.equal(secretKey, 'secret');
+    return {
+      users: {
+        getUserList: async ({ emailAddress, limit }) => {
+          assert.deepEqual(emailAddress, ['owner@example.com']);
+          assert.equal(limit, 10);
+          return {
+            data: [
+              { id: 'clerk-exact', emailAddresses: [{ emailAddress: 'OWNER@example.com' }] },
+              { id: 'clerk-partial', emailAddresses: [{ emailAddress: 'owner@example.com.invalid' }] }
+            ]
+          };
+        },
+        deleteUser: async (userId) => { deleted.push(userId); }
+      }
+    };
+  };
+
+  const result = await deleteClerkUserIdentity(
+    { clerkUserId: 'clerk-linked', email: ' Owner@Example.com ' },
+    { env: { CLERK_SECRET_KEY: 'secret' }, createClient }
+  );
+
+  assert.deepEqual(deleted, ['clerk-linked', 'clerk-exact']);
+  assert.deepEqual(result, {
+    configured: true,
+    deletedUserIds: ['clerk-linked', 'clerk-exact']
+  });
+});
+
+test('treats an already deleted Clerk identity as an idempotent cleanup', async () => {
+  const result = await deleteClerkUserIdentity(
+    { clerkUserId: 'clerk-missing', email: '' },
+    {
+      env: { CLERK_SECRET_KEY: 'secret' },
+      createClient: () => ({
+        users: {
+          getUserList: async () => ({ data: [] }),
+          deleteUser: async () => {
+            const error = new Error('Not found');
+            error.status = 404;
+            throw error;
+          }
+        }
+      })
+    }
+  );
+
+  assert.deepEqual(result, { configured: true, deletedUserIds: [] });
+});
+
+test('allows legacy local-only users to be deleted when Clerk is not configured', async () => {
+  assert.deepEqual(
+    await deleteClerkUserIdentity({ clerkUserId: '', email: 'legacy@example.com' }, { env: {} }),
+    { configured: false, deletedUserIds: [] }
+  );
+});
+
 test('derives safe onboarding names for a new Clerk identity', () => {
   assert.equal(
     clerkAuthInternals.displayNameFromClerkUser(
@@ -83,6 +145,17 @@ test('derives safe onboarding names for a new Clerk identity', () => {
     clerkAuthInternals.organizationNameFromClerkUser({}, 'New grower'),
     'New grower workspace'
   );
+});
+
+test('new Clerk workspaces receive the crop profile required to create sections', () => {
+  const provisioningStart = clerkAuthSource.indexOf('WITH new_user AS');
+  const provisioningEnd = clerkAuthSource.indexOf('if (provisioned.rows[0])');
+  const provisioning = clerkAuthSource.slice(provisioningStart, provisioningEnd);
+
+  assert.match(provisioning, /new_profile AS/);
+  assert.match(provisioning, /INSERT INTO crop_profiles/);
+  assert.match(provisioning, /'default', new_organization\.id/);
+  assert.match(provisioning, /ON CONFLICT \(organization_id, id\) DO NOTHING/);
 });
 
 test('keeps invitation lookup public and reserves Clerk identity for acceptance', () => {
