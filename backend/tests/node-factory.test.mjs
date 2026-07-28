@@ -24,6 +24,22 @@ test('node factory normalizes DevEUI and keeps AppKey server generated', () => {
   assert.doesNotMatch(source, /DEFAULT_OTAA_APP_KEY/);
 });
 
+test('node factory restores an archived factory node deleted from ChirpStack', () => {
+  const source = fs.readFileSync(new URL('../gateway-factory-routes.js', import.meta.url), 'utf8');
+  assert.match(source, /organization_id, archived_at/);
+  assert.match(source, /archivedFactoryNode/);
+  assert.match(source, /getChirpstackDevice\(devEui\)/);
+  assert.match(source, /createFactoryNodeKeysInChirpstack/);
+  assert.match(source, /factory_provisioned_at=now\(\)/);
+  assert.doesNotMatch(
+    source.slice(
+      source.indexOf("app.post('/node-factory/registrations'"),
+      source.indexOf("app.get('/node-factory/nodes/:devEui'")
+    ),
+    /DELETE FROM measurements/
+  );
+});
+
 test('node firmware delivery is authenticated and checksum verified', () => {
   const source = fs.readFileSync(new URL('../gateway-factory-routes.js', import.meta.url), 'utf8');
   assert.match(source, /app\.get\('\/node-factory\/firmware\/latest', factoryAuth/);

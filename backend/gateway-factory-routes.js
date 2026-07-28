@@ -192,6 +192,29 @@ async function getChirpstackDeviceKeys(devEui) {
   }
 }
 
+async function getChirpstackDevice(devEui) {
+  try {
+    return await chirpstackRequest(`/devices/${devEui}`);
+  } catch (error) {
+    if (error.status === 404) return null;
+    throw error;
+  }
+}
+
+async function createFactoryNodeKeysInChirpstack({ devEui, appKey }) {
+  await chirpstackRequest(`/devices/${devEui}/keys`, {
+    method: 'POST',
+    body: JSON.stringify({
+      deviceKeys: {
+        devEui,
+        nwkKey: appKey,
+        appKey,
+        genAppKey: '00000000000000000000000000000000'
+      }
+    })
+  });
+}
+
 async function createFactoryNodeInChirpstack({ devEui, name, appKey, onDeviceCreated }) {
   const config = chirpstackConfig();
   if (!config.applicationId || !config.deviceProfileId) {
@@ -214,17 +237,7 @@ async function createFactoryNodeInChirpstack({ devEui, name, appKey, onDeviceCre
     })
   });
   onDeviceCreated?.();
-  await chirpstackRequest(`/devices/${devEui}/keys`, {
-    method: 'POST',
-    body: JSON.stringify({
-      deviceKeys: {
-        devEui,
-        nwkKey: appKey,
-        appKey,
-        genAppKey: '00000000000000000000000000000000'
-      }
-    })
-  });
+  await createFactoryNodeKeysInChirpstack({ devEui, appKey });
 }
 
 async function deleteChirpstackDevice(devEui) {
@@ -348,23 +361,49 @@ export function registerGatewayFactoryRoutes(app) {
 
       const { rows: existingRows } = await client.query(
         `SELECT dev_eui, name, factory_serial, factory_status, factory_firmware_version,
-                factory_provisioned_at, last_received_at
+                factory_provisioned_at, last_received_at, organization_id, archived_at
          FROM nodes WHERE dev_eui=$1 FOR UPDATE`,
         [devEui]
       );
       const existing = existingRows[0];
       if (existing) {
-        if (!existing.factory_serial || existing.factory_status === 'assigned') {
+        const archivedFactoryNode = Boolean(existing.factory_serial && existing.archived_at);
+        if (!existing.factory_serial || (existing.factory_status === 'assigned' && !archivedFactoryNode)) {
           await client.query('ROLLBACK');
           return res.status(409).json({ error: { code: 'NODE_ALREADY_EXISTS', message: 'Node already exists outside factory inventory' } });
         }
         const keys = await getChirpstackDeviceKeys(devEui);
         const appKey = String(keys?.deviceKeys?.appKey || keys?.deviceKeys?.nwkKey || '').toLowerCase();
-        if (!/^[0-9a-f]{32}$/.test(appKey)) {
-          throw new Error('Existing factory node credentials are unavailable');
+        if (/^[0-9a-f]{32}$/.test(appKey)) {
+          await client.query('COMMIT');
+          return res.json(factoryNodeResponse(existing, appKey));
         }
+
+        const replacementAppKey = crypto.randomBytes(16).toString('hex');
+        const chirpstackDevice = await getChirpstackDevice(devEui);
+        if (chirpstackDevice) {
+          await createFactoryNodeKeysInChirpstack({ devEui, appKey: replacementAppKey });
+        } else {
+          await createFactoryNodeInChirpstack({
+            devEui,
+            name: existing.factory_serial,
+            appKey: replacementAppKey,
+            onDeviceCreated: () => {
+              chirpstackDeviceCreated = true;
+            }
+          });
+        }
+        const { rows: restoredRows } = await client.query(
+          `UPDATE nodes
+           SET factory_firmware_version=COALESCE($2, factory_firmware_version),
+               factory_provisioned_at=now()
+           WHERE dev_eui=$1
+           RETURNING dev_eui, name, factory_serial, factory_status, factory_firmware_version,
+                     factory_provisioned_at, last_received_at`,
+          [devEui, firmwareVersion]
+        );
         await client.query('COMMIT');
-        return res.json(factoryNodeResponse(existing, appKey));
+        return res.json(factoryNodeResponse(restoredRows[0], replacementAppKey));
       }
 
       const config = chirpstackConfig();
