@@ -71,6 +71,30 @@ const ESRI_TEMPERATURE_STOPS: EsriTemperatureStop[] = [
   { fahrenheit: 135, rgb: [61, 2, 22] },
 ]
 
+const ESRI_DISPLAY_RAMP: Array<[number, number, number]> = [
+  [228, 240, 255],
+  [147, 176, 215],
+  [46, 71, 116],
+  [40, 117, 146],
+  [134, 154, 132],
+  [194, 172, 117],
+  [194, 157, 97],
+  [190, 112, 77],
+  [174, 77, 76],
+  [158, 41, 76],
+  [61, 2, 22],
+]
+
+function colorFromRamp(colors: Array<[number, number, number]>, amount: number): [number, number, number] {
+  const position = Math.max(0, Math.min(1, amount)) * (colors.length - 1)
+  const lowerIndex = Math.floor(position)
+  const upperIndex = Math.min(colors.length - 1, lowerIndex + 1)
+  const mix = position - lowerIndex
+  return colors[lowerIndex].map((channel, index) =>
+    Math.round(channel + (colors[upperIndex][index] - channel) * mix),
+  ) as [number, number, number]
+}
+
 function esriTemperatureRampColorAtCelsius(valueC: number): [number, number, number] {
   const valueF = valueC * 9 / 5 + 32
   const first = ESRI_TEMPERATURE_STOPS[0]
@@ -88,9 +112,10 @@ function esriTemperatureRampColorAtCelsius(valueC: number): [number, number, num
 
 export function esriTemperatureColorAt(valueC: number, min?: number, max?: number): [number, number, number] {
   const classCenterC = Math.floor(valueC + 1e-9) + 0.5
-  const color = esriTemperatureRampColorAtCelsius(classCenterC)
-  if (min === undefined || max === undefined) return color
-  return applyRangeTone(color, (classCenterC - min) / Math.max(max - min, 1e-6))
+  if (min === undefined || max === undefined) return esriTemperatureRampColorAtCelsius(classCenterC)
+  const firstClassCenterC = Math.floor(min + 1e-9) + 0.5
+  const lastClassCenterC = Math.floor(max + 1e-9) + 0.5
+  return colorFromRamp(ESRI_DISPLAY_RAMP, (classCenterC - firstClassCenterC) / Math.max(lastClassCenterC - firstClassCenterC, 1e-6))
 }
 
 export function esriTemperatureGradient(min: number, max: number): string {

@@ -105,8 +105,9 @@ describe('environment colour scale', () => {
       expect(luminance(colorAt(metric.bounds[0], ...metric.bounds, metric.colors)))
         .toBeGreaterThan(luminance(colorAt(metric.bounds[1], ...metric.bounds, metric.colors)))
     })
-    expect(luminance(esriTemperatureColorAt(20, 20, 30)))
-      .toBeGreaterThan(luminance(esriTemperatureColorAt(30, 20, 30)))
+    expect(esriTemperatureColorAt(20, 20, 30)).toEqual([228, 240, 255])
+    expect(esriTemperatureColorAt(30, 20, 30)).toEqual([61, 2, 22])
+    expect(luminance(esriTemperatureColorAt(20, 20, 30))).toBeGreaterThan(luminance(esriTemperatureColorAt(30, 20, 30)))
   })
   it('aligns colour boundaries with the major contour levels', () => {
     Object.values(METRIC_LEVELS).forEach(({ colorInterval, contourInterval }) => {
