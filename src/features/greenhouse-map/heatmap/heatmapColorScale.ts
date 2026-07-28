@@ -3,23 +3,17 @@ export function parseHex(hex: string) {
   return [Number.parseInt(value.slice(0, 2), 16), Number.parseInt(value.slice(2, 4), 16), Number.parseInt(value.slice(4, 6), 16)]
 }
 
-function applyRangeTone(rgb: number[], amount: number): [number, number, number] {
-  const t = Math.max(0, Math.min(1, amount))
-  const target = t < 0.5 ? 255 : 0
-  const mix = t < 0.5 ? (1 - t * 2) * 0.55 : (t * 2 - 1) * 0.45
-  return rgb.map((channel) => Math.round(channel + (target - channel) * mix)) as [number, number, number]
-}
-
-export function colorAt(value: number, min: number, max: number, colors: [string, string, string]) {
+export function colorAt(value: number, min: number, max: number, colors: readonly string[]) {
   const t = Math.max(0, Math.min(1, (value - min) / Math.max(max - min, 1e-6)))
-  const segment = t < 0.5 ? [colors[0], colors[1], t * 2] as const : [colors[1], colors[2], (t - 0.5) * 2] as const
-  const a = parseHex(segment[0])
-  const b = parseHex(segment[1])
-  return applyRangeTone([
-    Math.round(a[0] + (b[0] - a[0]) * segment[2]),
-    Math.round(a[1] + (b[1] - a[1]) * segment[2]),
-    Math.round(a[2] + (b[2] - a[2]) * segment[2]),
-  ], t)
+  const position = t * Math.max(1, colors.length - 1)
+  const lowerIndex = Math.min(colors.length - 1, Math.floor(position))
+  const upperIndex = Math.min(colors.length - 1, lowerIndex + 1)
+  const mix = position - lowerIndex
+  const lower = parseHex(colors[lowerIndex])
+  const upper = parseHex(colors[upperIndex])
+  return lower.map((channel, index) =>
+    Math.round(channel + (upper[index] - channel) * mix),
+  ) as [number, number, number]
 }
 
 type EsriTemperatureStop = {
@@ -135,14 +129,14 @@ export function esriTemperatureGradient(min: number, max: number): string {
   return `linear-gradient(90deg, ${stops.join(', ')})`
 }
 
-export function bandedColorAt(value: number, min: number, max: number, colors: [string, string, string], interval: number) {
+export function bandedColorAt(value: number, min: number, max: number, colors: readonly string[], interval: number) {
   const safeInterval = Number.isFinite(interval) && interval > 0 ? interval : Math.max(max - min, 1e-6)
   const bandStart = Math.floor((value + safeInterval * 1e-9) / safeInterval) * safeInterval
   const bandCenter = Math.max(min, Math.min(max, bandStart + safeInterval / 2))
   return colorAt(bandCenter, min, max, colors)
 }
 
-export function bandedGradient(min: number, max: number, colors: [string, string, string], interval: number) {
+export function bandedGradient(min: number, max: number, colors: readonly string[], interval: number) {
   const safeRange = Math.max(max - min, 1e-6)
   const safeInterval = Number.isFinite(interval) && interval > 0 ? interval : safeRange
   const boundaries = [min]

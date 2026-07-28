@@ -3,7 +3,7 @@ import { isTemperatureMetric } from './contourLines'
 import type { HeatmapGrid } from './heatmapTypes'
 import type { MetricKey } from '../model'
 
-export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, colors: [string, string, string], colorInterval: number, opacity: number, showConfidence: boolean): HTMLCanvasElement {
+export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, colors: readonly string[], colorInterval: number, opacity: number, showConfidence: boolean): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   canvas.width = grid.width
   canvas.height = grid.height
