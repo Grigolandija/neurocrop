@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'neurocrop-shell-v1'
-const STATIC_CACHE = 'neurocrop-static-v1'
+const SHELL_CACHE = 'neurocrop-shell-v2'
+const STATIC_CACHE = 'neurocrop-static-v2'
 const APP_SHELL = ['/', '/manifest.webmanifest', '/pwa-icon.svg', '/pwa-maskable.svg']
 
 self.addEventListener('install', (event) => {
@@ -34,7 +34,9 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  if (url.pathname.startsWith('/assets/') || /\.(?:css|js|svg|woff2)$/.test(url.pathname)) {
+  const isVersionedAsset = url.pathname.startsWith('/assets/')
+  const isPwaIcon = url.pathname === '/pwa-icon.svg' || url.pathname === '/pwa-maskable.svg'
+  if (isVersionedAsset || isPwaIcon) {
     event.respondWith(
       caches.match(request).then((cached) => cached || fetch(request).then((response) => {
         if (response.ok) caches.open(STATIC_CACHE).then((cache) => cache.put(request, response.clone()))
