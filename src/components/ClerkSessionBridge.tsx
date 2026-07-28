@@ -1,7 +1,6 @@
 import { useAuth } from '@clerk/react'
 import { useLayoutEffect, type ReactNode } from 'react'
 import { setAuthTokenProvider } from '../services/api/client'
-import WorkspaceLoading from './WorkspaceLoading'
 
 export default function ClerkSessionBridge({ children }: { children: ReactNode }) {
   const { getToken, isLoaded } = useAuth()
@@ -14,5 +13,5 @@ export default function ClerkSessionBridge({ children }: { children: ReactNode }
     }
   }, [getToken, isLoaded])
 
-  return isLoaded ? children : <WorkspaceLoading />
+  return children
 }

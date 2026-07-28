@@ -7,6 +7,8 @@ const read = (file) => fs.readFile(path.join(root, file), 'utf8')
 const app = await read('src/App.tsx')
 const dashboard = await read('src/pages/DashboardPage.tsx')
 const login = await read('src/components/LoginScreen.tsx')
+const clerkLogin = await read('src/components/ClerkLoginScreen.tsx')
+const clerkSessionBridge = await read('src/components/ClerkSessionBridge.tsx')
 const shell = await read('src/components/DashboardShell.tsx')
 const main = await read('src/main.tsx')
 const apiClient = await read('src/services/api/client.ts')
@@ -33,6 +35,16 @@ assert(
 assert(
   !app.includes('if (!isLoaded) return <WorkspaceLoading />'),
   'Clerk session discovery must not show authenticated workspace loading before the login screen.'
+)
+assert(
+  !clerkSessionBridge.includes('WorkspaceLoading'),
+  'ClerkSessionBridge must render the login route while Clerk discovers the session.'
+)
+assert(
+  clerkLogin.includes('signIn.password({')
+    && clerkLogin.includes('autoComplete="username"')
+    && clerkLogin.includes('autoComplete="current-password"'),
+  'Clerk sign-in must show email and password together and submit them as one password sign-in.'
 )
 assert(app.includes('<Suspense fallback={<WorkspaceLoading />}>'), 'Workspace loading must be scoped to the authenticated dashboard.')
 assert(!dashboard.includes('if (!bootstrapped)'), 'DashboardPage must not block the login screen while workspace modules preload.')
