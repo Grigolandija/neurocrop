@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { useInterfaceLanguage } from '../i18n'
 import { neurocropApi } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
+import { canAccessWorkspaceRoute, useWorkspaceAccess, workspaceLockReason } from '../state/workspaceAccess'
 
 export type DashboardUser = {
   email: string
@@ -64,6 +65,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
   const location = useLocation()
   const { language, setLanguage, t } = useInterfaceLanguage()
   const dashboardState = useDashboardState()
+  const workspaceAccess = useWorkspaceAccess()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [batteryOpen, setBatteryOpen] = useState(false)
@@ -122,6 +124,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
     : location.pathname === route
 
   function go(route: string) {
+    if (!canAccessWorkspaceRoute(workspaceAccess.stage, route)) return
     navigate(route)
   }
 
@@ -137,8 +140,10 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
 
   const navButton = (item: { route: string; action: string; label: string; icon: string; beta?: boolean }) => {
     const active = pathIsActive(item.route)
+    const locked = !canAccessWorkspaceRoute(workspaceAccess.stage, item.route)
+    const lockReason = workspaceLockReason(workspaceAccess.stage)
     return (
-      <button key={item.route} type="button" className="rail-link nav-link nav-link-button" data-sidebar-action={item.action} data-active={active} aria-current={active ? 'page' : undefined} onClick={() => go(item.route)}>
+      <button key={item.route} type="button" className="rail-link nav-link nav-link-button" data-sidebar-action={item.action} data-active={active} data-disabled={locked} aria-current={active ? 'page' : undefined} aria-disabled={locked || undefined} disabled={locked} title={locked ? t(lockReason) : undefined} onClick={() => go(item.route)}>
         <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
         <span>{t(item.label)}</span>
         {item.route === '/alerts' && alertCount > 0 ? <b className="nav-count">{alertCount}</b> : null}
@@ -214,7 +219,10 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
           { route: '/areas', label: 'Areas', icon: 'fa-map' },
           { route: '/nodes', label: 'Nodes', icon: 'fa-microchip' },
           { route: '/alerts', label: 'Alerts', icon: 'fa-bell' },
-        ].map((item) => <button key={item.route} type="button" className="mobile-dock-button" data-active={pathIsActive(item.route)} onClick={() => go(item.route)}><i className={`fa-solid ${item.icon}`} /><span>{t(item.label)}</span></button>)}
+        ].map((item) => {
+          const locked = !canAccessWorkspaceRoute(workspaceAccess.stage, item.route)
+          return <button key={item.route} type="button" className="mobile-dock-button" data-active={pathIsActive(item.route)} data-disabled={locked} aria-disabled={locked || undefined} disabled={locked} onClick={() => go(item.route)}><i className={`fa-solid ${item.icon}`} /><span>{t(item.label)}</span></button>
+        })}
         <button type="button" className="mobile-dock-button mobile-dock-command" onClick={() => setMobileOpen(true)}><i className="fa-solid fa-bars" /><span>{t('Manage')}</span></button>
       </nav>
     </>

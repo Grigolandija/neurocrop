@@ -33,6 +33,29 @@ test('wrong password shows an inline login error', async ({ page }) => {
   await expect(page.locator('#dashboardShell')).toHaveCount(0)
 })
 
+test('workspace navigation unlocks in Area and Section stages', async ({ page }) => {
+  await authenticate(page, 'tenant-empty@ci.neurocrop.test')
+  await expect(page).toHaveURL(/\/areas$/)
+  await expect(navigation(page, 'sites')).toBeEnabled()
+  await expect(navigation(page, 'settings')).toBeEnabled()
+  await expect(navigation(page, 'zones')).toBeDisabled()
+  await expect(navigation(page, 'overview')).toBeDisabled()
+  await page.goto('/nodes')
+  await expect(page).toHaveURL(/\/areas$/)
+
+  const response = await page.request.post(`${apiBaseUrl}/auth/login`, {
+    data: { email: 'tenant-large@ci.neurocrop.test', password },
+  })
+  expect(response.ok(), await response.text()).toBeTruthy()
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/sections$/)
+  await expect(navigation(page, 'sites')).toBeEnabled()
+  await expect(navigation(page, 'zones')).toBeEnabled()
+  await expect(navigation(page, 'settings')).toBeEnabled()
+  await expect(navigation(page, 'nodes')).toBeDisabled()
+  await expect(navigation(page, 'overview')).toBeDisabled()
+})
+
 test('React shell mounts only the active primary workspace during navigation', async ({ page }) => {
   await authenticate(page)
   await expect(page.locator('#headerAccountEmail')).toHaveText('tenant-a@ci.neurocrop.test')

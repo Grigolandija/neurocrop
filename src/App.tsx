@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import LoginScreen from './components/LoginScreen'
 import WorkspaceLoading from './components/WorkspaceLoading'
 import type { DashboardUser } from './components/DashboardShell'
 import { neurocropApi } from './services/api/neurocropApi'
+import { canAccessWorkspaceRoute, useWorkspaceAccess, WorkspaceAccessProvider, workspaceStageRedirect } from './state/workspaceAccess'
 import './App.css'
 import './styles/approved-dashboard.css'
 import './styles/typography-system.css'
@@ -27,6 +28,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const GreenhouseMapTestPage = lazy(() => import('./features/greenhouse-map/GreenhouseMapTestPage'))
 
 function MainRoute() {
+  const location = useLocation()
   const [user, setUser] = useState<DashboardUser | null>(null)
 
   useEffect(() => {
@@ -48,8 +50,21 @@ function MainRoute() {
   if (!user) return <LoginScreen onAuthenticated={setUser} />
 
   return (
+    <WorkspaceAccessProvider bypass={user.isPlatformAdmin === true}>
+      <AuthenticatedWorkspace user={user} pathname={location.pathname} onSignedOut={() => setUser(null)} />
+    </WorkspaceAccessProvider>
+  )
+}
+
+function AuthenticatedWorkspace({ user, pathname, onSignedOut }: { user: DashboardUser; pathname: string; onSignedOut: () => void }) {
+  const access = useWorkspaceAccess()
+  if (access.status === 'loading') return <WorkspaceLoading />
+  if (!canAccessWorkspaceRoute(access.stage, pathname)) return <Navigate to={workspaceStageRedirect(access.stage)} replace />
+  return (
     <Suspense fallback={<WorkspaceLoading />}>
-      <DashboardPage user={user} onSignedOut={() => setUser(null)} />
+      {pathname === '/area-map'
+        ? <GreenhouseMapTestPage />
+        : <DashboardPage user={user} onSignedOut={onSignedOut} />}
     </Suspense>
   )
 }
@@ -61,7 +76,6 @@ export default function App() {
         <Route path="/register" element={<Suspense fallback={null}><RegisterPage /></Suspense>} />
         <Route path="/accept-invite" element={<Suspense fallback={null}><AcceptInvitePage /></Suspense>} />
         <Route path="/greenhouse-map-test" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />
-        <Route path="/area-map" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />
         <Route path="*" element={<MainRoute />} />
       </Routes>
     </BrowserRouter>

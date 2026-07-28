@@ -6010,6 +6010,18 @@
       transform: translateY(-1px);
     }
 
+    .mobile-dock-button[data-disabled="true"] {
+      opacity: 0.38;
+      cursor: not-allowed;
+      filter: saturate(0.35);
+    }
+
+    .mobile-dock-button[data-disabled="true"]:hover {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.72);
+      transform: none;
+    }
+
     .mobile-dock-command {
       background: linear-gradient(180deg, var(--designer-accent), #1f352d);
       color: #ffffff;

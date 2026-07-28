@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { ModalPortal } from '../../components/ModalPortal'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { useWorkspaceAccess } from '../../state/workspaceAccess'
 import '../../styles/sections-workspace.css'
 
 // Management payloads can contain both dashboard and API naming conventions.
@@ -173,6 +174,7 @@ export default function SectionsWorkspace() {
   const location = useLocation()
   const handledAreaCreate = useRef('')
   const handledContext = useRef('')
+  const workspaceAccess = useWorkspaceAccess()
   const [areas, setAreas] = useState<AreaOption[]>([])
   const [profiles, setProfiles] = useState<ProfileOption[]>([])
   const [sections, setSections] = useState<SectionRow[]>([])
@@ -373,7 +375,10 @@ export default function SectionsWorkspace() {
     try {
       const payload = { areaId: editor.areaId, name: editor.name.trim(), cropProfile: editor.profileId }
       if (editor.mode === 'edit' && editor.id) await neurocropApi.updateSection(editor.id, payload)
-      else await neurocropApi.createSection(payload)
+      else {
+        await neurocropApi.createSection(payload)
+        await workspaceAccess.refresh()
+      }
       setFeedback({ tone: 'success', message: editor.mode === 'edit' ? 'Section updated.' : 'Section created.' })
       setEditor(null); setRefreshToken((value) => value + 1)
     } catch (mutationError) {
@@ -397,9 +402,11 @@ export default function SectionsWorkspace() {
     setBusy(true); setFeedback(null)
     try {
       await Promise.all(deleteIds.map((id) => neurocropApi.deleteSection(id)))
+      await workspaceAccess.refresh()
       setFeedback({ tone: 'success', message: `${deleteIds.length} ${deleteIds.length === 1 ? 'section' : 'sections'} deleted.` })
       setDeleteIds([]); setSelectedIds([]); setRefreshToken((value) => value + 1)
     } catch (mutationError) {
+      await workspaceAccess.refresh()
       setFeedback({ tone: 'warning', message: mutationError instanceof Error ? mutationError.message : 'Not all sections could be deleted.' })
       setDeleteIds([])
       setRefreshToken((value) => value + 1)

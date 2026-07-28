@@ -13,7 +13,8 @@
     "test:architecture": "node ./scripts/test-react-dashboard-invariants.mjs",
     "test:e2e": "node ./scripts/run-e2e.mjs",
     "test:e2e:playwright": "playwright test",
-    "test": "pnpm test:architecture && pnpm test:greenhouse-map && pnpm test:trend-chart",
+    "test": "pnpm test:architecture && pnpm test:workspace-access && pnpm test:greenhouse-map && pnpm test:trend-chart",
+    "test:workspace-access": "vitest run src/state/workspaceAccess.test.ts",
     "test:greenhouse-map": "vitest run src/features/greenhouse-map",
     "test:trend-chart": "vitest run src/features/trends/sharedTrendChart.test.ts",
     "preview": "vite preview"

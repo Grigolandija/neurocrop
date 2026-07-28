@@ -83,6 +83,8 @@ const authTranslations: Record<string, string> = {
   'Systems online': 'Sistemos veikia',
   'System attention': 'Reikia sistemos dėmesio',
   'Workspace member': 'Darbo aplinkos narys',
+  'Create an Area first': 'Pirmiausia sukurkite erdvę',
+  'Create a Section first': 'Pirmiausia sukurkite sekciją',
   'Open navigation': 'Atidaryti navigaciją',
   'Close navigation': 'Uždaryti navigaciją',
   'Low battery nodes': 'Mazgai su silpna baterija',
