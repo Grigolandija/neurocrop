@@ -57,14 +57,23 @@ describe('raster IDW interpolation', () => {
     expect(result.usedSensorCount).toBe(1)
   })
 
-  it('allows two-sensor edge coverage but caps its confidence as low', () => {
-    const result = interpolateRasterCell([
+  it('reports lower confidence with two sensors than with dense coverage', () => {
+    const sparsePoints = [
       point('a', 2, 2, 20),
       point('b', 8, 2, 24),
-    ], 5, 5, options({ minimumSensorCount: 2 }))
-    expect(result.value).not.toBeNull()
-    expect(result.usedSensorCount).toBe(2)
-    expect(result.confidence).toBeLessThanOrEqual(0.38)
+    ]
+    const densePoints = [
+      ...sparsePoints,
+      point('c', 2, 8, 22),
+      point('d', 8, 8, 22),
+      point('e', 5, 7, 22),
+    ]
+    const interpolation = options({ minimumSensorCount: 2, nearestSensorCount: 5 })
+    const sparse = interpolateRasterCell(sparsePoints, 5, 5, interpolation)
+    const dense = interpolateRasterCell(densePoints, 5, 5, interpolation)
+    expect(sparse.value).not.toBeNull()
+    expect(sparse.usedSensorCount).toBe(2)
+    expect(dense.confidence).toBeGreaterThan(sparse.confidence)
   })
 
   it('keeps confidence high close to a fresh online sensor', () => {
@@ -79,6 +88,22 @@ describe('raster IDW interpolation', () => {
     expect(result.value).not.toBeNull()
     expect(result.nearestDistanceM).toBeCloseTo(0.46, 4)
     expect(result.confidence).toBeGreaterThan(0.8)
+  })
+
+  it('keeps confidence high two metres from a sensor with dense fresh coverage', () => {
+    const points = [
+      point('nearest', 5, 5, 22),
+      point('b', 1, 1, 20),
+      point('c', 9, 1, 24),
+      point('d', 1, 9, 21),
+      point('e', 9, 9, 23),
+    ]
+    const result = interpolateRasterCell(points, 7.12, 5, options({
+      nearestSensorCount: 5,
+      maxInfluenceDistanceM: 15,
+    }))
+    expect(result.nearestDistanceM).toBeCloseTo(2.12, 4)
+    expect(result.confidence).toBeGreaterThan(0.7)
   })
 
   it('keeps the same value for several equal sensors', () => {

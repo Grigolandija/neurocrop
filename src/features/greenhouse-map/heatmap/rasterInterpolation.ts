@@ -116,11 +116,9 @@ function confidenceFor(
     ...item,
     support: distanceTaper(item.distanceM, supportRadiusM),
   }))
-  const totalSupport = Math.max(EPSILON, supported.reduce((sum, item) => sum + item.support, 0))
-  const sensorSupport = clamp01(totalSupport / options.nearestSensorCount)
-  const localScaleM = Math.max(1.5, options.cellSizeM * 6)
-  const nearestCertainty = 1 / (1 + (supported[0].distanceM / localScaleM) ** 2)
-  const spatialEvidence = Math.max(nearestCertainty, sensorSupport)
+  const nearestProximity = distanceTaper(supported[0].distanceM, options.maxInfluenceDistanceM)
+  const coverage = clamp01(selected.reduce((sum, item) =>
+    sum + distanceTaper(item.distanceM, options.maxInfluenceDistanceM), 0) / options.nearestSensorCount)
   const idwSupported = supported.map((item) => ({
     ...item,
     confidenceWeight: item.support / Math.pow(Math.max(item.distanceM, options.exactMatchDistanceM ?? 0.05), options.power),
@@ -138,8 +136,7 @@ function confidenceFor(
     sum + (item.point.value - mean) ** 2 * item.confidenceWeight, 0) / totalConfidenceWeight
   const relativeDeviation = Math.sqrt(variance) / Math.max(Math.abs(mean), 0.1)
   const agreement = clamp01(1 - relativeDeviation / 0.35)
-  const measurementQuality = clamp01(freshness * 0.7 + agreement * 0.3)
-  return clamp01(spatialEvidence * measurementQuality)
+  return clamp01(nearestProximity * 0.45 + coverage * 0.2 + freshness * 0.2 + agreement * 0.15)
 }
 
 export function interpolateRasterCell(
