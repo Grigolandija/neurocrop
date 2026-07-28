@@ -1,5 +1,5 @@
 import { createDemoMap } from '../demo'
-import { METRICS, normalizeHeatmapSettings, type GreenhouseMap, type GreenhouseObject, type MapLayer } from '../model'
+import { GREENHOUSE_WALL_THICKNESS_M, METRICS, normalizeHeatmapSettings, type GreenhouseMap, type GreenhouseObject, type MapLayer } from '../model'
 
 const STORAGE_KEY = 'neurocrop:greenhouse-map-test:v1'
 
@@ -38,6 +38,7 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
   }
   const heatmap = normalizeHeatmapSettings(map.heatmapSettings)
   map.heatmapSettings = heatmap
+  map.wallThicknessM = GREENHOUSE_WALL_THICKNESS_M
   if (
     !heatmap ||
     typeof heatmap.enabled !== 'boolean' ||
@@ -86,7 +87,11 @@ export const mapRepository = {
     }
   },
   save(map: GreenhouseMap) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...map, updatedAt: new Date().toISOString() }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ...map,
+      wallThicknessM: GREENHOUSE_WALL_THICKNESS_M,
+      updatedAt: new Date().toISOString(),
+    }))
   },
   reset() {
     localStorage.removeItem(STORAGE_KEY)

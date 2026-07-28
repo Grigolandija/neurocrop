@@ -1,7 +1,7 @@
 import { neurocropApi } from '../../../services/api/neurocropApi'
 import { createDemoMap, DEFAULT_LAYERS } from '../demo'
 import { sensorMarkerSizeM } from '../geometry'
-import { normalizeHeatmapSettings, type GreenhouseMap, type GreenhouseObject, type NodeStatus, type SensorNodeMetadata } from '../model'
+import { GREENHOUSE_WALL_THICKNESS_M, normalizeHeatmapSettings, type GreenhouseMap, type GreenhouseObject, type NodeStatus, type SensorNodeMetadata } from '../model'
 
 export type AreaSummary = { id: string; name: string; kind?: string; location?: string; mapEnabled?: boolean; mapConfigured?: boolean }
 export type AreaMapSection = {
@@ -192,7 +192,7 @@ export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes
       },
     }]
   })
-  const next: GreenhouseMap = { ...map, areaId: area.id, heatmapSettings: normalizeHeatmapSettings(map.heatmapSettings), layers, objects }
+  const next: GreenhouseMap = { ...map, areaId: area.id, wallThicknessM: GREENHOUSE_WALL_THICKNESS_M, heatmapSettings: normalizeHeatmapSettings(map.heatmapSettings), layers, objects }
   normalizedNodes.filter((node) => node.devEui && !placed.has(node.devEui.toLowerCase())).forEach((node, index) => {
     next.objects.push(sensorObject(node, index, next))
   })

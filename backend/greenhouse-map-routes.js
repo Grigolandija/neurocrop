@@ -13,6 +13,7 @@ const wallMountedTypes = new Set(['door', 'window', 'ventilation-opening']);
 const perimeterWalls = new Set(['south', 'north', 'west', 'east']);
 const MAP_HISTORY_STEP_MINUTES = 10;
 const MAP_HISTORY_MAX_RANGE_MS = 24 * 60 * 60 * 1000;
+const GREENHOUSE_WALL_THICKNESS_M = 0.01;
 const HEATMAP_METRICS = new Set([
   'air-temperature',
   'relative-humidity',
@@ -143,6 +144,7 @@ function sanitizeMapForStorage(map, areaId) {
   return {
     ...map,
     areaId,
+    wallThicknessM: GREENHOUSE_WALL_THICKNESS_M,
     objects: map.objects.map((object) => {
       const sensor = object.metadata?.sensor;
       if (!sensor) return object;
@@ -280,7 +282,7 @@ async function getAreaMapLayouts(organizationId, areaId, from, to) {
   );
   return rows.map((row) => ({
     revision: Number(row.revision),
-    map: row.map_data,
+    map: { ...row.map_data, wallThicknessM: GREENHOUSE_WALL_THICKNESS_M },
     validFrom: row.valid_from,
     validTo: row.valid_to,
     source: row.source
@@ -342,7 +344,7 @@ export function registerGreenhouseMapRoutes(app) {
       res.json({
         area: { id: area.id, name: area.name, kind: area.kind, location: area.location },
         mapEnabled: Boolean(area.map_enabled),
-        map: stored?.map_data || null,
+        map: stored?.map_data ? { ...stored.map_data, wallThicknessM: GREENHOUSE_WALL_THICKNESS_M } : null,
         revision: stored?.revision || 0,
         updatedAt: stored?.updated_at || null,
         nodes,

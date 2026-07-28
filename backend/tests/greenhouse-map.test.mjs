@@ -80,6 +80,8 @@ test('Area Map routes are authenticated, role protected and organization scoped'
   assert.match(source, /n\.organization_id=\$1/);
   assert.match(source, /Map history is limited to 24 hours/);
   assert.match(source, /MAP_HISTORY_STEP_MINUTES = 10/);
+  assert.match(source, /GREENHOUSE_WALL_THICKNESS_M = 0\.01/);
+  assert.match(source, /wallThicknessM: GREENHOUSE_WALL_THICKNESS_M/);
   assert.match(source, /FROM measurement_rollups rollup/);
   assert.match(source, /NODE_AREA_MISMATCH/);
   assert.match(source, /MAP_REVISION_CONFLICT/);

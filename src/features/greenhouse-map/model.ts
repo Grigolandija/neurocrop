@@ -114,6 +114,8 @@ export type HeatmapSettings = {
   showConfidence: boolean
 }
 
+export const GREENHOUSE_WALL_THICKNESS_M = 0.01
+
 export const DEFAULT_HEATMAP_SETTINGS: HeatmapSettings = {
   rasterSettingsVersion: 5,
   enabled: true,

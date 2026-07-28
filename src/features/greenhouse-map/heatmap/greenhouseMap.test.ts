@@ -8,7 +8,7 @@ import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
 import { bandedGradient, colorAt, esriTemperatureColorAt, esriTemperatureGradient } from './heatmapColorScale'
-import { DEFAULT_HEATMAP_SETTINGS, METRICS, normalizeHeatmapSettings } from '../model'
+import { DEFAULT_HEATMAP_SETTINGS, GREENHOUSE_WALL_THICKNESS_M, METRICS, normalizeHeatmapSettings } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
 const storage = new Map<string, string>()
@@ -65,6 +65,13 @@ describe('measurement filtering and grid sizing', () => {
     expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 5, cellSizeM: 0.5 }).cellSizeM).toBe(0.5)
     expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 4, minimumSensorCount: 3 }).minimumSensorCount).toBe(2)
     expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 5, minimumSensorCount: 2 }).minimumSensorCount).toBe(2)
+  })
+  it('keeps the greenhouse outline fixed at one centimetre', () => {
+    const map = createDemoMap()
+    expect(map.wallThicknessM).toBe(GREENHOUSE_WALL_THICKNESS_M)
+    map.wallThicknessM = 0.5
+    mapRepository.save(map)
+    expect(mapRepository.load().wallThicknessM).toBe(GREENHOUSE_WALL_THICKNESS_M)
   })
   it('creates a bounded four-sensor grid', () => {
     const points = [point(0, 0, -50), point(20, 0, 20), point(0, 8, 25), point(20, 8, 90)]
