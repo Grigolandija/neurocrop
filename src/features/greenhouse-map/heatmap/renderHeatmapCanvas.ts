@@ -29,10 +29,7 @@ export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, colors
     image.data[target] = Math.round(gray + (r - gray) * saturation)
     image.data[target + 1] = Math.round(gray + (g - gray) * saturation)
     image.data[target + 2] = Math.round(gray + (b - gray) * saturation)
-    const localSingleSensorOpacity = grid.usedSensorCounts[index] === 1
-      ? 0.3 + confidence * 0.7
-      : 1
-    image.data[target + 3] = Math.round(255 * opacity * localSingleSensorOpacity)
+    image.data[target + 3] = Math.round(255 * opacity)
   }
   context.putImageData(image, 0, 0)
   return canvas

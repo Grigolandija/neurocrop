@@ -52,18 +52,27 @@ describe('raster IDW interpolation', () => {
   })
 
   it('returns no data away from a single sensor when the minimum is not met', () => {
-    const result = interpolateRasterCell([point('one', 2, 2, 24)], 6, 6, options())
+    const result = interpolateRasterCell([point('one', 2, 2, 24)], 9.5, 9.5, options())
     expect(result.value).toBeNull()
-    expect(result.usedSensorCount).toBe(1)
+    expect(result.usedSensorCount).toBe(0)
   })
 
-  it('shows conservative local coverage close to a single fresh sensor', () => {
+  it('shows conservative coverage inside a single fresh sensor influence radius', () => {
     const result = interpolateRasterCell([point('one', 5, 5, 24)], 7, 5, options())
     expect(result.value).toBe(24)
     expect(result.usedSensorCount).toBe(1)
     expect(result.nearestDistanceM).toBe(2)
     expect(result.confidence).toBeGreaterThan(0.4)
     expect(result.confidence).toBeLessThan(0.7)
+  })
+
+  it('fades single-sensor confidence across the configured influence radius', () => {
+    const near = interpolateRasterCell([point('one', 1, 5, 24)], 3, 5, options())
+    const far = interpolateRasterCell([point('one', 1, 5, 24)], 8, 5, options())
+    expect(near.value).toBe(24)
+    expect(far.value).toBe(24)
+    expect(near.confidence).toBeGreaterThan(far.confidence)
+    expect(far.confidence).toBeGreaterThan(0)
   })
 
   it('reports lower confidence with two sensors than with dense coverage', () => {
