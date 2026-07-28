@@ -139,6 +139,25 @@ describe('raster IDW interpolation', () => {
     expect(Math.abs(left.confidence - right.confidence)).toBeLessThan(0.01)
   })
 
+  it('fades confidence continuously when a sensor leaves the influence radius', () => {
+    const points = [
+      point('core-a', 4, 4, 40),
+      point('core-b', 4, 6, 40),
+      point('edge', 10, 5, 80),
+    ]
+    const interpolation = options({
+      nearestSensorCount: 5,
+      minimumSensorCount: 2,
+      maxInfluenceDistanceM: 5,
+    })
+    const inside = interpolateRasterCell(points, 5.001, 5, interpolation)
+    const outside = interpolateRasterCell(points, 4.999, 5, interpolation)
+    expect(inside.value).not.toBeNull()
+    expect(outside.value).not.toBeNull()
+    expect(Math.abs(inside.value! - outside.value!)).toBeLessThan(0.01)
+    expect(Math.abs(inside.confidence - outside.confidence)).toBeLessThan(0.01)
+  })
+
   it('does not interpolate through a closed partition', () => {
     const points = [
       point('left', 2, 5, 20),

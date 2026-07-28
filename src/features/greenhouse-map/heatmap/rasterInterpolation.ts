@@ -119,7 +119,7 @@ function confidenceFor(
   const totalSupport = Math.max(EPSILON, supported.reduce((sum, item) => sum + item.support, 0))
   const proximity = supported.reduce((sum, item) =>
     sum + clamp01(1 - item.distanceM / options.maxInfluenceDistanceM) * item.support, 0) / totalSupport
-  const count = clamp01(totalSupport / options.nearestSensorCount)
+  const sensorSupport = clamp01(totalSupport / options.nearestSensorCount)
   const freshness = supported.reduce((sum, item) => {
     const fresh = item.point.observedAtMs === undefined
       ? 1
@@ -130,10 +130,8 @@ function confidenceFor(
   const variance = supported.reduce((sum, item) => sum + (item.point.value - mean) ** 2 * item.support, 0) / totalSupport
   const relativeDeviation = Math.sqrt(variance) / Math.max(Math.abs(mean), 0.1)
   const agreement = clamp01(1 - relativeDeviation / 0.35)
-  const confidence = clamp01(proximity * 0.35 + count * 0.2 + freshness * 0.2 + agreement * 0.25)
-  if (selected.length === 1) return Math.min(confidence, 0.2)
-  if (selected.length === 2) return Math.min(confidence, 0.38)
-  return confidence
+  const measurementQuality = clamp01(proximity * 0.44 + freshness * 0.24 + agreement * 0.32)
+  return clamp01(measurementQuality * sensorSupport)
 }
 
 export function interpolateRasterCell(
