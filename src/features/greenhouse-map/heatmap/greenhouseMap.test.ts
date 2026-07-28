@@ -92,9 +92,21 @@ describe('environment colour scale', () => {
   })
   it('uses distinct dry, balanced and humid colours for relative humidity', () => {
     const colors = METRICS['relative-humidity'].colors
-    expect(colorAt(40, 40, 80, colors)).toEqual([242, 184, 75])
-    expect(colorAt(60, 40, 80, colors)).toEqual([102, 199, 180])
-    expect(colorAt(80, 40, 80, colors)).toEqual([47, 128, 195])
+    const low = colorAt(40, 40, 80, colors)
+    const middle = colorAt(60, 40, 80, colors)
+    const high = colorAt(80, 40, 80, colors)
+    const luminance = ([red, green, blue]: number[]) => red * 0.2126 + green * 0.7152 + blue * 0.0722
+    expect(new Set([low.join(','), middle.join(','), high.join(',')]).size).toBe(3)
+    expect(luminance(low)).toBeGreaterThan(luminance(high))
+  })
+  it('keeps every displayed scale light at minimum and dark at maximum', () => {
+    const luminance = ([red, green, blue]: number[]) => red * 0.2126 + green * 0.7152 + blue * 0.0722
+    Object.values(METRICS).forEach((metric) => {
+      expect(luminance(colorAt(metric.bounds[0], ...metric.bounds, metric.colors)))
+        .toBeGreaterThan(luminance(colorAt(metric.bounds[1], ...metric.bounds, metric.colors)))
+    })
+    expect(luminance(esriTemperatureColorAt(20, 20, 30)))
+      .toBeGreaterThan(luminance(esriTemperatureColorAt(30, 20, 30)))
   })
   it('aligns colour boundaries with the major contour levels', () => {
     Object.values(METRIC_LEVELS).forEach(({ colorInterval, contourInterval }) => {

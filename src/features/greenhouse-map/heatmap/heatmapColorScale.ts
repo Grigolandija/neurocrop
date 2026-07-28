@@ -3,16 +3,23 @@ export function parseHex(hex: string) {
   return [Number.parseInt(value.slice(0, 2), 16), Number.parseInt(value.slice(2, 4), 16), Number.parseInt(value.slice(4, 6), 16)]
 }
 
+function applyRangeTone(rgb: number[], amount: number): [number, number, number] {
+  const t = Math.max(0, Math.min(1, amount))
+  const target = t < 0.5 ? 255 : 0
+  const mix = t < 0.5 ? (1 - t * 2) * 0.55 : (t * 2 - 1) * 0.45
+  return rgb.map((channel) => Math.round(channel + (target - channel) * mix)) as [number, number, number]
+}
+
 export function colorAt(value: number, min: number, max: number, colors: [string, string, string]) {
   const t = Math.max(0, Math.min(1, (value - min) / Math.max(max - min, 1e-6)))
   const segment = t < 0.5 ? [colors[0], colors[1], t * 2] as const : [colors[1], colors[2], (t - 0.5) * 2] as const
   const a = parseHex(segment[0])
   const b = parseHex(segment[1])
-  return [
+  return applyRangeTone([
     Math.round(a[0] + (b[0] - a[0]) * segment[2]),
     Math.round(a[1] + (b[1] - a[1]) * segment[2]),
     Math.round(a[2] + (b[2] - a[2]) * segment[2]),
-  ]
+  ], t)
 }
 
 type EsriTemperatureStop = {
@@ -79,9 +86,11 @@ function esriTemperatureRampColorAtCelsius(valueC: number): [number, number, num
   ) as [number, number, number]
 }
 
-export function esriTemperatureColorAt(valueC: number): [number, number, number] {
+export function esriTemperatureColorAt(valueC: number, min?: number, max?: number): [number, number, number] {
   const classCenterC = Math.floor(valueC + 1e-9) + 0.5
-  return esriTemperatureRampColorAtCelsius(classCenterC)
+  const color = esriTemperatureRampColorAtCelsius(classCenterC)
+  if (min === undefined || max === undefined) return color
+  return applyRangeTone(color, (classCenterC - min) / Math.max(max - min, 1e-6))
 }
 
 export function esriTemperatureGradient(min: number, max: number): string {
@@ -94,7 +103,7 @@ export function esriTemperatureGradient(min: number, max: number): string {
   for (let index = 0; index < boundaries.length - 1; index += 1) {
     const start = boundaries[index]
     const end = boundaries[index + 1]
-    const [red, green, blue] = esriTemperatureColorAt((start + end) / 2)
+    const [red, green, blue] = esriTemperatureColorAt((start + end) / 2, min, max)
     const color = `rgb(${red} ${green} ${blue})`
     stops.push(`${color} ${(start - min) / safeRange * 100}%`, `${color} ${(end - min) / safeRange * 100}%`)
   }

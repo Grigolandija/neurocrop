@@ -21,7 +21,7 @@ export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, colors
     }
     const value = grid.values[index]
     const [r, g, b] = isTemperatureMetric(metric)
-      ? esriTemperatureColorAt(value)
+      ? esriTemperatureColorAt(value, grid.min, grid.max)
       : bandedColorAt(value, grid.min, grid.max, colors, colorInterval)
     const confidence = showConfidence ? grid.confidence[index] : 1
     const gray = Math.round(r * 0.2126 + g * 0.7152 + b * 0.0722)
