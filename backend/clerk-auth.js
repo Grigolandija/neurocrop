@@ -1,7 +1,8 @@
 import fs from 'fs';
+import { randomBytes, randomUUID } from 'crypto';
 import { createClerkClient, verifyToken } from '@clerk/express';
 import { query } from './db.js';
-import { getMemberships, normalizeEmail, publicUser } from './auth-users.js';
+import { getMemberships, hashUserPassword, normalizeEmail, publicUser } from './auth-users.js';
 
 function bearerToken(req) {
   const authorization = String(req.headers?.authorization || '').trim();
@@ -35,6 +36,22 @@ function verifiedEmailFromClerkUser(clerkUser) {
   return normalizeEmail((verifiedPrimary || verifiedFallback)?.emailAddress);
 }
 
+function displayNameFromClerkUser(clerkUser, email) {
+  const fullName = String(clerkUser?.fullName || '').trim().replace(/\s+/g, ' ');
+  if (fullName) return fullName;
+  const parts = [clerkUser?.firstName, clerkUser?.lastName]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+  return parts.join(' ') || String(email).split('@')[0] || 'NeuroCrop user';
+}
+
+function organizationNameFromClerkUser(clerkUser, displayName) {
+  const configured = String(clerkUser?.unsafeMetadata?.organizationName || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  return configured || `${displayName} workspace`;
+}
+
 async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query) {
   const linked = await execute(
     `SELECT id, email, display_name, is_active, is_platform_admin, is_super_admin
@@ -64,9 +81,57 @@ async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query
   );
   const user = candidate.rows[0];
   if (!user) {
-    const error = new Error('This Clerk account is not linked to a NeuroCrop workspace');
-    error.code = 'ACCOUNT_NOT_LINKED';
-    error.status = 403;
+    const userId = randomUUID();
+    const organizationId = `org-${randomUUID().slice(0, 8)}`;
+    const displayName = displayNameFromClerkUser(clerkUser, verifiedEmail);
+    const organizationName = organizationNameFromClerkUser(clerkUser, displayName);
+    const unusableLegacyPassword = hashUserPassword(randomBytes(48).toString('base64url'));
+    const provisioned = await execute(
+      `WITH new_user AS (
+         INSERT INTO users (
+           id, email, display_name, password_hash, clerk_user_id,
+           is_active, last_login_at, created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, true, now(), now(), now())
+         ON CONFLICT DO NOTHING
+         RETURNING id, email, display_name, is_active, is_platform_admin, is_super_admin
+       ), new_organization AS (
+         INSERT INTO organizations (id, name, status, created_at)
+         SELECT $6, $7, 'active', now()
+         FROM new_user
+         RETURNING id
+       ), new_membership AS (
+         INSERT INTO organization_memberships (organization_id, user_id, role, created_at)
+         SELECT new_organization.id, new_user.id, 'owner', now()
+         FROM new_organization, new_user
+         RETURNING organization_id
+       )
+       SELECT id, email, display_name, is_active, is_platform_admin, is_super_admin
+       FROM new_user`,
+      [
+        userId,
+        verifiedEmail,
+        displayName,
+        unusableLegacyPassword,
+        clerkUserId,
+        organizationId,
+        organizationName
+      ]
+    );
+    if (provisioned.rows[0]) return provisioned.rows[0];
+
+    const concurrent = await execute(
+      `SELECT id, email, display_name, is_active, is_platform_admin, is_super_admin
+       FROM users
+       WHERE clerk_user_id=$1
+       LIMIT 1`,
+      [clerkUserId]
+    );
+    if (concurrent.rows[0]) return concurrent.rows[0];
+
+    const error = new Error('This Clerk account could not be connected to a NeuroCrop workspace');
+    error.code = 'ACCOUNT_LINK_CONFLICT';
+    error.status = 409;
     throw error;
   }
   if (user.clerk_user_id && user.clerk_user_id !== clerkUserId) {
@@ -199,5 +264,7 @@ export const clerkAuthInternals = {
   bearerToken,
   clerkSecretKey,
   configuredAuthorizedParties,
+  displayNameFromClerkUser,
+  organizationNameFromClerkUser,
   verifiedEmailFromClerkUser
 };

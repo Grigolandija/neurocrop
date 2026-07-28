@@ -56,3 +56,28 @@ test('reads Clerk configuration without exposing the secret', () => {
     ['https://neurocrop.lt', 'http://localhost:4173']
   );
 });
+
+test('derives safe onboarding names for a new Clerk identity', () => {
+  assert.equal(
+    clerkAuthInternals.displayNameFromClerkUser(
+      { firstName: ' Andrius ', lastName: ' Grigas ' },
+      'agrigas@example.com'
+    ),
+    'Andrius Grigas'
+  );
+  assert.equal(
+    clerkAuthInternals.displayNameFromClerkUser({}, 'new.grower@example.com'),
+    'new.grower'
+  );
+  assert.equal(
+    clerkAuthInternals.organizationNameFromClerkUser(
+      { unsafeMetadata: { organizationName: '  Green Farm  ' } },
+      'New grower'
+    ),
+    'Green Farm'
+  );
+  assert.equal(
+    clerkAuthInternals.organizationNameFromClerkUser({}, 'New grower'),
+    'New grower workspace'
+  );
+});
