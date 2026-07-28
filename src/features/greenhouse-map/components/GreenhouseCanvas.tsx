@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
 import '../../../styles/greenhouse-map-test.css'
-import { COLOR_INTERVALS, createContourPaths, getAdaptiveContourInterval, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
+import { COLOR_INTERVALS, createContourPaths, getAdaptiveContourInterval, isTemperatureMetric, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
 import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
 import { bandedGradient } from '../heatmap/heatmapColorScale'
 import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
@@ -296,7 +296,10 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     const placedBounds: Bounds[] = []
     const labels: Array<{ level: number; x: number; y: number; label: string }> = []
     const candidateFractions = [.16, .3, .44, .58, .72, .86]
-    for (const [level, paths] of [...pathsByLevel.entries()].sort(([a], [b]) => a - b)) {
+    const sortedLevels = [...pathsByLevel.entries()].sort(([a], [b]) => a - b)
+    const labelStride = Math.max(1, Math.ceil(sortedLevels.length / 7))
+    for (const [levelIndex, [level, paths]] of sortedLevels.entries()) {
+      if (levelIndex % labelStride !== 0) continue
       const label = formatContourLabel(level, map.heatmapSettings.metric)
       const width = Math.max(38, label.length * 6.2) / view.scale
       const height = 12 / view.scale
@@ -325,18 +328,19 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const targetState = average === null || !target ? 'unknown' : average < target[0] ? 'low' : average > target[1] ? 'high' : 'optimal'
   const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
   const editable = mode === 'layout' && !readOnly
+  const fixedTemperatureContours = isTemperatureMetric(map.heatmapSettings.metric)
   const heatmapLegend = mode === 'environment' ? <div className="gh-heatmap-legend">
     <div className="gh-legend-heading"><small>{readOnly ? tr('CLIMATE RANGE', 'KLIMATO DIAPAZONAS') : tr('ESTIMATED ENVIRONMENT MAP', 'APSKAIČIUOTAS APLINKOS ŽEMĖLAPIS')}</small><strong>{metricLabel(map.heatmapSettings.metric)}</strong></div>
     {heatmap ? <>
       <div className="gh-legend-scale">
-        <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)} title={tr('Contour spacing adapts to the measured range and data coverage.', 'Izolinijų žingsnis prisitaiko prie matuojamo diapazono ir duomenų padengimo.')}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {heatmap.contourInterval} {METRICS[map.heatmapSettings.metric].unit}</button>
+        <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)} title={fixedTemperatureContours ? tr('Temperature contours use a fixed 1 °C interval.', 'Temperatūros izolinijos visada braižomos 1 °C žingsniu.') : tr('Contour spacing adapts to the measured range and data coverage.', 'Izolinijų žingsnis prisitaiko prie matuojamo diapazono ir duomenų padengimo.')}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {heatmap.contourInterval} {METRICS[map.heatmapSettings.metric].unit}</button>
         <div className="gh-color-scale" style={{ background: bandedGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric].colors, COLOR_INTERVALS[map.heatmapSettings.metric]) }} />
         <div className="gh-legend-range"><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>
       </div>
       <div className="gh-legend-meta">
         {target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}
         <p><b>{heatmap.count} {tr('sensor sources', 'sensorių šaltiniai')}</b><span>{tr('Rendered', 'Atvaizduota')} {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></p>
-        {heatmap.count >= MIN_CONTOUR_SENSOR_COUNT && heatmap.count < 4 ? <em>{tr(`Contour spacing widened for limited coverage from ${heatmap.count} nodes.`, `Izolinijų žingsnis praplatintas dėl riboto ${heatmap.count} mazgų padengimo.`)}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų mazgų.')}</em> : null}
+        {!fixedTemperatureContours && heatmap.count >= MIN_CONTOUR_SENSOR_COUNT && heatmap.count < 4 ? <em>{tr(`Contour spacing widened for limited coverage from ${heatmap.count} nodes.`, `Izolinijų žingsnis praplatintas dėl riboto ${heatmap.count} mazgų padengimo.`)}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų mazgų.')}</em> : null}
         <em><i className="fa-solid fa-circle-info" /> {tr('Estimated between sensor locations.', 'Įvertinta tarp sensorių vietų.')}</em>
       </div>
     </> : <div className="gh-legend-meta"><p>{tr('No valid online sensor data for this metric in this Area.', 'Šiam šios erdvės rodikliui nėra tinkamų aktyvių sensorių duomenų.')}</p></div>}

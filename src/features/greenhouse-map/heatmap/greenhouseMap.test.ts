@@ -116,11 +116,14 @@ describe('heatmap contour lines', () => {
     expect(CONTOUR_INTERVALS.vpd).toBe(0.1)
     expect(CONTOUR_INTERVALS['root-temperature']).toBe(1)
   })
-  it('adapts contour spacing to each metric range without exceeding six levels', () => {
+  it('keeps temperature contours fixed while adapting other metric ranges', () => {
     expect(getAdaptiveContourInterval('relative-humidity', [40, 48], 5)).toBe(2)
     expect(getAdaptiveContourInterval('relative-humidity', [40, 61], 5)).toBe(5)
-    expect(getAdaptiveContourInterval('air-temperature', [19, 22], 5)).toBe(0.5)
-    expect(getAdaptiveContourInterval('air-temperature', [16, 28], 5)).toBe(2)
+    expect(getAdaptiveContourInterval('air-temperature', [19, 22], 5)).toBe(1)
+    expect(getAdaptiveContourInterval('air-temperature', [16, 28], 5)).toBe(1)
+    expect(getAdaptiveContourInterval('root-temperature', [8, 35], 2)).toBe(1)
+    expect(getAdaptiveContourInterval('leaf-temperature', [12, 36], 8)).toBe(1)
+    expect(getAdaptiveContourInterval('water-temperature', [4, 31], 3)).toBe(1)
     expect(getAdaptiveContourInterval('co2', [500, 750], 5)).toBe(50)
     expect(getAdaptiveContourInterval('co2', [400, 1600], 5)).toBe(250)
     expect(getAdaptiveContourInterval('vpd', [0.8, 1.1], 5)).toBe(0.05)
