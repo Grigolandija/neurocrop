@@ -793,7 +793,7 @@ body.designer-app {
 }
 
 .login-form-panel a,
-.login-form-panel button:not(.login-submit):not([data-language-option]) {
+.login-form-panel button:not(.login-submit):not([data-language-option]):not(.cl-formButtonPrimary) {
   color: var(--color-secondary) !important;
 }
 
