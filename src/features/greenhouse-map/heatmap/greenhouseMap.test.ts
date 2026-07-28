@@ -8,7 +8,7 @@ import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
 import { bandedGradient, colorAt, esriTemperatureColorAt, esriTemperatureGradient } from './heatmapColorScale'
-import { METRICS } from '../model'
+import { DEFAULT_HEATMAP_SETTINGS, METRICS, normalizeHeatmapSettings } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
 const storage = new Map<string, string>()
@@ -60,6 +60,10 @@ describe('measurement filtering and grid sizing', () => {
     const resolution = gridResolution(10000, 8000)
     expect(resolution.width * resolution.height).toBeLessThanOrEqual(60000)
   })
+  it('migrates legacy 0.50 m rasters once while preserving later explicit choices', () => {
+    expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: undefined, cellSizeM: 0.5 }).cellSizeM).toBe(0.25)
+    expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 2, cellSizeM: 0.5 }).cellSizeM).toBe(0.5)
+  })
   it('creates a bounded four-sensor grid', () => {
     const points = [point(0, 0, -50), point(20, 0, 20), point(0, 8, 25), point(20, 8, 90)]
     const map = createDemoMap()
@@ -104,9 +108,14 @@ describe('environment colour scale', () => {
     Object.values(METRICS).forEach((metric) => {
       expect(luminance(colorAt(metric.bounds[0], ...metric.bounds, metric.colors)))
         .toBeGreaterThan(luminance(colorAt(metric.bounds[1], ...metric.bounds, metric.colors)))
+      const samples = Array.from({ length: 101 }, (_, index) =>
+        colorAt(metric.bounds[0] + (metric.bounds[1] - metric.bounds[0]) * index / 100, ...metric.bounds, metric.colors))
+      samples.slice(1).forEach((sample, index) => {
+        expect(luminance(sample)).toBeLessThanOrEqual(luminance(samples[index]) + 1)
+      })
     })
-    expect(esriTemperatureColorAt(20, 20, 30)).toEqual([228, 240, 255])
-    expect(esriTemperatureColorAt(30, 20, 30)).toEqual([61, 2, 22])
+    expect(esriTemperatureColorAt(20, 20, 30)).toEqual([255, 255, 204])
+    expect(esriTemperatureColorAt(30, 20, 30)).toEqual([128, 0, 38])
     expect(luminance(esriTemperatureColorAt(20, 20, 30))).toBeGreaterThan(luminance(esriTemperatureColorAt(30, 20, 30)))
   })
   it('aligns colour boundaries with the major contour levels', () => {

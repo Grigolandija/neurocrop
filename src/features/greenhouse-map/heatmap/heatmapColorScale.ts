@@ -66,17 +66,15 @@ const ESRI_TEMPERATURE_STOPS: EsriTemperatureStop[] = [
 ]
 
 const ESRI_DISPLAY_RAMP: Array<[number, number, number]> = [
-  [228, 240, 255],
-  [147, 176, 215],
-  [46, 71, 116],
-  [40, 117, 146],
-  [134, 154, 132],
-  [194, 172, 117],
-  [194, 157, 97],
-  [190, 112, 77],
-  [174, 77, 76],
-  [158, 41, 76],
-  [61, 2, 22],
+  [255, 255, 204],
+  [255, 237, 160],
+  [254, 217, 118],
+  [254, 178, 76],
+  [253, 141, 60],
+  [252, 78, 42],
+  [227, 26, 28],
+  [189, 0, 38],
+  [128, 0, 38],
 ]
 
 function colorFromRamp(colors: Array<[number, number, number]>, amount: number): [number, number, number] {
