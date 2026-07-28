@@ -1,5 +1,17 @@
 export type MapMode = 'layout' | 'coverage' | 'environment' | 'signal'
-export type MetricKey = 'air-temperature' | 'relative-humidity' | 'co2' | 'vpd' | 'root-temperature'
+export type MetricKey =
+  | 'air-temperature'
+  | 'relative-humidity'
+  | 'co2'
+  | 'vpd'
+  | 'root-temperature'
+  | 'illuminance'
+  | 'soil-moisture'
+  | 'ec'
+  | 'ph'
+  | 'soil-ec'
+  | 'leaf-temperature'
+  | 'water-temperature'
 export type NodeStatus = 'online' | 'warning' | 'offline' | 'unassigned' | 'low-battery' | 'stale'
 export type ObjectType =
   | 'sensor-node' | 'section-zone' | 'growing-table' | 'hydroponic-channel' | 'growing-bed' | 'rack'
@@ -13,6 +25,13 @@ export type SensorMeasurements = {
   co2Ppm?: number
   vpdKpa?: number
   rootTemperatureC?: number
+  illuminanceLux?: number
+  soilMoisturePercent?: number
+  ecMsCm?: number
+  ph?: number
+  soilEcMsCm?: number
+  leafTemperatureC?: number
+  waterTemperatureC?: number
   pressureHpa?: number
   measuredAt?: string
 }
@@ -129,10 +148,27 @@ export const OBJECT_LIBRARY: Array<{ type: ObjectType; label: string; icon: stri
   { type: 'rectangle', label: 'Generic rectangle', icon: 'fa-vector-square', layerId: 'structure', size: [2, 1] },
 ]
 
-export const METRICS: Record<MetricKey, { label: string; unit: string; field: keyof SensorMeasurements; bounds: [number, number]; colors: [string, string, string] }> = {
-  'air-temperature': { label: 'Air temperature', unit: '°C', field: 'airTemperatureC', bounds: [5, 45], colors: ['#256b73', '#e1c56b', '#b74c3f'] },
-  'relative-humidity': { label: 'Relative humidity', unit: '%', field: 'relativeHumidityPercent', bounds: [15, 100], colors: ['#f2b84b', '#66c7b4', '#2f80c3'] },
-  co2: { label: 'CO₂', unit: 'ppm', field: 'co2Ppm', bounds: [250, 2500], colors: ['#527b65', '#c3a95d', '#8c4a3f'] },
-  vpd: { label: 'VPD', unit: 'kPa', field: 'vpdKpa', bounds: [0, 3], colors: ['#3e7183', '#c7bd73', '#a55542'] },
-  'root-temperature': { label: 'Root temperature', unit: '°C', field: 'rootTemperatureC', bounds: [5, 40], colors: ['#356d86', '#d0c171', '#a55341'] },
+export type HeatmapMetricDefinition = {
+  label: string
+  labelLt: string
+  unit: string
+  decimals: number
+  field: Exclude<keyof SensorMeasurements, 'measuredAt' | 'pressureHpa'>
+  bounds: [number, number]
+  colors: [string, string, string]
+}
+
+export const METRICS: Record<MetricKey, HeatmapMetricDefinition> = {
+  'air-temperature': { label: 'Air temperature', labelLt: 'Oro temperatūra', unit: '°C', decimals: 1, field: 'airTemperatureC', bounds: [5, 45], colors: ['#256b73', '#e1c56b', '#b74c3f'] },
+  'relative-humidity': { label: 'Relative humidity', labelLt: 'Santykinė drėgmė', unit: '%', decimals: 1, field: 'relativeHumidityPercent', bounds: [15, 100], colors: ['#f2b84b', '#66c7b4', '#2f80c3'] },
+  co2: { label: 'CO₂', labelLt: 'CO₂', unit: 'ppm', decimals: 0, field: 'co2Ppm', bounds: [250, 2500], colors: ['#527b65', '#c3a95d', '#8c4a3f'] },
+  vpd: { label: 'VPD', labelLt: 'VPD', unit: 'kPa', decimals: 2, field: 'vpdKpa', bounds: [0, 3], colors: ['#3e7183', '#c7bd73', '#a55542'] },
+  'root-temperature': { label: 'Soil / root temperature', labelLt: 'Dirvos / šaknų temperatūra', unit: '°C', decimals: 1, field: 'rootTemperatureC', bounds: [5, 40], colors: ['#356d86', '#d0c171', '#a55341'] },
+  illuminance: { label: 'Illuminance', labelLt: 'Apšviestumas', unit: 'lx', decimals: 0, field: 'illuminanceLux', bounds: [0, 200000], colors: ['#263d64', '#d1bd62', '#fff0a0'] },
+  'soil-moisture': { label: 'Soil moisture', labelLt: 'Dirvos drėgmė', unit: '%', decimals: 1, field: 'soilMoisturePercent', bounds: [0, 100], colors: ['#a65b3d', '#68aa78', '#3278a8'] },
+  ec: { label: 'Nutrient EC', labelLt: 'Maistinio tirpalo EC', unit: 'mS/cm', decimals: 2, field: 'ecMsCm', bounds: [0, 10], colors: ['#426e8a', '#74a96f', '#9a5a43'] },
+  ph: { label: 'Nutrient pH', labelLt: 'Maistinio tirpalo pH', unit: 'pH', decimals: 2, field: 'ph', bounds: [0, 14], colors: ['#b15b49', '#73a96f', '#80609b'] },
+  'soil-ec': { label: 'Soil EC', labelLt: 'Dirvos EC', unit: 'mS/cm', decimals: 2, field: 'soilEcMsCm', bounds: [0, 10], colors: ['#426e8a', '#74a96f', '#9a5a43'] },
+  'leaf-temperature': { label: 'Leaf temperature', labelLt: 'Lapų temperatūra', unit: '°C', decimals: 1, field: 'leafTemperatureC', bounds: [5, 45], colors: ['#256b73', '#7da96f', '#b74c3f'] },
+  'water-temperature': { label: 'Water temperature', labelLt: 'Vandens temperatūra', unit: '°C', decimals: 1, field: 'waterTemperatureC', bounds: [0, 45], colors: ['#276a96', '#6ca9a0', '#b35b48'] },
 }

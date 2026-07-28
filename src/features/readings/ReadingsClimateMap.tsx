@@ -13,7 +13,7 @@ import { latestCompletedHistoryFrameIndex } from '../greenhouse-map/services/his
 import { prepareReadOnlyClimateMap } from './prepareReadOnlyClimateMap'
 import '../../styles/climate-map.css'
 
-const climateMetrics: MetricKey[] = ['air-temperature', 'relative-humidity', 'co2', 'vpd']
+const heatmapMetrics = Object.keys(METRICS) as MetricKey[]
 type ClimateTimeMode = 'live' | 'history'
 
 type Props = {
@@ -68,7 +68,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         const next = contextResult.value
         if (!hasCurrentArea) {
           const savedMetric = next.map?.heatmapSettings.metric
-          setMetric(savedMetric && climateMetrics.includes(savedMetric) ? savedMetric : 'air-temperature')
+          setMetric(savedMetric && Object.hasOwn(METRICS, savedMetric) ? savedMetric : 'air-temperature')
           setTimeMode('live')
           setPlaying(false)
         }
@@ -170,11 +170,26 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       }),
     }
   }, [context, historyFrame, historyLayout, historyLayoutNodes])
-  const map = useMemo(() => displayedContext ? prepareReadOnlyClimateMap(displayedContext, metric) : null, [displayedContext, metric])
+  const availableMetrics = useMemo(() => {
+    const measurementSets = timeMode === 'history'
+      ? (history?.frames.flatMap((frame) => frame.nodes.map((node) => node.measurements)) ?? [])
+      : (context?.nodes.map((node) => node.measurements) ?? [])
+    return heatmapMetrics.filter((key) => measurementSets.some((measurements) => {
+      const value = measurements?.[METRICS[key].field]
+      return typeof value === 'number' && Number.isFinite(value)
+    }))
+  }, [context?.nodes, history?.frames, timeMode])
+  const selectedMetric = availableMetrics.includes(metric) ? metric : availableMetrics[0] || metric
+
+  useEffect(() => {
+    if (availableMetrics.length && !availableMetrics.includes(metric)) setMetric(availableMetrics[0])
+  }, [availableMetrics, metric])
+
+  const map = useMemo(() => displayedContext ? prepareReadOnlyClimateMap(displayedContext, selectedMetric) : null, [displayedContext, selectedMetric])
   const validSensorObjects = map?.objects.filter((object) => {
     const sensor = object.metadata.sensor
     if (!sensor || sensor.status === 'offline' || sensor.status === 'stale') return false
-    return typeof sensor.measurements?.[METRICS[metric].field] === 'number'
+    return typeof sensor.measurements?.[METRICS[selectedMetric].field] === 'number'
   }) ?? []
   const validNodes = validSensorObjects.length
   const latestMeasurementAt = validSensorObjects.reduce<Date | null>((latest, object) => {
@@ -246,7 +261,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
           <button type="button" className={timeMode === 'live' ? 'active' : ''} onClick={() => selectTimeMode('live')}>{lithuanian ? 'Dabar' :tx("Live")}</button>
           <button type="button" className={timeMode === 'history' ? 'active' : ''} disabled={!historyAvailable} title={historyError || undefined} onClick={() => selectTimeMode('history')}>{lithuanian ? 'Istorija' :tx("History")}</button>
         </div>
-        <label><span>{tx("Metric")}</span><select value={metric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{climateMetrics.map((key) => <option value={key} key={key}>{METRICS[key].label}</option>)}</select></label>
+        <label><span>{tx("Metric")}</span><select value={availableMetrics.length ? selectedMetric : ''} disabled={!availableMetrics.length} onChange={(event) => setMetric(event.target.value as MetricKey)}>{availableMetrics.length ? availableMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>) : <option value="">{lithuanian ? 'Nėra matavimų' : 'No measurements'}</option>}</select></label>
         <span className="nc-climate-lock"><i className="fa-solid fa-lock" />{tx("Read only")}</span>
       </div>
     </header>

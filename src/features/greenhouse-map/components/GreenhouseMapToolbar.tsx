@@ -1,4 +1,4 @@
-import type { MapMode, MetricKey } from '../model'
+import { METRICS, type MapMode, type MetricKey } from '../model'
 
 type Props = {
   mode: MapMode
@@ -34,8 +34,7 @@ export default function GreenhouseMapToolbar(props: Props) {
       ] as const).map(([id, icon, label, title]) => <button key={id} title={title} className={props.mode === id ? 'active' : ''} onClick={() => props.onMode(id)}><i className={`fa-solid ${icon}`} />{label}</button>)}
     </nav>
     {props.mode === 'environment' ? <select aria-label={tr('Environment metric', 'Aplinkos rodiklis')} value={props.metric} onChange={(event) => props.onMetric(event.target.value as MetricKey)}>
-      <option value="air-temperature">{tr('Air temperature', 'Oro temperatūra')}</option><option value="relative-humidity">{tr('Relative humidity', 'Santykinė drėgmė')}</option>
-      <option value="co2">CO₂</option><option value="vpd">VPD</option><option value="root-temperature">{tr('Root temperature', 'Šaknų zonos temperatūra')}</option>
+      {(Object.keys(METRICS) as MetricKey[]).map((metric) => <option value={metric} key={metric}>{props.language === 'lt' ? METRICS[metric].labelLt : METRICS[metric].label}</option>)}
     </select> : null}
     <div className="gh-toolbar-actions">
       <button disabled={!props.editing} className={props.snap ? 'active' : ''} onClick={() => props.onSnap(!props.snap)} title={tr('Snap objects to the plan grid', 'Lygiuoti objektus pagal plano tinklelį')}><i className="fa-solid fa-magnet" /> {tr('Snap', 'Lygiavimas')}</button>

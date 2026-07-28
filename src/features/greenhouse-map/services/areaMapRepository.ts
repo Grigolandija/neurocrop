@@ -47,6 +47,14 @@ export type AreaMapHistoryNode = {
     relativeHumidityPercent?: number
     co2Ppm?: number
     vpdKpa?: number
+    rootTemperatureC?: number
+    illuminanceLux?: number
+    soilMoisturePercent?: number
+    ecMsCm?: number
+    ph?: number
+    soilEcMsCm?: number
+    leafTemperatureC?: number
+    waterTemperatureC?: number
   }
 }
 export type AreaMapHistoryFrame = { observedAt: string; nodes: AreaMapHistoryNode[] }
@@ -102,6 +110,13 @@ function normalizeNode(value: AreaMapNode): AreaMapNode {
       co2Ppm: finite(measurements.co2Ppm),
       vpdKpa: finite(measurements.vpdKpa),
       rootTemperatureC: finite(measurements.rootTemperatureC),
+      illuminanceLux: finite(measurements.illuminanceLux),
+      soilMoisturePercent: finite(measurements.soilMoisturePercent),
+      ecMsCm: finite(measurements.ecMsCm),
+      ph: finite(measurements.ph),
+      soilEcMsCm: finite(measurements.soilEcMsCm),
+      leafTemperatureC: finite(measurements.leafTemperatureC),
+      waterTemperatureC: finite(measurements.waterTemperatureC),
       pressureHpa: finite(measurements.pressureHpa),
       measuredAt: text(measurements.measuredAt),
     },

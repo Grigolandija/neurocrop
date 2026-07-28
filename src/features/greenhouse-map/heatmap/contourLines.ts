@@ -10,6 +10,13 @@ export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourIn
   co2: { colorInterval: 50, contourInterval: 100 },
   vpd: { colorInterval: 0.05, contourInterval: 0.1 },
   'root-temperature': { colorInterval: 0.25, contourInterval: 1 },
+  illuminance: { colorInterval: 500, contourInterval: 1000 },
+  'soil-moisture': { colorInterval: 1, contourInterval: 5 },
+  ec: { colorInterval: 0.05, contourInterval: 0.1 },
+  ph: { colorInterval: 0.05, contourInterval: 0.1 },
+  'soil-ec': { colorInterval: 0.05, contourInterval: 0.1 },
+  'leaf-temperature': { colorInterval: 0.25, contourInterval: 1 },
+  'water-temperature': { colorInterval: 0.25, contourInterval: 1 },
 }
 
 const ADAPTIVE_CONTOUR_INTERVALS: Record<MetricKey, { candidates: number[]; lowConfidenceMinimum: number }> = {
@@ -18,6 +25,13 @@ const ADAPTIVE_CONTOUR_INTERVALS: Record<MetricKey, { candidates: number[]; lowC
   co2: { candidates: [50, 100, 250, 500, 1000], lowConfidenceMinimum: 100 },
   vpd: { candidates: [0.05, 0.1, 0.2, 0.5, 1], lowConfidenceMinimum: 0.1 },
   'root-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
+  illuminance: { candidates: [500, 1000, 2500, 5000, 10000, 25000], lowConfidenceMinimum: 1000 },
+  'soil-moisture': { candidates: [1, 2, 5, 10, 20], lowConfidenceMinimum: 5 },
+  ec: { candidates: [0.05, 0.1, 0.2, 0.5, 1, 2], lowConfidenceMinimum: 0.1 },
+  ph: { candidates: [0.05, 0.1, 0.2, 0.5, 1, 2], lowConfidenceMinimum: 0.1 },
+  'soil-ec': { candidates: [0.05, 0.1, 0.2, 0.5, 1, 2], lowConfidenceMinimum: 0.1 },
+  'leaf-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
+  'water-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
 }
 
 export const COLOR_INTERVALS = Object.fromEntries(

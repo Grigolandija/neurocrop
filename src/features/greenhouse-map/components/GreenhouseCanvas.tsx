@@ -39,10 +39,8 @@ const objectColors: Record<string, { fill: string; stroke: string }> = {
 const statusColors: Record<string, string> = { online: '#2f8760', warning: '#bd842b', offline: '#6d7470', unassigned: '#60758a', 'low-battery': '#b85b46', stale: '#936d3c' }
 
 const formatContourLabel = (level: number, metric: GreenhouseMap['heatmapSettings']['metric']) => {
-  if (metric === 'relative-humidity') return `${Number(level.toFixed(1))} %`
-  if (metric === 'co2') return `${Math.round(level)} ppm`
-  if (metric === 'vpd') return `${level.toFixed(1)} kPa`
-  return `${Number(level.toFixed(1))} °C`
+  const definition = METRICS[metric]
+  return `${Number(level.toFixed(definition.decimals))} ${definition.unit}`
 }
 
 function ObjectShape({ object, map, selected, editable, environmentView, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
@@ -120,9 +118,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const [hoveredSensorId, setHoveredSensorId] = useState<string | null>(null)
   const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; count: number; contourInterval: number; calculatedAt: Date } | null>(null)
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
-  const metricLabel = (key: GreenhouseMap['heatmapSettings']['metric']) => language === 'lt'
-    ? ({ 'air-temperature': 'Oro temperatūra', 'relative-humidity': 'Santykinė drėgmė', co2: 'CO₂', vpd: 'VPD', 'root-temperature': 'Šaknų zonos temperatūra' } as Record<string, string>)[key]
-    : METRICS[key].label
+  const metricLabel = (key: GreenhouseMap['heatmapSettings']['metric']) =>
+    language === 'lt' ? METRICS[key].labelLt : METRICS[key].label
 
   const fit = useCallback(() => {
     const paddingX = readOnly ? 16 : 85
@@ -450,9 +447,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     >
       <strong>{hoveredSensor.name}</strong>
       <span>{metricLabel(map.heatmapSettings.metric)}</span>
-      <b>{map.heatmapSettings.metric === 'co2'
-        ? Math.round(hoveredSensor.value)
-        : Number(hoveredSensor.value.toFixed(map.heatmapSettings.metric === 'vpd' ? 2 : 1))} {METRICS[map.heatmapSettings.metric].unit}</b>
+      <b>{Number(hoveredSensor.value.toFixed(METRICS[map.heatmapSettings.metric].decimals))} {METRICS[map.heatmapSettings.metric].unit}</b>
     </div> : null}
     {!readOnly ? <div className="gh-view-controls">
       <button className={panning ? 'active' : ''} onClick={() => setPanning(!panning)} title={tr('Pan tool', 'Stūmimo įrankis')} aria-label={tr('Pan tool', 'Stūmimo įrankis')}><i className="fa-solid fa-hand" /></button><span />

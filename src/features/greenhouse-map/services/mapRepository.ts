@@ -1,5 +1,5 @@
 import { createDemoMap } from '../demo'
-import type { GreenhouseMap, GreenhouseObject, MapLayer } from '../model'
+import { METRICS, type GreenhouseMap, type GreenhouseObject, type MapLayer } from '../model'
 
 const STORAGE_KEY = 'neurocrop:greenhouse-map-test:v1'
 
@@ -41,7 +41,7 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
     !heatmap ||
     typeof heatmap.enabled !== 'boolean' ||
     heatmap.interpolationMethod !== 'idw' ||
-    !['air-temperature', 'relative-humidity', 'co2', 'vpd', 'root-temperature'].includes(heatmap.metric) ||
+    !Object.hasOwn(METRICS, heatmap.metric) ||
     !['auto', 'manual'].includes(heatmap.scaleMode) ||
     typeof heatmap.showConfidence !== 'boolean' ||
     !finite(heatmap.idwPower) ||

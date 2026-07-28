@@ -13,6 +13,20 @@ const wallMountedTypes = new Set(['door', 'window', 'ventilation-opening']);
 const perimeterWalls = new Set(['south', 'north', 'west', 'east']);
 const MAP_HISTORY_STEP_MINUTES = 10;
 const MAP_HISTORY_MAX_RANGE_MS = 24 * 60 * 60 * 1000;
+const HEATMAP_METRICS = new Set([
+  'air-temperature',
+  'relative-humidity',
+  'co2',
+  'vpd',
+  'root-temperature',
+  'illuminance',
+  'soil-moisture',
+  'ec',
+  'ph',
+  'soil-ec',
+  'leaf-temperature',
+  'water-temperature'
+]);
 
 function finite(value) {
   return typeof value === 'number' && Number.isFinite(value);
@@ -67,7 +81,7 @@ export function validateGreenhouseMap(value) {
 
   if (!value.heatmapSettings || typeof value.heatmapSettings !== 'object') return validationError('Heatmap settings are required');
   if (typeof value.heatmapSettings.enabled !== 'boolean' || value.heatmapSettings.interpolationMethod !== 'idw') return validationError('Heatmap method or enabled state is invalid');
-  if (!['air-temperature', 'relative-humidity', 'co2', 'vpd', 'root-temperature'].includes(value.heatmapSettings.metric)) return validationError('Heatmap metric is invalid');
+  if (!HEATMAP_METRICS.has(value.heatmapSettings.metric)) return validationError('Heatmap metric is invalid');
   if (!['auto', 'manual'].includes(value.heatmapSettings.scaleMode) || typeof value.heatmapSettings.showConfidence !== 'boolean') return validationError('Heatmap scale or confidence setting is invalid');
   if (!finite(value.heatmapSettings.idwPower) || value.heatmapSettings.idwPower <= 0 || value.heatmapSettings.idwPower > 20) return validationError('IDW power is invalid');
   if (!finite(value.heatmapSettings.opacity) || value.heatmapSettings.opacity < 0 || value.heatmapSettings.opacity > 1) return validationError('Heatmap opacity is invalid');
@@ -113,7 +127,13 @@ function publicMapNode(row) {
       co2Ppm: measurement?.co2 ?? null,
       vpdKpa: finite(temperature) && finite(humidity) ? calcVPD(temperature, humidity) : null,
       rootTemperatureC: measurement?.soil_temperature ?? measurement?.water_temperature ?? null,
-      pressureHpa: measurement?.air_pressure ?? null,
+      illuminanceLux: measurement?.lux ?? null,
+      soilMoisturePercent: measurement?.soil_moisture ?? null,
+      ecMsCm: measurement?.ec ?? null,
+      ph: measurement?.ph ?? null,
+      soilEcMsCm: measurement?.soil_ec ?? null,
+      leafTemperatureC: measurement?.leaf_temperature ?? null,
+      waterTemperatureC: measurement?.water_temperature ?? null,
       measuredAt: measurement?.time ?? null
     }
   };
@@ -198,7 +218,15 @@ async function getAreaMapHistory(devEuis, from, to) {
             ${measurementRollupAverageSql('airTemp')} AS air_temperature_c,
             ${measurementRollupAverageSql('humidity')} AS relative_humidity_percent,
             ${measurementRollupAverageSql('co2')} AS co2_ppm,
-            ${measurementRollupAverageSql('vpd')} AS vpd_kpa
+            ${measurementRollupAverageSql('vpd')} AS vpd_kpa,
+            ${measurementRollupAverageSql('soilTemp')} AS root_temperature_c,
+            ${measurementRollupAverageSql('lux')} AS illuminance_lux,
+            ${measurementRollupAverageSql('soilMoisture')} AS soil_moisture_percent,
+            ${measurementRollupAverageSql('ec')} AS ec_ms_cm,
+            ${measurementRollupAverageSql('ph')} AS ph,
+            ${measurementRollupAverageSql('soilEc')} AS soil_ec_ms_cm,
+            ${measurementRollupAverageSql('leafTemp')} AS leaf_temperature_c,
+            ${measurementRollupAverageSql('waterTemp')} AS water_temperature_c
      FROM measurement_rollups rollup
      WHERE rollup.bucket_minutes=$1
        AND rollup.dev_eui=ANY($2::text[])
@@ -224,7 +252,15 @@ async function getAreaMapHistory(devEuis, from, to) {
         airTemperatureC: historicalNumber(row.air_temperature_c),
         relativeHumidityPercent: historicalNumber(row.relative_humidity_percent),
         co2Ppm: historicalNumber(row.co2_ppm),
-        vpdKpa: historicalNumber(row.vpd_kpa)
+        vpdKpa: historicalNumber(row.vpd_kpa),
+        rootTemperatureC: historicalNumber(row.root_temperature_c),
+        illuminanceLux: historicalNumber(row.illuminance_lux),
+        soilMoisturePercent: historicalNumber(row.soil_moisture_percent),
+        ecMsCm: historicalNumber(row.ec_ms_cm),
+        ph: historicalNumber(row.ph),
+        soilEcMsCm: historicalNumber(row.soil_ec_ms_cm),
+        leafTemperatureC: historicalNumber(row.leaf_temperature_c),
+        waterTemperatureC: historicalNumber(row.water_temperature_c)
       }
     });
   });
