@@ -25,11 +25,11 @@ export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, colors
       : colorAt(value, grid.min, grid.max, colors)
     const confidence = showConfidence ? grid.confidence[index] : 1
     const gray = Math.round(r * 0.2126 + g * 0.7152 + b * 0.0722)
-    const saturation = 0.28 + confidence * 0.72
+    const saturation = 0.68 + confidence * 0.32
     image.data[target] = Math.round(gray + (r - gray) * saturation)
     image.data[target + 1] = Math.round(gray + (g - gray) * saturation)
     image.data[target + 2] = Math.round(gray + (b - gray) * saturation)
-    image.data[target + 3] = Math.round(255 * opacity * (0.42 + confidence * 0.58))
+    image.data[target + 3] = Math.round(255 * opacity)
   }
   context.putImageData(image, 0, 0)
   return canvas

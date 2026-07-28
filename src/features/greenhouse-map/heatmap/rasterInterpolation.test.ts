@@ -67,6 +67,20 @@ describe('raster IDW interpolation', () => {
     expect(result.confidence).toBeLessThanOrEqual(0.38)
   })
 
+  it('keeps confidence high close to a fresh online sensor', () => {
+    const points = [
+      point('near', 5, 5, 24),
+      point('far-a', 1, 1, 18),
+      point('far-b', 9, 1, 28),
+      point('far-c', 1, 9, 20),
+      point('far-d', 9, 9, 30),
+    ]
+    const result = interpolateRasterCell(points, 5.46, 5, options({ nearestSensorCount: 5 }))
+    expect(result.value).not.toBeNull()
+    expect(result.nearestDistanceM).toBeCloseTo(0.46, 4)
+    expect(result.confidence).toBeGreaterThan(0.8)
+  })
+
   it('keeps the same value for several equal sensors', () => {
     const points = [
       point('a', 2, 2, 50),

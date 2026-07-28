@@ -117,21 +117,29 @@ function confidenceFor(
     support: distanceTaper(item.distanceM, supportRadiusM),
   }))
   const totalSupport = Math.max(EPSILON, supported.reduce((sum, item) => sum + item.support, 0))
-  const proximity = supported.reduce((sum, item) =>
-    sum + clamp01(1 - item.distanceM / options.maxInfluenceDistanceM) * item.support, 0) / totalSupport
   const sensorSupport = clamp01(totalSupport / options.nearestSensorCount)
+  const localScaleM = Math.max(1.5, options.cellSizeM * 6)
+  const nearestCertainty = 1 / (1 + (supported[0].distanceM / localScaleM) ** 2)
+  const spatialEvidence = Math.max(nearestCertainty, sensorSupport)
+  const idwSupported = supported.map((item) => ({
+    ...item,
+    confidenceWeight: item.support / Math.pow(Math.max(item.distanceM, options.exactMatchDistanceM ?? 0.05), options.power),
+  }))
+  const totalConfidenceWeight = Math.max(EPSILON, idwSupported.reduce((sum, item) => sum + item.confidenceWeight, 0))
   const freshness = supported.reduce((sum, item) => {
     const fresh = item.point.observedAtMs === undefined
       ? 1
       : clamp01(1 - (options.nowMs - item.point.observedAtMs) / options.maxReadingAgeMs)
-    return sum + fresh * item.support
-  }, 0) / totalSupport
-  const mean = supported.reduce((sum, item) => sum + item.point.value * item.support, 0) / totalSupport
-  const variance = supported.reduce((sum, item) => sum + (item.point.value - mean) ** 2 * item.support, 0) / totalSupport
+    const confidenceWeight = idwSupported.find((weighted) => weighted.point === item.point)!.confidenceWeight
+    return sum + fresh * confidenceWeight
+  }, 0) / totalConfidenceWeight
+  const mean = idwSupported.reduce((sum, item) => sum + item.point.value * item.confidenceWeight, 0) / totalConfidenceWeight
+  const variance = idwSupported.reduce((sum, item) =>
+    sum + (item.point.value - mean) ** 2 * item.confidenceWeight, 0) / totalConfidenceWeight
   const relativeDeviation = Math.sqrt(variance) / Math.max(Math.abs(mean), 0.1)
   const agreement = clamp01(1 - relativeDeviation / 0.35)
-  const measurementQuality = clamp01(proximity * 0.44 + freshness * 0.24 + agreement * 0.32)
-  return clamp01(measurementQuality * sensorSupport)
+  const measurementQuality = clamp01(freshness * 0.7 + agreement * 0.3)
+  return clamp01(spatialEvidence * measurementQuality)
 }
 
 export function interpolateRasterCell(
