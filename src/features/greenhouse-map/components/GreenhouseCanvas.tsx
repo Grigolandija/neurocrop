@@ -43,6 +43,8 @@ const formatContourLabel = (level: number, metric: GreenhouseMap['heatmapSetting
   return `${Number(level.toFixed(definition.decimals))} ${definition.unit}`
 }
 
+const MIN_HEATMAP_SENSOR_COUNT = 3
+
 function ObjectShape({ object, map, selected, editable, environmentView, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
   object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; environmentView: boolean; layerOpacity: number; viewScale: number
   onSelect: (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void
@@ -151,6 +153,10 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   }, [selectedIds, mode, map.objects])
 
   const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric), [map])
+  const insufficientHeatmapSources = mode === 'environment'
+    && map.heatmapSettings.enabled
+    && points.length > 0
+    && points.length < MIN_HEATMAP_SENSOR_COUNT
   useEffect(() => {
     let firstPaintFrame = 0
     let settledPaintFrame = 0
@@ -159,7 +165,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         settledPaintFrame = window.requestAnimationFrame(() => onRenderReady?.())
       })
     }
-    if (mode !== 'environment' || !map.heatmapSettings.enabled) {
+    if (mode !== 'environment' || !map.heatmapSettings.enabled || points.length < MIN_HEATMAP_SENSOR_COUNT) {
       const clearTimer = window.setTimeout(() => {
         setHeatmap(null)
         signalRendered()
@@ -371,7 +377,9 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         {!fixedTemperatureContours && heatmap.count >= MIN_CONTOUR_SENSOR_COUNT && heatmap.count < 4 ? <em>{tr(`Contour spacing widened for limited coverage from ${heatmap.count} nodes.`, `Izolinijų žingsnis praplatintas dėl riboto ${heatmap.count} mazgų padengimo.`)}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų mazgų.')}</em> : null}
         <em><i className="fa-solid fa-circle-info" /> {tr('Estimated between sensor locations.', 'Įvertinta tarp sensorių vietų.')}</em>
       </div>
-    </> : <div className="gh-legend-meta"><p>{tr('No valid online sensor data for this metric in this Area.', 'Šiam šios erdvės rodikliui nėra tinkamų aktyvių sensorių duomenų.')}</p></div>}
+    </> : <div className="gh-legend-meta"><p>{insufficientHeatmapSources
+      ? tr(`Heatmap needs at least ${MIN_HEATMAP_SENSOR_COUNT} sensor sources. ${points.length} available.`, `Heatmap reikia bent ${MIN_HEATMAP_SENSOR_COUNT} sensorių šaltinių. Dabar yra ${points.length}.`)
+      : tr('No valid online sensor data for this metric in this Area.', 'Šiam šios erdvės rodikliui nėra tinkamų aktyvių sensorių duomenų.')}</p></div>}
   </div> : null
 
   return <main className="gh-canvas-shell" ref={hostRef}
@@ -515,6 +523,11 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     {heatmapLegend ? legendHost ? createPortal(heatmapLegend, legendHost) : heatmapLegend : null}
     {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> {tr('Approximate planned sensor coverage, not a physical propagation model.', 'Apytikslė planuojama sensorių aprėptis, o ne fizinis signalo sklidimo modelis.')}</div> : null}
     {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> {tr('Latest LoRa quality based on RSSI, SNR and node status. It is not a propagation map.', 'Naujausia LoRa ryšio kokybė pagal RSSI, SNR ir mazgo būseną. Tai nėra signalo sklidimo žemėlapis.')}</div> : null}
+    {insufficientHeatmapSources ? <div className="gh-insufficient-heatmap" role="status">
+      <i className="fa-solid fa-chart-area" />
+      <strong>{tr('Not enough data for a heatmap', 'Nepakanka duomenų heatmap žemėlapiui')}</strong>
+      <span>{tr(`At least ${MIN_HEATMAP_SENSOR_COUNT} sensor sources are required for this metric. ${points.length} available.`, `Šiam rodikliui reikia bent ${MIN_HEATMAP_SENSOR_COUNT} sensorių šaltinių. Dabar yra ${points.length}.`)}</span>
+    </div> : null}
     {dailyView ? <aside className="gh-daily-summary">
       <small>{tr('TODAY', 'ŠIANDIEN')}</small><h2>{actions.length || sensorIssues.length || (targetState !== 'optimal' && targetState !== 'unknown') ? tr('Items need attention', 'Reikia dėmesio') : tr('Area is stable', 'Erdvė stabili')}</h2>
       {actions.slice(0, 3).map((action) => <p data-tone={action.priority === 'now' ? 'critical' : 'warning'} key={action.id}><i className="fa-solid fa-list-check" /><span><b>{action.title}</b>{action.sectionName} · {action.reason}</span></p>)}

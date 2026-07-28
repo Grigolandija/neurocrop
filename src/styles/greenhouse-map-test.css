@@ -171,6 +171,10 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-legend-meta em { display: block; color: #79684d; font-size: 8px; line-height: 1.35; }
 .gh-mode-note { position: absolute; right: 15px; bottom: 42px; max-width: 360px; border: 1px solid #c4cec7; padding: 8px 10px; color: #4d6259; background: rgba(255,255,255,.94); font-size: 9px; }
 .gh-mode-note i { margin-right: 5px; color: #326e58; }
+.gh-insufficient-heatmap { position: absolute; left: 50%; top: 50%; z-index: 4; display: grid; justify-items: center; width: min(28rem,calc(100% - 2rem)); transform: translate(-50%,-50%); border: 1px solid rgba(69,91,81,.22); border-radius: 14px; padding: 20px 22px; color: #30483f; background: rgba(250,251,248,.94); box-shadow: 0 14px 34px rgba(28,48,40,.14); text-align: center; pointer-events: none; }
+.gh-insufficient-heatmap i { display: grid; place-items: center; width: 36px; height: 36px; margin-bottom: 10px; border-radius: 50%; color: #547166; background: #e7ece8; }
+.gh-insufficient-heatmap strong { font-size: 14px; }
+.gh-insufficient-heatmap span { margin-top: 5px; color: #687b73; font-size: 11px; line-height: 1.45; }
 .gh-empty-selection { display: grid; place-items: center; padding: 68px 27px; text-align: center; }
 .gh-empty-selection > span { display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 14px; border: 1px solid #cbd5ce; color: #577268; background: #f1f5f1; }
 .gh-empty-selection h2 { margin: 0 0 7px; font-size: 15px; }
