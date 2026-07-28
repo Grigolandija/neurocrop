@@ -20,6 +20,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@clerk/react": "^6.12.8",
     "@fortawesome/fontawesome-free": "^7.3.0",
     "echarts": "^6.1.0",
     "konva": "^10.3.0",

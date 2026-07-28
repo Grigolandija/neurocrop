@@ -15,12 +15,15 @@ services:
       PGDATABASE: ${PGDATABASE:-neurocrop}
       MEASUREMENT_RETENTION_DAYS: ${MEASUREMENT_RETENTION_DAYS:-35}
       CORS_ALLOWED_ORIGINS: https://neurocrop.lt,https://www.neurocrop.lt
+      CLERK_SECRET_KEY_FILE: /run/secrets/clerk_secret_key
+      CLERK_AUTHORIZED_PARTIES: https://neurocrop.lt,https://www.neurocrop.lt
     secrets:
       - chirpstack_api_token
       - chirpstack_application_id
       - chirpstack_device_profile_id
       - default_otaa_app_key
       - resend_api_key
+      - clerk_secret_key
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 15s
@@ -65,3 +68,5 @@ secrets:
     file: /opt/neurocrop-backend/.default_otaa_app_key
   resend_api_key:
     file: /opt/neurocrop-backend/.resend_api_key
+  clerk_secret_key:
+    file: /opt/neurocrop-backend/.clerk_secret_key

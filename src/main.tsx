@@ -1,6 +1,8 @@
 import { createRoot } from 'react-dom/client'
+import { ClerkProvider } from '@clerk/react'
 import './index.css'
 import App from './App.tsx'
+import ClerkSessionBridge from './components/ClerkSessionBridge.tsx'
 
 declare const __BUILD_VERSION__: string
 
@@ -17,6 +19,15 @@ window.addEventListener('vite:preloadError', (event) => {
   window.location.reload()
 })
 
+const publishableKey = String(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '').trim()
+const application = <App />
+
 createRoot(document.getElementById('root')!).render(
-  <App />,
+  publishableKey
+    ? (
+      <ClerkProvider publishableKey={publishableKey}>
+        <ClerkSessionBridge>{application}</ClerkSessionBridge>
+      </ClerkProvider>
+    )
+    : application,
 )

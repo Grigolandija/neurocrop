@@ -137,6 +137,7 @@ export async function getSessionUser(token) {
 
 export async function requireUserAuth(req, res, next) {
   try {
+    if (req.user) return next();
     const user = await getSessionUser(req.cookies?.neurocrop_session);
     if (!user) {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Login required' } });

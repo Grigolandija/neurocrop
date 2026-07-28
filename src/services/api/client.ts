@@ -6,6 +6,7 @@ const getRequestsInFlight = new Map<string, Promise<unknown>>()
 let cacheGeneration = 0
 let apiConnectionLost = !getDashboardState().connected
 let sessionCheckInFlight: Promise<boolean> | null = null
+let authTokenProvider: (() => Promise<string | null>) | null = null
 subscribeDashboardState(() => {
   apiConnectionLost = !getDashboardState().connected
 })
@@ -65,12 +66,21 @@ function requestSignal(signal: AbortSignal | null | undefined, timeoutMs: number
   return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal
 }
 
+async function requestHeaders(options: RequestInit, accept = 'application/json') {
+  const headers = new Headers(options.headers)
+  if (!headers.has('Accept')) headers.set('Accept', accept)
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  const token = await authTokenProvider?.()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  return headers
+}
+
 async function sessionHasEnded() {
   if (!sessionCheckInFlight) {
     sessionCheckInFlight = fetchWithConnectionStatus(`${apiBaseUrl()}/auth/me`, {
       credentials: 'include',
       signal: requestSignal(null, 15_000),
-      headers: { Accept: 'application/json' },
+      headers: await requestHeaders({}),
     })
       .then((response) => response.status === 401)
       .catch(() => false)
@@ -101,11 +111,7 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
       ...options,
       credentials: 'include',
       signal: requestSignal(options.signal, 15_000),
-      headers: {
-        Accept: 'application/json',
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...options.headers,
-      },
+      headers: await requestHeaders(options),
     })
 
     if (!response.ok) {
@@ -147,11 +153,17 @@ export function invalidateRequestCache() {
   getRequestsInFlight.clear()
 }
 
+export function setAuthTokenProvider(provider: (() => Promise<string | null>) | null) {
+  authTokenProvider = provider
+  sessionCheckInFlight = null
+  invalidateRequestCache()
+}
+
 export async function downloadFile(path: string, fallbackFilename: string) {
   const response = await fetchWithConnectionStatus(`${apiBaseUrl()}${path}`, {
     credentials: 'include',
     signal: requestSignal(null, 60_000),
-    headers: { Accept: 'text/csv' },
+    headers: await requestHeaders({}, 'text/csv'),
   })
 
   if (!response.ok) {

@@ -39,7 +39,8 @@ if test "$environment" = production; then
     /opt/neurocrop-backend/.chirpstack_application_id \
     /opt/neurocrop-backend/.chirpstack_device_profile_id \
     /opt/neurocrop-backend/.default_otaa_app_key \
-    /opt/neurocrop-backend/.resend_api_key
+    /opt/neurocrop-backend/.resend_api_key \
+    /opt/neurocrop-backend/.clerk_secret_key
   do
     prepare_secret "$secret_file"
   done

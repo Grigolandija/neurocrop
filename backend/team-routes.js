@@ -13,6 +13,7 @@ import {
   sessionCookieOptions,
   verifyUserPassword
 } from './auth-users.js';
+import { updateClerkSessionOrganization } from './clerk-auth.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
 import { invitationState } from './invitation-state.js';
 
@@ -179,13 +180,21 @@ export function registerTeamRoutes(app) {
         });
       }
 
-      client = await pool.connect();
-      await client.query('BEGIN');
-      const execute = client.query.bind(client);
-      await revokeUserSession(req.cookies?.neurocrop_session, execute);
-      const session = await createUserSession(req.user.id, membership.organization_id, execute);
-      await client.query('COMMIT');
-      res.cookie('neurocrop_session', session.token, sessionCookieOptions());
+      if (req.authProvider === 'clerk') {
+        await updateClerkSessionOrganization(
+          req.clerkSessionId,
+          req.user.id,
+          membership.organization_id
+        );
+      } else {
+        client = await pool.connect();
+        await client.query('BEGIN');
+        const execute = client.query.bind(client);
+        await revokeUserSession(req.cookies?.neurocrop_session, execute);
+        const session = await createUserSession(req.user.id, membership.organization_id, execute);
+        await client.query('COMMIT');
+        res.cookie('neurocrop_session', session.token, sessionCookieOptions());
+      }
 
       res.json({
         user: {
