@@ -118,7 +118,7 @@ export const DEFAULT_HEATMAP_SETTINGS: HeatmapSettings = {
   metric: 'air-temperature',
   interpolationMethod: 'idw',
   idwPower: 2,
-  cellSizeM: 0.5,
+  cellSizeM: 0.25,
   nearestSensorCount: 4,
   minimumSensorCount: 2,
   maxInfluenceDistanceM: 15,
