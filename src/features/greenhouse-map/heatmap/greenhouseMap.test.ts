@@ -7,7 +7,7 @@ import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_C
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
-import { bandedColorAt, bandedGradient, colorAt } from './heatmapColorScale'
+import { bandedGradient, colorAt, esriTemperatureColorAt, esriTemperatureGradient } from './heatmapColorScale'
 import { METRICS } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
@@ -97,10 +97,11 @@ describe('environment colour scale', () => {
       expect(contourInterval / colorInterval).toBeCloseTo(Math.round(contourInterval / colorInterval))
     })
     const colors = METRICS['air-temperature'].colors
-    expect(COLOR_INTERVALS['air-temperature']).toBe(0.25)
+    expect(COLOR_INTERVALS['air-temperature']).toBe(1)
     expect(COLOR_INTERVALS['relative-humidity']).toBe(1)
-    expect(bandedColorAt(22.99, 20, 30, colors, 0.25)).not.toEqual(bandedColorAt(23.01, 20, 30, colors, 0.25))
-    expect(bandedGradient(20, 25, colors, 0.25).match(/rgb\(/g)).toHaveLength(40)
+    expect(esriTemperatureColorAt(22.99)).not.toEqual(esriTemperatureColorAt(23.01))
+    expect(esriTemperatureGradient(20, 25).match(/rgb\(/g)).toHaveLength(10)
+    expect(bandedGradient(20, 25, colors, 1).match(/rgb\(/g)).toHaveLength(10)
   })
 })
 

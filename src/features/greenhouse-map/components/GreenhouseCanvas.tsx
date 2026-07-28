@@ -5,7 +5,7 @@ import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Tra
 import '../../../styles/greenhouse-map-test.css'
 import { COLOR_INTERVALS, createContourPaths, getAdaptiveContourInterval, isTemperatureMetric, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
 import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
-import { bandedGradient } from '../heatmap/heatmapColorScale'
+import { bandedGradient, esriTemperatureGradient } from '../heatmap/heatmapColorScale'
 import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
@@ -179,6 +179,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           setHeatmap({
             canvas: renderHeatmapCanvas(
               grid,
+              metric,
               METRICS[metric].colors,
               COLOR_INTERVALS[metric],
               map.heatmapSettings.opacity,
@@ -334,7 +335,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     {heatmap ? <>
       <div className="gh-legend-scale">
         <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)} title={fixedTemperatureContours ? tr('Temperature contours use a fixed 1 °C interval.', 'Temperatūros izolinijos visada braižomos 1 °C žingsniu.') : tr('Contour spacing adapts to the measured range and data coverage.', 'Izolinijų žingsnis prisitaiko prie matuojamo diapazono ir duomenų padengimo.')}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {heatmap.contourInterval} {METRICS[map.heatmapSettings.metric].unit}</button>
-        <div className="gh-color-scale" style={{ background: bandedGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric].colors, COLOR_INTERVALS[map.heatmapSettings.metric]) }} />
+        <div className="gh-color-scale" style={{ background: fixedTemperatureContours ? esriTemperatureGradient(heatmap.min, heatmap.max) : bandedGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric].colors, COLOR_INTERVALS[map.heatmapSettings.metric]) }} />
         <div className="gh-legend-range"><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>
       </div>
       <div className="gh-legend-meta">
