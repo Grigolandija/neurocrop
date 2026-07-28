@@ -1428,6 +1428,8 @@ test('platform user deletion removes external identity and every user-owned acce
   assert.match(route, /DELETE FROM invitations WHERE lower\(email\)=lower\(\$1\)/);
   assert.match(route, /DELETE FROM organization_requests WHERE user_id=\$1/);
   assert.match(route, /DELETE FROM organization_memberships WHERE user_id=\$1/);
+  assert.doesNotMatch(route, /SOLE_ORGANIZATION_OWNER/);
+  assert.doesNotMatch(route, /Assign another owner/);
   assert.ok(clerkDelete >= 0);
   assert.ok(localDelete >= 0);
   assert.ok(clerkDelete < localDelete, 'Clerk identity must be removed before the local account can be deleted');

@@ -907,30 +907,6 @@ export function registerPlatformOrganizationRoutes(app) {
         return res.status(409).json({ error: { code: 'PROTECTED_ACCOUNT', message: 'Super administrator account cannot be deleted' } });
       }
 
-      const { rows: soleOwnerRows } = await client.query(
-        `SELECT o.id, o.name
-         FROM organization_memberships membership
-         JOIN organizations o ON o.id=membership.organization_id
-         WHERE membership.user_id=$1 AND membership.role='owner'
-           AND NOT EXISTS (
-             SELECT 1 FROM organization_memberships other
-             WHERE other.organization_id=membership.organization_id
-               AND other.user_id<>membership.user_id
-               AND other.role='owner'
-           )
-         LIMIT 1`,
-        [userId]
-      );
-      if (soleOwnerRows[0]) {
-        await client.query('ROLLBACK');
-        return res.status(409).json({
-          error: {
-            code: 'SOLE_ORGANIZATION_OWNER',
-            message: `Assign another owner to ${soleOwnerRows[0].name} before deleting this user`
-          }
-        });
-      }
-
       const clerkCleanup = await deleteClerkUserIdentity({
         clerkUserId: user.clerk_user_id,
         email: user.email
