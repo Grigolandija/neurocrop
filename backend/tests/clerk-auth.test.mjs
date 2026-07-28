@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import { clerkAuthEnabled, clerkAuthInternals } from '../clerk-auth.js';
+
+const teamRoutesSource = fs.readFileSync(new URL('../team-routes.js', import.meta.url), 'utf8');
 
 test('extracts only a Bearer session token', () => {
   assert.equal(
@@ -79,5 +82,42 @@ test('derives safe onboarding names for a new Clerk identity', () => {
   assert.equal(
     clerkAuthInternals.organizationNameFromClerkUser({}, 'New grower'),
     'New grower workspace'
+  );
+});
+
+test('keeps invitation lookup public and reserves Clerk identity for acceptance', () => {
+  assert.equal(
+    clerkAuthInternals.isInvitationStatusRequest({
+      method: 'GET',
+      path: '/auth/invitations/invite-token'
+    }),
+    true
+  );
+  assert.equal(
+    clerkAuthInternals.isInvitationAcceptanceRequest({
+      method: 'POST',
+      path: '/auth/accept-invite'
+    }),
+    true
+  );
+  assert.equal(
+    clerkAuthInternals.isInvitationAcceptanceRequest({
+      method: 'GET',
+      path: '/auth/accept-invite'
+    }),
+    false
+  );
+});
+
+test('Clerk invitation acceptance verifies email and selects the invited organization', () => {
+  const routeStart = teamRoutesSource.indexOf("app.post('/auth/accept-invite'");
+  const route = teamRoutesSource.slice(routeStart);
+  assert.match(route, /req\.authProvider === 'clerk'/);
+  assert.match(route, /INVITATION_EMAIL_MISMATCH/);
+  assert.match(route, /INSERT INTO organization_memberships/);
+  assert.match(route, /updateClerkSessionOrganization/);
+  assert.ok(
+    route.indexOf('updateClerkSessionOrganization') < route.indexOf("client.query('COMMIT')"),
+    'The invited organization must be selected atomically before committing acceptance'
   );
 });

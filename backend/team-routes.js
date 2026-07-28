@@ -526,6 +526,134 @@ export function registerTeamRoutes(app) {
         return res.status(error.status).json({ error: { code: error.code, message: error.message } });
       }
 
+      if (req.authProvider === 'clerk') {
+        const verifiedEmail = normalizeEmail(req.clerkVerifiedEmail);
+        if (!verifiedEmail || verifiedEmail !== normalizeEmail(invitation.email)) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            error: {
+              code: 'INVITATION_EMAIL_MISMATCH',
+              message: `Sign in with the invited email address ${invitation.email}`
+            }
+          });
+        }
+
+        const linkedResult = await client.query(
+          `SELECT id, email, display_name, is_active, clerk_user_id
+           FROM users
+           WHERE clerk_user_id=$1
+           LIMIT 1
+           FOR UPDATE`,
+          [req.clerkUserId]
+        );
+        const emailResult = await client.query(
+          `SELECT id, email, display_name, is_active, clerk_user_id
+           FROM users
+           WHERE lower(email)=lower($1)
+           LIMIT 1
+           FOR UPDATE`,
+          [verifiedEmail]
+        );
+        const linkedAccount = linkedResult.rows[0];
+        const emailAccount = emailResult.rows[0];
+        if (linkedAccount && emailAccount && linkedAccount.id !== emailAccount.id) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            error: {
+              code: 'ACCOUNT_LINK_CONFLICT',
+              message: 'This invitation email is already connected to another NeuroCrop account'
+            }
+          });
+        }
+
+        let account = linkedAccount || emailAccount;
+        if (account?.clerk_user_id && account.clerk_user_id !== req.clerkUserId) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            error: {
+              code: 'ACCOUNT_LINK_CONFLICT',
+              message: 'This NeuroCrop account is already linked to another identity'
+            }
+          });
+        }
+        if (account && !account.is_active) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            error: { code: 'ACCOUNT_DISABLED', message: 'This account is disabled' }
+          });
+        }
+
+        if (!account) {
+          const { rows } = await client.query(
+            `INSERT INTO users (
+               id, email, display_name, password_hash, clerk_user_id,
+               is_active, last_login_at, created_at, updated_at
+             )
+             VALUES ($1, $2, $3, $4, $5, true, now(), now(), now())
+             RETURNING id, email, display_name, is_active, clerk_user_id`,
+            [
+              randomUUID(),
+              verifiedEmail,
+              String(req.clerkDisplayName || verifiedEmail.split('@')[0]).trim(),
+              hashUserPassword(randomBytes(48).toString('base64url')),
+              req.clerkUserId
+            ]
+          );
+          account = rows[0];
+        } else {
+          const { rows } = await client.query(
+            `UPDATE users
+             SET clerk_user_id=$1,
+                 last_login_at=now(),
+                 updated_at=now()
+             WHERE id=$2 AND (clerk_user_id IS NULL OR clerk_user_id=$1)
+             RETURNING id, email, display_name, is_active, clerk_user_id`,
+            [req.clerkUserId, account.id]
+          );
+          account = rows[0];
+          if (!account) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({
+              error: { code: 'ACCOUNT_LINK_CONFLICT', message: 'The NeuroCrop account could not be linked' }
+            });
+          }
+        }
+
+        await client.query(
+          `INSERT INTO organization_memberships (organization_id, user_id, role)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (organization_id, user_id)
+           DO UPDATE SET role=EXCLUDED.role`,
+          [invitation.organization_id, account.id, invitation.role]
+        );
+        const acceptedInvitation = await client.query(
+          `UPDATE invitations SET accepted_at=now()
+           WHERE id=$1 AND accepted_at IS NULL AND revoked_at IS NULL
+           RETURNING id`,
+          [invitation.id]
+        );
+        if (!acceptedInvitation.rows[0]) throw new Error('Invitation was already accepted');
+
+        await updateClerkSessionOrganization(
+          req.clerkSessionId,
+          account.id,
+          invitation.organization_id,
+          client.query.bind(client)
+        );
+        await client.query('COMMIT');
+        invitationAcceptanceLimiter.reset(attemptKey);
+        return res.status(201).json({
+          user: {
+            id: account.id,
+            email: account.email,
+            name: account.display_name,
+            role: invitation.role,
+            organizationId: invitation.organization_id,
+            organizationName: invitation.organization_name
+          }
+        });
+      }
+
       let account = await findUserForLogin(invitation.email, execute);
       if (account) {
         if (!account.is_active || !verifyUserPassword(password, account.password_hash)) {

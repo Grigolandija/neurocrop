@@ -3,9 +3,19 @@ import { useInterfaceLanguage } from '../i18n'
 
 type ClerkLoginScreenProps = {
   mode?: 'sign-in' | 'sign-up'
+  redirectUrl?: string
+  signInUrl?: string
+  signUpUrl?: string
+  initialEmail?: string
 }
 
-export default function ClerkLoginScreen({ mode = 'sign-in' }: ClerkLoginScreenProps) {
+export default function ClerkLoginScreen({
+  mode = 'sign-in',
+  redirectUrl = '/',
+  signInUrl = '/',
+  signUpUrl = '/sign-up',
+  initialEmail,
+}: ClerkLoginScreenProps) {
   const { language, setLanguage, t } = useInterfaceLanguage()
   const isSignUp = mode === 'sign-up'
   const appearance = {
@@ -39,9 +49,23 @@ export default function ClerkLoginScreen({ mode = 'sign-in' }: ClerkLoginScreenP
             <button type="button" data-language-option="en" data-active={language === 'en'} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
           </div>
           {isSignUp
-            ? <SignUp routing="hash" signInUrl="/" fallbackRedirectUrl="/" appearance={appearance} />
+            ? <SignUp
+                routing="hash"
+                signInUrl={signInUrl}
+                forceRedirectUrl={redirectUrl}
+                fallbackRedirectUrl={redirectUrl}
+                initialValues={initialEmail ? { emailAddress: initialEmail } : undefined}
+                appearance={appearance}
+              />
             : <>
-                <SignIn routing="hash" signUpUrl="/sign-up" fallbackRedirectUrl="/" appearance={appearance} />
+                <SignIn
+                  routing="hash"
+                  signUpUrl={signUpUrl}
+                  forceRedirectUrl={redirectUrl}
+                  fallbackRedirectUrl={redirectUrl}
+                  initialValues={initialEmail ? { emailAddress: initialEmail } : undefined}
+                  appearance={appearance}
+                />
                 <p className="clerk-recovery-note">
                   {language === 'lt'
                     ? 'Pamiršote slaptažodį? Įveskite el. paštą ir spauskite „Continue“ – kitame žingsnyje pasirinkite „Forgot password?“.'

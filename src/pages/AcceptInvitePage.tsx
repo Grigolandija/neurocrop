@@ -1,5 +1,7 @@
 import { translateInterfaceText as tx } from '../i18n'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useAuth } from '@clerk/react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import ClerkLoginScreen from '../components/ClerkLoginScreen'
 import { AuthLayout, BackToSignIn } from '../features/auth/AuthLayout'
 import { neurocropApi } from '../services/api/neurocropApi'
 import { useInterfaceLanguage } from '../i18n'
@@ -23,7 +25,104 @@ const statusCopy: Record<Exclude<Invitation['status'], 'pending'>, { title: stri
   error: { title: 'Invitation could not be checked', description: 'NeuroCrop could not reach the service. Check your connection and try again.', icon: 'fa-cloud-arrow-down' },
 }
 
-export default function AcceptInvitePage() {
+function ClerkAcceptInvitePage() {
+  const { language, t } = useInterfaceLanguage()
+  const params = new URLSearchParams(window.location.search)
+  const token = params.get('token') || ''
+  const mode = params.get('mode') === 'sign-in' ? 'sign-in' : 'sign-up'
+  const inviteUrl = token ? `/accept-invite?token=${encodeURIComponent(token)}` : '/accept-invite'
+  const signInUrl = `${inviteUrl}${inviteUrl.includes('?') ? '&' : '?'}mode=sign-in`
+  const { isLoaded, isSignedIn, signOut } = useAuth()
+  const [invitation, setInvitation] = useState<Invitation>({ status: token ? 'loading' : 'invalid' })
+  const [error, setError] = useState('')
+  const acceptanceStarted = useRef(false)
+
+  useEffect(() => {
+    let active = true
+    if (!token) return () => { active = false }
+    neurocropApi.getInvitationStatus(token)
+      .then((response) => {
+        if (!active) return
+        const next = (response as { invitation?: Invitation }).invitation
+        setInvitation(next?.status ? next : { status: 'invalid' })
+      })
+      .catch(() => {
+        if (active) setInvitation({ status: 'error' })
+      })
+    return () => { active = false }
+  }, [token])
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !token || invitation.status !== 'pending' || acceptanceStarted.current) return
+    acceptanceStarted.current = true
+    let active = true
+    void neurocropApi.acceptInvitation({ token })
+      .then(() => {
+        if (active) window.location.assign('/')
+      })
+      .catch((reason) => {
+        if (!active) return
+        setError(reason instanceof Error ? reason.message : t('We could not accept this invitation.'))
+        acceptanceStarted.current = false
+      })
+    return () => { active = false }
+  }, [invitation.status, isLoaded, isSignedIn, t, token])
+
+  if (invitation.status === 'pending' && isLoaded && !isSignedIn) {
+    return (
+      <ClerkLoginScreen
+        mode={mode}
+        redirectUrl={inviteUrl}
+        signInUrl={signInUrl}
+        signUpUrl={inviteUrl}
+        initialEmail={invitation.email}
+      />
+    )
+  }
+
+  const inactiveCopy = invitation.status === 'pending' ? null : statusCopy[invitation.status]
+  const title = invitation.status === 'pending'
+    ? error
+      ? t('Invitation could not be accepted')
+      : `${t('Join')} ${invitation.organizationName || t('organization')}`
+    : t(inactiveCopy?.title || 'Invitation')
+  const description = invitation.status === 'pending'
+    ? error
+      ? error
+      : language === 'lt'
+        ? `Jungiama patvirtinta ${invitation.email || ''} paskyra prie organizacijos.`
+        : `Connecting the verified ${invitation.email || ''} account to the organization.`
+    : t(inactiveCopy?.description || '')
+
+  return (
+    <AuthLayout eyebrow="Workspace invitation" title={tx("Join your farm workspace.")} description="Use a verified invitation to create your account or connect an existing NeuroCrop account." panelTitleId="acceptInviteTitle" panelTitle={title} panelDescription={description}>
+      <div className="mt-8 rounded-2xl border border-ink/10 bg-white/70 p-5" role={error || invitation.status !== 'pending' ? 'alert' : 'status'}>
+        <i className={`fa-solid ${error ? 'fa-triangle-exclamation' : inactiveCopy?.icon || 'fa-spinner fa-spin'} text-xl text-pine`} aria-hidden="true" />
+        <p className="mt-3 text-sm leading-6 text-ink/64">{description}</p>
+        {invitation.organizationName ? <p className="mt-3 text-xs font-semibold text-ink/48">{t('Organization:')} {invitation.organizationName}</p> : null}
+        {error ? (
+          <button
+            type="button"
+            className="login-submit mt-5"
+            onClick={() => {
+              void signOut().then(() => window.location.assign(inviteUrl))
+            }}
+          >
+            {language === 'lt' ? 'Atsijungti ir bandyti kitu el. paštu' : 'Sign out and try another email'}
+          </button>
+        ) : null}
+        {invitation.status === 'accepted' && isSignedIn ? (
+          <button type="button" className="login-submit mt-5" onClick={() => window.location.assign('/')}>
+            {language === 'lt' ? 'Atidaryti NeuroCrop' : 'Open NeuroCrop'}
+          </button>
+        ) : null}
+      </div>
+      {!isSignedIn ? <BackToSignIn /> : null}
+    </AuthLayout>
+  )
+}
+
+function LegacyAcceptInvitePage() {
   const { language, t } = useInterfaceLanguage()
   const token = new URLSearchParams(window.location.search).get('token') || ''
   const [invitation, setInvitation] = useState<Invitation>({ status: token ? 'loading' : 'invalid' })
@@ -105,4 +204,8 @@ export default function AcceptInvitePage() {
       <BackToSignIn />
     </AuthLayout>
   )
+}
+
+export default function AcceptInvitePage({ clerkEnabled = false }: { clerkEnabled?: boolean }) {
+  return clerkEnabled ? <ClerkAcceptInvitePage /> : <LegacyAcceptInvitePage />
 }

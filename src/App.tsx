@@ -122,7 +122,7 @@ export default function App() {
       <Routes>
         <Route path="/sign-up" element={<RegistrationRoute />} />
         <Route path="/register" element={<RegistrationRoute />} />
-        <Route path="/accept-invite" element={<Suspense fallback={null}><AcceptInvitePage /></Suspense>} />
+        <Route path="/accept-invite" element={<Suspense fallback={null}><AcceptInvitePage clerkEnabled={clerkConfigured} /></Suspense>} />
         <Route path="/forgot-password" element={clerkConfigured ? <ClerkLoginScreen /> : <Suspense fallback={null}><ForgotPasswordPage /></Suspense>} />
         <Route path="/reset-password" element={clerkConfigured ? <Navigate to="/" replace /> : <Suspense fallback={null}><ResetPasswordPage /></Suspense>} />
         <Route path="/greenhouse-map-test" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />

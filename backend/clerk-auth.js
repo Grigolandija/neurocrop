@@ -52,6 +52,14 @@ function organizationNameFromClerkUser(clerkUser, displayName) {
   return configured || `${displayName} workspace`;
 }
 
+function isInvitationStatusRequest(req) {
+  return req.method === 'GET' && /^\/auth\/invitations\/[^/]+$/.test(String(req.path || ''));
+}
+
+function isInvitationAcceptanceRequest(req) {
+  return req.method === 'POST' && String(req.path || '') === '/auth/accept-invite';
+}
+
 async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query) {
   const linked = await execute(
     `SELECT id, email, display_name, is_active, is_platform_admin, is_super_admin
@@ -216,6 +224,25 @@ export async function resolveOptionalClerkAuth(req, res, next) {
       });
     }
 
+    if (isInvitationStatusRequest(req)) return next();
+
+    if (isInvitationAcceptanceRequest(req)) {
+      const clerk = createClerkClient({ secretKey });
+      const clerkUser = await clerk.users.getUser(clerkUserId);
+      const verifiedEmail = verifiedEmailFromClerkUser(clerkUser);
+      if (!verifiedEmail) {
+        return res.status(403).json({
+          error: { code: 'CLERK_EMAIL_NOT_VERIFIED', message: 'A verified email address is required' }
+        });
+      }
+      req.authProvider = 'clerk';
+      req.clerkSessionId = sessionId;
+      req.clerkUserId = clerkUserId;
+      req.clerkVerifiedEmail = verifiedEmail;
+      req.clerkDisplayName = displayNameFromClerkUser(clerkUser, verifiedEmail);
+      return next();
+    }
+
     const localUser = await localUserForClerkIdentity(clerkUserId, secretKey);
     if (!localUser.is_active) {
       return res.status(403).json({
@@ -265,6 +292,8 @@ export const clerkAuthInternals = {
   clerkSecretKey,
   configuredAuthorizedParties,
   displayNameFromClerkUser,
+  isInvitationAcceptanceRequest,
+  isInvitationStatusRequest,
   organizationNameFromClerkUser,
   verifiedEmailFromClerkUser
 };
