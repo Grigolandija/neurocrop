@@ -57,6 +57,15 @@ describe('raster IDW interpolation', () => {
     expect(result.usedSensorCount).toBe(1)
   })
 
+  it('shows conservative local coverage close to a single fresh sensor', () => {
+    const result = interpolateRasterCell([point('one', 5, 5, 24)], 7, 5, options())
+    expect(result.value).toBe(24)
+    expect(result.usedSensorCount).toBe(1)
+    expect(result.nearestDistanceM).toBe(2)
+    expect(result.confidence).toBeGreaterThan(0.4)
+    expect(result.confidence).toBeLessThan(0.7)
+  })
+
   it('reports lower confidence with two sensors than with dense coverage', () => {
     const sparsePoints = [
       point('a', 2, 2, 20),
@@ -197,7 +206,7 @@ describe('raster IDW interpolation', () => {
     expect(Math.abs(inside.confidence - outside.confidence)).toBeLessThan(0.01)
   })
 
-  it('does not interpolate through a closed partition', () => {
+  it('does not let sensors across a closed partition affect local single-sensor coverage', () => {
     const points = [
       point('left', 2, 5, 20),
       point('right-a', 7, 3, 80),
@@ -214,7 +223,7 @@ describe('raster IDW interpolation', () => {
       ],
     }
     const result = interpolateRasterCell(points, 3, 5, options({ barriers: [barrier] }))
-    expect(result.value).toBeNull()
+    expect(result.value).toBe(20)
     expect(result.usedSensorCount).toBe(1)
   })
 

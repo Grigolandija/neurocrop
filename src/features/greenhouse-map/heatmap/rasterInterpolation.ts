@@ -173,6 +173,20 @@ export function interpolateRasterCell(
     }
   }
   if (candidates.length < options.minimumSensorCount) {
+    const localSingleSensorRadiusM = Math.min(5, options.maxInfluenceDistanceM)
+    if (nearest && candidates.length === 1 && nearest.distanceM < localSingleSensorRadiusM) {
+      const rawValue = nearest.point.value
+      const value = !options.valueBounds
+        ? rawValue
+        : Math.max(options.valueBounds[0], Math.min(options.valueBounds[1], rawValue))
+      return {
+        value,
+        confidence: confidenceFor([nearest], options) * distanceTaper(nearest.distanceM, localSingleSensorRadiusM),
+        usedSensorCount: 1,
+        nearestSensorIndex: nearest.pointIndex,
+        nearestDistanceM: nearest.distanceM,
+      }
+    }
     return {
       value: null,
       confidence: 0,
