@@ -57,6 +57,13 @@ export function pointInPolygon(point: RasterPoint, polygon: RasterPolygon): bool
   for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current++) {
     const a = polygon[current]
     const b = polygon[previous]
+    const cross = (b.xM - a.xM) * (point.yM - a.yM) - (b.yM - a.yM) * (point.xM - a.xM)
+    const onBoundary = Math.abs(cross) <= EPSILON
+      && point.xM >= Math.min(a.xM, b.xM) - EPSILON
+      && point.xM <= Math.max(a.xM, b.xM) + EPSILON
+      && point.yM >= Math.min(a.yM, b.yM) - EPSILON
+      && point.yM <= Math.max(a.yM, b.yM) + EPSILON
+    if (onBoundary) return true
     const crosses = (a.yM > point.yM) !== (b.yM > point.yM)
       && point.xM < (b.xM - a.xM) * (point.yM - a.yM) / (b.yM - a.yM || EPSILON) + a.xM
     if (crosses) inside = !inside
@@ -230,6 +237,11 @@ export function rasterDimensions(widthM: number, lengthM: number, requestedCellS
     cellSizeM *= Math.sqrt(width * height / MAX_RASTER_CELLS)
     width = Math.max(1, Math.ceil(widthM / cellSizeM))
     height = Math.max(1, Math.ceil(lengthM / cellSizeM))
+    while (width * height > MAX_RASTER_CELLS) {
+      cellSizeM *= 1.002
+      width = Math.max(1, Math.ceil(widthM / cellSizeM))
+      height = Math.max(1, Math.ceil(lengthM / cellSizeM))
+    }
   }
   return { width, height, cellWidthM: widthM / width, cellHeightM: lengthM / height }
 }
