@@ -83,6 +83,17 @@ test('Area Map routes are authenticated, role protected and organization scoped'
   assert.match(source, /FROM measurement_rollups rollup/);
   assert.match(source, /NODE_AREA_MISMATCH/);
   assert.match(source, /MAP_REVISION_CONFLICT/);
+  assert.match(source, /AREA_MAP_DISABLED/);
+  assert.match(source, /map_enabled/);
+});
+
+test('Area Map activation migration defaults new Areas off and preserves configured maps', async () => {
+  const migration = await fs.readFile(new URL('../migrations/0022_area_map_activation.sql', import.meta.url), 'utf8');
+  assert.match(migration, /map_enabled BOOLEAN NOT NULL DEFAULT false/);
+  assert.match(migration, /UPDATE areas a/);
+  assert.match(migration, /FROM greenhouse_maps gm/);
+  assert.match(migration, /gm\.organization_id=a\.organization_id/);
+  assert.match(migration, /gm\.area_id=a\.id/);
 });
 
 test('greenhouse map migration creates a tenant-scoped cascading record', async () => {

@@ -148,7 +148,7 @@ function sanitizeMapForStorage(map, areaId) {
 
 async function getArea(organizationId, areaId) {
   const { rows } = await query(
-    `SELECT id, name, kind, location
+    `SELECT id, name, kind, location, map_enabled
      FROM areas
      WHERE organization_id=$1 AND id=$2`,
     [organizationId, areaId]
@@ -261,6 +261,9 @@ export function registerGreenhouseMapRoutes(app) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A valid DevEUI and sectionId are required' } });
     }
     try {
+      const area = await getArea(organizationId, areaId);
+      if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
+      if (!area.map_enabled) return res.status(409).json({ error: { code: 'AREA_MAP_DISABLED', message: 'Area Map is not enabled for this Area' } });
       const { rows } = await query(
         `UPDATE nodes n
          SET section_id=s.id, area_id=s.area_id
@@ -302,6 +305,7 @@ export function registerGreenhouseMapRoutes(app) {
       const stored = mapResult.rows[0] || null;
       res.json({
         area: { id: area.id, name: area.name, kind: area.kind, location: area.location },
+        mapEnabled: Boolean(area.map_enabled),
         map: stored?.map_data || null,
         revision: stored?.revision || 0,
         updatedAt: stored?.updated_at || null,
@@ -327,6 +331,7 @@ export function registerGreenhouseMapRoutes(app) {
     try {
       const area = await getArea(organizationId, areaId);
       if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
+      if (!area.map_enabled) return res.status(409).json({ error: { code: 'AREA_MAP_DISABLED', message: 'Area Map is not enabled for this Area' } });
       const [{ rows: nodeRows }, layouts] = await Promise.all([
         query(
           `SELECT lower(dev_eui) AS dev_eui
@@ -374,6 +379,7 @@ export function registerGreenhouseMapRoutes(app) {
     try {
       const area = await getArea(organizationId, areaId);
       if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
+      if (!area.map_enabled) return res.status(409).json({ error: { code: 'AREA_MAP_DISABLED', message: 'Enable Area Map before saving a plan' } });
       const sanitizedMap = sanitizeMapForStorage(req.body.map, areaId);
       const sensorDevEuis = [...new Set(sanitizedMap.objects
         .map((object) => String(object.metadata?.sensor?.devEui || '').trim().toLowerCase())

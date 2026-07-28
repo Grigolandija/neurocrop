@@ -108,6 +108,7 @@ describe('Area Map API context integration', () => {
     }
     const context = {
       area: { id: 'area-1', name: 'Production greenhouse' },
+      mapEnabled: true,
       map,
       revision: 3,
       updatedAt: '2026-07-25T12:00:00Z',

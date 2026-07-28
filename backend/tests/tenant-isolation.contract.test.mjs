@@ -31,6 +31,7 @@ const tenantRoutes = [
   "app.get('/areas'",
   "app.post('/areas'",
   "app.patch('/areas/:areaId'",
+  "app.patch('/areas/:areaId/map-status'",
   "app.delete('/areas/:areaId'",
   "app.get('/sections'",
   "app.post('/sections'",
@@ -115,6 +116,14 @@ test('node deletion supports explicit history retention and permanent purge', ()
   assert.match(block, /await client\.query\('BEGIN'\)/);
   assert.match(block, /await client\.query\('COMMIT'\)/);
   assert.doesNotMatch(block, /NODE_HAS_HISTORY/);
+});
+
+test('Area map activation is opt-in, tenant scoped, and non-destructive', () => {
+  const block = routeBlock(apiSource, "app.patch('/areas/:areaId/map-status'");
+  assert.match(block, /typeof req\.body\?\.enabled !== 'boolean'/);
+  assert.match(block, /SET map_enabled=\$1/);
+  assert.match(block, /a\.organization_id=\$3/);
+  assert.doesNotMatch(block, /DELETE FROM greenhouse_maps/);
 });
 
 test('latest section readings retain timestamped last-known values after interruption', () => {

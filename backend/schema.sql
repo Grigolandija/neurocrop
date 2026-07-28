@@ -103,10 +103,12 @@ CREATE TABLE IF NOT EXISTS areas (
     name            TEXT NOT NULL,
     kind            TEXT NOT NULL DEFAULT 'Growing area',
     location        TEXT NOT NULL DEFAULT '',
+    map_enabled     BOOLEAN NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE areas ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'Growing area';
 ALTER TABLE areas ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT '';
+ALTER TABLE areas ADD COLUMN IF NOT EXISTS map_enabled BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS sections (
     id              TEXT PRIMARY KEY,

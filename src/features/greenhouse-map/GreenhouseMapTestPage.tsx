@@ -78,13 +78,19 @@ export default function GreenhouseMapTestPage() {
     Promise.all([areaMapRepository.listAreas()])
       .then(([nextAreas]) => {
         if (cancelled) return
-        setAreas(nextAreas)
         const requested = searchParams.get('area')
-        const selected = nextAreas.find((area) => area.id === requested)?.id || nextAreas[0]?.id || ''
+        const requestedArea = nextAreas.find((area) => area.id === requested)
+        if (requestedArea && !requestedArea.mapEnabled) {
+          navigate('/areas', { replace: true })
+          return
+        }
+        const enabledAreas = nextAreas.filter((area) => area.mapEnabled)
+        setAreas(enabledAreas)
+        const selected = enabledAreas.find((area) => area.id === requested)?.id || enabledAreas[0]?.id || ''
         setActiveAreaId(selected)
         if (!selected) {
           setSyncState('error')
-          setSyncMessage(tr('Create an Area before opening Area Map Beta.', 'Prieš atidarydami erdvės žemėlapį sukurkite erdvę.'))
+          setSyncMessage(tr('Enable Area Map for an Area before opening it.', 'Prieš atidarydami žemėlapį įjunkite jį pasirinktai erdvei.'))
         }
       })
       .catch((error) => {
@@ -104,6 +110,10 @@ export default function GreenhouseMapTestPage() {
     areaMapRepository.load(activeAreaId)
       .then((context) => {
         if (cancelled) return
+        if (!context.mapEnabled) {
+          navigate('/areas', { replace: true })
+          return
+        }
         areaContextRef.current = context
         setAreaContext(context)
         revisionRef.current = context.revision
@@ -229,7 +239,7 @@ export default function GreenhouseMapTestPage() {
     if (!newArea.name.trim() || creatingArea) return
     setCreatingArea(true)
     void neurocropApi.createArea(newArea)
-      .then((payload) => {
+      .then(async (payload) => {
         const record = payload as { area?: Record<string, unknown> }
         const area = {
           id: String(record.area?.id || ''),
@@ -238,6 +248,7 @@ export default function GreenhouseMapTestPage() {
           location: String(record.area?.location || newArea.location),
         }
         if (!area.id) throw new Error(tr('Area was created without an id.', 'Erdvė sukurta be ID.'))
+        await neurocropApi.setAreaMapEnabled(area.id, true)
         setAreas([area])
         setActiveAreaId(area.id)
         setSearchParams({ area: area.id }, { replace: true })

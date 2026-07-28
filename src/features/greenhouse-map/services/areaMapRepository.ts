@@ -3,7 +3,7 @@ import { createDemoMap, DEFAULT_LAYERS } from '../demo'
 import { sensorMarkerSizeM } from '../geometry'
 import type { GreenhouseMap, GreenhouseObject, NodeStatus, SensorNodeMetadata } from '../model'
 
-export type AreaSummary = { id: string; name: string; kind?: string; location?: string }
+export type AreaSummary = { id: string; name: string; kind?: string; location?: string; mapEnabled?: boolean; mapConfigured?: boolean }
 export type AreaMapSection = {
   id: string
   name: string
@@ -29,6 +29,7 @@ export type AreaMapAction = {
 export type AreaMapNode = SensorNodeMetadata & { sectionId?: string; sectionName?: string }
 export type AreaMapContext = {
   area: AreaSummary
+  mapEnabled: boolean
   map: GreenhouseMap | null
   revision: number
   updatedAt: string | null
@@ -191,6 +192,7 @@ export const areaMapRepository = {
       name: String(area.name || 'Unnamed Area'),
       kind: text(area.kind),
       location: text(area.location),
+      mapEnabled: area.map_enabled === true || area.mapEnabled === true,
     })).filter((area) => area.id)
   },
   async load(areaId: string): Promise<AreaMapContext> {
@@ -223,7 +225,7 @@ export const areaMapRepository = {
       reason: String(action.reason || ''),
       priority: String(action.priority || 'today'),
     })).filter((action) => action.id)
-    return { ...payload, nodes: Array.isArray(payload.nodes) ? payload.nodes : [], sections, profiles, actions }
+    return { ...payload, mapEnabled: payload.mapEnabled === true, nodes: Array.isArray(payload.nodes) ? payload.nodes : [], sections, profiles, actions }
   },
   async loadHistory(areaId: string): Promise<AreaMapHistory> {
     const to = new Date()

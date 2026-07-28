@@ -78,6 +78,7 @@ export const neurocropApi = {
   getNodes: (sectionId?: string) => request(`/nodes${queryString({ sectionId })}`),
   createArea: (payload: Payload) => structuralMutation('/areas', { method: 'POST', body: json(payload) }),
   updateArea: (id: string, payload: Payload) => structuralMutation(`/areas/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
+  setAreaMapEnabled: (id: string, enabled: boolean) => structuralMutation(`/areas/${encoded(id)}/map-status`, { method: 'PATCH', body: json({ enabled }) }),
   deleteArea: (id: string, options: { keepSections?: boolean } = {}) => structuralMutation(`/areas/${encoded(id)}${queryString({ keepSections: options.keepSections ? 'true' : undefined })}`, { method: 'DELETE' }),
   createSection: (payload: Payload) => structuralMutation('/sections', { method: 'POST', body: json(payload) }),
   updateSection: (id: string, payload: Payload) => structuralMutation(`/sections/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),

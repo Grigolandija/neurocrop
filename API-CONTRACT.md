@@ -316,6 +316,11 @@ POST   /crop-profiles/:profileId/duplicate
 DELETE /crop-profiles/:profileId
 ```
 
+Kiekviena Area turi neprivalomą erdvinio žemėlapio funkciją. `mapEnabled`
+numatytoji reikšmė yra `false`, o `mapConfigured` parodo, ar jau yra išsaugotas
+žemėlapio planas. `PATCH /areas/:areaId/map-status` su `{ "enabled": true|false }`
+įjungia arba paslepia funkciją neištrindamas išsaugoto plano ar jo istorijos.
+
 `PATCH /nodes/:devEui` priima `name`, `sectionId` ir naują `devEui`. Keičiant
 `devEui`, matavimų istorija ir sensorių konfigūracija perkeliama kartu, o
 ChirpStack registracija atnaujinama į naują įrenginio identitetą.

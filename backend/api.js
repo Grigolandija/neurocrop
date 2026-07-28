@@ -829,7 +829,17 @@ app.get('/dashboard', requireAuth, async (req, res) => {
   try {
     const organizationId = getOrganizationId(req);
     const [areasResult, sectionsResult, nodesResult, profilesResult, measurementsResult] = await Promise.all([
-      query(`SELECT id, name FROM areas WHERE organization_id=$1 ORDER BY created_at ASC`, [organizationId]),
+      query(
+        `SELECT a.id, a.name, a.map_enabled,
+                EXISTS (
+                  SELECT 1 FROM greenhouse_maps gm
+                  WHERE gm.organization_id=a.organization_id AND gm.area_id=a.id
+                ) AS map_configured
+         FROM areas a
+         WHERE a.organization_id=$1
+         ORDER BY a.created_at ASC`,
+        [organizationId]
+      ),
       query(
         `SELECT id, area_id, name, crop_profile FROM sections
          WHERE organization_id=$1 ORDER BY created_at ASC`,
@@ -926,7 +936,13 @@ app.get('/dashboard', requireAuth, async (req, res) => {
           configuredMetrics: sectionState.configuredMetrics
         };
       });
-      return { id: area.id, name: area.name, zones };
+      return {
+        id: area.id,
+        name: area.name,
+        mapEnabled: Boolean(area.map_enabled),
+        mapConfigured: Boolean(area.map_configured),
+        zones
+      };
     });
 
     res.json({ sites });
@@ -939,7 +955,11 @@ app.get('/dashboard', requireAuth, async (req, res) => {
 app.get('/areas', requireAuth, async (req, res) => {
   try {
     const { rows } = await query(
-      `SELECT a.id, a.name, a.kind, a.location, a.created_at,
+      `SELECT a.id, a.name, a.kind, a.location, a.map_enabled, a.created_at,
+        EXISTS (
+          SELECT 1 FROM greenhouse_maps gm
+          WHERE gm.organization_id=a.organization_id AND gm.area_id=a.id
+        ) AS map_configured,
         COUNT(DISTINCT s.id)::int AS sections,
         COUNT(DISTINCT n.dev_eui)::int AS nodes
        FROM areas a
@@ -969,7 +989,7 @@ app.post('/areas', requireAuth, requireRole('owner', 'admin', 'grower'), async (
     const { rows } = await query(
       `INSERT INTO areas (id, organization_id, name, kind, location)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, organization_id, name, kind, location, created_at`,
+       RETURNING id, organization_id, name, kind, location, map_enabled, created_at`,
       [id, getOrganizationId(req), name, kind || 'Growing area', location]
     );
     res.status(201).json({ area: rows[0] });
@@ -993,13 +1013,45 @@ app.patch('/areas/:areaId', requireAuth, requireRole('owner', 'admin', 'grower')
            kind=COALESCE(NULLIF($2, ''), kind),
            location=COALESCE($3, location)
        WHERE id=$4 AND organization_id=$5
-       RETURNING id, organization_id, name, kind, location, created_at`,
+       RETURNING id, organization_id, name, kind, location, map_enabled, created_at`,
       [name, kind, location, req.params.areaId, getOrganizationId(req)]
     );
     if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
     res.json({ area: rows[0] });
   } catch (e) {
     console.error('[api] PATCH /areas/:areaId:', e.message);
+    res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  }
+});
+
+app.patch('/areas/:areaId/map-status', requireAuth, requireRole('owner', 'admin', 'grower'), async (req, res) => {
+  if (typeof req.body?.enabled !== 'boolean') {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'enabled must be a boolean' } });
+  }
+  try {
+    const organizationId = getOrganizationId(req);
+    const { rows } = await query(
+      `UPDATE areas a
+       SET map_enabled=$1
+       WHERE a.id=$2 AND a.organization_id=$3
+       RETURNING a.id, a.name, a.map_enabled,
+         EXISTS (
+           SELECT 1 FROM greenhouse_maps gm
+           WHERE gm.organization_id=a.organization_id AND gm.area_id=a.id
+         ) AS map_configured`,
+      [req.body.enabled, req.params.areaId, organizationId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
+    res.json({
+      area: {
+        id: rows[0].id,
+        name: rows[0].name,
+        mapEnabled: Boolean(rows[0].map_enabled),
+        mapConfigured: Boolean(rows[0].map_configured)
+      }
+    });
+  } catch (e) {
+    console.error('[api] PATCH /areas/:areaId/map-status:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
 });

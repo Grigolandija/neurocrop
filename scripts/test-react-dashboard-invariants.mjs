@@ -41,6 +41,7 @@ assert(!dashboard.includes("host.querySelector('[aria-busy=\"true\"]')"), 'Neste
 assert(main.includes("'vite:preloadError'"), 'The application must recover when a deployment removes a stale lazy chunk.')
 assert(apiClient.includes('await sessionHasEnded()'), 'A single protected endpoint must not sign out a still-valid session.')
 assert(overview.includes('ReadingsClimateMap'), 'Overview must retain its live climate map.')
+assert(overview.includes('activeAreaOption?.mapEnabled'), 'Overview must render the climate map only for Areas that explicitly enable it.')
 assert(readingsClimateMap.includes('if (!context.map)'), 'Overview must not render a generated climate map before an Area Map is saved.')
 assert(readingsClimateMap.includes('data-state="unconfigured"'), 'An Area without a saved map must render an explicit unconfigured state.')
 assert(!overview.includes('key={model.areaId}'), 'Area switching must not remount the full climate map.')

@@ -57,6 +57,8 @@ const demoDashboard = {
     {
       id: 'greenhouse-1',
       name: 'Greenhouse No. 1',
+      mapEnabled: true,
+      mapConfigured: true,
       zones: [
         { id: 'tomato-a-back', name: 'Tomato Block A, Rear', profile: 'Tomato · Vegetative', score: 78, conditionStatus: 'warning', sensorCount: 4 },
         { id: 'lettuce-rack-under', name: 'Lettuce Rack, Under Shelf', profile: 'Lettuce · Intensive growth', score: 86, conditionStatus: 'watch', sensorCount: 5 },
@@ -807,9 +809,12 @@ export default function OverviewWorkspace() {
       id: String(site.id),
       name: String(site.name || 'Unnamed Area'),
       sectionCount: Number(site.sectionCount ?? asArray(site.zones || site.sections).length),
+      mapEnabled: site.mapEnabled === true || site.map_enabled === true,
+      mapConfigured: site.mapConfigured === true || site.map_configured === true,
     })),
     [dashboard],
   )
+  const activeAreaOption = model ? areaOptions.find((area) => area.id === model.areaId) : undefined
 
   if (loadState === 'loading') return <section className="nc-overview-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><h1>{tx("Preparing your live overview")}</h1><p>{tx("Evaluating Sections against their active crop profiles.")}</p></section>
   if (loadState === 'error') return <section className="nc-overview-state" data-overview-heatmap-settled="true" role="alert"><i className="fa-solid fa-cloud-arrow-down" /><h1>{tx("Overview could not be loaded")}</h1><p>{error}</p><button type="button" onClick={() => setRefreshKey((value) => value + 1)}>{tx("Try again")}</button></section>
@@ -906,7 +911,7 @@ export default function OverviewWorkspace() {
 
   const overviewTone = stable ? 'stable' : model.priority ? 'action' : watchRows.length ? 'watch' : 'unknown'
 
-  return <div className={`nc-overview ${overviewTone}`} data-nc-react-workspace="overview">
+  return <div className={`nc-overview ${overviewTone}`} data-nc-react-workspace="overview" data-overview-heatmap-settled={!activeAreaOption?.mapEnabled ? 'true' : undefined}>
     <section className="nc-overview-stage">
       <div className="nc-overview-main">
         <section className="nc-overview-copy" aria-live="polite">
@@ -984,18 +989,18 @@ export default function OverviewWorkspace() {
         <button type="button" onClick={openAreaEvidence}>{tx("Open Area analysis")} <i className="fa-solid fa-arrow-right" /></button>
       </footer>
     </section>
-    <section className="nc-overview-insights" aria-label={tx("Operational overview")}>
+    {activeAreaOption?.mapEnabled ? <section className="nc-overview-insights" aria-label={tx("Operational overview")}>
       <article className="nc-overview-climate-card">
         <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong></div>}>
           <ReadingsClimateMap
             areaId={model.areaId}
             refreshToken={refreshKey}
             presentation="overview"
-            areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label={tx("Choose Area for climate snapshot")}>{areaOptions.map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
+            areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label={tx("Choose Area for climate snapshot")}>{areaOptions.filter((area) => area.mapEnabled).map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
           />
         </Suspense>
       </article>
-    </section>
+    </section> : null}
     {evidenceOpen ? <EvidenceDrawer model={model} row={selectedEvidenceRow} onClose={() => setEvidenceOpen(false)} /> : null}
     {actionOpen && reviewActions.length ? <ActionWorkflow actions={reviewActions} rows={reviewRows} areaName={model.areaName} onClose={() => { setActionOpen(false); setRefreshKey((value) => value + 1) }} /> : null}
   </div>
