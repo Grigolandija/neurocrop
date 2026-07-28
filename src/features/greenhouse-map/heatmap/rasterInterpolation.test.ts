@@ -57,22 +57,19 @@ describe('raster IDW interpolation', () => {
     expect(result.usedSensorCount).toBe(0)
   })
 
-  it('shows conservative coverage inside a single fresh sensor influence radius', () => {
-    const result = interpolateRasterCell([point('one', 5, 5, 24)], 7, 5, options())
+  it('shows conservative evidence only very close to a single fresh sensor', () => {
+    const result = interpolateRasterCell([point('one', 5, 5, 24)], 5.5, 5, options())
     expect(result.value).toBe(24)
     expect(result.usedSensorCount).toBe(1)
-    expect(result.nearestDistanceM).toBe(2)
-    expect(result.confidence).toBeGreaterThan(0.4)
-    expect(result.confidence).toBeLessThan(0.7)
+    expect(result.nearestDistanceM).toBe(0.5)
+    expect(result.confidence).toBeGreaterThan(0)
+    expect(result.confidence).toBeLessThan(0.75)
   })
 
-  it('fades single-sensor confidence across the configured influence radius', () => {
-    const near = interpolateRasterCell([point('one', 1, 5, 24)], 3, 5, options())
-    const far = interpolateRasterCell([point('one', 1, 5, 24)], 8, 5, options())
-    expect(near.value).toBe(24)
-    expect(far.value).toBe(24)
-    expect(near.confidence).toBeGreaterThan(far.confidence)
-    expect(far.confidence).toBeGreaterThan(0)
+  it('does not copy one sensor reading across an unsupported area', () => {
+    const result = interpolateRasterCell([point('one', 1, 5, 24)], 8, 5, options())
+    expect(result.value).toBeNull()
+    expect(result.usedSensorCount).toBe(1)
   })
 
   it('reports lower confidence with two sensors than with dense coverage', () => {
@@ -215,7 +212,7 @@ describe('raster IDW interpolation', () => {
     expect(Math.abs(inside.confidence - outside.confidence)).toBeLessThan(0.01)
   })
 
-  it('does not let sensors across a closed partition affect local single-sensor coverage', () => {
+  it('does not interpolate through a closed partition', () => {
     const points = [
       point('left', 2, 5, 20),
       point('right-a', 7, 3, 80),
@@ -232,7 +229,7 @@ describe('raster IDW interpolation', () => {
       ],
     }
     const result = interpolateRasterCell(points, 3, 5, options({ barriers: [barrier] }))
-    expect(result.value).toBe(20)
+    expect(result.value).toBeNull()
     expect(result.usedSensorCount).toBe(1)
   })
 

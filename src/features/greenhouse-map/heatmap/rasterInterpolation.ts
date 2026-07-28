@@ -173,7 +173,8 @@ export function interpolateRasterCell(
     }
   }
   if (candidates.length < options.minimumSensorCount) {
-    if (nearest && candidates.length === 1) {
+    const singleSensorEvidenceRadiusM = Math.min(1, options.maxInfluenceDistanceM)
+    if (nearest && candidates.length === 1 && nearest.distanceM < singleSensorEvidenceRadiusM) {
       const rawValue = nearest.point.value
       const value = !options.valueBounds
         ? rawValue
@@ -183,7 +184,7 @@ export function interpolateRasterCell(
         : clamp01(1 - (options.nowMs - nearest.point.observedAtMs) / options.maxReadingAgeMs)
       return {
         value,
-        confidence: distanceTaper(nearest.distanceM, options.maxInfluenceDistanceM) * (0.45 + freshness * 0.3),
+        confidence: distanceTaper(nearest.distanceM, singleSensorEvidenceRadiusM) * (0.45 + freshness * 0.3),
         usedSensorCount: 1,
         nearestSensorIndex: nearest.pointIndex,
         nearestDistanceM: nearest.distanceM,
