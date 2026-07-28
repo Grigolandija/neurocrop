@@ -1090,3 +1090,13 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
 .clerk-login-primary-button:disabled {
   color: rgba(255, 255, 255, 0.72) !important;
 }
+
+.clerk-recovery-note {
+  width: min(100%, 29rem);
+  margin: 14px auto 0;
+  padding: 0 24px;
+  color: #66756f;
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}

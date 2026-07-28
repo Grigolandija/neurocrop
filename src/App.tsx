@@ -98,6 +98,12 @@ function MainRoute() {
   return clerkConfigured ? <ClerkMainRoute /> : <AuthenticatedMainRoute />
 }
 
+function RegistrationRoute() {
+  return clerkConfigured
+    ? <ClerkLoginScreen mode="sign-up" />
+    : <Suspense fallback={null}><RegisterPage /></Suspense>
+}
+
 function AuthenticatedWorkspace({ user, pathname, onSignedOut }: { user: DashboardUser; pathname: string; onSignedOut: () => void }) {
   const access = useWorkspaceAccess()
   if (access.status === 'loading') return <WorkspaceLoading />
@@ -115,6 +121,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/sign-up" element={<RegistrationRoute />} />
         <Route path="/register" element={<Suspense fallback={null}><RegisterPage /></Suspense>} />
         <Route path="/accept-invite" element={<Suspense fallback={null}><AcceptInvitePage /></Suspense>} />
         <Route path="/forgot-password" element={<Suspense fallback={null}><ForgotPasswordPage /></Suspense>} />
