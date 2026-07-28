@@ -143,7 +143,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const [hoveredSensorId, setHoveredSensorId] = useState<string | null>(null)
   const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null)
   const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; count: number; contourInterval: number; calculatedAt: Date } | null>(null)
-  const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
+  const [renderedAt] = useState(Date.now)
+  const tr = useCallback((english: string, lithuanian: string) => language === 'lt' ? lithuanian : english, [language])
   const metricLabel = (key: GreenhouseMap['heatmapSettings']['metric']) =>
     language === 'lt' ? METRICS[key].labelLt : METRICS[key].label
 
@@ -238,7 +239,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       window.cancelAnimationFrame(firstPaintFrame)
       window.cancelAnimationFrame(settledPaintFrame)
     }
-  }, [map.dimensions, map.heatmapSettings, mode, onRenderReady, points, referenceTime])
+  }, [map, mode, onRenderReady, points, referenceTime])
 
   const pointerWorld = useCallback(() => {
     const stage = stageRef.current
@@ -281,6 +282,14 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     })
   }, [map.heatmapSettings.metric, map.objects, showReadOnlySensorLocations])
   const activeSensor = readOnlySensorPoints.find((sensor) => sensor.id === (selectedSensorId ?? hoveredSensorId)) ?? null
+  const activeSensorMeasuredAtMs = activeSensor?.measuredAt ? new Date(activeSensor.measuredAt).getTime() : Number.NaN
+  const requestedReferenceMs = referenceTime ? new Date(referenceTime).getTime() : Number.NaN
+  const freshnessReferenceMs = Number.isFinite(requestedReferenceMs)
+    ? requestedReferenceMs
+    : heatmap?.calculatedAt.getTime() ?? renderedAt
+  const activeSensorFreshnessMinutes = Number.isFinite(activeSensorMeasuredAtMs)
+    ? Math.max(0, Math.round((freshnessReferenceMs - activeSensorMeasuredAtMs) / 60_000))
+    : null
   const sensorTooltip = activeSensor ? {
     left: Math.max(8, Math.min(size.width - 252, view.x + activeSensor.xM * view.scale + 12)),
     top: Math.max(8, Math.min(size.height - 188, view.y + (map.dimensions.lengthM - activeSensor.yM) * view.scale - 76)),
@@ -529,7 +538,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       <b>{activeSensor.value == null ? tr('No measurement', 'Nėra matavimo') : `${Number(activeSensor.value.toFixed(METRICS[map.heatmapSettings.metric].decimals))} ${METRICS[map.heatmapSettings.metric].unit}`}</b>
       <dl>
         <div><dt>{tr('Measured', 'Išmatuota')}</dt><dd>{activeSensor.measuredAt ? new Date(activeSensor.measuredAt).toLocaleString(language) : '—'}</dd></div>
-        <div><dt>{tr('Freshness', 'Šviežumas')}</dt><dd>{activeSensor.measuredAt ? `${Math.max(0, Math.round((Date.now() - new Date(activeSensor.measuredAt).getTime()) / 60_000))} min` : '—'} · {activeSensor.status}</dd></div>
+        <div><dt>{tr('Freshness', 'Šviežumas')}</dt><dd>{activeSensorFreshnessMinutes == null ? '—' : `${activeSensorFreshnessMinutes} min`} · {activeSensor.status}</dd></div>
         <div><dt>{tr('Battery', 'Baterija')}</dt><dd>{activeSensor.batteryPercent == null ? '—' : `${activeSensor.batteryPercent}%`}</dd></div>
         <div><dt>RSSI / SNR</dt><dd>{activeSensor.rssi == null ? '—' : `${activeSensor.rssi} dBm`} / {activeSensor.snr == null ? '—' : `${activeSensor.snr} dB`}</dd></div>
       </dl>

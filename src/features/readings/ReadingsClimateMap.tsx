@@ -184,10 +184,6 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   }, [context?.nodes, history?.frames, timeMode])
   const selectedMetric = availableMetrics.includes(metric) ? metric : availableMetrics[0] || metric
 
-  useEffect(() => {
-    if (availableMetrics.length && !availableMetrics.includes(metric)) setMetric(availableMetrics[0])
-  }, [availableMetrics, metric])
-
   const map = useMemo(() => displayedContext ? prepareReadOnlyClimateMap(displayedContext, selectedMetric) : null, [displayedContext, selectedMetric])
   const validSensorObjects = map?.objects.filter((object) => {
     const sensor = object.metadata.sensor

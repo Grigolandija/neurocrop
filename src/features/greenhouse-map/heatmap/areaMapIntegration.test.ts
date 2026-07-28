@@ -122,7 +122,7 @@ describe('Area Map API context integration', () => {
     const savedMetric = prepareReadOnlyClimateMap(context, 'air-temperature')
     expect(savedMetric.heatmapSettings).toMatchObject({
       idwPower: 5.9,
-      opacity: 0.72,
+      opacity: 0.95,
       showConfidence: false,
       scaleMode: 'manual',
       manualMin: 18,
@@ -132,7 +132,7 @@ describe('Area Map API context integration', () => {
     const otherMetric = prepareReadOnlyClimateMap(context, 'relative-humidity')
     expect(otherMetric.heatmapSettings).toMatchObject({
       idwPower: 5.9,
-      opacity: 0.72,
+      opacity: 0.95,
       showConfidence: false,
       scaleMode: 'auto',
     })
