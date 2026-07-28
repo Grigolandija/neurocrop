@@ -1,4 +1,5 @@
 RewriteEngine On
+AddType application/manifest+json .webmanifest
 
 <IfModule mod_headers.c>
   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -13,7 +14,7 @@ RewriteEngine On
   </FilesMatch>
 
   # The application shell must always discover the newest hashed Vite bundle.
-  <FilesMatch "^(index\.html|runtime-config\.js|approved-dashboard-runtime\.js|neurocrop-state-engine\.js)$">
+  <FilesMatch "^(index\.html|runtime-config\.js|sw\.js|manifest\.webmanifest|approved-dashboard-runtime\.js|neurocrop-state-engine\.js)$">
     Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
     Header always set Pragma "no-cache"
     Header always set Expires "0"
