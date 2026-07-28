@@ -82,6 +82,11 @@ describe('measurement filtering and grid sizing', () => {
     expect(grid.values[0]).toBeGreaterThan(grid.values[(grid.height - 1) * grid.width])
   })
   it('honours valid manual scale limits', () => expect(getStableScale([20, 30], 'air-temperature', { min: 18, max: 32 })).toEqual({ min: 18, max: 32 }))
+  it('does not exaggerate a two-tenths temperature difference across the full palette', () => {
+    const scale = getStableScale([26.4, 26.6], 'air-temperature')
+    expect(scale.max - scale.min).toBeGreaterThanOrEqual(4)
+    expect((26.6 - 26.4) / (scale.max - scale.min)).toBeLessThanOrEqual(0.05)
+  })
   it('reduces confidence with distance', () => {
     const points = [point(0, 0, 20), point(1, 0, 21)]
     expect(calculateConfidence(points, .2, .1, 20)).toBeGreaterThan(calculateConfidence(points, 15, 0, 20))
