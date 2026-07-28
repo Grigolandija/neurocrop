@@ -3,6 +3,7 @@ import type { HeatmapGrid } from './heatmapTypes'
 
 export const MIN_CONTOUR_SENSOR_COUNT = 2
 const MAX_CONTOUR_LEVELS = 6
+const DETAILED_CONTOUR_LEVELS = 10
 
 export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourInterval: number }> = {
   'air-temperature': { colorInterval: 1, contourInterval: 1 },
@@ -22,8 +23,8 @@ export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourIn
 const ADAPTIVE_CONTOUR_INTERVALS: Record<MetricKey, { candidates: number[]; lowConfidenceMinimum: number }> = {
   'air-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
   'relative-humidity': { candidates: [2, 5, 10, 20], lowConfidenceMinimum: 5 },
-  co2: { candidates: [50, 100, 250, 500, 1000], lowConfidenceMinimum: 100 },
-  vpd: { candidates: [0.05, 0.1, 0.2, 0.5, 1], lowConfidenceMinimum: 0.1 },
+  co2: { candidates: [50, 100, 200, 250, 500, 1000], lowConfidenceMinimum: 100 },
+  vpd: { candidates: [0.05, 0.1, 0.2, 0.25, 0.5, 1], lowConfidenceMinimum: 0.1 },
   'root-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
   illuminance: { candidates: [500, 1000, 2500, 5000, 10000, 25000], lowConfidenceMinimum: 1000 },
   'soil-moisture': { candidates: [1, 2, 5, 10, 20], lowConfidenceMinimum: 5 },
@@ -57,8 +58,11 @@ export function getAdaptiveContourInterval(metric: MetricKey, values: number[], 
   const span = Math.max(...finiteValues) - Math.min(...finiteValues)
   if (!Number.isFinite(span) || span <= 0) return METRIC_LEVELS[metric].contourInterval
   const minimum = sensorCount < 4 ? config.lowConfidenceMinimum : config.candidates[0]
+  const maximumLevels = metric === 'co2' || metric === 'vpd'
+    ? DETAILED_CONTOUR_LEVELS
+    : MAX_CONTOUR_LEVELS
   return config.candidates.find((interval) =>
-    interval >= minimum && span / interval <= MAX_CONTOUR_LEVELS + 1e-9,
+    interval >= minimum && span / interval <= maximumLevels + 1e-9,
   ) ?? config.candidates.at(-1)!
 }
 
