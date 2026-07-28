@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 import {
   formatNodeFactorySerial,
+  isMissingChirpstackResource,
   nodeSequenceFromIdentity,
   normalizeNodeDevEui
 } from '../gateway-factory-routes.js';
@@ -13,6 +14,16 @@ test('node factory formats automatic NSN identities', () => {
   assert.equal(nodeSequenceFromIdentity('NSN-000123'), 123);
   assert.equal(nodeSequenceFromIdentity('node-123'), 0);
   assert.throws(() => formatNodeFactorySerial(0));
+});
+
+test('node factory recognizes ChirpStack v4 missing-resource responses', () => {
+  assert.equal(isMissingChirpstackResource({ status: 404, message: 'not found' }), true);
+  assert.equal(isMissingChirpstackResource({
+    status: 401,
+    message: JSON.stringify({ code: 16, message: '', details: [] })
+  }), true);
+  assert.equal(isMissingChirpstackResource({ status: 401, message: 'invalid token' }), false);
+  assert.equal(isMissingChirpstackResource({ status: 500, message: 'failure' }), false);
 });
 
 test('node factory normalizes DevEUI and keeps AppKey server generated', () => {

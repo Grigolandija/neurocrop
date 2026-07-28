@@ -183,11 +183,21 @@ export function nodeSequenceFromIdentity(value) {
   return match ? Number(match[1]) : 0;
 }
 
+export function isMissingChirpstackResource(error) {
+  if (error?.status === 404) return true;
+  if (error?.status !== 401) return false;
+  try {
+    return Number(JSON.parse(String(error.message || '{}')).code) === 16;
+  } catch {
+    return false;
+  }
+}
+
 async function getChirpstackDeviceKeys(devEui) {
   try {
     return await chirpstackRequest(`/devices/${devEui}/keys`);
   } catch (error) {
-    if (error.status === 404) return null;
+    if (isMissingChirpstackResource(error)) return null;
     throw error;
   }
 }
@@ -196,7 +206,7 @@ async function getChirpstackDevice(devEui) {
   try {
     return await chirpstackRequest(`/devices/${devEui}`);
   } catch (error) {
-    if (error.status === 404) return null;
+    if (isMissingChirpstackResource(error)) return null;
     throw error;
   }
 }
