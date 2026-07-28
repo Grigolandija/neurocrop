@@ -28,6 +28,7 @@ type Props = {
   onUpdate: (id: string, patch: Partial<GreenhouseObject>, record?: boolean) => void
   onAdd: (type: ObjectType, xM?: number, yM?: number) => void
   onRenderReady?: () => void
+  referenceTime?: string
 }
 
 const objectColors: Record<string, { fill: string; stroke: string }> = {
@@ -130,7 +131,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -202,7 +203,14 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       try {
         const metric = map.heatmapSettings.metric
         const scale = getStableScale(points.map((point) => point.value), metric, map.heatmapSettings.scaleMode === 'manual' ? { min: map.heatmapSettings.manualMin, max: map.heatmapSettings.manualMax } : undefined)
-        const grid = createMeasurementGrid(points, map, metric, scale)
+        const referenceTimeMs = referenceTime ? new Date(referenceTime).getTime() : Date.now()
+        const grid = createMeasurementGrid(
+          points,
+          map,
+          metric,
+          scale,
+          Number.isFinite(referenceTimeMs) ? referenceTimeMs : Date.now(),
+        )
         if (!grid) setHeatmap(null)
         else {
           setHeatmap({
@@ -218,7 +226,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
             max: grid.max,
             count: grid.sensorCount,
             contourInterval: getAdaptiveContourInterval(metric, points.map((point) => point.value), grid.sensorCount),
-            calculatedAt: new Date(),
+            calculatedAt: Number.isFinite(referenceTimeMs) ? new Date(referenceTimeMs) : new Date(),
           })
         }
       } finally {
@@ -230,7 +238,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       window.cancelAnimationFrame(firstPaintFrame)
       window.cancelAnimationFrame(settledPaintFrame)
     }
-  }, [map.dimensions, map.heatmapSettings, mode, onRenderReady, points])
+  }, [map.dimensions, map.heatmapSettings, mode, onRenderReady, points, referenceTime])
 
   const pointerWorld = useCallback(() => {
     const stage = stageRef.current

@@ -96,6 +96,22 @@ describe('measurement filtering and grid sizing', () => {
     const grid = createMeasurementGrid(points, map, 'air-temperature', { min: 22, max: 26 })
     expect(grid.dataCellCount / (grid.width * grid.height)).toBeGreaterThan(0.95)
   })
+  it('evaluates historical readings against the selected frame time', () => {
+    const selectedFrameMs = new Date('2026-07-27T08:00:00.000Z').getTime()
+    const historicalPoints = [
+      { ...point(1, 1, 22), observedAtMs: selectedFrameMs, status: 'online' as const },
+      { ...point(19, 1, 24), observedAtMs: selectedFrameMs, status: 'online' as const },
+      { ...point(10, 7, 23), observedAtMs: selectedFrameMs, status: 'online' as const },
+    ]
+    const map = createDemoMap()
+    map.heatmapSettings.minimumSensorCount = 2
+    map.heatmapSettings.maxInfluenceDistanceM = 100
+    map.heatmapSettings.maxReadingAgeMinutes = 30
+    const atSelectedFrame = createMeasurementGrid(historicalPoints, map, 'air-temperature', { min: 20, max: 26 }, selectedFrameMs + 10 * 60_000)
+    const againstCurrentTime = createMeasurementGrid(historicalPoints, map, 'air-temperature', { min: 20, max: 26 }, selectedFrameMs + 12 * 60 * 60_000)
+    expect(atSelectedFrame.dataCellCount).toBeGreaterThan(0)
+    expect(againstCurrentTime.dataCellCount).toBe(0)
+  })
   it('keeps physical north at the top and the origin at the bottom-left', () => {
     const map = createDemoMap()
     map.heatmapSettings.minimumSensorCount = 1

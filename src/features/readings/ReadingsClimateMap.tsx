@@ -305,6 +305,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         onUpdate={() => undefined}
         onAdd={() => undefined}
         onRenderReady={handleCanvasRenderReady}
+        referenceTime={historyFrame?.observedAt}
       />
     </div>
     <div className="nc-climate-map-legend-slot" ref={setLegendHost} />
