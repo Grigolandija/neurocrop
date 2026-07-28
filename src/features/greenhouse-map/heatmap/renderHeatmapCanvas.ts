@@ -28,7 +28,7 @@ function bilinearSample(values: Float32Array, gridWidth: number, gridHeight: num
   return top * (1 - ty) + bottom * ty
 }
 
-export function renderHeatmapCanvas(grid: HeatmapGrid, colors: [string, string, string], colorInterval: number, opacity: number, showConfidence: boolean): HTMLCanvasElement {
+export function renderHeatmapCanvas(grid: HeatmapGrid, colors: [string, string, string], colorStepCount: number, opacity: number, showConfidence: boolean): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   const resolution = renderResolution(grid)
   canvas.width = resolution.width
@@ -42,7 +42,7 @@ export function renderHeatmapCanvas(grid: HeatmapGrid, colors: [string, string, 
       const sourceX = x / Math.max(1, resolution.width - 1) * (grid.width - 1)
       const target = (y * resolution.width + x) * 4
       const value = bilinearSample(grid.values, grid.width, grid.height, sourceX, sourceY)
-      const [r, g, b] = bandedColorAt(value, grid.min, grid.max, colors, colorInterval)
+      const [r, g, b] = bandedColorAt(value, grid.min, grid.max, colors, colorStepCount)
       const confidence = showConfidence
         ? bilinearSample(grid.confidence, grid.width, grid.height, sourceX, sourceY)
         : 1

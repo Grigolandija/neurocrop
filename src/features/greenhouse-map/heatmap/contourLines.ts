@@ -4,19 +4,19 @@ import type { HeatmapGrid } from './heatmapTypes'
 export const MIN_CONTOUR_SENSOR_COUNT = 2
 const MAX_CONTOUR_LEVELS = 6
 
-export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourInterval: number }> = {
-  'air-temperature': { colorInterval: 0.25, contourInterval: 1 },
-  'relative-humidity': { colorInterval: 1, contourInterval: 5 },
-  co2: { colorInterval: 50, contourInterval: 100 },
-  vpd: { colorInterval: 0.05, contourInterval: 0.1 },
-  'root-temperature': { colorInterval: 0.25, contourInterval: 1 },
-  illuminance: { colorInterval: 500, contourInterval: 1000 },
-  'soil-moisture': { colorInterval: 1, contourInterval: 5 },
-  ec: { colorInterval: 0.05, contourInterval: 0.1 },
-  ph: { colorInterval: 0.05, contourInterval: 0.1 },
-  'soil-ec': { colorInterval: 0.05, contourInterval: 0.1 },
-  'leaf-temperature': { colorInterval: 0.25, contourInterval: 1 },
-  'water-temperature': { colorInterval: 0.25, contourInterval: 1 },
+export const METRIC_LEVELS: Record<MetricKey, { contourInterval: number }> = {
+  'air-temperature': { contourInterval: 1 },
+  'relative-humidity': { contourInterval: 5 },
+  co2: { contourInterval: 100 },
+  vpd: { contourInterval: 0.1 },
+  'root-temperature': { contourInterval: 1 },
+  illuminance: { contourInterval: 1000 },
+  'soil-moisture': { contourInterval: 5 },
+  ec: { contourInterval: 0.1 },
+  ph: { contourInterval: 0.1 },
+  'soil-ec': { contourInterval: 0.1 },
+  'leaf-temperature': { contourInterval: 1 },
+  'water-temperature': { contourInterval: 1 },
 }
 
 const ADAPTIVE_CONTOUR_INTERVALS: Record<MetricKey, { candidates: number[]; lowConfidenceMinimum: number }> = {
@@ -33,10 +33,6 @@ const ADAPTIVE_CONTOUR_INTERVALS: Record<MetricKey, { candidates: number[]; lowC
   'leaf-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
   'water-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
 }
-
-export const COLOR_INTERVALS = Object.fromEntries(
-  Object.entries(METRIC_LEVELS).map(([metric, levels]) => [metric, levels.colorInterval]),
-) as Record<MetricKey, number>
 
 export const CONTOUR_INTERVALS = Object.fromEntries(
   Object.entries(METRIC_LEVELS).map(([metric, levels]) => [metric, levels.contourInterval]),
