@@ -2940,7 +2940,7 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
 
 async function getNodeSensorPayload(devEui, organizationId) {
   const { rows: nodeRows } = await query(
-    `SELECT dev_eui, name, organization_id, area_id, section_id, last_received_at
+    `SELECT dev_eui, name, organization_id, area_id, section_id, last_received_at, source
      FROM nodes
      WHERE lower(dev_eui)=$1 AND organization_id=$2 AND archived_at IS NULL`,
     [devEui, organizationId]
@@ -2962,7 +2962,9 @@ async function getNodeSensorPayload(devEui, organizationId) {
       devEui: node.dev_eui,
       name: node.name || node.dev_eui,
       areaId: node.area_id,
-      sectionId: node.section_id
+      sectionId: node.section_id,
+      source: node.source,
+      simulated: node.source === 'simulated'
     },
     lastReceivedAt: node.last_received_at || measurement?.time || null,
     sensors: buildDetectedNodeSensors(measurement, configsByPort)
@@ -2994,7 +2996,8 @@ app.get('/nodes', requireAuth, async (req, res) => {
          n.created_at, n.last_seen, n.last_received_at,
          n.last_battery_mv, n.last_battery_percent, n.last_firmware_version,
          n.last_profile, n.last_rssi, n.last_snr, n.last_spreading_factor,
-         n.last_sensor_presence, n.last_error_flags, n.last_error_counters
+         n.last_sensor_presence, n.last_error_flags, n.last_error_counters,
+         n.source
        FROM nodes n
        LEFT JOIN areas a ON a.id=n.area_id AND a.organization_id=n.organization_id
        LEFT JOIN sections s ON s.id=n.section_id AND s.organization_id=n.organization_id
@@ -3032,6 +3035,8 @@ app.get('/nodes', requireAuth, async (req, res) => {
           sensorPresence: row.last_sensor_presence || null,
           errorFlags: row.last_error_flags || null,
           errorCounters: row.last_error_counters || null,
+          source: row.source,
+          simulated: row.source === 'simulated',
           health: buildNodeHealth({
             transportStatus,
             errorFlags: row.last_error_flags,
@@ -3190,7 +3195,7 @@ app.post('/nodes/claim', requireAuth, requireRole('owner', 'admin', 'technician'
     // Share the ingest stream lock so no factory packet can land between cleanup and assignment.
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [devEui]);
     const { rows: availableRows } = await client.query(
-      `SELECT dev_eui
+      `SELECT dev_eui, source
        FROM nodes
        WHERE dev_eui=$1
          AND organization_id IS NULL
@@ -3236,7 +3241,7 @@ app.post('/nodes/claim', requireAuth, requireRole('owner', 'admin', 'technician'
          last_error_flags=NULL,
          last_error_counters=NULL
        WHERE dev_eui=$1
-       RETURNING dev_eui, name, node_type, area_id, section_id, factory_serial, created_at, last_seen`,
+       RETURNING dev_eui, name, node_type, area_id, section_id, factory_serial, source, created_at, last_seen`,
       [devEui, organizationId, section.area_id, section.id]
     );
     await client.query('COMMIT');
@@ -3248,6 +3253,8 @@ app.post('/nodes/claim', requireAuth, requireRole('owner', 'admin', 'technician'
         devEui: rows[0].dev_eui,
         name: rows[0].name,
         serialNumber: rows[0].factory_serial,
+        source: rows[0].source,
+        simulated: rows[0].source === 'simulated',
         nodeType: rows[0].node_type,
         areaId: rows[0].area_id,
         sectionId: rows[0].section_id,
@@ -3282,10 +3289,17 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
   let createdChirpStackDevice = false;
   try {
     const { rows: currentRows } = await query(
-      `SELECT dev_eui FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2 AND archived_at IS NULL`,
+      `SELECT dev_eui, source FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2 AND archived_at IS NULL`,
       [devEui, organizationId]
     );
     if (!currentRows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });
+    const isSimulated = currentRows[0].source === 'simulated';
+    if (isSimulated && identityChanged) {
+      return res.status(400).json({ error: {
+        code: 'SIMULATED_IDENTITY_IMMUTABLE',
+        message: 'A simulated node DevEUI cannot be changed.'
+      } });
+    }
 
     let section = null;
     if (sectionId) {
@@ -3318,7 +3332,7 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
            area_id=COALESCE($4, area_id),
            organization_id=$5
        WHERE lower(dev_eui)=$6 AND organization_id=$5 AND archived_at IS NULL
-       RETURNING dev_eui, name, node_type, area_id, section_id, created_at, last_seen`,
+       RETURNING dev_eui, name, node_type, area_id, section_id, source, created_at, last_seen`,
       [nextDevEui, name, section?.id || null, section?.area_id || null, organizationId, devEui]
     );
 
@@ -3336,6 +3350,8 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
       sectionId: rows[0].section_id,
       createdAt: rows[0].created_at,
       lastSeen: rows[0].last_seen,
+      source: rows[0].source,
+      simulated: rows[0].source === 'simulated',
     } });
   } catch (e) {
     if (identityChanged && createdChirpStackDevice) {
@@ -3365,8 +3381,9 @@ app.delete('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technic
     client = await pool.connect();
     const organizationId = getOrganizationId(req);
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [devEui]);
     const { rows: ownedRows } = await client.query(
-      `SELECT dev_eui, name, node_type, created_at, last_seen
+      `SELECT dev_eui, name, node_type, source, factory_serial, created_at, last_seen
        FROM nodes
        WHERE lower(dev_eui)=$1 AND organization_id=$2 AND archived_at IS NULL
        FOR UPDATE`,
@@ -3383,8 +3400,42 @@ app.delete('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technic
     );
     const measurementCount = Number(historyRows[0]?.count || 0);
     let measurementsDeleted = 0;
+    const simulated = ownedRows[0].source === 'simulated';
 
-    if (historyPolicy === 'delete') {
+    if (simulated) {
+      const measurementResult = await client.query(
+        `DELETE FROM measurements WHERE lower(dev_eui)=$1`,
+        [devEui]
+      );
+      measurementsDeleted = measurementResult.rowCount;
+      await client.query(
+        `DELETE FROM measurement_rollups WHERE lower(dev_eui)=$1`,
+        [devEui]
+      );
+      await client.query(
+        `UPDATE nodes SET
+           organization_id=NULL,
+           area_id=NULL,
+           section_id=NULL,
+           name=factory_serial,
+           factory_status='unassigned',
+           archived_at=NULL,
+           last_seen=NULL,
+           last_received_at=NULL,
+           last_battery_mv=NULL,
+           last_battery_percent=NULL,
+           last_firmware_version=NULL,
+           last_profile=NULL,
+           last_rssi=NULL,
+           last_snr=NULL,
+           last_spreading_factor=NULL,
+           last_sensor_presence=NULL,
+           last_error_flags=NULL,
+           last_error_counters=NULL
+         WHERE lower(dev_eui)=$1 AND organization_id=$2`,
+        [devEui, organizationId]
+      );
+    } else if (historyPolicy === 'delete') {
       const measurementResult = await client.query(
         `DELETE FROM measurements WHERE lower(dev_eui)=$1`,
         [devEui]
@@ -3404,25 +3455,30 @@ app.delete('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technic
 
     await client.query('COMMIT');
 
-    let chirpStackDeleted = true;
-    try {
-      await deleteChirpStackDevice(devEui);
-    } catch (chirpStackError) {
-      chirpStackDeleted = false;
-      console.error('[api] ChirpStack node cleanup:', devEui, chirpStackError.message);
+    let chirpStackDeleted = simulated ? null : true;
+    if (!simulated) {
+      try {
+        await deleteChirpStackDevice(devEui);
+      } catch (chirpStackError) {
+        chirpStackDeleted = false;
+        console.error('[api] ChirpStack node cleanup:', devEui, chirpStackError.message);
+      }
     }
 
     const node = ownedRows[0];
     res.json({
       deleted: true,
+      returnedToInventory: simulated,
       historyPolicy,
-      measurementsRetained: historyPolicy === 'keep' ? measurementCount : 0,
+      measurementsRetained: !simulated && historyPolicy === 'keep' ? measurementCount : 0,
       measurementsDeleted,
       chirpStackDeleted,
       node: {
         devEui: node.dev_eui,
         name: node.name,
         nodeType: node.node_type,
+        source: node.source,
+        serialNumber: node.factory_serial,
         createdAt: node.created_at,
         lastSeen: node.last_seen,
       },

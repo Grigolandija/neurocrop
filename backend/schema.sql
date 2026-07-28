@@ -140,7 +140,13 @@ CREATE TABLE IF NOT EXISTS nodes (
     last_sensor_presence  JSONB,
     last_error_flags      JSONB,
     last_error_counters   JSONB,
-    archived_at           TIMESTAMPTZ
+    archived_at           TIMESTAMPTZ,
+    factory_serial        TEXT,
+    factory_status        TEXT NOT NULL DEFAULT 'unassigned',
+    factory_provisioned_at TIMESTAMPTZ,
+    factory_firmware_version TEXT,
+    source                TEXT NOT NULL DEFAULT 'physical',
+    simulation_profile    JSONB
 );
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_received_at TIMESTAMPTZ;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_battery_mv INTEGER;
@@ -154,6 +160,12 @@ ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_sensor_presence JSONB;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_error_flags JSONB;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_error_counters JSONB;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS factory_serial TEXT;
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS factory_status TEXT NOT NULL DEFAULT 'unassigned';
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS factory_provisioned_at TIMESTAMPTZ;
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS factory_firmware_version TEXT;
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'physical';
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS simulation_profile JSONB;
 CREATE INDEX IF NOT EXISTS idx_nodes_active_org_section ON nodes (organization_id, section_id) WHERE archived_at IS NULL;
 CREATE TABLE IF NOT EXISTS measurements (
     time             TIMESTAMPTZ NOT NULL,

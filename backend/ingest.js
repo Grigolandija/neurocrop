@@ -3,6 +3,7 @@ import mqtt from 'mqtt';
 import { pool } from './db.js';
 import { runMigrations } from './migrate.js';
 import { normalizeErrorCounters, normalizeErrorFlags } from './node-health.js';
+import { startSimulatedNodeGenerator } from './simulated-nodes.js';
 import {
   compactTelemetryMetadata,
   normalizeTelemetryBoolean,
@@ -27,6 +28,7 @@ function clearReady() {
 
 await runMigrations();
 clearReady();
+const stopSimulatedNodeGenerator = startSimulatedNodeGenerator(pool);
 const client = mqtt.connect(MQTT_URL);
 
 client.on('connect', () => {
@@ -159,6 +161,7 @@ async function shutdown(signal) {
   shuttingDown = true;
   console.log(`[ingest] ${signal}: shutting down`);
   clearInterval(readinessHeartbeat);
+  stopSimulatedNodeGenerator();
   clearReady();
   await new Promise((resolve) => client.end(false, {}, resolve));
   await pool.end();
