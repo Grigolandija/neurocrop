@@ -89,8 +89,7 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
 
 function ClerkMainRoute() {
   const { isLoaded, isSignedIn, userId, signOut } = useAuth()
-  if (!isLoaded) return <WorkspaceLoading />
-  if (!isSignedIn || !userId) return <ClerkLoginScreen />
+  if (!isLoaded || !isSignedIn || !userId) return <ClerkLoginScreen />
   return <AuthenticatedMainRoute key={userId} clerkUserId={userId} onClerkSignOut={() => signOut()} />
 }
 

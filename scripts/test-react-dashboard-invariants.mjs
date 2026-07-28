@@ -26,7 +26,14 @@ const failures = []
 const assert = (condition, message) => { if (!condition) failures.push(message) }
 
 assert(dashboard.includes('<DashboardShell'), 'DashboardPage must render the React DashboardShell.')
-assert(app.includes('if (!user) return <LoginScreen'), 'The login screen must render before authenticated workspace loading.')
+assert(
+  app.includes('<LoginScreen onAuthenticated={setUser} />') && app.includes('return <ClerkLoginScreen />'),
+  'Both legacy and Clerk login screens must render before authenticated workspace loading.'
+)
+assert(
+  !app.includes('if (!isLoaded) return <WorkspaceLoading />'),
+  'Clerk session discovery must not show authenticated workspace loading before the login screen.'
+)
 assert(app.includes('<Suspense fallback={<WorkspaceLoading />}>'), 'Workspace loading must be scoped to the authenticated dashboard.')
 assert(!dashboard.includes('if (!bootstrapped)'), 'DashboardPage must not block the login screen while workspace modules preload.')
 assert(!login.includes('prefetchWorkspaceData'), 'Login must transition before workspace data prefetching starts.')
