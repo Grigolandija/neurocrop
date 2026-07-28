@@ -121,6 +121,24 @@ describe('raster IDW interpolation', () => {
     expect(result.value).toBeCloseTo(10, 8)
   })
 
+  it('does not create a seam when the farthest selected sensor changes', () => {
+    const points = [
+      point('core-a', 4, 4, 40),
+      point('core-b', 4, 6, 40),
+      point('core-c', 6, 4, 40),
+      point('core-d', 6, 6, 40),
+      point('left', 0.1, 5, 0),
+      point('right', 9.9, 5, 100),
+    ]
+    const interpolation = options({ nearestSensorCount: 5, minimumSensorCount: 3 })
+    const left = interpolateRasterCell(points, 4.999, 5, interpolation)
+    const right = interpolateRasterCell(points, 5.001, 5, interpolation)
+    expect(left.value).not.toBeNull()
+    expect(right.value).not.toBeNull()
+    expect(Math.abs(left.value! - right.value!)).toBeLessThan(0.01)
+    expect(Math.abs(left.confidence - right.confidence)).toBeLessThan(0.01)
+  })
+
   it('does not interpolate through a closed partition', () => {
     const points = [
       point('left', 2, 5, 20),

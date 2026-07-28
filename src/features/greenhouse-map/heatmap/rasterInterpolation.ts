@@ -36,6 +36,21 @@ const EPSILON = 1e-9
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
 
+function supportRadiusFor(
+  selected: Array<{ distanceM: number }>,
+  options: RasterInterpolationOptions,
+): number {
+  if (selected.length >= options.nearestSensorCount) {
+    return Math.min(options.maxInfluenceDistanceM, selected.at(-1)!.distanceM * 1.000001)
+  }
+  return options.maxInfluenceDistanceM
+}
+
+function distanceTaper(distanceM: number, supportRadiusM: number): number {
+  const remaining = clamp01(1 - distanceM / Math.max(supportRadiusM, EPSILON))
+  return remaining * remaining * (3 - 2 * remaining)
+}
+
 export function pointInPolygon(point: RasterPoint, polygon: RasterPolygon): boolean {
   if (polygon.length < 3) return false
   let inside = false
@@ -96,15 +111,23 @@ function confidenceFor(
   options: RasterInterpolationOptions,
 ): number {
   if (!selected.length) return 0
-  const proximity = clamp01(1 - selected.reduce((sum, item) => sum + item.distanceM, 0)
-    / selected.length / options.maxInfluenceDistanceM)
-  const count = clamp01(selected.length / options.nearestSensorCount)
-  const freshness = selected.reduce((sum, item) => {
-    if (item.point.observedAtMs === undefined) return sum + 1
-    return sum + clamp01(1 - (options.nowMs - item.point.observedAtMs) / options.maxReadingAgeMs)
-  }, 0) / selected.length
-  const mean = selected.reduce((sum, item) => sum + item.point.value, 0) / selected.length
-  const variance = selected.reduce((sum, item) => sum + (item.point.value - mean) ** 2, 0) / selected.length
+  const supportRadiusM = supportRadiusFor(selected, options)
+  const supported = selected.map((item) => ({
+    ...item,
+    support: distanceTaper(item.distanceM, supportRadiusM),
+  }))
+  const totalSupport = Math.max(EPSILON, supported.reduce((sum, item) => sum + item.support, 0))
+  const proximity = supported.reduce((sum, item) =>
+    sum + clamp01(1 - item.distanceM / options.maxInfluenceDistanceM) * item.support, 0) / totalSupport
+  const count = clamp01(totalSupport / options.nearestSensorCount)
+  const freshness = supported.reduce((sum, item) => {
+    const fresh = item.point.observedAtMs === undefined
+      ? 1
+      : clamp01(1 - (options.nowMs - item.point.observedAtMs) / options.maxReadingAgeMs)
+    return sum + fresh * item.support
+  }, 0) / totalSupport
+  const mean = supported.reduce((sum, item) => sum + item.point.value * item.support, 0) / totalSupport
+  const variance = supported.reduce((sum, item) => sum + (item.point.value - mean) ** 2 * item.support, 0) / totalSupport
   const relativeDeviation = Math.sqrt(variance) / Math.max(Math.abs(mean), 0.1)
   const agreement = clamp01(1 - relativeDeviation / 0.35)
   const confidence = clamp01(proximity * 0.35 + count * 0.2 + freshness * 0.2 + agreement * 0.25)
@@ -157,10 +180,12 @@ export function interpolateRasterCell(
   }
 
   const selected = candidates.slice(0, options.nearestSensorCount)
+  const supportRadiusM = supportRadiusFor(selected, options)
   let weightedValue = 0
   let totalWeight = 0
   for (const item of selected) {
-    const weight = 1 / Math.pow(Math.max(item.distanceM, EPSILON), options.power)
+    const weight = distanceTaper(item.distanceM, supportRadiusM)
+      / Math.pow(Math.max(item.distanceM, EPSILON), options.power)
     weightedValue += item.point.value * weight
     totalWeight += weight
   }

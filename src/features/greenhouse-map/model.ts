@@ -97,7 +97,7 @@ export type MapLayer = {
 }
 
 export type HeatmapSettings = {
-  rasterSettingsVersion?: 2
+  rasterSettingsVersion?: 3
   enabled: boolean
   metric: MetricKey
   interpolationMethod: 'idw'
@@ -115,13 +115,13 @@ export type HeatmapSettings = {
 }
 
 export const DEFAULT_HEATMAP_SETTINGS: HeatmapSettings = {
-  rasterSettingsVersion: 2,
+  rasterSettingsVersion: 3,
   enabled: true,
   metric: 'air-temperature',
   interpolationMethod: 'idw',
   idwPower: 2,
   cellSizeM: 0.25,
-  nearestSensorCount: 4,
+  nearestSensorCount: 5,
   minimumSensorCount: 2,
   maxInfluenceDistanceM: 15,
   maxReadingAgeMinutes: 30,
@@ -135,10 +135,13 @@ export function normalizeHeatmapSettings(settings?: Partial<HeatmapSettings>): H
   return {
     ...DEFAULT_HEATMAP_SETTINGS,
     ...settings,
-    rasterSettingsVersion: 2,
-    cellSizeM: settings?.rasterSettingsVersion === 2
+    rasterSettingsVersion: 3,
+    cellSizeM: settings?.rasterSettingsVersion === 3
       ? settings.cellSizeM ?? DEFAULT_HEATMAP_SETTINGS.cellSizeM
       : Math.min(legacyCellSizeM ?? DEFAULT_HEATMAP_SETTINGS.cellSizeM, DEFAULT_HEATMAP_SETTINGS.cellSizeM),
+    nearestSensorCount: settings?.rasterSettingsVersion === 3
+      ? settings.nearestSensorCount ?? DEFAULT_HEATMAP_SETTINGS.nearestSensorCount
+      : DEFAULT_HEATMAP_SETTINGS.nearestSensorCount,
   }
 }
 

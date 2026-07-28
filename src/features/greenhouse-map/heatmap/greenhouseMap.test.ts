@@ -62,7 +62,7 @@ describe('measurement filtering and grid sizing', () => {
   })
   it('migrates legacy 0.50 m rasters once while preserving later explicit choices', () => {
     expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: undefined, cellSizeM: 0.5 }).cellSizeM).toBe(0.25)
-    expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 2, cellSizeM: 0.5 }).cellSizeM).toBe(0.5)
+    expect(normalizeHeatmapSettings({ ...DEFAULT_HEATMAP_SETTINGS, rasterSettingsVersion: 3, cellSizeM: 0.5 }).cellSizeM).toBe(0.5)
   })
   it('creates a bounded four-sensor grid', () => {
     const points = [point(0, 0, -50), point(20, 0, 20), point(0, 8, 25), point(20, 8, 90)]
