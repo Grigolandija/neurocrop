@@ -21,6 +21,53 @@ export function snapValue(value: number, gridM: number, enabled = true) {
   return enabled ? Math.round(value / gridM) * gridM : value
 }
 
+function magneticAxisPosition(originM: number, sizeM: number, gridM: number, toleranceM: number) {
+  const candidates = [0, sizeM / 2, sizeM].map((offsetM) => {
+    const anchorM = originM + offsetM
+    return { deltaM: snapValue(anchorM, gridM) - anchorM }
+  })
+  const nearest = candidates.reduce((best, candidate) =>
+    Math.abs(candidate.deltaM) < Math.abs(best.deltaM) ? candidate : best)
+  return Math.abs(nearest.deltaM) <= toleranceM ? originM + nearest.deltaM : originM
+}
+
+export function snapRectanglePosition(
+  position: { xM: number; yM: number },
+  size: { widthM: number; lengthM: number },
+  gridM: number,
+  enabled = true,
+  toleranceM = gridM * 0.28,
+) {
+  if (!enabled || !Number.isFinite(gridM) || gridM <= 0) return position
+  return {
+    xM: magneticAxisPosition(position.xM, size.widthM, gridM, toleranceM),
+    yM: magneticAxisPosition(position.yM, size.lengthM, gridM, toleranceM),
+  }
+}
+
+export function snapRectangleBounds(
+  rectangle: { xM: number; yM: number; widthM: number; lengthM: number },
+  gridM: number,
+  enabled = true,
+  toleranceM = gridM * 0.28,
+) {
+  if (!enabled || !Number.isFinite(gridM) || gridM <= 0) return rectangle
+  const snapEdge = (valueM: number) => {
+    const snappedM = snapValue(valueM, gridM)
+    return Math.abs(snappedM - valueM) <= toleranceM ? snappedM : valueM
+  }
+  const leftM = snapEdge(rectangle.xM)
+  const rightM = snapEdge(rectangle.xM + rectangle.widthM)
+  const bottomM = snapEdge(rectangle.yM)
+  const topM = snapEdge(rectangle.yM + rectangle.lengthM)
+  return {
+    xM: leftM,
+    yM: bottomM,
+    widthM: Math.max(0.05, rightM - leftM),
+    lengthM: Math.max(0.05, topM - bottomM),
+  }
+}
+
 export function clampObjectPosition(xM: number, yM: number, widthM: number, lengthM: number, greenhouseWidthM: number, greenhouseLengthM: number) {
   return {
     xM: Math.max(0, Math.min(greenhouseWidthM - widthM, xM)),

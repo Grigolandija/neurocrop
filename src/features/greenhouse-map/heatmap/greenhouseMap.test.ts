@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createDemoMap } from '../demo'
-import { screenToWorld, sectionGeometrySummary, snapSectionToWalls, snapValue, snapWallMountedObject, worldToScreen } from '../geometry'
+import { screenToWorld, sectionGeometrySummary, snapRectangleBounds, snapRectanglePosition, snapSectionToWalls, snapValue, snapWallMountedObject, worldToScreen } from '../geometry'
 import { mapRepository, validateMap } from '../services/mapRepository'
 import { calculateConfidence } from './calculateConfidenceGrid'
 import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_COUNT, connectContourSegments, createContourPaths, createContourSegments, getAdaptiveContourInterval, getContourLevels } from './contourLines'
@@ -235,6 +235,33 @@ describe('coordinates, snap and persistence validation', () => {
   })
   it('snaps to the configured grid', () => expect(snapValue(2.37, .25, true)).toBe(2.25))
   it('does not snap when disabled', () => expect(snapValue(2.37, .25, false)).toBe(2.37))
+  it('magnetically snaps the nearest rectangle anchor instead of always jumping its origin', () => {
+    const position = snapRectanglePosition(
+      { xM: 2.31, yM: 1.38 },
+      { widthM: 1.4, lengthM: 0.45 },
+      0.5,
+      true,
+    )
+    expect(position.xM).toBeCloseTo(2.3)
+    expect(position.yM).toBeCloseTo(1.275)
+  })
+  it('leaves a rectangle free when none of its anchors are close to the grid', () => {
+    expect(snapRectanglePosition(
+      { xM: 2.17, yM: 1.12 },
+      { widthM: 1.1, lengthM: 0.6 },
+      0.5,
+      true,
+      0.04,
+    )).toEqual({ xM: 2.17, yM: 1.12 })
+  })
+  it('snaps resized rectangle edges without moving distant edges', () => {
+    expect(snapRectangleBounds(
+      { xM: 1.02, yM: 2.04, widthM: 2.44, lengthM: 1.43 },
+      0.5,
+      true,
+      0.06,
+    )).toEqual({ xM: 1, yM: 2, widthM: 2.5, lengthM: 1.5 })
+  })
   it('reports overlapping and uncovered Section geometry', () => {
     const summary = sectionGeometrySummary([
       { id: 'a', xM: 0, yM: 0, widthM: 6, lengthM: 4 },

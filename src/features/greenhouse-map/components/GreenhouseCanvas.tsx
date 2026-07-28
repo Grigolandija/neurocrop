@@ -9,7 +9,7 @@ import { continuousGradient, esriTemperatureGradient } from '../heatmap/heatmapC
 import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
-import { isWallMountedType } from '../geometry'
+import { isWallMountedType, snapRectangleBounds, snapRectanglePosition } from '../geometry'
 import { METRICS, OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type MapMode, type ObjectType } from '../model'
 
 type Props = {
@@ -45,8 +45,8 @@ const formatContourLabel = (level: number, metric: GreenhouseMap['heatmapSetting
 
 const MIN_HEATMAP_SENSOR_COUNT = 3
 
-function ObjectShape({ object, map, selected, editable, environmentView, layerOpacity, viewScale, onSelect, onMove, onUpdate }: {
-  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; environmentView: boolean; layerOpacity: number; viewScale: number
+function ObjectShape({ object, map, selected, editable, environmentView, layerOpacity, viewScale, snap, onSelect, onMove, onUpdate }: {
+  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; environmentView: boolean; layerOpacity: number; viewScale: number; snap: boolean
   onSelect: (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void
   onMove: (position: { id: string; xM: number; yM: number }, record?: boolean) => void
   onUpdate: Props['onUpdate']
@@ -81,13 +81,35 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
     draggable={editable && !object.locked}
     opacity={layerOpacity}
     onClick={onSelect} onTap={onSelect}
+    onDragMove={(event) => {
+      if (!snap || wallMounted) return
+      const rawPosition = {
+        xM: event.target.x(),
+        yM: map.dimensions.lengthM - event.target.y() - object.lengthM,
+      }
+      const toleranceM = Math.min(map.gridSizeM * 0.35, 8 / viewScale)
+      const position = snapRectanglePosition(rawPosition, object, map.gridSizeM, true, toleranceM)
+      event.target.position({
+        x: position.xM,
+        y: map.dimensions.lengthM - position.yM - object.lengthM,
+      })
+    }}
     onDragEnd={(event) => onMove({ id: object.id, xM: event.target.x(), yM: map.dimensions.lengthM - event.target.y() - object.lengthM }, true)}
     onTransformEnd={(event) => {
       const node = event.target
       const widthM = Math.max(.05, object.widthM * node.scaleX())
       const lengthM = Math.max(.05, object.lengthM * node.scaleY())
+      const rotationDeg = node.rotation()
+      const rawBounds = {
+        xM: node.x(),
+        yM: map.dimensions.lengthM - node.y() - lengthM,
+        widthM,
+        lengthM,
+      }
+      const axisAligned = Math.abs(((rotationDeg % 90) + 90) % 90) < 0.001
+      const bounds = snapRectangleBounds(rawBounds, map.gridSizeM, snap && axisAligned, Math.min(map.gridSizeM * 0.35, 8 / viewScale))
       node.scaleX(1); node.scaleY(1)
-      onUpdate(object.id, { xM: node.x(), yM: map.dimensions.lengthM - node.y() - lengthM, widthM, lengthM, rotationDeg: node.rotation() })
+      onUpdate(object.id, { ...bounds, rotationDeg })
     }}
   >
     {isSection ? <>
@@ -437,7 +459,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         {orderedObjects.map((object) => {
           const layer = visibleLayers.get(object.layerId)
           if (!object.visible || !layer?.visible) return null
-          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} environmentView={mode === 'environment'} layerOpacity={layer.opacity} viewScale={view.scale}
+          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} environmentView={mode === 'environment'} layerOpacity={layer.opacity} viewScale={view.scale} snap={snap}
             onSelect={(event) => {
               event.cancelBubble = true
               const shift = event.evt.shiftKey
