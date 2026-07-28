@@ -33,8 +33,8 @@ assert(
   'Both legacy and Clerk login screens must render before authenticated workspace loading.'
 )
 assert(
-  !app.includes('if (!isLoaded) return <WorkspaceLoading />'),
-  'Clerk session discovery must not show authenticated workspace loading before the login screen.'
+  app.includes('if (!isLoaded) return <WorkspaceLoading />'),
+  'Clerk session discovery must show a neutral loading state instead of flashing the login screen.'
 )
 assert(
   !clerkSessionBridge.includes('WorkspaceLoading'),
