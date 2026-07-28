@@ -153,22 +153,24 @@ export type HeatmapMetricDefinition = {
   labelLt: string
   unit: string
   decimals: number
+  scaleStep: number
+  minimumSpan: number
   field: Exclude<keyof SensorMeasurements, 'measuredAt' | 'pressureHpa'>
   bounds: [number, number]
   colors: [string, string, string]
 }
 
 export const METRICS: Record<MetricKey, HeatmapMetricDefinition> = {
-  'air-temperature': { label: 'Air temperature', labelLt: 'Oro temperatūra', unit: '°C', decimals: 1, field: 'airTemperatureC', bounds: [5, 45], colors: ['#256b73', '#e1c56b', '#b74c3f'] },
-  'relative-humidity': { label: 'Relative humidity', labelLt: 'Santykinė drėgmė', unit: '%', decimals: 1, field: 'relativeHumidityPercent', bounds: [15, 100], colors: ['#f2b84b', '#66c7b4', '#2f80c3'] },
-  co2: { label: 'CO₂', labelLt: 'CO₂', unit: 'ppm', decimals: 0, field: 'co2Ppm', bounds: [250, 2500], colors: ['#527b65', '#c3a95d', '#8c4a3f'] },
-  vpd: { label: 'VPD', labelLt: 'VPD', unit: 'kPa', decimals: 2, field: 'vpdKpa', bounds: [0, 3], colors: ['#3e7183', '#c7bd73', '#a55542'] },
-  'root-temperature': { label: 'Soil / root temperature', labelLt: 'Dirvos / šaknų temperatūra', unit: '°C', decimals: 1, field: 'rootTemperatureC', bounds: [5, 40], colors: ['#356d86', '#d0c171', '#a55341'] },
-  illuminance: { label: 'Illuminance', labelLt: 'Apšviestumas', unit: 'lx', decimals: 0, field: 'illuminanceLux', bounds: [0, 200000], colors: ['#263d64', '#d1bd62', '#fff0a0'] },
-  'soil-moisture': { label: 'Soil moisture', labelLt: 'Dirvos drėgmė', unit: '%', decimals: 1, field: 'soilMoisturePercent', bounds: [0, 100], colors: ['#a65b3d', '#68aa78', '#3278a8'] },
-  ec: { label: 'Nutrient EC', labelLt: 'Maistinio tirpalo EC', unit: 'mS/cm', decimals: 2, field: 'ecMsCm', bounds: [0, 10], colors: ['#426e8a', '#74a96f', '#9a5a43'] },
-  ph: { label: 'Nutrient pH', labelLt: 'Maistinio tirpalo pH', unit: 'pH', decimals: 2, field: 'ph', bounds: [0, 14], colors: ['#b15b49', '#73a96f', '#80609b'] },
-  'soil-ec': { label: 'Soil EC', labelLt: 'Dirvos EC', unit: 'mS/cm', decimals: 2, field: 'soilEcMsCm', bounds: [0, 10], colors: ['#426e8a', '#74a96f', '#9a5a43'] },
-  'leaf-temperature': { label: 'Leaf temperature', labelLt: 'Lapų temperatūra', unit: '°C', decimals: 1, field: 'leafTemperatureC', bounds: [5, 45], colors: ['#256b73', '#7da96f', '#b74c3f'] },
-  'water-temperature': { label: 'Water temperature', labelLt: 'Vandens temperatūra', unit: '°C', decimals: 1, field: 'waterTemperatureC', bounds: [0, 45], colors: ['#276a96', '#6ca9a0', '#b35b48'] },
+  'air-temperature': { label: 'Air temperature', labelLt: 'Oro temperatūra', unit: '°C', decimals: 1, scaleStep: 0.5, minimumSpan: 1, field: 'airTemperatureC', bounds: [5, 45], colors: ['#176da0', '#69b66e', '#d14935'] },
+  'relative-humidity': { label: 'Relative humidity', labelLt: 'Santykinė drėgmė', unit: '%', decimals: 1, scaleStep: 1, minimumSpan: 4, field: 'relativeHumidityPercent', bounds: [15, 100], colors: ['#e18a2d', '#65bd87', '#216db0'] },
+  co2: { label: 'CO₂', labelLt: 'CO₂', unit: 'ppm', decimals: 0, scaleStep: 25, minimumSpan: 100, field: 'co2Ppm', bounds: [250, 2500], colors: ['#247b5b', '#d4b541', '#bb3f35'] },
+  vpd: { label: 'VPD', labelLt: 'VPD', unit: 'kPa', decimals: 2, scaleStep: 0.05, minimumSpan: 0.15, field: 'vpdKpa', bounds: [0, 3], colors: ['#176da0', '#75b75f', '#d14935'] },
+  'root-temperature': { label: 'Soil / root temperature', labelLt: 'Dirvos / šaknų temperatūra', unit: '°C', decimals: 1, scaleStep: 0.5, minimumSpan: 1, field: 'rootTemperatureC', bounds: [5, 40], colors: ['#176da0', '#69b66e', '#d14935'] },
+  illuminance: { label: 'Illuminance', labelLt: 'Apšviestumas', unit: 'lx', decimals: 0, scaleStep: 500, minimumSpan: 2000, field: 'illuminanceLux', bounds: [0, 200000], colors: ['#233b7a', '#e1b936', '#fff07a'] },
+  'soil-moisture': { label: 'Soil moisture', labelLt: 'Dirvos drėgmė', unit: '%', decimals: 1, scaleStep: 1, minimumSpan: 4, field: 'soilMoisturePercent', bounds: [0, 100], colors: ['#c25732', '#68b768', '#176da0'] },
+  ec: { label: 'Nutrient EC', labelLt: 'Maistinio tirpalo EC', unit: 'mS/cm', decimals: 2, scaleStep: 0.05, minimumSpan: 0.2, field: 'ecMsCm', bounds: [0, 10], colors: ['#1769aa', '#65b85b', '#ce4634'] },
+  ph: { label: 'Nutrient pH', labelLt: 'Maistinio tirpalo pH', unit: 'pH', decimals: 2, scaleStep: 0.05, minimumSpan: 0.2, field: 'ph', bounds: [0, 14], colors: ['#d14935', '#62b65e', '#714ea0'] },
+  'soil-ec': { label: 'Soil EC', labelLt: 'Dirvos EC', unit: 'mS/cm', decimals: 2, scaleStep: 0.05, minimumSpan: 0.2, field: 'soilEcMsCm', bounds: [0, 10], colors: ['#1769aa', '#65b85b', '#ce4634'] },
+  'leaf-temperature': { label: 'Leaf temperature', labelLt: 'Lapų temperatūra', unit: '°C', decimals: 1, scaleStep: 0.5, minimumSpan: 1, field: 'leafTemperatureC', bounds: [5, 45], colors: ['#176da0', '#65b85b', '#d14935'] },
+  'water-temperature': { label: 'Water temperature', labelLt: 'Vandens temperatūra', unit: '°C', decimals: 1, scaleStep: 0.5, minimumSpan: 1, field: 'waterTemperatureC', bounds: [0, 45], colors: ['#176da0', '#65b6a0', '#d14935'] },
 }

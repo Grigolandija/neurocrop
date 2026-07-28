@@ -14,17 +14,21 @@ export function getValidMeasurementPoints(map: GreenhouseMap, metric: MetricKey,
 }
 
 export function getStableScale(values: number[], metric: MetricKey, manual?: { min?: number; max?: number }) {
-  const bounds = METRICS[metric].bounds
+  const definition = METRICS[metric]
+  const bounds = definition.bounds
   if (typeof manual?.min === 'number' && typeof manual.max === 'number' && manual.min < manual.max) {
     return { min: Math.max(bounds[0], manual.min), max: Math.min(bounds[1], manual.max) }
   }
   if (!values.length) return { min: bounds[0], max: bounds[1] }
   const observedMin = Math.min(...values)
   const observedMax = Math.max(...values)
-  const span = Math.max(observedMax - observedMin, (bounds[1] - bounds[0]) * 0.08)
-  const step = metric === 'co2' ? 50 : metric === 'relative-humidity' ? 2 : 0.5
+  const span = Math.max(observedMax - observedMin, definition.minimumSpan)
+  const center = (observedMin + observedMax) / 2
+  const padding = span * 0.06
+  const step = definition.scaleStep
+  const precision = Math.max(0, Math.ceil(-Math.log10(step)) + 1)
   return {
-    min: Math.max(bounds[0], Math.floor((observedMin - span * 0.2) / step) * step),
-    max: Math.min(bounds[1], Math.ceil((observedMax + span * 0.2) / step) * step),
+    min: Number(Math.max(bounds[0], Math.floor((center - span / 2 - padding) / step) * step).toFixed(precision)),
+    max: Number(Math.min(bounds[1], Math.ceil((center + span / 2 + padding) / step) * step).toFixed(precision)),
   }
 }

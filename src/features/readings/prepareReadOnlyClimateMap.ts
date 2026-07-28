@@ -24,6 +24,7 @@ export function prepareReadOnlyClimateMap(context: AreaMapContext, metric: Metri
       ...source.heatmapSettings,
       enabled: true,
       metric,
+      opacity: Math.max(0.95, source.heatmapSettings.opacity),
       scaleMode: usesSavedMetricScale ? source.heatmapSettings.scaleMode : 'auto',
       manualMin: usesSavedMetricScale ? source.heatmapSettings.manualMin : undefined,
       manualMax: usesSavedMetricScale ? source.heatmapSettings.manualMax : undefined,
