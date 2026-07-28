@@ -3,6 +3,7 @@ import { ClerkProvider } from '@clerk/react'
 import './index.css'
 import App from './App.tsx'
 import ClerkSessionBridge from './components/ClerkSessionBridge.tsx'
+import { initializePwa } from './pwa.ts'
 
 declare const __BUILD_VERSION__: string
 
@@ -21,6 +22,8 @@ window.addEventListener('vite:preloadError', (event) => {
 
 const publishableKey = String(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '').trim()
 const application = <App />
+
+initializePwa()
 
 createRoot(document.getElementById('root')!).render(
   publishableKey

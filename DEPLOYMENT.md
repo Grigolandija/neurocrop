@@ -16,6 +16,10 @@ Make the repository GHCR package readable by the VPS (public package or a persis
 Production runs `neurocrop-api` and `neurocrop-ingest` from the same immutable
 backend image. Ingest maintains a readiness heartbeat only while its MQTT client
 is connected. Deployment succeeds only when both the API and ingest are healthy.
+Production web push additionally requires mode `640`, `root:1000` files
+`/opt/neurocrop-backend/.vapid_public_key` and
+`/opt/neurocrop-backend/.vapid_private_key`. The public key is returned only to
+authenticated clients; the private key remains a Docker secret.
 
 The GitHub Actions SSH key must be installed with a forced command:
 

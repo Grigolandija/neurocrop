@@ -1435,6 +1435,22 @@ test('platform user deletion removes external identity and every user-owned acce
   assert.ok(clerkDelete < localDelete, 'Clerk identity must be removed before the local account can be deleted');
 });
 
+test('push notification routes are authenticated, tenant scoped and deduplicate alert delivery', () => {
+  const source = fs.readFileSync(new URL('../push-notifications.js', import.meta.url), 'utf8');
+  const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const workflows = fs.readFileSync(new URL('../workflow-routes.js', import.meta.url), 'utf8');
+
+  assert.match(source, /app\.get\('\/push\/config', requireUserAuth/);
+  assert.match(source, /app\.post\('\/push\/subscriptions', requireUserAuth/);
+  assert.match(source, /app\.delete\('\/push\/subscriptions', requireUserAuth/);
+  assert.match(source, /req\.user\.organizationId/);
+  assert.match(source, /req\.user\.id/);
+  assert.match(source, /INSERT INTO push_deliveries/);
+  assert.match(source, /ON CONFLICT DO NOTHING/);
+  assert.match(api, /registerPushNotificationRoutes\(app\)/);
+  assert.match(workflows, /dispatchAlertPushNotifications\(tenantId, canonicalState\.alerts\)/);
+});
+
 test('platform organization listing includes active node fault counts', () => {
   const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
   const routeStart = source.indexOf("app.get('/platform/organizations'");

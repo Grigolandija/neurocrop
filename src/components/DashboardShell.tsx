@@ -5,6 +5,7 @@ import { useInterfaceLanguage } from '../i18n'
 import { neurocropApi } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
 import { canAccessWorkspaceRoute, useWorkspaceAccess, workspaceLockReason } from '../state/workspaceAccess'
+import PwaControls from './PwaControls'
 
 export type DashboardUser = {
   email: string
@@ -162,6 +163,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
               <i className="fa-solid fa-bars" aria-hidden="true" />
             </button>
             <div className="header-status-card">
+              <PwaControls />
               <div className="language-switch header-language-select" role="group" aria-label={t('Language')}>
                 <button type="button" data-language-option="lt" data-active={language === 'lt'} aria-pressed={language === 'lt'} onClick={() => setLanguage('lt')}>LT</button>
                 <button type="button" data-language-option="en" data-active={language === 'en'} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>

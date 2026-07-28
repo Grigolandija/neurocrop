@@ -486,3 +486,409 @@
     flex-direction: column;
   }
 }
+
+/* Mobile product layer: shared controls, cards and sheets. This file is loaded
+   last so these rules are the final contract at 360/390/430 px. */
+.designer-app .pwa-controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.designer-app .pwa-control-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0 11px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.designer-app .pwa-control-button[data-state="enabled"] {
+  border-color: rgba(40, 123, 99, .28);
+  color: #21674f;
+  background: #e7f4ed;
+}
+
+.designer-app .pwa-control-message {
+  position: fixed;
+  z-index: 2147482000;
+  right: 16px;
+  bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  max-width: min(24rem, calc(100vw - 32px));
+  border: 1px solid rgba(31, 91, 72, .18);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #20352d;
+  background: #fff;
+  box-shadow: 0 18px 46px rgba(25, 54, 43, .18);
+  font-size: 12px;
+  text-align: left;
+}
+
+@media (display-mode: standalone) {
+  body.designer-app {
+    overscroll-behavior-y: none;
+  }
+
+  .designer-app #dashboardHeader.global-system-bar {
+    padding-top: env(safe-area-inset-top) !important;
+  }
+
+  .designer-app .dashboard-shell {
+    padding-top: calc(54px + env(safe-area-inset-top)) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body.designer-app {
+    min-height: 100dvh;
+    overscroll-behavior-y: contain;
+  }
+
+  body[data-sidebar-open="true"] {
+    overflow: hidden !important;
+  }
+
+  .designer-app .pwa-controls {
+    order: -1;
+  }
+
+  .designer-app .pwa-control-button {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .designer-app .pwa-control-button > span {
+    display: none;
+  }
+
+  .designer-app .pwa-control-message {
+    right: 8px;
+    bottom: var(--nc-mobile-dock-space);
+    left: 8px;
+    max-width: none;
+  }
+
+  .designer-app :is(.nc-overview-page, .nc-alerts-page, .nc-actions-page, .nc-readings-page, .nc-areas-page, .nc-sections-page) {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0 !important;
+  }
+
+  .designer-app :is(
+    .nc-overview-head,
+    .nc-alerts-head,
+    .nc-actions-head,
+    .nc-readings-hero,
+    .nc-areas-head,
+    .nc-sections-head,
+    .node-fleet-page-head,
+    .nc-settings-page-head,
+    .nc-admin-page-head
+  ) {
+    align-items: stretch !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+  }
+
+  .designer-app :is(
+    .nc-overview-head,
+    .nc-alerts-head,
+    .nc-actions-head,
+    .nc-readings-hero,
+    .nc-areas-head,
+    .nc-sections-head,
+    .node-fleet-page-head,
+    .nc-settings-page-head,
+    .nc-admin-page-head
+  ) > :is(button, .nc-head-actions, .nc-alerts-review-all) {
+    width: 100%;
+  }
+
+  .designer-app :is(.nc-overview-summary, .nc-alerts-summary, .nc-actions-summary, .nc-readings-health, .nc-areas-summary, .nc-sections-summary) {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .designer-app :is(.nc-overview-summary, .nc-alerts-summary, .nc-actions-summary, .nc-readings-health, .nc-areas-summary, .nc-sections-summary) > * {
+    min-width: min(78vw, 18rem);
+    scroll-snap-align: start;
+  }
+
+  .designer-app :is(.nc-alerts-filters, .nc-actions-tabs, .nc-readings-tabs, .nc-section-view-switch) {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .designer-app :is(.nc-alerts-filters, .nc-actions-tabs, .nc-readings-tabs, .nc-section-view-switch) > * {
+    flex: 0 0 auto;
+    min-height: 44px;
+  }
+
+  .designer-app :is(.nc-actions-controls, .nc-alerts-toolbar, .nc-readings-controls, .nc-section-filters, .nc-areas-toolbar) {
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+  }
+
+  .designer-app :is(.nc-actions-controls, .nc-alerts-toolbar, .nc-readings-controls, .nc-section-filters, .nc-areas-toolbar) > * {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  /* Operational queues are real cards on phones, not squeezed desktop rows. */
+  .designer-app :is(.nc-actions-row, .nc-alert-row, .nc-alerts-row) {
+    min-width: 0 !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 10px 12px !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 14px !important;
+    padding: 14px !important;
+    background: var(--color-surface) !important;
+  }
+
+  .designer-app :is(.nc-actions-row, .nc-alert-row, .nc-alerts-row) > * {
+    min-width: 0;
+    padding: 0 !important;
+  }
+
+  /* Admin is intentionally reduced to stacked records. The desktop table
+     remains untouched for audit-heavy use. */
+  .designer-app .nc-admin-table-wrap {
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .designer-app .nc-admin-table-wrap table,
+  .designer-app .nc-admin-table-wrap tbody {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .designer-app .nc-admin-table-wrap thead {
+    display: none;
+  }
+
+  .designer-app .nc-admin-table-wrap tr {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 9px 12px;
+    margin-bottom: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: 13px;
+    background: var(--color-surface);
+  }
+
+  .designer-app .nc-admin-table-wrap td {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    border: 0 !important;
+    padding: 0 !important;
+    font-size: 12px;
+  }
+
+  .designer-app .nc-admin-table-wrap td:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .designer-app .nc-admin-table-wrap td:last-child {
+    grid-column: 2;
+    grid-row: 2 / span 3;
+    justify-content: flex-end;
+  }
+
+  .designer-app .nc-admin-row-actions {
+    flex-direction: column;
+  }
+
+  .designer-app .nc-admin-row-actions button {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Every form dialog becomes a keyboard-safe bottom sheet. */
+  .designer-app :is(
+    .nc-areas-modal-backdrop,
+    .nc-sections-modal-backdrop,
+    .nc-readings-drawer-backdrop,
+    .nc-admin-modal-layer,
+    .profile-create-backdrop,
+    .nc-action-modal-backdrop,
+    .node-modal-backdrop,
+    .nc-overview-drawer-backdrop
+  ) {
+    align-items: end !important;
+    padding: 0 !important;
+  }
+
+  .designer-app :is(
+    .nc-areas-modal,
+    .nc-sections-modal,
+    .nc-readings-drawer,
+    .nc-admin-diagnostics,
+    .crop-profile-create-drawer,
+    .nc-action-modal,
+    .node-modal,
+    .nc-overview-drawer
+  ) {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top))) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
+  .designer-app :is(
+    .nc-areas-modal,
+    .nc-sections-modal,
+    .nc-readings-drawer,
+    .nc-admin-diagnostics,
+    .crop-profile-create-drawer,
+    .nc-action-modal,
+    .node-modal,
+    .nc-overview-drawer
+  ) :is(input, select, textarea):focus {
+    scroll-margin-block: 8rem;
+  }
+
+  /* Area Map owns the entire mobile viewport. Its own toolbar and Back action
+     replace the dashboard chrome while editing or inspecting a map. */
+  body.gh-map-active #dashboardHeader,
+  body.gh-map-active #dashboardSidebar,
+  body.gh-map-active .rail-scrim,
+  body.gh-map-active .mobile-dock {
+    display: none !important;
+  }
+
+  body.gh-map-active .dashboard-shell,
+  body.gh-map-active #dashboardMain,
+  body.gh-map-active .dashboard-main-inner {
+    width: 100vw !important;
+    height: 100dvh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.gh-map-active .gh-app {
+    position: fixed;
+    z-index: 2147481000;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    min-height: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: #edf1ec;
+  }
+
+  body.gh-map-active .gh-toolbar {
+    min-height: 50px;
+    padding-inline: max(7px, env(safe-area-inset-left)) max(7px, env(safe-area-inset-right));
+  }
+
+  body.gh-map-active .gh-action-strip {
+    min-height: 46px;
+    padding-inline: 7px;
+    scrollbar-width: none;
+  }
+
+  body.gh-map-active .gh-workspace {
+    height: calc(100dvh - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  body.gh-map-active .gh-mobile-panel-scrim {
+    position: absolute;
+    z-index: 25;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgba(16, 34, 28, .36);
+  }
+
+  body.gh-map-active .gh-left-panel,
+  body.gh-map-active .gh-right-panel {
+    z-index: 30;
+    width: min(22rem, 88vw);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (min-width: 768px) {
+  .gh-mobile-panel-scrim {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  :root { --nc-mobile-gutter: 10px; }
+  .designer-app .mobile-dock { width: calc(100vw - 12px); }
+  .designer-app .mobile-dock-button { font-size: 9.5px; }
+  .designer-app .nc-reading-section,
+  .designer-app .nc-readings-row-head > span:first-child {
+    width: 9.5rem;
+    max-width: 9.5rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .designer-app #dashboardHeader .header-battery-wrap {
+    display: none;
+  }
+  .designer-app .mobile-dock-button {
+    letter-spacing: -.01em;
+  }
+  .designer-app :is(.nc-overview-summary, .nc-alerts-summary, .nc-actions-summary, .nc-readings-health, .nc-areas-summary, .nc-sections-summary) > * {
+    min-width: 82vw;
+  }
+}
+
+@media (max-width: 360px) {
+  :root { --nc-mobile-gutter: 8px; }
+  .designer-app .mobile-dock {
+    width: calc(100vw - 8px);
+    gap: 0;
+    border-radius: 17px;
+    padding: 4px 2px;
+  }
+  .designer-app .mobile-dock-button {
+    min-height: 50px;
+    border-radius: 13px;
+    padding-inline: 1px;
+    font-size: 9px;
+  }
+  .designer-app .mobile-dock-button i {
+    font-size: 14px;
+  }
+}

@@ -3,6 +3,7 @@ import { pool, query } from './db.js';
 import { requireRole, requireUserAuth } from './auth-users.js';
 import { buildCurrentMetricEvaluations } from './score.js';
 import { buildCanonicalAlertState, canonicalAlertContext } from './alert-lifecycle.js';
+import { dispatchAlertPushNotifications } from './push-notifications.js';
 
 const workflowRoles = requireRole('owner', 'admin', 'grower', 'technician');
 const OUTCOME_STATUSES = new Set(['successful', 'no_change', 'made_worse', 'not_relevant']);
@@ -293,6 +294,8 @@ export function registerWorkflowRoutes(app) {
       const tenantId = organizationId(req);
       const canonicalState = await loadCanonicalAlerts(tenantId);
       await synchronizeCanonicalAlerts(tenantId, canonicalState.alerts, canonicalState.clearableIds);
+      void dispatchAlertPushNotifications(tenantId, canonicalState.alerts)
+        .catch((error) => console.warn('[push] dispatch failed:', error?.message || error));
       const parameters = [tenantId];
       const statusClause = status === 'all'
         ? ''

@@ -44,6 +44,7 @@ import { registerGreenhouseMapRoutes } from './greenhouse-map-routes.js';
 import { registerGatewayFactoryRoutes } from './gateway-factory-routes.js';
 import { registerPasswordResetRoutes } from './password-reset-routes.js';
 import { resolveOptionalClerkAuth } from './clerk-auth.js';
+import { registerPushNotificationRoutes } from './push-notifications.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -104,6 +105,7 @@ registerWorkflowRoutes(app);
 registerGreenhouseMapRoutes(app);
 registerGatewayFactoryRoutes(app);
 registerPasswordResetRoutes(app);
+registerPushNotificationRoutes(app);
 
 function getOrganizationId(req) {
   if (!req.user?.organizationId) throw new Error('Authenticated organization is missing');

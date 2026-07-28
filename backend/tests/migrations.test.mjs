@@ -120,6 +120,16 @@ test('every organization is backfilled and protected with a default crop profile
   assert.match(sql, /ON CONFLICT \(organization_id, id\) DO NOTHING/);
 });
 
+test('web push subscriptions and alert deliveries remain tenant and user scoped', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0027_web_push.sql', import.meta.url), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS push_subscriptions/);
+  assert.match(sql, /organization_id TEXT NOT NULL REFERENCES organizations\(id\) ON DELETE CASCADE/);
+  assert.match(sql, /user_id\s+TEXT NOT NULL REFERENCES users\(id\) ON DELETE CASCADE/);
+  assert.match(sql, /endpoint\s+TEXT NOT NULL UNIQUE/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS push_deliveries/);
+  assert.match(sql, /PRIMARY KEY \(organization_id, alert_id, subscription_id\)/);
+});
+
 test('case-insensitive DevEUI operations have functional indexes', async () => {
   const migration = await fs.readFile(new URL('../migrations/0016_deveui_lookup_indexes.sql', import.meta.url), 'utf8');
   assert.match(migration, /idx_nodes_dev_eui_lower[\s\S]*lower\(dev_eui\)/);

@@ -311,6 +311,7 @@ export default function GreenhouseMapTestPage() {
       <button className="danger" disabled={canvasReadOnly} onClick={resetMap}><i className="fa-solid fa-arrow-rotate-left" /> {tr('Reset map', 'Atkurti žemėlapį')}</button>
     </div>
     <div className="gh-workspace">
+      {mobilePanel !== 'none' ? <button type="button" className="gh-mobile-panel-scrim" aria-label={tr('Close map panel', 'Uždaryti žemėlapio skydelį')} onClick={() => setMobilePanel('none')} /> : null}
       <aside className="gh-left-panel">
         {!canvasReadOnly ? <GreenhouseSettingsPanel map={editor.map} language={language} onChange={(next) => editor.commit(() => next)} /> : null}
         {!canvasReadOnly ? <ObjectLibraryPanel language={language} onAdd={editor.addObject} /> : null}

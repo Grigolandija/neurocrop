@@ -17,6 +17,9 @@ services:
       CORS_ALLOWED_ORIGINS: https://neurocrop.lt,https://www.neurocrop.lt
       CLERK_SECRET_KEY_FILE: /run/secrets/clerk_secret_key
       CLERK_AUTHORIZED_PARTIES: https://neurocrop.lt,https://www.neurocrop.lt
+      VAPID_PUBLIC_KEY_FILE: /run/secrets/vapid_public_key
+      VAPID_PRIVATE_KEY_FILE: /run/secrets/vapid_private_key
+      VAPID_SUBJECT: mailto:alerts@neurocrop.lt
     secrets:
       - chirpstack_api_token
       - chirpstack_application_id
@@ -24,6 +27,8 @@ services:
       - default_otaa_app_key
       - resend_api_key
       - clerk_secret_key
+      - vapid_public_key
+      - vapid_private_key
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 15s
@@ -70,3 +75,7 @@ secrets:
     file: /opt/neurocrop-backend/.resend_api_key
   clerk_secret_key:
     file: /opt/neurocrop-backend/.clerk_secret_key
+  vapid_public_key:
+    file: /opt/neurocrop-backend/.vapid_public_key
+  vapid_private_key:
+    file: /opt/neurocrop-backend/.vapid_private_key
