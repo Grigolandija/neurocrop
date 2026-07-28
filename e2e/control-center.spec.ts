@@ -33,10 +33,10 @@ test('wrong password shows an inline login error', async ({ page }) => {
   await expect(page.locator('#dashboardShell')).toHaveCount(0)
 })
 
-test('React shell keeps every primary workspace mounted for instant navigation', async ({ page }) => {
+test('React shell mounts only the active primary workspace during navigation', async ({ page }) => {
   await authenticate(page)
   await expect(page.locator('#headerAccountEmail')).toHaveText('tenant-a@ci.neurocrop.test')
-  await expect(page.locator('[data-workspace-host]')).toHaveCount(14)
+  await expect(page.locator('[data-workspace-host]')).toHaveCount(1)
   await expect(page.locator('[data-nc-react-workspace="overview"]')).toBeVisible()
 
   const routes = [
@@ -56,6 +56,7 @@ test('React shell keeps every primary workspace mounted for instant navigation',
   for (const [action, route, workspace] of routes) {
     await navigation(page, action).click()
     await expect(page).toHaveURL(new RegExp(`${route.replace('/', '\\/')}$`))
+    await expect(page.locator('[data-workspace-host]')).toHaveCount(1)
     await expect(page.locator('[data-workspace-host]:not([hidden])').locator(workspace)).toBeVisible()
     await expect(page.locator('.app-route-loading')).toHaveCount(0)
   }
