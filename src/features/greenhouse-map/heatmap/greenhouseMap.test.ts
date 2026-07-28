@@ -126,8 +126,9 @@ describe('environment colour scale', () => {
     expect(COLOR_INTERVALS['air-temperature']).toBe(1)
     expect(COLOR_INTERVALS['relative-humidity']).toBe(1)
     expect(esriTemperatureColorAt(22.99)).not.toEqual(esriTemperatureColorAt(23.01))
-    expect(esriTemperatureGradient(20, 25).match(/rgb\(/g)).toHaveLength(10)
+    expect(esriTemperatureGradient().match(/rgb\(/g)).toHaveLength(9)
     expect(bandedGradient(20, 25, colors, 1).match(/rgb\(/g)).toHaveLength(10)
+    expect(esriTemperatureColorAt(20.1, 20, 25)).not.toEqual(esriTemperatureColorAt(20.9, 20, 25))
   })
 })
 

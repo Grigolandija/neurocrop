@@ -105,26 +105,18 @@ function esriTemperatureRampColorAtCelsius(valueC: number): [number, number, num
 export function esriTemperatureColorAt(valueC: number, min?: number, max?: number): [number, number, number] {
   const classCenterC = Math.floor(valueC + 1e-9) + 0.5
   if (min === undefined || max === undefined) return esriTemperatureRampColorAtCelsius(classCenterC)
-  const firstClassCenterC = Math.floor(min + 1e-9) + 0.5
-  const lastClassCenterC = Math.floor(max + 1e-9) + 0.5
-  return colorFromRamp(ESRI_DISPLAY_RAMP, (classCenterC - firstClassCenterC) / Math.max(lastClassCenterC - firstClassCenterC, 1e-6))
+  return colorFromRamp(ESRI_DISPLAY_RAMP, (valueC - min) / Math.max(max - min, 1e-6))
 }
 
-export function esriTemperatureGradient(min: number, max: number): string {
-  const safeRange = Math.max(max - min, 1e-6)
-  const boundaries = [min]
-  const first = Math.ceil(min + 1e-9)
-  for (let boundary = first; boundary < max - 1e-9; boundary += 1) boundaries.push(boundary)
-  boundaries.push(max)
-  const stops: string[] = []
-  for (let index = 0; index < boundaries.length - 1; index += 1) {
-    const start = boundaries[index]
-    const end = boundaries[index + 1]
-    const [red, green, blue] = esriTemperatureColorAt((start + end) / 2, min, max)
-    const color = `rgb(${red} ${green} ${blue})`
-    stops.push(`${color} ${(start - min) / safeRange * 100}%`, `${color} ${(end - min) / safeRange * 100}%`)
-  }
+export function esriTemperatureGradient(): string {
+  const stops = ESRI_DISPLAY_RAMP.map(([red, green, blue], index) =>
+    `rgb(${red} ${green} ${blue}) ${index / Math.max(1, ESRI_DISPLAY_RAMP.length - 1) * 100}%`)
   return `linear-gradient(90deg, ${stops.join(', ')})`
+}
+
+export function continuousGradient(colors: readonly string[]): string {
+  return `linear-gradient(90deg, ${colors.map((color, index) =>
+    `${color} ${index / Math.max(1, colors.length - 1) * 100}%`).join(', ')})`
 }
 
 export function bandedColorAt(value: number, min: number, max: number, colors: readonly string[], interval: number) {
