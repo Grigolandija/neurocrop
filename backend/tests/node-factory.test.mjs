@@ -39,6 +39,8 @@ test('node factory restores an archived factory node deleted from ChirpStack', (
   const source = fs.readFileSync(new URL('../gateway-factory-routes.js', import.meta.url), 'utf8');
   assert.match(source, /organization_id, archived_at/);
   assert.match(source, /archivedFactoryNode/);
+  assert.match(source, /existingAppKeyIsValid && !archivedFactoryNode/);
+  assert.match(source, /existingAppKeyIsValid \? appKey : crypto\.randomBytes/);
   assert.match(source, /getChirpstackDevice\(devEui\)/);
   assert.match(source, /createFactoryNodeKeysInChirpstack/);
   assert.match(source, /factory_provisioned_at=now\(\)/);

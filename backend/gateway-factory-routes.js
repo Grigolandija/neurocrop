@@ -384,24 +384,27 @@ export function registerGatewayFactoryRoutes(app) {
         }
         const keys = await getChirpstackDeviceKeys(devEui);
         const appKey = String(keys?.deviceKeys?.appKey || keys?.deviceKeys?.nwkKey || '').toLowerCase();
-        if (/^[0-9a-f]{32}$/.test(appKey)) {
+        const existingAppKeyIsValid = /^[0-9a-f]{32}$/.test(appKey);
+        if (existingAppKeyIsValid && !archivedFactoryNode) {
           await client.query('COMMIT');
           return res.json(factoryNodeResponse(existing, appKey));
         }
 
-        const replacementAppKey = crypto.randomBytes(16).toString('hex');
-        const chirpstackDevice = await getChirpstackDevice(devEui);
-        if (chirpstackDevice) {
-          await createFactoryNodeKeysInChirpstack({ devEui, appKey: replacementAppKey });
-        } else {
-          await createFactoryNodeInChirpstack({
-            devEui,
-            name: existing.factory_serial,
-            appKey: replacementAppKey,
-            onDeviceCreated: () => {
-              chirpstackDeviceCreated = true;
-            }
-          });
+        const restoredAppKey = existingAppKeyIsValid ? appKey : crypto.randomBytes(16).toString('hex');
+        if (!existingAppKeyIsValid) {
+          const chirpstackDevice = await getChirpstackDevice(devEui);
+          if (chirpstackDevice) {
+            await createFactoryNodeKeysInChirpstack({ devEui, appKey: restoredAppKey });
+          } else {
+            await createFactoryNodeInChirpstack({
+              devEui,
+              name: existing.factory_serial,
+              appKey: restoredAppKey,
+              onDeviceCreated: () => {
+                chirpstackDeviceCreated = true;
+              }
+            });
+          }
         }
         const { rows: restoredRows } = await client.query(
           `UPDATE nodes
@@ -431,7 +434,7 @@ export function registerGatewayFactoryRoutes(app) {
           [devEui, firmwareVersion]
         );
         await client.query('COMMIT');
-        return res.json(factoryNodeResponse(restoredRows[0], replacementAppKey));
+        return res.json(factoryNodeResponse(restoredRows[0], restoredAppKey));
       }
 
       const config = chirpstackConfig();
