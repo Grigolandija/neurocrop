@@ -7,6 +7,7 @@ import { requirePlatformAdmin, requireSuperAdmin, requireUserAuth } from './auth
 import { deleteClerkUserIdentity } from './clerk-auth.js';
 import { statusFromMeasurementTime } from './score.js';
 import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
+import { defaultCropProfileMetricsJson } from './crop-profile-defaults.js';
 
 const INVITE_TTL_DAYS = 14;
 const APP_BASE_URL = process.env.APP_BASE_URL || process.env.APP_URL || 'https://neurocrop.lt';
@@ -82,9 +83,9 @@ async function seedDefaultCropProfile(client, organizationId) {
      ) VALUES (
        'default', $1, 'Default', 'Default', 'Default',
        'Universal starter profile. Review target ranges before assigning it to production sections.',
-       false, '{}'::jsonb, now(), now()
+       false, $2::jsonb, now(), now()
      ) ON CONFLICT (organization_id, id) DO NOTHING`,
-    [organizationId]
+    [organizationId, defaultCropProfileMetricsJson()]
   );
 }
 

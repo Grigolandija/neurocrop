@@ -171,6 +171,16 @@ test('Readings and Trends use API-backed measurement data', async ({ page }) => 
   await expect(page.getByRole('button', { name: '7d', exact: true })).toHaveClass(/active/)
 })
 
+test('crop profile editor always exposes editable target ranges', async ({ page }) => {
+  await authenticate(page)
+  await navigation(page, 'crop-profiles').click()
+  await page.locator('.crop-profile-switcher-option').first().click()
+  await expect(page.getByRole('heading', { name: 'Operating envelope' })).toBeVisible()
+  await expect(page.locator('.range-editor-list .range-editor').first()).toBeVisible()
+  await expect(page.getByLabel('Optimal minimum').first()).toBeEditable()
+  await expect(page.getByLabel('Optimal maximum').first()).toBeEditable()
+})
+
 test('new customer can register and receives confirmation', async ({ page }) => {
   await prepare(page)
   await page.goto('/register')

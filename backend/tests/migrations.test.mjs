@@ -120,6 +120,19 @@ test('every organization is backfilled and protected with a default crop profile
   assert.match(sql, /ON CONFLICT \(organization_id, id\) DO NOTHING/);
 });
 
+test('empty crop profiles are repaired with complete starter metrics', async () => {
+  const sql = await fs.readFile(
+    new URL('../migrations/0028_crop_profile_starter_metrics.sql', import.meta.url),
+    'utf8'
+  );
+  assert.match(sql, /CREATE OR REPLACE FUNCTION starter_crop_profile_metrics/);
+  assert.match(sql, /WHERE metrics IS NULL[\s\S]*metrics = '\{\}'::jsonb/);
+  assert.match(sql, /"airTemp"/);
+  assert.match(sql, /"soilEc"/);
+  assert.match(sql, /requires_review = true/);
+  assert.match(sql, /ensure_organization_default_crop_profile/);
+});
+
 test('web push subscriptions and alert deliveries remain tenant and user scoped', async () => {
   const sql = await fs.readFile(new URL('../migrations/0027_web_push.sql', import.meta.url), 'utf8');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS push_subscriptions/);

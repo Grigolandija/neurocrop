@@ -557,7 +557,7 @@ app.post('/crop-profiles', requireAuth, requireRole('owner', 'admin', 'grower'),
     if (!name || !heroName) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Profile name and heroName are required' } });
     }
-    const metricsError = validateCropProfileMetrics(metrics);
+    const metricsError = validateCropProfileMetrics(metrics, { allowEmpty: false });
     if (metricsError) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: metricsError } });
     }
@@ -616,7 +616,7 @@ app.patch('/crop-profiles/:id', requireAuth, requireRole('owner', 'admin', 'grow
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Profile name and heroName cannot be empty' } });
     }
     if (metrics !== null) {
-      const metricsError = validateCropProfileMetrics(metrics);
+      const metricsError = validateCropProfileMetrics(metrics, { allowEmpty: false });
       if (metricsError) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: metricsError } });
       }

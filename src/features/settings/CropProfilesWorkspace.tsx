@@ -1,6 +1,7 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useState, type FormEvent } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { withStarterMetrics } from './cropProfileDefaults'
 import '../../styles/redesign-profiles.css'
 
 // Profile metric payloads are intentionally extensible for new firmware sensors.
@@ -69,7 +70,7 @@ function normalizeProfile(source: JsonRecord): Profile {
     stage: text(source.stage || source.growthStage || source.growth_stage, 'Custom program'),
     hint: text(source.hint),
     requiresReview: Boolean(source.requiresReview ?? source.requires_review),
-    metrics: source.metrics && typeof source.metrics === 'object' && !Array.isArray(source.metrics) ? clone(source.metrics) : {},
+    metrics: clone(withStarterMetrics(source.metrics)),
   }
 }
 

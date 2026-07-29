@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from 'crypto';
 import { createClerkClient, verifyToken } from '@clerk/express';
 import { query } from './db.js';
 import { getMemberships, hashUserPassword, normalizeEmail, publicUser } from './auth-users.js';
+import { defaultCropProfileMetricsJson } from './crop-profile-defaults.js';
 
 function bearerToken(req) {
   const authorization = String(req.headers?.authorization || '').trim();
@@ -177,7 +178,7 @@ async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query
          SELECT
            'default', new_organization.id, 'Default', 'Default', 'Default',
            'Universal starter profile. Review target ranges before assigning it to production sections.',
-           false, '{}'::jsonb, now(), now()
+           false, $8::jsonb, now(), now()
          FROM new_organization
          ON CONFLICT (organization_id, id) DO NOTHING
          RETURNING organization_id
@@ -191,7 +192,8 @@ async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query
         unusableLegacyPassword,
         clerkUserId,
         organizationId,
-        organizationName
+        organizationName,
+        defaultCropProfileMetricsJson()
       ]
     );
     if (provisioned.rows[0]) return provisioned.rows[0];

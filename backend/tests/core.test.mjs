@@ -40,6 +40,7 @@ import { sendInvitationEmail, sendPasswordResetEmail } from '../email.js';
 import { hashPasswordResetToken, passwordResetUrl } from '../password-reset-routes.js';
 import { simulateAgronomicScenario } from '../agronomic-simulator.js';
 import { buildCanonicalAlerts, buildCanonicalAlertState, canonicalAlertContext } from '../alert-lifecycle.js';
+import { DEFAULT_CROP_PROFILE_METRICS } from '../crop-profile-defaults.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -521,6 +522,7 @@ test('node diagnostics normalize decoder values and profile intervals', () => {
 
 test('profile metric validation rejects malformed and reversed bands', () => {
   assert.equal(validateCropProfileMetrics({ airTemp: { optimal: [18, 24] } }), null);
+  assert.match(validateCropProfileMetrics({}, { allowEmpty: false }), /At least one metric/);
   assert.match(validateCropProfileMetrics({ airTemp: { optimal: [24, 18] } }), /increasing/);
   assert.match(validateCropProfileMetrics({ airTemp: { optimal: ['x', 24] } }), /increasing/);
   assert.match(validateCropProfileMetrics({ airTemp: { optimal: [null, 24] } }), /increasing/);
@@ -529,6 +531,13 @@ test('profile metric validation rejects malformed and reversed bands', () => {
   assert.equal(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: 1.5 } }), null);
   assert.match(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: null } }), /between 0 and 3/);
   assert.match(validateCropProfileMetrics({ vpd: { optimal: [0.8, 1.2], scoreWeight: 4 } }), /between 0 and 3/);
+});
+
+test('starter crop profile contains every editable agronomic group', () => {
+  assert.equal(validateCropProfileMetrics(DEFAULT_CROP_PROFILE_METRICS, { allowEmpty: false }), null);
+  for (const metricId of ['airTemp', 'humidity', 'co2', 'vpd', 'leafTemp', 'soilTemp', 'soilMoisture', 'ec', 'soilEc', 'ph', 'waterTemp', 'lux']) {
+    assert.ok(DEFAULT_CROP_PROFILE_METRICS[metricId], `${metricId} is missing`);
+  }
 });
 
 test('profile metric validation rejects impossible targets for known sensors', () => {
