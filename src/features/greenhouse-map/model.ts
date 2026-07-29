@@ -215,16 +215,16 @@ const TEMPERATURE_STOPS = [
   { value: 30, color: '#FF6A3A' },
   { value: 32, color: '#D92525' },
 ] as const
-const HUMIDITY_COLORS = ['#8C510A', '#BF812D', '#DFC27D', '#F6E8C3', '#C7EAE5', '#80CDC1', '#35978F', '#01665E'] as const
+const HUMIDITY_COLORS = ['#B86B2B', '#D4934C', '#E5BE77', '#E7DFA9', '#A8D5A2', '#63C2AE', '#3599C5', '#255AA5'] as const
 const HUMIDITY_STOPS = [
-  { value: 20, color: '#8C510A' },
-  { value: 30, color: '#BF812D' },
-  { value: 40, color: '#DFC27D' },
-  { value: 50, color: '#F6E8C3' },
-  { value: 60, color: '#C7EAE5' },
-  { value: 70, color: '#80CDC1' },
-  { value: 80, color: '#35978F' },
-  { value: 90, color: '#01665E' },
+  { value: 20, color: '#B86B2B' },
+  { value: 30, color: '#D4934C' },
+  { value: 40, color: '#E5BE77' },
+  { value: 50, color: '#E7DFA9' },
+  { value: 60, color: '#A8D5A2' },
+  { value: 70, color: '#63C2AE' },
+  { value: 80, color: '#3599C5' },
+  { value: 90, color: '#255AA5' },
 ] as const
 const CO2_COLORS = ['#2E8B57', '#8FD744', '#F4DE3B', '#F39A32', '#D83B32', '#6A2C91'] as const
 const CO2_STOPS = [

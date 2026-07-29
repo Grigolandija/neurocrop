@@ -163,6 +163,17 @@ describe('environment colour scale', () => {
     expect(high[2]).toBeGreaterThan(high[0])
     expect(high[0]).toBeLessThan(140)
   })
+  it('uses a constrained adaptive palette window for metrics without semantic stops', () => {
+    const soilEc = METRICS['soil-ec']
+    const low = semanticColorAt(0.75, soilEc, [0.75, 2.6])
+    const high = semanticColorAt(2.6, soilEc, [0.75, 2.6])
+    expect(low).not.toEqual(high)
+    expect(low).not.toEqual(colorAtStops(0, [{ value: 0, color: soilEc.colors[0] }]))
+    expect(high).not.toEqual(colorAtStops(1, [{ value: 1, color: soilEc.colors.at(-1)! }]))
+
+    const ph = METRICS.ph
+    expect(semanticColorAt(5.6, ph, [5.6, 6.9])).not.toEqual(semanticColorAt(6.9, ph, [5.6, 6.9]))
+  })
   it('keeps contour intervals aligned with metric levels', () => {
     Object.values(METRIC_LEVELS).forEach(({ colorInterval, contourInterval }) => {
       expect(contourInterval / colorInterval).toBeCloseTo(Math.round(contourInterval / colorInterval))
