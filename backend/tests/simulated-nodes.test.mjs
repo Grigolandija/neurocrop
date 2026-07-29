@@ -64,6 +64,8 @@ test('simulated measurements stay close to their configured baseline', () => {
   assert.ok(Math.abs(measurement.co2 - 950) <= 35);
   assert.ok(Math.abs(measurement.lux - 32000) <= 32000 * 0.08);
   assert.ok(Math.abs(measurement.ph - 6.2) <= 0.03);
+  assert.deepEqual(measurement.soil_ec_depths.map((reading) => reading.depthCm), [10, 20, 30]);
+  assert.equal(measurement.soil_ec_depths[1].value, measurement.soil_ec);
   assert.equal(measurement.battery_percent, 92);
   assert.ok(measurement.battery_mv > 3000);
 });

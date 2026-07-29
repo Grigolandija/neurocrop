@@ -70,6 +70,34 @@ export function normalizeTelemetryTimestamp(value, now = new Date()) {
   return candidate;
 }
 
+export function normalizeSoilEcDepths(value) {
+  const telemetry = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const readings = new Map();
+  const add = (depthValue, measurementValue) => {
+    const depthCm = normalizeTelemetryNumber(String(depthValue).replace(/cm$/i, ''));
+    const measurement = normalizeTelemetryValue('soil_ec', measurementValue);
+    if (depthCm === null || depthCm <= 0 || depthCm > 500 || measurement === null) return;
+    readings.set(depthCm, { depthCm, value: measurement });
+  };
+  const profile = telemetry.soil_ec_depths
+    ?? telemetry.soil_ec_by_depth
+    ?? telemetry.soilEcByDepth
+    ?? (telemetry.soil_ec && typeof telemetry.soil_ec === 'object' ? telemetry.soil_ec : undefined);
+  if (Array.isArray(profile)) {
+    profile.forEach((reading) => {
+      if (!reading || typeof reading !== 'object' || Array.isArray(reading)) return;
+      add(reading.depth_cm ?? reading.depthCm ?? reading.depth, reading.value ?? reading.soil_ec ?? reading.soilEc);
+    });
+  } else if (profile && typeof profile === 'object') {
+    Object.entries(profile).forEach(([depth, measurement]) => add(depth, measurement));
+  }
+  Object.entries(telemetry).forEach(([key, measurement]) => {
+    const match = key.match(/^soil_ec_(?:depth_)?(\d+(?:\.\d+)?)(?:_?cm)?$/i);
+    if (match) add(match[1], measurement);
+  });
+  return [...readings.values()].sort((left, right) => left.depthCm - right.depthCm);
+}
+
 export function compactTelemetryMetadata(value, normalizedErrorFlags = {}) {
   const telemetry = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const sensors = {};
@@ -86,6 +114,8 @@ export function compactTelemetryMetadata(value, normalizedErrorFlags = {}) {
     metadata.firmware_version = String(telemetry.firmware_version).slice(0, 64);
   }
   if (Object.keys(sensors).length) metadata.sensors = sensors;
+  const soilEcDepths = normalizeSoilEcDepths(telemetry);
+  if (soilEcDepths.length) metadata.soil_ec_depths = soilEcDepths;
   const lastTxFailed = normalizeTelemetryBoolean(normalizedErrorFlags?.last_tx_failed);
   if (lastTxFailed !== null) metadata.error_flags = { last_tx_failed: lastTxFailed };
 

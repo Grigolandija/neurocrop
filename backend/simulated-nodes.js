@@ -40,6 +40,11 @@ export function generateSimulatedMeasurement(profile, devEui, now = new Date()) 
     const value = baseline + amplitude * (wave * 0.72 + secondaryWave * 0.28);
     result[metric] = Number(clamp(value, rules.min, rules.max).toFixed(rules.digits));
   }
+  result.soil_ec_depths = [
+    { depthCm: 10, value: Number(clamp(result.soil_ec * 0.92 + wave * 0.04, 0, 20).toFixed(3)) },
+    { depthCm: 20, value: result.soil_ec },
+    { depthCm: 30, value: Number(clamp(result.soil_ec * 1.08 - secondaryWave * 0.04, 0, 20).toFixed(3)) },
+  ];
 
   const batteryPercent = Math.round(clamp(numeric(profile?.battery_percent, 90), 1, 100));
   return {
@@ -97,7 +102,7 @@ export async function storeSimulatedNodeMeasurements(pool, now = new Date()) {
           measurement.water_temperature, measurement.battery_mv,
           measurement.battery_percent, measurement.battery_percent <= 15,
           measurement.rssi, measurement.snr, measurement.spreading_factor,
-          JSON.stringify({ source: 'simulated', serialNumber: node.factory_serial })
+          JSON.stringify({ source: 'simulated', serialNumber: node.factory_serial, soil_ec_depths: measurement.soil_ec_depths })
         ]
       );
 

@@ -30,6 +30,7 @@ export type SensorMeasurements = {
   ecMsCm?: number
   ph?: number
   soilEcMsCm?: number
+  soilEcByDepth?: Array<{ depthCm: number; value: number }>
   leafTemperatureC?: number
   waterTemperatureC?: number
   pressureHpa?: number
@@ -197,7 +198,7 @@ export type HeatmapMetricDefinition = {
   decimals: number
   scaleStep: number
   minimumSpan: number
-  field: Exclude<keyof SensorMeasurements, 'measuredAt' | 'pressureHpa'>
+  field: Exclude<keyof SensorMeasurements, 'measuredAt' | 'pressureHpa' | 'soilEcByDepth'>
   bounds: [number, number]
   colors: readonly string[]
   colorStops?: ReadonlyArray<{ value: number; color: string }>

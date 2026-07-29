@@ -4,6 +4,7 @@ import { calcVPD } from './calculations.js';
 import { statusFromMeasurementTime } from './score.js';
 import { expectedUplinkIntervalSec } from './node-health.js';
 import { measurementRollupAverageSql } from './measurement-rollups.js';
+import { normalizeSoilEcDepths } from './telemetry-values.js';
 
 const MAX_OBJECTS = 2000;
 const MAX_LAYERS = 50;
@@ -133,6 +134,7 @@ function publicMapNode(row) {
       ecMsCm: measurement?.ec ?? null,
       ph: measurement?.ph ?? null,
       soilEcMsCm: measurement?.soil_ec ?? null,
+      soilEcByDepth: normalizeSoilEcDepths(measurement?.raw_object),
       leafTemperatureC: measurement?.leaf_temperature ?? null,
       waterTemperatureC: measurement?.water_temperature ?? null,
       measuredAt: measurement?.time ?? null
@@ -236,6 +238,15 @@ async function getAreaMapHistory(devEuis, from, to) {
      ORDER BY rollup.bucket_start ASC, rollup.dev_eui ASC`,
     [MAP_HISTORY_STEP_MINUTES, devEuis, alignedQueryFrom, to]
   )).rows : [];
+  const depthRows = devEuis.length ? (await query(
+    `SELECT time, dev_eui, raw_object
+     FROM measurements
+     WHERE dev_eui=ANY($1::text[])
+       AND time BETWEEN $2 AND $3
+       AND raw_object ? 'soil_ec_depths'
+     ORDER BY time ASC`,
+    [devEuis, alignedQueryFrom, to]
+  )).rows : [];
 
   const alignedFrom = Math.floor(from.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000;
   const alignedTo = Math.floor(to.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000;
@@ -265,6 +276,33 @@ async function getAreaMapHistory(devEuis, from, to) {
         waterTemperatureC: historicalNumber(row.water_temperature_c)
       }
     });
+  });
+  const depthBuckets = new Map();
+  depthRows.forEach((row) => {
+    const timestamp = Math.floor(new Date(row.time).getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000;
+    if (!frames.has(timestamp)) return;
+    const key = `${timestamp}:${String(row.dev_eui).toLowerCase()}`;
+    const bucket = depthBuckets.get(key) || { timestamp, devEui: row.dev_eui, measuredAt: row.time, readings: new Map() };
+    normalizeSoilEcDepths(row.raw_object).forEach(({ depthCm, value }) => {
+      const aggregate = bucket.readings.get(depthCm) || { sum: 0, count: 0 };
+      aggregate.sum += value;
+      aggregate.count += 1;
+      bucket.readings.set(depthCm, aggregate);
+    });
+    bucket.measuredAt = row.time;
+    depthBuckets.set(key, bucket);
+  });
+  depthBuckets.forEach((bucket) => {
+    const frame = frames.get(bucket.timestamp);
+    if (!frame || !bucket.readings.size) return;
+    let node = frame.nodes.find((candidate) => String(candidate.devEui).toLowerCase() === String(bucket.devEui).toLowerCase());
+    if (!node) {
+      node = { devEui: bucket.devEui, measuredAt: bucket.measuredAt, measurements: {} };
+      frame.nodes.push(node);
+    }
+    node.measurements.soilEcByDepth = [...bucket.readings.entries()]
+      .map(([depthCm, aggregate]) => ({ depthCm, value: aggregate.sum / aggregate.count }))
+      .sort((left, right) => left.depthCm - right.depthCm);
   });
   return [...frames.values()];
 }

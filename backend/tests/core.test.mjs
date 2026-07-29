@@ -19,6 +19,7 @@ import { AGRONOMIC_INTERACTION_RULES } from '../agronomic-rules.js';
 import { invitationState } from '../invitation-state.js';
 import {
   compactTelemetryMetadata,
+  normalizeSoilEcDepths,
   normalizeTelemetryBoolean,
   normalizeTelemetryNumber,
   normalizeTelemetryTimestamp,
@@ -125,6 +126,20 @@ test('telemetry values reject physically impossible sensor and radio values', ()
   assert.equal(normalizeTelemetryValue('battery_percent', 101), null);
   assert.equal(normalizeTelemetryValue('spreading_factor', 13), null);
   assert.equal(normalizeTelemetryValue('unknown_metric', 12), null);
+});
+
+test('soil EC depth profiles accept arrays, keyed objects and probe field names', () => {
+  assert.deepEqual(normalizeSoilEcDepths({
+    soil_ec_depths: [
+      { depth_cm: 30, value: 2.1 },
+      { depthCm: 10, value: 1.2 },
+      { depthCm: -5, value: 1.1 }
+    ]
+  }), [{ depthCm: 10, value: 1.2 }, { depthCm: 30, value: 2.1 }]);
+  assert.deepEqual(normalizeSoilEcDepths({ soil_ec_by_depth: { '10cm': 1.1, 20: 1.6 } }),
+    [{ depthCm: 10, value: 1.1 }, { depthCm: 20, value: 1.6 }]);
+  assert.deepEqual(normalizeSoilEcDepths({ soil_ec_10cm: 1.3, soil_ec_30_cm: 2.2 }),
+    [{ depthCm: 10, value: 1.3 }, { depthCm: 30, value: 2.2 }]);
 });
 
 test('connection URLs are safe to write to operational logs', () => {

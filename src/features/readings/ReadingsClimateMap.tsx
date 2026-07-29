@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useNavigate } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
 import GreenhouseCanvas from '../greenhouse-map/components/GreenhouseCanvas'
+import { getMetricMeasurementValue } from '../greenhouse-map/heatmap/heatmapMetrics'
 import { METRICS, type MetricKey } from '../greenhouse-map/model'
 import {
   areaMapRepository,
@@ -14,6 +15,7 @@ import { prepareReadOnlyClimateMap } from './prepareReadOnlyClimateMap'
 import '../../styles/climate-map.css'
 
 const heatmapMetrics = Object.keys(METRICS) as MetricKey[]
+const soilEcDepthStorageKey = 'neurocrop-soil-ec-depth-cm-v1'
 type ClimateTimeMode = 'live' | 'history'
 
 type Props = {
@@ -35,6 +37,14 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const [playing, setPlaying] = useState(false)
   const [historyError, setHistoryError] = useState('')
   const [metric, setMetric] = useState<MetricKey>('air-temperature')
+  const [soilEcDepthCm, setSoilEcDepthCm] = useState<number | null>(() => {
+    try {
+      const saved = Number(window.localStorage.getItem(soilEcDepthStorageKey))
+      return Number.isFinite(saved) && saved > 0 ? saved : null
+    } catch {
+      return null
+    }
+  })
   const [legendHost, setLegendHost] = useState<HTMLDivElement | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [updating, setUpdating] = useState(false)
@@ -173,22 +183,36 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       }),
     }
   }, [context, historyFrame, historyLayout, historyLayoutNodes])
+  const measurementSets = useMemo(() => timeMode === 'history'
+    ? (history?.frames.flatMap((frame) => frame.nodes.map((node) => node.measurements)) ?? [])
+    : (context?.nodes.map((node) => node.measurements) ?? []), [context?.nodes, history?.frames, timeMode])
   const availableMetrics = useMemo(() => {
-    const measurementSets = timeMode === 'history'
-      ? (history?.frames.flatMap((frame) => frame.nodes.map((node) => node.measurements)) ?? [])
-      : (context?.nodes.map((node) => node.measurements) ?? [])
     return heatmapMetrics.filter((key) => measurementSets.some((measurements) => {
+      if (key === 'soil-ec' && measurements?.soilEcByDepth?.length) return true
       const value = measurements?.[METRICS[key].field]
       return typeof value === 'number' && Number.isFinite(value)
     }))
-  }, [context?.nodes, history?.frames, timeMode])
+  }, [measurementSets])
   const selectedMetric = availableMetrics.includes(metric) ? metric : availableMetrics[0] || metric
+  const availableSoilEcDepths = useMemo(() => [...new Set(measurementSets.flatMap((measurements) =>
+    measurements?.soilEcByDepth?.map((reading) => reading.depthCm) ?? []))].sort((left, right) => left - right), [measurementSets])
+  const selectedSoilEcDepthCm = selectedMetric === 'soil-ec' && availableSoilEcDepths.length
+    ? soilEcDepthCm !== null && availableSoilEcDepths.includes(soilEcDepthCm) ? soilEcDepthCm : availableSoilEcDepths[Math.floor(availableSoilEcDepths.length / 2)]
+    : undefined
+  const selectSoilEcDepth = (depthCm: number) => {
+    setSoilEcDepthCm(depthCm)
+    try {
+      window.localStorage.setItem(soilEcDepthStorageKey, String(depthCm))
+    } catch {
+      // The selected depth still remains active for this session.
+    }
+  }
 
   const map = useMemo(() => displayedContext ? prepareReadOnlyClimateMap(displayedContext, selectedMetric) : null, [displayedContext, selectedMetric])
   const validSensorObjects = map?.objects.filter((object) => {
     const sensor = object.metadata.sensor
     if (!sensor || sensor.status === 'offline' || sensor.status === 'stale') return false
-    return typeof sensor.measurements?.[METRICS[selectedMetric].field] === 'number'
+    return typeof getMetricMeasurementValue(sensor.measurements, selectedMetric, selectedSoilEcDepthCm) === 'number'
   }) ?? []
   const validNodes = validSensorObjects.length
   const latestMeasurementAt = validSensorObjects.reduce<Date | null>((latest, object) => {
@@ -262,6 +286,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
           <button type="button" className={timeMode === 'history' ? 'active' : ''} disabled={!historyAvailable} title={historyError || undefined} onClick={() => selectTimeMode('history')}>{lithuanian ? 'Istorija' :tx("History")}</button>
         </div>
         <label><span>{tx("Metric")}</span><select value={availableMetrics.length ? selectedMetric : ''} disabled={!availableMetrics.length} onChange={(event) => setMetric(event.target.value as MetricKey)}>{availableMetrics.length ? availableMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>) : <option value="">{lithuanian ? 'Nėra matavimų' : 'No measurements'}</option>}</select></label>
+        {selectedMetric === 'soil-ec' && availableSoilEcDepths.length ? <label className="nc-climate-depth"><span>{lithuanian ? 'Gylis' : 'Depth'}</span><select value={selectedSoilEcDepthCm} onChange={(event) => selectSoilEcDepth(Number(event.target.value))}>{availableSoilEcDepths.map((depthCm) => <option value={depthCm} key={depthCm}>{depthCm} cm</option>)}</select></label> : null}
         {!overviewPresentation ? <span className="nc-climate-lock"><i className="fa-solid fa-lock" />{tx("Read only")}</span> : null}
       </div>
     </header>
@@ -299,6 +324,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         readOnly
         legendHost={legendHost}
         compactLegend={overviewPresentation}
+        soilEcDepthCm={selectedSoilEcDepthCm}
         selectedIds={[]}
         snap={false}
         onSelect={() => undefined}

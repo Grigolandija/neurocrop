@@ -53,6 +53,7 @@ export type AreaMapHistoryNode = {
     ecMsCm?: number
     ph?: number
     soilEcMsCm?: number
+    soilEcByDepth?: Array<{ depthCm: number; value: number }>
     leafTemperatureC?: number
     waterTemperatureC?: number
   }
@@ -78,6 +79,15 @@ export type AreaMapSaveResult = { map: GreenhouseMap; revision: number; updatedA
 
 const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined
 const text = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : undefined
+const soilEcDepths = (value: unknown) => Array.isArray(value)
+  ? value.flatMap((reading) => {
+      if (!reading || typeof reading !== 'object' || Array.isArray(reading)) return []
+      const candidate = reading as Record<string, unknown>
+      const depthCm = finite(candidate.depthCm ?? candidate.depth_cm)
+      const measurement = finite(candidate.value ?? candidate.soilEc ?? candidate.soil_ec)
+      return depthCm !== undefined && depthCm > 0 && measurement !== undefined ? [{ depthCm, value: measurement }] : []
+    }).sort((left, right) => left.depthCm - right.depthCm)
+  : []
 
 function normalizeStatus(value: unknown): NodeStatus {
   return ['online', 'warning', 'offline', 'unassigned', 'low-battery', 'stale'].includes(String(value))
@@ -115,6 +125,7 @@ function normalizeNode(value: AreaMapNode): AreaMapNode {
       ecMsCm: finite(measurements.ecMsCm),
       ph: finite(measurements.ph),
       soilEcMsCm: finite(measurements.soilEcMsCm),
+      soilEcByDepth: soilEcDepths(measurements.soilEcByDepth),
       leafTemperatureC: finite(measurements.leafTemperatureC),
       waterTemperatureC: finite(measurements.waterTemperatureC),
       pressureHpa: finite(measurements.pressureHpa),
@@ -265,6 +276,15 @@ export const areaMapRepository = {
             relativeHumidityPercent: finite(node.measurements?.relativeHumidityPercent),
             co2Ppm: finite(node.measurements?.co2Ppm),
             vpdKpa: finite(node.measurements?.vpdKpa),
+            rootTemperatureC: finite(node.measurements?.rootTemperatureC),
+            illuminanceLux: finite(node.measurements?.illuminanceLux),
+            soilMoisturePercent: finite(node.measurements?.soilMoisturePercent),
+            ecMsCm: finite(node.measurements?.ecMsCm),
+            ph: finite(node.measurements?.ph),
+            soilEcMsCm: finite(node.measurements?.soilEcMsCm),
+            soilEcByDepth: soilEcDepths(node.measurements?.soilEcByDepth),
+            leafTemperatureC: finite(node.measurements?.leafTemperatureC),
+            waterTemperatureC: finite(node.measurements?.waterTemperatureC),
           },
         })).filter((node) => node.devEui) : [],
       })).filter((frame) => !Number.isNaN(new Date(frame.observedAt).getTime())) : [],

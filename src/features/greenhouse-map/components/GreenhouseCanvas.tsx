@@ -6,7 +6,7 @@ import '../../../styles/greenhouse-map-test.css'
 import { createContourPaths, getAdaptiveContourInterval, isTemperatureMetric, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
 import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
 import { scaleGradient } from '../heatmap/heatmapColorScale'
-import { getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
+import { getMetricMeasurementValue, getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
 import { isWallMountedType, snapRectangleBounds, snapRectanglePosition } from '../geometry'
@@ -18,6 +18,7 @@ type Props = {
   readOnly?: boolean
   legendHost?: HTMLElement | null
   compactLegend?: boolean
+  soilEcDepthCm?: number
   target?: [number, number]
   dailyView?: boolean
   language?: 'en' | 'lt'
@@ -132,7 +133,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, compactLegend = false, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, compactLegend = false, soilEcDepthCm, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -177,7 +178,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     transformer.getLayer()?.batchDraw()
   }, [selectedIds, mode, map.objects])
 
-  const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric), [map])
+  const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric, undefined, soilEcDepthCm), [map, soilEcDepthCm])
   const insufficientHeatmapSources = mode === 'environment'
     && map.heatmapSettings.enabled
     && points.length > 0
@@ -267,10 +268,9 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const showReadOnlySensorLocations = readOnly && mode === 'environment'
   const readOnlySensorPoints = useMemo(() => {
     if (!showReadOnlySensorLocations) return []
-    const field = METRICS[map.heatmapSettings.metric].field
     return map.objects.flatMap((object) => {
       const sensor = object.metadata.sensor
-      const value = sensor?.measurements?.[field]
+      const value = getMetricMeasurementValue(sensor?.measurements, map.heatmapSettings.metric, soilEcDepthCm)
       if (object.type !== 'sensor-node' || !sensor) return []
       return [{
         id: object.id,
@@ -283,9 +283,10 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         batteryPercent: sensor.batteryPercent,
         rssi: sensor.rssi,
         snr: sensor.snr,
+        soilEcByDepth: sensor.measurements?.soilEcByDepth ?? [],
       }]
     })
-  }, [map.heatmapSettings.metric, map.objects, showReadOnlySensorLocations])
+  }, [map.heatmapSettings.metric, map.objects, showReadOnlySensorLocations, soilEcDepthCm])
   const activeSensor = readOnlySensorPoints.find((sensor) => sensor.id === (selectedSensorId ?? hoveredSensorId)) ?? null
   const activeSensorMeasuredAtMs = activeSensor?.measuredAt ? new Date(activeSensor.measuredAt).getTime() : Number.NaN
   const requestedReferenceMs = referenceTime ? new Date(referenceTime).getTime() : Number.NaN
@@ -417,6 +418,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       <div className="gh-legend-meta">
         {target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}
         <p><b>{heatmap.count} {compactLegend ? language === 'lt' ? heatmap.count === 1 ? 'sensorius' : 'sensoriai' : `sensor${heatmap.count === 1 ? '' : 's'}` : tr('sensor sources', 'sensorių šaltiniai')}</b>{!compactLegend ? <><span>{Math.round(heatmap.grid.dataCellCount / Math.max(1, heatmap.grid.width * heatmap.grid.height) * 100)}% {tr('raster coverage', 'rasterio padengimas')} · {heatmap.grid.cellWidthM.toFixed(2)} m</span><span>{tr('Rendered', 'Atvaizduota')} {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></> : null}</p>
+        {map.heatmapSettings.metric === 'soil-ec' && soilEcDepthCm !== undefined ? <em><i className="fa-solid fa-layer-group" /> {soilEcDepthCm} cm {tr('depth', 'gylis')}</em> : null}
         {!heatmap.grid.dataCellCount ? <em>{tr('No cells meet the distance, freshness and minimum-sensor rules.', 'Nė viena celė neatitinka atstumo, šviežumo ir minimalaus sensorių skaičiaus taisyklių.')}</em> : null}
         {!fixedTemperatureContours && heatmap.count >= MIN_CONTOUR_SENSOR_COUNT && heatmap.count < 4 ? <em>{tr(`Contour spacing widened for limited coverage from ${heatmap.count} nodes.`, `Izolinijų žingsnis praplatintas dėl riboto ${heatmap.count} mazgų padengimo.`)}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų mazgų.')}</em> : null}
         <em><i className="fa-solid fa-circle-info" /> {tr('Estimated between sensor locations.', 'Įvertinta tarp sensorių vietų.')}</em>
@@ -539,13 +541,14 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       role="tooltip"
     >
       <strong>{activeSensor.name}</strong>
-      <span>{metricLabel(map.heatmapSettings.metric)}</span>
+      <span>{metricLabel(map.heatmapSettings.metric)}{map.heatmapSettings.metric === 'soil-ec' && soilEcDepthCm !== undefined ? ` · ${soilEcDepthCm} cm` : ''}</span>
       <b>{activeSensor.value == null ? tr('No measurement', 'Nėra matavimo') : `${Number(activeSensor.value.toFixed(METRICS[map.heatmapSettings.metric].decimals))} ${METRICS[map.heatmapSettings.metric].unit}`}</b>
       <dl>
         <div><dt>{tr('Measured', 'Išmatuota')}</dt><dd>{activeSensor.measuredAt ? new Date(activeSensor.measuredAt).toLocaleString(language) : '—'}</dd></div>
         <div><dt>{tr('Freshness', 'Šviežumas')}</dt><dd>{activeSensorFreshnessMinutes == null ? '—' : `${activeSensorFreshnessMinutes} min`} · {activeSensor.status}</dd></div>
         <div><dt>{tr('Battery', 'Baterija')}</dt><dd>{activeSensor.batteryPercent == null ? '—' : `${activeSensor.batteryPercent}%`}</dd></div>
         <div><dt>RSSI / SNR</dt><dd>{activeSensor.rssi == null ? '—' : `${activeSensor.rssi} dBm`} / {activeSensor.snr == null ? '—' : `${activeSensor.snr} dB`}</dd></div>
+        {map.heatmapSettings.metric === 'soil-ec' ? activeSensor.soilEcByDepth.map((reading) => <div key={reading.depthCm}><dt>{reading.depthCm} cm{soilEcDepthCm === reading.depthCm ? ` · ${tr('selected', 'pasirinkta')}` : ''}</dt><dd>{reading.value.toFixed(METRICS['soil-ec'].decimals)} {METRICS['soil-ec'].unit}</dd></div>) : null}
       </dl>
     </div> : null}
     {hoveredCell ? <div className="gh-cell-tooltip" style={{ left: hoveredCell.left, top: hoveredCell.top }} role="tooltip">

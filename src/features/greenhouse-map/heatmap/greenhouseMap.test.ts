@@ -52,6 +52,17 @@ describe('measurement filtering and grid sizing', () => {
     expect(getValidMeasurementPoints(map, 'air-temperature', 'section-a')).toHaveLength(2)
     expect(getValidMeasurementPoints(map, 'air-temperature', 'section-b')).toHaveLength(2)
   })
+  it('creates a separate Soil EC slice for the selected depth', () => {
+    const map = createDemoMap()
+    map.objects.filter((object) => object.metadata.sensor).forEach((object, index) => {
+      object.metadata.sensor!.measurements!.soilEcByDepth = [
+        { depthCm: 10, value: 1 + index * 0.1 },
+        { depthCm: 30, value: 2 + index * 0.1 },
+      ]
+    })
+    expect(getValidMeasurementPoints(map, 'soil-ec', undefined, 10).map((point) => point.value))
+      .not.toEqual(getValidMeasurementPoints(map, 'soil-ec', undefined, 30).map((point) => point.value))
+  })
   it('keeps adaptive grids useful for very small greenhouses', () => {
     const resolution = gridResolution(.2, .1, .25)
     expect(resolution).toMatchObject({ width: 1, height: 1 })

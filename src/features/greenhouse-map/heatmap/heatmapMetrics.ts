@@ -1,11 +1,18 @@
-import { METRICS, type GreenhouseMap, type MetricKey } from '../model'
+import { METRICS, type GreenhouseMap, type MetricKey, type SensorMeasurements } from '../model'
 import type { MeasurementPoint } from './heatmapTypes'
 
-export function getValidMeasurementPoints(map: GreenhouseMap, metric: MetricKey, sectionId?: string): MeasurementPoint[] {
-  const field = METRICS[metric].field
+export function getMetricMeasurementValue(measurements: SensorMeasurements | undefined, metric: MetricKey, soilEcDepthCm?: number) {
+  if (!measurements) return undefined
+  if (metric === 'soil-ec' && soilEcDepthCm !== undefined) {
+    return measurements.soilEcByDepth?.find((reading) => Math.abs(reading.depthCm - soilEcDepthCm) < 0.01)?.value
+  }
+  return measurements[METRICS[metric].field]
+}
+
+export function getValidMeasurementPoints(map: GreenhouseMap, metric: MetricKey, sectionId?: string, soilEcDepthCm?: number): MeasurementPoint[] {
   return map.objects.flatMap((object) => {
     const sensor = object.metadata.sensor
-    const value = sensor?.measurements?.[field]
+    const value = getMetricMeasurementValue(sensor?.measurements, metric, soilEcDepthCm)
     if (object.type !== 'sensor-node' || !sensor || sensor.status === 'offline' || sensor.status === 'stale' || sensor.status === 'unassigned') return []
     if (sectionId && sensor.sectionId !== sectionId) return []
     if (object.xM < 0 || object.yM < 0 || object.xM > map.dimensions.widthM || object.yM > map.dimensions.lengthM) return []
