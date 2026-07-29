@@ -38,7 +38,7 @@
 .nc-climate-soil-section-slot:empty { display: none; }
 .nc-climate-soil-section-slot {
   border-top: 1px solid var(--color-border);
-  padding: var(--space-16) var(--space-20) var(--space-20);
+  padding: var(--space-16) 0 var(--space-20);
   background: color-mix(in srgb,var(--color-surface-subtle) 64%,var(--color-surface));
 }
 .gh-soil-section { display: grid; gap: var(--space-12); color: var(--color-text); }
@@ -48,18 +48,18 @@
 .gh-soil-section > header strong { font-size: var(--type-body); }
 .gh-soil-section > header span { color: var(--color-text-tertiary); font: 500 var(--type-micro) "IBM Plex Mono", monospace; }
 .gh-soil-section > header button { display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid var(--color-border); border-radius: 50%; color: var(--color-text-tertiary); background: var(--color-surface); }
-.gh-soil-section-plot { display: grid; min-width: 0; grid-template-columns: 3.8rem minmax(0,1fr); }
-.gh-soil-section-depth-labels { position: relative; height: 12rem; border-right: 1px solid var(--color-border-strong); }
-.gh-soil-section-depth-labels span { position: absolute; right: .55rem; color: var(--color-text-tertiary); font: 600 var(--type-micro) "IBM Plex Mono", monospace; transform: translateY(-50%); white-space: nowrap; }
+.gh-soil-section-plot { position: relative; min-width: 0; }
+.gh-soil-section-depth-labels { position: absolute; z-index: 2; top: 0; bottom: 0; left: 0; width: 4rem; border-right: 1px solid rgba(35,65,55,.28); background: linear-gradient(90deg,rgba(247,249,246,.9),rgba(247,249,246,.64) 78%,transparent); pointer-events: none; }
+.gh-soil-section-depth-labels span { position: absolute; right: .55rem; color: #2c4b40; font: 700 var(--type-micro) "IBM Plex Mono", monospace; text-shadow: 0 1px 2px rgba(255,255,255,.9); transform: translateY(-50%); white-space: nowrap; }
 .gh-soil-section-depth-labels span:first-child { transform: none; }
 .gh-soil-section-depth-labels span:last-child { transform: translateY(-100%); }
-.gh-soil-section-raster { position: relative; height: 12rem; overflow: hidden; border: 1px solid rgba(35,65,55,.42); border-left: 0; background: #e8edea; }
+.gh-soil-section-raster { position: relative; width: 100%; height: 12rem; overflow: hidden; border: 1px solid rgba(35,65,55,.42); background: #e8edea; }
 .gh-soil-section-raster canvas { display: block; width: 100%; height: 100%; image-rendering: auto; }
 .gh-soil-section-depth-guide { position: absolute; right: 0; left: 0; border-top: 1px solid rgba(255,255,255,.5); box-shadow: 0 1px 0 rgba(31,64,53,.16); pointer-events: none; }
 .gh-soil-section-depth-guide:last-of-type { transform: translateY(-1px); }
 .gh-soil-section-cursor { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid rgba(255,255,255,.92); box-shadow: 1px 0 0 #173e35; pointer-events: none; }
 .gh-soil-section-cursor span { position: absolute; top: .4rem; left: .35rem; border-radius: .25rem; padding: 2px 5px; color: #173e35; background: rgba(255,255,255,.88); font: 700 var(--type-micro) "IBM Plex Mono", monospace; white-space: nowrap; }
-.gh-soil-section-distance { display: flex; justify-content: space-between; margin-left: 3.8rem; color: var(--color-text-tertiary); font: 500 var(--type-micro) "IBM Plex Mono", monospace; }
+.gh-soil-section-distance { display: flex; justify-content: space-between; color: var(--color-text-tertiary); font: 500 var(--type-micro) "IBM Plex Mono", monospace; }
 .gh-soil-section-distance b { color: var(--color-text-secondary); }
 .gh-soil-section > footer { display: flex; flex-wrap: wrap; gap: var(--space-8) var(--space-24); color: var(--color-text-tertiary); font-size: var(--type-micro); }
 .gh-soil-section > footer span { display: inline-flex; align-items: center; gap: 6px; }
@@ -116,10 +116,8 @@
   .nc-climate-history-controls > strong { justify-self: end; text-align: right; }
   .nc-climate-coverage { grid-column: 1 / -1; justify-self: start; }
   .nc-climate-map-canvas { height: 31rem; }
-  .nc-climate-soil-section-slot { padding: var(--space-12); }
-  .gh-soil-section-plot { grid-template-columns: 3.2rem minmax(0,1fr); }
+  .nc-climate-soil-section-slot { padding: var(--space-12) 0; }
   .gh-soil-section-depth-labels, .gh-soil-section-raster { height: 9rem; }
-  .gh-soil-section-distance { margin-left: 3.2rem; }
   .nc-climate-map-legend-slot .gh-heatmap-legend { grid-template-columns: 1fr; gap: var(--space-12); }
   .nc-climate-map-legend-slot :is(.gh-legend-scale,.gh-legend-meta) { grid-column: auto; border-top: 1px solid var(--color-border); border-left: 0; margin: 0; padding: var(--space-12) 0 0; }
 }

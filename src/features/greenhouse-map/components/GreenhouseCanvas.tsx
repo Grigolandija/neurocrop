@@ -63,10 +63,12 @@ type SoilEcProfile = {
   readings: SoilEcProfileReading[]
 }
 
-function SoilEcCrossSection({ profile, map, language, onClose }: {
+function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx, onClose }: {
   profile: SoilEcProfile
   map: GreenhouseMap
   language: 'en' | 'lt'
+  leftInsetPx: number
+  rightInsetPx: number
   onClose: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -120,7 +122,7 @@ function SoilEcCrossSection({ profile, map, language, onClose }: {
     context.putImageData(image, 0, 0)
   }, [deepestDepth, map.heatmapSettings.opacity, profile.colorRange, profile.readings, shallowestDepth])
 
-  return <section className="gh-soil-section">
+  return <section className="gh-soil-section" style={{ marginLeft: leftInsetPx, marginRight: rightInsetPx }}>
     <header>
       <div>
         <small>{lithuanian ? 'VERTIKALUS PJŪVIS A–A′' : 'VERTICAL SECTION A–A′'}</small>
@@ -761,7 +763,14 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       </Layer>
     </Stage>
     {soilEcProfile && soilProfileHost
-      ? createPortal(<SoilEcCrossSection profile={soilEcProfile} map={map} language={language} onClose={() => setSoilEcProfile(null)} />, soilProfileHost)
+      ? createPortal(<SoilEcCrossSection
+          profile={soilEcProfile}
+          map={map}
+          language={language}
+          leftInsetPx={Math.max(0, view.x)}
+          rightInsetPx={Math.max(0, size.width - view.x - map.dimensions.widthM * view.scale)}
+          onClose={() => setSoilEcProfile(null)}
+        />, soilProfileHost)
       : null}
     {activeSensor && sensorTooltip ? <div
       className="gh-sensor-tooltip"
