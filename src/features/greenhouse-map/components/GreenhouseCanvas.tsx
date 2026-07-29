@@ -143,7 +143,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const [mouse, setMouse] = useState<{ xM: number; yM: number } | null>(null)
   const [hoveredSensorId, setHoveredSensorId] = useState<string | null>(null)
   const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null)
-  const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; count: number; contourInterval: number; calculatedAt: Date } | null>(null)
+  const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; observedMin: number; observedMax: number; count: number; contourInterval: number; calculatedAt: Date } | null>(null)
   const [renderedAt] = useState(Date.now)
   const tr = useCallback((english: string, lithuanian: string) => language === 'lt' ? lithuanian : english, [language])
   const metricLabel = (key: GreenhouseMap['heatmapSettings']['metric']) =>
@@ -215,17 +215,21 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         )
         if (!grid) setHeatmap(null)
         else {
+          const observedValues = points.map((point) => point.value)
+          const observedRange: [number, number] = [Math.min(...observedValues), Math.max(...observedValues)]
           setHeatmap({
             canvas: renderHeatmapCanvas(
               grid,
               metric,
-              METRICS[metric].colors,
               map.heatmapSettings.opacity,
               map.heatmapSettings.showConfidence,
+              observedRange,
             ),
             grid,
             min: grid.min,
             max: grid.max,
+            observedMin: observedRange[0],
+            observedMax: observedRange[1],
             count: grid.sensorCount,
             contourInterval: getAdaptiveContourInterval(metric, points.map((point) => point.value), grid.sensorCount),
             calculatedAt: Number.isFinite(referenceTimeMs) ? new Date(referenceTimeMs) : new Date(),
@@ -407,7 +411,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     {heatmap ? <>
       <div className="gh-legend-scale">
         <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)} title={fixedTemperatureContours ? tr('Temperature contours use a fixed 1 °C interval.', 'Temperatūros izolinijos visada braižomos 1 °C žingsniu.') : tr('Contour spacing adapts to the measured range and data coverage.', 'Izolinijų žingsnis prisitaiko prie matuojamo diapazono ir duomenų padengimo.')}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {heatmap.contourInterval} {METRICS[map.heatmapSettings.metric].unit}</button>
-        <div className="gh-color-scale" style={{ background: scaleGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric].colors, METRICS[map.heatmapSettings.metric].colorStops) }} />
+        <div className="gh-color-scale" style={{ background: scaleGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric], [heatmap.observedMin, heatmap.observedMax]) }} />
         <div className="gh-legend-range"><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>
       </div>
       <div className="gh-legend-meta">

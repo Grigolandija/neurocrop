@@ -7,7 +7,7 @@ import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_C
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
-import { colorAtStops, scaleGradient } from './heatmapColorScale'
+import { colorAtStops, scaleGradient, semanticColorAt } from './heatmapColorScale'
 import { DEFAULT_HEATMAP_SETTINGS, GREENHOUSE_WALL_THICKNESS_M, METRICS, normalizeHeatmapSettings } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
@@ -152,7 +152,16 @@ describe('environment colour scale', () => {
     expect(colorAtStops(32, METRICS['air-temperature'].colorStops!)).toEqual([217, 37, 37])
     expect(colorAtStops(400, METRICS.co2.colorStops!)).toEqual([46, 139, 87])
     expect(colorAtStops(2000, METRICS.co2.colorStops!)).toEqual([106, 44, 145])
-    expect(scaleGradient(19.5, 29.5, METRICS['air-temperature'].colors, METRICS['air-temperature'].colorStops).match(/rgb\(/g)?.length).toBeGreaterThan(3)
+    expect(scaleGradient(19.5, 29.5, METRICS['air-temperature'], [20, 21]).match(/rgb\(/g)?.length).toBeGreaterThan(3)
+  })
+  it('reveals narrow local variation without remapping it to cold and hot extremes', () => {
+    const definition = METRICS['air-temperature']
+    const low = semanticColorAt(20, definition, [20, 21])
+    const high = semanticColorAt(21, definition, [20, 21])
+    expect(low).not.toEqual(high)
+    expect(low[2]).toBeGreaterThan(low[0])
+    expect(high[2]).toBeGreaterThan(high[0])
+    expect(high[0]).toBeLessThan(140)
   })
   it('keeps contour intervals aligned with metric levels', () => {
     Object.values(METRIC_LEVELS).forEach(({ colorInterval, contourInterval }) => {

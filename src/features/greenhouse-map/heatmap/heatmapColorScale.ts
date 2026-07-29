@@ -1,3 +1,5 @@
+import type { HeatmapMetricDefinition } from '../model'
+
 export function parseHex(hex: string) {
   const value = hex.replace('#', '')
   return [Number.parseInt(value.slice(0, 2), 16), Number.parseInt(value.slice(2, 4), 16), Number.parseInt(value.slice(4, 6), 16)]
@@ -32,14 +34,42 @@ export function colorAtStops(value: number, stops: ReadonlyArray<{ value: number
   ) as [number, number, number]
 }
 
-export function scaleGradient(min: number, max: number, colors: readonly string[], stops?: ReadonlyArray<{ value: number; color: string }>): string {
-  if (!stops?.length) return continuousGradient(colors)
-  const range = Math.max(max - min, 1e-6)
-  const values = [min, ...stops.filter((stop) => stop.value > min && stop.value < max).map((stop) => stop.value), max]
-  return `linear-gradient(90deg, ${values.map((value) => {
-    const [red, green, blue] = colorAtStops(value, stops)
-    return `rgb(${red} ${green} ${blue}) ${(value - min) / range * 100}%`
-  }).join(', ')})`
+type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops'>
+
+function blendColor(color: [number, number, number], target: [number, number, number], amount: number): [number, number, number] {
+  return color.map((channel, index) =>
+    Math.round(channel + (target[index] - channel) * Math.max(0, Math.min(1, amount))),
+  ) as [number, number, number]
+}
+
+export function semanticColorAt(value: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): [number, number, number] {
+  const base = definition.colorStops?.length
+    ? colorAtStops(value, definition.colorStops)
+    : colorAt(value, definition.bounds[0], definition.bounds[1], definition.colors)
+  if (!observedRange || observedRange[1] - observedRange[0] < 1e-6) return base
+
+  const semanticMin = definition.colorStops?.[0]?.value ?? definition.bounds[0]
+  const semanticMax = definition.colorStops?.at(-1)?.value ?? definition.bounds[1]
+  const semanticSpan = Math.max(semanticMax - semanticMin, 1e-6)
+  const observedSpan = observedRange[1] - observedRange[0]
+  const narrowness = Math.max(0, Math.min(1, 1 - observedSpan / (semanticSpan * 0.35)))
+  const localPosition = Math.max(0, Math.min(1, (value - observedRange[0]) / observedSpan))
+
+  if (localPosition < 0.5) {
+    return blendColor(base, [255, 255, 255], (0.5 - localPosition) * 2 * narrowness * 0.18)
+  }
+  return blendColor(base, [24, 38, 32], (localPosition - 0.5) * 2 * narrowness * 0.12)
+}
+
+export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): string {
+  const range = Math.max(displayMax - displayMin, 1e-6)
+  const sampleCount = 32
+  const stops = Array.from({ length: sampleCount + 1 }, (_, index) => {
+    const value = displayMin + range * index / sampleCount
+    const [red, green, blue] = semanticColorAt(value, definition, observedRange)
+    return `rgb(${red} ${green} ${blue}) ${index / sampleCount * 100}%`
+  })
+  return `linear-gradient(90deg, ${stops.join(', ')})`
 }
 
 type EsriTemperatureStop = {
