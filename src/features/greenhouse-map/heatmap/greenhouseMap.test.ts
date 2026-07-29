@@ -167,7 +167,9 @@ describe('environment colour scale', () => {
     const soilEc = METRICS['soil-ec']
     const low = semanticColorAt(0.75, soilEc, [0.75, 2.6])
     const high = semanticColorAt(2.6, soilEc, [0.75, 2.6])
+    const colorDistance = Math.hypot(...low.map((channel, index) => channel - high[index]))
     expect(low).not.toEqual(high)
+    expect(colorDistance).toBeGreaterThan(80)
     expect(low).not.toEqual(colorAtStops(0, [{ value: 0, color: soilEc.colors[0] }]))
     expect(high).not.toEqual(colorAtStops(1, [{ value: 1, color: soilEc.colors.at(-1)! }]))
 
