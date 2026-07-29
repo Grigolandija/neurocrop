@@ -570,6 +570,41 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           }}
         />
         {soilEcProfile ? <Group x={soilEcProfile.xM} y={map.dimensions.lengthM - soilEcProfile.yM} listening={false}>
+          <Line
+            points={[-soilEcProfile.xM, 0, map.dimensions.widthM - soilEcProfile.xM, 0]}
+            stroke="rgba(255,255,255,.92)"
+            strokeWidth={4 / view.scale}
+          />
+          <Line
+            points={[-soilEcProfile.xM, 0, map.dimensions.widthM - soilEcProfile.xM, 0]}
+            stroke="#163f35"
+            strokeWidth={1.5 / view.scale}
+            dash={[8 / view.scale, 5 / view.scale]}
+          />
+          <Text
+            x={-soilEcProfile.xM + 5 / view.scale}
+            y={-22 / view.scale}
+            text="A"
+            fontFamily="IBM Plex Mono"
+            fontStyle="bold"
+            fontSize={12 / view.scale}
+            fill="#163f35"
+            stroke="rgba(255,255,255,.95)"
+            strokeWidth={3 / view.scale}
+            fillAfterStrokeEnabled
+          />
+          <Text
+            x={map.dimensions.widthM - soilEcProfile.xM - 15 / view.scale}
+            y={-22 / view.scale}
+            text="A′"
+            fontFamily="IBM Plex Mono"
+            fontStyle="bold"
+            fontSize={12 / view.scale}
+            fill="#163f35"
+            stroke="rgba(255,255,255,.95)"
+            strokeWidth={3 / view.scale}
+            fillAfterStrokeEnabled
+          />
           <Circle radius={9 / view.scale} fill="rgba(255,255,255,.85)" stroke="#163f35" strokeWidth={2 / view.scale} />
           <Circle radius={2.6 / view.scale} fill="#163f35" />
           <Line points={[-13 / view.scale, 0, 13 / view.scale, 0]} stroke="#163f35" strokeWidth={1 / view.scale} />
