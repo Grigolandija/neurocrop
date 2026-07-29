@@ -4,7 +4,7 @@ import DashboardShell, { type DashboardUser } from '../components/DashboardShell
 import WorkspaceLoading from '../components/WorkspaceLoading'
 import { useInterfaceLanguage } from '../i18n'
 import { invalidateRequestCache } from '../services/api/client'
-import { neurocropApi } from '../services/api/neurocropApi'
+import { neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
 
 const loadAreasWorkspace = () => import('../features/areas/AreasWorkspace')
@@ -36,6 +36,23 @@ const AlertsWorkspace = lazy(loadAlertsWorkspace)
 const TrendsWorkspace = lazy(loadTrendsWorkspace)
 const NodesWorkspace = lazy(loadNodesWorkspace)
 const CropProfilesWorkspace = lazy(loadCropProfilesWorkspace)
+
+const workspaceModuleLoaders = [
+  loadAreasWorkspace,
+  loadReadingsWorkspace,
+  loadSectionsWorkspace,
+  loadSettingsWorkspace,
+  loadOrganizationWorkspace,
+  loadAdminWorkspace,
+  loadAdminIntegrationsWorkspace,
+  loadOverviewWorkspace,
+  loadSimulatorWorkspace,
+  loadActionsWorkspace,
+  loadAlertsWorkspace,
+  loadTrendsWorkspace,
+  loadNodesWorkspace,
+  loadCropProfilesWorkspace,
+]
 
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
@@ -127,6 +144,11 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   const unauthorizedVersionAtMount = useRef(dashboardState.unauthorizedVersion)
 
   useEffect(() => {
+    // Once authentication succeeds, warm every workspace and its shared GET
+    // data immediately. The active route can render in parallel, while later
+    // navigation is served from the module and request caches.
+    void Promise.allSettled(workspaceModuleLoaders.map((load) => load()))
+    void prefetchWorkspaceData()
     return () => {
       delete document.body.dataset.primaryPage
     }
