@@ -927,11 +927,18 @@ export default function OverviewWorkspace() {
   const primaryReviewRow = actionRows[0] || watchRows[0] || null
   const primaryActionLabel = primaryReviewRow && reviewRows.length === 1
     ? isLt ? `Pradėti svarbiausią darbą` : `Start highest-priority task`
-    : isLt ? `Atidaryti ${reviewRows.length} prioritetinius darbus` : `Open ${reviewRows.length} priority tasks`
+    : isLt ? `Peržiūrėti ${reviewRows.length} rekomenduojamas patikras` : `Review ${reviewRows.length} recommended checks`
   const primaryRisk = model.priority || reviewActions[0] || null
   const priorityTrend = String(primaryRisk?.trend || 'new')
   const priorityAffected = Number(primaryRisk?.affectedNodes || 0)
   const priorityReporting = Number(primaryRisk?.reportingNodes || 0)
+  const priorityObservedSince = primaryRisk?.firstDetectedAt || primaryRisk?.observedAt || null
+  const priorityCoverage = priorityAffected > 0 && priorityReporting > 0
+    ? `${priorityAffected} / ${priorityReporting} ${isLt ? 'mazgų' : 'nodes'}`
+    : primaryReviewRow?.reporting || model.reporting
+  const priorityCoverageLabel = priorityAffected > 0 && priorityReporting > 0
+    ? isLt ? 'Paveikta' : 'Affected'
+    : isLt ? 'Duomenų aprėptis' : 'Data coverage'
   const todayResults = (actionSummary?.today || {}) as JsonRecord
   const confirmedToday = Number(todayResults.improvementsConfirmed || 0)
   const awaitingToday = Number(todayResults.awaitingVerification || 0)
@@ -970,9 +977,9 @@ export default function OverviewWorkspace() {
           <h1>{headline}</h1>
           <p>{explanation}</p>
           {primaryRisk ? <section className="nc-risk-facts" aria-label={isLt ? 'Rizikos įrodymai' : 'Risk evidence'}>
-            <div><span>{isLt ? 'Trukmė' : 'Duration'}</span><strong>{formatDuration(primaryRisk.firstDetectedAt)}</strong></div>
-            <div data-trend={priorityTrend}><span>{isLt ? 'Tendencija' : 'Trend'}</span><strong>{priorityTrend === 'worsening' ? (isLt ? 'Blogėja' : 'Worsening') : priorityTrend === 'recovering' ? (isLt ? 'Gerėja' : 'Recovering') : priorityTrend === 'stable' ? (isLt ? 'Nekinta' : 'Stable') : (isLt ? 'Nauja' : 'New')}</strong></div>
-            <div><span>{isLt ? 'Aprėptis' : 'Coverage'}</span><strong>{priorityAffected || '—'} / {priorityReporting || '—'} {isLt ? 'mazgų' : 'nodes'}</strong></div>
+            <div><span>{isLt ? 'Trukmė' : 'Duration'}</span><strong>{priorityObservedSince ? formatDuration(priorityObservedSince) : (isLt ? 'Pradžia dar nenustatyta' : 'Start time not established')}</strong></div>
+            <div data-trend={priorityTrend}><span>{isLt ? 'Tendencija' : 'Trend'}</span><strong>{priorityTrend === 'worsening' ? (isLt ? 'Blogėja' : 'Worsening') : priorityTrend === 'recovering' ? (isLt ? 'Gerėja' : 'Recovering') : priorityTrend === 'stable' ? (isLt ? 'Nekinta' : 'Stable') : (isLt ? 'Naujai aptikta' : 'Newly detected')}</strong></div>
+            <div><span>{priorityCoverageLabel}</span><strong>{priorityCoverage}</strong></div>
             <p><span>{isLt ? 'Tikėtina priežastis' : 'Likely cause'}</span><strong>{primaryRisk.likelyCause || primaryRisk.diagnosis?.title || primaryRisk.title}</strong></p>
           </section> : null}
           <div className="nc-overview-actions-slot">
