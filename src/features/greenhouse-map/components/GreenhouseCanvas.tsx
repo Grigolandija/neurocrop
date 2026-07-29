@@ -54,10 +54,12 @@ type SoilEcProfileReading = {
   confidence: number
   sensorCount: number
   samples: Array<number | null>
+  confidenceSamples: number[]
 }
 type SoilEcProfile = {
   xM: number
   yM: number
+  colorRange: [number, number]
   readings: SoilEcProfileReading[]
 }
 
@@ -69,8 +71,6 @@ function SoilEcCrossSection({ profile, map, language, onClose }: {
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const lithuanian = language === 'lt'
-  const values = profile.readings.flatMap((reading) => reading.samples.flatMap((value) => value == null ? [] : [value]))
-  const observedRange: [number, number] | undefined = values.length ? [Math.min(...values), Math.max(...values)] : undefined
   const shallowestDepth = profile.readings[0]?.depthCm ?? 0
   const deepestDepth = profile.readings.at(-1)?.depthCm ?? shallowestDepth
 
@@ -104,15 +104,21 @@ function SoilEcCrossSection({ profile, map, language, onClose }: {
           continue
         }
         const value = lowerValue + (upperValue - lowerValue) * depthAmount
-        const [red, green, blue] = semanticColorAt(value, METRICS['soil-ec'], observedRange)
-        image.data[offset] = red
-        image.data[offset + 1] = green
-        image.data[offset + 2] = blue
+        const [red, green, blue] = semanticColorAt(value, METRICS['soil-ec'], profile.colorRange)
+        const confidence = lower.confidenceSamples[x] + (upper.confidenceSamples[x] - lower.confidenceSamples[x]) * depthAmount
+        const gray = Math.round(red * .2126 + green * .7152 + blue * .0722)
+        const saturation = .68 + confidence * .32
+        const renderedRed = gray + (red - gray) * saturation
+        const renderedGreen = gray + (green - gray) * saturation
+        const renderedBlue = gray + (blue - gray) * saturation
+        image.data[offset] = Math.round(247 + (renderedRed - 247) * map.heatmapSettings.opacity)
+        image.data[offset + 1] = Math.round(247 + (renderedGreen - 247) * map.heatmapSettings.opacity)
+        image.data[offset + 2] = Math.round(242 + (renderedBlue - 242) * map.heatmapSettings.opacity)
         image.data[offset + 3] = 255
       }
     }
     context.putImageData(image, 0, 0)
-  }, [deepestDepth, observedRange, profile.readings, shallowestDepth])
+  }, [deepestDepth, map.heatmapSettings.opacity, profile.colorRange, profile.readings, shallowestDepth])
 
   return <section className="gh-soil-section">
     <header>
@@ -129,6 +135,7 @@ function SoilEcCrossSection({ profile, map, language, onClose }: {
       </div>
       <div className="gh-soil-section-raster">
         <canvas ref={canvasRef} />
+        {profile.readings.map((reading) => <span className="gh-soil-section-depth-guide" key={reading.depthCm} style={{ top: `${(reading.depthCm - shallowestDepth) / Math.max(1, deepestDepth - shallowestDepth) * 100}%` }} />)}
         <div className="gh-soil-section-cursor" style={{ left: `${profile.xM / Math.max(map.dimensions.widthM, .001) * 100}%` }}>
           <span>X {profile.xM.toFixed(2)} m</span>
         </div>
@@ -239,7 +246,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const [hoveredSensorId, setHoveredSensorId] = useState<string | null>(null)
   const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null)
   const [soilEcProfile, setSoilEcProfile] = useState<SoilEcProfile | null>(null)
-  const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; observedMin: number; observedMax: number; count: number; contourInterval: number; calculatedAt: Date } | null>(null)
+  const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; observedMin: number; observedMax: number; count: number; contourInterval: number; calculatedAt: Date; soilEcDepthCm?: number } | null>(null)
   const [renderedAt] = useState(Date.now)
   const tr = useCallback((english: string, lithuanian: string) => language === 'lt' ? lithuanian : english, [language])
   const metricLabel = (key: GreenhouseMap['heatmapSettings']['metric']) =>
@@ -277,6 +284,11 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const soilEcDepths = useMemo(() => [...new Set(map.objects.flatMap((object) =>
     object.metadata.sensor?.measurements?.soilEcByDepth?.map((reading) => reading.depthCm) ?? [],
   ))].filter(Number.isFinite).sort((a, b) => a - b), [map.objects])
+  const soilEcAllValues = useMemo(() => map.objects.flatMap((object) =>
+    object.metadata.sensor?.measurements?.soilEcByDepth?.flatMap((reading) =>
+      Number.isFinite(reading.value) ? [reading.value] : [],
+    ) ?? [],
+  ), [map.objects])
   const insufficientHeatmapSources = mode === 'environment'
     && map.heatmapSettings.enabled
     && points.length > 0
@@ -303,7 +315,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     const timer = window.setTimeout(() => {
       try {
         const metric = map.heatmapSettings.metric
-        const scale = getStableScale(points.map((point) => point.value), metric, map.heatmapSettings.scaleMode === 'manual' ? { min: map.heatmapSettings.manualMin, max: map.heatmapSettings.manualMax } : undefined)
+        const scaleValues = metric === 'soil-ec' && soilEcAllValues.length ? soilEcAllValues : points.map((point) => point.value)
+        const scale = getStableScale(scaleValues, metric, map.heatmapSettings.scaleMode === 'manual' ? { min: map.heatmapSettings.manualMin, max: map.heatmapSettings.manualMax } : undefined)
         const referenceTimeMs = referenceTime ? new Date(referenceTime).getTime() : Date.now()
         const grid = createMeasurementGrid(
           points,
@@ -314,7 +327,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         )
         if (!grid) setHeatmap(null)
         else {
-          const observedValues = points.map((point) => point.value)
+          const observedValues = scaleValues
           const observedRange: [number, number] = [Math.min(...observedValues), Math.max(...observedValues)]
           setHeatmap({
             canvas: renderHeatmapCanvas(
@@ -332,6 +345,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
             count: grid.sensorCount,
             contourInterval: getAdaptiveContourInterval(metric, points.map((point) => point.value), grid.sensorCount),
             calculatedAt: Number.isFinite(referenceTimeMs) ? new Date(referenceTimeMs) : new Date(),
+            soilEcDepthCm: metric === 'soil-ec' ? soilEcDepthCm : undefined,
           })
         }
       } finally {
@@ -343,7 +357,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       window.cancelAnimationFrame(firstPaintFrame)
       window.cancelAnimationFrame(settledPaintFrame)
     }
-  }, [map, mode, onRenderReady, points, referenceTime])
+  }, [map, mode, onRenderReady, points, referenceTime, soilEcAllValues])
 
   useEffect(() => {
     if (mode !== 'environment' || map.heatmapSettings.metric !== 'soil-ec') setSoilEcProfile(null)
@@ -363,14 +377,16 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     const referenceTimeMs = referenceTime ? new Date(referenceTime).getTime() : Date.now()
     const nowMs = Number.isFinite(referenceTimeMs) ? referenceTimeMs : Date.now()
     const fallbackSampleCount = gridResolution(map.dimensions.widthM, map.dimensions.lengthM, map.heatmapSettings.cellSizeM).width
+    const commonScale = getStableScale(soilEcAllValues, 'soil-ec')
     const readings = soilEcDepths.map((depthCm): SoilEcProfileReading => {
       const depthPoints = getValidMeasurementPoints(map, 'soil-ec', undefined, depthCm)
-      if (depthPoints.length < MIN_HEATMAP_SENSOR_COUNT) return { depthCm, value: null, confidence: 0, sensorCount: depthPoints.length, samples: Array.from({ length: fallbackSampleCount }, () => null) }
-      const scale = getStableScale(depthPoints.map((point) => point.value), 'soil-ec')
-      const grid = createMeasurementGrid(depthPoints, map, 'soil-ec', scale, nowMs)
+      if (depthPoints.length < MIN_HEATMAP_SENSOR_COUNT) return { depthCm, value: null, confidence: 0, sensorCount: depthPoints.length, samples: Array.from({ length: fallbackSampleCount }, () => null), confidenceSamples: Array.from({ length: fallbackSampleCount }, () => 0) }
+      const grid = heatmap?.soilEcDepthCm === depthCm
+        ? heatmap.grid
+        : createMeasurementGrid(depthPoints, map, 'soil-ec', commonScale, nowMs)
       const column = Math.floor(position.xM / grid.cellWidthM)
       const row = Math.floor((map.dimensions.lengthM - position.yM) / grid.cellHeightM)
-      if (column < 0 || row < 0 || column >= grid.width || row >= grid.height) return { depthCm, value: null, confidence: 0, sensorCount: 0, samples: Array.from({ length: grid.width }, () => null) }
+      if (column < 0 || row < 0 || column >= grid.width || row >= grid.height) return { depthCm, value: null, confidence: 0, sensorCount: 0, samples: Array.from({ length: grid.width }, () => null), confidenceSamples: Array.from({ length: grid.width }, () => 0) }
       const index = row * grid.width + column
       return {
         depthCm,
@@ -381,11 +397,20 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           const sampleIndex = row * grid.width + sampleColumn
           return grid.dataMask[sampleIndex] ? grid.values[sampleIndex] : null
         }),
+        confidenceSamples: Array.from({ length: grid.width }, (_, sampleColumn) => grid.confidence[row * grid.width + sampleColumn]),
       }
     })
+    const colorRange: [number, number] = soilEcAllValues.length
+      ? [Math.min(...soilEcAllValues), Math.max(...soilEcAllValues)]
+      : [commonScale.min, commonScale.max]
+    const profileGrid = heatmap?.grid
+    const profileRow = profileGrid ? Math.floor((map.dimensions.lengthM - position.yM) / profileGrid.cellHeightM) : -1
+    const profileYM = profileGrid && profileRow >= 0 && profileRow < profileGrid.height
+      ? map.dimensions.lengthM - (profileRow + .5) * profileGrid.cellHeightM
+      : position.yM
     setSelectedSensorId(null)
-    setSoilEcProfile({ xM: position.xM, yM: position.yM, readings })
-  }, [map, mode, pointerWorld, referenceTime, soilEcDepths])
+    setSoilEcProfile({ xM: position.xM, yM: profileYM, colorRange, readings })
+  }, [heatmap, map, mode, pointerWorld, referenceTime, soilEcAllValues, soilEcDepths])
 
   const gridLines = useMemo(() => {
     const step = map.gridSizeM
