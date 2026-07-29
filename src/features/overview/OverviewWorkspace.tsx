@@ -34,6 +34,7 @@ type OverviewRow = {
   duration: string
   direction: 'above' | 'below' | 'inside' | 'unknown'
   reporting: string
+  priorityScore: number
 }
 
 type OverviewModel = {
@@ -103,6 +104,11 @@ const demoActions = [{
   confidence: 'high',
   observedAt: new Date().toISOString(),
 }]
+
+const demoActionSummary = {
+  today: { improvementsConfirmed: 1, awaitingVerification: 0, unchanged: 0, worsened: 0 },
+  recentResults: [],
+}
 
 const METRIC_LABELS = Object.fromEntries(
   Object.entries(metricDefinitions).map(([metricId, definition]) => [metricId, definition.label]),
@@ -320,7 +326,11 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     || sites.find((item) => String(item.id) === priorityAreaId)
     || sites[0]
   const areaActions = actions.filter((action) => String(action.areaId) === String(site.id))
-  const actionBySection = new Map(areaActions.map((action) => [String(action.sectionId), action]))
+  const actionBySection = new Map<string, JsonRecord>()
+  areaActions.forEach((action) => {
+    const sectionId = String(action.sectionId)
+    if (!actionBySection.has(sectionId)) actionBySection.set(sectionId, action)
+  })
   const zones = asArray(site.zones)
   const rows = zones.map((zone): OverviewRow => {
     const action = actionBySection.get(String(zone.id))
@@ -350,7 +360,9 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
       name: String(zone.name || 'Unnamed Section'),
       crop: profileLabel(zone),
       status: tone === 'action' ? 'Needs action' : tone === 'watch' ? 'Watch' : tone === 'good' ? 'Inside target' : 'Unverified',
-      detail: actionCanBeVerified
+      detail: action?.riskKind === 'uniformity'
+        ? String(action.reason || `${rowMetricLabel} differs between nodes.`)
+        : actionCanBeVerified
         ? correctionInstruction(rowMetricLabel, deviation, direction, target, unit)
         : conditionCanBeVerified
           ? correctionInstruction(rowMetricLabel, deviation, direction, target, unit)
@@ -371,8 +383,12 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
       duration: action ? formatDuration(action.outsideTargetSince || action.startedAt || action.firstObservedAt || action.observedAt) : '',
       direction,
       reporting: `${reportingNodes} of ${totalNodes} nodes reporting`,
+      priorityScore: Number(action?.priorityScore || 0),
     }
-  }).sort((left, right) => ['action', 'watch', 'unknown', 'good'].indexOf(left.tone) - ['action', 'watch', 'unknown', 'good'].indexOf(right.tone))
+  }).sort((left, right) =>
+    ['action', 'watch', 'unknown', 'good'].indexOf(left.tone) - ['action', 'watch', 'unknown', 'good'].indexOf(right.tone)
+    || right.priorityScore - left.priorityScore
+  )
 
   const reportingNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.reporting || zone.sensorCount || 0), 0)
   const totalNodes = zones.reduce((sum, zone) => sum + Number(zone.nodeSummary?.registered || zone.sensorCount || 0), 0)
@@ -567,6 +583,7 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
   areaName: string
   onClose: () => void
 }) {
+  const isLt = getInterfaceLanguage() === 'lt'
   const [items, setItems] = useState<Record<string, WorkflowItemState>>(() => Object.fromEntries(
     actions.map((action) => [String(action.id), {
       status: action.feedback?.status === 'completed'
@@ -682,6 +699,9 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
             {action.ruleType === 'interaction'
               ? <div className="nc-action-diagnosis"><span>{tx("Why NeuroCrop recommends this")}</span><strong>{action.title}</strong><p>{action.reason}</p></div>
               : null}
+            {action.likelyCause && action.ruleType !== 'interaction'
+              ? <div className="nc-action-diagnosis"><span>{isLt ? 'Tikėtina priežastis' : 'Likely cause'}</span><strong>{action.likelyCause}</strong><p>{action.reason}</p></div>
+              : null}
             <AgronomicDiagnosis action={action} />
             <div className="nc-action-recommendation"><span>{tx("Recommended check")}</span><p>{action.recommendedAction ||tx("Inspect the relevant controls and sensor placement.")}</p></div>
             {item.status !== 'open'
@@ -729,6 +749,7 @@ export default function OverviewWorkspace() {
   const dashboardState = useDashboardState()
   const [dashboard, setDashboard] = useState<JsonRecord | null>(null)
   const [actions, setActions] = useState<JsonRecord | null>(null)
+  const [actionSummary, setActionSummary] = useState<JsonRecord>(demoActionSummary)
   const selectedAreaId = dashboardState.context.areaId
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [error, setError] = useState('')
@@ -744,15 +765,16 @@ export default function OverviewWorkspace() {
   useEffect(() => {
     let active = true
     Promise.all(neurocropApi.isConnected()
-      ? [neurocropApi.getDashboard(), neurocropApi.getTodayActions(), neurocropApi.getCropProfiles()]
-      : [Promise.resolve(demoDashboard), Promise.resolve({ actions: demoActions }), Promise.resolve({ profiles: [] })])
-      .then(async ([nextDashboard, nextActions, nextProfiles]) => {
+      ? [neurocropApi.getDashboard(), neurocropApi.getTodayActions(), neurocropApi.getCropProfiles(), neurocropApi.getActionOverviewSummary()]
+      : [Promise.resolve(demoDashboard), Promise.resolve({ actions: demoActions }), Promise.resolve({ profiles: [] }), Promise.resolve(demoActionSummary)])
+      .then(async ([nextDashboard, nextActions, nextProfiles, nextActionSummary]) => {
         const enrichedDashboard = neurocropApi.isConnected()
           ? await enrichLegacyDashboardConditions(nextDashboard as JsonRecord, nextProfiles as JsonRecord)
           : nextDashboard as JsonRecord
         if (!active) return
         setDashboard(enrichedDashboard)
         setActions(nextActions as JsonRecord)
+        setActionSummary(nextActionSummary as JsonRecord)
         setError('')
         setLoadState(asArray(enrichedDashboard?.sites).length ? 'ready' : 'empty')
       })
@@ -817,6 +839,10 @@ export default function OverviewWorkspace() {
     : null
   const actionHeadline = model.priority?.ruleType === 'interaction'
     ? model.priority.title
+    : model.priority?.riskKind === 'uniformity'
+      ? isLt
+        ? `${model.priority.sectionName}: aptiktas netolygus ${tx(model.priority.metricLabel).toLowerCase()} pasiskirstymas.`
+        : `${model.priority.sectionName}: uneven ${String(model.priority.metricLabel).toLowerCase()} distribution detected.`
     : actionRows.length === 1 && maximumDeviation !== null && actionRows[0].direction !== 'unknown'
       ? isLt
         ? `${actionRows[0].name}: ${tx(actionRows[0].metricLabel).toLowerCase()} ${formatMeasurement(maximumDeviation, actionRows[0].unit)} ${actionRows[0].direction === 'above' ? 'viršija tikslą' : 'nesiekia tikslo'}.`
@@ -856,9 +882,9 @@ export default function OverviewWorkspace() {
   const watchActions = model.actions.filter((action) =>
     watchRows.some((row) => row.id === String(action.sectionId)),
   )
-  const fallbackWatchActions = watchRows
+  const fallbackWatchActions: JsonRecord[] = watchRows
     .filter((row) => row.metricKey && row.currentValue !== null && row.target && (row.direction === 'above' || row.direction === 'below'))
-    .map((row) => ({
+    .map((row): JsonRecord => ({
       id: `${row.id}:${row.metricKey}:${row.direction === 'above' ? 'high' : 'low'}`,
       areaId: model.areaId,
       areaName: model.areaName,
@@ -880,8 +906,10 @@ export default function OverviewWorkspace() {
       confidence: row.reporting.startsWith('0 of') ? 'medium' : 'high',
     }))
   const effectiveWatchActions = watchActions.length ? watchActions : fallbackWatchActions
-  const reviewActions = visibleActions.length ? visibleActions : effectiveWatchActions
-  const reviewRows = visibleActions.length ? actionRows : watchRows
+  const reviewActions = [...visibleActions, ...effectiveWatchActions]
+    .filter((action, index, all) => all.findIndex((candidate) => String(candidate.id) === String(action.id)) === index)
+    .sort((left, right) => Number(right.priorityScore || 0) - Number(left.priorityScore || 0))
+  const reviewRows = [...actionRows, ...watchRows]
   const scopeLabel = stable
     ? isLt ? `Visos ${model.rows.length} sekcijos` : `All ${model.rows.length} sections`
     : actionRows.length
@@ -898,8 +926,16 @@ export default function OverviewWorkspace() {
         : isLt ? 'Dalis sekcijų nepatvirtinta' : 'Some sections are unverified'
   const primaryReviewRow = actionRows[0] || watchRows[0] || null
   const primaryActionLabel = primaryReviewRow && reviewRows.length === 1
-    ? isLt ? `Peržiūrėti ${primaryReviewRow.name}` : `Review ${primaryReviewRow.name}`
-    : isLt ? `Peržiūrėti ${reviewRows.length} paveiktas sekcijas` : `Review ${reviewRows.length} affected sections`
+    ? isLt ? `Pradėti svarbiausią darbą` : `Start highest-priority task`
+    : isLt ? `Atidaryti ${reviewRows.length} prioritetinius darbus` : `Open ${reviewRows.length} priority tasks`
+  const primaryRisk = model.priority || reviewActions[0] || null
+  const priorityTrend = String(primaryRisk?.trend || 'new')
+  const priorityAffected = Number(primaryRisk?.affectedNodes || 0)
+  const priorityReporting = Number(primaryRisk?.reportingNodes || 0)
+  const todayResults = (actionSummary?.today || {}) as JsonRecord
+  const confirmedToday = Number(todayResults.improvementsConfirmed || 0)
+  const awaitingToday = Number(todayResults.awaitingVerification || 0)
+  const failedToday = Number(todayResults.unchanged || 0) + Number(todayResults.worsened || 0)
 
   function openAreaEvidence() {
     setSelectedEvidenceRow(null)
@@ -933,6 +969,12 @@ export default function OverviewWorkspace() {
           </div>
           <h1>{headline}</h1>
           <p>{explanation}</p>
+          {primaryRisk ? <section className="nc-risk-facts" aria-label={isLt ? 'Rizikos įrodymai' : 'Risk evidence'}>
+            <div><span>{isLt ? 'Trukmė' : 'Duration'}</span><strong>{formatDuration(primaryRisk.firstDetectedAt)}</strong></div>
+            <div data-trend={priorityTrend}><span>{isLt ? 'Tendencija' : 'Trend'}</span><strong>{priorityTrend === 'worsening' ? (isLt ? 'Blogėja' : 'Worsening') : priorityTrend === 'recovering' ? (isLt ? 'Gerėja' : 'Recovering') : priorityTrend === 'stable' ? (isLt ? 'Nekinta' : 'Stable') : (isLt ? 'Nauja' : 'New')}</strong></div>
+            <div><span>{isLt ? 'Aprėptis' : 'Coverage'}</span><strong>{priorityAffected || '—'} / {priorityReporting || '—'} {isLt ? 'mazgų' : 'nodes'}</strong></div>
+            <p><span>{isLt ? 'Tikėtina priežastis' : 'Likely cause'}</span><strong>{primaryRisk.likelyCause || primaryRisk.diagnosis?.title || primaryRisk.title}</strong></p>
+          </section> : null}
           <div className="nc-overview-actions-slot">
             {model.priority
               ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{primaryActionLabel}<i className="fa-solid fa-arrow-right" /></button>
@@ -941,6 +983,10 @@ export default function OverviewWorkspace() {
                 : effectiveWatchActions.length
                   ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{primaryActionLabel}<i className="fa-solid fa-arrow-right" /></button>
                   : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>{tx("Review Section setup")}<i className="fa-solid fa-arrow-right" /></button>}
+            {(confirmedToday || awaitingToday || failedToday) ? <div className="nc-result-loop">
+              <i className="fa-solid fa-rotate" />
+              <p><strong>{isLt ? 'Šiandienos rezultatai' : "Today's results"}</strong><span>{confirmedToday} {isLt ? 'pagerėjo' : 'improved'} · {awaitingToday} {isLt ? 'tikrinama' : 'verifying'}{failedToday ? ` · ${failedToday} ${isLt ? 'nepadėjo' : 'need review'}` : ''}</span></p>
+            </div> : null}
             {unknownRows.length && effectiveWatchActions.length
               ? <button className="nc-overview-setup-link" type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-sliders" />{tx("Review setup for")} {unknownRows.length} {tx("unverified Section")}{unknownRows.length === 1 ? '' : 's'}</button>
               : null}

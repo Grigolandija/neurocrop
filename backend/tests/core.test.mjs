@@ -41,6 +41,7 @@ import { hashPasswordResetToken, passwordResetUrl } from '../password-reset-rout
 import { simulateAgronomicScenario } from '../agronomic-simulator.js';
 import { buildCanonicalAlerts, buildCanonicalAlertState, canonicalAlertContext } from '../alert-lifecycle.js';
 import { DEFAULT_CROP_PROFILE_METRICS } from '../crop-profile-defaults.js';
+import { buildCropRisks, buildUniformityRisks } from '../crop-risk.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -1046,6 +1047,67 @@ test('tiny warning deviations remain visible without creating a priority action'
   assert.equal(evaluation.state, 'warning');
   assert.ok(evaluation.severity < 0.05);
   assert.deepEqual(actions, []);
+});
+
+test('crop risk detector finds an uneven zone even when its average can look acceptable', () => {
+  const snapshots = [{
+    section: { id: 'section-1', area_id: 'area-1', name: 'North bed', area_name: 'Greenhouse' },
+    nodes: [{ name: 'N1' }, { name: 'N2' }, { name: 'N3' }],
+    measurements: [
+      { temperature: 19, raw_object: { sensors: { sht4x: { present: true } } } },
+      { temperature: 21, raw_object: { sensors: { sht4x: { present: true } } } },
+      { temperature: 23, raw_object: { sensors: { sht4x: { present: true } } } }
+    ],
+    nodeStatuses: ['live', 'live', 'live'],
+    profileMetrics: { airTemp: { label: 'Air temperature', unit: '°C' } },
+    scoreRules: { airTemp: { optimal: [18, 24], growth: true } },
+    observedAtByMetric: { airTemp: '2026-07-29T08:00:00Z' },
+    registeredNodes: 3
+  }];
+
+  const risks = buildUniformityRisks(snapshots);
+  assert.equal(risks.length, 1);
+  assert.equal(risks[0].riskKind, 'uniformity');
+  assert.equal(risks[0].verificationMode, 'uniformity');
+  assert.equal(risks[0].value, 4);
+  assert.equal(risks[0].reportingNodes, 3);
+  assert.match(risks[0].likelyCause, /heating|ventilation/i);
+});
+
+test('crop risks prioritize worsening, persistent and broad conditions', () => {
+  const actions = [{
+    id: 'section-1:airTemp:high',
+    sectionId: 'section-1',
+    metricId: 'airTemp',
+    state: 'critical',
+    severity: 0.8,
+    value: 29,
+    target: [20, 24],
+    observedAt: '2026-07-29T08:00:00Z'
+  }];
+  const snapshots = [{
+    section: { id: 'section-1' },
+    nodes: [{ name: 'N1' }, { name: 'N2' }, { name: 'N3' }],
+    measurements: [
+      { temperature: 29, raw_object: { sensors: { sht4x: { present: true } } } },
+      { temperature: 28, raw_object: { sensors: { sht4x: { present: true } } } },
+      { temperature: 23, raw_object: { sensors: { sht4x: { present: true } } } }
+    ],
+    nodeStatuses: ['live', 'live', 'live'],
+    registeredNodes: 3,
+    scoreRules: {}
+  }];
+  const episodes = new Map([['section-1:airTemp:high', {
+    first_detected_at: '2026-07-29T06:00:00Z',
+    previous_deviation: 3
+  }]]);
+  const risks = buildCropRisks(actions, snapshots, episodes, new Date('2026-07-29T09:00:00Z'));
+
+  assert.equal(risks[0].trend, 'worsening');
+  assert.equal(risks[0].durationMinutes, 180);
+  assert.equal(risks[0].affectedNodes, 2);
+  assert.equal(risks[0].affectedFraction, 2 / 3);
+  assert.ok(risks[0].priorityScore > 70);
 });
 
 test('canonical alerts deduplicate metric and offline conditions with stable tenant-scoped ids', () => {

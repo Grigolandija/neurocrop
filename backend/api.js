@@ -45,6 +45,7 @@ import { registerGatewayFactoryRoutes } from './gateway-factory-routes.js';
 import { registerPasswordResetRoutes } from './password-reset-routes.js';
 import { resolveOptionalClerkAuth } from './clerk-auth.js';
 import { registerPushNotificationRoutes } from './push-notifications.js';
+import { buildCropRisks } from './crop-risk.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -1348,6 +1349,96 @@ function metricSeriesSnapshot(measurements, metricId) {
   };
 }
 
+function uniformitySeriesSnapshot(measurements, metricId) {
+  const buckets = new Map();
+  for (const measurement of measurements) {
+    if (!measurementReportsMetric(measurement, metricId)) continue;
+    const value = metricId === 'vpd'
+      ? calcVPD(measurement.temperature, measurement.humidity)
+      : measurement[METRIC_TO_COLUMN[metricId]];
+    const observedAtMs = new Date(measurement.time || 0).getTime();
+    const numericValue = normalizeTelemetryNumber(value);
+    if (numericValue === null || !Number.isFinite(observedAtMs)) continue;
+    const bucket = Math.floor(observedAtMs / (15 * 60_000));
+    if (!buckets.has(bucket)) buckets.set(bucket, { byNode: new Map(), observedAt: measurement.time });
+    const entry = buckets.get(bucket);
+    entry.byNode.set(normalizeDevEui(measurement.dev_eui), numericValue);
+    if (new Date(measurement.time) > new Date(entry.observedAt)) entry.observedAt = measurement.time;
+  }
+  return {
+    samples: [...buckets.values()]
+      .filter((entry) => entry.byNode.size >= 2)
+      .map((entry) => {
+        const values = [...entry.byNode.values()];
+        return {
+          value: Math.max(...values) - Math.min(...values),
+          observedAt: entry.observedAt
+        };
+      })
+      .sort((left, right) => new Date(left.observedAt) - new Date(right.observedAt))
+  };
+}
+
+async function synchronizeCropRiskEpisodes(organizationId, risks, sectionIds) {
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    for (const risk of risks) {
+      await client.query(
+        `INSERT INTO crop_risk_episodes AS current (
+           organization_id, risk_id, section_id, metric_id, risk_kind,
+           active, first_detected_at, last_detected_at, current_deviation
+         ) VALUES ($1,$2,$3,$4,$5,true,now(),now(),$6)
+         ON CONFLICT (organization_id, risk_id) DO UPDATE SET
+           section_id=EXCLUDED.section_id,
+           metric_id=EXCLUDED.metric_id,
+           risk_kind=EXCLUDED.risk_kind,
+           active=true,
+           first_detected_at=CASE WHEN current.active THEN current.first_detected_at ELSE now() END,
+           last_detected_at=now(),
+           resolved_at=NULL,
+           previous_deviation=CASE
+             WHEN current.active THEN current.current_deviation
+             ELSE NULL
+           END,
+           current_deviation=EXCLUDED.current_deviation`,
+        [
+          organizationId,
+          String(risk.id),
+          String(risk.sectionId),
+          String(risk.metricId),
+          String(risk.riskKind || 'target-deviation'),
+          Number.isFinite(Number(risk.deviation)) ? Number(risk.deviation) : null
+        ]
+      );
+    }
+    const riskIds = risks.map((risk) => String(risk.id));
+    await client.query(
+      `UPDATE crop_risk_episodes
+       SET active=false, resolved_at=now(), last_detected_at=now()
+       WHERE organization_id=$1
+         AND active=true
+         AND section_id=ANY($2::text[])
+         AND NOT (risk_id=ANY($3::text[]))`,
+      [organizationId, sectionIds, riskIds]
+    );
+    const { rows } = await client.query(
+      `SELECT risk_id, first_detected_at, previous_deviation, current_deviation
+       FROM crop_risk_episodes
+       WHERE organization_id=$1 AND active=true AND risk_id=ANY($2::text[])`,
+      [organizationId, riskIds]
+    );
+    await client.query('COMMIT');
+    return new Map(rows.map((row) => [row.risk_id, row]));
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client?.release();
+  }
+}
+
 app.get('/actions/today', requireAuth, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
@@ -1412,6 +1503,9 @@ app.get('/actions/today', requireAuth, async (req, res) => {
 
       return {
         section,
+        nodes: nodeRows,
+        measurements,
+        nodeStatuses: current.statuses,
         profileMetrics,
         scoreRules: current.scoreRules,
         evaluations: current.evaluations,
@@ -1426,9 +1520,16 @@ app.get('/actions/today', requireAuth, async (req, res) => {
     // Overview filters by Area client-side, so return enough checks for every
     // Section instead of allowing the first three critical Sections to hide
     // valid Watch checks in another Area.
-    const actions = buildTodayActions(snapshots, {
+    const recommendedActions = buildTodayActions(snapshots, {
       limit: Math.min(100, Math.max(3, snapshots.length * 2))
     });
+    const provisionalRisks = buildCropRisks(recommendedActions, snapshots);
+    const episodes = await synchronizeCropRiskEpisodes(
+      organizationId,
+      provisionalRisks,
+      sections.map((section) => String(section.id))
+    );
+    const actions = buildCropRisks(recommendedActions, snapshots, episodes);
     const actionIds = actions.map((action) => action.id);
     let feedbackByActionId = new Map();
     let assignmentByActionId = new Map();
@@ -1808,7 +1909,9 @@ app.get('/actions/history', requireAuth, async (req, res) => {
       items: feedbackRows.map((row) => {
         const feedback = publicActionFeedback(row);
         const action = row.action_payload || {};
-        const evidence = metricSeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id);
+        const evidence = action.verificationMode === 'uniformity'
+          ? uniformitySeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id)
+          : metricSeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id);
         return {
           ...feedback,
           sectionId: row.section_id,
@@ -1921,7 +2024,9 @@ app.get('/actions/overview-summary', requireAuth, async (req, res) => {
     const items = feedbackRows.map((row) => {
       const feedback = publicActionFeedback(row);
       const action = row.action_payload || {};
-      const evidence = metricSeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id);
+      const evidence = action.verificationMode === 'uniformity'
+        ? uniformitySeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id)
+        : metricSeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id);
       return {
         ...feedback,
         sectionId: row.section_id,

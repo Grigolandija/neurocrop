@@ -97,6 +97,66 @@ test('React shell mounts only the active primary workspace during navigation', a
   }
 })
 
+test('Overview turns crop risk into a prioritized, verifiable task', async ({ page }) => {
+  const response = await page.request.post(`${apiBaseUrl}/auth/login`, {
+    data: { email: 'tenant-a@ci.neurocrop.test', password },
+  })
+  expect(response.ok(), await response.text()).toBeTruthy()
+  await prepare(page)
+  await page.route('**/actions/today', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      actions: [{
+        id: 'section-ci-a:airTemp:high',
+        riskKind: 'target-deviation',
+        areaId: 'area-ci-a',
+        areaName: 'CI Area A',
+        sectionId: 'section-ci-a',
+        sectionName: 'CI Section A',
+        metricId: 'airTemp',
+        metricLabel: 'Air temperature',
+        state: 'critical',
+        value: 31,
+        unit: '°C',
+        target: [18, 26],
+        title: 'Reduce air temperature',
+        reason: 'Air temperature is above the crop target.',
+        recommendedAction: 'Inspect ventilation and cooling.',
+        likelyCause: 'Insufficient ventilation or cooling',
+        observedAt: new Date().toISOString(),
+        firstDetectedAt: new Date(Date.now() - 95 * 60_000).toISOString(),
+        durationMinutes: 95,
+        trend: 'worsening',
+        priorityScore: 88,
+        reportingNodes: 5,
+        affectedNodes: 3,
+      }],
+    }),
+  }))
+  await page.route('**/actions/overview-summary', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      today: { improvementsConfirmed: 2, awaitingVerification: 1, unchanged: 0, worsened: 0 },
+      recentResults: [],
+    }),
+  }))
+  await page.route('**/actions/today/*/feedback', (route) => route.fulfill({
+    status: 201,
+    contentType: 'application/json',
+    body: JSON.stringify({ feedback: { status: 'in_progress' } }),
+  }))
+
+  await page.goto('/')
+  await expect(page.locator('.nc-risk-facts')).toContainText('Worsening')
+  await expect(page.locator('.nc-risk-facts')).toContainText('3 / 5 nodes')
+  await expect(page.locator('.nc-result-loop')).toContainText('2 improved')
+  await page.getByRole('button', { name: 'Start highest-priority task' }).click()
+  await expect(page.getByRole('dialog', { name: /Review 1 affected Section/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Start check' }).click()
+  await expect(page.locator('.nc-action-item')).toHaveAttribute('data-status', 'in-progress')
+})
+
 test('account menus open beside the button that was clicked', async ({ page }) => {
   await authenticate(page)
   await page.locator('.sidebar-user-wrap .user-tile').click()

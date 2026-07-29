@@ -188,3 +188,11 @@ test('canonical alert lifecycle migration supports active episodes and automatic
   assert.match(sql, /recovered_at/);
   assert.match(sql, /condition_cleared/);
 });
+
+test('crop risk episode migration persists duration and trend baselines', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0029_crop_risk_episodes.sql', import.meta.url), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS crop_risk_episodes/);
+  assert.match(sql, /first_detected_at/);
+  assert.match(sql, /previous_deviation/);
+  assert.match(sql, /ON DELETE CASCADE/);
+});
