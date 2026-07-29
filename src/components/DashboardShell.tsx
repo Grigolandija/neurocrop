@@ -146,7 +146,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
       <button key={item.route} type="button" className="rail-link nav-link nav-link-button" data-sidebar-action={item.action} data-active={active} data-disabled={locked} aria-current={active ? 'page' : undefined} aria-disabled={locked || undefined} disabled={locked} title={locked ? t(lockReason) : undefined} onClick={() => go(item.route)}>
         <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
         <span>{t(item.label)}</span>
-        {item.route === '/alerts' && alertCount > 0 ? <b className="nav-count">{alertCount}</b> : null}
+        {item.route === '/alerts' && alertCount > 0 ? <b className="nav-count" title={`${alertCount} ${t('open alerts')}`} aria-label={`${alertCount} ${t('open alerts')}`}>{alertCount}</b> : null}
         {item.beta ? <small className="nav-beta-badge">{tx("Beta")}</small> : null}
       </button>
     )

@@ -72,6 +72,7 @@ const authTranslations: Record<string, string> = {
   'Readings': 'Rodmenys',
   'Trends': 'Tendencijos',
   'Alerts': 'Perspėjimai',
+  'open alerts': 'aktyvūs perspėjimai',
   'Actions': 'Veiksmai',
   'Profiles': 'Profiliai',
   'Simulator': 'Simuliatorius',

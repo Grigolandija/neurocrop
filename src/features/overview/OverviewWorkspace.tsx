@@ -1,4 +1,4 @@
-import { translateInterfaceText as tx } from '../../i18n'
+import { getInterfaceLanguage, translateInterfaceText as tx } from '../../i18n'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
@@ -823,6 +823,7 @@ export default function OverviewWorkspace() {
   const actionRows = model.rows.filter((row) => row.tone === 'action')
   const watchRows = model.rows.filter((row) => row.tone === 'watch')
   const stableRows = model.rows.filter((row) => row.tone === 'good')
+  const isLt = getInterfaceLanguage() === 'lt'
   const verifiedRows = model.rows.filter((row) => row.tone !== 'unknown')
   const stable = !model.priority && actionRows.length === 0 && watchRows.length === 0 && verifiedRows.length === model.rows.length
   const comparableActionRows = actionRows.filter((row) =>
@@ -836,23 +837,37 @@ export default function OverviewWorkspace() {
     : null
   const actionHeadline = model.priority?.ruleType === 'interaction'
     ? model.priority.title
+    : actionRows.length === 1 && maximumDeviation !== null && actionRows[0].direction !== 'unknown'
+      ? isLt
+        ? `${actionRows[0].name}: ${tx(actionRows[0].metricLabel).toLowerCase()} ${formatMeasurement(maximumDeviation, actionRows[0].unit)} ${actionRows[0].direction === 'above' ? 'viršija tikslą' : 'nesiekia tikslo'}.`
+        : `${actionRows[0].name}: ${actionRows[0].metricLabel} is ${formatMeasurement(maximumDeviation, actionRows[0].unit)} ${actionRows[0].direction} target.`
     : actionRows.length && maximumDeviation !== null && actionRows[0].direction !== 'unknown'
-    ? `${actionRows.length} Section${actionRows.length === 1 ? '' : 's'} ${actionRows.length === 1 ? 'is' : 'are'} up to ${formatMeasurement(maximumDeviation, actionRows[0].unit)} ${actionRows[0].direction} target.`
+    ? isLt
+      ? `${actionRows.length} sekcijose ${tx(actionRows[0].metricLabel).toLowerCase()} iki ${formatMeasurement(maximumDeviation, actionRows[0].unit)} ${actionRows[0].direction === 'above' ? 'viršija tikslą' : 'nesiekia tikslo'}.`
+      : `${actionRows.length} sections are up to ${formatMeasurement(maximumDeviation, actionRows[0].unit)} ${actionRows[0].direction} target.`
     : model.priority?.title
   const headline = stable
-    ? `All ${model.rows.length} Sections are stable.`
+    ? isLt ? `Visos ${model.rows.length} sekcijos stabilios.` : `All ${model.rows.length} sections are stable.`
     : actionHeadline
       || (watchRows.length
-        ? `${watchRows.length} Section${watchRows.length === 1 ? ' needs' : 's need'} monitoring.`
-        : `${model.rows.length - verifiedRows.length} Sections cannot be verified.`)
+        ? isLt
+          ? `${watchRows.length} ${watchRows.length === 1 ? 'sekciją reikia stebėti' : 'sekcijas reikia stebėti'}.`
+          : `${watchRows.length} section${watchRows.length === 1 ? ' needs' : 's need'} monitoring.`
+        : isLt
+          ? `${model.rows.length - verifiedRows.length} sekcijų būsenos negalima patvirtinti.`
+          : `${model.rows.length - verifiedRows.length} sections cannot be verified.`)
   const explanation = stable
-    ? 'Every Section is inside its current target range.'
+    ? isLt ? 'Visos sekcijos atitinka dabartines tikslines ribas.' : 'Every section is inside its current target range.'
     : model.priority?.ruleType === 'interaction'
       ? model.priority.reason
       : actionRows.length
-      ? `${actionRows[0].metricLabel} is outside the active crop-profile target in ${actionRows.length} of ${model.rows.length} Sections.`
+      ? isLt
+        ? `Ši sąlyga veikia ${actionRows.length} iš ${model.rows.length} sekcijų ir labiausiai riboja dabartinį auginimo balą.`
+        : `This condition affects ${actionRows.length} of ${model.rows.length} sections and is the main limit on the current Growing Score.`
       : watchRows.length
-        ? `${watchRows.length} Section${watchRows.length === 1 ? ' has' : 's have'} a current reading outside target. Review the recommended checks before the condition escalates.`
+        ? isLt
+          ? `${watchRows.length} ${watchRows.length === 1 ? 'sekcijoje dabartinis rodmuo neatitinka tikslo' : 'sekcijose dabartiniai rodmenys neatitinka tikslo'}. Peržiūrėkite rekomenduojamas patikras.`
+          : `${watchRows.length} section${watchRows.length === 1 ? ' has' : 's have'} a current reading outside target. Review the recommended checks before the condition escalates.`
         : model.priority?.reason || 'Current data or an active crop profile is missing.'
   const unknownRows = model.rows.filter((row) => row.tone === 'unknown')
   const visibleActions = model.actions.filter((action) =>
@@ -888,12 +903,23 @@ export default function OverviewWorkspace() {
   const reviewActions = visibleActions.length ? visibleActions : effectiveWatchActions
   const reviewRows = visibleActions.length ? actionRows : watchRows
   const scopeLabel = stable
-    ? `All ${model.rows.length} Sections`
+    ? isLt ? `Visos ${model.rows.length} sekcijos` : `All ${model.rows.length} sections`
     : actionRows.length
-      ? `Affects ${actionRows.length} of ${model.rows.length} Sections`
+      ? isLt ? `Veikia ${actionRows.length} iš ${model.rows.length} sekcijų` : `Affects ${actionRows.length} of ${model.rows.length} sections`
       : watchRows.length
-        ? `${watchRows.length} of ${model.rows.length} Sections on watch`
-        : `${unknownRows.length} of ${model.rows.length} Sections unverified`
+        ? isLt ? `Stebima ${watchRows.length} iš ${model.rows.length} sekcijų` : `${watchRows.length} of ${model.rows.length} sections on watch`
+        : isLt ? `Nepatvirtinta ${unknownRows.length} iš ${model.rows.length} sekcijų` : `${unknownRows.length} of ${model.rows.length} sections unverified`
+  const scoreStateSummary = actionRows.length
+    ? isLt ? `${actionRows.length} ${actionRows.length === 1 ? 'sekcijai' : 'sekcijoms'} reikia veiksmo` : `${actionRows.length} section${actionRows.length === 1 ? '' : 's'} need${actionRows.length === 1 ? 's' : ''} action`
+    : watchRows.length
+      ? isLt ? `${watchRows.length} ${watchRows.length === 1 ? 'sekcija stebima' : 'sekcijos stebimos'}` : `${watchRows.length} section${watchRows.length === 1 ? '' : 's'} on watch`
+      : stable
+        ? isLt ? `Visos ${model.rows.length} sekcijos stabilios` : `All ${model.rows.length} sections stable`
+        : isLt ? 'Dalis sekcijų nepatvirtinta' : 'Some sections are unverified'
+  const primaryReviewRow = actionRows[0] || watchRows[0] || null
+  const primaryActionLabel = primaryReviewRow && reviewRows.length === 1
+    ? isLt ? `Peržiūrėti ${primaryReviewRow.name}` : `Review ${primaryReviewRow.name}`
+    : isLt ? `Peržiūrėti ${reviewRows.length} paveiktas sekcijas` : `Review ${reviewRows.length} affected sections`
 
   function openAreaEvidence() {
     setSelectedEvidenceRow(null)
@@ -929,11 +955,11 @@ export default function OverviewWorkspace() {
           <p>{explanation}</p>
           <div className="nc-overview-actions-slot">
             {model.priority
-              ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{tx("Review")} {visibleActions.length} {tx("affected Section")}{visibleActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
+              ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{primaryActionLabel}<i className="fa-solid fa-arrow-right" /></button>
               : stable
                 ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />{tx("No action required")}</div>
                 : effectiveWatchActions.length
-                  ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{tx("Review")} {effectiveWatchActions.length} {tx("Watch check")}{effectiveWatchActions.length === 1 ? '' : 's'}<i className="fa-solid fa-arrow-right" /></button>
+                  ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{primaryActionLabel}<i className="fa-solid fa-arrow-right" /></button>
                   : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>{tx("Review Section setup")}<i className="fa-solid fa-arrow-right" /></button>}
             {unknownRows.length && effectiveWatchActions.length
               ? <button className="nc-overview-setup-link" type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-sliders" />{tx("Review setup for")} {unknownRows.length} {tx("unverified Section")}{unknownRows.length === 1 ? '' : 's'}</button>
@@ -955,13 +981,16 @@ export default function OverviewWorkspace() {
             <div className="nc-growing-score">
               <span>{tx("Current Growing Score")}</span>
               <p><strong>{model.growingScore ?? '—'}</strong>{model.growingScore === null ? null : <small>/ 100</small>}</p>
-              {model.scoreDriver ? <em>{tx("Limited by")} {model.scoreDriver.toLowerCase()}</em> : null}
+              <em data-tone={actionRows.length ? 'action' : watchRows.length ? 'watch' : stable ? 'stable' : 'unknown'}>
+                <b>{scoreStateSummary}</b>
+                {model.scoreDriver ? <span>{isLt ? 'Pagrindinis ribojantis rodiklis' : 'Main limitation'}: {tx(model.scoreDriver).toLowerCase()}</span> : null}
+              </em>
             </div>
           </div>
           <div className="nc-coverage-list">
             {model.rows.map((row) => <button className={`nc-coverage-row ${row.tone}`} type="button" key={row.id} onClick={() => openSectionEvidence(row)} aria-label={`View evidence for ${row.name}`}>
               <i><span /></i>
-              <div className="nc-section-identity"><strong>{row.name}</strong><small>{row.crop}</small></div>
+              <div className="nc-section-identity"><strong>{row.name}</strong><small>{isLt ? 'Profilis' : 'Profile'}: {row.crop}</small></div>
               <div className="nc-section-score">
                 <span>{tx("Growing Score")}</span>
                 <strong style={{ color: scoreColor(row.score) }}>{row.score ?? '—'}{row.score === null ? null : <small>/100</small>}</strong>
@@ -977,8 +1006,7 @@ export default function OverviewWorkspace() {
             </button>)}
           </div>
           <div className="nc-coverage-footer">
-            <figcaption><i className="fa-solid fa-circle-check" />{tx("Current Growing Score combines all available metrics; status and deviation show the limiting condition.")}</figcaption>
-            <button type="button" onClick={() => navigate('/sections')}>{tx("View all")} {model.rows.length} {tx("Sections")} <i className="fa-solid fa-arrow-right" /></button>
+            <figcaption title={tx("Current Growing Score combines all available metrics; status and deviation show the limiting condition.")}><i className="fa-solid fa-circle-info" />{isLt ? 'Apie auginimo balą' : 'About Growing Score'}</figcaption>
           </div>
         </figure>
       </div>

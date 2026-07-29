@@ -548,6 +548,24 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   font-weight: 650;
 }
 
+.nc-growing-score > em b,
+.nc-growing-score > em span {
+  display: block;
+}
+
+.nc-growing-score > em b {
+  color: #52645b;
+  font-weight: 750;
+}
+
+.nc-growing-score > em[data-tone="action"] b { color: var(--ov-risk); }
+.nc-growing-score > em[data-tone="watch"] b { color: var(--ov-warn); }
+.nc-growing-score > em[data-tone="stable"] b { color: var(--ov-green); }
+
+.nc-growing-score > em span {
+  margin-top: 3px;
+}
+
 .nc-coverage-list {
   max-height: 470px;
   overflow-y: auto;
