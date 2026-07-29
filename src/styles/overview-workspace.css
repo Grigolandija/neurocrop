@@ -1663,7 +1663,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   backdrop-filter: blur(10px);
 }
 
-.nc-overview-climate-card .gh-heatmap-legend-compact {
+.nc-overview-climate-card .nc-climate-map-legend-slot .gh-heatmap-legend-compact {
   grid-template-columns: minmax(24rem, 1fr) auto;
   align-items: center;
   gap: 28px;
@@ -1854,7 +1854,7 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
     grid-row: 2;
   }
 
-  .nc-overview-climate-card .gh-heatmap-legend-compact {
+  .nc-overview-climate-card .nc-climate-map-legend-slot .gh-heatmap-legend-compact {
     grid-template-columns: 1fr;
     gap: 10px;
   }
