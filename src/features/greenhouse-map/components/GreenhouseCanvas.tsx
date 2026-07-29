@@ -60,6 +60,7 @@ type SoilEcProfile = {
   xM: number
   yM: number
   colorRange: [number, number]
+  contourInterval: number
   readings: SoilEcProfileReading[]
 }
 
@@ -75,39 +76,89 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
   const lithuanian = language === 'lt'
   const shallowestDepth = profile.readings[0]?.depthCm ?? 0
   const deepestDepth = profile.readings.at(-1)?.depthCm ?? shallowestDepth
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const sampleCount = profile.readings[0]?.samples.length ?? 0
-    if (!canvas || !sampleCount || profile.readings.length < 2) return
-    const pixelHeight = 180
-    canvas.width = sampleCount
-    canvas.height = pixelHeight
-    const context = canvas.getContext('2d')
-    if (!context) return
-    const image = context.createImageData(sampleCount, pixelHeight)
-    for (let y = 0; y < pixelHeight; y += 1) {
-      const depthCm = shallowestDepth + (deepestDepth - shallowestDepth) * y / Math.max(1, pixelHeight - 1)
+  const sectionGrid = useMemo<HeatmapGrid>(() => {
+    const width = profile.readings[0]?.samples.length ?? 0
+    const height = 180
+    const size = width * height
+    const values = new Float32Array(size)
+    values.fill(Number.NaN)
+    const confidence = new Float32Array(size)
+    const dataMask = new Uint8Array(size)
+    let dataCellCount = 0
+    for (let y = 0; y < height; y += 1) {
+      const depthCm = shallowestDepth + (deepestDepth - shallowestDepth) * y / Math.max(1, height - 1)
       let upperIndex = profile.readings.findIndex((reading) => reading.depthCm >= depthCm)
       if (upperIndex < 0) upperIndex = profile.readings.length - 1
       const lowerIndex = Math.max(0, upperIndex - 1)
       const lower = profile.readings[lowerIndex]
       const upper = profile.readings[upperIndex]
       const depthAmount = upper.depthCm === lower.depthCm ? 0 : (depthCm - lower.depthCm) / (upper.depthCm - lower.depthCm)
-      for (let x = 0; x < sampleCount; x += 1) {
+      for (let x = 0; x < width; x += 1) {
         const lowerValue = lower.samples[x]
         const upperValue = upper.samples[x]
-        const offset = (y * sampleCount + x) * 4
-        if (lowerValue == null || upperValue == null) {
+        if (lowerValue == null || upperValue == null) continue
+        const index = y * width + x
+        values[index] = lowerValue + (upperValue - lowerValue) * depthAmount
+        confidence[index] = lower.confidenceSamples[x] + (upper.confidenceSamples[x] - lower.confidenceSamples[x]) * depthAmount
+        dataMask[index] = 1
+        dataCellCount += 1
+      }
+    }
+    return {
+      width,
+      height,
+      requestedCellSizeM: map.heatmapSettings.cellSizeM,
+      cellWidthM: width ? map.dimensions.widthM / width : 1,
+      cellHeightM: height ? Math.max(1, deepestDepth - shallowestDepth) / height : 1,
+      values,
+      confidence,
+      dataMask,
+      usedSensorCounts: new Uint8Array(size),
+      nearestSensorIndices: new Int16Array(size),
+      nearestDistancesM: new Float32Array(size),
+      points: [],
+      min: profile.colorRange[0],
+      max: profile.colorRange[1],
+      sensorCount: Math.max(0, ...profile.readings.map((reading) => reading.sensorCount)),
+      dataCellCount,
+    }
+  }, [deepestDepth, map.dimensions.widthM, map.heatmapSettings.cellSizeM, profile.colorRange, profile.readings, shallowestDepth])
+  const sectionContours = useMemo(() => createContourPaths(sectionGrid, profile.contourInterval), [profile.contourInterval, sectionGrid])
+  const sectionContourLabels = useMemo(() => {
+    const longestByLevel = new Map<number, (typeof sectionContours)[number]>()
+    sectionContours.forEach((path) => {
+      const current = longestByLevel.get(path.level)
+      if (!current || path.points.length > current.points.length) longestByLevel.set(path.level, path)
+    })
+    return [...longestByLevel.values()].map((path) => {
+      const pointCount = Math.floor(path.points.length / 2)
+      const pointIndex = Math.max(0, Math.floor(pointCount * .55)) * 2
+      return { level: path.level, x: path.points[pointIndex], y: path.points[pointIndex + 1] }
+    })
+  }, [sectionContours])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const sampleCount = sectionGrid.width
+    if (!canvas || !sampleCount || profile.readings.length < 2) return
+    const pixelHeight = sectionGrid.height
+    canvas.width = sampleCount
+    canvas.height = pixelHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    const image = context.createImageData(sampleCount, pixelHeight)
+    for (let index = 0; index < sectionGrid.values.length; index += 1) {
+        const offset = index * 4
+        if (!sectionGrid.dataMask[index]) {
           image.data[offset] = 232
           image.data[offset + 1] = 237
           image.data[offset + 2] = 234
           image.data[offset + 3] = 255
           continue
         }
-        const value = lowerValue + (upperValue - lowerValue) * depthAmount
+        const value = sectionGrid.values[index]
         const [red, green, blue] = semanticColorAt(value, METRICS['soil-ec'], profile.colorRange)
-        const confidence = lower.confidenceSamples[x] + (upper.confidenceSamples[x] - lower.confidenceSamples[x]) * depthAmount
+        const confidence = sectionGrid.confidence[index]
         const gray = Math.round(red * .2126 + green * .7152 + blue * .0722)
         const saturation = .68 + confidence * .32
         const renderedRed = gray + (red - gray) * saturation
@@ -117,10 +168,9 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
         image.data[offset + 1] = Math.round(247 + (renderedGreen - 247) * map.heatmapSettings.opacity)
         image.data[offset + 2] = Math.round(242 + (renderedBlue - 242) * map.heatmapSettings.opacity)
         image.data[offset + 3] = 255
-      }
     }
     context.putImageData(image, 0, 0)
-  }, [deepestDepth, map.heatmapSettings.opacity, profile.colorRange, profile.readings, shallowestDepth])
+  }, [map.heatmapSettings.opacity, profile.colorRange, profile.readings.length, sectionGrid])
 
   return <section className="gh-soil-section" style={{ marginLeft: leftInsetPx, marginRight: rightInsetPx }}>
     <header>
@@ -137,6 +187,10 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
       </div>
       <div className="gh-soil-section-raster">
         <canvas ref={canvasRef} />
+        <svg className="gh-soil-section-contours" viewBox={`0 0 ${Math.max(1, sectionGrid.width - 1)} ${Math.max(1, sectionGrid.height - 1)}`} preserveAspectRatio="none" aria-hidden="true">
+          {sectionContours.map((path, index) => <polyline key={`${path.level}-${index}`} points={Array.from({ length: path.points.length / 2 }, (_, pointIndex) => `${path.points[pointIndex * 2]},${path.points[pointIndex * 2 + 1]}`).join(' ')} />)}
+        </svg>
+        {sectionContourLabels.map((label) => <span className="gh-soil-section-contour-label" key={label.level} style={{ left: `${label.x / Math.max(1, sectionGrid.width - 1) * 100}%`, top: `${label.y / Math.max(1, sectionGrid.height - 1) * 100}%` }}>{Number(label.level.toFixed(METRICS['soil-ec'].decimals))} {METRICS['soil-ec'].unit}</span>)}
         {profile.readings.map((reading) => <span className="gh-soil-section-depth-guide" key={reading.depthCm} style={{ top: `${(reading.depthCm - shallowestDepth) / Math.max(1, deepestDepth - shallowestDepth) * 100}%` }} />)}
         <div className="gh-soil-section-cursor" style={{ left: `${profile.xM / Math.max(map.dimensions.widthM, .001) * 100}%` }}>
           <span>X {profile.xM.toFixed(2)} m</span>
@@ -411,8 +465,14 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       ? map.dimensions.lengthM - (profileRow + .5) * profileGrid.cellHeightM
       : position.yM
     setSelectedSensorId(null)
-    setSoilEcProfile({ xM: position.xM, yM: profileYM, colorRange, readings })
-  }, [heatmap, map, mode, pointerWorld, referenceTime, soilEcAllValues, soilEcDepths])
+    setSoilEcProfile({
+      xM: position.xM,
+      yM: profileYM,
+      colorRange,
+      contourInterval: heatmap?.contourInterval ?? getAdaptiveContourInterval('soil-ec', soilEcAllValues, points.length),
+      readings,
+    })
+  }, [heatmap, map, mode, pointerWorld, points.length, referenceTime, soilEcAllValues, soilEcDepths])
 
   const gridLines = useMemo(() => {
     const step = map.gridSizeM
