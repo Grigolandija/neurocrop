@@ -55,6 +55,9 @@ type SoilEcProfileReading = {
   sensorCount: number
   samples: Array<number | null>
   confidenceSamples: number[]
+  sensorCountSamples: number[]
+  nearestDistanceSamples: number[]
+  nearestSensorNames: Array<string | null>
 }
 type SoilEcProfile = {
   xM: number
@@ -73,6 +76,7 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
   onClose: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [hoveredSectionCell, setHoveredSectionCell] = useState<{ column: number; row: number; left: number; top: number } | null>(null)
   const lithuanian = language === 'lt'
   const shallowestDepth = profile.readings[0]?.depthCm ?? 0
   const deepestDepth = profile.readings.at(-1)?.depthCm ?? shallowestDepth
@@ -84,6 +88,9 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
     values.fill(Number.NaN)
     const confidence = new Float32Array(size)
     const dataMask = new Uint8Array(size)
+    const usedSensorCounts = new Uint8Array(size)
+    const nearestDistancesM = new Float32Array(size)
+    nearestDistancesM.fill(Number.POSITIVE_INFINITY)
     let dataCellCount = 0
     for (let y = 0; y < height; y += 1) {
       const depthCm = shallowestDepth + (deepestDepth - shallowestDepth) * y / Math.max(1, height - 1)
@@ -100,6 +107,12 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
         const index = y * width + x
         values[index] = lowerValue + (upperValue - lowerValue) * depthAmount
         confidence[index] = lower.confidenceSamples[x] + (upper.confidenceSamples[x] - lower.confidenceSamples[x]) * depthAmount
+        usedSensorCounts[index] = Math.round(lower.sensorCountSamples[x] + (upper.sensorCountSamples[x] - lower.sensorCountSamples[x]) * depthAmount)
+        const lowerDistance = lower.nearestDistanceSamples[x]
+        const upperDistance = upper.nearestDistanceSamples[x]
+        nearestDistancesM[index] = Number.isFinite(lowerDistance) && Number.isFinite(upperDistance)
+          ? lowerDistance + (upperDistance - lowerDistance) * depthAmount
+          : Number.isFinite(lowerDistance) ? lowerDistance : upperDistance
         dataMask[index] = 1
         dataCellCount += 1
       }
@@ -113,9 +126,9 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
       values,
       confidence,
       dataMask,
-      usedSensorCounts: new Uint8Array(size),
+      usedSensorCounts,
       nearestSensorIndices: new Int16Array(size),
-      nearestDistancesM: new Float32Array(size),
+      nearestDistancesM,
       points: [],
       min: profile.colorRange[0],
       max: profile.colorRange[1],
@@ -136,6 +149,38 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
       return { level: path.level, x: path.points[pointIndex], y: path.points[pointIndex + 1] }
     })
   }, [sectionContours])
+  const hoveredSectionData = useMemo(() => {
+    if (!hoveredSectionCell) return null
+    const { column, row } = hoveredSectionCell
+    if (column < 0 || row < 0 || column >= sectionGrid.width || row >= sectionGrid.height) return null
+    const index = row * sectionGrid.width + column
+    const depthCm = shallowestDepth + (deepestDepth - shallowestDepth) * row / Math.max(1, sectionGrid.height - 1)
+    const nearestDepthReading = profile.readings.reduce((nearest, reading) =>
+      Math.abs(reading.depthCm - depthCm) < Math.abs(nearest.depthCm - depthCm) ? reading : nearest,
+    )
+    const value = sectionGrid.dataMask[index] ? sectionGrid.values[index] : null
+    const confidence = sectionGrid.confidence[index]
+    const lowerDepth = [...profile.readings].reverse().find((reading) => reading.depthCm <= depthCm)?.depthCm
+    const upperDepth = profile.readings.find((reading) => reading.depthCm >= depthCm)?.depthCm
+    return {
+      ...hoveredSectionCell,
+      value,
+      xM: (column + .5) * sectionGrid.cellWidthM,
+      depthCm,
+      sensorCount: sectionGrid.usedSensorCounts[index],
+      nearestSensorName: nearestDepthReading.nearestSensorNames[column],
+      nearestDistanceM: sectionGrid.nearestDistancesM[index],
+      confidence,
+      confidenceLabel: confidence >= .7
+        ? lithuanian ? 'Aukštas' : 'High'
+        : confidence >= .4
+          ? lithuanian ? 'Vidutinis' : 'Medium'
+          : lithuanian ? 'Žemas' : 'Low',
+      interpolatedDepths: lowerDepth !== undefined && upperDepth !== undefined && lowerDepth !== upperDepth
+        ? `${lowerDepth}–${upperDepth} cm`
+        : null,
+    }
+  }, [deepestDepth, hoveredSectionCell, lithuanian, profile.readings, sectionGrid, shallowestDepth])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -185,7 +230,21 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
       <div className="gh-soil-section-depth-labels" aria-hidden="true">
         {profile.readings.map((reading) => <span key={reading.depthCm} style={{ top: `${(reading.depthCm - shallowestDepth) / Math.max(1, deepestDepth - shallowestDepth) * 100}%` }}>{reading.depthCm} cm</span>)}
       </div>
-      <div className="gh-soil-section-raster">
+      <div
+        className="gh-soil-section-raster"
+        onMouseMove={(event) => {
+          const bounds = event.currentTarget.getBoundingClientRect()
+          const localX = Math.max(0, Math.min(bounds.width - 1, event.clientX - bounds.left))
+          const localY = Math.max(0, Math.min(bounds.height - 1, event.clientY - bounds.top))
+          setHoveredSectionCell({
+            column: Math.min(sectionGrid.width - 1, Math.floor(localX / bounds.width * sectionGrid.width)),
+            row: Math.min(sectionGrid.height - 1, Math.floor(localY / bounds.height * sectionGrid.height)),
+            left: Math.max(8, Math.min(bounds.width - 244, localX + 14)),
+            top: Math.max(8, Math.min(bounds.height - 164, localY + 14)),
+          })
+        }}
+        onMouseLeave={() => setHoveredSectionCell(null)}
+      >
         <canvas ref={canvasRef} />
         <svg className="gh-soil-section-contours" viewBox={`0 0 ${Math.max(1, sectionGrid.width - 1)} ${Math.max(1, sectionGrid.height - 1)}`} preserveAspectRatio="none" aria-hidden="true">
           {sectionContours.map((path, index) => <polyline key={`${path.level}-${index}`} points={Array.from({ length: path.points.length / 2 }, (_, pointIndex) => `${path.points[pointIndex * 2]},${path.points[pointIndex * 2 + 1]}`).join(' ')} />)}
@@ -195,6 +254,17 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
         <div className="gh-soil-section-cursor" style={{ left: `${profile.xM / Math.max(map.dimensions.widthM, .001) * 100}%` }}>
           <span>X {profile.xM.toFixed(2)} m</span>
         </div>
+        {hoveredSectionData ? <div className="gh-cell-tooltip gh-soil-section-tooltip" style={{ left: hoveredSectionData.left, top: hoveredSectionData.top }} role="tooltip">
+          <strong>{hoveredSectionData.value == null ? lithuanian ? 'Nėra duomenų' : 'No data' : `${hoveredSectionData.value.toFixed(METRICS['soil-ec'].decimals)} ${METRICS['soil-ec'].unit}`}</strong>
+          <span>X {hoveredSectionData.xM.toFixed(2)} m · {hoveredSectionData.depthCm.toFixed(1)} cm</span>
+          <dl>
+            <div><dt>{lithuanian ? 'Naudota sensorių' : 'Sensors used'}</dt><dd>{hoveredSectionData.sensorCount}</dd></div>
+            <div><dt>{lithuanian ? 'Artimiausias sensorius' : 'Nearest sensor'}</dt><dd>{hoveredSectionData.nearestSensorName ?? '—'}</dd></div>
+            <div><dt>{lithuanian ? 'Atstumas' : 'Distance'}</dt><dd>{Number.isFinite(hoveredSectionData.nearestDistanceM) ? `${hoveredSectionData.nearestDistanceM.toFixed(2)} m` : '—'}</dd></div>
+            <div><dt>{lithuanian ? 'Patikimumas' : 'Confidence'}</dt><dd>{hoveredSectionData.confidenceLabel} · {Math.round(hoveredSectionData.confidence * 100)}%</dd></div>
+            {hoveredSectionData.interpolatedDepths ? <div><dt>{lithuanian ? 'Gylio interpoliacija' : 'Depth interpolation'}</dt><dd>{hoveredSectionData.interpolatedDepths}</dd></div> : null}
+          </dl>
+        </div> : null}
       </div>
     </div>
     <div className="gh-soil-section-distance"><b>A · 0 m</b><span>{(map.dimensions.widthM / 2).toFixed(1)} m</span><b>{map.dimensions.widthM.toFixed(1)} m · A′</b></div>
@@ -436,13 +506,33 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     const commonScale = getStableScale(soilEcAllValues, 'soil-ec')
     const readings = soilEcDepths.map((depthCm): SoilEcProfileReading => {
       const depthPoints = getValidMeasurementPoints(map, 'soil-ec', undefined, depthCm)
-      if (depthPoints.length < MIN_HEATMAP_SENSOR_COUNT) return { depthCm, value: null, confidence: 0, sensorCount: depthPoints.length, samples: Array.from({ length: fallbackSampleCount }, () => null), confidenceSamples: Array.from({ length: fallbackSampleCount }, () => 0) }
+      if (depthPoints.length < MIN_HEATMAP_SENSOR_COUNT) return {
+        depthCm,
+        value: null,
+        confidence: 0,
+        sensorCount: depthPoints.length,
+        samples: Array.from({ length: fallbackSampleCount }, () => null),
+        confidenceSamples: Array.from({ length: fallbackSampleCount }, () => 0),
+        sensorCountSamples: Array.from({ length: fallbackSampleCount }, () => 0),
+        nearestDistanceSamples: Array.from({ length: fallbackSampleCount }, () => Number.POSITIVE_INFINITY),
+        nearestSensorNames: Array.from({ length: fallbackSampleCount }, () => null),
+      }
       const grid = heatmap?.soilEcDepthCm === depthCm
         ? heatmap.grid
         : createMeasurementGrid(depthPoints, map, 'soil-ec', commonScale, nowMs)
       const column = Math.floor(position.xM / grid.cellWidthM)
       const row = Math.floor((map.dimensions.lengthM - position.yM) / grid.cellHeightM)
-      if (column < 0 || row < 0 || column >= grid.width || row >= grid.height) return { depthCm, value: null, confidence: 0, sensorCount: 0, samples: Array.from({ length: grid.width }, () => null), confidenceSamples: Array.from({ length: grid.width }, () => 0) }
+      if (column < 0 || row < 0 || column >= grid.width || row >= grid.height) return {
+        depthCm,
+        value: null,
+        confidence: 0,
+        sensorCount: 0,
+        samples: Array.from({ length: grid.width }, () => null),
+        confidenceSamples: Array.from({ length: grid.width }, () => 0),
+        sensorCountSamples: Array.from({ length: grid.width }, () => 0),
+        nearestDistanceSamples: Array.from({ length: grid.width }, () => Number.POSITIVE_INFINITY),
+        nearestSensorNames: Array.from({ length: grid.width }, () => null),
+      }
       const index = row * grid.width + column
       return {
         depthCm,
@@ -454,6 +544,12 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           return grid.dataMask[sampleIndex] ? grid.values[sampleIndex] : null
         }),
         confidenceSamples: Array.from({ length: grid.width }, (_, sampleColumn) => grid.confidence[row * grid.width + sampleColumn]),
+        sensorCountSamples: Array.from({ length: grid.width }, (_, sampleColumn) => grid.usedSensorCounts[row * grid.width + sampleColumn]),
+        nearestDistanceSamples: Array.from({ length: grid.width }, (_, sampleColumn) => grid.nearestDistancesM[row * grid.width + sampleColumn]),
+        nearestSensorNames: Array.from({ length: grid.width }, (_, sampleColumn) => {
+          const nearestIndex = grid.nearestSensorIndices[row * grid.width + sampleColumn]
+          return nearestIndex >= 0 ? grid.points[nearestIndex]?.name ?? null : null
+        }),
       }
     })
     const colorRange: [number, number] = soilEcAllValues.length
