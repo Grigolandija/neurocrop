@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildTrendChartOption, calculateTimeAwareEwma, getTrendAxisDomain, type TrendMetric } from './sharedTrendChart'
+import {
+  buildNightIntervals,
+  buildTrendChartOption,
+  calculateTimeAwareEwma,
+  getTrendAxisDomain,
+  type TrendMetric,
+} from './sharedTrendChart'
 
 const temperature: TrendMetric = {
   key: 'airTemp',
@@ -71,5 +77,42 @@ describe('shared trend chart', () => {
 
     expect(regular[1]).toBeCloseTo(21.7, 1)
     expect(delayed[1]).toBeCloseTo(25.2, 1)
+  })
+
+  it('builds separate grey night intervals around the configured daytime', () => {
+    const start = Date.parse('2026-07-26T00:00:00.000Z')
+    const end = Date.parse('2026-07-27T00:00:00.000Z')
+    expect(buildNightIntervals(start, end, {
+      dayStartsAt: '06:00',
+      dayEndsAt: '22:00',
+      timeZone: 'UTC',
+    })).toEqual([
+      [start, Date.parse('2026-07-26T06:00:00.000Z')],
+      [Date.parse('2026-07-26T22:00:00.000Z'), end],
+    ])
+  })
+
+  it('adds night shading to the chart without removing the crop target band', () => {
+    const option = buildTrendChartOption({
+      metric: temperature,
+      rangeKey: '24h',
+      target: [18, 22],
+      dayNightSchedule: {
+        dayStartsAt: '06:00',
+        dayEndsAt: '22:00',
+        timeZone: 'UTC',
+      },
+      series: [{
+        name: 'Section',
+        points: [
+          { observedAt: '2026-07-26T00:00:00.000Z', value: 20 },
+          { observedAt: '2026-07-27T00:00:00.000Z', value: 21 },
+        ],
+      }],
+    }) as unknown as { series: Array<{ markArea: { data: Array<Array<Record<string, unknown>>> } }> }
+
+    expect(option.series[0].markArea.data).toHaveLength(3)
+    expect(option.series[0].markArea.data[0][0]).toMatchObject({ name: 'Night', xAxis: Date.parse('2026-07-26T00:00:00.000Z') })
+    expect(option.series[0].markArea.data[2][0]).toHaveProperty('yAxis')
   })
 })

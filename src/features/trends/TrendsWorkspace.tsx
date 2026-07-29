@@ -6,7 +6,12 @@ import { neurocropApi } from '../../services/api/neurocropApi'
 import { getMetricDefinition } from '../../domain/metricRegistry'
 import { consumeTrendIntent, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { resolveTrendContext } from './resolveTrendContext'
-import { renderTrendChart } from './sharedTrendChart'
+import {
+  buildNightIntervals,
+  nightMarkAreaData,
+  renderTrendChart,
+  type TrendDayNightSchedule,
+} from './sharedTrendChart'
 import '../../styles/trends-workspace.css'
 
 // API records remain open because telemetry payloads can gain metrics independently.
@@ -186,6 +191,20 @@ function profileRange(profiles: JsonRecord[], profileId: string, metricKey: stri
   return minimum === null || maximum === null ? null : [minimum, maximum]
 }
 
+function profileDayNightSchedule(profiles: JsonRecord[], profileId: string): TrendDayNightSchedule {
+  const profile = profiles.find((item) => String(item.id || item.profileId) === profileId)
+  const schedule = profile?.metrics?.lux?.lightingSchedule
+  const validClock = (value: unknown, fallback: string) =>
+    typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : fallback
+  return {
+    dayStartsAt: validClock(schedule?.start, '06:00'),
+    dayEndsAt: validClock(schedule?.end, '22:00'),
+    timeZone: typeof schedule?.timeZone === 'string' && schedule.timeZone
+      ? schedule.timeZone
+      : 'Europe/Vilnius',
+  }
+}
+
 function trendSummary(points: Point[], target: [number, number] | null, metric: Metric) {
   if (!points.length) return { tone: 'neutral', title: 'Waiting for measured history', body: 'No trend can be interpreted until sensor history is available.' }
   const first = points[0].value
@@ -227,7 +246,7 @@ type MetricChartInput = {
   target: [number, number] | null
 }
 
-function TrendChart({ series, metric, target, range }: { series: ChartInput[]; metric: Metric; target: [number, number] | null; range: RangeKey }) {
+function TrendChart({ series, metric, target, range, dayNightSchedule }: { series: ChartInput[]; metric: Metric; target: [number, number] | null; range: RangeKey; dayNightSchedule: TrendDayNightSchedule }) {
   const ref = useRef<HTMLDivElement>(null)
   const { language } = useInterfaceLanguage()
   useEffect(() => {
@@ -238,16 +257,17 @@ function TrendChart({ series, metric, target, range }: { series: ChartInput[]; m
       series,
       target,
       rangeKey: range,
+      dayNightSchedule,
     })
     if (!chart) return
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(element)
     return () => { observer.disconnect(); chart.dispose() }
-  }, [language, metric, range, series, target])
+  }, [dayNightSchedule, language, metric, range, series, target])
   return <div className="nc-trends-chart" ref={ref} role="img" aria-label={`${metric.label}, ${range} trend`} />
 }
 
-function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: RangeKey }) {
+function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricChartInput[]; range: RangeKey; dayNightSchedule: TrendDayNightSchedule }) {
   const ref = useRef<HTMLDivElement>(null)
   const { language } = useInterfaceLanguage()
   useEffect(() => {
@@ -263,6 +283,7 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
         series: [{ name: item.metric.label, color: item.color, points: item.points }],
         target: item.target,
         rangeKey: range,
+        dayNightSchedule,
       })
       if (!singleChart) return
       const singleObserver = new ResizeObserver(() => singleChart.resize())
@@ -275,6 +296,16 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
     if (!echarts?.init) return
     const chart = echarts.init(ref.current)
     const stacked = visibleItems.length > 2
+    const timestamps = visibleItems.flatMap((item) =>
+      item.points.map((point) => new Date(point.observedAt).getTime()).filter(Number.isFinite),
+    )
+    const nightAreas = timestamps.length
+      ? nightMarkAreaData(buildNightIntervals(
+          Math.min(...timestamps),
+          Math.max(...timestamps),
+          dayNightSchedule,
+        ))
+      : []
     const axisStyle = (item: MetricChartInput, index: number) => {
       const values = item.points.map((point) => point.value)
       const domain = item.target ? [...values, ...item.target] : values
@@ -344,39 +375,46 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
       axisPointer: stacked ? { link: [{ xAxisIndex: 'all' }] } : undefined,
       xAxis: stacked ? visibleItems.map((_, index) => timeAxis(index)) : timeAxis(0),
       yAxis: visibleItems.map(axisStyle),
-      series: visibleItems.map((item, index) => ({
-        name: item.metric.label,
-        type: 'line',
-        xAxisIndex: stacked ? index : 0,
-        yAxisIndex: index,
-        showSymbol: false,
-        smooth: range === '24h' ? .32 : false,
-        smoothMonotone: range === '24h' ? 'x' : undefined,
-        connectNulls: false,
-        animation: false,
-        lineStyle: { width: 2, cap: 'round', join: 'round' },
-        emphasis: { focus: 'series' },
-        tooltip: { valueFormatter: (value: unknown) => `${format(Number(value), item.metric)} ${item.metric.unit}` },
-        data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value]),
-        markArea: item.target ? {
-          silent: true,
-          itemStyle: { color: `${item.color}14` },
-          data: [[{ yAxis: item.target[0] }, { yAxis: item.target[1] }]],
-        } : undefined,
-        markLine: item.target ? {
-          silent: true,
-          symbol: ['none', 'none'],
-          lineStyle: { color: item.color, width: 1, type: 'dashed', opacity: .65 },
-          label: {
-            show: stacked,
-            position: 'insideStartTop',
-            color: item.color,
-            fontSize: 10,
-            formatter: (parameters: JsonRecord) => `${format(Number(parameters.value), item.metric)} ${item.metric.unit}`,
-          },
-          data: [{ yAxis: item.target[0] }, { yAxis: item.target[1] }],
-        } : undefined,
-      })),
+      series: visibleItems.map((item, index) => {
+        const areas = [
+          ...(stacked || index === 0 ? nightAreas : []),
+          ...(item.target
+            ? [[
+                { yAxis: item.target[0], itemStyle: { color: `${item.color}14` }, label: { show: false } },
+                { yAxis: item.target[1] },
+              ]]
+            : []),
+        ]
+        return {
+          name: item.metric.label,
+          type: 'line',
+          xAxisIndex: stacked ? index : 0,
+          yAxisIndex: index,
+          showSymbol: false,
+          smooth: range === '24h' ? .32 : false,
+          smoothMonotone: range === '24h' ? 'x' : undefined,
+          connectNulls: false,
+          animation: false,
+          lineStyle: { width: 2, cap: 'round', join: 'round' },
+          emphasis: { focus: 'series' },
+          tooltip: { valueFormatter: (value: unknown) => `${format(Number(value), item.metric)} ${item.metric.unit}` },
+          data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value]),
+          markArea: areas.length ? { silent: true, data: areas } : undefined,
+          markLine: item.target ? {
+            silent: true,
+            symbol: ['none', 'none'],
+            lineStyle: { color: item.color, width: 1, type: 'dashed', opacity: .65 },
+            label: {
+              show: stacked,
+              position: 'insideStartTop',
+              color: item.color,
+              fontSize: 10,
+              formatter: (parameters: JsonRecord) => `${format(Number(parameters.value), item.metric)} ${item.metric.unit}`,
+            },
+            data: [{ yAxis: item.target[0] }, { yAxis: item.target[1] }],
+          } : undefined,
+        }
+      }),
     })
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(ref.current)
@@ -384,7 +422,7 @@ function MultiMetricChart({ items, range }: { items: MetricChartInput[]; range: 
       observer.disconnect()
       chart.dispose()
     }
-  }, [items, language, range])
+  }, [dayNightSchedule, items, language, range])
   return <div className="nc-trends-chart nc-trends-multi-chart" ref={ref} role="img" aria-label={`${items.map((item) => item.metric.label).join(', ')}, ${range} trend`} />
 }
 
@@ -443,6 +481,10 @@ export default function TrendsWorkspace() {
   const sectionNodeKey = sectionNodes.map((node) => node.devEui).join(',')
   const availableMetrics = metrics.filter((metric) => selectedSection?.available.has(metric.key))
   const target = profileRange(profiles, selectedSection?.profileId || '', selectedMetric.key)
+  const dayNightSchedule = useMemo(
+    () => profileDayNightSchedule(profiles, selectedSection?.profileId || ''),
+    [profiles, selectedSection?.profileId],
+  )
 
   useEffect(() => {
     let active = true
@@ -958,12 +1000,12 @@ export default function TrendsWorkspace() {
         </div> : null}
         {selectedSection && (status === 'ready' || comparison.length > 1)
           ? scope === 'nodes'
-            ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
+            ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} />
             : compare
-            ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
+            ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} />
             : activeMetricKeys.length > 1
-              ? <MultiMetricChart items={metricChartItems} range={range} />
-              : <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} />
+              ? <MultiMetricChart items={metricChartItems} range={range} dayNightSchedule={dayNightSchedule} />
+              : <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} />
           : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{!selectedSection ?tx("Select an Area and Section") : status === 'loading' ?tx("Loading measured history") : status === 'error' ?tx("History could not be loaded") :tx("Not enough measurements yet")}</strong><span>{!selectedSection ?tx("Trend data is shown only for an explicitly selected Section.") : error ||tx("At least two measured points are required to draw a trend.")}</span></div>}
       </article>
     </section>

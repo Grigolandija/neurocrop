@@ -22,11 +22,18 @@ export type TrendSeries = {
   points: TrendPoint[]
 }
 
+export type TrendDayNightSchedule = {
+  dayStartsAt: string
+  dayEndsAt: string
+  timeZone: string
+}
+
 export type TrendChartInput = {
   metric: TrendMetric
   series: TrendSeries[]
   target: [number, number] | null
   rangeKey: TrendRangeKey
+  dayNightSchedule?: TrendDayNightSchedule
 }
 
 export type TrendChartInstance = {
@@ -43,6 +50,7 @@ type EChartsEngine = {
 }
 
 const defaultSeriesColors = ['#287f70', '#d87655', '#507ea2', '#b18a35', '#845f8e', '#68746f']
+const NIGHT_SHADE = 'rgba(91, 99, 95, .11)'
 const metricColorTokens: Record<string, [string, string]> = {
   airTemp: ['--chart-temperature', '#d36c5b'],
   leafTemp: ['--chart-temperature', '#d36c5b'],
@@ -109,6 +117,70 @@ function normalizedPoints(points: TrendPoint[]) {
     }))
     .filter((point) => Number.isFinite(point.timestamp) && Number.isFinite(point.value))
     .sort((left, right) => left.timestamp - right.timestamp)
+}
+
+function clockMinutes(value: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value)
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  return hours <= 23 && minutes <= 59 ? hours * 60 + minutes : null
+}
+
+function localMinutes(timestamp: number, timeZone: string) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(timestamp))
+    const hour = Number(parts.find((part) => part.type === 'hour')?.value)
+    const minute = Number(parts.find((part) => part.type === 'minute')?.value)
+    return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : null
+  } catch {
+    return null
+  }
+}
+
+export function buildNightIntervals(
+  rangeStart: number,
+  rangeEnd: number,
+  schedule: TrendDayNightSchedule,
+) {
+  const dayStart = clockMinutes(schedule.dayStartsAt)
+  const dayEnd = clockMinutes(schedule.dayEndsAt)
+  if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || rangeEnd <= rangeStart
+    || dayStart === null || dayEnd === null || dayStart === dayEnd) return [] as Array<[number, number]>
+  const isNight = (timestamp: number) => {
+    const minute = localMinutes(timestamp, schedule.timeZone)
+    if (minute === null) return false
+    const isDay = dayStart < dayEnd
+      ? minute >= dayStart && minute < dayEnd
+      : minute >= dayStart || minute < dayEnd
+    return !isDay
+  }
+  const step = 15 * 60_000
+  const intervals: Array<[number, number]> = []
+  let previousNight = isNight(rangeStart)
+  let intervalStart = previousNight ? rangeStart : null
+  const firstBoundary = Math.ceil(rangeStart / step) * step
+  for (let timestamp = firstBoundary; timestamp <= rangeEnd; timestamp += step) {
+    const currentNight = isNight(timestamp)
+    if (currentNight === previousNight) continue
+    if (previousNight && intervalStart !== null) intervals.push([intervalStart, timestamp])
+    intervalStart = currentNight ? timestamp : null
+    previousNight = currentNight
+  }
+  if (previousNight && intervalStart !== null) intervals.push([intervalStart, rangeEnd])
+  return intervals.filter(([start, end]) => end > start)
+}
+
+export function nightMarkAreaData(intervals: Array<[number, number]>) {
+  return intervals.map(([start, end]) => [
+    { name: 'Night', xAxis: start, itemStyle: { color: NIGHT_SHADE }, label: { show: false } },
+    { xAxis: end },
+  ])
 }
 
 function ewmaTimeConstantMinutes(metricKey: string) {
@@ -192,6 +264,14 @@ export function buildTrendChartOption(input: TrendChartInput) {
   })
   const colors = prepared.map((series, index) => seriesColor(series, metric, index, prepared.length))
   const allValues = displayed.flat()
+  const allTimestamps = prepared.flatMap((series) => series.normalized.map((point) => point.timestamp))
+  const nightAreas = input.dayNightSchedule && allTimestamps.length
+    ? nightMarkAreaData(buildNightIntervals(
+        Math.min(...allTimestamps),
+        Math.max(...allTimestamps),
+        input.dayNightSchedule,
+      ))
+    : []
   const [axisMinimum, axisMaximum] = getTrendAxisDomain(allValues, metric, target)
   const targetVisible = target
     ? [Math.max(target[0], axisMinimum), Math.min(target[1], axisMaximum)] as const
@@ -325,10 +405,17 @@ export function buildTrendChartOption(input: TrendChartInput) {
         lineStyle: { width: 2, cap: 'round', join: 'round' },
         emphasis: { focus: prepared.length > 1 ? 'series' : 'none' },
         data: item.normalized.map((point, pointIndex) => [point.timestamp, values[pointIndex], rawValues[pointIndex]]),
-        markArea: firstSeries && hasVisibleTargetBand ? {
+        markArea: firstSeries && (nightAreas.length || hasVisibleTargetBand) ? {
           silent: true,
-          itemStyle: { color: colorWithAlpha(color, .09) },
-          data: [[{ yAxis: targetVisible?.[0] }, { yAxis: targetVisible?.[1] }]],
+          data: [
+            ...nightAreas,
+            ...(hasVisibleTargetBand
+              ? [[
+                  { yAxis: targetVisible?.[0], itemStyle: { color: colorWithAlpha(color, .09) }, label: { show: false } },
+                  { yAxis: targetVisible?.[1] },
+                ]]
+              : []),
+          ],
         } : undefined,
         markLine: firstSeries && target ? {
           silent: true,
