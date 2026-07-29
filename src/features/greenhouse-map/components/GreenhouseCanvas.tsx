@@ -5,7 +5,7 @@ import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Tra
 import '../../../styles/greenhouse-map-test.css'
 import { createContourPaths, getAdaptiveContourInterval, isTemperatureMetric, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
 import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
-import { scaleGradient } from '../heatmap/heatmapColorScale'
+import { scaleGradient, semanticColorAt } from '../heatmap/heatmapColorScale'
 import { getMetricMeasurementValue, getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
@@ -47,6 +47,17 @@ const formatContourLabel = (level: number, metric: GreenhouseMap['heatmapSetting
 }
 
 const MIN_HEATMAP_SENSOR_COUNT = 3
+type SoilEcProfileReading = {
+  depthCm: number
+  value: number | null
+  confidence: number
+  sensorCount: number
+}
+type SoilEcProfile = {
+  xM: number
+  yM: number
+  readings: SoilEcProfileReading[]
+}
 
 function ObjectShape({ object, map, selected, editable, environmentView, layerOpacity, viewScale, snap, onSelect, onMove, onUpdate }: {
   object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; environmentView: boolean; layerOpacity: number; viewScale: number; snap: boolean
@@ -144,6 +155,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const [mouse, setMouse] = useState<{ xM: number; yM: number } | null>(null)
   const [hoveredSensorId, setHoveredSensorId] = useState<string | null>(null)
   const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null)
+  const [soilEcProfile, setSoilEcProfile] = useState<SoilEcProfile | null>(null)
   const [heatmap, setHeatmap] = useState<{ canvas: HTMLCanvasElement; grid: HeatmapGrid; min: number; max: number; observedMin: number; observedMax: number; count: number; contourInterval: number; calculatedAt: Date } | null>(null)
   const [renderedAt] = useState(Date.now)
   const tr = useCallback((english: string, lithuanian: string) => language === 'lt' ? lithuanian : english, [language])
@@ -179,6 +191,9 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   }, [selectedIds, mode, map.objects])
 
   const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric, undefined, soilEcDepthCm), [map, soilEcDepthCm])
+  const soilEcDepths = useMemo(() => [...new Set(map.objects.flatMap((object) =>
+    object.metadata.sensor?.measurements?.soilEcByDepth?.map((reading) => reading.depthCm) ?? [],
+  ))].filter(Number.isFinite).sort((a, b) => a - b), [map.objects])
   const insufficientHeatmapSources = mode === 'environment'
     && map.heatmapSettings.enabled
     && points.length > 0
@@ -247,12 +262,42 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     }
   }, [map, mode, onRenderReady, points, referenceTime])
 
+  useEffect(() => {
+    if (mode !== 'environment' || map.heatmapSettings.metric !== 'soil-ec') setSoilEcProfile(null)
+  }, [map.heatmapSettings.metric, mode])
+
   const pointerWorld = useCallback(() => {
     const stage = stageRef.current
     const pointer = stage?.getPointerPosition()
     if (!pointer) return null
     return { xM: (pointer.x - view.x) / view.scale, yM: map.dimensions.lengthM - (pointer.y - view.y) / view.scale }
   }, [map.dimensions.lengthM, view])
+
+  const selectSoilEcProfile = useCallback(() => {
+    const position = pointerWorld()
+    if (!position || map.heatmapSettings.metric !== 'soil-ec' || mode !== 'environment') return
+    if (position.xM < 0 || position.yM < 0 || position.xM >= map.dimensions.widthM || position.yM >= map.dimensions.lengthM) return
+    const referenceTimeMs = referenceTime ? new Date(referenceTime).getTime() : Date.now()
+    const nowMs = Number.isFinite(referenceTimeMs) ? referenceTimeMs : Date.now()
+    const readings = soilEcDepths.map((depthCm): SoilEcProfileReading => {
+      const depthPoints = getValidMeasurementPoints(map, 'soil-ec', undefined, depthCm)
+      if (depthPoints.length < MIN_HEATMAP_SENSOR_COUNT) return { depthCm, value: null, confidence: 0, sensorCount: depthPoints.length }
+      const scale = getStableScale(depthPoints.map((point) => point.value), 'soil-ec')
+      const grid = createMeasurementGrid(depthPoints, map, 'soil-ec', scale, nowMs)
+      const column = Math.floor(position.xM / grid.cellWidthM)
+      const row = Math.floor((map.dimensions.lengthM - position.yM) / grid.cellHeightM)
+      if (column < 0 || row < 0 || column >= grid.width || row >= grid.height) return { depthCm, value: null, confidence: 0, sensorCount: 0 }
+      const index = row * grid.width + column
+      return {
+        depthCm,
+        value: grid.dataMask[index] ? grid.values[index] : null,
+        confidence: grid.confidence[index],
+        sensorCount: grid.usedSensorCounts[index],
+      }
+    })
+    setSelectedSensorId(null)
+    setSoilEcProfile({ xM: position.xM, yM: position.yM, readings })
+  }, [map, mode, pointerWorld, referenceTime, soilEcDepths])
 
   const gridLines = useMemo(() => {
     const step = map.gridSizeM
@@ -419,6 +464,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         {target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}
         <p><b>{heatmap.count} {compactLegend ? language === 'lt' ? heatmap.count === 1 ? 'sensorius' : 'sensoriai' : `sensor${heatmap.count === 1 ? '' : 's'}` : tr('sensor sources', 'sensorių šaltiniai')}</b>{!compactLegend ? <><span>{Math.round(heatmap.grid.dataCellCount / Math.max(1, heatmap.grid.width * heatmap.grid.height) * 100)}% {tr('raster coverage', 'rasterio padengimas')} · {heatmap.grid.cellWidthM.toFixed(2)} m</span><span>{tr('Rendered', 'Atvaizduota')} {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></> : null}</p>
         {map.heatmapSettings.metric === 'soil-ec' && soilEcDepthCm !== undefined ? <em><i className="fa-solid fa-layer-group" /> {soilEcDepthCm} cm {tr('depth', 'gylis')}</em> : null}
+        {map.heatmapSettings.metric === 'soil-ec' && soilEcDepths.length > 1 ? <em><i className="fa-solid fa-crosshairs" /> {tr('Click the map for a vertical profile.', 'Paspauskite žemėlapį vertikaliam profiliui.')}</em> : null}
         {!heatmap.grid.dataCellCount ? <em>{tr('No cells meet the distance, freshness and minimum-sensor rules.', 'Nė viena celė neatitinka atstumo, šviežumo ir minimalaus sensorių skaičiaus taisyklių.')}</em> : null}
         {!fixedTemperatureContours && heatmap.count >= MIN_CONTOUR_SENSOR_COUNT && heatmap.count < 4 ? <em>{tr(`Contour spacing widened for limited coverage from ${heatmap.count} nodes.`, `Izolinijų žingsnis praplatintas dėl riboto ${heatmap.count} mazgų padengimo.`)}</em> : heatmap.count < MIN_CONTOUR_SENSOR_COUNT ? <em>{tr('Contour lines need at least two valid nodes.', 'Izolinijoms reikia bent dviejų tinkamų mazgų.')}</em> : null}
         <em><i className="fa-solid fa-circle-info" /> {tr('Estimated between sensor locations.', 'Įvertinta tarp sensorių vietų.')}</em>
@@ -501,6 +547,35 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           return <Text key={level} x={x - widthPx / view.scale / 2} y={y - 6 / view.scale} width={widthPx / view.scale} height={12 / view.scale} text={label} align="center" verticalAlign="middle" fontFamily="IBM Plex Mono" fontStyle="bold" fontSize={10 / view.scale} fill="#111" />
         })}
       </Layer> : null}
+      {mode === 'environment' && map.heatmapSettings.metric === 'soil-ec' && soilEcDepths.length > 1 ? <Layer>
+        <Rect
+          width={map.dimensions.widthM}
+          height={map.dimensions.lengthM}
+          fill="rgba(0,0,0,0.001)"
+          onMouseEnter={(event) => {
+            const stage = event.target.getStage()
+            if (stage) stage.container().style.cursor = 'crosshair'
+          }}
+          onMouseLeave={(event) => {
+            const stage = event.target.getStage()
+            if (stage) stage.container().style.cursor = 'default'
+          }}
+          onClick={(event) => {
+            event.cancelBubble = true
+            selectSoilEcProfile()
+          }}
+          onTap={(event) => {
+            event.cancelBubble = true
+            selectSoilEcProfile()
+          }}
+        />
+        {soilEcProfile ? <Group x={soilEcProfile.xM} y={map.dimensions.lengthM - soilEcProfile.yM} listening={false}>
+          <Circle radius={9 / view.scale} fill="rgba(255,255,255,.85)" stroke="#163f35" strokeWidth={2 / view.scale} />
+          <Circle radius={2.6 / view.scale} fill="#163f35" />
+          <Line points={[-13 / view.scale, 0, 13 / view.scale, 0]} stroke="#163f35" strokeWidth={1 / view.scale} />
+          <Line points={[0, -13 / view.scale, 0, 13 / view.scale]} stroke="#163f35" strokeWidth={1 / view.scale} />
+        </Group> : null}
+      </Layer> : null}
       {showReadOnlySensorLocations && readOnlySensorPoints.length ? <Layer>
         {readOnlySensorPoints.map((sensor) => <Group
           key={sensor.id}
@@ -518,10 +593,12 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           }}
           onClick={(event) => {
             event.cancelBubble = true
+            setSoilEcProfile(null)
             setSelectedSensorId((current) => current === sensor.id ? null : sensor.id)
           }}
           onTap={(event) => {
             event.cancelBubble = true
+            setSoilEcProfile(null)
             setSelectedSensorId((current) => current === sensor.id ? null : sensor.id)
           }}
         >
@@ -535,6 +612,38 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         {!readOnly ? <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
       </Layer>
     </Stage>
+    {soilEcProfile ? <aside className="gh-soil-profile" aria-label={tr('Vertical Soil EC profile', 'Vertikalus Soil EC profilis')}>
+      <header>
+        <div><small>{tr('SELECTED LOCATION', 'PASIRINKTA VIETA')}</small><strong>{tr('Vertical Soil EC profile', 'Vertikalus Soil EC profilis')}</strong></div>
+        <button type="button" onClick={() => setSoilEcProfile(null)} aria-label={tr('Close profile', 'Uždaryti profilį')}><i className="fa-solid fa-xmark" /></button>
+      </header>
+      <p className="gh-soil-profile-position">X {soilEcProfile.xM.toFixed(2)} m · Y {soilEcProfile.yM.toFixed(2)} m</p>
+      <div className="gh-soil-profile-chart">
+        <div className="gh-soil-profile-axis">
+          {soilEcProfile.readings.map((reading) => {
+            const values = soilEcProfile.readings.flatMap((item) => item.value == null ? [] : [item.value])
+            const observedRange: [number, number] | undefined = values.length
+              ? [Math.min(...values), Math.max(...values)]
+              : undefined
+            const color = reading.value == null
+              ? 'rgb(214 221 217)'
+              : `rgb(${semanticColorAt(reading.value, METRICS['soil-ec'], observedRange).join(' ')})`
+            const confidenceLabel = reading.confidence >= .7
+              ? tr('High confidence', 'Aukštas patikimumas')
+              : reading.confidence >= .4
+                ? tr('Medium confidence', 'Vidutinis patikimumas')
+                : tr('Low confidence', 'Žemas patikimumas')
+            return <div className="gh-soil-profile-reading" key={reading.depthCm}>
+              <span className="gh-soil-profile-depth">{reading.depthCm} cm</span>
+              <span className="gh-soil-profile-swatch" style={{ background: color }} />
+              <span className="gh-soil-profile-value">{reading.value == null ? tr('No estimate', 'Nėra įverčio') : `${reading.value.toFixed(METRICS['soil-ec'].decimals)} ${METRICS['soil-ec'].unit}`}</span>
+              <small>{reading.value == null ? tr(`${reading.sensorCount} sources available`, `Prieinami ${reading.sensorCount} šaltiniai`) : `${confidenceLabel} · ${Math.round(reading.confidence * 100)}% · ${reading.sensorCount} ${tr('sensors', 'sens.')}`}</small>
+            </div>
+          })}
+        </div>
+      </div>
+      <p className="gh-soil-profile-note"><i className="fa-solid fa-circle-info" /> {tr('Estimated horizontally between sensors at each measured depth. Values are not extrapolated above or below the available depths.', 'Kiekviename matuojamame gylyje horizontaliai įvertinta tarp sensorių. Virš ir žemiau turimų gylių reikšmės neekstrapoliuojamos.')}</p>
+    </aside> : null}
     {activeSensor && sensorTooltip ? <div
       className="gh-sensor-tooltip"
       style={{ left: sensorTooltip.left, top: sensorTooltip.top }}
