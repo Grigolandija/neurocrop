@@ -93,6 +93,8 @@ assert(!overview.includes('key={model.areaId}'), 'Area switching must not remoun
 assert(trends.includes("location.pathname === '/history'"), 'A hidden Trends workspace must not overwrite the active Area.')
 assert(shell.includes('useInterfaceLanguage'), 'DashboardShell must own the language control.')
 assert(shell.includes('useNavigate'), 'DashboardShell must own navigation.')
+assert(shell.includes("useState<'header' | 'sidebar' | null>(null)"), 'Header and sidebar account menus must track their own anchor.')
+assert(shell.includes('id="sidebarAccountMenu" className="sidebar-account-menu"'), 'The sidebar account button must open a menu anchored inside the sidebar.')
 assert(app.includes('<WorkspaceAccessProvider'), 'Authenticated routes must share one workspace onboarding access provider.')
 assert(app.includes('canAccessWorkspaceRoute(access.stage, pathname)'), 'Direct URLs must use the same workspace access rule as navigation.')
 assert(shell.includes('canAccessWorkspaceRoute(workspaceAccess.stage'), 'Sidebar and mobile navigation must use the central workspace access rule.')

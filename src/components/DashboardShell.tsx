@@ -67,7 +67,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
   const dashboardState = useDashboardState()
   const workspaceAccess = useWorkspaceAccess()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [accountOpen, setAccountOpen] = useState(false)
+  const [accountMenu, setAccountMenu] = useState<'header' | 'sidebar' | null>(null)
   const [batteryOpen, setBatteryOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [nodes, setNodes] = useState<NodeSummary[]>([])
@@ -101,7 +101,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
   useEffect(() => {
     queueMicrotask(() => {
       setMobileOpen(false)
-      setAccountOpen(false)
+      setAccountMenu(null)
       setBatteryOpen(false)
     })
     document.body.dataset.primaryPage = location.pathname === '/' ? 'overview' : location.pathname.slice(1).split('/')[0]
@@ -184,12 +184,12 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
                 </div>
               </div>
               <div className="header-account-wrap">
-                <button type="button" className="header-account-button" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => !open)}>
+                <button type="button" className="header-account-button" aria-controls="headerAccountMenu" aria-expanded={accountMenu === 'header'} onClick={() => setAccountMenu((open) => open === 'header' ? null : 'header')}>
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#d8c8b4] text-[10px] font-bold text-pine">{initials(displayName)}</span>
                   <span id="headerAccountEmail">{user.email}</span>
                   <i className="fa-solid fa-chevron-down text-[10px] text-ink/38" aria-hidden="true" />
                 </button>
-                <div className="header-account-menu" hidden={!accountOpen}><button type="button" disabled={signingOut} onClick={() => void signOut()}><i className="fa-solid fa-arrow-right-from-bracket mr-2" />{t('Sign out')}</button></div>
+                <div id="headerAccountMenu" className="header-account-menu" hidden={accountMenu !== 'header'}><button type="button" disabled={signingOut} onClick={() => void signOut()}><i className="fa-solid fa-arrow-right-from-bracket mr-2" />{t('Sign out')}</button></div>
               </div>
             </div>
           </div>
@@ -205,7 +205,10 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
           </nav>
           <div className="rail-foot">
             <div className="workspace-health" data-state={dashboardState.connected ? (alertCount ? 'attention' : 'optimal') : 'unknown'}><span className="pulse-dot" /><div><strong>{t(alertCount ? 'System attention' : 'Systems online')}</strong><small>{reportingCount} {t('Nodes').toLowerCase()}</small></div></div>
-            <div className="sidebar-user-wrap"><button className="user-tile" type="button" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => !open)}><span>{initials(displayName)}</span><div><strong>{displayName}</strong><small>{user.role || t('Workspace member')}</small></div><i className="fa-solid fa-ellipsis" /></button></div>
+            <div className="sidebar-user-wrap">
+              <button className="user-tile" type="button" aria-controls="sidebarAccountMenu" aria-expanded={accountMenu === 'sidebar'} onClick={() => setAccountMenu((open) => open === 'sidebar' ? null : 'sidebar')}><span>{initials(displayName)}</span><div><strong>{displayName}</strong><small>{user.role || t('Workspace member')}</small></div><i className="fa-solid fa-ellipsis" /></button>
+              <div id="sidebarAccountMenu" className="sidebar-account-menu" hidden={accountMenu !== 'sidebar'}><button type="button" disabled={signingOut} onClick={() => void signOut()}><i className="fa-solid fa-arrow-right-from-bracket" />{t('Sign out')}</button></div>
+            </div>
           </div>
         </aside>
         <button type="button" className="rail-scrim" aria-label={t('Close navigation')} hidden={!mobileOpen} onClick={() => setMobileOpen(false)} />

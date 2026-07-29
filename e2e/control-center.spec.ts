@@ -85,6 +85,17 @@ test('React shell mounts only the active primary workspace during navigation', a
   }
 })
 
+test('account menus open beside the button that was clicked', async ({ page }) => {
+  await authenticate(page)
+  await page.locator('.sidebar-user-wrap .user-tile').click()
+  await expect(page.locator('.sidebar-account-menu')).toBeVisible()
+  await expect(page.locator('.header-account-menu')).toBeHidden()
+
+  await page.locator('.header-account-button').click()
+  await expect(page.locator('.header-account-menu')).toBeVisible()
+  await expect(page.locator('.sidebar-account-menu')).toBeHidden()
+})
+
 test('LT/EN belongs to React state, persists, and no legacy runtime is loaded', async ({ page }) => {
   await authenticate(page)
   await page.locator('[data-language-option="lt"]:visible').click()
