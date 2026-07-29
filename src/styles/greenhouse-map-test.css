@@ -144,71 +144,6 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-sensor-tooltip dd,
 .gh-cell-tooltip dd { margin: 0; color: #29453b; text-align: right; font-family: "IBM Plex Mono", monospace; }
 .gh-cell-tooltip { min-width: 14rem; }
-.gh-soil-profile {
-  position: absolute;
-  z-index: 9;
-  top: 1rem;
-  right: 1rem;
-  width: min(20rem, calc(100% - 2rem));
-  border: 1px solid rgba(39, 69, 59, .22);
-  border-radius: .85rem;
-  padding: .9rem;
-  color: #183a31;
-  background: rgba(250, 252, 249, .97);
-  box-shadow: 0 .75rem 2rem rgba(20, 43, 36, .22);
-  backdrop-filter: blur(10px);
-}
-.gh-soil-profile header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-.gh-soil-profile header div { display: grid; gap: .18rem; }
-.gh-soil-profile header small { color: #708078; font: 700 .62rem "IBM Plex Mono", monospace; letter-spacing: .1em; }
-.gh-soil-profile header strong { font-size: 1rem; line-height: 1.25; }
-.gh-soil-profile header button {
-  display: grid;
-  flex: 0 0 1.8rem;
-  width: 1.8rem;
-  height: 1.8rem;
-  place-items: center;
-  border-radius: 50%;
-  color: #52645c;
-  background: #eef2ef;
-}
-.gh-soil-profile-position { margin: .3rem 0 .85rem; color: #66776f; font: 500 .7rem "IBM Plex Mono", monospace; }
-.gh-soil-profile-axis { position: relative; display: grid; gap: .2rem; padding-left: 1rem; }
-.gh-soil-profile-axis::before {
-  position: absolute;
-  top: .7rem;
-  bottom: .7rem;
-  left: .3rem;
-  width: 2px;
-  background: #c5d0ca;
-  content: "";
-}
-.gh-soil-profile-reading {
-  position: relative;
-  display: grid;
-  grid-template-columns: 3.1rem 1.1rem minmax(0, 1fr);
-  align-items: center;
-  column-gap: .55rem;
-  min-height: 3.5rem;
-  padding: .48rem .58rem;
-  border: 1px solid rgba(39, 69, 59, .12);
-  border-radius: .55rem;
-  background: rgba(255,255,255,.72);
-}
-.gh-soil-profile-reading::before {
-  position: absolute;
-  left: -1rem;
-  width: .65rem;
-  height: 1px;
-  background: #9baba3;
-  content: "";
-}
-.gh-soil-profile-depth { color: #35564a; font: 700 .75rem "IBM Plex Mono", monospace; }
-.gh-soil-profile-swatch { width: 1rem; height: 2rem; border: 1px solid rgba(26,49,41,.18); border-radius: .3rem; }
-.gh-soil-profile-value { overflow: hidden; font: 700 .82rem "IBM Plex Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
-.gh-soil-profile-reading small { grid-column: 3; color: #708078; font-size: .62rem; line-height: 1.25; }
-.gh-soil-profile-note { display: flex; gap: .45rem; margin: .75rem 0 0; color: #687970; font-size: .65rem; line-height: 1.4; }
-.gh-soil-profile-note i { margin-top: .15rem; color: #39715e; }
 .gh-view-controls {
   position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 1px; height: 34px;
   border: 1px solid #c4cec7; background: rgba(255,255,255,.96); box-shadow: 0 3px 10px rgba(31,49,42,.1);
@@ -393,7 +328,4 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   .gh-view-controls button { width: 42px; height: 40px; }
   .gh-view-controls { height: 42px; }
   .gh-daily-summary { top: 62px; width: min(285px, calc(100% - 30px)); }
-}
-@media (max-width: 700px) {
-  .gh-soil-profile { top: auto; right: .65rem; bottom: .65rem; left: .65rem; width: auto; max-height: min(25rem, calc(100% - 1.3rem)); overflow-y: auto; }
 }

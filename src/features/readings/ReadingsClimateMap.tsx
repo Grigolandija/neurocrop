@@ -46,6 +46,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
     }
   })
   const [legendHost, setLegendHost] = useState<HTMLDivElement | null>(null)
+  const [soilProfileHost, setSoilProfileHost] = useState<HTMLDivElement | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState('')
@@ -323,8 +324,10 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         mode="environment"
         readOnly
         legendHost={legendHost}
+        soilProfileHost={soilProfileHost}
         compactLegend={overviewPresentation}
         soilEcDepthCm={selectedSoilEcDepthCm}
+        language={language}
         selectedIds={[]}
         snap={false}
         onSelect={() => undefined}
@@ -335,6 +338,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         referenceTime={historyFrameEnd}
       />
     </div>
+    <div className="nc-climate-soil-section-slot" ref={setSoilProfileHost} />
     <div className="nc-climate-map-legend-slot" ref={setLegendHost} />
   </section>
 }

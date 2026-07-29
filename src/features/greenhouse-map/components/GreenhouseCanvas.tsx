@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
 import '../../../styles/greenhouse-map-test.css'
 import { createContourPaths, getAdaptiveContourInterval, isTemperatureMetric, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
-import { createMeasurementGrid } from '../heatmap/createMeasurementGrid'
+import { createMeasurementGrid, gridResolution } from '../heatmap/createMeasurementGrid'
 import { scaleGradient, semanticColorAt } from '../heatmap/heatmapColorScale'
 import { getMetricMeasurementValue, getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
@@ -17,6 +17,7 @@ type Props = {
   mode: MapMode
   readOnly?: boolean
   legendHost?: HTMLElement | null
+  soilProfileHost?: HTMLElement | null
   compactLegend?: boolean
   soilEcDepthCm?: number
   target?: [number, number]
@@ -52,11 +53,93 @@ type SoilEcProfileReading = {
   value: number | null
   confidence: number
   sensorCount: number
+  samples: Array<number | null>
 }
 type SoilEcProfile = {
   xM: number
   yM: number
   readings: SoilEcProfileReading[]
+}
+
+function SoilEcCrossSection({ profile, map, language, onClose }: {
+  profile: SoilEcProfile
+  map: GreenhouseMap
+  language: 'en' | 'lt'
+  onClose: () => void
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const lithuanian = language === 'lt'
+  const values = profile.readings.flatMap((reading) => reading.samples.flatMap((value) => value == null ? [] : [value]))
+  const observedRange: [number, number] | undefined = values.length ? [Math.min(...values), Math.max(...values)] : undefined
+  const shallowestDepth = profile.readings[0]?.depthCm ?? 0
+  const deepestDepth = profile.readings.at(-1)?.depthCm ?? shallowestDepth
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const sampleCount = profile.readings[0]?.samples.length ?? 0
+    if (!canvas || !sampleCount || profile.readings.length < 2) return
+    const pixelHeight = 180
+    canvas.width = sampleCount
+    canvas.height = pixelHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    const image = context.createImageData(sampleCount, pixelHeight)
+    for (let y = 0; y < pixelHeight; y += 1) {
+      const depthCm = shallowestDepth + (deepestDepth - shallowestDepth) * y / Math.max(1, pixelHeight - 1)
+      let upperIndex = profile.readings.findIndex((reading) => reading.depthCm >= depthCm)
+      if (upperIndex < 0) upperIndex = profile.readings.length - 1
+      const lowerIndex = Math.max(0, upperIndex - 1)
+      const lower = profile.readings[lowerIndex]
+      const upper = profile.readings[upperIndex]
+      const depthAmount = upper.depthCm === lower.depthCm ? 0 : (depthCm - lower.depthCm) / (upper.depthCm - lower.depthCm)
+      for (let x = 0; x < sampleCount; x += 1) {
+        const lowerValue = lower.samples[x]
+        const upperValue = upper.samples[x]
+        const offset = (y * sampleCount + x) * 4
+        if (lowerValue == null || upperValue == null) {
+          image.data[offset] = 232
+          image.data[offset + 1] = 237
+          image.data[offset + 2] = 234
+          image.data[offset + 3] = 255
+          continue
+        }
+        const value = lowerValue + (upperValue - lowerValue) * depthAmount
+        const [red, green, blue] = semanticColorAt(value, METRICS['soil-ec'], observedRange)
+        image.data[offset] = red
+        image.data[offset + 1] = green
+        image.data[offset + 2] = blue
+        image.data[offset + 3] = 255
+      }
+    }
+    context.putImageData(image, 0, 0)
+  }, [deepestDepth, observedRange, profile.readings, shallowestDepth])
+
+  return <section className="gh-soil-section">
+    <header>
+      <div>
+        <small>{lithuanian ? 'VERTIKALUS PJŪVIS A–A′' : 'VERTICAL SECTION A–A′'}</small>
+        <strong>{lithuanian ? 'Soil EC pasiskirstymas pagal gylį' : 'Soil EC distribution by depth'}</strong>
+        <span>Y {profile.yM.toFixed(2)} m · {shallowestDepth}–{deepestDepth} cm</span>
+      </div>
+      <button type="button" onClick={onClose} aria-label={lithuanian ? 'Uždaryti pjūvį' : 'Close section'}><i className="fa-solid fa-xmark" /></button>
+    </header>
+    <div className="gh-soil-section-plot">
+      <div className="gh-soil-section-depth-labels" aria-hidden="true">
+        {profile.readings.map((reading) => <span key={reading.depthCm} style={{ top: `${(reading.depthCm - shallowestDepth) / Math.max(1, deepestDepth - shallowestDepth) * 100}%` }}>{reading.depthCm} cm</span>)}
+      </div>
+      <div className="gh-soil-section-raster">
+        <canvas ref={canvasRef} />
+        <div className="gh-soil-section-cursor" style={{ left: `${profile.xM / Math.max(map.dimensions.widthM, .001) * 100}%` }}>
+          <span>X {profile.xM.toFixed(2)} m</span>
+        </div>
+      </div>
+    </div>
+    <div className="gh-soil-section-distance"><b>A · 0 m</b><span>{(map.dimensions.widthM / 2).toFixed(1)} m</span><b>{map.dimensions.widthM.toFixed(1)} m · A′</b></div>
+    <footer>
+      <span><i className="fa-solid fa-layer-group" /> {lithuanian ? 'Spalvos interpoliuotos horizontaliai ir tarp išmatuotų gylių' : 'Colours interpolated horizontally and between measured depths'}</span>
+      <span><i className="fa-solid fa-ban" /> {lithuanian ? 'Už gylio ribų neekstrapoliuojama' : 'No extrapolation outside measured depths'}</span>
+    </footer>
+  </section>
 }
 
 function ObjectShape({ object, map, selected, editable, environmentView, layerOpacity, viewScale, snap, onSelect, onMove, onUpdate }: {
@@ -144,7 +227,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, compactLegend = false, soilEcDepthCm, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, soilProfileHost, compactLegend = false, soilEcDepthCm, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -279,20 +362,25 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     if (position.xM < 0 || position.yM < 0 || position.xM >= map.dimensions.widthM || position.yM >= map.dimensions.lengthM) return
     const referenceTimeMs = referenceTime ? new Date(referenceTime).getTime() : Date.now()
     const nowMs = Number.isFinite(referenceTimeMs) ? referenceTimeMs : Date.now()
+    const fallbackSampleCount = gridResolution(map.dimensions.widthM, map.dimensions.lengthM, map.heatmapSettings.cellSizeM).width
     const readings = soilEcDepths.map((depthCm): SoilEcProfileReading => {
       const depthPoints = getValidMeasurementPoints(map, 'soil-ec', undefined, depthCm)
-      if (depthPoints.length < MIN_HEATMAP_SENSOR_COUNT) return { depthCm, value: null, confidence: 0, sensorCount: depthPoints.length }
+      if (depthPoints.length < MIN_HEATMAP_SENSOR_COUNT) return { depthCm, value: null, confidence: 0, sensorCount: depthPoints.length, samples: Array.from({ length: fallbackSampleCount }, () => null) }
       const scale = getStableScale(depthPoints.map((point) => point.value), 'soil-ec')
       const grid = createMeasurementGrid(depthPoints, map, 'soil-ec', scale, nowMs)
       const column = Math.floor(position.xM / grid.cellWidthM)
       const row = Math.floor((map.dimensions.lengthM - position.yM) / grid.cellHeightM)
-      if (column < 0 || row < 0 || column >= grid.width || row >= grid.height) return { depthCm, value: null, confidence: 0, sensorCount: 0 }
+      if (column < 0 || row < 0 || column >= grid.width || row >= grid.height) return { depthCm, value: null, confidence: 0, sensorCount: 0, samples: Array.from({ length: grid.width }, () => null) }
       const index = row * grid.width + column
       return {
         depthCm,
         value: grid.dataMask[index] ? grid.values[index] : null,
         confidence: grid.confidence[index],
         sensorCount: grid.usedSensorCounts[index],
+        samples: Array.from({ length: grid.width }, (_, sampleColumn) => {
+          const sampleIndex = row * grid.width + sampleColumn
+          return grid.dataMask[sampleIndex] ? grid.values[sampleIndex] : null
+        }),
       }
     })
     setSelectedSensorId(null)
@@ -647,38 +735,9 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         {!readOnly ? <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
       </Layer>
     </Stage>
-    {soilEcProfile ? <aside className="gh-soil-profile" aria-label={tr('Vertical Soil EC profile', 'Vertikalus Soil EC profilis')}>
-      <header>
-        <div><small>{tr('SELECTED LOCATION', 'PASIRINKTA VIETA')}</small><strong>{tr('Vertical Soil EC profile', 'Vertikalus Soil EC profilis')}</strong></div>
-        <button type="button" onClick={() => setSoilEcProfile(null)} aria-label={tr('Close profile', 'Uždaryti profilį')}><i className="fa-solid fa-xmark" /></button>
-      </header>
-      <p className="gh-soil-profile-position">X {soilEcProfile.xM.toFixed(2)} m · Y {soilEcProfile.yM.toFixed(2)} m</p>
-      <div className="gh-soil-profile-chart">
-        <div className="gh-soil-profile-axis">
-          {soilEcProfile.readings.map((reading) => {
-            const values = soilEcProfile.readings.flatMap((item) => item.value == null ? [] : [item.value])
-            const observedRange: [number, number] | undefined = values.length
-              ? [Math.min(...values), Math.max(...values)]
-              : undefined
-            const color = reading.value == null
-              ? 'rgb(214 221 217)'
-              : `rgb(${semanticColorAt(reading.value, METRICS['soil-ec'], observedRange).join(' ')})`
-            const confidenceLabel = reading.confidence >= .7
-              ? tr('High confidence', 'Aukštas patikimumas')
-              : reading.confidence >= .4
-                ? tr('Medium confidence', 'Vidutinis patikimumas')
-                : tr('Low confidence', 'Žemas patikimumas')
-            return <div className="gh-soil-profile-reading" key={reading.depthCm}>
-              <span className="gh-soil-profile-depth">{reading.depthCm} cm</span>
-              <span className="gh-soil-profile-swatch" style={{ background: color }} />
-              <span className="gh-soil-profile-value">{reading.value == null ? tr('No estimate', 'Nėra įverčio') : `${reading.value.toFixed(METRICS['soil-ec'].decimals)} ${METRICS['soil-ec'].unit}`}</span>
-              <small>{reading.value == null ? tr(`${reading.sensorCount} sources available`, `Prieinami ${reading.sensorCount} šaltiniai`) : `${confidenceLabel} · ${Math.round(reading.confidence * 100)}% · ${reading.sensorCount} ${tr('sensors', 'sens.')}`}</small>
-            </div>
-          })}
-        </div>
-      </div>
-      <p className="gh-soil-profile-note"><i className="fa-solid fa-circle-info" /> {tr('Estimated horizontally between sensors at each measured depth. Values are not extrapolated above or below the available depths.', 'Kiekviename matuojamame gylyje horizontaliai įvertinta tarp sensorių. Virš ir žemiau turimų gylių reikšmės neekstrapoliuojamos.')}</p>
-    </aside> : null}
+    {soilEcProfile && soilProfileHost
+      ? createPortal(<SoilEcCrossSection profile={soilEcProfile} map={map} language={language} onClose={() => setSoilEcProfile(null)} />, soilProfileHost)
+      : null}
     {activeSensor && sensorTooltip ? <div
       className="gh-sensor-tooltip"
       style={{ left: sensorTooltip.left, top: sensorTooltip.top }}
