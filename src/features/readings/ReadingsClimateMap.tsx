@@ -250,18 +250,19 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
 
   return <section className={`nc-live-climate-map ${overviewPresentation ? 'nc-overview-presentation' : ''}`} data-overview-heatmap-settled={overviewPresentation && canvasReady ? 'true' : undefined} aria-label={`${context.area.name} live climate map`}>
     <header>
-      <div>
-        <p className="nc-overline">{timeMode === 'history' ? lithuanian ? 'Istorinis klimato žemėlapis' :tx("Historical climate map") : overviewPresentation ?tx("Live climate snapshot") :tx("Live climate map")}</p>
-        {overviewPresentation ? areaNavigation : <h3>{context.area.name}</h3>}
-        <span><i className={`fa-solid ${timeMode === 'history' ? 'fa-clock-rotate-left' : 'fa-circle'}`} /> {timeMode === 'history' ? lithuanian ? 'Istorija' :tx("History") : lithuanian ? 'Dabar' :tx("Live")} · {validNodes} {lithuanian ? 'sensorių šalt.' : `sensor source${validNodes === 1 ? '' : 's'}`} · {updatedLabel}{updating ? <em className="nc-climate-refresh"><i className="fa-solid fa-rotate fa-spin" /> {tx("Updating…")}</em> : error ? <em className="nc-climate-refresh" data-state="warning" title={error}><i className="fa-solid fa-triangle-exclamation" /> {tx("Update delayed")}</em> : null}</span>
+      <div className="nc-climate-map-summary">
+        <p className="nc-overline">{timeMode === 'history' ? lithuanian ? 'Istorinis klimato žemėlapis' :tx("Historical climate map") : overviewPresentation ? lithuanian ? 'Klimato žemėlapis' : 'Climate map' :tx("Live climate map")}</p>
+        {!overviewPresentation ? <h3>{context.area.name}</h3> : null}
+        <span><i className={`fa-solid ${timeMode === 'history' ? 'fa-clock-rotate-left' : 'fa-circle'}`} /> {timeMode === 'history' ? lithuanian ? 'Istorija' :tx("History") : lithuanian ? 'Dabar' :tx("Live")}{!overviewPresentation ? <> · {validNodes} {lithuanian ? 'sensorių šalt.' : `sensor source${validNodes === 1 ? '' : 's'}`}</> : null} · {updatedLabel}{updating ? <em className="nc-climate-refresh"><i className="fa-solid fa-rotate fa-spin" /> {tx("Updating…")}</em> : error ? <em className="nc-climate-refresh" data-state="warning" title={error}><i className="fa-solid fa-triangle-exclamation" /> {tx("Update delayed")}</em> : null}</span>
       </div>
+      {overviewPresentation ? <div className="nc-climate-area-navigation">{areaNavigation}</div> : null}
       <div className="nc-climate-map-filters">
         <div className="nc-climate-time-mode" aria-label={lithuanian ? 'Klimato žemėlapio laikas' : 'Climate map time'}>
           <button type="button" className={timeMode === 'live' ? 'active' : ''} onClick={() => selectTimeMode('live')}>{lithuanian ? 'Dabar' :tx("Live")}</button>
           <button type="button" className={timeMode === 'history' ? 'active' : ''} disabled={!historyAvailable} title={historyError || undefined} onClick={() => selectTimeMode('history')}>{lithuanian ? 'Istorija' :tx("History")}</button>
         </div>
         <label><span>{tx("Metric")}</span><select value={availableMetrics.length ? selectedMetric : ''} disabled={!availableMetrics.length} onChange={(event) => setMetric(event.target.value as MetricKey)}>{availableMetrics.length ? availableMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>) : <option value="">{lithuanian ? 'Nėra matavimų' : 'No measurements'}</option>}</select></label>
-        <span className="nc-climate-lock"><i className="fa-solid fa-lock" />{tx("Read only")}</span>
+        {!overviewPresentation ? <span className="nc-climate-lock"><i className="fa-solid fa-lock" />{tx("Read only")}</span> : null}
       </div>
     </header>
     {timeMode === 'history' && history?.frames.length
@@ -297,6 +298,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         mode="environment"
         readOnly
         legendHost={legendHost}
+        compactLegend={overviewPresentation}
         selectedIds={[]}
         snap={false}
         onSelect={() => undefined}
