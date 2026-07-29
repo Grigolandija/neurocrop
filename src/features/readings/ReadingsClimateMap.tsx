@@ -327,7 +327,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         soilProfileHost={soilProfileHost}
         compactLegend={overviewPresentation}
         soilEcDepthCm={selectedSoilEcDepthCm}
-        language={language}
+        language={lithuanian ? 'lt' : 'en'}
         selectedIds={[]}
         snap={false}
         onSelect={() => undefined}
