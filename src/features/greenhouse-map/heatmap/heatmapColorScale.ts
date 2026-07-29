@@ -16,6 +16,32 @@ export function colorAt(value: number, min: number, max: number, colors: readonl
   ) as [number, number, number]
 }
 
+export function colorAtStops(value: number, stops: ReadonlyArray<{ value: number; color: string }>): [number, number, number] {
+  if (!stops.length) return [128, 128, 128]
+  if (value <= stops[0].value) return parseHex(stops[0].color) as [number, number, number]
+  const last = stops.at(-1)!
+  if (value >= last.value) return parseHex(last.color) as [number, number, number]
+  const upperIndex = stops.findIndex((stop) => stop.value >= value)
+  const lower = stops[upperIndex - 1]
+  const upper = stops[upperIndex]
+  const amount = (value - lower.value) / Math.max(upper.value - lower.value, 1e-6)
+  const lowerColor = parseHex(lower.color)
+  const upperColor = parseHex(upper.color)
+  return lowerColor.map((channel, index) =>
+    Math.round(channel + (upperColor[index] - channel) * amount),
+  ) as [number, number, number]
+}
+
+export function scaleGradient(min: number, max: number, colors: readonly string[], stops?: ReadonlyArray<{ value: number; color: string }>): string {
+  if (!stops?.length) return continuousGradient(colors)
+  const range = Math.max(max - min, 1e-6)
+  const values = [min, ...stops.filter((stop) => stop.value > min && stop.value < max).map((stop) => stop.value), max]
+  return `linear-gradient(90deg, ${values.map((value) => {
+    const [red, green, blue] = colorAtStops(value, stops)
+    return `rgb(${red} ${green} ${blue}) ${(value - min) / range * 100}%`
+  }).join(', ')})`
+}
+
 type EsriTemperatureStop = {
   fahrenheit: number
   rgb: [number, number, number]

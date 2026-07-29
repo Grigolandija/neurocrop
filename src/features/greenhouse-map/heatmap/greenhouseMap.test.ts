@@ -7,7 +7,7 @@ import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_C
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
-import { bandedGradient, colorAt, esriTemperatureColorAt, esriTemperatureGradient } from './heatmapColorScale'
+import { colorAtStops, scaleGradient } from './heatmapColorScale'
 import { DEFAULT_HEATMAP_SETTINGS, GREENHOUSE_WALL_THICKNESS_M, METRICS, normalizeHeatmapSettings } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
@@ -138,40 +138,28 @@ describe('environment colour scale', () => {
     expect(map.layers.find((layer) => layer.id === 'environment')?.opacity).toBe(1)
   })
   it('uses distinct dry, balanced and humid colours for relative humidity', () => {
-    const colors = METRICS['relative-humidity'].colors
-    const low = colorAt(40, 40, 80, colors)
-    const middle = colorAt(60, 40, 80, colors)
-    const high = colorAt(80, 40, 80, colors)
-    const luminance = ([red, green, blue]: number[]) => red * 0.2126 + green * 0.7152 + blue * 0.0722
+    const stops = METRICS['relative-humidity'].colorStops!
+    const low = colorAtStops(30, stops)
+    const middle = colorAtStops(60, stops)
+    const high = colorAtStops(90, stops)
     expect(new Set([low.join(','), middle.join(','), high.join(',')]).size).toBe(3)
-    expect(luminance(low)).toBeGreaterThan(luminance(high))
+    expect(low[0]).toBeGreaterThan(low[2])
+    expect(high[1]).toBeGreaterThan(high[0])
   })
-  it('keeps every displayed scale light at minimum and dark at maximum', () => {
-    const luminance = ([red, green, blue]: number[]) => red * 0.2126 + green * 0.7152 + blue * 0.0722
-    Object.values(METRICS).forEach((metric) => {
-      expect(luminance(colorAt(metric.bounds[0], ...metric.bounds, metric.colors)))
-        .toBeGreaterThan(luminance(colorAt(metric.bounds[1], ...metric.bounds, metric.colors)))
-      const samples = Array.from({ length: 101 }, (_, index) =>
-        colorAt(metric.bounds[0] + (metric.bounds[1] - metric.bounds[0]) * index / 100, ...metric.bounds, metric.colors))
-      samples.slice(1).forEach((sample, index) => {
-        expect(luminance(sample)).toBeLessThanOrEqual(luminance(samples[index]) + 1)
-      })
-    })
-    expect(esriTemperatureColorAt(20, 20, 30)).toEqual([255, 255, 204])
-    expect(esriTemperatureColorAt(30, 20, 30)).toEqual([128, 0, 38])
-    expect(luminance(esriTemperatureColorAt(20, 20, 30))).toBeGreaterThan(luminance(esriTemperatureColorAt(30, 20, 30)))
+  it('uses stable semantic anchors instead of recolouring the observed minimum and maximum', () => {
+    expect(colorAtStops(16, METRICS['air-temperature'].colorStops!)).toEqual([27, 79, 255])
+    expect(colorAtStops(22, METRICS['air-temperature'].colorStops!)).toEqual([98, 231, 138])
+    expect(colorAtStops(32, METRICS['air-temperature'].colorStops!)).toEqual([217, 37, 37])
+    expect(colorAtStops(400, METRICS.co2.colorStops!)).toEqual([46, 139, 87])
+    expect(colorAtStops(2000, METRICS.co2.colorStops!)).toEqual([106, 44, 145])
+    expect(scaleGradient(19.5, 29.5, METRICS['air-temperature'].colors, METRICS['air-temperature'].colorStops).match(/rgb\(/g)?.length).toBeGreaterThan(3)
   })
-  it('aligns colour boundaries with the major contour levels', () => {
+  it('keeps contour intervals aligned with metric levels', () => {
     Object.values(METRIC_LEVELS).forEach(({ colorInterval, contourInterval }) => {
       expect(contourInterval / colorInterval).toBeCloseTo(Math.round(contourInterval / colorInterval))
     })
-    const colors = METRICS['air-temperature'].colors
     expect(COLOR_INTERVALS['air-temperature']).toBe(1)
     expect(COLOR_INTERVALS['relative-humidity']).toBe(1)
-    expect(esriTemperatureColorAt(22.99)).not.toEqual(esriTemperatureColorAt(23.01))
-    expect(esriTemperatureGradient().match(/rgb\(/g)).toHaveLength(9)
-    expect(bandedGradient(20, 25, colors, 1).match(/rgb\(/g)).toHaveLength(10)
-    expect(esriTemperatureColorAt(20.1, 20, 25)).not.toEqual(esriTemperatureColorAt(20.9, 20, 25))
   })
 })
 

@@ -1,7 +1,6 @@
-import { colorAt, esriTemperatureColorAt } from './heatmapColorScale'
-import { isTemperatureMetric } from './contourLines'
+import { colorAt, colorAtStops } from './heatmapColorScale'
 import type { HeatmapGrid } from './heatmapTypes'
-import type { MetricKey } from '../model'
+import { METRICS, type MetricKey } from '../model'
 
 export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, colors: readonly string[], opacity: number, showConfidence: boolean): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
@@ -20,8 +19,9 @@ export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, colors
       continue
     }
     const value = grid.values[index]
-    const [r, g, b] = isTemperatureMetric(metric)
-      ? esriTemperatureColorAt(value, grid.min, grid.max)
+    const colorStops = METRICS[metric].colorStops
+    const [r, g, b] = colorStops?.length
+      ? colorAtStops(value, colorStops)
       : colorAt(value, grid.min, grid.max, colors)
     const confidence = showConfidence ? grid.confidence[index] : 1
     const gray = Math.round(r * 0.2126 + g * 0.7152 + b * 0.0722)
