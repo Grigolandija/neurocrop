@@ -21,6 +21,8 @@ const readingsClimateMap = await read('src/features/readings/ReadingsClimateMap.
 const trends = await read('src/features/trends/TrendsWorkspace.tsx')
 const sections = await read('src/features/sections/SectionsWorkspace.tsx')
 const nodes = await read('src/features/nodes/NodesWorkspace.tsx')
+const settings = await read('src/features/settings/SettingsWorkspace.tsx')
+const soonBadge = await read('src/components/SoonBadge.tsx')
 const store = await read('src/state/dashboardStore.ts')
 const workspaceAccess = await read('src/state/workspaceAccess.ts')
 const metricRegistry = await read('src/domain/metricRegistry.ts')
@@ -120,6 +122,16 @@ assert(!source.includes("CustomEvent('neurocrop:"), 'React source must not use N
 assert(!source.includes('window.postMessage({'), 'React source must not use postMessage for internal navigation.')
 assert(!source.includes('NeuroCropI18n'), 'React source must not depend on the legacy DOM translator.')
 assert(!source.includes('approved-dashboard-runtime'), 'React source must not load the legacy dashboard runtime.')
+assert(soonBadge.includes('>Soon</span>'), 'Unavailable features must use the shared gray Soon badge.')
+assert(
+  settings.includes('{label}<SoonBadge />')
+    && settings.includes('{tx("Warning persistence")}<SoonBadge />')
+    && settings.includes('{tx("Quiet hours start")}<SoonBadge />')
+    && settings.includes('{tx("Quiet hours end")}<SoonBadge />')
+    && settings.includes('{tx("Critical alerts override quiet hours")}<SoonBadge />')
+    && settings.includes('{tx("Session management is being deployed")}<SoonBadge />'),
+  'Notification delivery and escalation controls must remain visibly marked Soon until operational delivery exists.'
+)
 
 const retired = [
   'src/approved-dashboard-markup.html',

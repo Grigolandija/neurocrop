@@ -24,3 +24,22 @@ button { border: 0; cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 input, select { color: inherit; }
 h1, h2, h3, p { margin-top: 0; }
+
+.nc-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.25rem;
+  margin-left: .4rem;
+  padding: .1rem .45rem;
+  border: 1px solid #d8dcd9;
+  border-radius: 999px;
+  background: #f1f2f1;
+  color: #7a817d;
+  font-size: .6875rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .01em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
