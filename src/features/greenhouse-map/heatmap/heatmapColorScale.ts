@@ -48,27 +48,23 @@ export function semanticColorAt(value: number, definition: SemanticScaleDefiniti
     : colorAt(value, definition.bounds[0], definition.bounds[1], definition.colors)
   if (!observedRange || observedRange[1] - observedRange[0] < 1e-6) return absoluteBase
 
+  const observedSpan = observedRange[1] - observedRange[0]
+  const localPosition = Math.max(0, Math.min(1, (value - observedRange[0]) / observedSpan))
+  if (!definition.colorStops?.length) {
+    const relativePalettePosition = 0.12 + localPosition * 0.7
+    return colorAt(relativePalettePosition, 0, 1, definition.colors)
+  }
+
   const semanticMin = definition.colorStops?.[0]?.value ?? definition.bounds[0]
   const semanticMax = definition.colorStops?.at(-1)?.value ?? definition.bounds[1]
   const semanticSpan = Math.max(semanticMax - semanticMin, 1e-6)
-  const observedSpan = observedRange[1] - observedRange[0]
   const narrowness = Math.max(0, Math.min(1, 1 - observedSpan / (semanticSpan * 0.35)))
   const localContrast = Math.sqrt(narrowness)
-  const localPosition = Math.max(0, Math.min(1, (value - observedRange[0]) / observedSpan))
-  const base = !definition.colorStops?.length && narrowness > 0
-    ? (() => {
-        const observedCenter = (observedRange[0] + observedRange[1]) / 2
-        const absoluteCenter = Math.max(0, Math.min(1, (observedCenter - semanticMin) / semanticSpan))
-        const adaptiveHalfWindow = localContrast * 0.18
-        const adaptivePosition = Math.max(0, Math.min(1, absoluteCenter + (localPosition - 0.5) * 2 * adaptiveHalfWindow))
-        return colorAt(adaptivePosition, 0, 1, definition.colors)
-      })()
-    : absoluteBase
 
   if (localPosition < 0.5) {
-    return blendColor(base, [255, 255, 255], (0.5 - localPosition) * 2 * localContrast * 0.34)
+    return blendColor(absoluteBase, [255, 255, 255], (0.5 - localPosition) * 2 * localContrast * 0.34)
   }
-  return blendColor(base, [24, 38, 45], (localPosition - 0.5) * 2 * localContrast * 0.28)
+  return blendColor(absoluteBase, [24, 38, 45], (localPosition - 0.5) * 2 * localContrast * 0.28)
 }
 
 export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): string {

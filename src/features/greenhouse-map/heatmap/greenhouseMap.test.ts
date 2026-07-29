@@ -163,7 +163,7 @@ describe('environment colour scale', () => {
     expect(high[2]).toBeGreaterThan(high[0])
     expect(high[0]).toBeLessThan(140)
   })
-  it('uses a constrained adaptive palette window for metrics without semantic stops', () => {
+  it('uses a high-contrast relative sequential scale for metrics without semantic stops', () => {
     const soilEc = METRICS['soil-ec']
     const low = semanticColorAt(0.75, soilEc, [0.75, 2.6])
     const high = semanticColorAt(2.6, soilEc, [0.75, 2.6])
