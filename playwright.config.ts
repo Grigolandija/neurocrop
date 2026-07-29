@@ -11,7 +11,9 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   expect: { timeout: 10_000 },
+  forbidOnly: Boolean(process.env.CI),
   fullyParallel: false,
+  workers: process.env.CI ? 2 : undefined,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
@@ -22,6 +24,15 @@ export default defineConfig({
     video: 'retain-on-failure'
   },
   projects: [
-    { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } }
+    {
+      name: 'desktop-chromium',
+      testIgnore: /mobile\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'mobile-chromium',
+      testMatch: /mobile\.spec\.ts/,
+      use: { ...devices['Pixel 5'] },
+    },
   ]
 })

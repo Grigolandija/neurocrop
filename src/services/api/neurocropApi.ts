@@ -101,23 +101,3 @@ export const neurocropApi = {
   registerNode: (payload: Payload) => structuralMutation('/nodes/claim', { method: 'POST', body: json(payload) }),
   deleteNode: (devEui: string, options: { history?: 'keep' | 'delete' } = {}) => structuralMutation(`/nodes/${encoded(devEui)}${queryString({ history: options.history || 'keep' })}`, { method: 'DELETE' }),
 }
-
-export async function prefetchWorkspaceData() {
-  await Promise.allSettled([
-    neurocropApi.getDashboard(),
-    neurocropApi.getAreas(),
-    neurocropApi.getSections(),
-    neurocropApi.getNodes(),
-    neurocropApi.getCropProfiles(),
-    neurocropApi.getTodayActions(),
-    neurocropApi.getActionHistory(100),
-    neurocropApi.getAlerts('all'),
-    // Warm the read-only account data used by Settings and Organization while
-    // Overview is active. The shared GET cache then serves the first route
-    // visit without another network round trip.
-    neurocropApi.getOrganizations(),
-    neurocropApi.getTeam(),
-    neurocropApi.getInvitations(),
-    neurocropApi.getSessions(),
-  ])
-}

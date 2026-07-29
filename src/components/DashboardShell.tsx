@@ -75,28 +75,37 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
 
   useEffect(() => {
     let active = true
-    Promise.allSettled([neurocropApi.getNodes(), neurocropApi.getAlerts('all')]).then(([nodeResult, alertResult]) => {
-      if (!active) return
-      if (nodeResult.status === 'fulfilled') {
-        setNodes(arrayFrom(nodeResult.value, ['nodes', 'items']).map((value, index) => {
-          const node = value as Record<string, unknown>
-          return {
-            id: String(node.id || node.devEui || index),
-            name: String(node.name || node.displayName || node.devEui || `Node ${index + 1}`),
-            batteryPercent: numberValue(node, ['batteryPercent', 'batteryLevel', 'battery']),
-          }
-        }))
-      }
-      if (alertResult.status === 'fulfilled') {
-        const alerts = arrayFrom(alertResult.value, ['alerts', 'items'])
-        setAlertCount(alerts.filter((value) => {
-          const status = String((value as Record<string, unknown>).status || 'active')
-          return status !== 'resolved'
-        }).length)
-      }
-    })
-    return () => { active = false }
-  }, [location.pathname])
+    const loadSummary = () => {
+      Promise.allSettled([neurocropApi.getNodes(), neurocropApi.getAlerts('all')]).then(([nodeResult, alertResult]) => {
+        if (!active) return
+        if (nodeResult.status === 'fulfilled') {
+          setNodes(arrayFrom(nodeResult.value, ['nodes', 'items']).map((value, index) => {
+            const node = value as Record<string, unknown>
+            return {
+              id: String(node.id || node.devEui || index),
+              name: String(node.name || node.displayName || node.devEui || `Node ${index + 1}`),
+              batteryPercent: numberValue(node, ['batteryPercent', 'batteryLevel', 'battery']),
+            }
+          }))
+        }
+        if (alertResult.status === 'fulfilled') {
+          const alerts = arrayFrom(alertResult.value, ['alerts', 'items'])
+          setAlertCount(alerts.filter((value) => {
+            const status = String((value as Record<string, unknown>).status || 'active')
+            return status !== 'resolved'
+          }).length)
+        }
+      })
+    }
+    loadSummary()
+    const interval = window.setInterval(() => {
+      if (!document.hidden) loadSummary()
+    }, 60_000)
+    return () => {
+      active = false
+      window.clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     queueMicrotask(() => {

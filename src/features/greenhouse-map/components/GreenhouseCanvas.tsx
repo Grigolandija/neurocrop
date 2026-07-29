@@ -483,11 +483,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       window.cancelAnimationFrame(firstPaintFrame)
       window.cancelAnimationFrame(settledPaintFrame)
     }
-  }, [map, mode, onRenderReady, points, referenceTime, soilEcAllValues])
-
-  useEffect(() => {
-    if (mode !== 'environment' || map.heatmapSettings.metric !== 'soil-ec') setSoilEcProfile(null)
-  }, [map.heatmapSettings.metric, mode])
+  }, [map, mode, onRenderReady, points, referenceTime, soilEcAllValues, soilEcDepthCm])
 
   const pointerWorld = useCallback(() => {
     const stage = stageRef.current
@@ -918,7 +914,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         {!readOnly ? <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
       </Layer>
     </Stage>
-    {soilEcProfile && soilProfileHost
+    {soilEcProfile && soilProfileHost && mode === 'environment' && map.heatmapSettings.metric === 'soil-ec'
       ? createPortal(<SoilEcCrossSection
           profile={soilEcProfile}
           map={map}

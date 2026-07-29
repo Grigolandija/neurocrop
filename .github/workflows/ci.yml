@@ -8,9 +8,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -19,13 +24,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm test:bundle
 
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:15
@@ -100,6 +109,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: [frontend, backend]
     services:
       postgres:
@@ -137,6 +147,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - name: Prepare backend
@@ -145,7 +157,8 @@ jobs:
       - name: Start services
         run: |
           (cd backend && node api.js > /tmp/neurocrop-e2e-api.log 2>&1 &)
-          pnpm dev --host 127.0.0.1 --port 4173 > /tmp/neurocrop-e2e-frontend.log 2>&1 &
+          pnpm build
+          pnpm preview --host 127.0.0.1 --port 4173 > /tmp/neurocrop-e2e-frontend.log 2>&1 &
           for url in http://127.0.0.1:3100/health http://127.0.0.1:4173/; do
             for attempt in $(seq 1 30); do
               curl --fail --silent "$url" >/dev/null && break
@@ -159,5 +172,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 14
+      - name: Service logs on failure
+        if: failure()
+        run: |
+          cat /tmp/neurocrop-e2e-api.log || true
+          cat /tmp/neurocrop-e2e-frontend.log || true

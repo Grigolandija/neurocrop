@@ -33,6 +33,18 @@ test('wrong password shows an inline login error', async ({ page }) => {
   await expect(page.locator('#dashboardShell')).toHaveCount(0)
 })
 
+test('password recovery requests only the account email', async ({ page }) => {
+  await prepare(page)
+  await page.goto('/forgot-password')
+  await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible()
+  await expect(page.locator('input[type="password"]')).toHaveCount(0)
+  await page.getByLabel('Email address').fill('tenant-a@ci.neurocrop.test')
+  await page.getByRole('button', { name: 'Send reset link' }).click()
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
+  await expect(page.getByRole('status')).toContainText('valid for 60 minutes')
+  await expect(page.locator('input[type="password"]')).toHaveCount(0)
+})
+
 test('workspace navigation unlocks in Area and Section stages', async ({ page }) => {
   await authenticate(page, 'tenant-empty@ci.neurocrop.test')
   await expect(page).toHaveURL(/\/areas$/)

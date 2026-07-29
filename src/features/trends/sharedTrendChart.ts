@@ -1,3 +1,5 @@
+import { installEChartsEngine } from '../../vendor/echartsEngine'
+
 export type TrendRangeKey = '24h' | '7d' | '30d'
 
 export type TrendPoint = {
@@ -387,6 +389,7 @@ export function buildTrendChartOption(input: TrendChartInput) {
 }
 
 export function renderTrendChart(element: HTMLElement, input: TrendChartInput): TrendChartInstance | null {
+  installEChartsEngine()
   const option = buildTrendChartOption(input)
   const engine = window.echarts as EChartsEngine | undefined
   if (!option || !engine?.init) return null

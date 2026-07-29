@@ -1,6 +1,7 @@
 export type ApiRequest = <T = unknown>(path: string, options?: RequestInit) => Promise<T>
 
 const GET_CACHE_TTL_MS = 60_000
+const MAX_GET_CACHE_ENTRIES = 200
 const getCache = new Map<string, { expiresAt: number; value: unknown }>()
 const getRequestsInFlight = new Map<string, Promise<unknown>>()
 let cacheGeneration = 0
@@ -15,6 +16,20 @@ function apiBaseUrl() {
   const configured = String(window.NEUROCROP_CONFIG?.apiBaseUrl || '').replace(/\/$/, '')
   if (!configured) throw new Error('API base URL is not configured.')
   return configured
+}
+
+function storeCachedGet(key: string, value: unknown) {
+  const now = Date.now()
+  for (const [cachedKey, cached] of getCache) {
+    if (cached.expiresAt <= now) getCache.delete(cachedKey)
+  }
+  if (getCache.has(key)) getCache.delete(key)
+  while (getCache.size >= MAX_GET_CACHE_ENTRIES) {
+    const oldestKey = getCache.keys().next().value
+    if (typeof oldestKey !== 'string') break
+    getCache.delete(oldestKey)
+  }
+  getCache.set(key, { expiresAt: now + GET_CACHE_TTL_MS, value })
 }
 
 async function readResponseBody(response: Response) {
@@ -136,7 +151,7 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
   const pending = execute()
     .then((value) => {
       if (requestGeneration === cacheGeneration) {
-        getCache.set(cacheKey, { expiresAt: Date.now() + GET_CACHE_TTL_MS, value })
+        storeCachedGet(cacheKey, value)
       }
       return value
     })

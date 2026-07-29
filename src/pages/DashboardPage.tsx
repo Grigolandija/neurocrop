@@ -4,9 +4,8 @@ import DashboardShell, { type DashboardUser } from '../components/DashboardShell
 import WorkspaceLoading from '../components/WorkspaceLoading'
 import { useInterfaceLanguage } from '../i18n'
 import { invalidateRequestCache } from '../services/api/client'
-import { neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
+import { neurocropApi } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
-import { installEChartsEngine } from '../vendor/echartsEngine'
 
 const loadAreasWorkspace = () => import('../features/areas/AreasWorkspace')
 const loadReadingsWorkspace = () => import('../features/readings/ReadingsWorkspace')
@@ -38,23 +37,6 @@ const TrendsWorkspace = lazy(loadTrendsWorkspace)
 const NodesWorkspace = lazy(loadNodesWorkspace)
 const CropProfilesWorkspace = lazy(loadCropProfilesWorkspace)
 
-const workspaceModuleLoaders = [
-  loadAreasWorkspace,
-  loadReadingsWorkspace,
-  loadSectionsWorkspace,
-  loadSettingsWorkspace,
-  loadOrganizationWorkspace,
-  loadAdminWorkspace,
-  loadAdminIntegrationsWorkspace,
-  loadOverviewWorkspace,
-  loadSimulatorWorkspace,
-  loadActionsWorkspace,
-  loadAlertsWorkspace,
-  loadTrendsWorkspace,
-  loadNodesWorkspace,
-  loadCropProfilesWorkspace,
-]
-
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
   '/history', '/settings', '/organization', '/crop-profiles', '/admin',
@@ -85,7 +67,10 @@ function Workspaces({ pathname }: { pathname: string }) {
       if (!host.childElementCount || host.querySelector('[data-workspace-suspense]')) return
       if (route === '/' && !host.querySelector('[data-overview-heatmap-settled="true"]')) return
       cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => setReadyRoute(route))
+      frame = requestAnimationFrame(() => {
+        observer.disconnect()
+        setReadyRoute(route)
+      })
     }
     const observer = new MutationObserver(update)
     observer.observe(host, { attributes: true, childList: true, subtree: true })
@@ -142,9 +127,6 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   const unauthorizedVersionAtMount = useRef(dashboardState.unauthorizedVersion)
 
   useEffect(() => {
-    installEChartsEngine()
-    void Promise.allSettled(workspaceModuleLoaders.map((load) => load()))
-    void prefetchWorkspaceData()
     return () => {
       delete document.body.dataset.primaryPage
     }

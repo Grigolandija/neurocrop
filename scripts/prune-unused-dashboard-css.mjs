@@ -5,6 +5,7 @@ import postcss from 'postcss'
 const root = process.cwd()
 const cssPath = path.join(root, 'src/styles/approved-dashboard.css')
 const write = process.argv.includes('--write')
+const check = process.argv.includes('--check')
 const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.html'])
 const sourceRoots = ['src', 'public']
 
@@ -49,3 +50,7 @@ console.log(JSON.stringify({
   afterBytes: Buffer.byteLength(result),
   wroteFile: write,
 }, null, 2))
+
+if (check && removedRules > 0) {
+  throw new Error(`${removedRules} unused approved-dashboard.css rules found. Run: node scripts/prune-unused-dashboard-css.mjs --write`)
+}
