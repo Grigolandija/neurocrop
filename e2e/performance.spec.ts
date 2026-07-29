@@ -42,3 +42,24 @@ test('primary workspaces emit no uncaught page or console errors', async ({ page
   }
   expect(failures).toEqual([])
 })
+
+test('prefetched route changes never flash the full workspace loader', async ({ page }) => {
+  await authenticate(page)
+  await page.goto('/')
+  await expect(page.locator('#dashboardShell')).toBeVisible()
+  await expect(page.locator('.app-route-loading')).toHaveCount(0)
+
+  await page.evaluate(() => {
+    const state = window as Window & { __routeLoadingFlashed?: boolean }
+    state.__routeLoadingFlashed = false
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('.app-route-loading')) state.__routeLoadingFlashed = true
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+  })
+
+  await page.locator('[data-sidebar-action="zones"]:visible').click()
+  await expect(page).toHaveURL(/\/sections$/)
+  await expect(page.locator('.nc-sections-page')).toBeVisible()
+  expect(await page.evaluate(() => (window as Window & { __routeLoadingFlashed?: boolean }).__routeLoadingFlashed)).toBe(false)
+})

@@ -69,6 +69,8 @@ assert(!dashboard.includes('createPortal'), 'Dashboard workspaces must not use l
 assert(dashboard.includes("'/nodes': 'nodesManagementSection'"), 'The Nodes workspace host must preserve its scoped styling contract.')
 assert(dashboard.includes('data-workspace-suspense'), 'Workspace readiness must track only unresolved lazy modules.')
 assert(dashboard.includes('data-overview-heatmap-settled="true"'), 'The authenticated loader must wait for the Overview heatmap to finish rendering.')
+assert(dashboard.includes('initialWorkspaceReady'), 'The full workspace loader must be limited to the initial dashboard render.')
+assert(!dashboard.includes('readyRoute'), 'Route changes must not re-enable the full workspace loading screen.')
 assert(dashboard.includes('switch (route)'), 'Dashboard must render only the active workspace.')
 assert(!dashboard.includes('hidden={!visible(route)}'), 'Inactive workspaces must not remain mounted behind the active page.')
 assert(dashboard.includes('workspaceModuleLoaders'), 'Authenticated dashboard must preload every workspace for instant navigation.')

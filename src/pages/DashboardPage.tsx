@@ -73,10 +73,10 @@ function Workspaces({ pathname }: { pathname: string }) {
   const { language } = useInterfaceLanguage()
   const hostRef = useRef<HTMLDivElement>(null)
   const route = pathname.startsWith('/nodes/') ? '/nodes' : pathname
-  const [readyRoute, setReadyRoute] = useState('')
-  const ready = readyRoute === route
+  const [initialWorkspaceReady, setInitialWorkspaceReady] = useState(false)
 
   useEffect(() => {
+    if (initialWorkspaceReady) return
     const host = hostRef.current
     if (!host) return
     let frame = 0
@@ -86,14 +86,14 @@ function Workspaces({ pathname }: { pathname: string }) {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         observer.disconnect()
-        setReadyRoute(route)
+        setInitialWorkspaceReady(true)
       })
     }
     const observer = new MutationObserver(update)
     observer.observe(host, { attributes: true, childList: true, subtree: true })
     update()
     return () => { cancelAnimationFrame(frame); observer.disconnect() }
-  }, [route])
+  }, [initialWorkspaceReady, route])
 
   const workspace = (() => {
     switch (route) {
@@ -117,11 +117,11 @@ function Workspaces({ pathname }: { pathname: string }) {
 
   return (
     <>
-      {!ready ? <WorkspaceLoading /> : null}
+      {!initialWorkspaceReady ? <WorkspaceLoading /> : null}
       <div
         ref={hostRef}
         id={workspaceHostIds[route]}
-        hidden={!ready}
+        hidden={!initialWorkspaceReady}
         data-workspace-host
         data-interface-language={language}
       >
