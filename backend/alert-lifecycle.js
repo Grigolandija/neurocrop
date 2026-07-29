@@ -1,18 +1,4 @@
-import { METRIC_UNITS } from './metrics.js';
-
-const METRIC_LABELS = {
-  airTemp: 'Air temperature',
-  humidity: 'Relative humidity',
-  vpd: 'VPD',
-  co2: 'CO2',
-  soilTemp: 'Soil temperature',
-  soilMoisture: 'Soil moisture',
-  ec: 'EC',
-  ph: 'pH',
-  soilEc: 'Soil EC',
-  leafTemp: 'Leaf temperature',
-  waterTemp: 'Water temperature'
-};
+import { METRIC_LABELS, METRIC_UNITS } from './metrics.js';
 
 function latestTimestamp(values) {
   const timestamps = values

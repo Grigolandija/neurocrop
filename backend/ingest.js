@@ -4,8 +4,10 @@ import { pool } from './db.js';
 import { runMigrations } from './migrate.js';
 import { normalizeErrorCounters, normalizeErrorFlags } from './node-health.js';
 import { startSimulatedNodeGenerator } from './simulated-nodes.js';
+import { REGISTERED_TELEMETRY_DEFINITIONS } from './metric-registry.js';
 import {
   compactTelemetryMetadata,
+  normalizeRegisteredTelemetry,
   normalizeTelemetryBoolean,
   normalizeTelemetryTimestamp,
   normalizeTelemetryValue,
@@ -15,6 +17,9 @@ import {
 const MQTT_URL = process.env.MQTT_URL || 'mqtt://mosquitto:1883';
 const MQTT_TOPIC = process.env.MQTT_TOPIC || 'application/+/device/+/event/up';
 const READY_FILE = process.env.INGEST_READY_FILE || '/tmp/neurocrop-ingest-ready';
+const registeredColumns = REGISTERED_TELEMETRY_DEFINITIONS.map(({ column }) => column);
+const registeredPlaceholders = REGISTERED_TELEMETRY_DEFINITIONS.map((_, index) => `$${index + 3}`);
+const registeredValueCount = REGISTERED_TELEMETRY_DEFINITIONS.length;
 
 function markReady() {
   fs.writeFileSync(READY_FILE, new Date().toISOString(), { mode: 0o600 });
@@ -74,6 +79,7 @@ async function handleUplink(msg) {
   const errorFlags = normalizeErrorFlags(obj.error_flags);
   const ec = normalizeErrorCounters(obj.error_counters, errorFlags);
   const historicalMetadata = compactTelemetryMetadata(obj, errorFlags);
+  const telemetry = normalizeRegisteredTelemetry(obj);
   const sensorPresence = Object.fromEntries(
     Object.entries(obj.sensors || {}).map(([sensor, state]) => [sensor, normalizeTelemetryBoolean(state?.present) === true])
   );
@@ -108,7 +114,7 @@ async function handleUplink(msg) {
        RETURNING dev_eui`,
       [
         devEui, normalizeTelemetryValue('firmware_build', obj.firmware_build), time, receivedAt, dev.deviceName || null,
-        normalizeTelemetryValue('battery_mv', obj.battery_mv), normalizeTelemetryValue('battery_percent', obj.battery_percent), obj.firmware_version ?? null, adaptive.profile ?? null,
+        normalizeTelemetryValue('battery_mv', obj.battery_mv), telemetry.battery_percent, obj.firmware_version ?? null, adaptive.profile ?? null,
         normalizeTelemetryValue('rssi', rx.rssi), normalizeTelemetryValue('snr', rx.snr), normalizeTelemetryValue('spreading_factor', sf), JSON.stringify(sensorPresence),
         JSON.stringify(errorFlags), JSON.stringify(ec)
       ]
@@ -127,18 +133,19 @@ async function handleUplink(msg) {
 
     const { rows: insertedRows } = await dbClient.query(
       `INSERT INTO measurements (
-          time,dev_eui,temperature,humidity,co2,lux,soil_temperature,soil_moisture,
-          ec,ph,soil_ec,leaf_temperature,water_temperature,air_pressure,
-          battery_mv,battery_percent,firmware_build,profile,battery_critical,
+          time,dev_eui,${registeredColumns.join(',')},air_pressure,
+          battery_mv,firmware_build,profile,battery_critical,
           vpd_out_of_range,err_read_fail,err_reinit,err_tx_fail,rssi,snr,
           spreading_factor,raw_object,received_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+       VALUES ($1,$2,${registeredPlaceholders.join(',')},${Array.from(
+         { length: 14 },
+         (_, index) => `$${registeredValueCount + index + 3}`
+       ).join(',')})
        ON CONFLICT (dev_eui, time) DO NOTHING
        RETURNING time`,
-      [time, devEui, normalizeTelemetryValue('temperature', obj.temperature), normalizeTelemetryValue('humidity', obj.humidity), normalizeTelemetryValue('co2', obj.co2), normalizeTelemetryValue('lux', obj.lux),
-       normalizeTelemetryValue('soil_temperature', obj.soil_temperature), normalizeTelemetryValue('soil_moisture', obj.soil_moisture), normalizeTelemetryValue('ec', obj.ec), normalizeTelemetryValue('ph', obj.ph), normalizeTelemetryValue('soil_ec', obj.soil_ec),
-       normalizeTelemetryValue('leaf_temperature', obj.leaf_temperature), normalizeTelemetryValue('water_temperature', obj.water_temperature), normalizeTelemetryValue('air_pressure', obj.air_pressure),
-       normalizeTelemetryValue('battery_mv', obj.battery_mv), normalizeTelemetryValue('battery_percent', obj.battery_percent),
+      [time, devEui, ...REGISTERED_TELEMETRY_DEFINITIONS.map(({ telemetryKey }) => telemetry[telemetryKey]),
+       normalizeTelemetryValue('air_pressure', obj.air_pressure),
+       normalizeTelemetryValue('battery_mv', obj.battery_mv),
        normalizeTelemetryValue('firmware_build', obj.firmware_build), adaptive.profile ?? null, normalizeTelemetryBoolean(adaptive.battery_critical),
        normalizeTelemetryBoolean(adaptive.vpd_out_of_range), normalizeTelemetryValue('error_counter', ec.read_fail), normalizeTelemetryValue('error_counter', ec.reinit), normalizeTelemetryValue('error_counter', ec.tx_fail),
        normalizeTelemetryValue('rssi', rx.rssi), normalizeTelemetryValue('snr', rx.snr), normalizeTelemetryValue('spreading_factor', sf), JSON.stringify(historicalMetadata), receivedAt]

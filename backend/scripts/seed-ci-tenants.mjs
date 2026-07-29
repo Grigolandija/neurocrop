@@ -1,4 +1,5 @@
 import { hashUserPassword } from '../auth-users.js';
+import { DEFAULT_CROP_PROFILE_METRICS } from '../crop-profile-defaults.js';
 import { closePool, query } from '../db.js';
 
 const password = process.env.TENANT_TEST_PASSWORD || 'NeuroCrop-CI-Password-2026';
@@ -50,10 +51,7 @@ for (const tenant of tenants) {
     `INSERT INTO crop_profiles (organization_id, id, name, hero_name, metrics)
      VALUES ($1, 'default', 'Default', 'Default', $2::jsonb)
      ON CONFLICT (organization_id, id) DO UPDATE SET metrics=EXCLUDED.metrics`,
-    [organizationId, JSON.stringify({
-      airTemp: { unit: 'degC', optimal: [18, 24], warning: [16, 26], critical: [14, 30] },
-      humidity: { unit: '%', optimal: [50, 70], warning: [45, 75], critical: [35, 85] }
-    })]
+    [organizationId, JSON.stringify(DEFAULT_CROP_PROFILE_METRICS)]
   );
   await query(
     `INSERT INTO areas (id, organization_id, name) VALUES ($1, $2, $3)

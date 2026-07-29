@@ -1,0 +1,497 @@
+{
+  "version": 1,
+  "metrics": {
+    "airTemp": {
+      "label": "Air temperature",
+      "labelLt": "Oro temperatūra",
+      "unit": "°C",
+      "decimals": 1,
+      "telemetryKey": "temperature",
+      "column": "temperature",
+      "sensorKey": "sht45",
+      "intervalSec": 600,
+      "physicalRange": [-80, 80],
+      "profile": {
+        "enabled": true,
+        "section": "climate",
+        "optimal": [22, 26],
+        "warning": [20, 28],
+        "critical": [18, 30],
+        "growth": true,
+        "warningPadding": [2, 2],
+        "criticalPadding": [4, 4]
+      },
+      "heatmap": {
+        "key": "air-temperature",
+        "field": "airTemperatureC",
+        "bounds": [5, 45],
+        "scaleStep": 0.5,
+        "minimumSpan": 4,
+        "colorInterval": 1,
+        "contourInterval": 1,
+        "contourCandidates": [0.5, 1, 2, 5, 10],
+        "lowConfidenceMinimum": 1,
+        "palette": "temperature"
+      }
+    },
+    "humidity": {
+      "label": "Relative humidity",
+      "labelLt": "Santykinė drėgmė",
+      "unit": "%",
+      "decimals": 0,
+      "telemetryKey": "humidity",
+      "column": "humidity",
+      "sensorKey": "sht45",
+      "intervalSec": 600,
+      "physicalRange": [0, 100],
+      "profile": {
+        "enabled": true,
+        "section": "climate",
+        "optimal": [60, 70],
+        "warning": [55, 75],
+        "critical": [45, 85],
+        "growth": true,
+        "warningPadding": [5, 5],
+        "criticalPadding": [15, 15]
+      },
+      "heatmap": {
+        "key": "relative-humidity",
+        "field": "relativeHumidityPercent",
+        "decimals": 1,
+        "bounds": [15, 100],
+        "scaleStep": 1,
+        "minimumSpan": 15,
+        "colorInterval": 1,
+        "contourInterval": 5,
+        "contourCandidates": [2, 5, 10, 20],
+        "lowConfidenceMinimum": 5,
+        "palette": "humidity"
+      }
+    },
+    "co2": {
+      "label": "CO₂",
+      "labelLt": "CO₂",
+      "unit": "ppm",
+      "decimals": 0,
+      "telemetryKey": "co2",
+      "column": "co2",
+      "sensorKey": "scd41",
+      "intervalSec": 1800,
+      "physicalRange": [0, 100000],
+      "profile": {
+        "enabled": true,
+        "section": "climate",
+        "optimal": [900, 1100],
+        "warning": [750, 1250],
+        "critical": [550, 1500],
+        "growth": true,
+        "warningPadding": [150, 150],
+        "criticalPadding": [400, 400]
+      },
+      "heatmap": {
+        "key": "co2",
+        "field": "co2Ppm",
+        "bounds": [250, 2500],
+        "scaleStep": 25,
+        "minimumSpan": 500,
+        "colorInterval": 50,
+        "contourInterval": 100,
+        "contourCandidates": [50, 100, 200, 250, 500, 1000],
+        "lowConfidenceMinimum": 100,
+        "palette": "co2"
+      }
+    },
+    "vpd": {
+      "label": "VPD",
+      "labelLt": "VPD",
+      "unit": "kPa",
+      "decimals": 2,
+      "derivedFrom": ["airTemp", "humidity"],
+      "sensorKey": "sht45",
+      "intervalSec": 600,
+      "physicalRange": [0, 20],
+      "profile": {
+        "enabled": true,
+        "section": "climate",
+        "optimal": [0.8, 1.2],
+        "warning": [0.6, 1.5],
+        "critical": [0.4, 1.8],
+        "growth": true,
+        "warningPadding": [0.2, 0.2],
+        "criticalPadding": [0.6, 0.6]
+      },
+      "heatmap": {
+        "key": "vpd",
+        "field": "vpdKpa",
+        "bounds": [0, 3],
+        "scaleStep": 0.05,
+        "minimumSpan": 0.8,
+        "colorInterval": 0.05,
+        "contourInterval": 0.1,
+        "contourCandidates": [0.05, 0.1, 0.2, 0.25, 0.5, 1],
+        "lowConfidenceMinimum": 0.1,
+        "palette": "vpd"
+      }
+    },
+    "lux": {
+      "label": "Illuminance",
+      "labelLt": "Apšviestumas",
+      "unit": "lx",
+      "decimals": 0,
+      "telemetryKey": "lux",
+      "column": "lux",
+      "sensorKey": "bh1750",
+      "intervalSec": 600,
+      "physicalRange": [0, 2000000],
+      "profile": {
+        "enabled": true,
+        "section": "lighting",
+        "optimal": [10000, 35000],
+        "warning": [5000, 45000],
+        "critical": [0, 60000],
+        "growth": false,
+        "warningPadding": [5000, 10000],
+        "criticalPadding": [10000, 25000],
+        "lightingSchedule": {
+          "enabled": false,
+          "start": "06:00",
+          "end": "22:00",
+          "timeZone": "Europe/Vilnius",
+          "darkThresholdLux": 100
+        }
+      },
+      "heatmap": {
+        "key": "illuminance",
+        "field": "illuminanceLux",
+        "bounds": [0, 200000],
+        "scaleStep": 500,
+        "minimumSpan": 10000,
+        "colorInterval": 500,
+        "contourInterval": 1000,
+        "contourCandidates": [500, 1000, 2500, 5000, 10000, 25000],
+        "lowConfidenceMinimum": 1000,
+        "palette": "viridis"
+      }
+    },
+    "soilTemp": {
+      "label": "Substrate temperature",
+      "labelLt": "Substrato temperatūra",
+      "unit": "°C",
+      "decimals": 1,
+      "telemetryKey": "soil_temperature",
+      "column": "soil_temperature",
+      "sourceColumns": ["soil_temperature", "water_temperature"],
+      "sensorKey": "ds18b20",
+      "intervalSec": 600,
+      "physicalRange": [-80, 80],
+      "profile": {
+        "enabled": true,
+        "section": "root-zone",
+        "optimal": [20, 24],
+        "warning": [18, 26],
+        "critical": [15, 30],
+        "growth": true,
+        "warningPadding": [2, 2],
+        "criticalPadding": [5, 6]
+      },
+      "heatmap": {
+        "key": "root-temperature",
+        "field": "rootTemperatureC",
+        "bounds": [5, 40],
+        "scaleStep": 0.5,
+        "minimumSpan": 4,
+        "colorInterval": 1,
+        "contourInterval": 1,
+        "contourCandidates": [0.5, 1, 2, 5, 10],
+        "lowConfidenceMinimum": 1,
+        "palette": "temperature"
+      }
+    },
+    "soilMoisture": {
+      "label": "Substrate moisture",
+      "labelLt": "Substrato drėgmė",
+      "unit": "%",
+      "decimals": 0,
+      "telemetryKey": "soil_moisture",
+      "column": "soil_moisture",
+      "sensorKey": "soil_moisture_probe",
+      "intervalSec": 600,
+      "physicalRange": [0, 100],
+      "profile": {
+        "enabled": true,
+        "section": "root-zone",
+        "optimal": [45, 65],
+        "warning": [37, 73],
+        "critical": [27, 83],
+        "growth": true,
+        "warningPadding": [8, 8],
+        "criticalPadding": [18, 18]
+      },
+      "heatmap": {
+        "key": "soil-moisture",
+        "field": "soilMoisturePercent",
+        "decimals": 1,
+        "bounds": [0, 100],
+        "scaleStep": 1,
+        "minimumSpan": 15,
+        "colorInterval": 1,
+        "contourInterval": 5,
+        "contourCandidates": [1, 2, 5, 10, 20],
+        "lowConfidenceMinimum": 5,
+        "palette": "humidity"
+      }
+    },
+    "ec": {
+      "label": "Nutrient EC",
+      "labelLt": "Maistinio tirpalo EC",
+      "unit": "mS/cm",
+      "decimals": 2,
+      "telemetryKey": "ec",
+      "column": "ec",
+      "sensorKey": "ec_probe",
+      "intervalSec": 900,
+      "physicalRange": [0, 100],
+      "profile": {
+        "enabled": true,
+        "section": "root-zone",
+        "optimal": [1.8, 2.8],
+        "warning": [1.4, 3.2],
+        "critical": [0.8, 3.8],
+        "growth": true,
+        "warningPadding": [0.4, 0.4],
+        "criticalPadding": [1, 1]
+      },
+      "heatmap": {
+        "key": "ec",
+        "field": "ecMsCm",
+        "bounds": [0, 10],
+        "scaleStep": 0.05,
+        "minimumSpan": 1,
+        "colorInterval": 0.05,
+        "contourInterval": 0.1,
+        "contourCandidates": [0.05, 0.1, 0.2, 0.5, 1, 2],
+        "lowConfidenceMinimum": 0.1,
+        "palette": "ec"
+      }
+    },
+    "ph": {
+      "label": "Nutrient pH",
+      "labelLt": "Maistinio tirpalo pH",
+      "unit": "pH",
+      "decimals": 2,
+      "telemetryKey": "ph",
+      "column": "ph",
+      "sensorKey": "ph_probe",
+      "intervalSec": 900,
+      "physicalRange": [0, 14],
+      "profile": {
+        "enabled": true,
+        "section": "root-zone",
+        "optimal": [5.8, 6.4],
+        "warning": [5.5, 6.8],
+        "critical": [5, 7.2],
+        "growth": true,
+        "warningPadding": [0.3, 0.4],
+        "criticalPadding": [0.8, 0.8]
+      },
+      "heatmap": {
+        "key": "ph",
+        "field": "ph",
+        "bounds": [0, 14],
+        "scaleStep": 0.05,
+        "minimumSpan": 1,
+        "colorInterval": 0.05,
+        "contourInterval": 0.1,
+        "contourCandidates": [0.05, 0.1, 0.2, 0.5, 1, 2],
+        "lowConfidenceMinimum": 0.1,
+        "palette": "ph"
+      }
+    },
+    "soilEc": {
+      "label": "Substrate EC",
+      "labelLt": "Substrato EC",
+      "unit": "mS/cm",
+      "decimals": 2,
+      "telemetryKey": "soil_ec",
+      "column": "soil_ec",
+      "sensorKey": "soil_ec_probe",
+      "intervalSec": 900,
+      "physicalRange": [0, 100],
+      "depth": {
+        "mode": "multi",
+        "minimumCm": 0.1,
+        "maximumCm": 500,
+        "metadataKey": "soil_ec_depths"
+      },
+      "profile": {
+        "enabled": true,
+        "section": "root-zone",
+        "optimal": [1.5, 2.5],
+        "warning": [1.2, 2.9],
+        "critical": [0.7, 3.5],
+        "growth": true,
+        "warningPadding": [0.3, 0.4],
+        "criticalPadding": [0.8, 1]
+      },
+      "heatmap": {
+        "key": "soil-ec",
+        "field": "soilEcMsCm",
+        "bounds": [0, 10],
+        "scaleStep": 0.05,
+        "minimumSpan": 1,
+        "colorInterval": 0.05,
+        "contourInterval": 0.1,
+        "contourCandidates": [0.05, 0.1, 0.2, 0.5, 1, 2],
+        "lowConfidenceMinimum": 0.1,
+        "palette": "ec"
+      }
+    },
+    "leafTemp": {
+      "label": "Leaf temperature",
+      "labelLt": "Lapų temperatūra",
+      "unit": "°C",
+      "decimals": 1,
+      "telemetryKey": "leaf_temperature",
+      "column": "leaf_temperature",
+      "sensorKey": "leaf_temperature_probe",
+      "intervalSec": 600,
+      "physicalRange": [-80, 80],
+      "profile": {
+        "enabled": true,
+        "section": "climate",
+        "optimal": [20, 25],
+        "warning": [18, 27],
+        "critical": [15, 30],
+        "growth": true,
+        "warningPadding": [2, 2],
+        "criticalPadding": [5, 5]
+      },
+      "heatmap": {
+        "key": "leaf-temperature",
+        "field": "leafTemperatureC",
+        "bounds": [5, 45],
+        "scaleStep": 0.5,
+        "minimumSpan": 4,
+        "colorInterval": 1,
+        "contourInterval": 1,
+        "contourCandidates": [0.5, 1, 2, 5, 10],
+        "lowConfidenceMinimum": 1,
+        "palette": "temperature"
+      }
+    },
+    "waterTemp": {
+      "label": "Water temperature",
+      "labelLt": "Vandens temperatūra",
+      "unit": "°C",
+      "decimals": 1,
+      "telemetryKey": "water_temperature",
+      "column": "water_temperature",
+      "sensorKey": "water_temperature_probe",
+      "intervalSec": 600,
+      "physicalRange": [-80, 100],
+      "profile": {
+        "enabled": true,
+        "section": "root-zone",
+        "optimal": [18, 22],
+        "warning": [16, 24],
+        "critical": [13, 28],
+        "growth": true,
+        "warningPadding": [2, 2],
+        "criticalPadding": [5, 6]
+      },
+      "heatmap": {
+        "key": "water-temperature",
+        "field": "waterTemperatureC",
+        "bounds": [0, 45],
+        "scaleStep": 0.5,
+        "minimumSpan": 4,
+        "colorInterval": 1,
+        "contourInterval": 1,
+        "contourCandidates": [0.5, 1, 2, 5, 10],
+        "lowConfidenceMinimum": 1,
+        "palette": "temperature"
+      }
+    },
+    "batteryLevel": {
+      "label": "Battery level",
+      "labelLt": "Baterijos lygis",
+      "unit": "%",
+      "decimals": 0,
+      "telemetryKey": "battery_percent",
+      "column": "battery_percent",
+      "intervalSec": 21600,
+      "physicalRange": [0, 100],
+      "profile": {
+        "enabled": false,
+        "section": "system",
+        "optimal": [55, 100],
+        "warning": [35, 100],
+        "critical": [0, 100],
+        "growth": false,
+        "warningPadding": [20, 0],
+        "criticalPadding": [55, 0]
+      }
+    }
+  },
+  "palettes": {
+    "temperature": {
+      "colors": ["#1B4FFF", "#3F8BFF", "#53D8FB", "#62E78A", "#B6F05A", "#FFE75C", "#FFB34A", "#FF6A3A", "#D92525"],
+      "stops": [
+        {"value": 16, "color": "#1B4FFF"},
+        {"value": 18, "color": "#3F8BFF"},
+        {"value": 20, "color": "#53D8FB"},
+        {"value": 22, "color": "#62E78A"},
+        {"value": 24, "color": "#B6F05A"},
+        {"value": 26, "color": "#FFE75C"},
+        {"value": 28, "color": "#FFB34A"},
+        {"value": 30, "color": "#FF6A3A"},
+        {"value": 32, "color": "#D92525"}
+      ]
+    },
+    "humidity": {
+      "colors": ["#B86B2B", "#D4934C", "#E5BE77", "#E7DFA9", "#A8D5A2", "#63C2AE", "#3599C5", "#255AA5"],
+      "stops": [
+        {"value": 20, "color": "#B86B2B"},
+        {"value": 30, "color": "#D4934C"},
+        {"value": 40, "color": "#E5BE77"},
+        {"value": 50, "color": "#E7DFA9"},
+        {"value": 60, "color": "#A8D5A2"},
+        {"value": 70, "color": "#63C2AE"},
+        {"value": 80, "color": "#3599C5"},
+        {"value": 90, "color": "#255AA5"}
+      ]
+    },
+    "co2": {
+      "colors": ["#2E8B57", "#8FD744", "#F4DE3B", "#F39A32", "#D83B32", "#6A2C91"],
+      "stops": [
+        {"value": 400, "color": "#2E8B57"},
+        {"value": 700, "color": "#8FD744"},
+        {"value": 900, "color": "#F4DE3B"},
+        {"value": 1200, "color": "#F39A32"},
+        {"value": 1600, "color": "#D83B32"},
+        {"value": 2000, "color": "#6A2C91"}
+      ]
+    },
+    "vpd": {
+      "colors": ["#2166AC", "#67A9CF", "#F1F7F2", "#DCEFD9", "#F1F7F2", "#EF8A62", "#B2182B"],
+      "stops": [
+        {"value": 0, "color": "#2166AC"},
+        {"value": 0.4, "color": "#67A9CF"},
+        {"value": 0.8, "color": "#F1F7F2"},
+        {"value": 1, "color": "#DCEFD9"},
+        {"value": 1.2, "color": "#F1F7F2"},
+        {"value": 1.8, "color": "#EF8A62"},
+        {"value": 3, "color": "#B2182B"}
+      ]
+    },
+    "viridis": {
+      "colors": ["#440154", "#482878", "#3E4989", "#31688E", "#26828E", "#1F9E89", "#6CCE59", "#B6DE2B", "#FDE725"]
+    },
+    "ec": {
+      "colors": ["#f7fcfd", "#e0ecf4", "#bfd3e6", "#9ebcda", "#8c96c6", "#8c6bb1", "#88419d", "#810f7c", "#4d004b"]
+    },
+    "ph": {
+      "colors": ["#ffffd9", "#edf8b1", "#c7e9b4", "#7fcdbb", "#41b6c4", "#1d91c0", "#225ea8", "#253494", "#081d58"]
+    }
+  }
+}

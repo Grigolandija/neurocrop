@@ -1,23 +1,4 @@
-const METRIC_LABELS = {
-  airTemp: 'Air temperature',
-  humidity: 'Relative humidity',
-  co2: 'CO2',
-  lux: 'Light',
-  soilTemp: 'Soil temperature',
-  vpd: 'VPD',
-  soilMoisture: 'Soil moisture',
-  ec: 'EC',
-  ph: 'pH',
-  leafTemp: 'Leaf temperature',
-  soilEc: 'Soil EC',
-  waterTemp: 'Water temperature'
-};
-
-const METRIC_UNITS = {
-  airTemp: 'degC', humidity: '%', co2: 'ppm', lux: 'lx', soilTemp: 'degC',
-  vpd: 'kPa', soilMoisture: '%', ec: 'mS/cm', ph: 'pH', leafTemp: 'degC',
-  soilEc: 'mS/cm', waterTemp: 'degC'
-};
+import { METRIC_LABELS, METRIC_UNITS } from './metrics.js';
 
 function rule(id, decisionGroup, primaryMetric, requiredMetrics, copy, match, priority = 50) {
   return Object.freeze({

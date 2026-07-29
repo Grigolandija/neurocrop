@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { getMetricDefinition as getRegistryMetricDefinition } from '../../domain/metricRegistry'
 import { openTrend } from '../../state/dashboardStore'
 import { renderTrendChart } from '../trends/sharedTrendChart'
 import '../../styles/climate-map.css'
@@ -50,25 +51,37 @@ type PinnedHistoryState = {
   points: HistoryPoint[]
 }
 
-const metrics: Metric[] = [
-  { key: 'airTemp', label: 'Air temperature', short: 'Temperature', unit: '°C', decimals: 1, group: 'climate', icon: 'fa-temperature-half' },
-  { key: 'humidity', label: 'Relative humidity', short: 'Humidity', unit: '%', decimals: 0, group: 'climate', icon: 'fa-droplet' },
-  { key: 'vpd', label: 'Vapour pressure deficit', short: 'VPD', unit: 'kPa', decimals: 2, group: 'climate', icon: 'fa-wave-square' },
-  { key: 'co2', label: 'Carbon dioxide', short: 'CO₂', unit: 'ppm', decimals: 0, group: 'climate', icon: 'fa-wind' },
-  { key: 'leafTemp', label: 'Leaf temperature', short: 'Leaf temp.', unit: '°C', decimals: 1, group: 'climate', icon: 'fa-leaf' },
-  { key: 'soilMoisture', label: 'Soil moisture', short: 'Moisture', unit: '%', decimals: 0, group: 'root', icon: 'fa-water' },
-  { key: 'soilTemp', label: 'Soil temperature', short: 'Soil temp.', unit: '°C', decimals: 1, group: 'root', icon: 'fa-seedling' },
-  { key: 'ec', label: 'Electrical conductivity', short: 'EC', unit: 'mS/cm', decimals: 2, group: 'root', icon: 'fa-bolt' },
-  { key: 'ph', label: 'pH', short: 'pH', unit: 'pH', decimals: 1, group: 'root', icon: 'fa-flask' },
-  { key: 'waterTemp', label: 'Water temperature', short: 'Water temp.', unit: '°C', decimals: 1, group: 'root', icon: 'fa-temperature-low' },
-  { key: 'lux', label: 'Light', short: 'Light', unit: 'lx', decimals: 0, group: 'lighting', icon: 'fa-sun' },
-  { key: 'batteryLevel', label: 'Battery level', short: 'Battery', unit: '%', decimals: 0, group: 'system', icon: 'fa-battery-half' },
-]
+const metrics: Metric[] = ([
+  ['airTemp', 'Temperature', 'fa-temperature-half'],
+  ['humidity', 'Humidity', 'fa-droplet'],
+  ['vpd', 'VPD', 'fa-wave-square'],
+  ['co2', 'CO₂', 'fa-wind'],
+  ['leafTemp', 'Leaf temp.', 'fa-leaf'],
+  ['soilMoisture', 'Moisture', 'fa-water'],
+  ['soilTemp', 'Substrate temp.', 'fa-seedling'],
+  ['ec', 'Nutrient EC', 'fa-bolt'],
+  ['soilEc', 'Substrate EC', 'fa-bolt'],
+  ['ph', 'pH', 'fa-flask'],
+  ['waterTemp', 'Water temp.', 'fa-temperature-low'],
+  ['lux', 'Light', 'fa-sun'],
+  ['batteryLevel', 'Battery', 'fa-battery-half'],
+] as const).map(([key, short, icon]) => {
+  const definition = getRegistryMetricDefinition(key)
+  if (!definition) throw new Error(`Unknown readings metric: ${key}`)
+  const group: Metric['group'] = definition.profile.section === 'root-zone'
+    ? 'root'
+    : definition.profile.section === 'lighting'
+      ? 'lighting'
+      : definition.profile.section === 'system'
+        ? 'system'
+        : 'climate'
+  return { key, short, icon, group, label: definition.label, unit: definition.unit, decimals: definition.decimals }
+})
 
 const presets = [
   { key: 'essential', label: 'Essential', icon: 'fa-layer-group', keys: ['airTemp', 'humidity', 'vpd', 'co2', 'soilMoisture'] },
   { key: 'climate', label: 'Climate', icon: 'fa-cloud-sun', keys: ['airTemp', 'humidity', 'vpd', 'co2', 'leafTemp'] },
-  { key: 'root', label: 'Root zone', icon: 'fa-seedling', keys: ['soilMoisture', 'soilTemp', 'ec', 'ph', 'waterTemp'] },
+  { key: 'root', label: 'Root zone', icon: 'fa-seedling', keys: ['soilMoisture', 'soilTemp', 'ec', 'soilEc', 'ph', 'waterTemp'] },
   { key: 'lighting', label: 'Lighting', icon: 'fa-sun', keys: ['lux'] },
   { key: 'system', label: 'System', icon: 'fa-microchip', keys: ['batteryLevel'] },
 ] as const
@@ -101,7 +114,7 @@ const qualityLabels: Record<ReadingQuality, string> = {
 
 const historySupportedMetricKeys = new Set([
   'airTemp', 'humidity', 'vpd', 'co2', 'leafTemp',
-  'soilMoisture', 'soilTemp', 'ec', 'ph', 'waterTemp', 'lux', 'batteryLevel',
+  'soilMoisture', 'soilTemp', 'ec', 'soilEc', 'ph', 'waterTemp', 'lux', 'batteryLevel',
 ])
 
 const trendRanges: Record<TrendRangeKey, { hours: number; stepMinutes: number }> = {

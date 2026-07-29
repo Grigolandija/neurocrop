@@ -1,20 +1,14 @@
 import { query } from './db.js';
+import { METRIC_DEFINITIONS } from './metric-registry.js';
 
-const ROLLUP_METRICS = Object.freeze({
-  airTemp: ['temperature_sum', 'temperature_count'],
-  humidity: ['humidity_sum', 'humidity_count'],
-  co2: ['co2_sum', 'co2_count'],
-  lux: ['lux_sum', 'lux_count'],
-  soilTemp: ['soil_temperature_sum', 'soil_temperature_count'],
-  soilMoisture: ['soil_moisture_sum', 'soil_moisture_count'],
-  ec: ['ec_sum', 'ec_count'],
-  ph: ['ph_sum', 'ph_count'],
-  soilEc: ['soil_ec_sum', 'soil_ec_count'],
-  leafTemp: ['leaf_temperature_sum', 'leaf_temperature_count'],
-  waterTemp: ['water_temperature_sum', 'water_temperature_count'],
-  batteryLevel: ['battery_percent_sum', 'battery_percent_count'],
-  vpd: ['vpd_sum', 'vpd_count']
-});
+export const ROLLUP_METRICS = Object.freeze(Object.fromEntries(
+  Object.entries(METRIC_DEFINITIONS)
+    .filter(([metricId, definition]) => definition.column || metricId === 'vpd')
+    .map(([metricId, definition]) => {
+      const column = definition.column || metricId;
+      return [metricId, [`${column}_sum`, `${column}_count`]];
+    })
+));
 
 export function measurementRollupResolution(stepMinutes) {
   if (stepMinutes === 10) return 10;

@@ -1,40 +1,19 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState } from 'react'
+import { getMetricDefinition, metricDefinitions } from '../../domain/metricRegistry'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import '../../styles/simulator-workspace.css'
 
 type JsonRecord = Record<string, unknown>
 type ScenarioParameter = { metricId: string; value: number }
 
-const METRIC_LABELS: Record<string, string> = {
-  airTemp: 'Air temperature',
-  humidity: 'Relative humidity',
-  vpd: 'VPD',
-  co2: 'CO2',
-  lux: 'Light',
-  leafTemp: 'Leaf temperature',
-  soilMoisture: 'Soil moisture',
-  soilTemp: 'Soil temperature',
-  ec: 'EC',
-  ph: 'pH',
-  soilEc: 'Soil EC',
-  waterTemp: 'Water temperature',
-}
+const METRIC_LABELS = Object.fromEntries(
+  Object.entries(metricDefinitions).map(([metricId, definition]) => [metricId, definition.label]),
+)
 
-const METRIC_UNITS: Record<string, string> = {
-  airTemp: '°C',
-  humidity: '%',
-  vpd: 'kPa',
-  co2: 'ppm',
-  lux: 'lx',
-  leafTemp: '°C',
-  soilMoisture: '%',
-  soilTemp: '°C',
-  ec: 'mS/cm',
-  ph: 'pH',
-  soilEc: 'mS/cm',
-  waterTemp: '°C',
-}
+const METRIC_UNITS = Object.fromEntries(
+  Object.entries(metricDefinitions).map(([metricId, definition]) => [metricId, definition.unit]),
+)
 
 const PREFERRED_METRICS = ['airTemp', 'humidity', 'co2', 'soilMoisture', 'leafTemp']
 
@@ -59,7 +38,10 @@ function metricRange(profile: JsonRecord, metricId: string): [number, number] | 
 function availableMetricIds(profile: JsonRecord) {
   const metrics = profile.metrics as JsonRecord | undefined
   return Object.keys(metrics || {})
-    .filter((metricId) => METRIC_LABELS[metricId] && metricRange(profile, metricId))
+    .filter((metricId) => {
+      const definition = getMetricDefinition(metricId)
+      return definition?.profile.enabled && !definition.derivedFrom && metricRange(profile, metricId)
+    })
     .sort((left, right) => {
       const leftRank = PREFERRED_METRICS.indexOf(left)
       const rightRank = PREFERRED_METRICS.indexOf(right)

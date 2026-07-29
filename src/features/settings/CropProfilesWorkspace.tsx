@@ -1,6 +1,7 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useState, type FormEvent } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { getMetricDefinition, profileMetricIds } from '../../domain/metricRegistry'
 import { withStarterMetrics } from './cropProfileDefaults'
 import '../../styles/redesign-profiles.css'
 
@@ -22,26 +23,11 @@ type DuplicateState = { source: Profile; id: string; name: string }
 type DeleteState = { profile: Profile; replacementId: string }
 
 const sections = [
-  { id: 'climate', label: 'Climate', kicker: 'Climate targets', title: 'Operating envelope', note: 'The target range is ideal. Warning and critical limits control status severity outside that range.', metrics: ['airTemp', 'humidity', 'co2', 'vpd', 'leafTemp'] },
-  { id: 'root-zone', label: 'Root zone', kicker: 'Root-zone targets', title: 'Root-zone envelope', note: 'Set the preferred substrate and nutrient-solution ranges used by scoring and alerts.', metrics: ['soilTemp', 'soilMoisture', 'ec', 'soilEc', 'ph', 'waterTemp'] },
-  { id: 'lighting', label: 'Lighting', kicker: 'Lighting targets', title: 'Lighting program', note: 'Define the target light range and schedule used to distinguish daylight from a genuine low-light condition.', metrics: ['lux'] },
+  { id: 'climate', label: 'Climate', kicker: 'Climate targets', title: 'Operating envelope', note: 'The target range is ideal. Warning and critical limits control status severity outside that range.', metrics: profileMetricIds('climate') },
+  { id: 'root-zone', label: 'Root zone', kicker: 'Root-zone targets', title: 'Root-zone envelope', note: 'Set the preferred substrate and nutrient-solution ranges used by scoring and alerts.', metrics: profileMetricIds('root-zone') },
+  { id: 'lighting', label: 'Lighting', kicker: 'Lighting targets', title: 'Lighting program', note: 'Define the target light range and schedule used to distinguish daylight from a genuine low-light condition.', metrics: profileMetricIds('lighting') },
   { id: 'alert-boundaries', label: 'Alert boundaries', kicker: 'Automatic severity', title: 'Alert boundaries', note: 'Warning and critical limits are calculated from each optimal target and saved with the profile.', metrics: [] },
-] as const
-
-const metricFallbacks: Record<string, { label: string; unit: string; decimals: number; limits: [number, number] }> = {
-  airTemp: { label: 'Air temperature', unit: '°C', decimals: 1, limits: [-80, 80] },
-  humidity: { label: 'Relative humidity', unit: '%', decimals: 0, limits: [0, 100] },
-  co2: { label: 'CO₂', unit: 'ppm', decimals: 0, limits: [0, 100000] },
-  lux: { label: 'Light', unit: 'lx', decimals: 0, limits: [0, 2000000] },
-  soilTemp: { label: 'Substrate temperature', unit: '°C', decimals: 1, limits: [-80, 80] },
-  soilMoisture: { label: 'Substrate moisture', unit: '%', decimals: 0, limits: [0, 100] },
-  ec: { label: 'Nutrient EC', unit: 'mS/cm', decimals: 2, limits: [0, 100] },
-  soilEc: { label: 'Substrate EC', unit: 'mS/cm', decimals: 2, limits: [0, 100] },
-  ph: { label: 'Nutrient pH', unit: 'pH', decimals: 2, limits: [0, 14] },
-  leafTemp: { label: 'Leaf temperature', unit: '°C', decimals: 1, limits: [-80, 80] },
-  waterTemp: { label: 'Water temperature', unit: '°C', decimals: 1, limits: [-80, 100] },
-  vpd: { label: 'VPD', unit: 'kPa', decimals: 2, limits: [0, 20] },
-}
+]
 
 function records(payload: unknown, keys: string[]) {
   if (Array.isArray(payload)) return payload as JsonRecord[]
@@ -83,12 +69,12 @@ function sectionProfileId(section: JsonRecord) {
 }
 
 function metricMeta(key: string, metric: JsonRecord) {
-  const fallback = metricFallbacks[key] || { label: key, unit: '', decimals: 2, limits: [-1000000, 1000000] as [number, number] }
+  const definition = getMetricDefinition(key)
   return {
-    label: text(metric.label, fallback.label),
-    unit: text(metric.unit, fallback.unit),
-    decimals: Number.isFinite(Number(metric.decimals)) ? Number(metric.decimals) : fallback.decimals,
-    limits: fallback.limits,
+    label: text(metric.label, definition?.label || key),
+    unit: text(metric.unit, definition?.unit || ''),
+    decimals: Number.isFinite(Number(metric.decimals)) ? Number(metric.decimals) : definition?.decimals ?? 2,
+    limits: definition?.physicalRange || [-1000000, 1000000] as [number, number],
   }
 }
 

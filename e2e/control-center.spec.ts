@@ -181,6 +181,33 @@ test('crop profile editor always exposes editable target ranges', async ({ page 
   await expect(page.getByLabel('Optimal maximum').first()).toBeEditable()
 })
 
+test('crop profile editor exposes every canonical metric group', async ({ page }) => {
+  await authenticate(page)
+  await navigation(page, 'crop-profiles').click()
+  await page.locator('.crop-profile-switcher-option').first().click()
+
+  await expect(page.locator('.crop-profile-metric-name')).toContainText([
+    'Air temperature',
+    'Relative humidity',
+    'CO₂',
+    'VPD',
+    'Leaf temperature',
+  ])
+
+  await page.locator('.profile-editor-navigation').getByRole('button', { name: /Root zone/ }).click()
+  await expect(page.locator('.crop-profile-metric-name')).toContainText([
+    'Substrate temperature',
+    'Substrate moisture',
+    'Nutrient EC',
+    'Nutrient pH',
+    'Substrate EC',
+    'Water temperature',
+  ])
+
+  await page.locator('.profile-editor-navigation').getByRole('button', { name: /Lighting/ }).click()
+  await expect(page.locator('.crop-profile-metric-name')).toContainText(['Illuminance'])
+})
+
 test('new customer can register and receives confirmation', async ({ page }) => {
   await prepare(page)
   await page.goto('/register')

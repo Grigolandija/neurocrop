@@ -1,11 +1,11 @@
 import { buildScoreFromMetricValues, buildScoreRules, evaluateMetricValue } from './score.js';
 import { buildTodayActions } from './today-actions.js';
 import { calcVPD } from './calculations.js';
+import { METRIC_DEFINITIONS } from './metric-registry.js';
 
-export const SIMULATOR_METRICS = Object.freeze([
-  'airTemp', 'humidity', 'co2', 'lux', 'leafTemp',
-  'soilMoisture', 'soilTemp', 'ec', 'ph', 'soilEc', 'waterTemp'
-]);
+export const SIMULATOR_METRICS = Object.freeze(Object.entries(METRIC_DEFINITIONS)
+  .filter(([, definition]) => definition.profile?.enabled && !definition.derivedFrom)
+  .map(([metricId]) => metricId));
 
 function temporalDiagnosis(diagnosis, durationMinutes) {
   if (!diagnosis) return null;

@@ -1,54 +1,10 @@
 import { calcVPD } from './calculations.js';
 import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
-
-const DEFAULT_SCORE_RULES = {
-  airTemp: { column: 'temperature', optimal: [22, 26], warning: [20, 28], critical: [18, 30], growth: true },
-  humidity: { column: 'humidity', optimal: [60, 70], warning: [55, 75], critical: [45, 85], growth: true },
-  co2: { column: 'co2', optimal: [900, 1100], warning: [750, 1250], critical: [550, 1500], growth: true },
-  // Light is stored and trended, but it cannot penalize an instantaneous score
-  // without a photoperiod schedule: 0 lx at night is expected, not a crop failure.
-  lux: { column: 'lux', optimal: [10000, 35000], warning: [5000, 45000], critical: [0, 60000], growth: false },
-  soilTemp: { column: 'soil_temperature', optimal: [20, 24], warning: [18, 26], critical: [15, 30], growth: true },
-  soilMoisture: { column: 'soil_moisture', optimal: [45, 65], warning: [37, 73], critical: [27, 83], growth: true },
-  ec: { column: 'ec', optimal: [1.8, 2.8], warning: [1.4, 3.2], critical: [0.8, 3.8], growth: true },
-  ph: { column: 'ph', optimal: [5.8, 6.4], warning: [5.5, 6.8], critical: [5, 7.2], growth: true },
-  soilEc: { column: 'soil_ec', optimal: [1.5, 2.5], warning: [1.2, 2.9], critical: [0.7, 3.5], growth: true },
-  leafTemp: { column: 'leaf_temperature', optimal: [20, 25], warning: [18, 27], critical: [15, 30], growth: true },
-  waterTemp: { column: 'water_temperature', optimal: [18, 22], warning: [16, 24], critical: [13, 28], growth: true },
-  vpd: { column: 'vpd', optimal: [0.8, 1.2], warning: [0.6, 1.5], critical: [0.4, 1.8], growth: true },
-  batteryLevel: { column: 'battery_percent', optimal: [55, 100], warning: [35, 100], critical: [0, 100], growth: false }
-};
-
-const AUTOMATIC_BAND_PADDING = {
-  airTemp: { warning: [2, 2], critical: [4, 4] },
-  humidity: { warning: [5, 5], critical: [15, 15], floor: 0, ceiling: 100 },
-  co2: { warning: [150, 150], critical: [400, 400], floor: 0 },
-  lux: { warning: [5000, 10000], critical: [10000, 25000], floor: 0 },
-  soilTemp: { warning: [2, 2], critical: [5, 6] },
-  soilMoisture: { warning: [8, 8], critical: [18, 18], floor: 0, ceiling: 100 },
-  ec: { warning: [0.4, 0.4], critical: [1, 1], floor: 0 },
-  ph: { warning: [0.3, 0.4], critical: [0.8, 0.8], floor: 0, ceiling: 14 },
-  soilEc: { warning: [0.3, 0.4], critical: [0.8, 1], floor: 0 },
-  leafTemp: { warning: [2, 2], critical: [5, 5] },
-  waterTemp: { warning: [2, 2], critical: [5, 6] },
-  vpd: { warning: [0.2, 0.2], critical: [0.6, 0.6], floor: 0 },
-  batteryLevel: { warning: [20, 0], critical: [55, 0], floor: 0, ceiling: 100 }
-};
-
-const SENSOR_PRESENCE_BY_METRIC = {
-  airTemp: 'sht45',
-  humidity: 'sht45',
-  vpd: 'sht45',
-  co2: 'scd41',
-  lux: 'bh1750',
-  soilTemp: 'ds18b20',
-  soilMoisture: 'soil_moisture_probe',
-  ec: 'ec_probe',
-  ph: 'ph_probe',
-  soilEc: 'soil_ec_probe',
-  leafTemp: 'leaf_temperature_probe',
-  waterTemp: 'water_temperature_probe'
-};
+import {
+  AUTOMATIC_BAND_PADDING,
+  DEFAULT_SCORE_RULES,
+  METRIC_SENSOR_KEYS as SENSOR_PRESENCE_BY_METRIC
+} from './metric-registry.js';
 
 function measurementHasMetricSensor(measurement, metricId) {
   const sensorId = SENSOR_PRESENCE_BY_METRIC[metricId];

@@ -1,17 +1,9 @@
+import { METRIC_DEFINITIONS, TELEMETRY_METRIC_RANGES } from './metric-registry.js';
+
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 const TELEMETRY_RANGES = Object.freeze({
-  temperature: [-80, 80],
-  humidity: [0, 100],
-  co2: [0, 100000],
-  lux: [0, 2000000],
-  soil_temperature: [-80, 80],
-  soil_moisture: [0, 100],
-  ec: [0, 100],
-  ph: [0, 14],
-  soil_ec: [0, 100],
-  leaf_temperature: [-80, 80],
-  water_temperature: [-80, 100],
+  ...TELEMETRY_METRIC_RANGES,
   air_pressure: [300, 1200],
   battery_mv: [0, 20000],
   battery_percent: [0, 100],
@@ -36,6 +28,18 @@ export function normalizeTelemetryValue(metric, value) {
   const range = TELEMETRY_RANGES[metric];
   if (numeric === null || !range) return null;
   return numeric >= range[0] && numeric <= range[1] ? numeric : null;
+}
+
+export function normalizeRegisteredTelemetry(value) {
+  const telemetry = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return Object.fromEntries(
+    Object.values(METRIC_DEFINITIONS)
+      .filter((definition) => definition.telemetryKey)
+      .map((definition) => [
+        definition.telemetryKey,
+        normalizeTelemetryValue(definition.telemetryKey, telemetry[definition.telemetryKey])
+      ])
+  );
 }
 
 export function redactConnectionUrl(value) {
@@ -76,7 +80,8 @@ export function normalizeSoilEcDepths(value) {
   const add = (depthValue, measurementValue) => {
     const depthCm = normalizeTelemetryNumber(String(depthValue).replace(/cm$/i, ''));
     const measurement = normalizeTelemetryValue('soil_ec', measurementValue);
-    if (depthCm === null || depthCm <= 0 || depthCm > 500 || measurement === null) return;
+    const depth = METRIC_DEFINITIONS.soilEc.depth;
+    if (depthCm === null || depthCm < depth.minimumCm || depthCm > depth.maximumCm || measurement === null) return;
     readings.set(depthCm, { depthCm, value: measurement });
   };
   const profile = telemetry.soil_ec_depths
@@ -115,7 +120,7 @@ export function compactTelemetryMetadata(value, normalizedErrorFlags = {}) {
   }
   if (Object.keys(sensors).length) metadata.sensors = sensors;
   const soilEcDepths = normalizeSoilEcDepths(telemetry);
-  if (soilEcDepths.length) metadata.soil_ec_depths = soilEcDepths;
+  if (soilEcDepths.length) metadata[METRIC_DEFINITIONS.soilEc.depth.metadataKey] = soilEcDepths;
   const lastTxFailed = normalizeTelemetryBoolean(normalizedErrorFlags?.last_tx_failed);
   if (lastTxFailed !== null) metadata.error_flags = { last_tx_failed: lastTxFailed };
 

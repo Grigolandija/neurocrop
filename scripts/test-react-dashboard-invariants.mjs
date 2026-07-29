@@ -23,12 +23,17 @@ const sections = await read('src/features/sections/SectionsWorkspace.tsx')
 const nodes = await read('src/features/nodes/NodesWorkspace.tsx')
 const store = await read('src/state/dashboardStore.ts')
 const workspaceAccess = await read('src/state/workspaceAccess.ts')
+const metricRegistry = await read('src/domain/metricRegistry.ts')
+const metricRegistryJson = await read('backend/metric-registry.json')
 const sourceFiles = (await fs.readdir(path.join(root, 'src'), { recursive: true }))
   .filter((file) => /\.(ts|tsx)$/.test(file))
 const source = (await Promise.all(sourceFiles.map((file) => read(path.join('src', file))))).join('\n')
 
 const failures = []
 const assert = (condition, message) => { if (!condition) failures.push(message) }
+
+assert(metricRegistry.includes("import registryJson from '../../backend/metric-registry.json'"), 'Frontend must consume the canonical backend metric registry.')
+assert(metricRegistryJson.includes('"version": 1'), 'Canonical metric registry must declare a supported schema version.')
 
 assert(dashboard.includes('<DashboardShell'), 'DashboardPage must render the React DashboardShell.')
 assert(

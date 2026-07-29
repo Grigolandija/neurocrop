@@ -5,6 +5,7 @@ import { statusFromMeasurementTime } from './score.js';
 import { expectedUplinkIntervalSec } from './node-health.js';
 import { measurementRollupAverageSql } from './measurement-rollups.js';
 import { normalizeSoilEcDepths } from './telemetry-values.js';
+import { METRIC_DEFINITIONS } from './metric-registry.js';
 
 const MAX_OBJECTS = 2000;
 const MAX_LAYERS = 50;
@@ -15,20 +16,9 @@ const perimeterWalls = new Set(['south', 'north', 'west', 'east']);
 const MAP_HISTORY_STEP_MINUTES = 10;
 const MAP_HISTORY_MAX_RANGE_MS = 24 * 60 * 60 * 1000;
 const GREENHOUSE_WALL_THICKNESS_M = 0.01;
-const HEATMAP_METRICS = new Set([
-  'air-temperature',
-  'relative-humidity',
-  'co2',
-  'vpd',
-  'root-temperature',
-  'illuminance',
-  'soil-moisture',
-  'ec',
-  'ph',
-  'soil-ec',
-  'leaf-temperature',
-  'water-temperature'
-]);
+const HEATMAP_DEFINITIONS = Object.entries(METRIC_DEFINITIONS)
+  .filter(([, definition]) => definition.heatmap);
+const HEATMAP_METRICS = new Set(HEATMAP_DEFINITIONS.map(([, definition]) => definition.heatmap.key));
 
 function finite(value) {
   return typeof value === 'number' && Number.isFinite(value);
@@ -104,11 +94,38 @@ function liveNodeStatus(node, measurement) {
   return transportStatus === 'live' ? 'online' : 'warning';
 }
 
+function firstFiniteMeasurement(measurement, columns) {
+  for (const column of columns) {
+    const value = historicalNumber(measurement?.[column]);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+export function publicHeatmapMeasurements(measurement) {
+  const output = {};
+  for (const [metricId, definition] of HEATMAP_DEFINITIONS) {
+    let value = null;
+    if (metricId === 'vpd') {
+      const temperature = measurement?.temperature;
+      const humidity = measurement?.humidity;
+      value = finite(temperature) && finite(humidity) ? calcVPD(temperature, humidity) : null;
+    } else {
+      value = firstFiniteMeasurement(
+        measurement,
+        definition.sourceColumns || (definition.column ? [definition.column] : [])
+      );
+    }
+    output[definition.heatmap.field] = value;
+  }
+  output.soilEcByDepth = normalizeSoilEcDepths(measurement?.raw_object);
+  output.measuredAt = measurement?.time ?? null;
+  return output;
+}
+
 function publicMapNode(row) {
   const measurement = row.measurement || null;
   const lastSeenAt = row.last_received_at || row.last_seen || measurement?.time || null;
-  const temperature = measurement?.temperature ?? null;
-  const humidity = measurement?.humidity ?? null;
   return {
     nodeId: row.name || row.dev_eui,
     devEui: row.dev_eui,
@@ -123,22 +140,7 @@ function publicMapNode(row) {
     rssi: row.last_rssi ?? measurement?.rssi ?? null,
     snr: row.last_snr ?? measurement?.snr ?? null,
     sensors: Object.entries(row.last_sensor_presence || {}).filter(([, present]) => present === true).map(([sensor]) => sensor),
-    measurements: {
-      airTemperatureC: temperature,
-      relativeHumidityPercent: humidity,
-      co2Ppm: measurement?.co2 ?? null,
-      vpdKpa: finite(temperature) && finite(humidity) ? calcVPD(temperature, humidity) : null,
-      rootTemperatureC: measurement?.soil_temperature ?? measurement?.water_temperature ?? null,
-      illuminanceLux: measurement?.lux ?? null,
-      soilMoisturePercent: measurement?.soil_moisture ?? null,
-      ecMsCm: measurement?.ec ?? null,
-      ph: measurement?.ph ?? null,
-      soilEcMsCm: measurement?.soil_ec ?? null,
-      soilEcByDepth: normalizeSoilEcDepths(measurement?.raw_object),
-      leafTemperatureC: measurement?.leaf_temperature ?? null,
-      waterTemperatureC: measurement?.water_temperature ?? null,
-      measuredAt: measurement?.time ?? null
-    }
+    measurements: publicHeatmapMeasurements(measurement)
   };
 }
 
@@ -215,22 +217,14 @@ function historicalNumber(value) {
 async function getAreaMapHistory(devEuis, from, to) {
   const bucketSeconds = MAP_HISTORY_STEP_MINUTES * 60;
   const alignedQueryFrom = new Date(Math.floor(from.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000);
+  const heatmapSelectSql = HEATMAP_DEFINITIONS.map(([metricId, definition]) =>
+    `${measurementRollupAverageSql(metricId)} AS "${definition.heatmap.field}"`
+  ).join(',\n            ');
   const rows = devEuis.length ? (await query(
     `SELECT rollup.bucket_start AS observed_at,
             rollup.dev_eui,
             rollup.measured_at,
-            ${measurementRollupAverageSql('airTemp')} AS air_temperature_c,
-            ${measurementRollupAverageSql('humidity')} AS relative_humidity_percent,
-            ${measurementRollupAverageSql('co2')} AS co2_ppm,
-            ${measurementRollupAverageSql('vpd')} AS vpd_kpa,
-            ${measurementRollupAverageSql('soilTemp')} AS root_temperature_c,
-            ${measurementRollupAverageSql('lux')} AS illuminance_lux,
-            ${measurementRollupAverageSql('soilMoisture')} AS soil_moisture_percent,
-            ${measurementRollupAverageSql('ec')} AS ec_ms_cm,
-            ${measurementRollupAverageSql('ph')} AS ph,
-            ${measurementRollupAverageSql('soilEc')} AS soil_ec_ms_cm,
-            ${measurementRollupAverageSql('leafTemp')} AS leaf_temperature_c,
-            ${measurementRollupAverageSql('waterTemp')} AS water_temperature_c
+            ${heatmapSelectSql}
      FROM measurement_rollups rollup
      WHERE rollup.bucket_minutes=$1
        AND rollup.dev_eui=ANY($2::text[])
@@ -261,20 +255,10 @@ async function getAreaMapHistory(devEuis, from, to) {
     frame.nodes.push({
       devEui: row.dev_eui,
       measuredAt: row.measured_at,
-      measurements: {
-        airTemperatureC: historicalNumber(row.air_temperature_c),
-        relativeHumidityPercent: historicalNumber(row.relative_humidity_percent),
-        co2Ppm: historicalNumber(row.co2_ppm),
-        vpdKpa: historicalNumber(row.vpd_kpa),
-        rootTemperatureC: historicalNumber(row.root_temperature_c),
-        illuminanceLux: historicalNumber(row.illuminance_lux),
-        soilMoisturePercent: historicalNumber(row.soil_moisture_percent),
-        ecMsCm: historicalNumber(row.ec_ms_cm),
-        ph: historicalNumber(row.ph),
-        soilEcMsCm: historicalNumber(row.soil_ec_ms_cm),
-        leafTemperatureC: historicalNumber(row.leaf_temperature_c),
-        waterTemperatureC: historicalNumber(row.water_temperature_c)
-      }
+      measurements: Object.fromEntries(HEATMAP_DEFINITIONS.map(([, definition]) => [
+        definition.heatmap.field,
+        historicalNumber(row[definition.heatmap.field])
+      ]))
     });
   });
   const depthBuckets = new Map();

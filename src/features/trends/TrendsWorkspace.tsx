@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInterfaceLanguage } from '../../i18n'
 import { useLocation } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { getMetricDefinition } from '../../domain/metricRegistry'
 import { consumeTrendIntent, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { resolveTrendContext } from './resolveTrendContext'
 import { renderTrendChart } from './sharedTrendChart'
@@ -19,20 +20,25 @@ type NodeOption = { devEui: string; name: string; sectionId: string; transportSt
 type Metric = { key: string; label: string; short: string; unit: string; decimals: number; icon: string }
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 
-const metrics: Metric[] = [
-  { key: 'airTemp', label: 'Air temperature', short: 'Temperature', unit: '°C', decimals: 1, icon: 'fa-temperature-half' },
-  { key: 'humidity', label: 'Relative humidity', short: 'Humidity', unit: '%', decimals: 1, icon: 'fa-droplet' },
-  { key: 'vpd', label: 'Vapour pressure deficit', short: 'VPD', unit: 'kPa', decimals: 2, icon: 'fa-wave-square' },
-  { key: 'co2', label: 'Carbon dioxide', short: 'CO₂', unit: 'ppm', decimals: 0, icon: 'fa-wind' },
-  { key: 'leafTemp', label: 'Leaf temperature', short: 'Leaf temp.', unit: '°C', decimals: 1, icon: 'fa-leaf' },
-  { key: 'soilMoisture', label: 'Soil moisture', short: 'Moisture', unit: '%', decimals: 1, icon: 'fa-water' },
-  { key: 'soilTemp', label: 'Soil temperature', short: 'Soil temp.', unit: '°C', decimals: 1, icon: 'fa-seedling' },
-  { key: 'ec', label: 'Electrical conductivity', short: 'EC', unit: 'mS/cm', decimals: 2, icon: 'fa-bolt' },
-  { key: 'ph', label: 'pH', short: 'pH', unit: 'pH', decimals: 1, icon: 'fa-flask' },
-  { key: 'waterTemp', label: 'Water temperature', short: 'Water temp.', unit: '°C', decimals: 1, icon: 'fa-temperature-low' },
-  { key: 'lux', label: 'Light', short: 'Light', unit: 'lx', decimals: 0, icon: 'fa-sun' },
-  { key: 'batteryLevel', label: 'Battery level', short: 'Battery', unit: '%', decimals: 0, icon: 'fa-battery-half' },
-]
+const metrics: Metric[] = ([
+  ['airTemp', 'Temperature', 'fa-temperature-half'],
+  ['humidity', 'Humidity', 'fa-droplet'],
+  ['vpd', 'VPD', 'fa-wave-square'],
+  ['co2', 'CO₂', 'fa-wind'],
+  ['leafTemp', 'Leaf temp.', 'fa-leaf'],
+  ['soilMoisture', 'Moisture', 'fa-water'],
+  ['soilTemp', 'Substrate temp.', 'fa-seedling'],
+  ['ec', 'Nutrient EC', 'fa-bolt'],
+  ['soilEc', 'Substrate EC', 'fa-bolt'],
+  ['ph', 'pH', 'fa-flask'],
+  ['waterTemp', 'Water temp.', 'fa-temperature-low'],
+  ['lux', 'Light', 'fa-sun'],
+  ['batteryLevel', 'Battery', 'fa-battery-half'],
+] as const).map(([key, short, icon]) => {
+  const definition = getMetricDefinition(key)
+  if (!definition) throw new Error(`Unknown trend metric: ${key}`)
+  return { key, short, icon, label: definition.label, unit: definition.unit, decimals: definition.decimals }
+})
 
 const rangeConfig: Record<RangeKey, { hours: number; stepMinutes: number; label: string }> = {
   '24h': { hours: 24, stepMinutes: 10, label: 'Last 24 hours' },

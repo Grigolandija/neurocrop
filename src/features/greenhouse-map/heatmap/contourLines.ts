@@ -1,39 +1,33 @@
 import type { MetricKey } from '../model'
 import type { HeatmapGrid } from './heatmapTypes'
+import { metricDefinitions } from '../../../domain/metricRegistry'
 
 export const MIN_CONTOUR_SENSOR_COUNT = 2
 const MAX_CONTOUR_LEVELS = 6
 const DETAILED_CONTOUR_LEVELS = 10
 
-export const METRIC_LEVELS: Record<MetricKey, { colorInterval: number; contourInterval: number }> = {
-  'air-temperature': { colorInterval: 1, contourInterval: 1 },
-  'relative-humidity': { colorInterval: 1, contourInterval: 5 },
-  co2: { colorInterval: 50, contourInterval: 100 },
-  vpd: { colorInterval: 0.05, contourInterval: 0.1 },
-  'root-temperature': { colorInterval: 1, contourInterval: 1 },
-  illuminance: { colorInterval: 500, contourInterval: 1000 },
-  'soil-moisture': { colorInterval: 1, contourInterval: 5 },
-  ec: { colorInterval: 0.05, contourInterval: 0.1 },
-  ph: { colorInterval: 0.05, contourInterval: 0.1 },
-  'soil-ec': { colorInterval: 0.05, contourInterval: 0.1 },
-  'leaf-temperature': { colorInterval: 1, contourInterval: 1 },
-  'water-temperature': { colorInterval: 1, contourInterval: 1 },
-}
+const HEATMAP_REGISTRY = Object.fromEntries(
+  Object.values(metricDefinitions)
+    .filter((definition) => definition.heatmap)
+    .map((definition) => [definition.heatmap!.key, {
+      ...definition.heatmap!,
+      temperature: definition.heatmap!.palette === 'temperature',
+    }]),
+) as Record<MetricKey, NonNullable<(typeof metricDefinitions)[string]['heatmap']> & { temperature: boolean }>
 
-const ADAPTIVE_CONTOUR_INTERVALS: Record<MetricKey, { candidates: number[]; lowConfidenceMinimum: number }> = {
-  'air-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
-  'relative-humidity': { candidates: [2, 5, 10, 20], lowConfidenceMinimum: 5 },
-  co2: { candidates: [50, 100, 200, 250, 500, 1000], lowConfidenceMinimum: 100 },
-  vpd: { candidates: [0.05, 0.1, 0.2, 0.25, 0.5, 1], lowConfidenceMinimum: 0.1 },
-  'root-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
-  illuminance: { candidates: [500, 1000, 2500, 5000, 10000, 25000], lowConfidenceMinimum: 1000 },
-  'soil-moisture': { candidates: [1, 2, 5, 10, 20], lowConfidenceMinimum: 5 },
-  ec: { candidates: [0.05, 0.1, 0.2, 0.5, 1, 2], lowConfidenceMinimum: 0.1 },
-  ph: { candidates: [0.05, 0.1, 0.2, 0.5, 1, 2], lowConfidenceMinimum: 0.1 },
-  'soil-ec': { candidates: [0.05, 0.1, 0.2, 0.5, 1, 2], lowConfidenceMinimum: 0.1 },
-  'leaf-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
-  'water-temperature': { candidates: [0.5, 1, 2, 5, 10], lowConfidenceMinimum: 1 },
-}
+export const METRIC_LEVELS = Object.fromEntries(
+  Object.entries(HEATMAP_REGISTRY).map(([metric, definition]) => [metric, {
+    colorInterval: definition.colorInterval,
+    contourInterval: definition.contourInterval,
+  }]),
+) as Record<MetricKey, { colorInterval: number; contourInterval: number }>
+
+const ADAPTIVE_CONTOUR_INTERVALS = Object.fromEntries(
+  Object.entries(HEATMAP_REGISTRY).map(([metric, definition]) => [metric, {
+    candidates: definition.contourCandidates,
+    lowConfidenceMinimum: definition.lowConfidenceMinimum,
+  }]),
+) as Record<MetricKey, { candidates: number[]; lowConfidenceMinimum: number }>
 
 export const COLOR_INTERVALS = Object.fromEntries(
   Object.entries(METRIC_LEVELS).map(([metric, levels]) => [metric, levels.colorInterval]),
@@ -44,10 +38,7 @@ export const CONTOUR_INTERVALS = Object.fromEntries(
 ) as Record<MetricKey, number>
 
 export function isTemperatureMetric(metric: MetricKey): boolean {
-  return metric === 'air-temperature'
-    || metric === 'root-temperature'
-    || metric === 'leaf-temperature'
-    || metric === 'water-temperature'
+  return HEATMAP_REGISTRY[metric].temperature
 }
 
 export function getAdaptiveContourInterval(metric: MetricKey, values: number[], sensorCount: number): number {

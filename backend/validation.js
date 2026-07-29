@@ -1,20 +1,5 @@
 import { normalizeTelemetryNumber } from './telemetry-values.js';
-
-const PROFILE_METRIC_LIMITS = Object.freeze({
-  airTemp: [-80, 80],
-  humidity: [0, 100],
-  co2: [0, 100000],
-  lux: [0, 2000000],
-  soilTemp: [-80, 80],
-  soilMoisture: [0, 100],
-  ec: [0, 100],
-  ph: [0, 14],
-  soilEc: [0, 100],
-  leafTemp: [-80, 80],
-  waterTemp: [-80, 100],
-  vpd: [0, 20],
-  batteryLevel: [0, 100],
-});
+import { PROFILE_METRIC_LIMITS } from './metric-registry.js';
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);

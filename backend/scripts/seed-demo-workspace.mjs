@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { hashUserPassword } from '../auth-users.js';
 import { pool } from '../db.js';
+import { getMetricDefinition } from '../metric-registry.js';
 
 const password = String(process.env.DEMO_PASSWORD || '');
 if (password.length < 16) throw new Error('DEMO_PASSWORD must contain at least 16 characters');
@@ -10,13 +11,22 @@ const demoUserId = 'user-neurocrop-demo';
 const demoEmail = 'demo@neurocrop.lt';
 const employeeIds = ['user-demo-agronomist', 'user-demo-technician', 'user-demo-viewer'];
 
-const metric = (label, unit, decimals, optimal) => ({ label, unit, decimals, optimal });
+const metric = (metricId, optimal, extra = {}) => {
+  const definition = getMetricDefinition(metricId);
+  if (!definition) throw new Error(`Unknown demo metric ${metricId}`);
+  return {
+    label: definition.label,
+    unit: definition.unit,
+    decimals: definition.decimals,
+    optimal,
+    ...extra
+  };
+};
 const profileMetrics = {
-  airTemp: metric('Air temperature', 'degC', 1, [20, 24]),
-  humidity: metric('Relative humidity', '%', 0, [55, 75]),
-  co2: metric('CO2', 'ppm', 0, [500, 900]),
-  lux: {
-    ...metric('Light', 'lx', 0, [10000, 35000]),
+  airTemp: metric('airTemp', [20, 24]),
+  humidity: metric('humidity', [55, 75]),
+  co2: metric('co2', [500, 900]),
+  lux: metric('lux', [10000, 35000], {
     lightingSchedule: {
       enabled: true,
       start: '06:00',
@@ -24,16 +34,16 @@ const profileMetrics = {
       timeZone: 'Europe/Vilnius',
       darkThresholdLux: 100
     }
-  },
-  soilTemp: metric('Substrate temperature', 'degC', 1, [18, 24]),
-  vpd: metric('VPD', 'kPa', 2, [0.8, 1.4]),
-  soilMoisture: metric('Soil moisture', '%', 0, [45, 65]),
-  ec: metric('Nutrient solution EC', 'mS/cm', 2, [1.8, 2.8]),
-  ph: metric('Nutrient solution pH', 'pH', 1, [5.8, 6.4]),
-  leafTemp: metric('Leaf temperature', 'degC', 1, [19, 25]),
-  soilEc: metric('Substrate EC', 'mS/cm', 2, [1.5, 2.5]),
-  waterTemp: metric('Water temperature', 'degC', 1, [18, 22]),
-  batteryLevel: metric('Battery level', '%', 0, [55, 100])
+  }),
+  soilTemp: metric('soilTemp', [18, 24]),
+  vpd: metric('vpd', [0.8, 1.4]),
+  soilMoisture: metric('soilMoisture', [45, 65]),
+  ec: metric('ec', [1.8, 2.8]),
+  ph: metric('ph', [5.8, 6.4]),
+  leafTemp: metric('leafTemp', [19, 25]),
+  soilEc: metric('soilEc', [1.5, 2.5]),
+  waterTemp: metric('waterTemp', [18, 22]),
+  batteryLevel: metric('batteryLevel', [55, 100])
 };
 
 const areas = [

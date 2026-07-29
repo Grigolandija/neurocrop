@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { openTrend, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
+import { metricDefinitions } from '../../domain/metricRegistry'
 import '../../styles/overview-workspace.css'
 
 const loadReadingsClimateMap = () => import('../readings/ReadingsClimateMap')
@@ -103,34 +104,13 @@ const demoActions = [{
   observedAt: new Date().toISOString(),
 }]
 
-const METRIC_LABELS: Record<string, string> = {
-  airTemp: 'Air temperature',
-  humidity: 'Relative humidity',
-  co2: 'CO2',
-  lux: 'Light',
-  soilTemp: 'Soil temperature',
-  soilMoisture: 'Soil moisture',
-  soilEc: 'Soil EC',
-  leafTemp: 'Leaf temperature',
-  waterTemp: 'Water temperature',
-  vpd: 'VPD',
-  ec: 'EC',
-  ph: 'pH',
-}
+const METRIC_LABELS = Object.fromEntries(
+  Object.entries(metricDefinitions).map(([metricId, definition]) => [metricId, definition.label]),
+)
 
-const METRIC_UNITS: Record<string, string> = {
-  airTemp: '°C',
-  humidity: '%',
-  co2: 'ppm',
-  lux: 'lx',
-  soilTemp: '°C',
-  soilMoisture: '%',
-  soilEc: 'mS/cm',
-  leafTemp: '°C',
-  waterTemp: '°C',
-  vpd: 'kPa',
-  ec: 'mS/cm',
-}
+const METRIC_UNITS = Object.fromEntries(
+  Object.entries(metricDefinitions).map(([metricId, definition]) => [metricId, definition.unit]),
+)
 
 function asArray(value: unknown): JsonRecord[] {
   return Array.isArray(value) ? value : []

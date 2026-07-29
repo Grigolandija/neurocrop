@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import { query, pool } from './db.js';
 import { calcVPD, calcDewPoint, calcAbsoluteHumidity } from './calculations.js';
 import { meanValue } from './statistics.js';
-import { METRIC_MAP, METRIC_UNITS, METRIC_TO_COLUMN, METRIC_INTERVAL_SEC } from './metrics.js';
+import { METRIC_LABELS, METRIC_MAP, METRIC_UNITS, METRIC_TO_COLUMN, METRIC_INTERVAL_SEC, METRIC_SENSOR_KEYS } from './metrics.js';
 import {
   createUserSession,
   findUserForLogin,
@@ -1278,21 +1278,6 @@ function medianValue(values) {
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
-
-const METRIC_SENSOR_KEYS = {
-  airTemp: 'sht45',
-  humidity: 'sht45',
-  vpd: 'sht45',
-  co2: 'scd41',
-  lux: 'bh1750',
-  soilTemp: 'ds18b20',
-  soilMoisture: 'soil_moisture_probe',
-  ec: 'ec_probe',
-  ph: 'ph_probe',
-  soilEc: 'soil_ec_probe',
-  leafTemp: 'leaf_temperature_probe',
-  waterTemp: 'water_temperature_probe'
-};
 
 function measurementMetricValue(measurement, metric) {
   if (metric === 'vpd') return calcVPD(measurement?.temperature, measurement?.humidity);
@@ -2763,19 +2748,10 @@ function formatExportValue(value) {
 }
 
 const EXPORT_METRIC_LABELS = {
-  airTemp: 'Air temperature',
-  humidity: 'Relative humidity',
-  co2: 'CO2',
-  lux: 'Light',
-  soilTemp: 'Soil temperature',
-  soilMoisture: 'Soil moisture',
+  ...METRIC_LABELS,
   ec: 'Nutrient solution EC',
   ph: 'Nutrient solution pH',
-  soilEc: 'Substrate EC',
-  leafTemp: 'Leaf temperature',
-  waterTemp: 'Water temperature',
-  vpd: 'VPD',
-  batteryLevel: 'Battery level'
+  soilEc: 'Substrate EC'
 };
 
 const EXPORT_METRIC_UNITS = {
