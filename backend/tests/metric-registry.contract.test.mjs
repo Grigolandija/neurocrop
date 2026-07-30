@@ -10,6 +10,7 @@ import {
   REGISTERED_TELEMETRY_DEFINITIONS
 } from '../metric-registry.js';
 import { publicHeatmapMeasurements } from '../greenhouse-map-routes.js';
+import { loadMigrations } from '../migration-files.js';
 import { ROLLUP_METRICS } from '../measurement-rollups.js';
 import { normalizeRegisteredTelemetry, normalizeSoilEcDepths } from '../telemetry-values.js';
 import { validateCropProfileMetrics } from '../validation.js';
@@ -64,7 +65,10 @@ test('profile defaults, scoring rules and migration all match the registry', asy
     assert.equal(DEFAULT_CROP_PROFILE_METRICS[metricId].unit, metric.unit);
   }
 
-  const sql = await fs.readFile(new URL('../migrations/0028_crop_profile_starter_metrics.sql', import.meta.url), 'utf8');
+  const migrations = await loadMigrations();
+  const sql = migrations.findLast((migration) =>
+    migration.sql.includes('CREATE OR REPLACE FUNCTION starter_crop_profile_metrics()')
+  )?.sql || '';
   const embedded = sql.match(/SELECT\s+'(\{[\s\S]*?\})'::jsonb;/)?.[1];
   assert.ok(embedded, 'starter metric JSON is missing from migration');
   assert.deepEqual(JSON.parse(embedded), DEFAULT_CROP_PROFILE_METRICS);
