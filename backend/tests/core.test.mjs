@@ -61,6 +61,7 @@ test('production API stays private behind the shared Caddy network', () => {
   assert.match(compose, /external:\s+true/);
   assert.match(compose, /name:\s+chirpstack_default/);
   assert.match(compose, /TRUST_PROXY_HOPS:\s+"1"/);
+  assert.match(compose, /CHIRPSTACK_TENANT_ID:\s+\$\{CHIRPSTACK_TENANT_ID:\?Set CHIRPSTACK_TENANT_ID\}/);
   assert.match(compose, /neurocrop-ingest:[\s\S]*?command: \["node", "ingest\.js"\]/);
   assert.match(compose, /neurocrop-ingest:[\s\S]*?test: \["CMD", "node", "ingest-healthcheck\.js"\]/);
   assert.doesNotMatch(compose, /session_secret/);

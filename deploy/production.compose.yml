@@ -14,6 +14,7 @@ services:
       PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD}
       PGDATABASE: ${PGDATABASE:-neurocrop}
       MEASUREMENT_RETENTION_DAYS: ${MEASUREMENT_RETENTION_DAYS:-35}
+      CHIRPSTACK_TENANT_ID: ${CHIRPSTACK_TENANT_ID:?Set CHIRPSTACK_TENANT_ID}
       CORS_ALLOWED_ORIGINS: https://neurocrop.lt,https://www.neurocrop.lt
       CLERK_SECRET_KEY_FILE: /run/secrets/clerk_secret_key
       CLERK_AUTHORIZED_PARTIES: https://neurocrop.lt,https://www.neurocrop.lt

@@ -72,6 +72,15 @@ test('admin gateway connectivity is sourced from ChirpStack, not the management 
   assert.equal(live.connectivitySource, 'chirpstack');
   assert.equal(publicAdminGateway(row, null, true).status, 'not_registered');
   assert.equal(publicAdminGateway(row, null, false).status, 'unknown');
+  const discovered = publicAdminGateway(null, {
+    gatewayId: row.gateway_id,
+    name: row.display_name,
+    lastSeenAt: new Date().toISOString()
+  }, true);
+  assert.equal(discovered.status, 'online');
+  assert.equal(discovered.agentEnrolled, false);
+  assert.equal(discovered.agentStatus, 'not_enrolled');
+  assert.equal(discovered.serialNumber, 'CS-B827EBFFFE9C1C57');
 });
 
 test('gateway factory enforces TLS, one-time activation, and authenticated heartbeat', () => {
@@ -84,6 +93,7 @@ test('gateway factory enforces TLS, one-time activation, and authenticated heart
   assert.match(source, /'Grpc-Metadata-Authorization': `Bearer \$\{config\.token\}`/);
   assert.match(source, /app\.patch\('\/platform\/gateways\/:gatewayId\/organization', requireUserAuth, requireSuperAdmin/);
   assert.match(source, /UPDATE gateways SET organization_id=\$2/);
+  assert.match(source, /INSERT INTO gateways \([\s\S]*?CS-\$\{gatewayId\.toUpperCase\(\)\}/);
   assert.match(source, /Restore the organization before assigning a gateway/);
   assert.match(source, /app\.get\('\/gateway-factory\/health', factoryAuth/);
   assert.match(source, /pg_advisory_xact_lock/);

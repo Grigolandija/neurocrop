@@ -336,7 +336,31 @@ function publicGateway(row) {
 }
 
 export function publicAdminGateway(row, chirpstackGateway, chirpstackAvailable) {
-  const gateway = publicGateway(row);
+  const gatewayId = normalizeGatewayId(row?.gateway_id || chirpstackGateway?.gatewayId);
+  const chirpstackName = String(chirpstackGateway?.name || '').trim();
+  const gateway = row ? publicGateway(row) : {
+    gatewayId,
+    serialNumber: `CS-${gatewayId.toUpperCase()}`,
+    name: chirpstackName || `Gateway ${gatewayId}`,
+    organizationId: null,
+    organizationName: null,
+    organizationStatus: null,
+    concentratorEui: gatewayId || null,
+    hardwareModel: null,
+    imageVersion: null,
+    agentVersion: null,
+    targetAgentVersion: null,
+    updateStatus: 'idle',
+    updateError: null,
+    updateAttempts: 0,
+    updateStartedAt: null,
+    updateCompletedAt: null,
+    status: 'not_enrolled',
+    lastHealth: {},
+    firstEnrolledAt: null,
+    lastEnrolledAt: null,
+    lastSeenAt: null
+  };
   const chirpstackLastSeenAt = chirpstackGateway?.lastSeenAt || null;
   let connectivityStatus = 'unknown';
   if (chirpstackAvailable && !chirpstackGateway) {
@@ -353,7 +377,8 @@ export function publicAdminGateway(row, chirpstackGateway, chirpstackAvailable) 
     lastSeenAt: chirpstackLastSeenAt,
     connectivitySource: 'chirpstack',
     chirpstackRegistered: chirpstackAvailable ? Boolean(chirpstackGateway) : null,
-    chirpstackName: chirpstackGateway?.name || null,
+    chirpstackName: chirpstackName || null,
+    agentEnrolled: Boolean(row),
     agentStatus: gateway.status,
     agentLastSeenAt: gateway.lastSeenAt
   };
@@ -925,12 +950,19 @@ export function registerGatewayFactoryRoutes(app) {
       const chirpstackById = new Map(
         chirpstackGateways.map((gateway) => [normalizeGatewayId(gateway?.gatewayId), gateway])
       );
+      const databaseGatewayIds = new Set(rows.map((row) => normalizeGatewayId(row.gateway_id)));
+      const discoveredGateways = chirpstackGateways
+        .filter((gateway) => !databaseGatewayIds.has(normalizeGatewayId(gateway?.gatewayId)))
+        .map((gateway) => publicAdminGateway(null, gateway, chirpstackAvailable));
       res.json({
-        gateways: rows.map((row) => publicAdminGateway(
-          row,
-          chirpstackById.get(normalizeGatewayId(row.gateway_id)) || null,
-          chirpstackAvailable
-        )),
+        gateways: [
+          ...rows.map((row) => publicAdminGateway(
+            row,
+            chirpstackById.get(normalizeGatewayId(row.gateway_id)) || null,
+            chirpstackAvailable
+          )),
+          ...discoveredGateways
+        ],
         chirpstackAvailable,
         release,
         policy: await gatewayPolicy()
@@ -966,12 +998,39 @@ export function registerGatewayFactoryRoutes(app) {
           });
         }
       }
-      const { rows } = await query(
+      let { rows } = await query(
         `UPDATE gateways SET organization_id=$2, updated_at=now()
          WHERE gateway_id=$1 AND status<>'retired'
          RETURNING *`,
         [gatewayId, organizationId]
       );
+      if (!rows[0]) {
+        const chirpstackGateways = await chirpstackGatewayInventory();
+        const chirpstackGateway = chirpstackGateways.find(
+          (gateway) => normalizeGatewayId(gateway?.gatewayId) === gatewayId
+        );
+        if (chirpstackGateway) {
+          const displayName = String(chirpstackGateway.name || '').trim() || `Gateway ${gatewayId}`;
+          const discovered = await query(
+            `INSERT INTO gateways (
+               gateway_id, serial_number, display_name, organization_id, device_token_hash,
+               concentrator_eui, status, updated_at
+             ) VALUES ($1, $2, $3, $4, $5, $1, 'provisioning', now())
+             ON CONFLICT (gateway_id) DO UPDATE SET
+               organization_id=EXCLUDED.organization_id,
+               updated_at=now()
+             RETURNING *`,
+            [
+              gatewayId,
+              `CS-${gatewayId.toUpperCase()}`,
+              displayName,
+              organizationId,
+              hashGatewaySecret(crypto.randomBytes(32).toString('base64url'))
+            ]
+          );
+          rows = discovered.rows;
+        }
+      }
       if (!rows[0]) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Gateway not found' } });
       }
