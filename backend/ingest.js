@@ -74,6 +74,11 @@ async function handleUplink(msg) {
   const receivedAt = normalizeTelemetryTimestamp(msg.time);
   const time = receivedAt;
   const rx = Array.isArray(msg.rxInfo) && msg.rxInfo.length ? msg.rxInfo[0] : {};
+  const gatewayIds = [...new Set(
+    (Array.isArray(msg.rxInfo) ? msg.rxInfo : [])
+      .map((entry) => String(entry?.gatewayId || '').trim().toLowerCase())
+      .filter((value) => /^[0-9a-f]{16}$/.test(value))
+  )];
   const sf = msg.txInfo?.modulation?.lora?.spreadingFactor ?? null;
   const adaptive = obj.adaptive || {};
   const errorFlags = normalizeErrorFlags(obj.error_flags);
@@ -107,7 +112,11 @@ async function handleUplink(msg) {
          last_spreading_factor=$12,
          last_sensor_presence=$13::jsonb,
          last_error_flags=$14::jsonb,
-         last_error_counters=$15::jsonb
+         last_error_counters=$15::jsonb,
+         last_gateway_ids=CASE
+           WHEN cardinality($16::text[]) > 0 THEN $16::text[]
+           ELSE last_gateway_ids
+         END
        WHERE lower(dev_eui)=lower($1)
          AND archived_at IS NULL
          AND (last_received_at IS NULL OR last_received_at <= $4)
@@ -116,7 +125,7 @@ async function handleUplink(msg) {
         devEui, normalizeTelemetryValue('firmware_build', obj.firmware_build), time, receivedAt, dev.deviceName || null,
         normalizeTelemetryValue('battery_mv', obj.battery_mv), telemetry.battery_percent, obj.firmware_version ?? null, adaptive.profile ?? null,
         normalizeTelemetryValue('rssi', rx.rssi), normalizeTelemetryValue('snr', rx.snr), normalizeTelemetryValue('spreading_factor', sf), JSON.stringify(sensorPresence),
-        JSON.stringify(errorFlags), JSON.stringify(ec)
+        JSON.stringify(errorFlags), JSON.stringify(ec), gatewayIds
       ]
     );
     if (!updatedNodes[0]) {

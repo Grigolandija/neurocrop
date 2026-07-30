@@ -36,9 +36,16 @@ export function getDetectedSensorNames(node: NodeHealthInput) {
 }
 
 export function getHealthSummary(node: NodeHealthInput, freshness: Freshness) {
-  if (freshness.transportStatus === 'offline') return { label: 'Offline', detail: 'No recent uplink', tone: 'critical' }
-
   const backendHealth = node.health
+  if (freshness.transportStatus === 'offline') {
+    const primaryReason = backendHealth?.reasons?.find((reason) => reason?.label)?.label
+    return {
+      label: primaryReason || backendHealth?.label || 'Offline',
+      detail: backendHealth?.detail || 'No recent uplink',
+      tone: 'critical'
+    }
+  }
+
   if (backendHealth && ['healthy', 'watch', 'fault', 'offline'].includes(String(backendHealth.state))) {
     const toneByState: Record<string, string> = { healthy: 'optimal', watch: 'warning', fault: 'critical', offline: 'critical' }
     const state = String(backendHealth.state)

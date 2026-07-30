@@ -467,6 +467,7 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "No pending requests": "Laukiančių prašymų nėra",
   "No priority actions": "Prioritetinių veiksmų nėra",
   "No recent uplink": "Nėra naujausių duomenų",
+  "Gateway offline": "Gateway neprisijungęs",
   "No sections in this area": "Šioje erdvėje sekcijų nėra",
   "No sections match the selected filters.": "Nė viena sekcija neatitinka pasirinktų filtrų.",
   "No sections match this view": "Nė viena sekcija neatitinka šio vaizdo",

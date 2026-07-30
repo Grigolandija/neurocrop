@@ -8,7 +8,7 @@ import { buildCurrentMetricEvaluations, buildScoreFromMetricValues, buildScoreRu
 import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
-import { buildNodeHealth, expectedUplinkIntervalSec, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
+import { buildNodeHealth, expectedUplinkIntervalSec, gatewayAssociationStatus, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
 import {
   buildTodayActions,
   evaluateActionOutcome,
@@ -481,6 +481,28 @@ test('future timestamps outside clock-skew tolerance are not live', () => {
   assert.equal(statusFromMeasurementTime('2026-07-12T13:00:00Z', now, 300), 'offline');
 });
 
+test('node freshness stops reporting healthy after repeated missed uplinks', () => {
+  const now = Date.parse('2026-07-12T12:35:00Z');
+  assert.equal(statusFromMeasurementTime('2026-07-12T12:00:00Z', now, 900), 'delayed');
+});
+
+test('gateway association follows the fresh authenticated heartbeat', () => {
+  const now = Date.parse('2026-07-12T12:05:00Z');
+  const gatewayId = '0102030405060708';
+  assert.equal(gatewayAssociationStatus([], [], now), 'unknown');
+  assert.equal(gatewayAssociationStatus([gatewayId], [], now), 'unknown');
+  assert.equal(gatewayAssociationStatus([gatewayId], [{
+    gateway_id: gatewayId,
+    status: 'online',
+    last_seen_at: '2026-07-12T12:03:30Z'
+  }], now), 'online');
+  assert.equal(gatewayAssociationStatus([gatewayId], [{
+    gateway_id: gatewayId,
+    status: 'online',
+    last_seen_at: '2026-07-12T12:00:00Z'
+  }], now), 'offline');
+});
+
 test('node health ignores historical counters without an active fault', () => {
   const health = buildNodeHealth({
     transportStatus: 'live',
@@ -504,6 +526,14 @@ test('node health distinguishes active faults, recovery warnings and offline nod
   const offline = buildNodeHealth({ transportStatus: 'offline', errorFlags: { sensor_missing: true } });
   assert.equal(offline.state, 'offline');
   assert.equal(offline.reasons[0].code, 'offline');
+
+  const gatewayOffline = buildNodeHealth({ transportStatus: 'offline', gatewayStatus: 'offline' });
+  assert.equal(gatewayOffline.detail, 'Last receiving gateway is offline');
+  assert.equal(gatewayOffline.reasons[0].code, 'gateway_offline');
+
+  const delayed = buildNodeHealth({ transportStatus: 'delayed' });
+  assert.equal(delayed.state, 'watch');
+  assert.equal(delayed.reasons[0].code, 'uplink_delayed');
 });
 
 test('node diagnostics normalize decoder values and profile intervals', () => {

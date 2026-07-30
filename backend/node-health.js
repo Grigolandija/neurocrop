@@ -28,6 +28,27 @@ export function expectedUplinkIntervalSec(profile) {
   return PROFILE_INTERVALS_SEC[key] || PROFILE_INTERVALS_SEC.normal;
 }
 
+export function gatewayAssociationStatus(gatewayIds, gateways, now = Date.now(), graceSec = 180) {
+  const ids = new Set(
+    (Array.isArray(gatewayIds) ? gatewayIds : [])
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter((value) => /^[0-9a-f]{16}$/.test(value))
+  );
+  if (ids.size === 0) return 'unknown';
+
+  const associated = (Array.isArray(gateways) ? gateways : [])
+    .filter((gateway) => ids.has(String(gateway?.gateway_id || gateway?.gatewayId || '').trim().toLowerCase()));
+  if (associated.length === 0) return 'unknown';
+
+  const graceMs = Math.max(60, Number(graceSec) || 180) * 1000;
+  const online = associated.some((gateway) => {
+    if (String(gateway?.status || '').toLowerCase() !== 'online') return false;
+    const lastSeenMs = new Date(gateway?.last_seen_at || gateway?.lastSeenAt || '').getTime();
+    return Number.isFinite(lastSeenMs) && now - lastSeenMs <= graceMs;
+  });
+  return online ? 'online' : 'offline';
+}
+
 export function normalizeErrorFlags(flags) {
   if (!flags || typeof flags !== 'object' || Array.isArray(flags)) return {};
   return Object.fromEntries(Object.entries(flags).map(([key, value]) => {
@@ -55,16 +76,36 @@ export function normalizeErrorCounters(counters, flags = {}) {
   return normalized;
 }
 
-export function buildNodeHealth({ transportStatus, errorFlags, errorCounters } = {}) {
+export function buildNodeHealth({ transportStatus, gatewayStatus, errorFlags, errorCounters } = {}) {
   const flags = normalizeErrorFlags(errorFlags);
   const counters = normalizeErrorCounters(errorCounters, flags);
 
   if (transportStatus === 'offline') {
+    const gatewayOffline = gatewayStatus === 'offline';
     return {
       state: 'offline',
       label: 'Offline',
-      detail: 'No recent uplink',
-      reasons: [{ code: 'offline', severity: 'fault', label: 'No recent uplink' }],
+      detail: gatewayOffline ? 'Last receiving gateway is offline' : 'No recent uplink',
+      reasons: [{
+        code: gatewayOffline ? 'gateway_offline' : 'offline',
+        severity: 'fault',
+        label: gatewayOffline ? 'Gateway offline' : 'No recent uplink'
+      }],
+      diagnostics: { counters }
+    };
+  }
+
+  if (transportStatus === 'delayed' || transportStatus === 'stale') {
+    const stale = transportStatus === 'stale';
+    return {
+      state: 'watch',
+      label: stale ? 'Uplink stale' : 'Uplink delayed',
+      detail: stale ? 'Multiple expected uplinks are missing' : 'The latest expected uplink is late',
+      reasons: [{
+        code: stale ? 'uplink_stale' : 'uplink_delayed',
+        severity: 'watch',
+        label: stale ? 'Uplink stale' : 'Uplink delayed'
+      }],
       diagnostics: { counters }
     };
   }

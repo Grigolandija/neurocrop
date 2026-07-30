@@ -28,6 +28,8 @@ type NodeRow = JsonRecord & {
   source: 'physical' | 'simulated'
   simulated: boolean
   transportStatus: string
+  gatewayStatus?: string
+  lastGatewayIds?: string[]
   ageSec: number | null
   health?: { state?: string; label?: string; detail?: string; reasons?: Array<{ label?: string }> } | null
   sensorPresence?: Record<string, boolean>
@@ -182,6 +184,11 @@ export default function NodesWorkspace() {
   useEffect(() => {
     document.body.dataset.reactNodesActive = 'true'
     return () => { delete document.body.dataset.reactNodesActive }
+  }, [])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setRefreshToken((value) => value + 1), 60_000)
+    return () => window.clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -399,7 +406,7 @@ export default function NodesWorkspace() {
       {feedback ? <div className="management-notice success"><i className="fa-solid fa-circle-check" />{feedback}</div> : null}
       {modalError && !editor ? <div className="management-notice warning"><i className="fa-solid fa-triangle-exclamation" />{modalError}</div> : null}
       <section className="node-detail-overview">
-        <div className="node-detail-health"><span className="node-detail-orbit" data-tone={state.tone}><i className="fa-solid fa-microchip" /></span><div><span className="node-detail-status" data-tone={state.tone}><i className="fa-solid fa-circle" />{state.label}</span><h3>{selectedNode.transportStatus === 'offline' ?tx("No recent uplink") : health.tone === 'optimal' ?tx("Reporting normally") :tx("Device diagnostics require review")}</h3><p>{tx("Last payload")} {lastPayload.relative}</p></div></div>
+        <div className="node-detail-health"><span className="node-detail-orbit" data-tone={state.tone}><i className="fa-solid fa-microchip" /></span><div><span className="node-detail-status" data-tone={state.tone}><i className="fa-solid fa-circle" />{state.label}</span><h3>{selectedNode.gatewayStatus === 'offline' ?tx("Gateway offline") : selectedNode.transportStatus === 'offline' ?tx("No recent uplink") : health.tone === 'optimal' ?tx("Reporting normally") :tx("Device diagnostics require review")}</h3><p>{tx("Last payload")} {lastPayload.relative}</p></div></div>
         <div className="node-detail-facts">
           <div><small>{tx("Battery")}</small><strong>{Number.isFinite(selectedNode.level) ? `${selectedNode.level}%` : '—'}</strong><span className="node-detail-track"><i style={{ width: `${Number(selectedNode.level) || 0}%` }} /></span>{Number.isFinite(selectedNode.batteryMv) ? <p>{(selectedNode.batteryMv / 1000).toFixed(2)} V</p> : null}</div>
           <div><small>{tx("Signal")}</small><strong>{Number.isFinite(selectedNode.rssi) ? `${selectedNode.rssi} dBm` : '—'}</strong><p>{Number.isFinite(selectedNode.snr) ? `SNR ${selectedNode.snr}${Number.isFinite(selectedNode.spreadingFactor) ? ` · SF${selectedNode.spreadingFactor}` : ''}` : 'SNR unavailable'}</p></div>

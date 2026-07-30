@@ -85,7 +85,7 @@ export function statusFromMeasurementTime(time, now = Date.now(), expectedInterv
   const interval = Math.max(60, Number(expectedIntervalSec) || 300);
   const ageSec = (now - new Date(time).getTime()) / 1000;
   if (!Number.isFinite(ageSec) || ageSec < -Math.max(interval, 300)) return 'offline';
-  if (ageSec <= interval * 3) return 'live';
+  if (ageSec <= interval * 1.5) return 'live';
   if (ageSec <= interval * 6) return 'delayed';
   if (ageSec <= interval * 12) return 'stale';
   return 'offline';
