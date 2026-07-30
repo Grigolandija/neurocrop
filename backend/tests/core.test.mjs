@@ -64,6 +64,12 @@ test('production API stays private behind the shared Caddy network', () => {
   assert.match(compose, /CHIRPSTACK_TENANT_ID:\s+\$\{CHIRPSTACK_TENANT_ID:\?Set CHIRPSTACK_TENANT_ID\}/);
   assert.match(compose, /neurocrop-ingest:[\s\S]*?command: \["node", "ingest\.js"\]/);
   assert.match(compose, /neurocrop-ingest:[\s\S]*?test: \["CMD", "node", "ingest-healthcheck\.js"\]/);
+  assert.match(compose, /gateway_factory_key:[\s\S]*?file: \/opt\/neurocrop-backend\/\.gateway_factory_key/);
+  assert.match(compose, /gateway_device_token_secret:[\s\S]*?file: \/opt\/neurocrop-backend\/\.gateway_device_token_secret/);
+  assert.match(compose, /gateway_mqtt_server:[\s\S]*?file: \/opt\/neurocrop-backend\/\.gateway_mqtt_server/);
+  assert.match(compose, /gateway_mqtt_username:[\s\S]*?file: \/opt\/neurocrop-backend\/\.gateway_mqtt_username/);
+  assert.match(compose, /gateway_mqtt_password:[\s\S]*?file: \/opt\/neurocrop-backend\/\.gateway_mqtt_password/);
+  assert.match(compose, /neurocrop-api:[\s\S]*?secrets:[\s\S]*?- gateway_factory_key[\s\S]*?- gateway_device_token_secret[\s\S]*?- gateway_mqtt_server[\s\S]*?- gateway_mqtt_username[\s\S]*?- gateway_mqtt_password/);
   assert.doesNotMatch(compose, /session_secret/);
 });
 

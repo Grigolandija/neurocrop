@@ -30,6 +30,11 @@ services:
       - clerk_secret_key
       - vapid_public_key
       - vapid_private_key
+      - gateway_factory_key
+      - gateway_device_token_secret
+      - gateway_mqtt_server
+      - gateway_mqtt_username
+      - gateway_mqtt_password
     volumes:
       - /opt/neurocrop-gateway-releases:/opt/neurocrop-gateway-releases:ro
     healthcheck:
@@ -82,3 +87,13 @@ secrets:
     file: /opt/neurocrop-backend/.vapid_public_key
   vapid_private_key:
     file: /opt/neurocrop-backend/.vapid_private_key
+  gateway_factory_key:
+    file: /opt/neurocrop-backend/.gateway_factory_key
+  gateway_device_token_secret:
+    file: /opt/neurocrop-backend/.gateway_device_token_secret
+  gateway_mqtt_server:
+    file: /opt/neurocrop-backend/.gateway_mqtt_server
+  gateway_mqtt_username:
+    file: /opt/neurocrop-backend/.gateway_mqtt_username
+  gateway_mqtt_password:
+    file: /opt/neurocrop-backend/.gateway_mqtt_password
