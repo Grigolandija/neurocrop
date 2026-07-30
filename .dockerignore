@@ -5,7 +5,7 @@ dist
 playwright-report
 test-results
 REACT-DOMENUI.zip
-backend
+backend/*
+!backend/metric-registry.json
 e2e
 *.log
-
