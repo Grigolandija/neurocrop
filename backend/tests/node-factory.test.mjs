@@ -88,3 +88,11 @@ test('node inventory migration stores no LoRaWAN secret', () => {
   assert.match(sql, /factory_status TEXT/);
   assert.doesNotMatch(sql, /app_key|nwk_key/i);
 });
+
+test('deployment mounts authenticated node firmware into the API', () => {
+  const production = fs.readFileSync(new URL('../../deploy/production.compose.yml', import.meta.url), 'utf8');
+  const staging = fs.readFileSync(new URL('../../deploy/staging.compose.yml', import.meta.url), 'utf8');
+  const mount = /\/opt\/neurocrop-node-firmware:\/opt\/neurocrop-node-firmware:ro/;
+  assert.match(production, mount);
+  assert.match(staging, mount);
+});

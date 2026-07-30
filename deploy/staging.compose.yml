@@ -39,6 +39,7 @@ services:
       AUTH_REGISTRATION_RATE_LIMIT: "100"
     volumes:
       - /opt/neurocrop-gateway-releases:/opt/neurocrop-gateway-releases:ro
+      - /opt/neurocrop-node-firmware:/opt/neurocrop-node-firmware:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 15s
