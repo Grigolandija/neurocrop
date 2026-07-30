@@ -31,6 +31,14 @@ test('keeps gateway machine credentials out of Clerk authentication', () => {
     true
   );
   assert.equal(
+    clerkAuthInternals.isGatewayMachineRequest({ path: '/node-factory/registrations' }),
+    true
+  );
+  assert.equal(
+    clerkAuthInternals.isGatewayMachineRequest({ path: '/node-factory/firmware/latest' }),
+    true
+  );
+  assert.equal(
     clerkAuthInternals.isGatewayMachineRequest({ path: '/platform/gateways/example/update' }),
     false
   );

@@ -119,7 +119,9 @@ function isInvitationAcceptanceRequest(req) {
 
 function isGatewayMachineRequest(req) {
   const path = String(req.path || '');
-  return path.startsWith('/gateway/') || path.startsWith('/gateway-factory/');
+  return path.startsWith('/gateway/')
+    || path.startsWith('/gateway-factory/')
+    || path.startsWith('/node-factory/');
 }
 
 async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query) {
