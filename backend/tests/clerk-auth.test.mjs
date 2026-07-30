@@ -17,6 +17,25 @@ test('extracts only a Bearer session token', () => {
   );
 });
 
+test('keeps gateway machine credentials out of Clerk authentication', () => {
+  assert.equal(
+    clerkAuthInternals.isGatewayMachineRequest({ path: '/gateway/heartbeat' }),
+    true
+  );
+  assert.equal(
+    clerkAuthInternals.isGatewayMachineRequest({ path: '/gateway/update/check' }),
+    true
+  );
+  assert.equal(
+    clerkAuthInternals.isGatewayMachineRequest({ path: '/gateway-factory/health' }),
+    true
+  );
+  assert.equal(
+    clerkAuthInternals.isGatewayMachineRequest({ path: '/platform/gateways/example/update' }),
+    false
+  );
+});
+
 test('accepts only a Clerk-verified email and prefers the primary address', () => {
   const user = {
     primaryEmailAddressId: 'primary',

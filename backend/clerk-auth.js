@@ -117,6 +117,11 @@ function isInvitationAcceptanceRequest(req) {
   return req.method === 'POST' && String(req.path || '') === '/auth/accept-invite';
 }
 
+function isGatewayMachineRequest(req) {
+  const path = String(req.path || '');
+  return path.startsWith('/gateway/') || path.startsWith('/gateway-factory/');
+}
+
 async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query) {
   const linked = await execute(
     `SELECT id, email, display_name, is_active, is_platform_admin, is_super_admin
@@ -270,6 +275,11 @@ export function clerkAuthEnabled(env = process.env) {
 }
 
 export async function resolveOptionalClerkAuth(req, res, next) {
+  // Gateway agents and factory tooling authenticate with their own opaque
+  // Bearer credentials. Those tokens must reach the gateway route middleware
+  // instead of being interpreted as Clerk user JWTs.
+  if (isGatewayMachineRequest(req)) return next();
+
   const token = bearerToken(req);
   if (!token) return next();
 
@@ -364,6 +374,7 @@ export const clerkAuthInternals = {
   configuredAuthorizedParties,
   displayNameFromClerkUser,
   isClerkNotFound,
+  isGatewayMachineRequest,
   isInvitationAcceptanceRequest,
   isInvitationStatusRequest,
   organizationNameFromClerkUser,
