@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   factorySequenceFromIdentity,
   formatFactorySerial,
+  gatewayAgentEnrolled,
   gatewayConnectivityStatus,
   hashGatewaySecret,
   normalizeFactorySerial,
@@ -52,6 +53,12 @@ test('gateway connectivity follows fresh authenticated heartbeats', () => {
     status: 'configuration_error',
     last_seen_at: '2026-07-30T11:59:59Z'
   }, now), 'configuration_error');
+});
+
+test('gateway software management requires an enrolled NeuroCrop agent', () => {
+  assert.equal(gatewayAgentEnrolled({ serial_number: 'NSG-000001' }), true);
+  assert.equal(gatewayAgentEnrolled({ serial_number: 'CS-B827EBFFFE9C1C57' }), false);
+  assert.equal(gatewayAgentEnrolled(null), false);
 });
 
 test('admin gateway connectivity is sourced from ChirpStack, not the management agent', () => {
@@ -107,6 +114,7 @@ test('gateway factory enforces TLS, one-time activation, and authenticated heart
   assert.match(source, /INSERT INTO gateways \([\s\S]*?CS-\$\{gatewayId\.toUpperCase\(\)\}/);
   assert.match(source, /Restore the organization before assigning a gateway/);
   assert.match(source, /app\.delete\('\/platform\/gateways\/:gatewayId', requireUserAuth, requireSuperAdmin/);
+  assert.match(source, /code: 'AGENT_NOT_INSTALLED'/);
   assert.match(source, /req\.query\.confirm !== 'delete'/);
   assert.match(source, /array_remove\(last_gateway_ids, \$1\)/);
   assert.match(source, /DELETE FROM gateway_activations WHERE gateway_id=\$1/);

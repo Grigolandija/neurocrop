@@ -309,6 +309,10 @@ export function gatewayConnectivityStatus(row, now = Date.now()) {
   return 'online';
 }
 
+export function gatewayAgentEnrolled(row) {
+  return Boolean(row && !String(row.serial_number || '').startsWith('CS-'));
+}
+
 function publicGateway(row) {
   return {
     gatewayId: row.gateway_id,
@@ -338,7 +342,7 @@ function publicGateway(row) {
 export function publicAdminGateway(row, chirpstackGateway, chirpstackAvailable) {
   const gatewayId = normalizeGatewayId(row?.gateway_id || chirpstackGateway?.gatewayId);
   const chirpstackName = String(chirpstackGateway?.name || '').trim();
-  const agentEnrolled = Boolean(row && !String(row.serial_number || '').startsWith('CS-'));
+  const agentEnrolled = gatewayAgentEnrolled(row);
   const gateway = row ? publicGateway(row) : {
     gatewayId,
     serialNumber: `CS-${gatewayId.toUpperCase()}`,
@@ -1129,6 +1133,23 @@ export function registerGatewayFactoryRoutes(app) {
     const gatewayId = normalizeGatewayId(req.params.gatewayId);
     try {
       const release = readGatewayRelease();
+      const existing = await query(
+        `SELECT gateway_id, serial_number, status
+         FROM gateways
+         WHERE gateway_id=$1`,
+        [gatewayId]
+      );
+      if (!existing.rows[0]) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Gateway not found' } });
+      }
+      if (!gatewayAgentEnrolled(existing.rows[0])) {
+        return res.status(409).json({
+          error: {
+            code: 'AGENT_NOT_INSTALLED',
+            message: 'Install and enroll the NeuroCrop management agent before scheduling software updates'
+          }
+        });
+      }
       const { rows } = await query(
         `UPDATE gateways SET
            target_agent_version=$2, update_status='scheduled', update_error=NULL, updated_at=now()

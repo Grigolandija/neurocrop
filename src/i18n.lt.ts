@@ -497,6 +497,7 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Not enough measurements for this period": "Šiam laikotarpiui matavimų nepakanka",
   "Not enough measurements yet": "Matavimų dar nepakanka",
   "Not installed": "Neįdiegta",
+  "Install the management agent before deploying software updates": "Prieš diegiant programinės įrangos naujinimus įdiekite valdymo agentą",
   "LoRa online": "LoRa prisijungę",
   "Agent attention": "Reikia tvarkyti agentą",
   "Not required": "Nereikalinga",
