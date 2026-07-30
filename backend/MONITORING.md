@@ -8,10 +8,11 @@ The internal monitor runs every five minutes and checks:
 - MQTT publish/subscribe loop;
 - root filesystem usage;
 - measurement ingest freshness;
-- assigned Nodes that stopped reporting;
 - daily backup and weekly offsite restore-test markers.
 
 Alerts are sent through Resend only when the issue set changes. A separate recovery email is sent when all checks become healthy.
+Individual Node availability is a product-level condition, not a VPS failure, and
+is intentionally excluded from this internal infrastructure monitor.
 
 ## Install
 
@@ -33,7 +34,7 @@ The internal timer cannot report a complete VPS, provider, DNS, or outbound-netw
 
 The system uses two independent layers:
 
-- the VPS systemd timer checks API, ingest, MQTT, PostgreSQL, containers, disk, nodes, backup and restore freshness;
+- the VPS systemd timer checks API, ingest, MQTT, PostgreSQL, containers, disk, backup and restore freshness;
 - `.github/workflows/uptime.yml` checks the public API from outside the VPS, so a full server or network outage is still reported.
 
 Configure GitHub repository secrets `RESEND_API_KEY` and `MONITOR_EMAIL_TO` (`agrigas1@gmail.com`) before enabling external alerts.

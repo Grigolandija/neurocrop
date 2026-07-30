@@ -11,7 +11,6 @@ MONITOR_STATE_DIR="${MONITOR_STATE_DIR:-/var/lib/neurocrop-monitor}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/neurocrop}"
 DISK_WARNING_PERCENT="${DISK_WARNING_PERCENT:-85}"
 MEASUREMENT_STALE_MINUTES="${MEASUREMENT_STALE_MINUTES:-20}"
-NODE_STALE_MINUTES="${NODE_STALE_MINUTES:-30}"
 BACKUP_STALE_HOURS="${BACKUP_STALE_HOURS:-30}"
 RESTORE_TEST_STALE_HOURS="${RESTORE_TEST_STALE_HOURS:-192}"
 HEARTBEAT_URL="${HEARTBEAT_URL:-}"
@@ -70,12 +69,6 @@ if [[ "$measurement_age" =~ ^[0-9]+$ ]] && (( measurement_age > MEASUREMENT_STAL
   add_issue "Ingest" "No new measurement for $((measurement_age / 60)) minutes"
 elif [[ "$measurement_age" == "-1" ]]; then
   add_issue "Ingest" "Measurement freshness query failed or no measurements exist"
-fi
-
-stale_nodes="$(docker exec "$PG_CONTAINER" psql -U "$PGUSER" -d neurocrop -Atqc \
-  "SELECT count(*) FROM nodes WHERE organization_id <> 'org-neurocrop-demo' AND archived_at IS NULL AND section_id IS NOT NULL AND last_received_at IS NOT NULL AND last_received_at < now() - interval '${NODE_STALE_MINUTES} minutes';" 2>/dev/null || printf -- -1)"
-if [[ "$stale_nodes" =~ ^[0-9]+$ ]] && (( stale_nodes > 0 )); then
-  add_issue "Nodes" "${stale_nodes} assigned node(s) have not reported for ${NODE_STALE_MINUTES}+ minutes"
 fi
 
 check_marker_age() {

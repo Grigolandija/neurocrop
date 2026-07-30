@@ -355,12 +355,9 @@ test('production uptime confirms failures and cannot let notification errors mas
   assert.match(workflow, /API=\$API_OUTCOME frontend=\$FRONTEND_OUTCOME/);
 });
 
-test('platform monitor ignores archived nodes when checking uplink freshness', () => {
+test('platform monitor does not treat customer node availability as a VPS outage', () => {
   const monitor = fs.readFileSync(new URL('../scripts/monitor-platform.sh', import.meta.url), 'utf8');
-  assert.match(
-    monitor,
-    /FROM nodes WHERE organization_id <> 'org-neurocrop-demo' AND archived_at IS NULL AND section_id IS NOT NULL/
-  );
+  assert.doesNotMatch(monitor, /NODE_STALE_MINUTES|FROM nodes|assigned node/);
 });
 
 test('session cookies default to secure SameSite=Lax', () => {
