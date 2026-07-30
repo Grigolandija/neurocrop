@@ -338,6 +338,7 @@ function publicGateway(row) {
 export function publicAdminGateway(row, chirpstackGateway, chirpstackAvailable) {
   const gatewayId = normalizeGatewayId(row?.gateway_id || chirpstackGateway?.gatewayId);
   const chirpstackName = String(chirpstackGateway?.name || '').trim();
+  const agentEnrolled = Boolean(row && !String(row.serial_number || '').startsWith('CS-'));
   const gateway = row ? publicGateway(row) : {
     gatewayId,
     serialNumber: `CS-${gatewayId.toUpperCase()}`,
@@ -355,7 +356,7 @@ export function publicAdminGateway(row, chirpstackGateway, chirpstackAvailable) 
     updateAttempts: 0,
     updateStartedAt: null,
     updateCompletedAt: null,
-    status: 'not_enrolled',
+    status: 'not_installed',
     lastHealth: {},
     firstEnrolledAt: null,
     lastEnrolledAt: null,
@@ -378,8 +379,8 @@ export function publicAdminGateway(row, chirpstackGateway, chirpstackAvailable) 
     connectivitySource: 'chirpstack',
     chirpstackRegistered: chirpstackAvailable ? Boolean(chirpstackGateway) : null,
     chirpstackName: chirpstackName || null,
-    agentEnrolled: Boolean(row),
-    agentStatus: gateway.status,
+    agentEnrolled,
+    agentStatus: agentEnrolled ? gateway.status : 'not_installed',
     agentLastSeenAt: gateway.lastSeenAt
   };
 }

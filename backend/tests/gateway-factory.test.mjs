@@ -79,8 +79,19 @@ test('admin gateway connectivity is sourced from ChirpStack, not the management 
   }, true);
   assert.equal(discovered.status, 'online');
   assert.equal(discovered.agentEnrolled, false);
-  assert.equal(discovered.agentStatus, 'not_enrolled');
+  assert.equal(discovered.agentStatus, 'not_installed');
   assert.equal(discovered.serialNumber, 'CS-B827EBFFFE9C1C57');
+  const assignedDiscovery = publicAdminGateway({
+    ...row,
+    serial_number: 'CS-B827EBFFFE9C1C57',
+    status: 'provisioning'
+  }, {
+    gatewayId: row.gateway_id,
+    name: row.display_name,
+    lastSeenAt: new Date().toISOString()
+  }, true);
+  assert.equal(assignedDiscovery.agentEnrolled, false);
+  assert.equal(assignedDiscovery.agentStatus, 'not_installed');
 });
 
 test('gateway factory enforces TLS, one-time activation, and authenticated heartbeat', () => {

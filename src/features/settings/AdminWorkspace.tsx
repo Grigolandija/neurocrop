@@ -300,6 +300,9 @@ export default function AdminWorkspace() {
   const filteredGateways = gateways.filter((item) => !normalizedQuery ||
     `${item.name} ${item.serialNumber} ${item.gatewayId} ${item.organizationName || ''} ${item.status} ${item.agentStatus || ''} ${item.updateStatus}`
       .toLowerCase().includes(normalizedQuery))
+  const gatewayAttentionCount = gateways.filter(
+    (gateway) => gateway.status !== 'online' || gateway.agentStatus !== 'online'
+  ).length
   const activeOrganizations = organizations.filter((item) => item.status !== 'archived').length
   const faultCount = organizations.reduce((sum, item) => sum + (Number(item.faultNodeCount) || 0), 0)
   const meta = sectionMeta[section]
@@ -347,10 +350,10 @@ export default function AdminWorkspace() {
 
         {section === 'gateways' ? <div className="nc-settings-flow">
           <section className="nc-gateway-summary" aria-label={tx("Gateway fleet summary")}>
-            <article><strong>{gateways.filter((gateway) => gateway.agentEnrolled !== false).length}</strong><span>{tx("Enrolled")}</span></article>
+            <article><strong>{gateways.length}</strong><span>{tx("Gateways")}</span></article>
             <article><strong>{gateways.filter((gateway) => gateway.organizationId).length}</strong><span>{tx("Assigned")}</span></article>
             <article data-tone="success"><strong>{gateways.filter((gateway) => gateway.status === 'online').length}</strong><span>{tx("Online")}</span></article>
-            <article data-tone={gateways.some((gateway) => gateway.status !== 'online') ? 'warning' : 'success'}><strong>{gateways.filter((gateway) => gateway.status !== 'online').length}</strong><span>{tx("Needs attention")}</span></article>
+            <article data-tone={gatewayAttentionCount ? 'warning' : 'success'}><strong>{gatewayAttentionCount}</strong><span>{tx("Needs attention")}</span></article>
           </section>
           {!gatewayChirpstackAvailable ? <section className="nc-settings-feedback" data-tone="warning"><i className="fa-solid fa-triangle-exclamation" />{tx("ChirpStack status is temporarily unavailable. Gateway connectivity is shown as unknown.")}</section> : null}
           <section className="nc-admin-create nc-gateway-release-card">
