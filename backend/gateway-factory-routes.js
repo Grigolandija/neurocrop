@@ -296,12 +296,26 @@ function factoryAuth(req, res, next) {
   next();
 }
 
+export function gatewayConnectivityStatus(row, now = Date.now()) {
+  const storedStatus = String(row?.status || 'offline');
+  if (['retired', 'provisioning', 'configuration_error'].includes(storedStatus)) {
+    return storedStatus;
+  }
+  const lastSeenAt = new Date(row?.last_seen_at || '').getTime();
+  if (!Number.isFinite(lastSeenAt) || now - lastSeenAt > 3 * 60 * 1000) {
+    return 'offline';
+  }
+  return 'online';
+}
+
 function publicGateway(row) {
   return {
     gatewayId: row.gateway_id,
     serialNumber: row.serial_number,
     name: row.display_name,
     organizationId: row.organization_id || null,
+    organizationName: row.organization_name || null,
+    organizationStatus: row.organization_status || null,
     concentratorEui: row.concentrator_eui || null,
     hardwareModel: row.hardware_model || null,
     imageVersion: row.image_version || null,
@@ -312,7 +326,7 @@ function publicGateway(row) {
     updateAttempts: Number(row.update_attempts) || 0,
     updateStartedAt: row.update_started_at || null,
     updateCompletedAt: row.update_completed_at || null,
-    status: row.status,
+    status: gatewayConnectivityStatus(row),
     lastHealth: row.last_health || {},
     firstEnrolledAt: row.first_enrolled_at,
     lastEnrolledAt: row.last_enrolled_at,
@@ -856,7 +870,12 @@ export function registerGatewayFactoryRoutes(app) {
 
   app.get('/platform/gateway-updates', requireUserAuth, requireSuperAdmin, async (req, res, next) => {
     try {
-      const { rows } = await query('SELECT * FROM gateways ORDER BY first_enrolled_at DESC');
+      const { rows } = await query(
+        `SELECT g.*, o.name AS organization_name, o.status AS organization_status
+         FROM gateways g
+         LEFT JOIN organizations o ON o.id=g.organization_id
+         ORDER BY g.first_enrolled_at DESC`
+      );
       let release = null;
       try {
         release = publicGatewayRelease(readGatewayRelease());
@@ -864,6 +883,53 @@ export function registerGatewayFactoryRoutes(app) {
         if (!['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
       }
       res.json({ gateways: rows.map(publicGateway), release, policy: await gatewayPolicy() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch('/platform/gateways/:gatewayId/organization', requireUserAuth, requireSuperAdmin, async (req, res, next) => {
+    const gatewayId = normalizeGatewayId(req.params.gatewayId);
+    const rawOrganizationId = req.body?.organizationId;
+    const organizationId = rawOrganizationId === null || rawOrganizationId === ''
+      ? null
+      : String(rawOrganizationId || '').trim();
+    if (gatewayId.length !== 16 || (organizationId !== null && organizationId.length > 128)) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid gateway assignment' } });
+    }
+    try {
+      let organization = null;
+      if (organizationId) {
+        const { rows: organizationRows } = await query(
+          `SELECT id, name, status FROM organizations WHERE id=$1`,
+          [organizationId]
+        );
+        organization = organizationRows[0] || null;
+        if (!organization) {
+          return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+        }
+        if (organization.status === 'archived') {
+          return res.status(409).json({
+            error: { code: 'ORGANIZATION_ARCHIVED', message: 'Restore the organization before assigning a gateway' }
+          });
+        }
+      }
+      const { rows } = await query(
+        `UPDATE gateways SET organization_id=$2, updated_at=now()
+         WHERE gateway_id=$1 AND status<>'retired'
+         RETURNING *`,
+        [gatewayId, organizationId]
+      );
+      if (!rows[0]) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Gateway not found' } });
+      }
+      res.json({
+        gateway: publicGateway({
+          ...rows[0],
+          organization_name: organization?.name || null,
+          organization_status: organization?.status || null
+        })
+      });
     } catch (error) {
       next(error);
     }

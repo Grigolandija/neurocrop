@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   factorySequenceFromIdentity,
   formatFactorySerial,
+  gatewayConnectivityStatus,
   hashGatewaySecret,
   normalizeFactorySerial,
   normalizeGatewayId,
@@ -36,6 +37,22 @@ test('gateway credentials are stored as one-way hashes', () => {
   assert.equal(first.includes('activation-one'), false);
 });
 
+test('gateway connectivity follows fresh authenticated heartbeats', () => {
+  const now = Date.parse('2026-07-30T12:00:00Z');
+  assert.equal(gatewayConnectivityStatus({
+    status: 'online',
+    last_seen_at: '2026-07-30T11:58:30Z'
+  }, now), 'online');
+  assert.equal(gatewayConnectivityStatus({
+    status: 'online',
+    last_seen_at: '2026-07-30T11:50:00Z'
+  }, now), 'offline');
+  assert.equal(gatewayConnectivityStatus({
+    status: 'configuration_error',
+    last_seen_at: '2026-07-30T11:59:59Z'
+  }, now), 'configuration_error');
+});
+
 test('gateway factory enforces TLS, one-time activation, and authenticated heartbeat', () => {
   const source = fs.readFileSync(new URL('../gateway-factory-routes.js', import.meta.url), 'utf8');
   assert.match(source, /!config\.server\.startsWith\('ssl:\/\/'\)/);
@@ -43,6 +60,9 @@ test('gateway factory enforces TLS, one-time activation, and authenticated heart
   assert.match(source, /status='consumed'/);
   assert.match(source, /deriveDeviceToken\(activationToken, gatewayId\)/);
   assert.match(source, /device_token_hash=\$2/);
+  assert.match(source, /app\.patch\('\/platform\/gateways\/:gatewayId\/organization', requireUserAuth, requireSuperAdmin/);
+  assert.match(source, /UPDATE gateways SET organization_id=\$2/);
+  assert.match(source, /Restore the organization before assigning a gateway/);
   assert.match(source, /app\.get\('\/gateway-factory\/health', factoryAuth/);
   assert.match(source, /pg_advisory_xact_lock/);
   assert.match(source, /gateways\?limit=1000&tenantId=/);
