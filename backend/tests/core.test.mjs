@@ -495,6 +495,13 @@ test('node freshness stops reporting healthy after repeated missed uplinks', () 
   assert.equal(statusFromMeasurementTime('2026-07-12T12:00:00Z', now, 900), 'delayed');
 });
 
+test('a fresh node payload cannot be overridden to offline by gateway management state', () => {
+  const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  assert.match(api, /const transportStatus = measuredStatus;/);
+  assert.doesNotMatch(api, /transportStatus = gatewayStatus === 'offline' \? 'offline' : measuredStatus/);
+  assert.doesNotMatch(api, /FROM gateways[\s\S]*?organization_id=\$1 AND gateway_id=ANY/);
+});
+
 test('gateway association follows the fresh authenticated heartbeat', () => {
   const now = Date.parse('2026-07-12T12:05:00Z');
   const gatewayId = '0102030405060708';

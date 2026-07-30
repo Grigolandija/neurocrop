@@ -28,7 +28,7 @@ import { getAllowedOrigins, getTrustProxyHops, publicError } from './config.js';
 import { validateCropProfileMetrics } from './validation.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
 import { runMigrations } from './migrate.js';
-import { buildNodeHealth, expectedUplinkIntervalSec, gatewayAssociationStatus } from './node-health.js';
+import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
 import {
   buildTodayActions,
   evaluateActionOutcome,
@@ -3097,23 +3097,15 @@ app.get('/nodes', requireAuth, async (req, res) => {
       params
     );
 
-    const gatewayIds = [...new Set(rows.flatMap((row) => Array.isArray(row.last_gateway_ids) ? row.last_gateway_ids : []))];
-    const gatewayRows = gatewayIds.length
-      ? (await query(
-          `SELECT gateway_id, status, last_seen_at
-           FROM gateways
-           WHERE organization_id=$1 AND gateway_id=ANY($2::text[])`,
-          [getOrganizationId(req), gatewayIds]
-        )).rows
-      : [];
-
     res.json({
       nodes: rows.map((row) => {
         const devEui = normalizeDevEui(row.dev_eui);
         const lastSeen = row.last_received_at || row.last_seen || null;
-        const gatewayStatus = gatewayAssociationStatus(row.last_gateway_ids, gatewayRows);
         const measuredStatus = statusFromMeasurementTime(lastSeen, Date.now(), expectedUplinkIntervalSec(row.last_profile));
-        const transportStatus = gatewayStatus === 'offline' ? 'offline' : measuredStatus;
+        const transportStatus = measuredStatus;
+        const gatewayStatus = measuredStatus === 'live' && Array.isArray(row.last_gateway_ids) && row.last_gateway_ids.length
+          ? 'online'
+          : 'unknown';
         return {
           id: row.name || devEui,
           devEui,
