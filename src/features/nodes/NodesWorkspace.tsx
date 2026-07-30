@@ -30,6 +30,12 @@ type NodeRow = JsonRecord & {
   transportStatus: string
   gatewayStatus?: string
   lastGatewayIds?: string[]
+  receivingGateways?: Array<{
+    gatewayId: string
+    name?: string | null
+    serialNumber?: string | null
+    lastSeenAt?: string | null
+  }>
   ageSec: number | null
   health?: { state?: string; label?: string; detail?: string; reasons?: Array<{ label?: string }> } | null
   sensorPresence?: Record<string, boolean>
@@ -121,6 +127,8 @@ function normalizeNodes(payload: unknown, areas: Area[], sections: Section[]) {
       source: source.source === 'simulated' ? 'simulated' : 'physical',
       simulated: source.simulated === true || source.source === 'simulated',
       transportStatus: freshness.transportStatus,
+      lastGatewayIds: source.lastGatewayIds || source.last_gateway_ids || [],
+      receivingGateways: source.receivingGateways || source.receiving_gateways || [],
       ageSec: freshness.ageSec,
       level: Number.isFinite(Number(source.level ?? source.batteryPercent ?? source.battery_percent))
         ? Number(source.level ?? source.batteryPercent ?? source.battery_percent)
@@ -138,6 +146,24 @@ function nodeState(node: NodeRow) {
   if (health.tone === 'critical') return { key: 'fault', label: 'Fault', tone: 'critical' }
   if (health.tone === 'warning') return { key: 'fault', label: 'Watch', tone: 'watch' }
   return { key: 'healthy', label: 'Healthy', tone: 'good' }
+}
+
+function gatewayNames(node: NodeRow) {
+  const named = new Map(
+    (node.receivingGateways || []).map((gateway) => [
+      text(gateway.gatewayId).toLowerCase(),
+      text(gateway.name || gateway.serialNumber || gateway.gatewayId),
+    ])
+  )
+  return (node.lastGatewayIds || [])
+    .map((gatewayId) => named.get(text(gatewayId).toLowerCase()) || text(gatewayId).toUpperCase())
+    .filter(Boolean)
+}
+
+function gatewaySummary(node: NodeRow) {
+  const names = gatewayNames(node)
+  if (!names.length) return tx("Not recorded")
+  return names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -400,6 +426,7 @@ export default function NodesWorkspace() {
     const detected = sensors.length ? sensors.filter((sensor) => sensor.detected) : getDetectedSensorNames(selectedNode).map((label) => ({ label, detected: true }))
     const flags = Object.entries(selectedNode.errorFlags || {}).filter(([, active]) => active).map(([key]) => key.replaceAll('_', ' '))
     const counters = selectedNode.errorCounters || {}
+    const gateways = gatewayNames(selectedNode)
     return <div className="node-detail-page" data-react-nodes-workspace>
       <nav className="node-detail-breadcrumbs" aria-label="Breadcrumb"><button onClick={() => navigate('/nodes')}>{tx("Nodes")}</button><i className="fa-solid fa-chevron-right" /><span>{selectedNode.name}</span></nav>
       <header className="node-detail-head"><div><p>{selectedNode.devEui}</p><h2>{selectedNode.name}</h2><span>{selectedNode.simulated ? `${tx("Simulated")} · ` : ''}{selectedNode.areaName} · {selectedNode.sectionName}</span></div><div className="node-detail-actions"><button type="button" className="node-detail-secondary-action actionable" onClick={() => openEditor(selectedNode)}><i className="fa-solid fa-pen" />{tx("Edit node")}</button></div></header>
@@ -425,6 +452,7 @@ export default function NodesWorkspace() {
           <div><dt>{tx("Read failures")}</dt><dd>{Number.isFinite(Number(counters.read_fail)) ? counters.read_fail :tx("Unavailable")}</dd></div>
           <div><dt>{tx("Transmit failures")}</dt><dd>{Number.isFinite(Number(counters.tx_fail)) ? counters.tx_fail :tx("Unavailable")}</dd></div>
           <div><dt>{tx("Last payload")}</dt><dd>{lastPayload.absolute}</dd></div>
+          <div><dt>{tx("Last uplink received by")}</dt><dd>{gateways.length ? gateways.join(' · ') : tx("Not recorded")}</dd></div>
           {flags.length ? <div><dt>{tx("Fault flags")}</dt><dd>{flags.join(' · ')}</dd></div> : null}
           <div><dt>{tx("Signal detail")}</dt><dd>{formatSignal(selectedNode)}</dd></div>
         </dl></section>
@@ -447,7 +475,7 @@ export default function NodesWorkspace() {
         <label className="block"><span className="sr-only">{tx("Filter by area")}</span><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}><option value="all">{tx("All areas")}</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label>
         <label className="block"><span className="sr-only">{tx("Filter by state")}</span><select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}><option value="all">{tx("All states")}</option><option value="healthy">{tx("Healthy")}</option><option value="fault">{tx("Fault")}</option><option value="offline">{tx("Offline")}</option></select></label>
       </div></div>
-      <div className="nc-data-table-wrap"><table className="nc-data-table nc-node-table"><thead><tr><th>{tx("Node")}</th><th>{tx("Location")}</th><th>{tx("State")}</th><th>{tx("Battery")}</th><th>{tx("Signal")}</th><th>{tx("Last payload")}</th><th /></tr></thead><tbody>
+      <div className="nc-data-table-wrap"><table className="nc-data-table nc-node-table"><thead><tr><th>{tx("Node")}</th><th>{tx("Location")}</th><th>{tx("Gateway")}</th><th>{tx("State")}</th><th>{tx("Battery")}</th><th>{tx("Signal")}</th><th>{tx("Last payload")}</th><th /></tr></thead><tbody>
         {visibleNodes.length ? visibleNodes.map((node) => {
           const state = nodeState(node)
           const lastPayload = formatLastPayload(node, node, translate)
@@ -455,12 +483,13 @@ export default function NodesWorkspace() {
           return <tr key={node.devEui || node.id}>
             <td><button type="button" className="nc-node-identity" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)}><strong>{node.name}</strong>{node.simulated ? <em>{tx("Simulated")}</em> : null}<small>{node.devEui || node.id}</small></button></td>
             <td><strong>{node.sectionName}</strong><small>{node.areaName}</small></td>
+            <td><strong>{gatewaySummary(node)}</strong><small>{tx("Last uplink")}</small></td>
             <td><span className={`nc-status-new ${state.tone}`}><span className={`nc-state-dot ${state.tone}`} />{state.label}</span></td>
             <td><span className={`nc-node-battery ${batteryLow ? 'is-low' : ''}`}><i className={`fa-solid ${Number(node.level) < 25 ? 'fa-battery-quarter' : 'fa-battery-three-quarters'}`} />{Number.isFinite(node.level) ? `${node.transportStatus === 'offline' ? 'Last ' : ''}${node.level}%` :tx("Battery unknown")}</span></td>
             <td>{Number.isFinite(node.rssi) ? `${node.rssi} dBm` : '—'}</td><td>{lastPayload.relative}</td>
             <td><button type="button" className="nc-row-arrow" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)} aria-label={`Open ${node.name} details`}><i className="fa-solid fa-chevron-right" /></button></td>
           </tr>
-        }) : <tr><td colSpan={7} className="nc-node-empty">{nodes.length ?tx("No nodes match these filters.") :tx("No nodes registered yet.")}</td></tr>}
+        }) : <tr><td colSpan={8} className="nc-node-empty">{nodes.length ?tx("No nodes match these filters.") :tx("No nodes registered yet.")}</td></tr>}
       </tbody></table></div>
     </section>
     {registration ? <RegistrationModal registration={registration} areas={areas} sections={sections} busy={busy} error={modalError} onChange={setRegistration} onAreaChange={chooseRegistrationArea} onClose={() => setRegistration(null)} onSubmit={registerNode} /> : null}

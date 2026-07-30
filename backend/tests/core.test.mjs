@@ -522,6 +522,12 @@ test('gateway association follows the fresh authenticated heartbeat', () => {
   }], now), 'offline');
 });
 
+test('node inventory exposes the gateways that received the latest uplink', () => {
+  const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  assert.match(api, /g\.gateway_id=ANY\(n\.last_gateway_ids\)/);
+  assert.match(api, /receivingGateways: row\.receiving_gateways \|\| \[\]/);
+});
+
 test('node health ignores historical counters without an active fault', () => {
   const health = buildNodeHealth({
     transportStatus: 'live',

@@ -361,6 +361,8 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Last packet": "Paskutinis paketas",
   "Last payload": "Naujausi duomenys",
   "Last uplink": "Paskutinis ryšys",
+  "Last uplink received by": "Paskutinį ryšį priėmė",
+  "Not recorded": "Neužfiksuota",
   "Latest data": "Naujausi duomenys",
   "Latest device report": "Naujausia įrenginio ataskaita",
   "Latest reading": "Naujausias rodmuo",

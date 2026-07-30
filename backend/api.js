@@ -3088,7 +3088,21 @@ app.get('/nodes', requireAuth, async (req, res) => {
          n.last_battery_mv, n.last_battery_percent, n.last_firmware_version,
          n.last_profile, n.last_rssi, n.last_snr, n.last_spreading_factor,
          n.last_sensor_presence, n.last_error_flags, n.last_error_counters,
-         n.last_gateway_ids, n.source
+         n.last_gateway_ids, n.source,
+         COALESCE((
+           SELECT jsonb_agg(
+             jsonb_build_object(
+               'gatewayId', g.gateway_id,
+               'name', g.display_name,
+               'serialNumber', g.serial_number,
+               'lastSeenAt', g.last_seen_at
+             )
+             ORDER BY g.display_name, g.gateway_id
+           )
+           FROM gateways g
+           WHERE g.gateway_id=ANY(n.last_gateway_ids)
+             AND (g.organization_id=n.organization_id OR g.organization_id IS NULL)
+         ), '[]'::jsonb) AS receiving_gateways
        FROM nodes n
        LEFT JOIN areas a ON a.id=n.area_id AND a.organization_id=n.organization_id
        LEFT JOIN sections s ON s.id=n.section_id AND s.organization_id=n.organization_id
@@ -3120,6 +3134,7 @@ app.get('/nodes', requireAuth, async (req, res) => {
           transportStatus,
           gatewayStatus,
           lastGatewayIds: row.last_gateway_ids || [],
+          receivingGateways: row.receiving_gateways || [],
           lastSeen,
           createdAt: row.created_at,
           level: row.last_battery_percent ?? null,
