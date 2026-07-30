@@ -95,6 +95,12 @@ test('gateway factory enforces TLS, one-time activation, and authenticated heart
   assert.match(source, /UPDATE gateways SET organization_id=\$2/);
   assert.match(source, /INSERT INTO gateways \([\s\S]*?CS-\$\{gatewayId\.toUpperCase\(\)\}/);
   assert.match(source, /Restore the organization before assigning a gateway/);
+  assert.match(source, /app\.delete\('\/platform\/gateways\/:gatewayId', requireUserAuth, requireSuperAdmin/);
+  assert.match(source, /req\.query\.confirm !== 'delete'/);
+  assert.match(source, /array_remove\(last_gateway_ids, \$1\)/);
+  assert.match(source, /DELETE FROM gateway_activations WHERE gateway_id=\$1/);
+  assert.match(source, /DELETE FROM gateways WHERE gateway_id=\$1/);
+  assert.match(source, /chirpstackRequest\(`\/gateways\/\$\{encodeURIComponent\(gatewayId\)\}`,\s*\{ method: 'DELETE' \}\)/);
   assert.match(source, /app\.get\('\/gateway-factory\/health', factoryAuth/);
   assert.match(source, /pg_advisory_xact_lock/);
   assert.match(source, /gateways\?limit=1000&tenantId=/);

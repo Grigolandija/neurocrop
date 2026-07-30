@@ -37,6 +37,7 @@ export const neurocropApi = {
   getPlatformIntegrations: () => request('/platform/integrations'),
   getPlatformGatewayUpdates: () => request('/platform/gateway-updates', { cache: 'no-store' }),
   assignPlatformGateway: (gatewayId: string, organizationId: string | null) => request(`/platform/gateways/${encoded(gatewayId)}/organization`, { method: 'PATCH', body: json({ organizationId }) }),
+  deletePlatformGateway: (gatewayId: string) => request(`/platform/gateways/${encoded(gatewayId)}?confirm=delete`, { method: 'DELETE' }),
   schedulePlatformGatewayUpdate: (gatewayId: string) => request(`/platform/gateways/${encoded(gatewayId)}/update`, { method: 'POST' }),
   updatePlatformGatewayRollout: (payload: Payload) => request('/platform/gateway-updates/policy', { method: 'PATCH', body: json(payload) }),
   getPlatformOrganizationNodes: (id: string) => request(`/platform/organizations/${encoded(id)}/nodes`),

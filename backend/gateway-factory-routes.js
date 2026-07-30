@@ -391,6 +391,16 @@ async function chirpstackGatewayInventory() {
   return Array.isArray(inventory?.result) ? inventory.result : [];
 }
 
+async function deleteChirpstackGateway(gatewayId) {
+  try {
+    await chirpstackRequest(`/gateways/${encodeURIComponent(gatewayId)}`, { method: 'DELETE' });
+    return true;
+  } catch (error) {
+    if (error.status === 404) return false;
+    throw error;
+  }
+}
+
 function gatewayUpdatePublicKey() {
   const value = fs.readFileSync(path.join(GATEWAY_UPDATE_DIRECTORY, 'update-public-key.pem'), 'utf8').trim();
   if (!value.startsWith('-----BEGIN PUBLIC KEY-----') || !value.endsWith('-----END PUBLIC KEY-----')) {
@@ -1043,6 +1053,74 @@ export function registerGatewayFactoryRoutes(app) {
       });
     } catch (error) {
       next(error);
+    }
+  });
+
+  app.delete('/platform/gateways/:gatewayId', requireUserAuth, requireSuperAdmin, async (req, res, next) => {
+    const gatewayId = normalizeGatewayId(req.params.gatewayId);
+    if (gatewayId.length !== 16 || req.query.confirm !== 'delete') {
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'Explicit gateway deletion confirmation is required' }
+      });
+    }
+
+    let client;
+    let chirpstackGateway = null;
+    let chirpstackDeleted = false;
+    try {
+      const chirpstackGateways = await chirpstackGatewayInventory();
+      chirpstackGateway = chirpstackGateways.find(
+        (gateway) => normalizeGatewayId(gateway?.gatewayId) === gatewayId
+      ) || null;
+
+      client = await pool.connect();
+      await client.query('BEGIN');
+      const { rows: databaseGateways } = await client.query(
+        `SELECT gateway_id, serial_number, display_name
+         FROM gateways
+         WHERE gateway_id=$1
+         FOR UPDATE`,
+        [gatewayId]
+      );
+      const databaseGateway = databaseGateways[0] || null;
+      if (!databaseGateway && !chirpstackGateway) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Gateway not found' } });
+      }
+
+      await client.query(
+        `UPDATE nodes
+         SET last_gateway_ids=array_remove(last_gateway_ids, $1)
+         WHERE $1=ANY(last_gateway_ids)`,
+        [gatewayId]
+      );
+      await client.query('DELETE FROM gateway_activations WHERE gateway_id=$1', [gatewayId]);
+      await client.query('DELETE FROM gateways WHERE gateway_id=$1', [gatewayId]);
+
+      if (chirpstackGateway) {
+        chirpstackDeleted = await deleteChirpstackGateway(gatewayId);
+      }
+      await client.query('COMMIT');
+      res.json({
+        deleted: true,
+        gatewayId,
+        deletedFromChirpstack: chirpstackDeleted,
+        deletedFromNeurocrop: Boolean(databaseGateway)
+      });
+    } catch (error) {
+      if (client) await client.query('ROLLBACK').catch(() => {});
+      if (chirpstackDeleted && chirpstackGateway) {
+        await ensureChirpstackGateway({
+          gatewayId,
+          name: String(chirpstackGateway.name || '').trim() || `Gateway ${gatewayId}`,
+          serialNumber: String(chirpstackGateway.name || '').trim() || gatewayId
+        }).catch((restoreError) => {
+          console.error('[gateway-delete] ChirpStack compensation failed:', restoreError.message);
+        });
+      }
+      next(error);
+    } finally {
+      client?.release();
     }
   });
 
