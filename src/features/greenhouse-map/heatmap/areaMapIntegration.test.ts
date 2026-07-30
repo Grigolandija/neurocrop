@@ -139,4 +139,31 @@ describe('Area Map API context integration', () => {
     expect(otherMetric.heatmapSettings.manualMin).toBeUndefined()
     expect(otherMetric.heatmapSettings.manualMax).toBeUndefined()
   })
+
+  it('hides offline node markers from the read-only heatmap', async () => {
+    const { createAreaMap } = await import('../services/areaMapRepository')
+    const { prepareReadOnlyClimateMap } = await import('../../readings/prepareReadOnlyClimateMap')
+    const liveNodes = nodes.map((node, index) => index === 1 ? { ...node, status: 'offline' as const } : node)
+    const map = createAreaMap({ id: 'area-1', name: 'Production greenhouse' }, liveNodes, sections)
+    const context = {
+      area: { id: 'area-1', name: 'Production greenhouse' },
+      mapEnabled: true,
+      map,
+      revision: 1,
+      updatedAt: '2026-07-25T12:00:00Z',
+      nodes: liveNodes,
+      sections,
+      profiles: [],
+      actions: [],
+      permissions: { canEdit: true },
+    }
+
+    const readOnlyMap = prepareReadOnlyClimateMap(context, 'air-temperature')
+    const visibleNodeIds = readOnlyMap.objects
+      .filter((object) => object.type === 'sensor-node')
+      .map((object) => object.metadata.sensor?.devEui)
+
+    expect(visibleNodeIds).toEqual(['70b3d57ed0060001'])
+    expect(readOnlyMap.objects.some((object) => object.metadata.sensor?.status === 'offline')).toBe(false)
+  })
 })

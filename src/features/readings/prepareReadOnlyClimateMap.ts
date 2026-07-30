@@ -19,7 +19,11 @@ export function prepareReadOnlyClimateMap(context: AreaMapContext, metric: Metri
       locked: true,
       opacity: layer.id === 'environment' ? 1 : layer.opacity,
     })),
-    objects: source.objects.flatMap((object) => object.type === 'section-zone' ? [] : [{ ...object, locked: true }]),
+    objects: source.objects.flatMap((object) => {
+      if (object.type === 'section-zone') return []
+      if (object.type === 'sensor-node' && object.metadata.sensor?.status === 'offline') return []
+      return [{ ...object, locked: true }]
+    }),
     heatmapSettings: {
       ...source.heatmapSettings,
       enabled: true,

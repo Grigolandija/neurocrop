@@ -3,6 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { pool, query } from './db.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
+import { requireSuperAdmin, requireUserAuth } from './auth-users.js';
+import {
+  GATEWAY_UPDATE_DIRECTORY,
+  isGatewayEligibleForRelease,
+  publicGatewayRelease,
+  readGatewayRelease
+} from './gateway-updates.js';
 
 const DEFAULT_ACTIVATION_TTL_MINUTES = 30;
 const MAX_ACTIVATION_TTL_MINUTES = 24 * 60;
@@ -298,12 +305,60 @@ function publicGateway(row) {
     concentratorEui: row.concentrator_eui || null,
     hardwareModel: row.hardware_model || null,
     imageVersion: row.image_version || null,
+    agentVersion: row.agent_version || null,
+    targetAgentVersion: row.target_agent_version || null,
+    updateStatus: row.update_status || 'idle',
+    updateError: row.update_error || null,
+    updateAttempts: Number(row.update_attempts) || 0,
+    updateStartedAt: row.update_started_at || null,
+    updateCompletedAt: row.update_completed_at || null,
     status: row.status,
     lastHealth: row.last_health || {},
     firstEnrolledAt: row.first_enrolled_at,
     lastEnrolledAt: row.last_enrolled_at,
     lastSeenAt: row.last_seen_at
   };
+}
+
+function gatewayUpdatePublicKey() {
+  const value = fs.readFileSync(path.join(GATEWAY_UPDATE_DIRECTORY, 'update-public-key.pem'), 'utf8').trim();
+  if (!value.startsWith('-----BEGIN PUBLIC KEY-----') || !value.endsWith('-----END PUBLIC KEY-----')) {
+    throw new Error('Gateway update public key is invalid');
+  }
+  return `${value}\n`;
+}
+
+async function gatewayPolicy() {
+  const { rows } = await query(
+    `SELECT release_version, rollout_percent, paused, updated_at
+     FROM gateway_update_policy WHERE singleton=true`
+  );
+  return rows[0] || { release_version: null, rollout_percent: 0, paused: true, updated_at: null };
+}
+
+async function authenticatedGateway(gatewayId, token) {
+  if (gatewayId.length !== 16 || !token) return null;
+  const { rows } = await query(
+    `SELECT * FROM gateways
+     WHERE gateway_id=$1 AND device_token_hash=$2 AND status<>'retired'`,
+    [gatewayId, hashGatewaySecret(token)]
+  );
+  return rows[0] || null;
+}
+
+async function availableGatewayUpdate(gateway) {
+  try {
+    const release = readGatewayRelease();
+    const policy = await gatewayPolicy();
+    return isGatewayEligibleForRelease(gateway, release, policy)
+      ? { ...publicGatewayRelease(release), downloadPath: '/gateway/update/download' }
+      : null;
+  } catch (error) {
+    if (!['ENOENT', 'ENOTDIR'].includes(error?.code)) {
+      console.error('[gateway-update] release unavailable:', error.message);
+    }
+    return null;
+  }
 }
 
 export function registerGatewayFactoryRoutes(app) {
@@ -676,15 +731,178 @@ export function registerGatewayFactoryRoutes(app) {
            status='online', last_seen_at=now(), last_ip=$3,
            last_health=$4::jsonb,
            image_version=COALESCE(NULLIF($5, ''), image_version),
+           agent_version=COALESCE(NULLIF($6, ''), agent_version),
            updated_at=now()
          WHERE gateway_id=$1 AND device_token_hash=$2 AND status<>'retired'
          RETURNING *`,
-        [gatewayId, hashGatewaySecret(token), req.ip, JSON.stringify(health), String(req.body?.imageVersion || '').slice(0, 64)]
+        [gatewayId, hashGatewaySecret(token), req.ip, JSON.stringify(health),
+          String(req.body?.imageVersion || '').slice(0, 64),
+          String(req.body?.agentVersion || '').slice(0, 64)]
       );
       if (!rows[0]) {
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid gateway credential' } });
       }
-      res.json({ gateway: publicGateway(rows[0]), serverTime: new Date().toISOString() });
+      res.json({
+        gateway: publicGateway(rows[0]),
+        update: await availableGatewayUpdate(rows[0]),
+        serverTime: new Date().toISOString()
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/gateway/update/check', async (req, res, next) => {
+    const gatewayId = normalizeGatewayId(req.query.gatewayId);
+    try {
+      const gateway = await authenticatedGateway(gatewayId, bearerToken(req));
+      if (!gateway) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid gateway credential' } });
+      }
+      res.setHeader('Cache-Control', 'no-store');
+      const update = await availableGatewayUpdate(gateway);
+      res.json({
+        gateway: publicGateway(gateway),
+        update,
+        publicKeyPem: update ? gatewayUpdatePublicKey() : null,
+        serverTime: new Date().toISOString()
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/gateway/update/download', async (req, res, next) => {
+    const gatewayId = normalizeGatewayId(req.query.gatewayId);
+    const requestedVersion = String(req.query.version || '').trim();
+    try {
+      const gateway = await authenticatedGateway(gatewayId, bearerToken(req));
+      if (!gateway) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid gateway credential' } });
+      }
+      const release = readGatewayRelease();
+      const policy = await gatewayPolicy();
+      if (requestedVersion !== release.version || !isGatewayEligibleForRelease(gateway, release, policy)) {
+        return res.status(404).json({ error: { code: 'UPDATE_NOT_AVAILABLE', message: 'Gateway update is not available' } });
+      }
+      await query(
+        `UPDATE gateways SET
+           target_agent_version=$2,
+           update_status='downloading',
+           update_started_at=COALESCE(update_started_at, now()),
+           updated_at=now()
+         WHERE gateway_id=$1`,
+        [gatewayId, release.version]
+      );
+      res.setHeader('Content-Type', 'application/gzip');
+      res.setHeader('Content-Length', String(release.size));
+      res.setHeader('Content-Disposition', `attachment; filename="${release.fileName}"`);
+      res.setHeader('Cache-Control', 'private, no-store');
+      fs.createReadStream(release.packagePath).on('error', next).pipe(res);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/gateway/update/status', async (req, res, next) => {
+    const gatewayId = normalizeGatewayId(req.body?.gatewayId);
+    const status = String(req.body?.status || '').trim();
+    const version = String(req.body?.version || '').trim().slice(0, 64);
+    const errorMessage = String(req.body?.error || '').trim().slice(0, 500) || null;
+    const allowed = new Set(['downloading', 'verifying', 'installing', 'succeeded', 'failed', 'rolled_back']);
+    if (!allowed.has(status) || !version) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid gateway update status' } });
+    }
+    try {
+      const gateway = await authenticatedGateway(gatewayId, bearerToken(req));
+      if (!gateway) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid gateway credential' } });
+      }
+      const continuingUpdate = gateway.target_agent_version === version;
+      let mayStartUpdate = false;
+      if (!continuingUpdate && status === 'downloading') {
+        const release = readGatewayRelease();
+        mayStartUpdate = release.version === version &&
+          isGatewayEligibleForRelease(gateway, release, await gatewayPolicy());
+      }
+      if (!continuingUpdate && !mayStartUpdate) {
+        return res.status(409).json({
+          error: { code: 'UPDATE_NOT_SCHEDULED', message: 'This gateway update is not scheduled' }
+        });
+      }
+      const { rows } = await query(
+        `UPDATE gateways SET
+           update_status=$3,
+           update_error=$4,
+           update_attempts=update_attempts + CASE WHEN $3='downloading' THEN 1 ELSE 0 END,
+           update_started_at=CASE WHEN $3='downloading' THEN now() ELSE update_started_at END,
+           update_completed_at=CASE WHEN $3 IN ('succeeded','failed','rolled_back') THEN now() ELSE NULL END,
+           agent_version=CASE WHEN $3='succeeded' THEN $5 ELSE agent_version END,
+           target_agent_version=CASE
+             WHEN $3 IN ('succeeded','failed','rolled_back') THEN NULL
+             WHEN $3='downloading' THEN $5
+             ELSE target_agent_version
+           END,
+           updated_at=now()
+         WHERE gateway_id=$1 AND device_token_hash=$2
+         RETURNING *`,
+        [gatewayId, hashGatewaySecret(bearerToken(req)), status, errorMessage, version]
+      );
+      res.json({ gateway: publicGateway(rows[0]) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/platform/gateway-updates', requireUserAuth, requireSuperAdmin, async (req, res, next) => {
+    try {
+      const { rows } = await query('SELECT * FROM gateways ORDER BY first_enrolled_at DESC');
+      let release = null;
+      try {
+        release = publicGatewayRelease(readGatewayRelease());
+      } catch (error) {
+        if (!['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
+      }
+      res.json({ gateways: rows.map(publicGateway), release, policy: await gatewayPolicy() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/platform/gateways/:gatewayId/update', requireUserAuth, requireSuperAdmin, async (req, res, next) => {
+    const gatewayId = normalizeGatewayId(req.params.gatewayId);
+    try {
+      const release = readGatewayRelease();
+      const { rows } = await query(
+        `UPDATE gateways SET
+           target_agent_version=$2, update_status='scheduled', update_error=NULL, updated_at=now()
+         WHERE gateway_id=$1 AND status<>'retired'
+         RETURNING *`,
+        [gatewayId, release.version]
+      );
+      if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Gateway not found' } });
+      res.json({ gateway: publicGateway(rows[0]), release: publicGatewayRelease(release) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch('/platform/gateway-updates/policy', requireUserAuth, requireSuperAdmin, async (req, res, next) => {
+    const rolloutPercent = Number(req.body?.rolloutPercent);
+    const paused = req.body?.paused === true;
+    if (!Number.isInteger(rolloutPercent) || rolloutPercent < 0 || rolloutPercent > 100) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Rollout percentage must be 0–100' } });
+    }
+    try {
+      const release = readGatewayRelease();
+      const { rows } = await query(
+        `UPDATE gateway_update_policy SET
+           release_version=$1, rollout_percent=$2, paused=$3, updated_by=$4, updated_at=now()
+         WHERE singleton=true
+         RETURNING release_version, rollout_percent, paused, updated_at`,
+        [release.version, rolloutPercent, paused, req.user.id]
+      );
+      res.json({ policy: rows[0], release: publicGatewayRelease(release) });
     } catch (error) {
       next(error);
     }

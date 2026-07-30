@@ -65,6 +65,17 @@ test('node firmware delivery is authenticated and checksum verified', () => {
   assert.match(source, /path\.basename/);
 });
 
+test('gateway software updates require device authentication, signatures and staged rollout', () => {
+  const source = fs.readFileSync(new URL('../gateway-factory-routes.js', import.meta.url), 'utf8');
+  assert.match(source, /app\.get\('\/gateway\/update\/check'/);
+  assert.match(source, /app\.get\('\/gateway\/update\/download'/);
+  assert.match(source, /app\.post\('\/gateway\/update\/status'/);
+  assert.match(source, /authenticatedGateway/);
+  assert.match(source, /requireUserAuth, requireSuperAdmin/);
+  assert.match(source, /target_agent_version/);
+  assert.match(source, /rollout_percent/);
+});
+
 test('API registers node factory routes', () => {
   const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   assert.match(source, /import \{ registerGatewayFactoryRoutes \} from '\.\/gateway-factory-routes\.js';/);

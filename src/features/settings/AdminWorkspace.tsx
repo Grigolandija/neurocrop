@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import '../../styles/settings-workspace.css'
 
-type AdminSection = 'organizations' | 'requests' | 'users' | 'administrators'
+type AdminSection = 'organizations' | 'requests' | 'users' | 'administrators' | 'gateways'
 type CurrentUser = { id: string; name: string; email: string; isPlatformAdmin: boolean; isSuperAdmin: boolean }
 type Organization = {
   id: string
@@ -59,12 +59,31 @@ type OrganizationMember = {
   joinedAt?: string
 }
 type Feedback = { tone: 'success' | 'warning'; text: string }
+type PlatformGateway = {
+  gatewayId: string
+  serialNumber: string
+  name: string
+  organizationId?: string | null
+  hardwareModel?: string | null
+  imageVersion?: string | null
+  agentVersion?: string | null
+  targetAgentVersion?: string | null
+  status: string
+  updateStatus: string
+  updateError?: string | null
+  updateAttempts: number
+  lastSeenAt?: string | null
+  updateCompletedAt?: string | null
+}
+type GatewayRelease = { version: string; size: number; publishedAt: string }
+type GatewayUpdatePolicy = { release_version?: string | null; rollout_percent: number; paused: boolean; updated_at?: string | null }
 
 const sectionMeta: Record<AdminSection, { title: string; description: string; icon: string }> = {
   organizations: { title: 'Customer organizations', description: 'Create, inspect, archive, and restore isolated customer workspaces.', icon: 'fa-building' },
   requests: { title: 'Access requests', description: 'Review new workspace requests before customer data storage is created.', icon: 'fa-inbox' },
   users: { title: 'Platform users', description: 'Review account access and organization membership across the platform.', icon: 'fa-users' },
   administrators: { title: 'Platform administrators', description: 'Control the small group allowed to administer all NeuroCrop customers.', icon: 'fa-user-shield' },
+  gateways: { title: 'Gateway software', description: 'Deploy signed gateway-agent releases gradually and monitor every installation.', icon: 'fa-tower-broadcast' },
 }
 
 function formatDate(value?: string | null) {
@@ -101,6 +120,9 @@ export default function AdminWorkspace() {
   const [latestInvite, setLatestInvite] = useState<{ url: string; email: string; sent: boolean } | null>(null)
   const [diagnostics, setDiagnostics] = useState<{ organization: Organization; nodes: DiagnosticNode[]; loading: boolean } | null>(null)
   const [organizationMembers, setOrganizationMembers] = useState<{ organization: Organization; members: OrganizationMember[]; loading: boolean } | null>(null)
+  const [gateways, setGateways] = useState<PlatformGateway[]>([])
+  const [gatewayRelease, setGatewayRelease] = useState<GatewayRelease | null>(null)
+  const [gatewayPolicy, setGatewayPolicy] = useState<GatewayUpdatePolicy | null>(null)
 
   useEffect(() => {
     document.body.dataset.reactAdminActive = 'true'
@@ -124,6 +146,16 @@ export default function AdminWorkspace() {
       setOrganizations(Array.isArray(organizationsResponse.organizations) ? organizationsResponse.organizations : [])
       setUsers(Array.isArray(usersResponse.users) ? usersResponse.users : [])
       setRequests(Array.isArray(requestsResponse.requests) ? requestsResponse.requests : [])
+      if (meResponse.user.isSuperAdmin) {
+        const gatewayResponse = await neurocropApi.getPlatformGatewayUpdates() as {
+          gateways?: PlatformGateway[]
+          release?: GatewayRelease | null
+          policy?: GatewayUpdatePolicy
+        }
+        setGateways(Array.isArray(gatewayResponse.gateways) ? gatewayResponse.gateways : [])
+        setGatewayRelease(gatewayResponse.release || null)
+        setGatewayPolicy(gatewayResponse.policy || null)
+      }
     } catch (reason) {
       setFeedback({ tone: 'warning', text: errorMessage(reason) })
     } finally {
@@ -213,6 +245,8 @@ export default function AdminWorkspace() {
   const activeOrganizations = organizations.filter((item) => item.status !== 'archived').length
   const faultCount = organizations.reduce((sum, item) => sum + (Number(item.faultNodeCount) || 0), 0)
   const meta = sectionMeta[section]
+  const visibleAdminSections = (Object.keys(sectionMeta) as AdminSection[])
+    .filter((key) => key !== 'gateways' || currentUser?.isSuperAdmin)
 
   return <main className="nc-settings-page nc-admin-page" aria-busy={loading}>
     <header className="nc-settings-page-head nc-admin-page-head">
@@ -234,7 +268,7 @@ export default function AdminWorkspace() {
       <aside className="nc-settings-nav nc-admin-nav" aria-label={tx("Administration sections")}>
         <div className="nc-settings-identity"><span><i className="fa-solid fa-shield-halved" /></span><div><strong>{tx("NeuroCrop platform")}</strong><small>{currentUser?.isSuperAdmin ?tx("Super administrator") :tx("Platform administrator")}</small></div></div>
         <p>{tx("Manage")}</p>
-        {(Object.keys(sectionMeta) as AdminSection[]).map((key) => <button key={key} className={section === key ? 'active' : ''} onClick={() => { setSection(key); setQuery('') }}><i className={`fa-solid ${sectionMeta[key].icon}`} /><span><strong>{sectionMeta[key].title.replace('Customer ', '').replace('Platform ', '')}</strong><small>{key === 'organizations' ? `${organizations.length} workspaces` : key === 'requests' ? `${requests.length} awaiting review` : key === 'users' ? `${users.length} accounts` : `${users.filter((item) => item.isPlatformAdmin).length} privileged accounts`}</small></span><i className="fa-solid fa-chevron-right" /></button>)}
+        {visibleAdminSections.map((key) => <button key={key} className={section === key ? 'active' : ''} onClick={() => { setSection(key); setQuery('') }}><i className={`fa-solid ${sectionMeta[key].icon}`} /><span><strong>{sectionMeta[key].title.replace('Customer ', '').replace('Platform ', '')}</strong><small>{key === 'organizations' ? `${organizations.length} workspaces` : key === 'requests' ? `${requests.length} awaiting review` : key === 'users' ? `${users.length} accounts` : key === 'gateways' ? `${gateways.length} enrolled gateways` : `${users.filter((item) => item.isPlatformAdmin).length} privileged accounts`}</small></span><i className="fa-solid fa-chevron-right" /></button>)}
         <p>{tx("Workspace")}</p>
         <button onClick={() => navigate('/settings')}><i className="fa-solid fa-gear" /><span><strong>{tx("Settings")}</strong><small>{tx("Current customer workspace")}</small></span><i className="fa-solid fa-arrow-up-right-from-square" /></button>
       </aside>
@@ -252,6 +286,19 @@ export default function AdminWorkspace() {
         {section === 'users' ? <section className="nc-admin-table-card"><div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("User")}</th><th>{tx("Account")}</th><th>{tx("Organizations")}</th><th>{tx("Requests")}</th><th>{tx("Last login")}</th><th><span className="sr-only">{tx("Actions")}</span></th></tr></thead><tbody>{filteredUsers.map((user) => <tr key={user.id}><td><div className="nc-admin-person"><span>{initials(user.name || user.email)}</span><div><strong>{user.name ||tx("Unnamed user")}</strong><small>{user.email}</small></div></div></td><td><span className="nc-settings-status" data-tone={user.active ? 'success' : 'neutral'}><i />{user.isSuperAdmin ?tx("Super admin") : user.isPlatformAdmin ?tx("Platform admin") : user.active ?tx("Active") :tx("Inactive")}</span></td><td>{user.organizationCount || 0}</td><td>{user.pendingRequestCount || 0}</td><td>{formatDate(user.lastLoginAt)}</td><td>{currentUser?.isSuperAdmin && !user.isSuperAdmin ? <div className="nc-admin-row-actions"><button title={user.active ? 'Deactivate' : 'Activate'} disabled={user.id === currentUser.id || Boolean(busyKey)} onClick={() => { if (window.confirm(`${user.active ? 'Deactivate' : 'Activate'} ${user.email}?`)) void runAction(`status-${user.id}`, () => neurocropApi.setPlatformUserActive(user.id, !user.active), `${user.email} ${user.active ? 'deactivated' : 'activated'}.`) }}><i className={`fa-solid ${user.active ? 'fa-user-slash' : 'fa-user-check'}`} /></button><button className="danger" title={tx("Delete user")} disabled={user.id === currentUser.id || Boolean(busyKey)} onClick={() => { if (window.confirm(`Permanently delete ${user.email} from NeuroCrop and Clerk? Their sessions, memberships, invitations, requests, and assignments will be removed. Organization sensor and measurement history will remain without this user reference. This cannot be undone.`)) void runAction(`delete-user-${user.id}`, () => neurocropApi.deletePlatformUser(user.id), `${user.email} permanently deleted from NeuroCrop and Clerk.`) }}><i className="fa-solid fa-trash" /></button></div> : <span className="nc-admin-readonly">{tx("Read only")}</span>}</td></tr>)}</tbody></table></div></section> : null}
 
         {section === 'administrators' ? <section className="nc-admin-table-card"><div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("Administrator")}</th><th>{tx("Level")}</th><th>{tx("Account")}</th><th>{tx("Organizations")}</th><th>{tx("Last login")}</th><th><span className="sr-only">{tx("Actions")}</span></th></tr></thead><tbody>{administrators.map((user) => <tr key={user.id}><td><div className="nc-admin-person"><span>{initials(user.name || user.email)}</span><div><strong>{user.name ||tx("Unnamed administrator")}</strong><small>{user.email}</small></div></div></td><td>{user.isSuperAdmin ?tx("Super administrator") :tx("Platform administrator")}</td><td><span className="nc-settings-status" data-tone={user.active ? 'success' : 'neutral'}><i />{user.active ?tx("Active") :tx("Inactive")}</span></td><td>{user.organizationCount || 0}</td><td>{formatDate(user.lastLoginAt)}</td><td>{currentUser?.isSuperAdmin && !user.isSuperAdmin ? <button className="nc-admin-text-danger" disabled={user.id === currentUser.id || Boolean(busyKey)} onClick={() => { if (window.confirm(`Remove platform administrator access from ${user.email}?`)) void runAction(`revoke-${user.id}`, () => neurocropApi.revokePlatformAdmin(user.id), `${user.email} is no longer a platform administrator.`) }}>{tx("Revoke access")}</button> : <span className="nc-admin-readonly">{tx("Protected")}</span>}</td></tr>)}{!administrators.length && !loading ? <tr><td colSpan={6}><div className="nc-settings-empty">{tx("No matching administrators.")}</div></td></tr> : null}</tbody></table></div>{currentUser?.isSuperAdmin ? <div className="nc-admin-grant"><div><strong>{tx("Grant platform access")}</strong><span>{tx("Select an active user from the Users section and grant global administration deliberately.")}</span></div><select defaultValue="" onChange={(event) => { const user = users.find((item) => item.id === event.target.value); if (user && window.confirm(`Grant platform administrator access to ${user.email}?`)) void runAction(`grant-${user.id}`, () => neurocropApi.grantPlatformAdmin({ userId: user.id }), `${user.email} is now a platform administrator.`); event.target.value = '' }}><option value="" disabled>{tx("Select eligible user")}</option>{users.filter((user) => user.active && !user.isPlatformAdmin && !user.isSuperAdmin).map((user) => <option key={user.id} value={user.id}>{user.name || user.email} · {user.email}</option>)}</select></div> : null}</section> : null}
+
+        {section === 'gateways' ? <div className="nc-settings-flow">
+          <section className="nc-admin-create nc-gateway-release-card">
+            <div><strong>{tx("Signed gateway release")}</strong><span>{gatewayRelease ? `${gatewayRelease.version} · ${(gatewayRelease.size / 1024).toFixed(1)} KB · ${formatDate(gatewayRelease.publishedAt)}` : tx("No signed release is available on the server.")}</span></div>
+            <label><span>{tx("Automatic rollout")}</span><select value={gatewayPolicy?.rollout_percent ?? 0} disabled={!gatewayRelease || Boolean(busyKey)} onChange={(event) => { const rolloutPercent = Number(event.target.value); const paused = rolloutPercent === 0; if (window.confirm(`${paused ? 'Pause automatic gateway updates' : `Roll out ${gatewayRelease?.version} to ${rolloutPercent}% of gateways`}?`)) void runAction('gateway-rollout', () => neurocropApi.updatePlatformGatewayRollout({ rolloutPercent, paused }), paused ? 'Automatic gateway rollout paused.' : `Gateway rollout set to ${rolloutPercent}%.`) }}><option value={0}>{tx("Paused")}</option><option value={10}>10%</option><option value={25}>25%</option><option value={50}>50%</option><option value={100}>100%</option></select></label>
+            <span className="nc-settings-status" data-tone={gatewayPolicy?.paused ? 'neutral' : 'success'}><i />{gatewayPolicy?.paused ? tx("Paused") : `${gatewayPolicy?.rollout_percent || 0}% rollout`}</span>
+          </section>
+          <section className="nc-admin-table-card"><div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("Gateway")}</th><th>{tx("Connectivity")}</th><th>{tx("Installed")}</th><th>{tx("Update")}</th><th>{tx("Last seen")}</th><th><span className="sr-only">{tx("Actions")}</span></th></tr></thead><tbody>{gateways.map((gateway) => {
+            const current = gatewayRelease && gateway.agentVersion === gatewayRelease.version
+            const updating = ['scheduled', 'downloading', 'verifying', 'installing'].includes(gateway.updateStatus)
+            return <tr key={gateway.gatewayId}><td><strong>{gateway.name || gateway.serialNumber}</strong><small>{gateway.gatewayId} · {gateway.hardwareModel ||tx("Unknown hardware")}</small></td><td><span className="nc-settings-status" data-tone={gateway.status === 'online' ? 'success' : 'neutral'}><i />{gateway.status}</span></td><td><strong>{gateway.agentVersion || gateway.imageVersion ||tx("Unknown")}</strong><small>{gateway.targetAgentVersion ? `${tx("Target")} ${gateway.targetAgentVersion}` : ''}</small></td><td><span className="nc-settings-status" data-tone={gateway.updateStatus === 'succeeded' || current ? 'success' : gateway.updateStatus === 'failed' || gateway.updateStatus === 'rolled_back' ? 'warning' : 'neutral'}><i />{current ? tx("Current") : gateway.updateStatus ||tx("idle")}</span>{gateway.updateError ? <small title={gateway.updateError}>{gateway.updateError}</small> : null}</td><td>{formatDate(gateway.lastSeenAt)}</td><td><button className="nc-settings-button secondary" disabled={!gatewayRelease || current || updating || Boolean(busyKey)} onClick={() => { if (window.confirm(`Schedule signed gateway release ${gatewayRelease?.version} for ${gateway.name || gateway.serialNumber}?`)) void runAction(`gateway-${gateway.gatewayId}`, () => neurocropApi.schedulePlatformGatewayUpdate(gateway.gatewayId), `${gateway.name || gateway.serialNumber} update scheduled.`) }}><i className={`fa-solid ${updating ? 'fa-spinner fa-spin' : 'fa-cloud-arrow-down'}`} />{updating ? tx("Updating") : current ? tx("Current") : tx("Update")}</button></td></tr>
+          })}{!gateways.length && !loading ? <tr><td colSpan={6}>{tx("No gateways are enrolled.")}</td></tr> : null}</tbody></table></div></section>
+        </div> : null}
       </div>
     </section>
 

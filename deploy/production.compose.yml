@@ -29,6 +29,8 @@ services:
       - clerk_secret_key
       - vapid_public_key
       - vapid_private_key
+    volumes:
+      - /opt/neurocrop-gateway-releases:/opt/neurocrop-gateway-releases:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 15s
