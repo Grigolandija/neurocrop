@@ -61,6 +61,10 @@ fi
 chmod 600 "$state_file"
 
 docker compose --env-file "$deploy_dir/runtime.env" --env-file "$state_file" -f "$compose_file" pull
+api_service="neurocrop-api"
+test "$environment" = staging && api_service="neurocrop-api-staging"
+docker compose --env-file "$deploy_dir/runtime.env" --env-file "$state_file" -f "$compose_file" \
+  run --rm --no-deps "$api_service" node migrate.js
 docker compose --env-file "$deploy_dir/runtime.env" --env-file "$state_file" -f "$compose_file" up -d --remove-orphans
 
 container="neurocrop-api"

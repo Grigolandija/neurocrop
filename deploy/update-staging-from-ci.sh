@@ -42,6 +42,7 @@ docker build --quiet -f "$SOURCE_DIR/deploy/frontend.Dockerfile" -t "$frontend_i
 install -m 600 "$SOURCE_DIR/deploy/staging.compose.yml" "$DEPLOY_DIR/compose.yml"
 install -m 700 "$SOURCE_DIR/deploy/deploy.sh" "$DEPLOY_ROOT/deploy.sh"
 install -m 700 "$SOURCE_DIR/deploy/rollback.sh" "$DEPLOY_ROOT/rollback.sh"
+install -m 700 "$SOURCE_DIR/deploy/update-staging-from-ci.sh" "$DEPLOY_ROOT/update-staging-from-ci.sh"
 
 if [[ -s "$DEPLOY_DIR/image.env" ]]; then
   cp "$DEPLOY_DIR/image.env" "$DEPLOY_DIR/previous-image.env"
@@ -54,6 +55,8 @@ EOF
 chmod 600 "$DEPLOY_DIR/image.env"
 
 cd "$DEPLOY_DIR"
+docker compose --env-file runtime.env --env-file image.env -f compose.yml \
+  run --rm --no-deps neurocrop-api-staging node migrate.js
 docker compose --env-file runtime.env --env-file image.env -f compose.yml up -d --remove-orphans
 for attempt in $(seq 1 60); do
   api_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' neurocrop-api-staging 2>/dev/null || true)"
