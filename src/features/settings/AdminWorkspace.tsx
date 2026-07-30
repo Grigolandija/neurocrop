@@ -116,6 +116,14 @@ function formatRelativeTime(value?: string | null) {
   return `${Math.floor(elapsedSeconds / 86400)} d ago`
 }
 
+function formatStatusLabel(value?: string | null) {
+  if (!value) return tx("Unknown")
+  const label = value
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  return tx(label)
+}
+
 function gatewayServices(gateway: PlatformGateway) {
   const packetForwarder = gateway.lastHealth?.packetForwarder
   const gatewayBridge = gateway.lastHealth?.gatewayBridge
@@ -352,8 +360,8 @@ export default function AdminWorkspace() {
           <section className="nc-gateway-summary" aria-label={tx("Gateway fleet summary")}>
             <article><strong>{gateways.length}</strong><span>{tx("Gateways")}</span></article>
             <article><strong>{gateways.filter((gateway) => gateway.organizationId).length}</strong><span>{tx("Assigned")}</span></article>
-            <article data-tone="success"><strong>{gateways.filter((gateway) => gateway.status === 'online').length}</strong><span>{tx("Online")}</span></article>
-            <article data-tone={gatewayAttentionCount ? 'warning' : 'success'}><strong>{gatewayAttentionCount}</strong><span>{tx("Needs attention")}</span></article>
+            <article data-tone="success"><strong>{gateways.filter((gateway) => gateway.status === 'online').length}</strong><span>{tx("LoRa online")}</span></article>
+            <article data-tone={gatewayAttentionCount ? 'warning' : 'success'}><strong>{gatewayAttentionCount}</strong><span>{tx("Agent attention")}</span></article>
           </section>
           {!gatewayChirpstackAvailable ? <section className="nc-settings-feedback" data-tone="warning"><i className="fa-solid fa-triangle-exclamation" />{tx("ChirpStack status is temporarily unavailable. Gateway connectivity is shown as unknown.")}</section> : null}
           <section className="nc-admin-create nc-gateway-release-card">
@@ -375,9 +383,9 @@ export default function AdminWorkspace() {
                   void runAction(`gateway-owner-${gateway.gatewayId}`, () => neurocropApi.assignPlatformGateway(gateway.gatewayId, organizationId), `${gateway.name || gateway.serialNumber} assigned to ${assignment}.`)
                 }
               }}><option value="">{tx("Unassigned")}</option>{organizations.map((organization) => <option key={organization.id} value={organization.id} disabled={organization.status === 'archived'}>{organization.name}{organization.status === 'archived' ? ` · ${tx("Archived")}` : ''}</option>)}</select><small>{gateway.organizationName ||tx("No customer")}</small></td>
-              <td><span className="nc-settings-status" data-tone={gateway.status === 'online' ? 'success' : gateway.status === 'not_registered' ? 'warning' : 'neutral'}><i />{gateway.status}</span><small>{gateway.chirpstackName || (gateway.chirpstackRegistered === false ? tx("Not registered in ChirpStack") : tx("ChirpStack"))}</small></td>
-              <td><span className="nc-settings-status" data-tone={gateway.agentStatus === 'online' ? 'success' : 'neutral'}><i />{gateway.agentStatus ||tx("unknown")}</span><small>{services.label} · {formatRelativeTime(gateway.agentLastSeenAt)}</small>{hasFiniteNumber(gateway.lastHealth?.temperatureC) ? <small>{gateway.lastHealth?.temperatureC} °C</small> : null}</td>
-              <td><strong>{gateway.agentVersion || gateway.imageVersion ||tx("Unknown")}</strong><small><span className="nc-settings-status" data-tone={gateway.updateStatus === 'succeeded' || current ? 'success' : gateway.updateStatus === 'failed' || gateway.updateStatus === 'rolled_back' ? 'warning' : 'neutral'}><i />{current ? tx("Current") : gateway.updateStatus ||tx("idle")}</span></small></td>
+              <td><span className="nc-settings-status" data-tone={gateway.status === 'online' ? 'success' : gateway.status === 'not_registered' ? 'warning' : 'neutral'}><i />{formatStatusLabel(gateway.status)}</span><small>{gateway.chirpstackName || (gateway.chirpstackRegistered === false ? tx("Not registered in ChirpStack") : tx("ChirpStack"))}</small></td>
+              <td><span className="nc-settings-status" data-tone={gateway.agentStatus === 'online' ? 'success' : 'neutral'}><i />{formatStatusLabel(gateway.agentStatus)}</span><small>{services.label} · {formatRelativeTime(gateway.agentLastSeenAt)}</small>{hasFiniteNumber(gateway.lastHealth?.temperatureC) ? <small>{gateway.lastHealth?.temperatureC} °C</small> : null}</td>
+              <td><strong>{gateway.agentVersion || gateway.imageVersion ||tx("Unknown")}</strong><small><span className="nc-settings-status" data-tone={gateway.updateStatus === 'succeeded' || current ? 'success' : gateway.updateStatus === 'failed' || gateway.updateStatus === 'rolled_back' ? 'warning' : 'neutral'}><i />{current ? tx("Current") : formatStatusLabel(gateway.updateStatus || 'idle')}</span></small></td>
               <td title={formatDate(gateway.lastSeenAt)}><strong>{formatRelativeTime(gateway.lastSeenAt)}</strong><small>{formatDate(gateway.lastSeenAt)}</small></td>
               <td><div className="nc-admin-row-actions"><button title={tx("Deploy software update")} disabled={!gatewayRelease || current || updating || Boolean(busyKey)} onClick={() => { if (window.confirm(`Schedule signed gateway release ${gatewayRelease?.version} for ${gateway.name || gateway.serialNumber}?`)) void runAction(`gateway-${gateway.gatewayId}`, () => neurocropApi.schedulePlatformGatewayUpdate(gateway.gatewayId), `${gateway.name || gateway.serialNumber} update scheduled.`) }}><i className={`fa-solid ${updating ? 'fa-spinner fa-spin' : 'fa-cloud-arrow-down'}`} /></button>{currentUser?.isSuperAdmin ? <button className="danger" title={tx("Delete gateway everywhere")} disabled={Boolean(busyKey)} onClick={() => { const name = gateway.name || gateway.serialNumber; if (window.confirm(`Permanently delete ${name} (${gateway.gatewayId}) from ChirpStack and NeuroCrop? Its enrollment, customer assignment, software state, and node gateway associations will be removed. This cannot be undone.`)) void runAction(`delete-gateway-${gateway.gatewayId}`, () => neurocropApi.deletePlatformGateway(gateway.gatewayId), `${name} permanently deleted from ChirpStack and NeuroCrop.`) }}><i className="fa-solid fa-trash" /></button> : null}</div></td>
             </tr>
