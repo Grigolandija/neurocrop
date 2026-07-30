@@ -8,6 +8,7 @@ import {
   hashGatewaySecret,
   normalizeFactorySerial,
   normalizeGatewayId,
+  publicAdminGateway,
   validFactorySerial
 } from '../gateway-factory-routes.js';
 
@@ -53,6 +54,26 @@ test('gateway connectivity follows fresh authenticated heartbeats', () => {
   }, now), 'configuration_error');
 });
 
+test('admin gateway connectivity is sourced from ChirpStack, not the management agent', () => {
+  const row = {
+    gateway_id: 'b827ebfffe9c1c57',
+    serial_number: 'NSG-000001',
+    display_name: 'NSG-000001',
+    status: 'online',
+    last_seen_at: '2026-07-28T21:04:00Z'
+  };
+  const live = publicAdminGateway(row, {
+    gatewayId: row.gateway_id,
+    name: row.display_name,
+    lastSeenAt: new Date().toISOString()
+  }, true);
+  assert.equal(live.status, 'online');
+  assert.equal(live.agentStatus, 'offline');
+  assert.equal(live.connectivitySource, 'chirpstack');
+  assert.equal(publicAdminGateway(row, null, true).status, 'not_registered');
+  assert.equal(publicAdminGateway(row, null, false).status, 'unknown');
+});
+
 test('gateway factory enforces TLS, one-time activation, and authenticated heartbeat', () => {
   const source = fs.readFileSync(new URL('../gateway-factory-routes.js', import.meta.url), 'utf8');
   assert.match(source, /!config\.server\.startsWith\('ssl:\/\/'\)/);
@@ -60,6 +81,7 @@ test('gateway factory enforces TLS, one-time activation, and authenticated heart
   assert.match(source, /status='consumed'/);
   assert.match(source, /deriveDeviceToken\(activationToken, gatewayId\)/);
   assert.match(source, /device_token_hash=\$2/);
+  assert.match(source, /'Grpc-Metadata-Authorization': `Bearer \$\{config\.token\}`/);
   assert.match(source, /app\.patch\('\/platform\/gateways\/:gatewayId\/organization', requireUserAuth, requireSuperAdmin/);
   assert.match(source, /UPDATE gateways SET organization_id=\$2/);
   assert.match(source, /Restore the organization before assigning a gateway/);

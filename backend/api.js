@@ -302,6 +302,7 @@ async function chirpstackRequest(path, options = {}) {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       Authorization: `Bearer ${cfg.token}`,
+      'Grpc-Metadata-Authorization': `Bearer ${cfg.token}`,
       ...(options.headers || {}),
     },
   });

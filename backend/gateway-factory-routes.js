@@ -139,6 +139,7 @@ async function chirpstackRequest(path, options = {}) {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       Authorization: `Bearer ${config.token}`,
+      'Grpc-Metadata-Authorization': `Bearer ${config.token}`,
       ...(options.headers || {})
     }
   });
@@ -332,6 +333,37 @@ function publicGateway(row) {
     lastEnrolledAt: row.last_enrolled_at,
     lastSeenAt: row.last_seen_at
   };
+}
+
+export function publicAdminGateway(row, chirpstackGateway, chirpstackAvailable) {
+  const gateway = publicGateway(row);
+  const chirpstackLastSeenAt = chirpstackGateway?.lastSeenAt || null;
+  let connectivityStatus = 'unknown';
+  if (chirpstackAvailable && !chirpstackGateway) {
+    connectivityStatus = 'not_registered';
+  } else if (chirpstackGateway) {
+    connectivityStatus = gatewayConnectivityStatus({
+      status: 'online',
+      last_seen_at: chirpstackLastSeenAt
+    });
+  }
+  return {
+    ...gateway,
+    status: connectivityStatus,
+    lastSeenAt: chirpstackLastSeenAt,
+    connectivitySource: 'chirpstack',
+    chirpstackRegistered: chirpstackAvailable ? Boolean(chirpstackGateway) : null,
+    chirpstackName: chirpstackGateway?.name || null,
+    agentStatus: gateway.status,
+    agentLastSeenAt: gateway.lastSeenAt
+  };
+}
+
+async function chirpstackGatewayInventory() {
+  const config = chirpstackConfig();
+  const tenantQuery = config.tenantId ? `&tenantId=${encodeURIComponent(config.tenantId)}` : '';
+  const inventory = await chirpstackRequest(`/gateways?limit=1000${tenantQuery}`);
+  return Array.isArray(inventory?.result) ? inventory.result : [];
 }
 
 function gatewayUpdatePublicKey() {
@@ -877,12 +909,32 @@ export function registerGatewayFactoryRoutes(app) {
          ORDER BY g.first_enrolled_at DESC`
       );
       let release = null;
+      let chirpstackAvailable = true;
+      let chirpstackGateways = [];
       try {
         release = publicGatewayRelease(readGatewayRelease());
       } catch (error) {
         if (!['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
       }
-      res.json({ gateways: rows.map(publicGateway), release, policy: await gatewayPolicy() });
+      try {
+        chirpstackGateways = await chirpstackGatewayInventory();
+      } catch (error) {
+        chirpstackAvailable = false;
+        console.error('[gateway-fleet] ChirpStack inventory unavailable:', error.message);
+      }
+      const chirpstackById = new Map(
+        chirpstackGateways.map((gateway) => [normalizeGatewayId(gateway?.gatewayId), gateway])
+      );
+      res.json({
+        gateways: rows.map((row) => publicAdminGateway(
+          row,
+          chirpstackById.get(normalizeGatewayId(row.gateway_id)) || null,
+          chirpstackAvailable
+        )),
+        chirpstackAvailable,
+        release,
+        policy: await gatewayPolicy()
+      });
     } catch (error) {
       next(error);
     }

@@ -66,6 +66,11 @@ type PlatformGateway = {
   organizationId?: string | null
   organizationName?: string | null
   organizationStatus?: string | null
+  connectivitySource?: string
+  chirpstackRegistered?: boolean | null
+  chirpstackName?: string | null
+  agentStatus?: string
+  agentLastSeenAt?: string | null
   hardwareModel?: string | null
   imageVersion?: string | null
   agentVersion?: string | null
@@ -118,7 +123,10 @@ function gatewayServices(gateway: PlatformGateway) {
     return { tone: 'warning', label: `${failed.join(' + ')} fault` }
   }
   if (packetForwarder === true && gatewayBridge === true) {
-    return { tone: 'success', label: 'Radio + bridge OK' }
+    return {
+      tone: gateway.agentStatus === 'online' ? 'success' : 'neutral',
+      label: gateway.agentStatus === 'online' ? 'Radio + bridge OK' : 'Last report: radio + bridge OK'
+    }
   }
   return { tone: 'neutral', label: 'No service data' }
 }
@@ -154,6 +162,7 @@ export default function AdminWorkspace() {
   const [gateways, setGateways] = useState<PlatformGateway[]>([])
   const [gatewayRelease, setGatewayRelease] = useState<GatewayRelease | null>(null)
   const [gatewayPolicy, setGatewayPolicy] = useState<GatewayUpdatePolicy | null>(null)
+  const [gatewayChirpstackAvailable, setGatewayChirpstackAvailable] = useState(true)
 
   useEffect(() => {
     document.body.dataset.reactAdminActive = 'true'
@@ -165,10 +174,12 @@ export default function AdminWorkspace() {
       gateways?: PlatformGateway[]
       release?: GatewayRelease | null
       policy?: GatewayUpdatePolicy
+      chirpstackAvailable?: boolean
     }
     setGateways(Array.isArray(gatewayResponse.gateways) ? gatewayResponse.gateways : [])
     setGatewayRelease(gatewayResponse.release || null)
     setGatewayPolicy(gatewayResponse.policy || null)
+    setGatewayChirpstackAvailable(gatewayResponse.chirpstackAvailable !== false)
   }, [])
 
   const load = useCallback(async () => {
@@ -286,7 +297,7 @@ export default function AdminWorkspace() {
   const filteredUsers = users.filter((item) => !normalizedQuery || `${item.name || ''} ${item.email}`.toLowerCase().includes(normalizedQuery))
   const administrators = filteredUsers.filter((item) => item.isPlatformAdmin || item.isSuperAdmin)
   const filteredGateways = gateways.filter((item) => !normalizedQuery ||
-    `${item.name} ${item.serialNumber} ${item.gatewayId} ${item.organizationName || ''} ${item.status} ${item.updateStatus}`
+    `${item.name} ${item.serialNumber} ${item.gatewayId} ${item.organizationName || ''} ${item.status} ${item.agentStatus || ''} ${item.updateStatus}`
       .toLowerCase().includes(normalizedQuery))
   const activeOrganizations = organizations.filter((item) => item.status !== 'archived').length
   const faultCount = organizations.reduce((sum, item) => sum + (Number(item.faultNodeCount) || 0), 0)
@@ -340,12 +351,13 @@ export default function AdminWorkspace() {
             <article data-tone="success"><strong>{gateways.filter((gateway) => gateway.status === 'online').length}</strong><span>{tx("Online")}</span></article>
             <article data-tone={gateways.some((gateway) => gateway.status !== 'online') ? 'warning' : 'success'}><strong>{gateways.filter((gateway) => gateway.status !== 'online').length}</strong><span>{tx("Needs attention")}</span></article>
           </section>
+          {!gatewayChirpstackAvailable ? <section className="nc-settings-feedback" data-tone="warning"><i className="fa-solid fa-triangle-exclamation" />{tx("ChirpStack status is temporarily unavailable. Gateway connectivity is shown as unknown.")}</section> : null}
           <section className="nc-admin-create nc-gateway-release-card">
             <div><strong>{tx("Signed gateway release")}</strong><span>{gatewayRelease ? `${gatewayRelease.version} · ${(gatewayRelease.size / 1024).toFixed(1)} KB · ${formatDate(gatewayRelease.publishedAt)}` : tx("No signed release is available on the server.")}</span></div>
             <label><span>{tx("Automatic rollout")}</span><select value={gatewayPolicy?.rollout_percent ?? 0} disabled={!gatewayRelease || Boolean(busyKey)} onChange={(event) => { const rolloutPercent = Number(event.target.value); const paused = rolloutPercent === 0; if (window.confirm(`${paused ? 'Pause automatic gateway updates' : `Roll out ${gatewayRelease?.version} to ${rolloutPercent}% of gateways`}?`)) void runAction('gateway-rollout', () => neurocropApi.updatePlatformGatewayRollout({ rolloutPercent, paused }), paused ? 'Automatic gateway rollout paused.' : `Gateway rollout set to ${rolloutPercent}%.`) }}><option value={0}>{tx("Paused")}</option><option value={10}>10%</option><option value={25}>25%</option><option value={50}>50%</option><option value={100}>100%</option></select></label>
             <span className="nc-settings-status" data-tone={gatewayPolicy?.paused ? 'neutral' : 'success'}><i />{gatewayPolicy?.paused ? tx("Paused") : `${gatewayPolicy?.rollout_percent || 0}% rollout`}</span>
           </section>
-          <section className="nc-admin-table-card nc-gateway-table"><div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("Gateway")}</th><th>{tx("Customer")}</th><th>{tx("Connectivity")}</th><th>{tx("Services")}</th><th>{tx("Software")}</th><th>{tx("Last seen")}</th><th><span className="sr-only">{tx("Actions")}</span></th></tr></thead><tbody>{filteredGateways.map((gateway) => {
+          <section className="nc-admin-table-card nc-gateway-table"><div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("Gateway")}</th><th>{tx("Customer")}</th><th>{tx("LoRa connectivity")}</th><th>{tx("Management agent")}</th><th>{tx("Software")}</th><th>{tx("Last seen by ChirpStack")}</th><th><span className="sr-only">{tx("Actions")}</span></th></tr></thead><tbody>{filteredGateways.map((gateway) => {
             const current = gatewayRelease && gateway.agentVersion === gatewayRelease.version
             const updating = ['scheduled', 'downloading', 'verifying', 'installing'].includes(gateway.updateStatus)
             const services = gatewayServices(gateway)
@@ -359,8 +371,8 @@ export default function AdminWorkspace() {
                   void runAction(`gateway-owner-${gateway.gatewayId}`, () => neurocropApi.assignPlatformGateway(gateway.gatewayId, organizationId), `${gateway.name || gateway.serialNumber} assigned to ${assignment}.`)
                 }
               }}><option value="">{tx("Unassigned")}</option>{organizations.map((organization) => <option key={organization.id} value={organization.id} disabled={organization.status === 'archived'}>{organization.name}{organization.status === 'archived' ? ` · ${tx("Archived")}` : ''}</option>)}</select><small>{gateway.organizationName ||tx("No customer")}</small></td>
-              <td><span className="nc-settings-status" data-tone={gateway.status === 'online' ? 'success' : ['configuration_error', 'provisioning'].includes(gateway.status) ? 'warning' : 'neutral'}><i />{gateway.status}</span></td>
-              <td><span className="nc-settings-status" data-tone={services.tone}><i />{services.label}</span>{hasFiniteNumber(gateway.lastHealth?.temperatureC) ? <small>{gateway.lastHealth?.temperatureC} °C</small> : null}</td>
+              <td><span className="nc-settings-status" data-tone={gateway.status === 'online' ? 'success' : gateway.status === 'not_registered' ? 'warning' : 'neutral'}><i />{gateway.status}</span><small>{gateway.chirpstackName || (gateway.chirpstackRegistered === false ? tx("Not registered in ChirpStack") : tx("ChirpStack"))}</small></td>
+              <td><span className="nc-settings-status" data-tone={gateway.agentStatus === 'online' ? 'success' : 'neutral'}><i />{gateway.agentStatus ||tx("unknown")}</span><small>{services.label} · {formatRelativeTime(gateway.agentLastSeenAt)}</small>{hasFiniteNumber(gateway.lastHealth?.temperatureC) ? <small>{gateway.lastHealth?.temperatureC} °C</small> : null}</td>
               <td><strong>{gateway.agentVersion || gateway.imageVersion ||tx("Unknown")}</strong><small><span className="nc-settings-status" data-tone={gateway.updateStatus === 'succeeded' || current ? 'success' : gateway.updateStatus === 'failed' || gateway.updateStatus === 'rolled_back' ? 'warning' : 'neutral'}><i />{current ? tx("Current") : gateway.updateStatus ||tx("idle")}</span></small></td>
               <td title={formatDate(gateway.lastSeenAt)}><strong>{formatRelativeTime(gateway.lastSeenAt)}</strong><small>{formatDate(gateway.lastSeenAt)}</small></td>
               <td><button className="nc-settings-button secondary" disabled={!gatewayRelease || current || updating || Boolean(busyKey)} onClick={() => { if (window.confirm(`Schedule signed gateway release ${gatewayRelease?.version} for ${gateway.name || gateway.serialNumber}?`)) void runAction(`gateway-${gateway.gatewayId}`, () => neurocropApi.schedulePlatformGatewayUpdate(gateway.gatewayId), `${gateway.name || gateway.serialNumber} update scheduled.`) }}><i className={`fa-solid ${updating ? 'fa-spinner fa-spin' : 'fa-cloud-arrow-down'}`} />{updating ? tx("Updating") : current ? tx("Current") : tx("Update")}</button></td>

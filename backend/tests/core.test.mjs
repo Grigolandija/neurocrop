@@ -66,6 +66,11 @@ test('production API stays private behind the shared Caddy network', () => {
   assert.doesNotMatch(compose, /session_secret/);
 });
 
+test('ChirpStack REST requests use its gRPC metadata authorization header', () => {
+  const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  assert.match(api, /'Grpc-Metadata-Authorization': `Bearer \$\{cfg\.token\}`/);
+});
+
 test('production deployment waits for API and ingest processes', () => {
   const deploy = fs.readFileSync(new URL('../../deploy/deploy.sh', import.meta.url), 'utf8');
   const stagingUpdate = fs.readFileSync(new URL('../../deploy/update-staging-from-ci.sh', import.meta.url), 'utf8');
