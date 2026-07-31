@@ -3423,7 +3423,10 @@ app.patch('/nodes/:devEui/sensors/:port', requireAuth, requireRole('owner', 'adm
   if (typeof useForSectionScore !== 'boolean' || typeof allowSpatialInterpolation !== 'boolean') {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Score and heatmap permissions must be explicit' } });
   }
-  if (spatialScope === 'point' && (useForSectionScore || allowSpatialInterpolation)) {
+  const pointAirClimateIncluded = ['sht45', 'internal'].includes(port)
+    && useForSectionScore === true
+    && allowSpatialInterpolation === true;
+  if (spatialScope === 'point' && (useForSectionScore || allowSpatialInterpolation) && !pointAirClimateIncluded) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A point-only measurement cannot represent a Section score or continuous heatmap' } });
   }
 

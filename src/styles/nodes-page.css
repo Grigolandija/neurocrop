@@ -515,6 +515,12 @@
 .designer-app .nc-sensor-setup-modal .nc-sensor-purpose-preview > i { margin-top: 2px; color: var(--node-primary); }
 .designer-app .nc-sensor-setup-modal .nc-sensor-purpose-preview > div { display: grid; gap: 3px; }
 .designer-app .nc-sensor-setup-modal .nc-sensor-purpose-preview strong { color: var(--node-text); }
+.designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion { display: flex; align-items: flex-start; gap: 11px; border: 1px solid var(--node-border); border-radius: 10px; padding: 12px 14px; background: var(--node-surface); cursor: pointer; }
+.designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion[data-enabled="true"] { border-color: rgba(33, 79, 64, .35); background: rgba(33, 79, 64, .06); }
+.designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion input { width: 17px; height: 17px; flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--node-primary); }
+.designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion > span { display: grid; gap: 4px; }
+.designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion strong { color: var(--node-text); font-size: 11px; }
+.designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion small { color: var(--node-text-muted); font-size: 10px; line-height: 1.4; }
 .designer-app .nc-sensor-setup-modal footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid var(--node-border); padding-top: 16px; }
 .designer-app .nc-sensor-setup-modal footer > span { color: var(--node-text-muted); font-size: 10px; }
 .designer-app .nc-sensor-setup-modal footer button { min-height: 40px; border: 0; border-radius: 9px; padding: 0 16px; background: var(--node-primary); color: #fff; font-size: 10px; font-weight: 750; }
