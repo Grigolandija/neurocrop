@@ -317,24 +317,13 @@ function measurementContextLabel(source: JsonRecord | null) {
   const scope = String(context?.spatialScope || context?.spatial_scope || '')
   const targetName = String(context?.targetName || context?.target_name || '').trim()
   const explicitlyConfigured = context?.configured === true || context?.configured === 'true'
-  if (scope === 'unconfigured' || (scope === 'point' && !targetName && !explicitlyConfigured)) return 'Unassigned'
+  if (scope === 'unconfigured' || (scope === 'point' && !targetName && !explicitlyConfigured)) return ''
   if (!context || scope !== 'point') return ''
   return targetName || 'Specific measurement'
 }
 
 function hasSeparateMeasurements(section: SectionReading, metric: Metric) {
-  return asArray<JsonRecord>(getObservation(section, metric)?.nodes).some((source) =>
-    String(source?.measurementContext?.spatialScope || source?.measurement_context?.spatial_scope || '') === 'point'
-      && measurementContextLabel(source) !== 'Unassigned'
-      && numeric(source.value) !== null
-  )
-}
-
-function hasUnconfiguredMeasurements(section: SectionReading, metric: Metric) {
-  return asArray<JsonRecord>(getObservation(section, metric)?.nodes).some((source) =>
-    measurementContextLabel(source) === 'Unassigned'
-      && numeric(source.value) !== null
-  )
+  return asArray<JsonRecord>(getObservation(section, metric)?.nodes).some((source) => numeric(source.value) !== null)
 }
 
 function nodeMetricQuality(section: SectionReading, node: JsonRecord, metric: Metric): Extract<ReadingQuality, 'live' | 'stale' | 'offline' | 'no-data'> {
@@ -482,20 +471,19 @@ function getDistributionVisual(section: SectionReading, metric: Metric, profile:
 
 function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section: SectionReading; metric: Metric; profile?: JsonRecord; mode: ReadingMode; onOpenTrend: () => void }) {
   const value = getValue(section, metric)
-  const setupRequired = value === null && hasUnconfiguredMeasurements(section, metric)
   const separateOnly = value === null && hasSeparateMeasurements(section, metric)
   const quality = getQuality(section, metric)
   const tone = getTone(section, metric, profile)
   const target = getRange(profile, metric)
   const delta = getDelta(section, metric)
-  let display = setupRequired ? 'Set up' : separateOnly ? 'See below' : value === null ? qualityLabels[quality] : `${formatValue(value, metric)} ${metric.unit}`
-  if (!setupRequired && !separateOnly && mode === 'target') {
+  let display = separateOnly ? 'See below' : value === null ? qualityLabels[quality] : `${formatValue(value, metric)} ${metric.unit}`
+  if (!separateOnly && mode === 'target') {
     display = target ? `${formatValue(target[0], metric)}–${formatValue(target[1], metric)} ${metric.unit}` : 'No crop target'
-  } else if (!setupRequired && !separateOnly && mode === 'change') {
+  } else if (!separateOnly && mode === 'change') {
     display = delta === null ? 'No 1h baseline' : `${delta > 0 ? '+' : ''}${formatValue(delta, metric)} ${metric.unit} / 1h`
   }
-  const showAverage = mode === 'value' && value !== null && !setupRequired && !separateOnly
-  return <button type="button" className="nc-reading-cell" data-tone={setupRequired || separateOnly ? 'neutral' : tone} data-quality={quality} data-separate-only={setupRequired || separateOnly || undefined} onClick={onOpenTrend} title={setupRequired ? tx("Configure this sensor before NeuroCrop uses its data.") : separateOnly ? tx("Expand this Section to view its separate measurements.") : `Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={setupRequired ? tx("Sensor setup required") : separateOnly ? tx("Separate measurements are shown below") : `Open ${section.name} ${metric.label} trend`}>
+  const showAverage = mode === 'value' && value !== null && !separateOnly
+  return <button type="button" className="nc-reading-cell" data-tone={separateOnly ? 'neutral' : tone} data-quality={quality} data-separate-only={separateOnly || undefined} onClick={onOpenTrend} title={separateOnly ? tx("Expand this Section to view its separate measurements.") : `Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={separateOnly ? tx("Separate measurements are shown below") : `Open ${section.name} ${metric.label} trend`}>
     <strong>{tx(display)}{showAverage ? <small className="nc-reading-average">{tx("avg")}</small> : null}</strong><i aria-label={qualityLabels[quality]} />
   </button>
 }
