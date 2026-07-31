@@ -91,7 +91,15 @@ test('registered payload values round-trip from telemetry to DB and map fields',
   for (const { telemetryKey } of REGISTERED_TELEMETRY_DEFINITIONS) {
     assert.equal(normalized[telemetryKey], payload[telemetryKey], `${telemetryKey} did not normalize`);
   }
-  const mapValues = publicHeatmapMeasurements({ ...normalized, raw_object: payload, time: '2026-07-29T10:00:00.000Z' });
+  const representativeContexts = Object.fromEntries([
+    'sht45', 'scd4x', 'bh1750', 'ds18b20', 'leaf_temperature_probe',
+    'soil_moisture_probe', 'soil_ec_probe', 'ec_probe', 'ph_probe',
+    'water_temperature_probe'
+  ].map((port) => [port, { allowSpatialInterpolation: true }]));
+  const mapValues = publicHeatmapMeasurements(
+    { ...normalized, raw_object: payload, time: '2026-07-29T10:00:00.000Z' },
+    representativeContexts
+  );
   for (const [metricId, metric] of entries.filter(([, definition]) => definition.heatmap)) {
     assert.notEqual(mapValues[metric.heatmap.field], undefined, `${metricId} is missing from map payload`);
   }
