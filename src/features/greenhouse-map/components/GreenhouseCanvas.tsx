@@ -584,10 +584,11 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       const sensor = object.metadata.sensor
       const value = getMetricMeasurementValue(sensor?.measurements, map.heatmapSettings.metric, soilEcDepthCm)
       if (object.type !== 'sensor-node' || !sensor) return []
+      if (typeof value !== 'number' || !Number.isFinite(value)) return []
       return [{
         id: object.id,
         name: sensor.displayName || object.name,
-        value: typeof value === 'number' && Number.isFinite(value) ? value : null,
+        value,
         xM: object.xM + object.widthM / 2,
         yM: object.yM + object.lengthM / 2,
         measuredAt: sensor.measurements?.measuredAt || sensor.lastSeenAt,
