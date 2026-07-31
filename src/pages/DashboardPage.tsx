@@ -1,26 +1,61 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import DashboardShell, { type DashboardUser } from '../components/DashboardShell'
 import WorkspaceLoading from '../components/WorkspaceLoading'
-import { useInterfaceLanguage } from '../i18n'
+import { getInterfaceLanguage, useInterfaceLanguage } from '../i18n'
 import { invalidateRequestCache } from '../services/api/client'
 import { neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
 
-const loadAreasWorkspace = () => import('../features/areas/AreasWorkspace')
-const loadReadingsWorkspace = () => import('../features/readings/ReadingsWorkspace')
-const loadSectionsWorkspace = () => import('../features/sections/SectionsWorkspace')
-const loadSettingsWorkspace = () => import('../features/settings/SettingsWorkspace')
-const loadOrganizationWorkspace = () => import('../features/settings/OrganizationWorkspace')
-const loadAdminWorkspace = () => import('../features/settings/AdminWorkspace')
-const loadAdminIntegrationsWorkspace = () => import('../features/settings/AdminIntegrationsWorkspace')
-const loadOverviewWorkspace = () => import('../features/overview/OverviewWorkspace')
-const loadSimulatorWorkspace = () => import('../features/simulator/SimulatorWorkspace')
-const loadActionsWorkspace = () => import('../features/actions/ActionsWorkspace')
-const loadAlertsWorkspace = () => import('../features/alerts/AlertsWorkspace')
-const loadTrendsWorkspace = () => import('../features/trends/TrendsWorkspace')
-const loadNodesWorkspace = () => import('../features/nodes/NodesWorkspace')
-const loadCropProfilesWorkspace = () => import('../features/settings/CropProfilesWorkspace')
+type WorkspaceModule = { default: ComponentType }
+const workspaceReloadKey = 'neurocrop-stale-workspace-reload'
+
+function workspaceReloadMarker() {
+  try { return sessionStorage.getItem(workspaceReloadKey) } catch { return null }
+}
+
+function setWorkspaceReloadMarker(value: string | null) {
+  try {
+    if (value === null) sessionStorage.removeItem(workspaceReloadKey)
+    else sessionStorage.setItem(workspaceReloadKey, value)
+  } catch {
+    // Import recovery must still work when browser storage is unavailable.
+  }
+}
+
+function recoverWorkspaceImport<T extends WorkspaceModule>(name: string, loader: () => Promise<T>) {
+  return async () => {
+    try {
+      const module = await loader()
+      if (workspaceReloadMarker() === name) setWorkspaceReloadMarker(null)
+      return module
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const staleDeploymentChunk = /dynamically imported module|failed to fetch|importing a module script|chunkloaderror/i.test(message)
+      if (staleDeploymentChunk && workspaceReloadMarker() !== name) {
+        setWorkspaceReloadMarker(name)
+        window.location.reload()
+        return new Promise<T>(() => undefined)
+      }
+      throw error
+    }
+  }
+}
+
+const loadAreasWorkspace = recoverWorkspaceImport('areas', () => import('../features/areas/AreasWorkspace'))
+const loadReadingsWorkspace = recoverWorkspaceImport('readings', () => import('../features/readings/ReadingsWorkspace'))
+const loadSectionsWorkspace = recoverWorkspaceImport('sections', () => import('../features/sections/SectionsWorkspace'))
+const loadSettingsWorkspace = recoverWorkspaceImport('settings', () => import('../features/settings/SettingsWorkspace'))
+const loadOrganizationWorkspace = recoverWorkspaceImport('organization', () => import('../features/settings/OrganizationWorkspace'))
+const loadAdminWorkspace = recoverWorkspaceImport('admin', () => import('../features/settings/AdminWorkspace'))
+const loadAdminIntegrationsWorkspace = recoverWorkspaceImport('admin-integrations', () => import('../features/settings/AdminIntegrationsWorkspace'))
+const loadOverviewWorkspace = recoverWorkspaceImport('overview', () => import('../features/overview/OverviewWorkspace'))
+const loadSimulatorWorkspace = recoverWorkspaceImport('simulator', () => import('../features/simulator/SimulatorWorkspace'))
+const loadActionsWorkspace = recoverWorkspaceImport('actions', () => import('../features/actions/ActionsWorkspace'))
+const loadAlertsWorkspace = recoverWorkspaceImport('alerts', () => import('../features/alerts/AlertsWorkspace'))
+const loadTrendsWorkspace = recoverWorkspaceImport('trends', () => import('../features/trends/TrendsWorkspace'))
+const loadNodesWorkspace = recoverWorkspaceImport('nodes', () => import('../features/nodes/NodesWorkspace'))
+const loadCropProfilesWorkspace = recoverWorkspaceImport('crop-profiles', () => import('../features/settings/CropProfilesWorkspace'))
 
 const AreasWorkspace = lazy(loadAreasWorkspace)
 const ReadingsWorkspace = lazy(loadReadingsWorkspace)
@@ -67,6 +102,29 @@ const workspaceHostIds: Partial<Record<string, string>> = {
 function isSupportedRoute(pathname: string) {
   const route = String(pathname || '/').split(/[?#]/, 1)[0] || '/'
   return supportedRoutes.has(route) || /^\/nodes\/[^/]+$/.test(route)
+}
+
+class WorkspaceErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  componentDidCatch(error: Error, details: ErrorInfo) {
+    console.error('[workspace] render failed', error, details.componentStack)
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children
+    const lithuanian = getInterfaceLanguage() === 'lt'
+    return <div className="workspace-load-error" role="alert">
+      <i className="fa-solid fa-triangle-exclamation" />
+      <strong>{lithuanian ? 'Nepavyko atidaryti puslapio' : 'This page could not be opened'}</strong>
+      <span>{lithuanian ? 'Atnaujinkite puslapį, kad būtų įkelta naujausia NeuroCrop versija.' : 'Refresh once to load the latest NeuroCrop version.'}</span>
+      <button type="button" onClick={() => window.location.reload()}><i className="fa-solid fa-rotate" />{lithuanian ? 'Atnaujinti' : 'Refresh'}</button>
+    </div>
+  }
 }
 
 function Workspaces({ pathname }: { pathname: string }) {
@@ -125,9 +183,11 @@ function Workspaces({ pathname }: { pathname: string }) {
         data-workspace-host
         data-interface-language={language}
       >
-        <Suspense fallback={<div data-workspace-suspense aria-busy="true" />}>
-          {workspace}
-        </Suspense>
+        <WorkspaceErrorBoundary key={route}>
+          <Suspense fallback={<div data-workspace-suspense aria-busy="true" />}>
+            {workspace}
+          </Suspense>
+        </WorkspaceErrorBoundary>
       </div>
     </>
   )

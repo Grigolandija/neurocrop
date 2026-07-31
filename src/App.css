@@ -1023,6 +1023,43 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   animation: route-loading-progress 1.05s ease-in-out infinite;
 }
 
+.workspace-load-error {
+  min-height: 28rem;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: .75rem;
+  padding: 2rem;
+  color: #5d655f;
+  text-align: center;
+}
+
+.workspace-load-error > i {
+  color: #b55a44;
+  font-size: 1.5rem;
+}
+
+.workspace-load-error > strong {
+  color: #202522;
+  font-size: 1.25rem;
+}
+
+.workspace-load-error > button {
+  margin-top: .5rem;
+  border: 0;
+  border-radius: .75rem;
+  padding: .8rem 1rem;
+  background: #252b29;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspace-load-error > button i {
+  margin-right: .5rem;
+}
+
 @keyframes route-loading-progress {
   from { transform: translateX(-115%); }
   to { transform: translateX(250%); }

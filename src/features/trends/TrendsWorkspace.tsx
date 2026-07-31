@@ -53,6 +53,7 @@ const rangeConfig: Record<RangeKey, { hours: number; stepMinutes: number; label:
 }
 const storageKey = 'neurocrop-trends-workspace-v2'
 const chartColors = ['#287f70', '#d87655', '#507ea2', '#b18a35', '#845f8e', '#68746f']
+const metricKeys = new Set(metrics.map((metric) => metric.key))
 
 function arrays(payload: JsonRecord | null | undefined, keys: string[]) {
   if (Array.isArray(payload)) return payload as JsonRecord[]
@@ -126,7 +127,14 @@ function format(value: number | null, metric: Metric) {
 function loadStoredSelection() {
   try {
     const value = JSON.parse(localStorage.getItem(storageKey) || '{}')
-    return typeof value === 'object' && value ? value : {}
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+    const metricKey = metricKeys.has(String(value.metricKey)) ? String(value.metricKey) : 'airTemp'
+    const secondaryMetricKeys = Array.isArray(value.secondaryMetricKeys)
+      ? [...new Set<string>(value.secondaryMetricKeys.map((item: unknown) => String(item)))]
+          .filter((key) => key !== metricKey && metricKeys.has(key))
+          .slice(0, 2)
+      : []
+    return { ...value, metricKey, secondaryMetricKeys }
   } catch {
     return {}
   }
@@ -289,9 +297,11 @@ function TrendChart({ series, metric, target, range, dayNightSchedule }: { serie
 
 function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricChartInput[]; range: RangeKey; dayNightSchedule: TrendDayNightSchedule }) {
   const ref = useRef<HTMLDivElement>(null)
+  const [renderFailed, setRenderFailed] = useState(false)
   const { language } = useInterfaceLanguage()
   useEffect(() => {
-    installEChartsEngine()
+    try {
+      installEChartsEngine()
     const echarts = window.echarts as {
       init?: (element: HTMLElement) => { setOption: (option: JsonRecord) => void; resize: () => void; dispose: () => void }
       getInstanceByDom?: (element: HTMLElement) => { dispose: () => void } | undefined
@@ -441,11 +451,16 @@ function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricCha
     })
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(ref.current)
-    return () => {
-      observer.disconnect()
-      chart.dispose()
+      return () => {
+        observer.disconnect()
+        chart.dispose()
+      }
+    } catch (error) {
+      console.error('[trends-chart] multi-metric chart failed', error)
+      queueMicrotask(() => setRenderFailed(true))
     }
   }, [dayNightSchedule, items, language, range])
+  if (renderFailed) return <div className="nc-trends-empty" data-state="error" role="alert"><i className="fa-solid fa-triangle-exclamation" /><strong>{tx("Chart could not be rendered")}</strong><span>{tx("Change the parameter selection or refresh to try again.")}</span></div>
   return <div className="nc-trends-chart nc-trends-multi-chart" ref={ref} role="img" aria-label={`${items.map((item) => item.metric.label).join(', ')}, ${range} trend`} />
 }
 
