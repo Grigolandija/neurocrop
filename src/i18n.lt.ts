@@ -942,5 +942,10 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Other target": "Kita vieta arba objektas",
   "Set what each sensor measures and how NeuroCrop should use its data.": "Nustatykite, ką matuoja kiekvienas sensorius ir kaip NeuroCrop turi naudoti jo duomenis.",
   "Measurement setup": "Matavimo nustatymai",
-  "Close setup": "Uždaryti nustatymus"
+  "Close setup": "Uždaryti nustatymus",
+  "Sensor setup": "Sensorių nustatymai",
+  "Configure sensors": "Nustatyti sensorius",
+  "Probe depth, cm (optional)": "Zondo gylis, cm (neprivaloma)",
+  "e.g. 10": "pvz., 10",
+  "You can change this later without deleting any readings.": "Tai galėsite pakeisti vėliau neprarasdami rodmenų."
 })

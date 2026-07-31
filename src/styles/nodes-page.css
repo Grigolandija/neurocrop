@@ -969,6 +969,24 @@
 .designer-app #nodesManagementSection .nc-node-battery i { margin-right: 5px; }
 .designer-app #nodesManagementSection .nc-node-battery.is-low { color: #b24435; }
 
+.designer-app #nodesManagementSection .nc-node-sensor-setup-button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--node-primary);
+  border-radius: 8px;
+  padding: 0 11px;
+  background: var(--node-primary);
+  color: #fff;
+  font: 750 9px 'IBM Plex Sans', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.designer-app #nodesManagementSection .nc-node-sensor-setup-button:hover { filter: brightness(.94); }
+
 .designer-app #nodesManagementSection .nc-row-arrow {
   display: grid;
   width: 28px;

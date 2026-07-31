@@ -172,12 +172,6 @@ function gatewayNames(node: NodeRow) {
     .filter(Boolean)
 }
 
-function gatewaySummary(node: NodeRow) {
-  const names = gatewayNames(node)
-  if (!names.length) return tx("Not recorded")
-  return names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`
-}
-
 function signalQuality(node: NodeRow) {
   if (node.transportStatus === 'offline') return tx("Disconnected")
   if (!Number.isFinite(node.rssi)) return tx("Unavailable")
@@ -200,17 +194,6 @@ function sensorLabel(sensor: Sensor) {
   return 'Detected sensor'
 }
 
-const sensorRoles = [
-  ['unassigned_temperature', 'Choose purpose'],
-  ['substrate_temperature', 'Substrate temperature'],
-  ['water_temperature', 'Water temperature'],
-  ['pipe_temperature', 'Pipe temperature'],
-  ['custom_temperature', 'Other temperature'],
-] as const
-const sensorMedia = [
-  ['air', 'Air'], ['substrate', 'Substrate'], ['water', 'Water / nutrient solution'],
-  ['plant', 'Plant'], ['equipment', 'Equipment interior'], ['custom', 'Other medium'],
-] as const
 const targetTypes = [
   ['section', 'Whole Section'], ['pot', 'Pot / container'], ['bed', 'Bed / growing table'],
   ['incubator', 'Incubator / chamber'], ['reservoir', 'Reservoir'], ['pipe', 'Pipe'],
@@ -287,6 +270,7 @@ export default function NodesWorkspace() {
   }, [location.pathname, refreshToken])
 
   const routeNodeId = /^\/nodes\/([^/]+)$/.exec(location.pathname)?.[1]
+  const openSensorSetup = new URLSearchParams(location.search).get('setup') === 'sensors'
   const selectedNode = routeNodeId
     ? nodes.find((node) => [node.id, node.devEui].some((value) => text(value).toLowerCase() === decodeURIComponent(routeNodeId).toLowerCase())) || null
     : null
@@ -473,7 +457,7 @@ export default function NodesWorkspace() {
         <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("Set what each sensor measures and how NeuroCrop should use its data.")}</span></header><div className="node-detail-sensors">
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? detected.map((sensor, index) => {
             const configurable = 'port' in sensor && sensor.configurable === true
-            return <SensorRow sensor={sensor as Sensor} index={index} configurable={configurable} busy={busy} onSave={saveSensor} key={`${(sensor as Sensor).port || sensorLabel(sensor as Sensor)}-${index}`} />
+            return <SensorRow sensor={sensor as Sensor} index={index} configurable={configurable} initiallyOpen={openSensorSetup && index === 0} busy={busy} onSave={saveSensor} key={`${(sensor as Sensor).port || sensorLabel(sensor as Sensor)}-${index}`} />
           }) : <p className="node-detail-muted">{tx("No sensor presence information was reported.")}</p>}
         </div></section>
         <section className="node-detail-section node-detail-connection"><header><p>{tx("Connection")}</p><h3>{tx("Network status")}</h3></header><div className="node-detail-connection-summary"><span data-tone={state.tone}><i className="fa-solid fa-signal" /></span><div><strong>{signalQuality(selectedNode)}</strong><p>{selectedNode.transportStatus === 'offline' ? tx("No recent uplink") : tx("Node is communicating normally")}</p></div></div></section>
@@ -511,7 +495,7 @@ export default function NodesWorkspace() {
         <label className="block"><span className="sr-only">{tx("Filter by area")}</span><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}><option value="all">{tx("All areas")}</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label>
         <label className="block"><span className="sr-only">{tx("Filter by state")}</span><select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}><option value="all">{tx("All states")}</option><option value="healthy">{tx("Healthy")}</option><option value="fault">{tx("Fault")}</option><option value="offline">{tx("Offline")}</option></select></label>
       </div></div>
-      <div className="nc-data-table-wrap"><table className="nc-data-table nc-node-table"><thead><tr><th>{tx("Node")}</th><th>{tx("Location")}</th><th>{tx("Gateway")}</th><th>{tx("State")}</th><th>{tx("Battery")}</th><th>{tx("Signal")}</th><th>{tx("Last payload")}</th><th /></tr></thead><tbody>
+      <div className="nc-data-table-wrap"><table className="nc-data-table nc-node-table"><thead><tr><th>{tx("Node")}</th><th>{tx("Location")}</th><th>{tx("State")}</th><th>{tx("Battery")}</th><th>{tx("Last payload")}</th><th>{tx("Sensor setup")}</th><th /></tr></thead><tbody>
         {visibleNodes.length ? visibleNodes.map((node) => {
           const state = nodeState(node)
           const lastPayload = formatLastPayload(node, node, translate)
@@ -519,21 +503,20 @@ export default function NodesWorkspace() {
           return <tr key={node.devEui || node.id}>
             <td><button type="button" className="nc-node-identity" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)}><strong>{node.name}</strong>{node.simulated ? <em>{tx("Simulated")}</em> : null}<small>{node.devEui || node.id}</small></button></td>
             <td><strong>{node.sectionName}</strong><small>{node.areaName}</small></td>
-            <td><strong>{gatewaySummary(node)}</strong><small>{tx("Last uplink")}</small></td>
             <td><span className={`nc-status-new ${state.tone}`}><span className={`nc-state-dot ${state.tone}`} />{state.label}</span></td>
             <td><span className={`nc-node-battery ${batteryLow ? 'is-low' : ''}`}><i className={`fa-solid ${Number(node.level) < 25 ? 'fa-battery-quarter' : 'fa-battery-three-quarters'}`} />{Number.isFinite(node.level) ? `${node.transportStatus === 'offline' ? 'Last ' : ''}${node.level}%` :tx("Battery unknown")}</span></td>
-            <td>{Number.isFinite(node.rssi) ? `${node.rssi} dBm` : '—'}</td><td>{lastPayload.relative}</td>
+            <td>{lastPayload.relative}</td><td><button type="button" className="nc-node-sensor-setup-button" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}?setup=sensors`)}><i className="fa-solid fa-sliders" />{tx("Configure sensors")}</button></td>
             <td><button type="button" className="nc-row-arrow" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)} aria-label={`Open ${node.name} details`}><i className="fa-solid fa-chevron-right" /></button></td>
           </tr>
-        }) : <tr><td colSpan={8} className="nc-node-empty">{nodes.length ?tx("No nodes match these filters.") :tx("No nodes registered yet.")}</td></tr>}
+        }) : <tr><td colSpan={7} className="nc-node-empty">{nodes.length ?tx("No nodes match these filters.") :tx("No nodes registered yet.")}</td></tr>}
       </tbody></table></div>
     </section>
     {registration ? <RegistrationModal registration={registration} areas={areas} sections={sections} busy={busy} error={modalError} onChange={setRegistration} onAreaChange={chooseRegistrationArea} onClose={() => setRegistration(null)} onSubmit={registerNode} /> : null}
   </div>
 }
 
-function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sensor; index: number; configurable: boolean; busy: boolean; onSave: (sensor: Sensor, context: SensorContext) => Promise<void> }) {
-  const [editing, setEditing] = useState(false)
+function SensorRow({ sensor, index, configurable, initiallyOpen, busy, onSave }: { sensor: Sensor; index: number; configurable: boolean; initiallyOpen: boolean; busy: boolean; onSave: (sensor: Sensor, context: SensorContext) => Promise<void> }) {
+  const [editing, setEditing] = useState(initiallyOpen)
   const initialChoice = sensor.targetType === 'section' ? 'section' : 'target'
   const [choice, setChoice] = useState<'section' | 'target'>(initialChoice)
   const [context, setContext] = useState<SensorContext>({
@@ -548,12 +531,20 @@ function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sens
     useForSectionScore: sensor.useForSectionScore ?? sensor.port !== 'ds18b20',
     allowSpatialInterpolation: sensor.allowSpatialInterpolation ?? sensor.port !== 'ds18b20',
   })
+  const isTemperatureProbe = ['ds18b20', 'onewire'].includes(sensor.port || '')
+  const probeContext = (targetType: string) => {
+    if (['pot', 'bed', 'section'].includes(targetType)) return { medium: 'substrate', role: 'substrate_temperature' }
+    if (targetType === 'reservoir') return { medium: 'water', role: 'water_temperature' }
+    if (targetType === 'pipe') return { medium: 'water', role: 'pipe_temperature' }
+    return { medium: 'equipment', role: 'custom_temperature' }
+  }
   const choosePurpose = (next: 'section' | 'target') => {
     setChoice(next)
     setContext((current) => next === 'section'
-      ? { ...current, targetType: 'section', targetName: '', spatialScope: 'representative', useForSectionScore: true, allowSpatialInterpolation: true }
-      : { ...current, targetType: sensor.port === 'ds18b20' ? 'pot' : ['incubator', 'equipment'].includes(current.targetType) ? current.targetType : 'custom', targetName: '', spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false })
+      ? { ...current, ...(isTemperatureProbe ? probeContext('section') : {}), targetType: 'section', targetName: '', spatialScope: 'representative', useForSectionScore: true, allowSpatialInterpolation: true }
+      : { ...current, ...(isTemperatureProbe ? probeContext('pot') : {}), targetType: isTemperatureProbe ? 'pot' : ['incubator', 'equipment'].includes(current.targetType) ? current.targetType : 'custom', targetName: '', spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false })
   }
+  const chooseTargetType = (targetType: string) => setContext((current) => ({ ...current, ...(isTemperatureProbe ? probeContext(targetType) : {}), targetType }))
   const targetMissing = context.targetType !== 'section' && !context.targetName.trim()
   const summary = context.targetType === 'section'
     ? tx("Represents the whole Section")
@@ -564,15 +555,8 @@ function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sens
         <button type="button" data-selected={choice === 'section'} onClick={() => choosePurpose('section')}><i className="fa-solid fa-layer-group" /><span><strong>{tx("The whole Section")}</strong><small>{tx("Use when this reading represents the general growing climate.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>
         <button type="button" data-selected={choice === 'target'} onClick={() => choosePurpose('target')}><i className="fa-solid fa-location-dot" /><span><strong>{tx("A specific place or object")}</strong><small>{tx("Use for one pot, bed, reservoir, pipe, incubator or other local target.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>
       </div>
-      {choice === 'target' ? <div className="nc-sensor-target-fields wide"><div className="nc-sensor-purpose-question"><span className="nc-sensor-step">2</span><div><strong>{tx("Which exact place or object does it measure?")}</strong><span>{tx("This name will be shown in Readings and Trends.")}</span></div></div><div className="nc-sensor-target-inputs"><label><span>{tx("Place or object type")}</span><select value={context.targetType} onChange={(event) => setContext({ ...context, targetType: event.target.value })}>{targetTypes.filter(([value]) => ['pot', 'bed', 'reservoir', 'pipe', 'incubator', 'equipment', 'custom'].includes(value)).map(([value, copy]) => <option value={value} key={value}>{tx(copy)}</option>)}</select></label><label><span>{tx("Give it a clear name")}</span><input value={context.targetName} maxLength={120} placeholder={['incubator', 'equipment'].includes(context.targetType) ? tx("e.g. Incubator 1") : tx("e.g. Pot 12")} onChange={(event) => setContext({ ...context, targetName: event.target.value })} /></label></div></div> : null}
+      {choice === 'target' ? <div className="nc-sensor-target-fields wide"><div className="nc-sensor-purpose-question"><span className="nc-sensor-step">2</span><div><strong>{tx("Which exact place or object does it measure?")}</strong><span>{tx("This name will be shown in Readings and Trends.")}</span></div></div><div className="nc-sensor-target-inputs"><label><span>{tx("Place or object type")}</span><select value={context.targetType} onChange={(event) => chooseTargetType(event.target.value)}>{targetTypes.filter(([value]) => ['pot', 'bed', 'reservoir', 'pipe', 'incubator', 'equipment', 'custom'].includes(value)).map(([value, copy]) => <option value={value} key={value}>{tx(copy)}</option>)}</select></label><label><span>{tx("Give it a clear name")}</span><input value={context.targetName} maxLength={120} placeholder={['incubator', 'equipment'].includes(context.targetType) ? tx("e.g. Incubator 1") : tx("e.g. Pot 12")} onChange={(event) => setContext({ ...context, targetName: event.target.value })} /></label>{isTemperatureProbe && ['pot', 'bed'].includes(context.targetType) ? <label><span>{tx("Probe depth, cm (optional)")}</span><input type="number" min="0" max="1000" step="0.1" value={context.depthCm ?? ''} placeholder={tx("e.g. 10")} onChange={(event) => setContext({ ...context, depthCm: event.target.value === '' ? null : Number(event.target.value) })} /></label> : null}</div></div> : null}
       <div className="nc-sensor-purpose-preview wide" data-section={choice === 'section'}><i className={`fa-solid ${choice === 'section' ? 'fa-circle-check' : 'fa-location-dot'}`} /><div><strong>{tx("How NeuroCrop will use this data")}</strong><span>{choice === 'section' ? tx("Included in the Section average, Growing Score, alerts and heatmap.") : <>{tx("Shown separately as")} <strong>{context.targetName || tx("this spot")}</strong>. {tx("It will not change the Section average, Growing Score, Section alerts or heatmap.")}</>}</span></div></div>
-      <details className="nc-sensor-context-advanced wide"><summary>{tx("Advanced and installation details")}</summary><div>
-        <label><span>{tx("Display label")}</span><input value={context.label} maxLength={80} onChange={(event) => setContext({ ...context, label: event.target.value })} /></label>
-        {sensor.port === 'ds18b20' ? <label><span>{tx("Probe purpose")}</span><select value={context.role} onChange={(event) => setContext({ ...context, role: event.target.value })}>{sensorRoles.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label> : null}
-        <label><span>{tx("Measured medium")}</span><select value={context.medium} onChange={(event) => setContext({ ...context, medium: event.target.value })}>{sensorMedia.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label>
-        <label><span>{tx("Depth, cm")}</span><input type="number" min="0" max="10000" step="0.1" value={context.depthCm ?? ''} onChange={(event) => setContext({ ...context, depthCm: event.target.value === '' ? null : Number(event.target.value) })} /></label>
-        <label><span>{tx("Height, cm")}</span><input type="number" min="0" max="10000" step="0.1" value={context.heightCm ?? ''} onChange={(event) => setContext({ ...context, heightCm: event.target.value === '' ? null : Number(event.target.value) })} /></label>
-      </div></details>
       <footer className="wide"><span>{targetMissing ? tx("Enter a name before saving.") : tx("You can change this later without deleting any readings.")}</span><button type="button" disabled={busy || targetMissing || !context.label.trim()} onClick={() => void onSave(sensor, { ...context, label: context.label.trim(), targetName: context.targetName.trim() })}>{busy ? tx("Saving…") : tx("Save measurement use")}</button></footer>
     </div> : null}</div><div className="nc-node-sensor-actions"><span className="node-detail-status" data-tone="optimal"><i className="fa-solid fa-circle" />{tx("Active")}</span>{configurable ? <button type="button" className="nc-sensor-context-toggle" data-open={editing} onClick={() => setEditing((value) => !value)}><i className={`fa-solid ${editing ? 'fa-xmark' : 'fa-sliders'}`} />{editing ? tx("Close setup") : tx("Measurement setup")}</button> : null}</div></div>
 }
