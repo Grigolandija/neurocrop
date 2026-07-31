@@ -470,7 +470,7 @@ export default function NodesWorkspace() {
         </div>
       </section>
       <div className="node-detail-columns node-detail-columns-simple">
-        <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3></header><div className="node-detail-sensors">
+        <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("Set what each sensor measures and how NeuroCrop should use its data.")}</span></header><div className="node-detail-sensors">
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? detected.map((sensor, index) => {
             const configurable = 'port' in sensor && sensor.configurable === true
             return <SensorRow sensor={sensor as Sensor} index={index} configurable={configurable} busy={busy} onSave={saveSensor} key={`${(sensor as Sensor).port || sensorLabel(sensor as Sensor)}-${index}`} />
@@ -558,7 +558,7 @@ function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sens
   const summary = context.targetType === 'section'
     ? tx("Represents the whole Section")
     : `${tx(context.targetType === 'incubator' || context.targetType === 'equipment' ? "Equipment measurement" : "Separate measurement")}: ${context.targetName || tx("name required")}`
-  return <div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{sensorLabel(sensor)}</strong><small>{tx("Detected ·")} {sensor.sensorModel || sensor.port || `Port ${index + 1}`} · {summary}</small>{configurable ? <><button type="button" className="nc-sensor-context-toggle" onClick={() => setEditing((value) => !value)}><i className="fa-solid fa-location-dot" />{editing ? tx("Close measurement context") : tx("Configure measurement context")}</button>{editing ? <div className="nc-node-sensor-context">
+  return <div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{sensorLabel(sensor)}</strong><small>{tx("Detected ·")} {sensor.sensorModel || sensor.port || `Port ${index + 1}`} · {summary}</small>{configurable && editing ? <div className="nc-node-sensor-context">
       <div className="nc-sensor-purpose-question wide"><span className="nc-sensor-step">1</span><div><strong>{tx("What does this sensor represent?")}</strong><span>{tx("Configure this sensor separately from the other sensors connected to the node.")}</span></div></div>
       <div className="nc-sensor-purpose-cards wide">
         <button type="button" data-selected={choice === 'section'} onClick={() => choosePurpose('section')}><i className="fa-solid fa-layer-group" /><span><strong>{tx("The whole Section")}</strong><small>{tx("Use when this reading represents the general growing climate.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>
@@ -574,7 +574,7 @@ function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sens
         <label><span>{tx("Height, cm")}</span><input type="number" min="0" max="10000" step="0.1" value={context.heightCm ?? ''} onChange={(event) => setContext({ ...context, heightCm: event.target.value === '' ? null : Number(event.target.value) })} /></label>
       </div></details>
       <footer className="wide"><span>{targetMissing ? tx("Enter a name before saving.") : tx("You can change this later without deleting any readings.")}</span><button type="button" disabled={busy || targetMissing || !context.label.trim()} onClick={() => void onSave(sensor, { ...context, label: context.label.trim(), targetName: context.targetName.trim() })}>{busy ? tx("Saving…") : tx("Save measurement use")}</button></footer>
-    </div> : null}</> : null}</div><span className="node-detail-status" data-tone="optimal"><i className="fa-solid fa-circle" />{tx("Active")}</span></div>
+    </div> : null}</div><div className="nc-node-sensor-actions"><span className="node-detail-status" data-tone="optimal"><i className="fa-solid fa-circle" />{tx("Active")}</span>{configurable ? <button type="button" className="nc-sensor-context-toggle" data-open={editing} onClick={() => setEditing((value) => !value)}><i className={`fa-solid ${editing ? 'fa-xmark' : 'fa-sliders'}`} />{editing ? tx("Close setup") : tx("Measurement setup")}</button> : null}</div></div>
 }
 
 function RegistrationModal({ registration, areas, sections, busy, error, onChange, onAreaChange, onClose, onSubmit }: { registration: Registration; areas: Area[]; sections: Section[]; busy: boolean; error: string; onChange: (value: Registration) => void; onAreaChange: (id: string) => void; onClose: () => void; onSubmit: (event: FormEvent) => void }) {
