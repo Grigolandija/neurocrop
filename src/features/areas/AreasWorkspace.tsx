@@ -145,7 +145,7 @@ export default function AreasWorkspace() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      setStatus('loading')
+      setStatus((current) => current === 'ready' ? current : 'loading')
       setError('')
       try {
         const [dashboardResult, areasResult, sectionsResult, nodesResult] = await Promise.allSettled([
