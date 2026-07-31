@@ -170,10 +170,11 @@ function mergeLatestReadings(previous: JsonRecord | null, next: JsonRecord | nul
   return {
     ...previous,
     ...next,
-    observations: {
-      ...(previous.observations || {}),
-      ...(next.observations || {}),
-    },
+    // The latest endpoint returns an authoritative sensor snapshot. Replacing
+    // this map lets removed or disconnected sensors disappear immediately.
+    observations: next.observations && typeof next.observations === 'object'
+      ? next.observations
+      : previous.observations || {},
   }
 }
 
