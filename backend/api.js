@@ -2408,7 +2408,27 @@ app.get('/history', requireAuth, async (req, res) => {
     if (requestedDevEui && !sectionDevEuis.includes(requestedDevEui)) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node is not assigned to this section' } });
     }
-    const devEuis = requestedDevEui ? [requestedDevEui] : sectionDevEuis;
+    const { rows: historyContextRows } = await query(
+      `SELECT node_dev_eui, port, medium, target_type, target_name, spatial_scope,
+              depth_cm, height_cm, use_for_section_score, allow_spatial_interpolation
+       FROM node_sensor_configs
+       WHERE organization_id=$1 AND node_dev_eui=ANY($2::text[])`,
+      [getOrganizationId(req), sectionDevEuis]
+    );
+    const historyContexts = sensorConfigsByNode(historyContextRows);
+    const contextForNode = (devEui) => publicMeasurementContextForMetric(historyContexts.get(devEui), metric);
+    const requestedMeasurementContext = requestedDevEui ? contextForNode(requestedDevEui) : null;
+    const devEuis = requestedDevEui
+      ? [requestedDevEui]
+      : sectionDevEuis.filter((devEui) => contextForNode(devEui).spatialScope === 'representative');
+
+    if (!devEuis.length) {
+      return res.json({
+        sectionId, devEui: null, metric, unit: METRIC_UNITS[metric] || '',
+        aggregation: `section_${metric === 'lux' ? 'peak' : 'median'}_${stepMinutes}m`,
+        stepMinutes, points: [], revision: `history-${Date.now()}`
+      });
+    }
 
     const bucketExpression = `to_timestamp(floor(extract(epoch FROM time) / ${bucketSeconds}) * ${bucketSeconds})`;
     let points;
@@ -2472,6 +2492,7 @@ app.get('/history', requireAuth, async (req, res) => {
     res.json({
       sectionId,
       devEui: requestedDevEui || null,
+      measurementContext: requestedMeasurementContext,
       metric,
       unit: METRIC_UNITS[metric] || '',
       aggregation: `${requestedDevEui ? 'node' : metric === 'lux' ? 'section_peak' : 'section_median'}_${stepMinutes}m`,

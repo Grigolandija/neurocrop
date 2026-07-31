@@ -15,44 +15,6 @@
       box-shadow: 0 10px 24px rgba(20, 32, 27, 0.05);
     }
 
-    .node-sensor-config {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 0.48rem;
-      margin-top: 0.65rem;
-    }
-
-    .node-sensor-config label span {
-      display: block;
-      margin-bottom: 0.2rem;
-      font-size: 0.62rem;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: rgba(20, 32, 27, 0.52);
-    }
-
-    .node-sensor-config select,
-    .node-sensor-config input {
-      width: 100%;
-      min-width: 0;
-      height: 2rem;
-      border: 1px solid rgba(20, 32, 27, 0.12);
-      border-radius: 10px;
-      background: #fff;
-      padding: 0 0.55rem;
-      font: inherit;
-      font-size: 0.72rem;
-      color: #14201b;
-    }
-
-    .node-sensor-config .inline-action {
-      grid-column: 1 / -1;
-      justify-self: start;
-      padding: 0.45rem 0.65rem;
-      font-size: 0.72rem;
-    }
-
     .node-sensor-row {
       padding: 0.48rem 0.55rem;
       border-radius: 12px;

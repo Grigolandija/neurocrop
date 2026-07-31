@@ -141,7 +141,7 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-node-measurement-identity strong, .nc-node-measurement-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nc-node-measurement-identity strong { font-size: var(--type-caption); }
 .nc-node-measurement-identity small { color: var(--color-text-tertiary); font-family: var(--font-technical); font-size: .58rem; }
-.nc-node-measurement-value { position: relative; display: flex; min-width: 0; min-height: 2.875rem; align-items: center; border-right: 1px solid var(--color-border); padding: var(--space-4) var(--space-12); }
+.nc-node-measurement-value { position: relative; display: flex; min-width: 0; min-height: 2.875rem; flex-direction: column; align-items: flex-start; justify-content: center; border-right: 1px solid var(--color-border); padding: var(--space-4) var(--space-12); }
 .nc-node-measurement-value[data-tone="good"] { background: color-mix(in srgb, var(--color-success-soft) 42%, var(--color-surface)); }
 .nc-node-measurement-value[data-tone="watch"] { background: color-mix(in srgb, var(--color-warning-soft) 54%, var(--color-surface)); }
 .nc-node-measurement-value[data-tone="critical"] { background: color-mix(in srgb, var(--color-danger-soft) 58%, var(--color-surface)); }
@@ -149,6 +149,7 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-node-measurement-value strong > span { overflow: hidden; text-overflow: ellipsis; }
 .nc-node-measurement-value strong > small { flex: 0 0 auto; color: var(--color-text-secondary); font-family: var(--font-body); font-size: var(--type-micro); font-weight: var(--weight-regular); letter-spacing: 0; }
 .nc-node-measurement-value[data-quality="no-data"] { color: var(--color-disabled); }
+.nc-reading-target-label { display: flex; max-width: 100%; align-items: center; gap: .25rem; margin-top: .1rem; overflow: hidden; color: var(--color-text-tertiary); font-size: .58rem; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 .nc-node-measurement-freshness { display: flex; min-height: 2.875rem; align-items: center; border-right: 1px solid var(--color-border); padding: var(--space-4) var(--space-12); white-space: nowrap; }
 .nc-node-measurement-freshness strong { font-size: var(--type-caption); }
 .nc-node-measurement-end { min-width: 2rem; }

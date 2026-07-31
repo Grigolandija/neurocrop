@@ -795,9 +795,16 @@ export default function TrendsWorkspace() {
       if (responseDevEui !== node.devEui || !aggregation.startsWith('node_')) {
         throw new Error('The API returned Section history instead of Node history.')
       }
+      const measurementContext = response.measurementContext as JsonRecord | undefined
+      const targetName = text(measurementContext?.targetName || measurementContext?.target_name).trim()
+      const targetType = text(measurementContext?.targetType || measurementContext?.target_type).trim()
+      const isPointTarget = text(measurementContext?.spatialScope || measurementContext?.spatial_scope) === 'point'
+      const seriesName = isPointTarget
+        ? `${targetName || targetType || 'Monitored target'} · ${node.name}`
+        : node.name
       return {
         series: {
-          name: node.name,
+          name: seriesName,
           points: historyPoints(response),
           color: chartColors[(index + 1) % chartColors.length],
         },

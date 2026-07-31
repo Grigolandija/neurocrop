@@ -299,6 +299,13 @@ function getNodeMetricValue(section: SectionReading, node: JsonRecord, metric: M
   return metric.key === 'batteryLevel' ? numeric(node.level ?? node.batteryPercent) : null
 }
 
+function measurementContextLabel(source: JsonRecord | null) {
+  const context = source?.measurementContext || source?.measurement_context
+  if (!context || String(context.spatialScope || context.spatial_scope) !== 'point') return ''
+  const target = String(context.targetName || context.target_name || context.targetType || context.target_type || '').trim()
+  return target ? `${target} · specific target` : 'Specific target'
+}
+
 function nodeMetricQuality(section: SectionReading, node: JsonRecord, metric: Metric): Extract<ReadingQuality, 'live' | 'stale' | 'offline' | 'no-data'> {
   const source = getNodeSource(section, node, metric)
   const observedAt = source?.observedAt || (metric.key === 'batteryLevel' ? node.lastReceivedAt || node.lastSeen : null)
@@ -363,9 +370,11 @@ function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }
         {visibleMetrics.map((metric) => {
           const value = getNodeMetricValue(section, node, metric)
           const quality = nodeMetricQuality(section, node, metric)
+          const contextLabel = measurementContextLabel(getNodeSource(section, node, metric))
           const qualityLabel = quality === 'live' ? 'Current' : quality === 'stale' ? 'Delayed' : value === null ? 'No data' : 'Last known'
           return <div className="nc-node-measurement-value" data-tone={nodeMetricTone(value, metric, profile)} data-quality={quality} aria-label={`${metric.label}: ${value === null ? 'No data' : `${formatValue(value, metric)} ${metric.unit}`}. ${qualityLabel}`} key={metric.key}>
             <strong>{value === null ?tx("No data") : <><span>{formatValue(value, metric)}</span><small>{metric.unit}</small></>}</strong>
+            {contextLabel ? <em className="nc-reading-target-label"><i className="fa-solid fa-location-dot" />{contextLabel}</em> : null}
           </div>
         })}
         <span className="nc-node-measurement-freshness" data-quality={overallQuality}><strong>{formatTimestampAge(latestAt)}</strong></span>

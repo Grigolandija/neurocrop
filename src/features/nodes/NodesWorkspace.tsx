@@ -534,6 +534,8 @@ export default function NodesWorkspace() {
 
 function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sensor; index: number; configurable: boolean; busy: boolean; onSave: (sensor: Sensor, context: SensorContext) => Promise<void> }) {
   const [editing, setEditing] = useState(false)
+  const initialChoice = sensor.targetType === 'section' ? 'section' : ['incubator', 'equipment'].includes(sensor.targetType || '') ? 'equipment' : 'target'
+  const [choice, setChoice] = useState<'section' | 'target' | 'equipment'>(initialChoice)
   const [context, setContext] = useState<SensorContext>({
     role: sensor.role || (sensor.port === 'ds18b20' ? 'unassigned_temperature' : sensor.port === 'sht45' ? 'air_climate' : 'environment'),
     label: sensor.label || sensorLabel(sensor),
@@ -546,26 +548,35 @@ function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sens
     useForSectionScore: sensor.useForSectionScore ?? sensor.port !== 'ds18b20',
     allowSpatialInterpolation: sensor.allowSpatialInterpolation ?? sensor.port !== 'ds18b20',
   })
-  const setScope = (spatialScope: SensorContext['spatialScope']) => setContext((current) => ({
-    ...current,
-    spatialScope,
-    ...(spatialScope === 'point' ? { useForSectionScore: false, allowSpatialInterpolation: false } : {}),
-  }))
+  const choosePurpose = (next: 'section' | 'target' | 'equipment') => {
+    setChoice(next)
+    setContext((current) => next === 'section'
+      ? { ...current, targetType: 'section', targetName: '', spatialScope: 'representative', useForSectionScore: true, allowSpatialInterpolation: true }
+      : next === 'equipment'
+        ? { ...current, medium: ['sht45', 'scd4x'].includes(sensor.port || '') ? 'air' : current.medium, targetType: 'incubator', targetName: '', spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false }
+        : { ...current, targetType: sensor.port === 'ds18b20' ? 'pot' : 'custom', targetName: '', spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false })
+  }
   const targetMissing = context.targetType !== 'section' && !context.targetName.trim()
   const summary = context.targetType === 'section'
-    ? `${context.medium} · whole Section`
+    ? `${context.medium} · whole growing Section`
     : `${context.medium} · ${context.targetName || context.targetType}`
   return <div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{sensorLabel(sensor)}</strong><small>{tx("Detected ·")} {sensor.sensorModel || sensor.port || `Port ${index + 1}`} · {summary}</small>{configurable ? <><button type="button" className="nc-sensor-context-toggle" onClick={() => setEditing((value) => !value)}><i className="fa-solid fa-location-dot" />{editing ? tx("Close measurement context") : tx("Configure measurement context")}</button>{editing ? <div className="nc-node-sensor-context">
-      <label><span>{tx("Display label")}</span><input value={context.label} maxLength={80} onChange={(event) => setContext({ ...context, label: event.target.value })} /></label>
-      {sensor.port === 'ds18b20' ? <label><span>{tx("Probe purpose")}</span><select value={context.role} onChange={(event) => setContext({ ...context, role: event.target.value })}>{sensorRoles.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label> : null}
-      <label><span>{tx("Measured medium")}</span><select value={context.medium} onChange={(event) => setContext({ ...context, medium: event.target.value })}>{sensorMedia.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label>
-      <label><span>{tx("Measured target")}</span><select value={context.targetType} onChange={(event) => setContext({ ...context, targetType: event.target.value, targetName: event.target.value === 'section' ? '' : context.targetName })}>{targetTypes.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label>
-      {context.targetType !== 'section' ? <label className="wide"><span>{tx("Target name")}</span><input value={context.targetName} maxLength={120} placeholder="e.g. Pot 12, Incubator 1" onChange={(event) => setContext({ ...context, targetName: event.target.value })} /></label> : null}
-      <label><span>{tx("Spatial meaning")}</span><select value={context.spatialScope} onChange={(event) => setScope(event.target.value as SensorContext['spatialScope'])}><option value="point">{tx("This target only")}</option><option value="representative">{tx("Represents the whole Section")}</option></select></label>
-      <label><span>{tx("Depth, cm")}</span><input type="number" min="0" max="10000" step="0.1" value={context.depthCm ?? ''} onChange={(event) => setContext({ ...context, depthCm: event.target.value === '' ? null : Number(event.target.value) })} /></label>
-      <label><span>{tx("Height, cm")}</span><input type="number" min="0" max="10000" step="0.1" value={context.heightCm ?? ''} onChange={(event) => setContext({ ...context, heightCm: event.target.value === '' ? null : Number(event.target.value) })} /></label>
-      <div className="nc-sensor-context-switches wide"><label><input type="checkbox" disabled={context.spatialScope === 'point'} checked={context.useForSectionScore} onChange={(event) => setContext({ ...context, useForSectionScore: event.target.checked })} /><span>{tx("Use for Section score and alerts")}</span></label><label><input type="checkbox" disabled={context.spatialScope === 'point'} checked={context.allowSpatialInterpolation} onChange={(event) => setContext({ ...context, allowSpatialInterpolation: event.target.checked })} /><span>{tx("Allow continuous heatmap interpolation")}</span></label></div>
-      <footer className="wide"><span>{context.spatialScope === 'point' ? tx("Point measurements remain visible in readings and trends, but do not represent the entire Section.") : tx("Representative measurements may influence Section decisions when enabled.")}</span><button type="button" disabled={busy || targetMissing || !context.label.trim()} onClick={() => void onSave(sensor, { ...context, label: context.label.trim(), targetName: context.targetName.trim() })}>{busy ? tx("Saving…") : tx("Save context")}</button></footer>
+      <div className="nc-sensor-purpose-question wide"><strong>{tx("What does this sensor monitor?")}</strong><span>{tx("Choose the simplest description. NeuroCrop will configure scoring and heatmaps automatically.")}</span></div>
+      <div className="nc-sensor-purpose-cards wide">
+        <button type="button" data-selected={choice === 'section'} onClick={() => choosePurpose('section')}><i className="fa-solid fa-layer-group" /><span><strong>{tx("Whole growing Section")}</strong><small>{tx("General climate, score, alerts and heatmap")}</small></span></button>
+        <button type="button" data-selected={choice === 'target'} onClick={() => choosePurpose('target')}><i className="fa-solid fa-location-dot" /><span><strong>{tx("A specific place or object")}</strong><small>{tx("Pot, bed, reservoir or another local target")}</small></span></button>
+        <button type="button" data-selected={choice === 'equipment'} onClick={() => choosePurpose('equipment')}><i className="fa-solid fa-box" /><span><strong>{tx("Inside equipment")}</strong><small>{tx("Incubator, chamber or other equipment")}</small></span></button>
+      </div>
+      {choice !== 'section' ? <><label><span>{tx(choice === 'equipment' ? "Equipment type" : "Target type")}</span><select value={context.targetType} onChange={(event) => setContext({ ...context, targetType: event.target.value })}>{targetTypes.filter(([value]) => choice === 'equipment' ? ['incubator', 'equipment', 'custom'].includes(value) : ['pot', 'bed', 'reservoir', 'pipe', 'custom'].includes(value)).map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label><label><span>{tx("Name")}</span><input value={context.targetName} maxLength={120} placeholder={choice === 'equipment' ? 'e.g. Incubator 1' : 'e.g. Pot 12'} onChange={(event) => setContext({ ...context, targetName: event.target.value })} /></label></> : null}
+      <div className="nc-sensor-purpose-preview wide" data-section={choice === 'section'}><i className={`fa-solid ${choice === 'section' ? 'fa-circle-check' : 'fa-circle-info'}`} /><span>{choice === 'section' ? tx("This sensor will contribute to the Section average, Growing Score, alerts and heatmap.") : tx(`This sensor will appear separately as ${context.targetName || 'the monitored target'}. It will not affect the Section average, Growing Score, alerts or heatmap.`)}</span></div>
+      <details className="nc-sensor-context-advanced wide"><summary>{tx("Advanced and installation details")}</summary><div>
+        <label><span>{tx("Display label")}</span><input value={context.label} maxLength={80} onChange={(event) => setContext({ ...context, label: event.target.value })} /></label>
+        {sensor.port === 'ds18b20' ? <label><span>{tx("Probe purpose")}</span><select value={context.role} onChange={(event) => setContext({ ...context, role: event.target.value })}>{sensorRoles.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label> : null}
+        <label><span>{tx("Measured medium")}</span><select value={context.medium} onChange={(event) => setContext({ ...context, medium: event.target.value })}>{sensorMedia.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label>
+        <label><span>{tx("Depth, cm")}</span><input type="number" min="0" max="10000" step="0.1" value={context.depthCm ?? ''} onChange={(event) => setContext({ ...context, depthCm: event.target.value === '' ? null : Number(event.target.value) })} /></label>
+        <label><span>{tx("Height, cm")}</span><input type="number" min="0" max="10000" step="0.1" value={context.heightCm ?? ''} onChange={(event) => setContext({ ...context, heightCm: event.target.value === '' ? null : Number(event.target.value) })} /></label>
+      </div></details>
+      <footer className="wide"><span>{tx("You can change this later without deleting any readings.")}</span><button type="button" disabled={busy || targetMissing || !context.label.trim()} onClick={() => void onSave(sensor, { ...context, label: context.label.trim(), targetName: context.targetName.trim() })}>{busy ? tx("Saving…") : tx("Save purpose")}</button></footer>
     </div> : null}</> : null}</div><span className="node-detail-status" data-tone="optimal"><i className="fa-solid fa-circle" />{tx("Active")}</span></div>
 }
 
