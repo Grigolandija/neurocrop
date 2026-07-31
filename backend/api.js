@@ -3709,7 +3709,7 @@ app.delete('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technic
     let measurementsDeleted = 0;
     const simulated = ownedRows[0].source === 'simulated';
 
-    if (simulated) {
+    if (simulated || historyPolicy === 'delete') {
       const measurementResult = await client.query(
         `DELETE FROM measurements WHERE lower(dev_eui)=$1`,
         [devEui]
@@ -3719,67 +3719,40 @@ app.delete('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technic
         `DELETE FROM measurement_rollups WHERE lower(dev_eui)=$1`,
         [devEui]
       );
-      await client.query(
-        `UPDATE nodes SET
-           organization_id=NULL,
-           area_id=NULL,
-           section_id=NULL,
-           name=factory_serial,
-           factory_status='unassigned',
-           archived_at=NULL,
-           last_seen=NULL,
-           last_received_at=NULL,
-           last_battery_mv=NULL,
-           last_battery_percent=NULL,
-           last_firmware_version=NULL,
-           last_profile=NULL,
-           last_rssi=NULL,
-           last_snr=NULL,
-           last_spreading_factor=NULL,
-           last_sensor_presence=NULL,
-           last_error_flags=NULL,
-           last_error_counters=NULL
-         WHERE lower(dev_eui)=$1 AND organization_id=$2`,
-        [devEui, organizationId]
-      );
-    } else if (historyPolicy === 'delete') {
-      const measurementResult = await client.query(
-        `DELETE FROM measurements WHERE lower(dev_eui)=$1`,
-        [devEui]
-      );
-      measurementsDeleted = measurementResult.rowCount;
-      await client.query(
-        `DELETE FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2`,
-        [devEui, organizationId]
-      );
-    } else {
-      await client.query(
-        `UPDATE nodes SET archived_at=now()
-         WHERE lower(dev_eui)=$1 AND organization_id=$2`,
-        [devEui, organizationId]
-      );
     }
+
+    // Removing a Node from a customer workspace is an assignment change, not
+    // hardware destruction. Keep the physical device and its OTAA keys in
+    // ChirpStack so an accidental removal can be recovered by claiming the
+    // same factory-prepared DevEUI again.
+    await client.query(
+      `DELETE FROM node_sensor_configs
+       WHERE lower(node_dev_eui)=$1 AND organization_id=$2`,
+      [devEui, organizationId]
+    );
+    await client.query(
+      `UPDATE nodes SET
+         organization_id=NULL,
+         area_id=NULL,
+         section_id=NULL,
+         name=COALESCE(factory_serial, name, dev_eui),
+         factory_status='unassigned',
+         archived_at=NULL
+       WHERE lower(dev_eui)=$1 AND organization_id=$2`,
+      [devEui, organizationId]
+    );
 
     await client.query('COMMIT');
-
-    let chirpStackDeleted = simulated ? null : true;
-    if (!simulated) {
-      try {
-        await deleteChirpStackDevice(devEui);
-      } catch (chirpStackError) {
-        chirpStackDeleted = false;
-        console.error('[api] ChirpStack node cleanup:', devEui, chirpStackError.message);
-      }
-    }
 
     const node = ownedRows[0];
     res.json({
       deleted: true,
-      returnedToInventory: simulated,
+      removedFromWorkspace: true,
+      returnedToInventory: true,
       historyPolicy,
       measurementsRetained: !simulated && historyPolicy === 'keep' ? measurementCount : 0,
       measurementsDeleted,
-      chirpStackDeleted,
+      chirpStackRetained: !simulated,
       node: {
         devEui: node.dev_eui,
         name: node.name,

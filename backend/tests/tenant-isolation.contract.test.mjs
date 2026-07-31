@@ -108,13 +108,18 @@ test('workspace settings mutations are role protected and organization scoped', 
   assert.match(organizationRoute, /organizationId\(req\)/);
 });
 
-test('node deletion supports explicit history retention and permanent purge', () => {
+test('node removal retains ChirpStack registration and returns hardware to inventory', () => {
   const block = routeBlock(apiSource, "app.delete('/nodes/:devEui'");
   assert.match(block, /historyPolicy/);
-  assert.match(block, /UPDATE nodes SET archived_at=now\(\)/);
+  assert.match(block, /organization_id=NULL/);
+  assert.match(block, /factory_status='unassigned'/);
+  assert.match(block, /returnedToInventory: true/);
+  assert.match(block, /chirpStackRetained: !simulated/);
   assert.match(block, /DELETE FROM measurements WHERE lower\(dev_eui\)=\$1/);
   assert.match(block, /await client\.query\('BEGIN'\)/);
   assert.match(block, /await client\.query\('COMMIT'\)/);
+  assert.doesNotMatch(block, /deleteChirpStackDevice\(/);
+  assert.doesNotMatch(block, /DELETE FROM nodes/);
   assert.doesNotMatch(block, /NODE_HAS_HISTORY/);
 });
 
