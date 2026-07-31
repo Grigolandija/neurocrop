@@ -444,7 +444,7 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
   const tone = getTone(section, metric, profile)
   const target = getRange(profile, metric)
   const delta = getDelta(section, metric)
-  let display = setupRequired ? 'Sensor setup required' : separateOnly ? 'Separate measurements below' : value === null ? qualityLabels[quality] : `${formatValue(value, metric)} ${metric.unit}`
+  let display = setupRequired ? 'Set up' : separateOnly ? 'See below' : value === null ? qualityLabels[quality] : `${formatValue(value, metric)} ${metric.unit}`
   if (!setupRequired && !separateOnly && mode === 'target') {
     display = target ? `${formatValue(target[0], metric)}–${formatValue(target[1], metric)} ${metric.unit}` : 'No crop target'
   } else if (!setupRequired && !separateOnly && mode === 'change') {

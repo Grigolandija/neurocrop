@@ -906,6 +906,7 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Separate measurement": "Atskiras matavimas",
   "Specific measurement": "Konkretus matavimas",
   "Separate measurements below": "Atskiri matavimai žemiau",
+  "See below": "Žr. žemiau",
   "Separate measurements are shown below": "Atskiri matavimai rodomi žemiau",
   "Expand this Section to view its separate measurements.": "Išskleiskite šią sekciją, kad pamatytumėte atskirus matavimus.",
   "name required": "reikia pavadinimo",
