@@ -57,7 +57,19 @@ type Editor = {
   confirmed: boolean
 }
 type Registration = { areaId: string; sectionId: string; devEui: string }
-type Sensor = { port?: string; detected?: boolean; metrics?: string[]; role?: string; label?: string }
+type SensorContext = {
+  role: string
+  label: string
+  medium: string
+  targetType: string
+  targetName: string
+  spatialScope: 'point' | 'representative'
+  depthCm: number | null
+  heightCm: number | null
+  useForSectionScore: boolean
+  allowSpatialInterpolation: boolean
+}
+type Sensor = Partial<SensorContext> & { port?: string; sensorModel?: string | null; detected?: boolean; metrics?: string[]; configurable?: boolean }
 
 const translate = (english: string) => english
 
@@ -181,10 +193,10 @@ function errorMessage(error: unknown, fallback: string) {
 
 function sensorLabel(sensor: Sensor) {
   if (sensor.label) return sensor.label
-  if (sensor.port === 'internal') return 'Temperature and humidity'
-  if (sensor.port === 'i2c' && sensor.metrics?.includes('co2')) return 'CO₂ sensor'
-  if (sensor.port === 'i2c' && sensor.metrics?.includes('lux')) return 'Light sensor'
-  if (sensor.port === 'onewire') return 'Temperature probe'
+  if (sensor.port === 'sht45' || sensor.port === 'internal') return 'Temperature and humidity'
+  if (sensor.port === 'scd4x' || sensor.metrics?.includes('co2')) return 'CO₂ sensor'
+  if (sensor.port === 'bh1750' || sensor.metrics?.includes('lux')) return 'Light sensor'
+  if (sensor.port === 'ds18b20' || sensor.port === 'onewire') return 'Temperature probe'
   return 'Detected sensor'
 }
 
@@ -194,6 +206,15 @@ const sensorRoles = [
   ['water_temperature', 'Water temperature'],
   ['pipe_temperature', 'Pipe temperature'],
   ['custom_temperature', 'Other temperature'],
+] as const
+const sensorMedia = [
+  ['air', 'Air'], ['substrate', 'Substrate'], ['water', 'Water / nutrient solution'],
+  ['plant', 'Plant'], ['equipment', 'Equipment interior'], ['custom', 'Other medium'],
+] as const
+const targetTypes = [
+  ['section', 'Whole Section'], ['pot', 'Pot / container'], ['bed', 'Bed / growing table'],
+  ['incubator', 'Incubator / chamber'], ['reservoir', 'Reservoir'], ['pipe', 'Pipe'],
+  ['equipment', 'Equipment'], ['custom', 'Other target'],
 ] as const
 
 export default function NodesWorkspace() {
@@ -410,13 +431,13 @@ export default function NodesWorkspace() {
     }
   }
 
-  async function saveSensor(sensor: Sensor, role: string, label: string) {
+  async function saveSensor(sensor: Sensor, context: SensorContext) {
     if (!selectedNode?.devEui || busy) return
     setBusy(true); setModalError('')
     try {
-      const payload = await neurocropApi.updateNodeSensor(selectedNode.devEui, sensor.port || 'onewire', { role, label })
+      const payload = await neurocropApi.updateNodeSensor(selectedNode.devEui, sensor.port || 'onewire', context)
       setSensors(records(payload, ['sensors']))
-      setFeedback('Sensor purpose saved.')
+      setFeedback('Sensor measurement context saved.')
     } catch (mutationError) {
       setModalError(errorMessage(mutationError, 'Sensor purpose could not be saved.'))
     } finally {
@@ -451,7 +472,7 @@ export default function NodesWorkspace() {
       <div className="node-detail-columns node-detail-columns-simple">
         <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3></header><div className="node-detail-sensors">
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? detected.map((sensor, index) => {
-            const configurable = 'port' in sensor && sensor.port === 'onewire'
+            const configurable = 'port' in sensor && sensor.configurable === true
             return <SensorRow sensor={sensor as Sensor} index={index} configurable={configurable} busy={busy} onSave={saveSensor} key={`${(sensor as Sensor).port || sensorLabel(sensor as Sensor)}-${index}`} />
           }) : <p className="node-detail-muted">{tx("No sensor presence information was reported.")}</p>}
         </div></section>
@@ -511,10 +532,41 @@ export default function NodesWorkspace() {
   </div>
 }
 
-function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sensor; index: number; configurable: boolean; busy: boolean; onSave: (sensor: Sensor, role: string, label: string) => Promise<void> }) {
-  const [role, setRole] = useState(sensor.role || 'unassigned_temperature')
-  const [label, setLabel] = useState(sensor.label || 'Temperature probe')
-  return <div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{sensorLabel(sensor)}</strong><small>{tx("Detected ·")} {sensor.port || `Port ${index + 1}`}</small>{configurable ? <div className="nc-node-sensor-config"><select value={role} onChange={(event) => setRole(event.target.value)}>{sensorRoles.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select><input value={label} maxLength={80} onChange={(event) => setLabel(event.target.value)} /><button type="button" disabled={busy} onClick={() => void onSave(sensor, role, label.trim() || 'Temperature probe')}>{tx("Save purpose")}</button></div> : null}</div><span className="node-detail-status" data-tone="optimal"><i className="fa-solid fa-circle" />{tx("Active")}</span></div>
+function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sensor; index: number; configurable: boolean; busy: boolean; onSave: (sensor: Sensor, context: SensorContext) => Promise<void> }) {
+  const [editing, setEditing] = useState(false)
+  const [context, setContext] = useState<SensorContext>({
+    role: sensor.role || (sensor.port === 'ds18b20' ? 'unassigned_temperature' : sensor.port === 'sht45' ? 'air_climate' : 'environment'),
+    label: sensor.label || sensorLabel(sensor),
+    medium: sensor.medium || (sensor.port === 'ds18b20' ? 'substrate' : 'air'),
+    targetType: sensor.targetType || (sensor.port === 'ds18b20' ? 'pot' : 'section'),
+    targetName: sensor.targetName || '',
+    spatialScope: sensor.spatialScope || (sensor.port === 'ds18b20' ? 'point' : 'representative'),
+    depthCm: sensor.depthCm ?? null,
+    heightCm: sensor.heightCm ?? null,
+    useForSectionScore: sensor.useForSectionScore ?? sensor.port !== 'ds18b20',
+    allowSpatialInterpolation: sensor.allowSpatialInterpolation ?? sensor.port !== 'ds18b20',
+  })
+  const setScope = (spatialScope: SensorContext['spatialScope']) => setContext((current) => ({
+    ...current,
+    spatialScope,
+    ...(spatialScope === 'point' ? { useForSectionScore: false, allowSpatialInterpolation: false } : {}),
+  }))
+  const targetMissing = context.targetType !== 'section' && !context.targetName.trim()
+  const summary = context.targetType === 'section'
+    ? `${context.medium} · whole Section`
+    : `${context.medium} · ${context.targetName || context.targetType}`
+  return <div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{sensorLabel(sensor)}</strong><small>{tx("Detected ·")} {sensor.sensorModel || sensor.port || `Port ${index + 1}`} · {summary}</small>{configurable ? <><button type="button" className="nc-sensor-context-toggle" onClick={() => setEditing((value) => !value)}><i className="fa-solid fa-location-dot" />{editing ? tx("Close measurement context") : tx("Configure measurement context")}</button>{editing ? <div className="nc-node-sensor-context">
+      <label><span>{tx("Display label")}</span><input value={context.label} maxLength={80} onChange={(event) => setContext({ ...context, label: event.target.value })} /></label>
+      {sensor.port === 'ds18b20' ? <label><span>{tx("Probe purpose")}</span><select value={context.role} onChange={(event) => setContext({ ...context, role: event.target.value })}>{sensorRoles.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label> : null}
+      <label><span>{tx("Measured medium")}</span><select value={context.medium} onChange={(event) => setContext({ ...context, medium: event.target.value })}>{sensorMedia.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label>
+      <label><span>{tx("Measured target")}</span><select value={context.targetType} onChange={(event) => setContext({ ...context, targetType: event.target.value, targetName: event.target.value === 'section' ? '' : context.targetName })}>{targetTypes.map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label>
+      {context.targetType !== 'section' ? <label className="wide"><span>{tx("Target name")}</span><input value={context.targetName} maxLength={120} placeholder="e.g. Pot 12, Incubator 1" onChange={(event) => setContext({ ...context, targetName: event.target.value })} /></label> : null}
+      <label><span>{tx("Spatial meaning")}</span><select value={context.spatialScope} onChange={(event) => setScope(event.target.value as SensorContext['spatialScope'])}><option value="point">{tx("This target only")}</option><option value="representative">{tx("Represents the whole Section")}</option></select></label>
+      <label><span>{tx("Depth, cm")}</span><input type="number" min="0" max="10000" step="0.1" value={context.depthCm ?? ''} onChange={(event) => setContext({ ...context, depthCm: event.target.value === '' ? null : Number(event.target.value) })} /></label>
+      <label><span>{tx("Height, cm")}</span><input type="number" min="0" max="10000" step="0.1" value={context.heightCm ?? ''} onChange={(event) => setContext({ ...context, heightCm: event.target.value === '' ? null : Number(event.target.value) })} /></label>
+      <div className="nc-sensor-context-switches wide"><label><input type="checkbox" disabled={context.spatialScope === 'point'} checked={context.useForSectionScore} onChange={(event) => setContext({ ...context, useForSectionScore: event.target.checked })} /><span>{tx("Use for Section score and alerts")}</span></label><label><input type="checkbox" disabled={context.spatialScope === 'point'} checked={context.allowSpatialInterpolation} onChange={(event) => setContext({ ...context, allowSpatialInterpolation: event.target.checked })} /><span>{tx("Allow continuous heatmap interpolation")}</span></label></div>
+      <footer className="wide"><span>{context.spatialScope === 'point' ? tx("Point measurements remain visible in readings and trends, but do not represent the entire Section.") : tx("Representative measurements may influence Section decisions when enabled.")}</span><button type="button" disabled={busy || targetMissing || !context.label.trim()} onClick={() => void onSave(sensor, { ...context, label: context.label.trim(), targetName: context.targetName.trim() })}>{busy ? tx("Saving…") : tx("Save context")}</button></footer>
+    </div> : null}</> : null}</div><span className="node-detail-status" data-tone="optimal"><i className="fa-solid fa-circle" />{tx("Active")}</span></div>
 }
 
 function RegistrationModal({ registration, areas, sections, busy, error, onChange, onAreaChange, onClose, onSubmit }: { registration: Registration; areas: Area[]; sections: Section[]; busy: boolean; error: string; onChange: (value: Registration) => void; onAreaChange: (id: string) => void; onClose: () => void; onSubmit: (event: FormEvent) => void }) {

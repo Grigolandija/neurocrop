@@ -838,7 +838,7 @@ app.delete('/crop-profiles/:id', requireAuth, requireRole('owner', 'admin', 'gro
 app.get('/dashboard', requireAuth, async (req, res) => {
   try {
     const organizationId = getOrganizationId(req);
-    const [areasResult, sectionsResult, nodesResult, profilesResult, measurementsResult] = await Promise.all([
+    const [areasResult, sectionsResult, nodesResult, profilesResult, measurementsResult, sensorConfigsResult] = await Promise.all([
       query(
         `SELECT a.id, a.name, a.map_enabled,
                 EXISTS (
@@ -872,6 +872,12 @@ app.get('/dashboard', requireAuth, async (req, res) => {
          WHERE n.organization_id=$1 AND n.archived_at IS NULL
          ORDER BY m.dev_eui, m.time DESC`,
         [organizationId]
+      ),
+      query(
+        `SELECT node_dev_eui, port, use_for_section_score
+         FROM node_sensor_configs
+         WHERE organization_id=$1`,
+        [organizationId]
       )
     ]);
 
@@ -891,11 +897,15 @@ app.get('/dashboard', requireAuth, async (req, res) => {
     const latestByDevEui = new Map(
       measurementsResult.rows.map((row) => [normalizeDevEui(row.dev_eui), row])
     );
+    const sensorConfigs = sensorConfigsByNode(sensorConfigsResult.rows);
 
     const sites = areasResult.rows.map((area) => {
       const zones = (sectionsByArea.get(area.id) || []).map((section) => {
         const nodeRows = nodesBySection.get(section.id) || [];
-        const latestMeasurements = nodeRows.map((node) => latestByDevEui.get(normalizeDevEui(node.dev_eui)) || null);
+        const latestMeasurements = nodeRows.map((node) => {
+          const devEui = normalizeDevEui(node.dev_eui);
+          return measurementForSectionEvaluation(latestByDevEui.get(devEui) || null, sensorConfigs.get(devEui));
+        });
         const batteryNodes = nodeRows.map((node, index) => {
           const devEui = normalizeDevEui(node.dev_eui);
           const m = latestMeasurements[index];
@@ -1445,7 +1455,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const organizationId = getOrganizationId(req);
     const requestedSectionId = String(req.query.sectionId || '').trim();
-    const [sectionsResult, nodesResult, profilesResult, measurementsResult] = await Promise.all([
+    const [sectionsResult, nodesResult, profilesResult, measurementsResult, sensorConfigsResult] = await Promise.all([
       query(
         `SELECT s.id, s.area_id, s.name, s.crop_profile, a.name AS area_name
          FROM sections s
@@ -1467,6 +1477,12 @@ app.get('/actions/today', requireAuth, async (req, res) => {
          WHERE n.organization_id=$1 AND n.archived_at IS NULL
          ORDER BY m.dev_eui, m.time DESC`,
         [organizationId]
+      ),
+      query(
+        `SELECT node_dev_eui, port, use_for_section_score
+         FROM node_sensor_configs
+         WHERE organization_id=$1`,
+        [organizationId]
       )
     ]);
 
@@ -1487,10 +1503,14 @@ app.get('/actions/today', requireAuth, async (req, res) => {
     const latestByDevEui = new Map(
       measurementsResult.rows.map((row) => [normalizeDevEui(row.dev_eui), row])
     );
+    const sensorConfigs = sensorConfigsByNode(sensorConfigsResult.rows);
 
     const snapshots = sections.map((section) => {
       const nodeRows = nodesBySection.get(section.id) || [];
-      const measurements = nodeRows.map((node) => latestByDevEui.get(normalizeDevEui(node.dev_eui)) || null);
+      const measurements = nodeRows.map((node) => {
+        const devEui = normalizeDevEui(node.dev_eui);
+        return measurementForSectionEvaluation(latestByDevEui.get(devEui) || null, sensorConfigs.get(devEui));
+      });
       const profileMetrics = profileMetricsById.get(section.crop_profile) || {};
       const current = buildCurrentMetricEvaluations(nodeRows, measurements, profileMetrics);
       const observedAtByMetric = Object.fromEntries(current.evaluations.map((evaluation) => {
@@ -2101,6 +2121,14 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     }
 
     const devEuis = nodeRows.map((node) => normalizeDevEui(node.dev_eui));
+    const { rows: readingContextRows } = await query(
+      `SELECT node_dev_eui, port, medium, target_type, target_name, spatial_scope,
+              depth_cm, height_cm, use_for_section_score, allow_spatial_interpolation
+       FROM node_sensor_configs
+       WHERE organization_id=$1 AND node_dev_eui=ANY($2::text[])`,
+      [getOrganizationId(req), devEuis]
+    );
+    const readingContexts = sensorConfigsByNode(readingContextRows);
     const { rows: recentRows } = await query(
       `SELECT recent.*
        FROM unnest($1::text[]) requested(dev_eui)
@@ -2192,7 +2220,10 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
             ? Math.max(METRIC_INTERVAL_SEC[metric] || 600, expectedIntervalForSample(sample))
             : expectedIntervalForSample(sample),
           devEui: normalizeDevEui(sample.node.dev_eui),
-          nodeName: sample.node.name || sample.node.dev_eui
+          nodeName: sample.node.name || sample.node.dev_eui,
+          measurementContext: publicMeasurementContextForMetric(
+            readingContexts.get(normalizeDevEui(sample.node.dev_eui)), metric
+          )
         });
       };
 
@@ -2245,7 +2276,10 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
             ? Math.max(METRIC_INTERVAL_SEC[sample.metric] || 600, expectedIntervalForSample(sample))
             : expectedIntervalForSample(sample),
           devEui: normalizeDevEui(sample.node.dev_eui),
-          nodeName: sample.node.name || sample.node.dev_eui
+          nodeName: sample.node.name || sample.node.dev_eui,
+          measurementContext: publicMeasurementContextForMetric(
+            readingContexts.get(normalizeDevEui(sample.node.dev_eui)), sample.metric
+          )
         });
       });
       return collected;
@@ -2258,17 +2292,19 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
 
     const observations = Object.fromEntries(
       Object.entries(sourcesByMetric).map(([metric, sources]) => {
-        const values = sources.map((source) => source.value);
+        const sectionSources = sources.filter((source) => source.measurementContext.spatialScope === 'representative');
+        const values = sectionSources.map((source) => source.value);
         const value = meanValue(values);
         const oneHourBaselineSources = oneHourBaselineSourcesByMetric[metric] || [];
         const oneHourBaselineByNode = new Map(
           oneHourBaselineSources.map((source) => [source.devEui, source.value])
         );
-        const oneHourChange = meanValue(sources.flatMap((source) => {
+        const oneHourChange = meanValue(sectionSources.flatMap((source) => {
           const baseline = oneHourBaselineByNode.get(source.devEui);
           return Number.isFinite(baseline) ? [source.value - baseline] : [];
         }));
-        const leastFreshSource = [...sources].sort((a, b) => {
+        const freshnessPool = sectionSources.length ? sectionSources : sources;
+        const leastFreshSource = [...freshnessPool].sort((a, b) => {
           const aAgeRatio = (Date.now() - new Date(a.observedAt).getTime()) / (a.expectedIntervalSec * 1000);
           const bAgeRatio = (Date.now() - new Date(b.observedAt).getTime()) / (b.expectedIntervalSec * 1000);
           return bAgeRatio - aAgeRatio;
@@ -2280,8 +2316,9 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
           expectedIntervalSec: leastFreshSource.expectedIntervalSec,
           unit: METRIC_UNITS[metric] || '',
           aggregation: 'section_mean',
-          reportingSensors: sources.length,
-          range: { min: Math.min(...values), max: Math.max(...values) },
+          reportingSensors: sectionSources.length,
+          pointSensors: sources.length - sectionSources.length,
+          range: values.length ? { min: Math.min(...values), max: Math.max(...values) } : null,
           nodes: sources
         }];
       })
@@ -2976,9 +3013,24 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
 });
 
 
+function publicSensorContext(config, defaults) {
+  return {
+    medium: config?.medium || defaults.medium,
+    targetType: config?.target_type || defaults.targetType,
+    targetName: config?.target_name || '',
+    spatialScope: config?.spatial_scope || defaults.spatialScope,
+    depthCm: config?.depth_cm ?? null,
+    heightCm: config?.height_cm ?? null,
+    useForSectionScore: config?.use_for_section_score ?? defaults.useForSectionScore,
+    allowSpatialInterpolation: config?.allow_spatial_interpolation ?? defaults.allowSpatialInterpolation
+  };
+}
+
 function buildDetectedNodeSensors(measurement, configsByPort = {}) {
-  const configuredOneWire = configsByPort.onewire || {};
-  const configuredI2c = configsByPort.i2c || {};
+  const configuredSht45 = configsByPort.sht45 || configsByPort.internal || {};
+  const configuredScd4x = configsByPort.scd4x || configsByPort.i2c || {};
+  const configuredBh1750 = configsByPort.bh1750 || {};
+  const configuredDs18b20 = configsByPort.ds18b20 || configsByPort.onewire || {};
   const hasSht45 = measurementReportsMetric(measurement, 'airTemp')
     || measurementReportsMetric(measurement, 'humidity');
   const hasScd41 = measurementReportsMetric(measurement, 'co2');
@@ -2996,35 +3048,65 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
 
   return [
     {
-      port: 'internal',
+      port: 'sht45',
       sensorModel: 'SHT45',
       detected: hasSht45,
       metrics: ['airTemp', 'humidity', 'vpd'],
-      role: 'air_climate',
-      label: 'Air climate',
-      configurable: false
+      role: configuredSht45.role || 'air_climate',
+      label: configuredSht45.label || 'Air climate',
+      configurable: true,
+      ...publicSensorContext(configuredSht45, {
+        medium: 'air', targetType: 'section', spatialScope: 'representative',
+        useForSectionScore: true, allowSpatialInterpolation: true
+      })
     },
     {
-      port: 'i2c',
-      sensorModel: hasScd41 ? 'SCD41' : hasBh1750 ? 'BH1750' : null,
-      detected: hasScd41 || hasBh1750,
-      metrics: hasScd41 ? ['co2'] : hasBh1750 ? ['lux'] : [],
-      role: configuredI2c.role || null,
-      label: configuredI2c.label || null,
-      configurable: false
+      port: 'scd4x',
+      sensorModel: 'SCD4x',
+      detected: hasScd41,
+      metrics: ['co2'],
+      role: configuredScd4x.role || 'air_co2',
+      label: configuredScd4x.label || 'CO₂ sensor',
+      configurable: true,
+      ...publicSensorContext(configuredScd4x, {
+        medium: 'air', targetType: 'section', spatialScope: 'representative',
+        useForSectionScore: true, allowSpatialInterpolation: true
+      })
     },
     {
-      port: 'onewire',
+      port: 'bh1750',
+      sensorModel: 'BH1750',
+      detected: hasBh1750,
+      metrics: ['lux'],
+      role: configuredBh1750.role || 'light',
+      label: configuredBh1750.label || 'Light sensor',
+      configurable: true,
+      ...publicSensorContext(configuredBh1750, {
+        medium: 'air', targetType: 'section', spatialScope: 'representative',
+        useForSectionScore: true, allowSpatialInterpolation: true
+      })
+    },
+    {
+      port: 'ds18b20',
       sensorModel: 'DS18B20',
       detected: hasDs18b20,
       metrics: hasDs18b20 ? ['temperature'] : [],
-      role: configuredOneWire.role || 'unassigned_temperature',
-      label: configuredOneWire.label || 'Temperature probe',
-      configurable: true
+      role: configuredDs18b20.role || 'unassigned_temperature',
+      label: configuredDs18b20.label || 'Temperature probe',
+      configurable: true,
+      ...publicSensorContext(configuredDs18b20, {
+        medium: 'substrate', targetType: 'pot', spatialScope: 'point',
+        useForSectionScore: false, allowSpatialInterpolation: false
+      })
     },
-    ...auxiliaryDefinitions.map(([, label, metrics]) => ({
-      port: 'aux', sensorModel: null, detected: metrics.some((metric) => measurementReportsMetric(measurement, metric)),
-      metrics, role: null, label, configurable: false
+    ...auxiliaryDefinitions.map(([port, label, metrics]) => ({
+      port, sensorModel: null, detected: metrics.some((metric) => measurementReportsMetric(measurement, metric)),
+      metrics, role: configsByPort[port]?.role || null, label: configsByPort[port]?.label || label, configurable: true,
+      ...publicSensorContext(configsByPort[port], {
+        medium: port === 'leaf_temperature_probe' ? 'plant' : port.startsWith('soil_') ? 'substrate' : 'water',
+        targetType: port === 'leaf_temperature_probe' ? 'bed' : port.startsWith('soil_') ? 'pot' : 'reservoir',
+        spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false
+      })
     }))
   ];
 }
@@ -3040,7 +3122,9 @@ async function getNodeSensorPayload(devEui, organizationId) {
   if (!node) return null;
 
   const { rows: configRows } = await query(
-    `SELECT port, role, label, is_enabled
+    `SELECT port, role, label, is_enabled, medium, target_type, target_name,
+            spatial_scope, depth_cm, height_cm,
+            use_for_section_score, allow_spatial_interpolation
      FROM node_sensor_configs
      WHERE lower(node_dev_eui)=$1 AND organization_id=$2`,
     [devEui, organizationId]
@@ -3060,6 +3144,58 @@ async function getNodeSensorPayload(devEui, organizationId) {
     lastReceivedAt: node.last_received_at || measurement?.time || null,
     sensors: buildDetectedNodeSensors(measurement, configsByPort)
   };
+}
+
+const SENSOR_SCORE_COLUMNS = Object.freeze({
+  sht45: ['temperature', 'humidity'], scd4x: ['co2'], bh1750: ['lux'], ds18b20: ['soil_temperature'],
+  leaf_temperature_probe: ['leaf_temperature'], soil_moisture_probe: ['soil_moisture'],
+  soil_ec_probe: ['soil_ec'], ec_probe: ['ec'], ph_probe: ['ph'], water_temperature_probe: ['water_temperature']
+});
+
+const METRIC_SENSOR_CHANNEL = Object.freeze({
+  airTemp: 'sht45', humidity: 'sht45', vpd: 'sht45', co2: 'scd4x', lux: 'bh1750',
+  soilTemp: 'ds18b20', leafTemp: 'leaf_temperature_probe', soilMoisture: 'soil_moisture_probe',
+  soilEc: 'soil_ec_probe', ec: 'ec_probe', ph: 'ph_probe', waterTemp: 'water_temperature_probe'
+});
+
+function publicMeasurementContextForMetric(configs, metric) {
+  const port = METRIC_SENSOR_CHANNEL[metric];
+  const config = port ? configs?.get(port)
+    || (port === 'sht45' ? configs?.get('internal') : null)
+    || (port === 'scd4x' ? configs?.get('i2c') : null)
+    || (port === 'ds18b20' ? configs?.get('onewire') : null) : null;
+  const pointDefault = port === 'ds18b20' || port?.endsWith('_probe');
+  return {
+    channel: port || null,
+    medium: config?.medium || (port?.startsWith('soil_') || port === 'ds18b20' ? 'substrate' : 'air'),
+    targetType: config?.target_type || (pointDefault ? 'pot' : 'section'),
+    targetName: config?.target_name || null,
+    spatialScope: config?.spatial_scope || (pointDefault ? 'point' : 'representative'),
+    depthCm: config?.depth_cm ?? null,
+    heightCm: config?.height_cm ?? null
+  };
+}
+
+function sensorConfigsByNode(rows = []) {
+  const byNode = new Map();
+  rows.forEach((row) => {
+    const devEui = normalizeDevEui(row.node_dev_eui);
+    if (!byNode.has(devEui)) byNode.set(devEui, new Map());
+    byNode.get(devEui).set(row.port, row);
+  });
+  return byNode;
+}
+
+function measurementForSectionEvaluation(measurement, configs) {
+  if (!measurement) return measurement;
+  const filtered = { ...measurement };
+  if (!configs?.has('ds18b20') && !configs?.has('onewire')) filtered.soil_temperature = null;
+  if (!configs?.size) return filtered;
+  configs.forEach((config, port) => {
+    if (config.use_for_section_score !== false) return;
+    (SENSOR_SCORE_COLUMNS[port] || []).forEach((column) => { filtered[column] = null; });
+  });
+  return filtered;
 }
 
 
@@ -3185,12 +3321,22 @@ app.patch('/nodes/:devEui/sensors/:port', requireAuth, requireRole('owner', 'adm
   const port = String(req.params.port || '').trim();
   const role = String(req.body?.role || '').trim();
   const label = String(req.body?.label || '').trim();
+  const medium = String(req.body?.medium || '').trim();
+  const targetType = String(req.body?.targetType || '').trim();
+  const targetName = String(req.body?.targetName || '').trim();
+  const spatialScope = String(req.body?.spatialScope || '').trim();
+  const depthCm = req.body?.depthCm === null || req.body?.depthCm === '' || req.body?.depthCm === undefined
+    ? null : Number(req.body.depthCm);
+  const heightCm = req.body?.heightCm === null || req.body?.heightCm === '' || req.body?.heightCm === undefined
+    ? null : Number(req.body.heightCm);
+  const useForSectionScore = req.body?.useForSectionScore;
+  const allowSpatialInterpolation = req.body?.allowSpatialInterpolation;
 
   if (!/^[0-9a-f]{16}$/.test(devEui)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'DevEUI must be 16 hexadecimal characters' } });
   }
-  if (port !== 'onewire') {
-    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Only the DS18B20 probe purpose can be configured' } });
+  if (!/^[a-z0-9][a-z0-9:_-]{0,63}$/.test(port)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unsupported sensor channel' } });
   }
 
   const roles = new Set([
@@ -3200,11 +3346,29 @@ app.patch('/nodes/:devEui/sensors/:port', requireAuth, requireRole('owner', 'adm
     'pipe_temperature',
     'custom_temperature'
   ]);
-  if (!roles.has(role)) {
+  if (port === 'ds18b20' && !roles.has(role)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid temperature probe purpose' } });
   }
   if (label.length > 80) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Sensor label must be 80 characters or fewer' } });
+  }
+  if (!new Set(['air', 'substrate', 'water', 'plant', 'equipment', 'custom']).has(medium)
+      || !new Set(['section', 'pot', 'bed', 'incubator', 'reservoir', 'pipe', 'equipment', 'custom']).has(targetType)
+      || !new Set(['point', 'representative']).has(spatialScope)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid measurement context' } });
+  }
+  if (targetName.length > 120 || (targetType !== 'section' && !targetName)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Name the measured pot, bed, incubator, reservoir, pipe or equipment' } });
+  }
+  if ((depthCm !== null && (!Number.isFinite(depthCm) || depthCm < 0 || depthCm > 10000))
+      || (heightCm !== null && (!Number.isFinite(heightCm) || heightCm < 0 || heightCm > 10000))) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Sensor depth or height is invalid' } });
+  }
+  if (typeof useForSectionScore !== 'boolean' || typeof allowSpatialInterpolation !== 'boolean') {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Score and heatmap permissions must be explicit' } });
+  }
+  if (spatialScope === 'point' && (useForSectionScore || allowSpatialInterpolation)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A point-only measurement cannot represent a Section score or continuous heatmap' } });
   }
 
   try {
@@ -3213,11 +3377,20 @@ app.patch('/nodes/:devEui/sensors/:port', requireAuth, requireRole('owner', 'adm
 
     await query(
       `INSERT INTO node_sensor_configs (
-         node_dev_eui, organization_id, port, role, label, is_enabled, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, true, now(), now())
+         node_dev_eui, organization_id, port, role, label, is_enabled,
+         medium, target_type, target_name, spatial_scope, depth_cm, height_cm,
+         use_for_section_score, allow_spatial_interpolation, created_at, updated_at
+       ) VALUES ($1, $2, $3, $4, $5, true, $6, $7, $8, $9, $10, $11, $12, $13, now(), now())
        ON CONFLICT (node_dev_eui, port)
-       DO UPDATE SET role=EXCLUDED.role, label=EXCLUDED.label, updated_at=now()`,
-      [devEui, getOrganizationId(req), port, role, label || 'Temperature probe']
+       DO UPDATE SET role=EXCLUDED.role, label=EXCLUDED.label,
+         medium=EXCLUDED.medium, target_type=EXCLUDED.target_type,
+         target_name=EXCLUDED.target_name, spatial_scope=EXCLUDED.spatial_scope,
+         depth_cm=EXCLUDED.depth_cm, height_cm=EXCLUDED.height_cm,
+         use_for_section_score=EXCLUDED.use_for_section_score,
+         allow_spatial_interpolation=EXCLUDED.allow_spatial_interpolation,
+         updated_at=now()`,
+      [devEui, getOrganizationId(req), port, role || null, label || 'Sensor', medium, targetType,
+        targetName || null, spatialScope, depthCm, heightCm, useForSectionScore, allowSpatialInterpolation]
     );
 
     const updated = await getNodeSensorPayload(devEui, getOrganizationId(req));

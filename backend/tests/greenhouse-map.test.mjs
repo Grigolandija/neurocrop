@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import test from 'node:test';
-import { validateGreenhouseMap } from '../greenhouse-map-routes.js';
+import { publicHeatmapMeasurements, validateGreenhouseMap } from '../greenhouse-map-routes.js';
 
 function validMap() {
   return {
@@ -67,6 +67,30 @@ test('greenhouse map validation accepts wall-mounted openings and rejects detach
   const detached = structuredClone(map);
   detached.objects[1].xM = 19.5;
   assert.match(validateGreenhouseMap(detached).message, /detached from its perimeter wall/i);
+});
+
+test('point-only sensor contexts are excluded from continuous heatmap interpolation', () => {
+  const measurement = {
+    time: '2026-07-31T12:00:00.000Z',
+    temperature: 23,
+    humidity: 65,
+    soil_temperature: 19
+  };
+  const output = publicHeatmapMeasurements(measurement, {
+    sht45: { allowSpatialInterpolation: true },
+    ds18b20: { allowSpatialInterpolation: false }
+  });
+  assert.equal(output.airTemperatureC, 23);
+  assert.equal(output.relativeHumidityPercent, 65);
+  assert.equal(output.rootTemperatureC, null);
+});
+
+test('sensor measurement context migration makes configured probes point-only by default', async () => {
+  const migration = await fs.readFile(new URL('../migrations/0033_sensor_measurement_context.sql', import.meta.url), 'utf8');
+  assert.match(migration, /spatial_scope TEXT NOT NULL DEFAULT 'representative'/);
+  assert.match(migration, /SET port='ds18b20' WHERE port='onewire'/);
+  assert.match(migration, /use_for_section_score=false/);
+  assert.match(migration, /allow_spatial_interpolation=false/);
 });
 
 test('Area Map routes are authenticated, role protected and organization scoped', async () => {

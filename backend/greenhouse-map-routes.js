@@ -19,6 +19,12 @@ const GREENHOUSE_WALL_THICKNESS_M = 0.01;
 const HEATMAP_DEFINITIONS = Object.entries(METRIC_DEFINITIONS)
   .filter(([, definition]) => definition.heatmap);
 const HEATMAP_METRICS = new Set(HEATMAP_DEFINITIONS.map(([, definition]) => definition.heatmap.key));
+const HEATMAP_SENSOR_PORT = Object.freeze({
+  airTemp: 'sht45', humidity: 'sht45', vpd: 'sht45',
+  co2: 'scd4x', lux: 'bh1750', soilTemp: 'ds18b20',
+  leafTemp: 'leaf_temperature_probe', soilMoisture: 'soil_moisture_probe',
+  soilEc: 'soil_ec_probe', ec: 'ec_probe', ph: 'ph_probe', waterTemp: 'water_temperature_probe'
+});
 
 function finite(value) {
   return typeof value === 'number' && Number.isFinite(value);
@@ -102,11 +108,23 @@ function firstFiniteMeasurement(measurement, columns) {
   return null;
 }
 
-export function publicHeatmapMeasurements(measurement) {
+function mayInterpolateMetric(sensorContexts, metricId) {
+  const port = HEATMAP_SENSOR_PORT[metricId];
+  const context = port ? sensorContexts?.[port]
+    || (port === 'sht45' ? sensorContexts?.internal : null)
+    || (port === 'scd4x' ? sensorContexts?.i2c : null)
+    || (port === 'ds18b20' ? sensorContexts?.onewire : null) : null;
+  if (!context) return metricId !== 'soilTemp';
+  return context.allowSpatialInterpolation ?? context.allow_spatial_interpolation ?? true;
+}
+
+export function publicHeatmapMeasurements(measurement, sensorContexts = {}) {
   const output = {};
   for (const [metricId, definition] of HEATMAP_DEFINITIONS) {
     let value = null;
-    if (metricId === 'vpd') {
+    if (!mayInterpolateMetric(sensorContexts, metricId)) {
+      value = null;
+    } else if (metricId === 'vpd') {
       const temperature = measurement?.temperature;
       const humidity = measurement?.humidity;
       value = finite(temperature) && finite(humidity) ? calcVPD(temperature, humidity) : null;
@@ -118,7 +136,9 @@ export function publicHeatmapMeasurements(measurement) {
     }
     output[definition.heatmap.field] = value;
   }
-  output.soilEcByDepth = normalizeSoilEcDepths(measurement?.raw_object);
+  output.soilEcByDepth = mayInterpolateMetric(sensorContexts, 'soilEc')
+    ? normalizeSoilEcDepths(measurement?.raw_object)
+    : [];
   output.measuredAt = measurement?.time ?? null;
   return output;
 }
@@ -140,7 +160,8 @@ function publicMapNode(row) {
     rssi: row.last_rssi ?? measurement?.rssi ?? null,
     snr: row.last_snr ?? measurement?.snr ?? null,
     sensors: Object.entries(row.last_sensor_presence || {}).filter(([, present]) => present === true).map(([sensor]) => sensor),
-    measurements: publicHeatmapMeasurements(measurement)
+    measurementContexts: row.sensor_contexts || {},
+    measurements: publicHeatmapMeasurements(measurement, row.sensor_contexts || {})
   };
 }
 
@@ -188,6 +209,23 @@ async function getAreaNodes(organizationId, areaId) {
             n.last_seen, n.last_received_at, n.last_battery_percent,
             n.last_rssi, n.last_snr, n.last_profile, n.last_sensor_presence,
             s.name AS section_name,
+            COALESCE((
+              SELECT jsonb_object_agg(
+                c.port,
+                jsonb_build_object(
+                  'medium', c.medium,
+                  'targetType', c.target_type,
+                  'targetName', c.target_name,
+                  'spatialScope', c.spatial_scope,
+                  'depthCm', c.depth_cm,
+                  'heightCm', c.height_cm,
+                  'useForSectionScore', c.use_for_section_score,
+                  'allowSpatialInterpolation', c.allow_spatial_interpolation
+                )
+              )
+              FROM node_sensor_configs c
+              WHERE c.organization_id=n.organization_id AND lower(c.node_dev_eui)=lower(n.dev_eui)
+            ), '{}'::jsonb) AS sensor_contexts,
             to_jsonb(m.*) AS measurement
      FROM nodes n
      LEFT JOIN sections s
@@ -214,7 +252,7 @@ function historicalNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-async function getAreaMapHistory(devEuis, from, to) {
+async function getAreaMapHistory(devEuis, from, to, sensorContextsByNode = new Map()) {
   const bucketSeconds = MAP_HISTORY_STEP_MINUTES * 60;
   const alignedQueryFrom = new Date(Math.floor(from.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000);
   const heatmapSelectSql = HEATMAP_DEFINITIONS.map(([metricId, definition]) =>
@@ -255,9 +293,11 @@ async function getAreaMapHistory(devEuis, from, to) {
     frame.nodes.push({
       devEui: row.dev_eui,
       measuredAt: row.measured_at,
-      measurements: Object.fromEntries(HEATMAP_DEFINITIONS.map(([, definition]) => [
+      measurements: Object.fromEntries(HEATMAP_DEFINITIONS.map(([metricId, definition]) => [
         definition.heatmap.field,
-        historicalNumber(row[definition.heatmap.field])
+        mayInterpolateMetric(sensorContextsByNode.get(String(row.dev_eui).toLowerCase()), metricId)
+          ? historicalNumber(row[definition.heatmap.field])
+          : null
       ]))
     });
   });
@@ -284,9 +324,11 @@ async function getAreaMapHistory(devEuis, from, to) {
       node = { devEui: bucket.devEui, measuredAt: bucket.measuredAt, measurements: {} };
       frame.nodes.push(node);
     }
-    node.measurements.soilEcByDepth = [...bucket.readings.entries()]
+    node.measurements.soilEcByDepth = mayInterpolateMetric(
+      sensorContextsByNode.get(String(bucket.devEui).toLowerCase()), 'soilEc'
+    ) ? [...bucket.readings.entries()]
       .map(([depthCm, aggregate]) => ({ depthCm, value: aggregate.sum / aggregate.count }))
-      .sort((left, right) => left.depthCm - right.depthCm);
+      .sort((left, right) => left.depthCm - right.depthCm) : [];
   });
   return [...frames.values()];
 }
@@ -411,7 +453,20 @@ export function registerGreenhouseMapRoutes(app) {
         ...nodeRows.map((row) => row.dev_eui),
         ...historicalDevEuis
       ].filter((devEui) => /^[0-9a-f]{16}$/.test(devEui)))];
-      const frames = await getAreaMapHistory(devEuis, from, to);
+      const { rows: sensorContextRows } = devEuis.length ? await query(
+        `SELECT lower(node_dev_eui) AS dev_eui, port, medium, target_type, target_name,
+                spatial_scope, depth_cm, height_cm,
+                use_for_section_score, allow_spatial_interpolation
+         FROM node_sensor_configs
+         WHERE organization_id=$1 AND lower(node_dev_eui)=ANY($2::text[])`,
+        [organizationId, devEuis]
+      ) : { rows: [] };
+      const sensorContextsByNode = new Map();
+      sensorContextRows.forEach((row) => {
+        if (!sensorContextsByNode.has(row.dev_eui)) sensorContextsByNode.set(row.dev_eui, {});
+        sensorContextsByNode.get(row.dev_eui)[row.port] = row;
+      });
+      const frames = await getAreaMapHistory(devEuis, from, to, sensorContextsByNode);
       res.set('Cache-Control', 'private, max-age=30');
       res.json({
         areaId,

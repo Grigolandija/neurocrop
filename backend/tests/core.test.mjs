@@ -576,6 +576,21 @@ test('node diagnostics normalize decoder values and profile intervals', () => {
   assert.equal(expectedUplinkIntervalSec('unknown'), 300);
 });
 
+test('sensor measurement contexts control Section evaluation without deleting raw readings', () => {
+  const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = api.indexOf("app.patch('/nodes/:devEui/sensors/:port'");
+  const route = api.slice(routeStart, api.indexOf("app.post('/nodes/register'", routeStart));
+  assert.match(route, /requireRole\('owner', 'admin', 'technician'\)/);
+  assert.match(route, /spatialScope === 'point'/);
+  assert.match(route, /useForSectionScore \|\| allowSpatialInterpolation/);
+  assert.match(route, /allow_spatial_interpolation/);
+  assert.match(api, /publicMeasurementContextForMetric/);
+  assert.match(api, /pointSensors/);
+  assert.match(api, /spatialScope === 'representative'/);
+  assert.match(api, /measurementForSectionEvaluation\(latestByDevEui\.get\(devEui\)/);
+  assert.match(api, /config\.use_for_section_score !== false/);
+});
+
 test('profile metric validation rejects malformed and reversed bands', () => {
   assert.equal(validateCropProfileMetrics({ airTemp: { optimal: [18, 24] } }), null);
   assert.match(validateCropProfileMetrics({}, { allowEmpty: false }), /At least one metric/);
