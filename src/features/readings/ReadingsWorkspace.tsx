@@ -304,7 +304,7 @@ function measurementContextLabel(source: JsonRecord | null) {
   const scope = String(context?.spatialScope || context?.spatial_scope || '')
   const targetName = String(context?.targetName || context?.target_name || '').trim()
   const explicitlyConfigured = context?.configured === true || context?.configured === 'true'
-  if (scope === 'unconfigured' || (scope === 'point' && !targetName && !explicitlyConfigured)) return 'Needs setup'
+  if (scope === 'unconfigured' || (scope === 'point' && !targetName && !explicitlyConfigured)) return 'Unassigned'
   if (!context || scope !== 'point') return ''
   return targetName || 'Specific measurement'
 }
@@ -312,14 +312,14 @@ function measurementContextLabel(source: JsonRecord | null) {
 function hasSeparateMeasurements(section: SectionReading, metric: Metric) {
   return asArray<JsonRecord>(getObservation(section, metric)?.nodes).some((source) =>
     String(source?.measurementContext?.spatialScope || source?.measurement_context?.spatial_scope || '') === 'point'
-      && measurementContextLabel(source) !== 'Needs setup'
+      && measurementContextLabel(source) !== 'Unassigned'
       && numeric(source.value) !== null
   )
 }
 
 function hasUnconfiguredMeasurements(section: SectionReading, metric: Metric) {
   return asArray<JsonRecord>(getObservation(section, metric)?.nodes).some((source) =>
-    measurementContextLabel(source) === 'Needs setup'
+    measurementContextLabel(source) === 'Unassigned'
       && numeric(source.value) !== null
   )
 }
