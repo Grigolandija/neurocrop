@@ -1042,17 +1042,17 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid var(--node-primary);
+  border: 1px solid var(--node-border);
   border-radius: 8px;
   padding: 0 11px;
-  background: var(--node-primary);
-  color: #fff;
-  font: 750 9px 'IBM Plex Sans', sans-serif;
+  background: var(--node-surface);
+  color: var(--node-text);
+  font: 700 9px 'IBM Plex Sans', sans-serif;
   white-space: nowrap;
   cursor: pointer;
 }
 
-.designer-app #nodesManagementSection .nc-node-sensor-setup-button:hover { filter: brightness(.94); }
+.designer-app #nodesManagementSection .nc-node-sensor-setup-button:hover { border-color: rgba(33, 79, 64, .35); background: var(--node-muted); }
 
 .designer-app #nodesManagementSection .nc-row-arrow {
   display: grid;
