@@ -119,6 +119,7 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-reading-cell[data-tone="watch"] { background: color-mix(in srgb, var(--color-warning-soft) 66%, var(--color-surface)); }
 .nc-reading-cell[data-tone="critical"] { background: color-mix(in srgb, var(--color-danger-soft) 74%, var(--color-surface)); }
 .nc-reading-cell strong { overflow: hidden; padding-right: var(--space-12); font-family: var(--font-technical); font-size: var(--type-body); font-weight: var(--weight-medium) !important; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.nc-reading-cell .nc-reading-average { margin-left: .35rem; color: var(--color-text-secondary); font-family: var(--font-body); font-size: var(--type-micro); font-weight: var(--weight-medium); letter-spacing: 0; }
 .nc-reading-cell > i { position: absolute; top: var(--space-8); right: var(--space-8); width: .4rem; height: .4rem; border-radius: 50%; background: var(--color-success); }
 .nc-reading-cell[data-quality="stale"] > i { background: var(--color-stale); }
 .nc-reading-cell[data-quality="offline"] > i, .nc-reading-cell[data-quality="no-data"] > i, .nc-reading-cell[data-quality="not-installed"] > i { background: var(--color-offline); }

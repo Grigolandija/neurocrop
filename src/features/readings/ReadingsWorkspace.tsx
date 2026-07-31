@@ -450,8 +450,9 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
   } else if (!setupRequired && !separateOnly && mode === 'change') {
     display = delta === null ? 'No 1h baseline' : `${delta > 0 ? '+' : ''}${formatValue(delta, metric)} ${metric.unit} / 1h`
   }
+  const showAverage = mode === 'value' && value !== null && !setupRequired && !separateOnly
   return <button type="button" className="nc-reading-cell" data-tone={setupRequired || separateOnly ? 'neutral' : tone} data-quality={quality} data-separate-only={setupRequired || separateOnly || undefined} onClick={onOpenTrend} title={setupRequired ? tx("Configure this sensor before NeuroCrop uses its data.") : separateOnly ? tx("Expand this Section to view its separate measurements.") : `Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={setupRequired ? tx("Sensor setup required") : separateOnly ? tx("Separate measurements are shown below") : `Open ${section.name} ${metric.label} trend`}>
-    <strong>{tx(display)}</strong><i aria-label={qualityLabels[quality]} />
+    <strong>{tx(display)}{showAverage ? <small className="nc-reading-average">{tx("avg")}</small> : null}</strong><i aria-label={qualityLabels[quality]} />
   </button>
 }
 
