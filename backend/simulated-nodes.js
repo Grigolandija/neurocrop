@@ -20,7 +20,6 @@ const OPTIONAL_SENSORS = Object.freeze([
   'soil_moisture_probe',
   'ec_probe',
   'ph_probe',
-  'soil_ec_probe',
   'leaf_temperature_probe',
   'water_temperature_probe'
 ]);
@@ -42,6 +41,7 @@ export function simulatedSensorPresence(devEui) {
   return Object.fromEntries([
     ['sht45', { present: true }],
     ['ds18b20', { present: true }],
+    ['soil_ec_probe', { present: true }],
     ...OPTIONAL_SENSORS.map((sensor) => [sensor, { present: connected.has(sensor) }])
   ]);
 }

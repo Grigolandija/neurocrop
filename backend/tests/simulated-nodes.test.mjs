@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { generateSimulatedMeasurement } from '../simulated-nodes.js';
+import { generateSimulatedMeasurement, simulatedSensorPresence } from '../simulated-nodes.js';
 
 const migrationUrl = new URL('../migrations/0023_simulated_nodes.sql', import.meta.url);
 const migration = fs.readFileSync(migrationUrl, 'utf8');
@@ -68,6 +68,15 @@ test('simulated measurements stay close to their configured baseline', () => {
   assert.equal(measurement.soil_ec_depths[1].value, measurement.soil_ec);
   assert.equal(measurement.battery_percent, 92);
   assert.ok(measurement.battery_mv > 3000);
+});
+
+test('every simulated node has soil temperature and multi-depth soil EC sensors', () => {
+  for (let index = 1; index <= 10; index += 1) {
+    const devEui = `f1${index.toString(16).padStart(14, '0')}`;
+    const sensors = simulatedSensorPresence(devEui);
+    assert.equal(sensors.ds18b20.present, true);
+    assert.equal(sensors.soil_ec_probe.present, true);
+  }
 });
 
 test('generator only selects assigned simulated nodes with a complete location', () => {
