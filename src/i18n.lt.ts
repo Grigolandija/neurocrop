@@ -957,7 +957,6 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Sensor setup": "Sensorių nustatymai",
   "Configure sensors": "Nustatyti sensorius",
   "Node location": "Node vieta",
-  "Change location": "Keisti vietą",
   "Climate use": "Naudojimas mikroklimatui",
   "Probe depth, cm (optional)": "Zondo gylis, cm (neprivaloma)",
   "e.g. 10": "pvz., 10",
@@ -971,9 +970,11 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Set up": "Nustatyti",
   "The air climate sensor is integrated into the Node. Configure every other connected sensor separately.": "Oro mikroklimato sensorius integruotas į Node. Kiekvieną kitą prijungtą sensorių nustatykite atskirai.",
   "Sensors use the Node location automatically. Change a sensor only if it measures somewhere else.": "Sensoriai automatiškai naudoja Node vietą. Keiskite konkretų sensorių tik tada, jei jis matuoja kitoje vietoje.",
+  "All sensors use the Node location automatically. Only the integrated air sensor climate use can be adjusted.": "Visi sensoriai automatiškai naudoja Node vietą. Keisti galima tik integruoto oro sensoriaus naudojimą bendram mikroklimatui.",
   "Integrated air climate sensor": "Integruotas oro mikroklimato sensorius",
   "Measures air temperature and humidity around the Node.": "Matuoja oro temperatūrą ir drėgmę aplink Node.",
   "Connected sensors and probes": "Prijungti sensoriai ir zondai",
   "Configure the measurement location of each connected sensor separately.": "Kiekvienam prijungtam sensoriui atskirai nustatykite jo matavimo vietą.",
-  "These sensors inherit the Node location unless you change one separately.": "Šie sensoriai paveldi Node vietą, nebent konkrečiam sensoriui ją pakeisite atskirai."
+  "These sensors inherit the Node location unless you change one separately.": "Šie sensoriai paveldi Node vietą, nebent konkrečiam sensoriui ją pakeisite atskirai.",
+  "These sensors use the same location as the Node.": "Šie sensoriai naudoja tą pačią vietą kaip Node."
 })
