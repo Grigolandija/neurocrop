@@ -14,6 +14,42 @@ const METRICS = {
   water_temperature: { amplitude: 0.2, min: -40, max: 85, digits: 2 }
 };
 
+const OPTIONAL_SENSORS = Object.freeze([
+  'scd41',
+  'bh1750',
+  'ds18b20',
+  'soil_moisture_probe',
+  'ec_probe',
+  'ph_probe',
+  'soil_ec_probe',
+  'leaf_temperature_probe',
+  'water_temperature_probe'
+]);
+
+function stableSeed(value) {
+  return [...String(value)].reduce((seed, character) => Math.imul(seed ^ character.charCodeAt(0), 16_777_619) >>> 0, 2_166_136_261);
+}
+
+export function simulatedSensorPresence(devEui) {
+  let seed = stableSeed(devEui);
+  const shuffled = [...OPTIONAL_SENSORS];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+    const swapIndex = seed % (index + 1);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  const connectedCount = 1 + (stableSeed(`${devEui}:count`) % 4);
+  const connected = new Set(shuffled.slice(0, connectedCount));
+  return Object.fromEntries([
+    ['sht45', { present: true }],
+    ...OPTIONAL_SENSORS.map((sensor) => [sensor, { present: connected.has(sensor) }])
+  ]);
+}
+
+function simulatedMetricValue(measurement, sensors, sensor, metric) {
+  return sensors[sensor]?.present ? measurement[metric] : null;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -79,6 +115,7 @@ export async function storeSimulatedNodeMeasurements(pool, now = new Date()) {
 
     for (const node of nodes) {
       const measurement = generateSimulatedMeasurement(node.simulation_profile, node.dev_eui, observedAt);
+      const sensors = simulatedSensorPresence(node.dev_eui);
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [node.dev_eui]);
       const { rows: insertedRows } = await client.query(
         `INSERT INTO measurements (
@@ -95,14 +132,27 @@ export async function storeSimulatedNodeMeasurements(pool, now = new Date()) {
          ON CONFLICT (dev_eui, time) DO NOTHING
          RETURNING time`,
         [
-          observedAt, node.dev_eui, measurement.temperature, measurement.humidity,
-          measurement.co2, measurement.lux, measurement.soil_temperature,
-          measurement.soil_moisture, measurement.ec, measurement.ph,
-          measurement.soil_ec, measurement.leaf_temperature,
-          measurement.water_temperature, measurement.battery_mv,
+          observedAt, node.dev_eui,
+          simulatedMetricValue(measurement, sensors, 'sht45', 'temperature'),
+          simulatedMetricValue(measurement, sensors, 'sht45', 'humidity'),
+          simulatedMetricValue(measurement, sensors, 'scd41', 'co2'),
+          simulatedMetricValue(measurement, sensors, 'bh1750', 'lux'),
+          simulatedMetricValue(measurement, sensors, 'ds18b20', 'soil_temperature'),
+          simulatedMetricValue(measurement, sensors, 'soil_moisture_probe', 'soil_moisture'),
+          simulatedMetricValue(measurement, sensors, 'ec_probe', 'ec'),
+          simulatedMetricValue(measurement, sensors, 'ph_probe', 'ph'),
+          simulatedMetricValue(measurement, sensors, 'soil_ec_probe', 'soil_ec'),
+          simulatedMetricValue(measurement, sensors, 'leaf_temperature_probe', 'leaf_temperature'),
+          simulatedMetricValue(measurement, sensors, 'water_temperature_probe', 'water_temperature'),
+          measurement.battery_mv,
           measurement.battery_percent, measurement.battery_percent <= 15,
           measurement.rssi, measurement.snr, measurement.spreading_factor,
-          JSON.stringify({ source: 'simulated', serialNumber: node.factory_serial, soil_ec_depths: measurement.soil_ec_depths })
+          JSON.stringify({
+            source: 'simulated',
+            serialNumber: node.factory_serial,
+            sensors,
+            ...(sensors.soil_ec_probe.present ? { soil_ec_depths: measurement.soil_ec_depths } : {})
+          })
         ]
       );
 
@@ -130,18 +180,7 @@ export async function storeSimulatedNodeMeasurements(pool, now = new Date()) {
           node.dev_eui, observedAt, measurement.battery_mv,
           measurement.battery_percent, measurement.rssi, measurement.snr,
           measurement.spreading_factor,
-          JSON.stringify({
-            sht45: true,
-            scd41: true,
-            bh1750: true,
-            ds18b20: true,
-            soil_moisture: true,
-            ec: true,
-            ph: true,
-            soil_ec: true,
-            leaf_temperature: true,
-            water_temperature: true
-          })
+          JSON.stringify(Object.fromEntries(Object.entries(sensors).map(([sensor, state]) => [sensor, state.present])))
         ]
       );
     }
