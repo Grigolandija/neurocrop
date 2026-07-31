@@ -39,13 +39,26 @@ type PlatformUser = {
 type DiagnosticNode = {
   devEui: string
   name: string
+  nodeType?: string | null
   areaName?: string | null
   sectionName?: string | null
   transportStatus?: string
   level?: number | null
+  batteryMv?: number | null
   firmwareVersion?: string | null
+  profile?: string | null
+  rssi?: number | null
+  snr?: number | null
+  spreadingFactor?: number | null
+  sensorPresence?: Record<string, unknown> | null
+  errorFlags?: Record<string, unknown> | null
+  errorCounters?: Record<string, unknown> | null
+  expectedUplinkIntervalSec?: number | null
+  source?: string | null
+  createdAt?: string | null
+  receivingGateways?: Array<{ gatewayId: string; name?: string | null; serialNumber?: string | null; lastSeenAt?: string | null }>
   lastSeen?: string | null
-  health?: { state?: string; label?: string; reasons?: string[] }
+  health?: { state?: string; label?: string; detail?: string; reasons?: Array<{ code?: string; severity?: string; label?: string }> }
 }
 type OrganizationMember = {
   id: string
@@ -82,6 +95,11 @@ type PlatformGateway = {
   updateAttempts: number
   lastSeenAt?: string | null
   updateCompletedAt?: string | null
+  lastIp?: string | null
+  receivingNodeCount?: number
+  recentlyReceivedNodeCount?: number
+  firstEnrolledAt?: string | null
+  lastEnrolledAt?: string | null
   lastHealth?: {
     packetForwarder?: boolean
     gatewayBridge?: boolean
@@ -152,6 +170,104 @@ function hasFiniteNumber(value: unknown) {
   return value !== null && value !== undefined && value !== '' && typeof value !== 'boolean' && Number.isFinite(Number(value))
 }
 
+function activeDiagnosticEntries(value?: Record<string, unknown> | null) {
+  if (!value) return []
+  return Object.entries(value).filter(([, item]) => {
+    if (item && typeof item === 'object' && 'present' in item) return Boolean((item as { present?: unknown }).present)
+    return item === true || item === 1 || item === '1' || item === 'true'
+  }).map(([key]) => key.replaceAll('_', ' '))
+}
+
+function counterEntries(value?: Record<string, unknown> | null) {
+  if (!value) return []
+  return Object.entries(value)
+    .filter(([, item]) => hasFiniteNumber(item) && Number(item) > 0)
+    .map(([key, item]) => `${key.replaceAll('_', ' ')}: ${item}`)
+}
+
+function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
+  diagnostics: { organization: Organization; nodes: DiagnosticNode[]; gateways: PlatformGateway[]; loading: boolean }
+  onClose: () => void
+}) {
+  const liveNodes = diagnostics.nodes.filter((node) => node.transportStatus === 'live').length
+  const lowBatteryNodes = diagnostics.nodes.filter((node) => hasFiniteNumber(node.level) && Number(node.level) <= 20).length
+  const faultNodes = diagnostics.nodes.filter((node) => !['healthy'].includes(String(node.health?.state || '')) || node.transportStatus !== 'live').length
+  const onlineGateways = diagnostics.gateways.filter((gateway) => gateway.agentStatus === 'online').length
+  const gatewayAttention = diagnostics.gateways.filter((gateway) => {
+    const services = gatewayServices(gateway)
+    return gateway.agentStatus !== 'online' || services.tone === 'warning' || ['failed', 'rolled_back'].includes(gateway.updateStatus)
+  }).length
+
+  return <div className="nc-admin-modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+    <section className="nc-admin-diagnostics nc-equipment-diagnostics" role="dialog" aria-modal="true" aria-labelledby="adminDiagnosticsTitle">
+      <header><div><p>{tx("Customer equipment health")}</p><h2 id="adminDiagnosticsTitle">{diagnostics.organization.name}</h2><span>{diagnostics.nodes.length} {tx("nodes")} · {diagnostics.gateways.length} {tx("gateways")}</span></div><button onClick={onClose} aria-label={tx("Close diagnostics")}><i className="fa-solid fa-xmark" /></button></header>
+      {diagnostics.loading ? <div className="nc-settings-empty"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading equipment diagnostics")}</strong></div> : <div className="nc-equipment-diagnostics-body">
+        <section className="nc-equipment-kpis" aria-label={tx("Equipment summary")}>
+          <article data-tone={liveNodes === diagnostics.nodes.length ? 'success' : 'warning'}><strong>{liveNodes}/{diagnostics.nodes.length}</strong><span>{tx("Nodes reporting")}</span></article>
+          <article data-tone={faultNodes ? 'warning' : 'success'}><strong>{faultNodes}</strong><span>{tx("Nodes need attention")}</span></article>
+          <article data-tone={lowBatteryNodes ? 'warning' : 'success'}><strong>{lowBatteryNodes}</strong><span>{tx("Low batteries")}</span></article>
+          <article data-tone={onlineGateways === diagnostics.gateways.length && diagnostics.gateways.length ? 'success' : 'warning'}><strong>{onlineGateways}/{diagnostics.gateways.length}</strong><span>{tx("Agents online")}</span></article>
+          <article data-tone={gatewayAttention ? 'warning' : 'success'}><strong>{gatewayAttention}</strong><span>{tx("Gateway issues")}</span></article>
+        </section>
+
+        <section className="nc-equipment-section">
+          <header><div><p>{tx("Sensor fleet")}</p><h3>{tx("Node diagnostics")}</h3></div><span>{tx("Live radio, power, firmware, sensors and fault telemetry")}</span></header>
+          <div className="nc-admin-table-wrap"><table className="nc-equipment-table"><thead><tr><th>{tx("Node / location")}</th><th>{tx("State")}</th><th>{tx("Power")}</th><th>{tx("LoRa signal")}</th><th>{tx("Last gateway")}</th><th>{tx("Firmware")}</th><th>{tx("Diagnostics")}</th></tr></thead><tbody>{diagnostics.nodes.map((node) => {
+            const sensors = activeDiagnosticEntries(node.sensorPresence)
+            const flags = activeDiagnosticEntries(node.errorFlags)
+            const counters = counterEntries(node.errorCounters)
+            const gateways = node.receivingGateways || []
+            const healthTone = node.health?.state === 'healthy' && node.transportStatus === 'live' ? 'success' : node.health?.state === 'fault' ? 'warning' : 'neutral'
+            return <tr key={node.devEui}>
+              <td><strong>{node.name}</strong><small>{[node.areaName, node.sectionName].filter(Boolean).join(' · ') || tx("Unassigned")}</small><small className="nc-technical-value">{node.devEui}</small></td>
+              <td><span className="nc-settings-status" data-tone={healthTone}><i />{node.health?.label || formatStatusLabel(node.transportStatus)}</span><small>{formatRelativeTime(node.lastSeen)}</small><small>{node.health?.detail || tx("No active fault")}</small></td>
+              <td><strong>{hasFiniteNumber(node.level) ? `${node.level}%` : tx("Unknown")}</strong><small>{hasFiniteNumber(node.batteryMv) ? `${(Number(node.batteryMv) / 1000).toFixed(2)} V` : tx("Voltage unavailable")}</small></td>
+              <td><strong>{hasFiniteNumber(node.rssi) ? `${node.rssi} dBm` : tx("Unknown")}</strong><small>{hasFiniteNumber(node.snr) ? `SNR ${node.snr}` : 'SNR —'} · {hasFiniteNumber(node.spreadingFactor) ? `SF${node.spreadingFactor}` : 'SF—'}</small></td>
+              <td><strong>{gateways.map((gateway) => gateway.name || gateway.serialNumber || gateway.gatewayId).join(', ') || tx("Not reported")}</strong><small>{gateways.length ? `${gateways.length} ${tx("receiving gateway(s)")}` : tx("No gateway metadata")}</small></td>
+              <td><strong>{node.firmwareVersion || tx("Unknown")}</strong><small>{node.profile || node.nodeType || tx("Profile unavailable")}</small></td>
+              <td><details className="nc-equipment-details"><summary>{tx("View all")}</summary><dl>
+                <div><dt>{tx("Sensors detected")}</dt><dd>{sensors.join(', ') || tx("Not reported")}</dd></div>
+                <div><dt>{tx("Active flags")}</dt><dd>{flags.join(', ') || tx("None")}</dd></div>
+                <div><dt>{tx("Error counters")}</dt><dd>{counters.join(', ') || tx("None")}</dd></div>
+                <div><dt>{tx("Expected uplink")}</dt><dd>{hasFiniteNumber(node.expectedUplinkIntervalSec) ? `${node.expectedUplinkIntervalSec} s` : tx("Unknown")}</dd></div>
+                <div><dt>{tx("Data source")}</dt><dd>{node.source || tx("Unknown")}</dd></div>
+                <div><dt>{tx("Registered")}</dt><dd>{formatDate(node.createdAt)}</dd></div>
+                <div><dt>{tx("Last packet")}</dt><dd>{formatDate(node.lastSeen)}</dd></div>
+              </dl></details></td>
+            </tr>
+          })}{!diagnostics.nodes.length ? <tr><td colSpan={7}>{tx("No nodes are registered for this organization.")}</td></tr> : null}</tbody></table></div>
+        </section>
+
+        <section className="nc-equipment-section">
+          <header><div><p>{tx("Infrastructure")}</p><h3>{tx("Assigned gateways")}</h3></div><span>{tx("Management agent, services, hardware and update state")}</span></header>
+          <div className="nc-admin-table-wrap"><table className="nc-equipment-table"><thead><tr><th>{tx("Gateway")}</th><th>{tx("Agent")}</th><th>{tx("Services")}</th><th>{tx("Nodes heard")}</th><th>{tx("Software")}</th><th>{tx("System")}</th><th>{tx("Diagnostics")}</th></tr></thead><tbody>{diagnostics.gateways.map((gateway) => {
+            const services = gatewayServices(gateway)
+            const updateFailed = ['failed', 'rolled_back'].includes(gateway.updateStatus)
+            return <tr key={gateway.gatewayId}>
+              <td><strong>{gateway.name || gateway.serialNumber}</strong><small>{gateway.serialNumber}</small><small className="nc-technical-value">{gateway.gatewayId}</small></td>
+              <td><span className="nc-settings-status" data-tone={gateway.agentStatus === 'online' ? 'success' : 'neutral'}><i />{formatStatusLabel(gateway.agentStatus)}</span><small>{formatRelativeTime(gateway.lastSeenAt)}</small></td>
+              <td><span className="nc-settings-status" data-tone={services.tone}><i />{services.label}</span><small>{gateway.lastHealth?.packetForwarder === false ? tx("Packet forwarder fault") : gateway.lastHealth?.packetForwarder === true ? tx("Packet forwarder OK") : tx("No packet forwarder data")}</small></td>
+              <td><strong>{gateway.recentlyReceivedNodeCount ?? 0} {tx("recent")}</strong><small>{gateway.receivingNodeCount ?? 0} {tx("associated with latest uplink")}</small></td>
+              <td><strong>{gateway.agentVersion || gateway.imageVersion || tx("Unknown")}</strong><small><span className="nc-settings-status" data-tone={updateFailed ? 'warning' : gateway.updateStatus === 'succeeded' ? 'success' : 'neutral'}><i />{formatStatusLabel(gateway.updateStatus)}</span></small>{gateway.targetAgentVersion ? <small>{tx("Target")}: {gateway.targetAgentVersion}</small> : null}</td>
+              <td><strong>{hasFiniteNumber(gateway.lastHealth?.temperatureC) ? `${gateway.lastHealth?.temperatureC} °C` : tx("Temperature unavailable")}</strong><small>{hasFiniteNumber(gateway.lastHealth?.uptimeSeconds) ? `${Math.floor(Number(gateway.lastHealth?.uptimeSeconds) / 3600)} h ${tx("uptime")}` : tx("Uptime unavailable")}</small></td>
+              <td><details className="nc-equipment-details"><summary>{tx("View all")}</summary><dl>
+                <div><dt>{tx("Hardware")}</dt><dd>{gateway.hardwareModel || tx("Unknown")}</dd></div>
+                <div><dt>{tx("Image")}</dt><dd>{gateway.imageVersion || tx("Unknown")}</dd></div>
+                <div><dt>{tx("Agent")}</dt><dd>{gateway.agentVersion || tx("Unknown")}</dd></div>
+                <div><dt>{tx("Last IP")}</dt><dd>{gateway.lastIp || tx("Not reported")}</dd></div>
+                <div><dt>{tx("Update attempts")}</dt><dd>{gateway.updateAttempts}</dd></div>
+                <div><dt>{tx("Update error")}</dt><dd>{gateway.updateError || tx("None")}</dd></div>
+                <div><dt>{tx("Last enrollment")}</dt><dd>{formatDate(gateway.lastEnrolledAt)}</dd></div>
+                <div><dt>{tx("Last agent report")}</dt><dd>{formatDate(gateway.lastSeenAt)}</dd></div>
+              </dl></details></td>
+            </tr>
+          })}{!diagnostics.gateways.length ? <tr><td colSpan={7}>{tx("No gateways are assigned to this organization.")}</td></tr> : null}</tbody></table></div>
+        </section>
+      </div>}
+    </section>
+  </div>
+}
+
 export default function AdminWorkspace() {
   const navigate = useNavigate()
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
@@ -166,7 +282,7 @@ export default function AdminWorkspace() {
   const [organizationName, setOrganizationName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
   const [latestInvite, setLatestInvite] = useState<{ url: string; email: string; sent: boolean } | null>(null)
-  const [diagnostics, setDiagnostics] = useState<{ organization: Organization; nodes: DiagnosticNode[]; loading: boolean } | null>(null)
+  const [diagnostics, setDiagnostics] = useState<{ organization: Organization; nodes: DiagnosticNode[]; gateways: PlatformGateway[]; loading: boolean } | null>(null)
   const [organizationMembers, setOrganizationMembers] = useState<{ organization: Organization; members: OrganizationMember[]; loading: boolean } | null>(null)
   const [gateways, setGateways] = useState<PlatformGateway[]>([])
   const [gatewayRelease, setGatewayRelease] = useState<GatewayRelease | null>(null)
@@ -276,10 +392,15 @@ export default function AdminWorkspace() {
   }
 
   async function openDiagnostics(organization: Organization) {
-    setDiagnostics({ organization, nodes: [], loading: true })
+    setDiagnostics({ organization, nodes: [], gateways: [], loading: true })
     try {
-      const response = await neurocropApi.getPlatformOrganizationNodes(organization.id) as { nodes?: DiagnosticNode[] }
-      setDiagnostics({ organization, nodes: Array.isArray(response.nodes) ? response.nodes : [], loading: false })
+      const response = await neurocropApi.getPlatformOrganizationNodes(organization.id) as { nodes?: DiagnosticNode[]; gateways?: PlatformGateway[] }
+      setDiagnostics({
+        organization,
+        nodes: Array.isArray(response.nodes) ? response.nodes : [],
+        gateways: Array.isArray(response.gateways) ? response.gateways : [],
+        loading: false,
+      })
     } catch (reason) {
       setDiagnostics(null)
       setFeedback({ tone: 'warning', text: errorMessage(reason) })
@@ -394,7 +515,7 @@ export default function AdminWorkspace() {
       </div>
     </section>
 
-    {diagnostics ? <div className="nc-admin-modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDiagnostics(null) }}><section className="nc-admin-diagnostics" role="dialog" aria-modal="true" aria-labelledby="adminDiagnosticsTitle"><header><div><p>{tx("Node diagnostics")}</p><h2 id="adminDiagnosticsTitle">{diagnostics.organization.name}</h2><span>{diagnostics.nodes.length} {tx("registered nodes")}</span></div><button onClick={() => setDiagnostics(null)} aria-label={tx("Close diagnostics")}><i className="fa-solid fa-xmark" /></button></header>{diagnostics.loading ? <div className="nc-settings-empty"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading node diagnostics")}</strong></div> : <div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("Node")}</th><th>{tx("Location")}</th><th>{tx("Transport")}</th><th>{tx("Health")}</th><th>{tx("Battery")}</th><th>{tx("Firmware")}</th><th>{tx("Last packet")}</th></tr></thead><tbody>{diagnostics.nodes.map((node) => <tr key={node.devEui}><td><strong>{node.name}</strong><small>{node.devEui}</small></td><td>{[node.areaName, node.sectionName].filter(Boolean).join(' · ') ||tx("Unassigned")}</td><td><span className="nc-settings-status" data-tone={node.transportStatus === 'live' ? 'success' : node.transportStatus === 'delayed' ? 'warning' : 'neutral'}><i />{node.transportStatus || 'unknown'}</span></td><td>{node.health?.label || node.health?.state ||tx("No active fault")}</td><td>{hasFiniteNumber(node.level) ? `${node.level}%` :tx("Unknown")}</td><td>{node.firmwareVersion ||tx("Unknown")}</td><td>{formatDate(node.lastSeen)}</td></tr>)}{!diagnostics.nodes.length ? <tr><td colSpan={7}>{tx("No nodes are registered for this organization.")}</td></tr> : null}</tbody></table></div>}</section></div> : null}
+    {diagnostics ? <EquipmentDiagnosticsDialog diagnostics={diagnostics} onClose={() => setDiagnostics(null)} /> : null}
     {organizationMembers ? <div className="nc-admin-modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOrganizationMembers(null) }}><section className="nc-admin-diagnostics nc-admin-members-dialog" role="dialog" aria-modal="true" aria-labelledby="adminMembersTitle"><header><div><p>{tx("Organization members")}</p><h2 id="adminMembersTitle">{organizationMembers.organization.name}</h2><span>{organizationMembers.members.length} {tx("member accounts")}</span></div><button onClick={() => setOrganizationMembers(null)} aria-label={tx("Close members")}><i className="fa-solid fa-xmark" /></button></header>{organizationMembers.loading ? <div className="nc-settings-empty"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading organization members")}</strong></div> : <div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("User")}</th><th>{tx("Role")}</th><th>{tx("Account")}</th><th>{tx("Last login")}</th><th>{tx("Joined")}</th></tr></thead><tbody>{organizationMembers.members.map((member) => <tr key={member.id}><td><div className="nc-admin-person"><span>{initials(member.name || member.email)}</span><div><strong>{member.name ||tx("Unnamed user")}</strong><small>{member.email}</small></div></div></td><td><span className="nc-settings-status" data-tone={member.role === 'owner' ? 'success' : 'neutral'}><i />{member.role}</span></td><td><span className="nc-settings-status" data-tone={member.active ? 'success' : 'neutral'}><i />{member.isSuperAdmin ?tx("Super admin") : member.isPlatformAdmin ?tx("Platform admin") : member.active ?tx("Active") :tx("Inactive")}</span></td><td>{formatDate(member.lastLoginAt)}</td><td>{formatDate(member.joinedAt)}</td></tr>)}{!organizationMembers.members.length ? <tr><td colSpan={5}>{tx("No users belong to this organization.")}</td></tr> : null}</tbody></table></div>}</section></div> : null}
   </main>
 }

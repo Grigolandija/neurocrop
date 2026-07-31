@@ -1524,6 +1524,10 @@ test('platform node diagnostics are restricted to platform administrators', () =
   assert.match(route, /requirePlatformAdmin/);
   assert.match(route, /last_error_flags/);
   assert.match(route, /last_error_counters/);
+  assert.match(route, /receiving_gateways/);
+  assert.match(route, /WHERE g\.organization_id=\$1/);
+  assert.match(route, /recentlyReceivedNodeCount/);
+  assert.equal(route.includes('device_token_hash:'), false);
 });
 
 test('platform organization members are visible only to platform administrators', () => {

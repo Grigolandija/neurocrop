@@ -373,15 +373,49 @@ export function registerPlatformOrganizationRoutes(app) {
       const { rows } = await query(
         `SELECT n.dev_eui, n.name, n.node_type, n.area_id, n.section_id,
                 a.name AS area_name, s.name AS section_name,
-                n.last_seen, n.last_received_at, n.last_battery_mv, n.last_battery_percent,
+                n.created_at, n.last_seen, n.last_received_at, n.last_battery_mv, n.last_battery_percent,
                 n.last_firmware_version, n.last_profile, n.last_rssi, n.last_snr,
                 n.last_spreading_factor, n.last_sensor_presence, n.last_error_flags,
-                n.last_error_counters
+                n.last_error_counters, n.last_gateway_ids, n.source,
+                COALESCE((
+                  SELECT jsonb_agg(
+                    jsonb_build_object(
+                      'gatewayId', g.gateway_id,
+                      'name', g.display_name,
+                      'serialNumber', g.serial_number,
+                      'lastSeenAt', g.last_seen_at
+                    )
+                    ORDER BY g.display_name, g.gateway_id
+                  )
+                  FROM gateways g
+                  WHERE g.gateway_id=ANY(n.last_gateway_ids)
+                    AND (g.organization_id=n.organization_id OR g.organization_id IS NULL)
+                ), '[]'::jsonb) AS receiving_gateways
          FROM nodes n
          LEFT JOIN areas a ON a.id=n.area_id AND a.organization_id=n.organization_id
          LEFT JOIN sections s ON s.id=n.section_id AND s.organization_id=n.organization_id
          WHERE n.organization_id=$1
          ORDER BY COALESCE(a.created_at, n.created_at) ASC, COALESCE(s.created_at, n.created_at) ASC, n.created_at ASC`,
+        [organizationId]
+      );
+      const { rows: gatewayRows } = await query(
+        `SELECT g.gateway_id, g.serial_number, g.display_name, g.concentrator_eui,
+                g.hardware_model, g.image_version, g.agent_version, g.target_agent_version,
+                g.status, g.last_ip::text AS last_ip, g.last_health,
+                g.update_status, g.update_error, g.update_attempts,
+                g.update_started_at, g.update_completed_at,
+                g.first_enrolled_at, g.last_enrolled_at, g.last_seen_at,
+                COUNT(n.dev_eui)::int AS receiving_node_count,
+                COUNT(n.dev_eui) FILTER (
+                  WHERE COALESCE(n.last_received_at, n.last_seen) > now() - interval '30 minutes'
+                )::int AS recently_received_node_count
+         FROM gateways g
+         LEFT JOIN nodes n
+           ON n.organization_id=g.organization_id
+          AND g.gateway_id=ANY(n.last_gateway_ids)
+         WHERE g.organization_id=$1
+         GROUP BY g.gateway_id
+         ORDER BY g.display_name, g.gateway_id`,
         [organizationId]
       );
       const now = Date.now();
@@ -398,8 +432,10 @@ export function registerPlatformOrganizationRoutes(app) {
             areaName: row.area_name || null,
             sectionId: row.section_id,
             sectionName: row.section_name || null,
+            createdAt: row.created_at,
             lastSeen,
             transportStatus,
+            expectedUplinkIntervalSec: expectedUplinkIntervalSec(row.last_profile),
             level: row.last_battery_percent ?? null,
             batteryMv: row.last_battery_mv ?? null,
             firmwareVersion: row.last_firmware_version || null,
@@ -410,11 +446,45 @@ export function registerPlatformOrganizationRoutes(app) {
             sensorPresence: row.last_sensor_presence || null,
             errorFlags: row.last_error_flags || null,
             errorCounters: row.last_error_counters || null,
+            lastGatewayIds: row.last_gateway_ids || [],
+            receivingGateways: row.receiving_gateways || [],
+            source: row.source || null,
             health: buildNodeHealth({
               transportStatus,
               errorFlags: row.last_error_flags,
               errorCounters: row.last_error_counters
             })
+          };
+        }),
+        gateways: gatewayRows.map((row) => {
+          const lastSeenMs = new Date(row.last_seen_at || '').getTime();
+          const agentStatus = ['retired', 'provisioning', 'configuration_error'].includes(String(row.status || ''))
+            ? row.status
+            : Number.isFinite(lastSeenMs) && now - lastSeenMs <= 3 * 60 * 1000
+              ? 'online'
+              : 'offline';
+          return {
+            gatewayId: row.gateway_id,
+            serialNumber: row.serial_number,
+            name: row.display_name,
+            concentratorEui: row.concentrator_eui || null,
+            hardwareModel: row.hardware_model || null,
+            imageVersion: row.image_version || null,
+            agentVersion: row.agent_version || null,
+            targetAgentVersion: row.target_agent_version || null,
+            agentStatus,
+            lastIp: row.last_ip || null,
+            lastHealth: row.last_health || {},
+            updateStatus: row.update_status || 'idle',
+            updateError: row.update_error || null,
+            updateAttempts: Number(row.update_attempts) || 0,
+            updateStartedAt: row.update_started_at || null,
+            updateCompletedAt: row.update_completed_at || null,
+            firstEnrolledAt: row.first_enrolled_at,
+            lastEnrolledAt: row.last_enrolled_at,
+            lastSeenAt: row.last_seen_at,
+            receivingNodeCount: Number(row.receiving_node_count) || 0,
+            recentlyReceivedNodeCount: Number(row.recently_received_node_count) || 0
           };
         })
       });
