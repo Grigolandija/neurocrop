@@ -146,8 +146,18 @@ test('latest section readings retain timestamped last-known values after interru
 
 test('node registration rolls back newly created ChirpStack inventory on database failure', () => {
   const block = routeBlock(apiSource, "app.post('/nodes/register'");
+  assert.match(block, /ENABLE_LEGACY_NODE_REGISTRATION/);
+  assert.match(block, /LEGACY_REGISTRATION_DISABLED/);
   assert.match(block, /createdChirpStackDevice/);
   assert.match(block, /deleteChirpStackDevice\(devEui\)/);
+});
+
+test('customer node edits cannot replace factory device identity', () => {
+  const block = routeBlock(apiSource, "app.patch('/nodes/:devEui'");
+  assert.match(block, /DEVICE_IDENTITY_IMMUTABLE/);
+  assert.doesNotMatch(block, /createChirpStackDevice/);
+  assert.doesNotMatch(block, /ensureChirpStackDeviceKeys/);
+  assert.doesNotMatch(block, /SET dev_eui=/);
 });
 
 test('factory node claim clears pre-customer telemetry under the ingest stream lock', () => {

@@ -1767,5 +1767,7 @@ test('latest readings keep the newest valid value per metric when uplinks are st
   assert.match(route, /collectLatestKnownSourcesByMetric/);
   assert.match(route, /measurementReportsMetric\(candidate, metric\)/);
   assert.match(route, /observedAt: sample\.measurement\.time/);
+  assert.match(route, /semanticallyIncludedSources\.filter/);
+  assert.match(route, /status === 'live' \|\| status === 'delayed'/);
   assert.doesNotMatch(route, /const sourcesByMetric = collectSourcesByMetric\(currentSamples\)/);
 });

@@ -214,6 +214,7 @@ test('Nodes opens registered hardware and its detail without a refresh', async (
   await expect(page.locator('.node-detail-page')).toBeVisible()
   await page.getByRole('button', { name: 'Edit node' }).click()
   await expect(page.getByRole('dialog', { name: 'Edit node' })).toBeVisible()
+  await expect(page.locator('input[name="modalNodeDevEui"]')).toHaveCount(0)
 })
 
 test('Readings and Trends use API-backed measurement data', async ({ page }) => {

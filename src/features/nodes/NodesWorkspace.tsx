@@ -49,7 +49,6 @@ type NodeRow = JsonRecord & {
 type Editor = {
   node: NodeRow
   name: string
-  devEui: string
   areaId: string
   sectionId: string
   history: 'keep' | 'delete'
@@ -334,7 +333,6 @@ export default function NodesWorkspace() {
     setEditor({
       node,
       name: node.name,
-      devEui: node.devEui,
       areaId: node.areaId || '',
       sectionId: node.sectionId,
       history: 'keep',
@@ -380,17 +378,14 @@ export default function NodesWorkspace() {
   async function saveNode(event: FormEvent) {
     event.preventDefault()
     if (!editor || busy) return
-    const devEui = normalizeDevEui(editor.devEui)
     if (!editor.name.trim()) return setModalError('Enter a node display name.')
-    if (!/^[0-9A-F]{16}$/.test(devEui)) return setModalError('DevEUI must be 16 hexadecimal characters.')
     if (!editor.sectionId) return setModalError('Choose a section for the selected area.')
     setBusy(true); setModalError('')
     try {
-      await neurocropApi.updateNode(editor.node.devEui, { name: editor.name.trim(), devEui, sectionId: editor.sectionId })
+      await neurocropApi.updateNode(editor.node.devEui, { name: editor.name.trim(), sectionId: editor.sectionId })
       setEditor(null)
       setFeedback(`${editor.name.trim()} saved.`)
       setRefreshToken((value) => value + 1)
-      if (routeNodeId) navigate(`/nodes/${encodeURIComponent(devEui.toLowerCase())}`, { replace: true })
     } catch (mutationError) {
       setModalError(errorMessage(mutationError, 'The node could not be saved.'))
     } finally {
@@ -580,8 +575,8 @@ function RegistrationModal({ registration, areas, sections, busy, error, onChang
 
 function NodeEditor({ editor, areas, sections, busy, error, onChange, onAreaChange, onClose, onSave, onRemove }: { editor: Editor; areas: Area[]; sections: Section[]; busy: boolean; error: string; onChange: (value: Editor) => void; onAreaChange: (id: string) => void; onClose: () => void; onSave: (event: FormEvent) => void; onRemove: () => Promise<void> }) {
   const availableSections = sections.filter((section) => section.areaId === editor.areaId)
-  return <ModalPortal><div className="nc-nodes-modal-layer"><button className="nc-nodes-modal-backdrop" onClick={onClose} aria-label={tx("Close")} /><section className="management-modal-shell node-edit-modal" role="dialog" aria-modal="true" aria-labelledby="nodeManagementTitle"><header className="node-edit-modal-head"><div><p className="eyebrow">{tx("Node configuration")}</p><h2 id="nodeManagementTitle">{tx("Edit node")}</h2><span>{tx("Update its identity and assignment.")}</span></div><button type="button" className="node-edit-close" onClick={onClose} aria-label="Close edit node dialog"><i className="fa-solid fa-xmark" /></button></header>
-    <form className="node-edit-form" onSubmit={onSave}><label className="node-edit-field"><span>{tx("Node display name")}</span><input name="modalNodeName" required value={editor.name} onChange={(event) => onChange({ ...editor, name: event.target.value })} /></label><label className="node-edit-field"><span>DevEUI</span><input name="modalNodeDevEui" required value={editor.devEui} readOnly={editor.node.simulated} minLength={16} maxLength={16} pattern="[0-9A-Fa-f]{16}" onChange={(event) => onChange({ ...editor, devEui: normalizeDevEui(event.target.value) })} /></label><label className="node-edit-field"><span>{tx("Assigned area")}</span><select name="modalNodeSiteId" value={editor.areaId} onChange={(event) => onAreaChange(event.target.value)}><option value="">{tx("Unassigned")}</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label><label className="node-edit-field"><span>{tx("Assigned section")}</span><select name="modalNodeSectionId" required={availableSections.length > 0} disabled={!availableSections.length} value={editor.sectionId} onChange={(event) => onChange({ ...editor, sectionId: event.target.value })}>{availableSections.length ? availableSections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>) : <option value="">{tx("No sections available")}</option>}</select></label><p className="node-move-note field-wide">{editor.node.simulated ? tx("This simulated node has a reserved DevEUI. Its Area and Section can be changed normally.") : tx("Moving a node keeps its identity. Future readings will belong to the selected Area and Section.")}</p>
+  return <ModalPortal><div className="nc-nodes-modal-layer"><button className="nc-nodes-modal-backdrop" onClick={onClose} aria-label={tx("Close")} /><section className="management-modal-shell node-edit-modal" role="dialog" aria-modal="true" aria-labelledby="nodeManagementTitle"><header className="node-edit-modal-head"><div><p className="eyebrow">{tx("Node configuration")}</p><h2 id="nodeManagementTitle">{tx("Edit node")}</h2><span>{tx("Update its name and assignment.")}</span></div><button type="button" className="node-edit-close" onClick={onClose} aria-label="Close edit node dialog"><i className="fa-solid fa-xmark" /></button></header>
+    <form className="node-edit-form" onSubmit={onSave}><label className="node-edit-field"><span>{tx("Node display name")}</span><input name="modalNodeName" required value={editor.name} onChange={(event) => onChange({ ...editor, name: event.target.value })} /></label><label className="node-edit-field"><span>{tx("Assigned area")}</span><select name="modalNodeSiteId" value={editor.areaId} onChange={(event) => onAreaChange(event.target.value)}><option value="">{tx("Unassigned")}</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label><label className="node-edit-field field-wide"><span>{tx("Assigned section")}</span><select name="modalNodeSectionId" required={availableSections.length > 0} disabled={!availableSections.length} value={editor.sectionId} onChange={(event) => onChange({ ...editor, sectionId: event.target.value })}>{availableSections.length ? availableSections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>) : <option value="">{tx("No sections available")}</option>}</select></label><p className="node-move-note field-wide">{tx("Moving a node keeps its factory identity. Future readings will belong to the selected Area and Section.")}</p>
       {error ? <p className="management-modal-error field-wide" role="alert">{error}</p> : null}
       <section className="node-remove-zone field-wide" aria-labelledby="remove-node-title"><div className="node-remove-head"><h3 id="remove-node-title">{tx("Unassign node")}</h3><p>{editor.node.simulated ? tx("The simulated node will return to free inventory and its generated measurement history will be cleared.") : tx("The node will leave this workspace but remain registered and available for reassignment.")}</p></div>{editor.node.simulated ? null : <fieldset className="node-delete-history-options"><legend>{tx("Measurement history")}</legend><label><input type="radio" checked={editor.history === 'keep'} onChange={() => onChange({ ...editor, history: 'keep' })} /><span><strong>{tx("Keep measurement history")}</strong><small>{tx("Keep the data available for recovery until the hardware is assigned again.")}</small></span></label><label data-danger><input type="radio" checked={editor.history === 'delete'} onChange={() => onChange({ ...editor, history: 'delete' })} /><span><strong>{tx("Delete measurement history")}</strong><small>{tx("Permanently delete every measurement, but keep the hardware registration.")}</small></span></label></fieldset>}<div className="node-remove-actions"><label><input type="checkbox" checked={editor.confirmed} onChange={(event) => onChange({ ...editor, confirmed: event.target.checked })} /><span>{tx("I understand and want to unassign this node")}</span></label><button type="button" disabled={!editor.confirmed || busy} onClick={() => void onRemove()}><i className="fa-solid fa-link-slash" />{tx("Unassign node")}</button></div></section>
       <footer className="node-edit-footer field-wide"><button type="button" className="button-new secondary" onClick={onClose}>{tx("Cancel")}</button><button type="submit" className="button-new primary" disabled={busy || !editor.sectionId}><i className={`fa-solid ${busy ? 'fa-spinner fa-spin' : 'fa-check'}`} />{busy ?tx("Saving…") :tx("Save changes")}</button></footer>

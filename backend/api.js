@@ -2293,12 +2293,24 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     const observations = Object.fromEntries(
       Object.entries(sourcesByMetric).map(([metric, sources]) => {
         const isIntegratedAirMetric = metric === 'airTemp' || metric === 'humidity' || metric === 'vpd';
-        const sectionSources = isIntegratedAirMetric
+        const semanticallyIncludedSources = isIntegratedAirMetric
           ? sources.filter((source) => (
             source.measurementContext.spatialScope === 'representative'
             || source.measurementContext.useForSectionScore === true
           ))
           : sources;
+        // Keep each Node's last-known value in `nodes`, but do not let an
+        // offline/stale device distort what is presented as the current
+        // Section average. Delayed uplinks remain usable within the same
+        // freshness policy used for reportingNodes.
+        const sectionSources = semanticallyIncludedSources.filter((source) => {
+          const status = statusFromMeasurementTime(
+            source.observedAt,
+            Date.now(),
+            source.expectedIntervalSec
+          );
+          return status === 'live' || status === 'delayed';
+        });
         const values = sectionSources.map((source) => source.value);
         const value = meanValue(values);
         const oneHourBaselineSources = oneHourBaselineSourcesByMetric[metric] || [];
@@ -3488,6 +3500,12 @@ app.patch('/nodes/:devEui/sensors/:port', requireAuth, requireRole('owner', 'adm
 });
 
 app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technician'), async (req, res) => {
+  if (process.env.ENABLE_LEGACY_NODE_REGISTRATION !== 'true') {
+    return res.status(410).json({ error: {
+      code: 'LEGACY_REGISTRATION_DISABLED',
+      message: 'Use the factory-prepared node claim flow.'
+    } });
+  }
   const devEui = normalizeDevEui(req.body?.devEui);
   const name = String(req.body?.name || devEui).trim();
 
@@ -3657,63 +3675,36 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
   if (!name && !sectionId && !identityChanged) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Nothing to update' } });
   }
+  if (identityChanged) {
+    return res.status(400).json({ error: {
+      code: 'DEVICE_IDENTITY_IMMUTABLE',
+      message: 'A node DevEUI is assigned during factory preparation and cannot be changed.'
+    } });
+  }
 
-  let createdChirpStackDevice = false;
   try {
     const { rows: currentRows } = await query(
-      `SELECT dev_eui, source FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2 AND archived_at IS NULL`,
+      `SELECT dev_eui FROM nodes WHERE lower(dev_eui)=$1 AND organization_id=$2 AND archived_at IS NULL`,
       [devEui, organizationId]
     );
     if (!currentRows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });
-    const isSimulated = currentRows[0].source === 'simulated';
-    if (isSimulated && identityChanged) {
-      return res.status(400).json({ error: {
-        code: 'SIMULATED_IDENTITY_IMMUTABLE',
-        message: 'A simulated node DevEUI cannot be changed.'
-      } });
-    }
-
     let section = null;
     if (sectionId) {
       section = await getSectionById(sectionId, organizationId);
       if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
     }
 
-    if (identityChanged) {
-      const { rows: conflictingRows } = await query(
-        `SELECT dev_eui FROM nodes WHERE lower(dev_eui)=$1 LIMIT 1`,
-        [nextDevEui]
-      );
-      if (conflictingRows[0]) {
-        return res.status(409).json({ error: {
-          code: 'DEVICE_ALREADY_ASSIGNED',
-          message: 'This DevEUI is already assigned to a node.'
-        } });
-      }
-
-      const chirpStackResult = await createChirpStackDevice({ devEui: nextDevEui, name: name || nextDevEui });
-      createdChirpStackDevice = chirpStackResult.created;
-      await ensureChirpStackDeviceKeys(nextDevEui);
-    }
-
     const { rows } = await query(
       `UPDATE nodes
-       SET dev_eui=$1,
-           name=COALESCE(NULLIF($2, ''), name),
-           section_id=COALESCE($3, section_id),
-           area_id=COALESCE($4, area_id),
-           organization_id=$5
-       WHERE lower(dev_eui)=$6 AND organization_id=$5 AND archived_at IS NULL
+       SET name=COALESCE(NULLIF($1, ''), name),
+           section_id=COALESCE($2, section_id),
+           area_id=COALESCE($3, area_id)
+       WHERE lower(dev_eui)=$4 AND organization_id=$5 AND archived_at IS NULL
        RETURNING dev_eui, name, node_type, area_id, section_id, source, created_at, last_seen`,
-      [nextDevEui, name, section?.id || null, section?.area_id || null, organizationId, devEui]
+      [name, section?.id || null, section?.area_id || null, devEui, organizationId]
     );
 
     if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });
-    if (identityChanged) {
-      deleteChirpStackDevice(devEui).catch((error) => {
-        console.error('[api] old ChirpStack device cleanup:', devEui, error.message);
-      });
-    }
     res.json({ node: {
       devEui: rows[0].dev_eui,
       name: rows[0].name,
@@ -3726,9 +3717,6 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
       simulated: rows[0].source === 'simulated',
     } });
   } catch (e) {
-    if (identityChanged && createdChirpStackDevice) {
-      await deleteChirpStackDevice(nextDevEui).catch(() => {});
-    }
     console.error('[api] PATCH /nodes/:devEui:', e.message);
     if (e.code === '23505') {
       return res.status(409).json({ error: { code: 'DEVICE_ALREADY_ASSIGNED', message: 'This DevEUI is already assigned to a node.' } });

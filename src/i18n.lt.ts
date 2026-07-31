@@ -817,6 +817,8 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Unsaved settings": "Neišsaugoti nustatymai",
   "Update delayed": "Atnaujinimas vėluoja",
   "Update its identity and assignment.": "Atnaujinkite jo tapatybę ir priskyrimą.",
+  "Update its name and assignment.": "Atnaujinkite jo pavadinimą ir priskyrimą.",
+  "Moving a node keeps its factory identity. Future readings will belong to the selected Area and Section.": "Perkeliant mazgą jo gamyklinė tapatybė nesikeičia. Būsimi rodmenys priklausys pasirinktai erdvei ir sekcijai.",
   "Update password": "Atnaujinti slaptažodį",
   "Updated from live node packets": "Atnaujinta pagal naujausius mazgų duomenis",
   "Updating…": "Atnaujinama…",
