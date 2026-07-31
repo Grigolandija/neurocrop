@@ -171,8 +171,19 @@ function sensorLabel(sensor: Sensor) {
   return 'Detected sensor'
 }
 
-function isBuiltInClimateSensor(sensor: Sensor) {
-  return ['sht45', 'internal', 'scd4x', 'bh1750'].includes(String(sensor.port || '').toLowerCase())
+function isIntegratedSensor(sensor: Sensor) {
+  const port = String(sensor.port || '').toLowerCase()
+  const model = String(sensor.sensorModel || '').toLowerCase()
+  return port === 'sht45' || (port === 'internal' && (!model || model.includes('sht45')))
+}
+
+function defaultSensorRole(sensor: Sensor) {
+  const port = String(sensor.port || '').toLowerCase()
+  if (port === 'ds18b20' || port === 'onewire') return 'unassigned_temperature'
+  if (isIntegratedSensor(sensor)) return 'air_climate'
+  if (port.startsWith('scd4') || sensor.metrics?.includes('co2')) return 'co2'
+  if (port === 'bh1750' || sensor.metrics?.includes('lux')) return 'light'
+  return 'environment'
 }
 
 const targetTypes = [
@@ -412,32 +423,6 @@ export default function NodesWorkspace() {
     }
   }
 
-  async function saveBuiltInSensors(group: Sensor[], context: SensorContext) {
-    if (!selectedNode?.devEui || busy || !group.length) return false
-    setBusy(true); setModalError('')
-    try {
-      let payload: unknown = null
-      for (const sensor of group) {
-        payload = await neurocropApi.updateNodeSensor(selectedNode.devEui, sensor.port || 'internal', {
-          ...context,
-          role: sensor.role || (sensor.port === 'sht45' || sensor.port === 'internal' ? 'air_climate' : sensor.port === 'scd4x' ? 'co2' : 'light'),
-          label: sensor.label || sensorLabel(sensor),
-          medium: sensor.medium || 'air',
-          depthCm: sensor.depthCm ?? null,
-          heightCm: sensor.heightCm ?? null,
-        })
-      }
-      setSensors(records(payload, ['sensors']))
-      setFeedback(tx("Built-in sensor measurement settings saved."))
-      return true
-    } catch (mutationError) {
-      setModalError(errorMessage(mutationError, 'Built-in sensor settings could not be saved.'))
-      return false
-    } finally {
-      setBusy(false)
-    }
-  }
-
   if (status === 'loading') return <div className="node-detail-empty" data-react-nodes-workspace aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><h2>{tx("Loading sensor nodes…")}</h2></div>
   if (status === 'error') return <div className="node-detail-empty" data-react-nodes-workspace role="alert"><h2>{tx("Nodes could not be loaded")}</h2><p>{error}</p><button className="button-new secondary" onClick={() => setRefreshToken((value) => value + 1)}>{tx("Try again")}</button></div>
 
@@ -447,8 +432,8 @@ export default function NodesWorkspace() {
     const state = nodeState(selectedNode)
     const lastPayload = formatLastPayload(selectedNode, selectedNode, translate)
     const detected = sensors.length ? sensors.filter((sensor) => sensor.detected) : getDetectedSensorNames(selectedNode).map((label) => ({ label, detected: true }))
-    const builtInSensors = detected.filter((sensor) => isBuiltInClimateSensor(sensor as Sensor)) as Sensor[]
-    const externalSensors = detected.filter((sensor) => !isBuiltInClimateSensor(sensor as Sensor)) as Sensor[]
+    const integratedSensors = detected.filter((sensor) => isIntegratedSensor(sensor as Sensor)) as Sensor[]
+    const connectedSensors = detected.filter((sensor) => !isIntegratedSensor(sensor as Sensor)) as Sensor[]
     return <div className="node-detail-page" data-react-nodes-workspace>
       <nav className="node-detail-breadcrumbs" aria-label="Breadcrumb"><button onClick={() => navigate('/nodes')}>{tx("Nodes")}</button><i className="fa-solid fa-chevron-right" /><span>{selectedNode.name}</span></nav>
       <header className="node-detail-head"><div><p>{tx("Sensor node")}</p><h2>{selectedNode.name}</h2><span>{selectedNode.simulated ? `${tx("Simulated")} · ` : ''}{selectedNode.areaName} · {selectedNode.sectionName}</span></div><div className="node-detail-actions"><button type="button" className="node-detail-secondary-action actionable" onClick={() => openEditor(selectedNode)}><i className="fa-solid fa-pen" />{tx("Edit node")}</button></div></header>
@@ -462,10 +447,10 @@ export default function NodesWorkspace() {
         </div>
       </section>
       <div className="node-detail-columns node-detail-columns-single">
-        <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("Built-in sensors share the Node location. External probes can monitor different places or objects.")}</span></header>
+        <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("Only SHT45 is integrated into the Node. Configure every other connected sensor separately.")}</span></header>
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? <div className="nc-sensor-groups">
-            {builtInSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Built-in climate sensors")}</h4><p>{tx("These sensors are inside the same Node and use one shared measurement location.")}</p></div></header><div className="node-detail-sensors"><SensorRow sensor={builtInSensors[0]} groupSensors={builtInSensors} index={0} configurable={builtInSensors.some((sensor) => sensor.configurable === true)} initiallyOpen={openSensorSetup} busy={busy} error={modalError} onSave={(_sensor, context) => saveBuiltInSensors(builtInSensors, context)} /></div></section> : null}
-            {externalSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("External probes")}</h4><p>{tx("Set the specific place or object monitored by each probe.")}</p></div></header><div className="node-detail-sensors">{externalSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index + 1} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && !builtInSensors.length && index === 0} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
+            {integratedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Integrated SHT45 sensor")}</h4><p>{tx("The Node's integrated SHT45 measures air temperature and humidity.")}</p></div></header><div className="node-detail-sensors">{integratedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && index === 0} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
+            {connectedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Connected sensors and probes")}</h4><p>{tx("Configure the measurement location of each connected sensor separately.")}</p></div></header><div className="node-detail-sensors">{connectedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index + integratedSensors.length} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && !integratedSensors.length && index === 0} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
           </div> : <p className="node-detail-muted">{tx("No sensor presence information was reported.")}</p>}
         </section>
       </div>
@@ -507,16 +492,12 @@ export default function NodesWorkspace() {
   </div>
 }
 
-function SensorRow({ sensor, groupSensors, index, configurable, initiallyOpen, busy, error, onSave }: { sensor: Sensor; groupSensors?: Sensor[]; index: number; configurable: boolean; initiallyOpen: boolean; busy: boolean; error: string; onSave: (sensor: Sensor, context: SensorContext) => Promise<boolean> }) {
+function SensorRow({ sensor, index, configurable, initiallyOpen, busy, error, onSave }: { sensor: Sensor; index: number; configurable: boolean; initiallyOpen: boolean; busy: boolean; error: string; onSave: (sensor: Sensor, context: SensorContext) => Promise<boolean> }) {
   const [editing, setEditing] = useState(initiallyOpen)
-  const representedSensors = groupSensors?.length ? groupSensors : [sensor]
-  const grouped = representedSensors.length > 1
-  const groupContexts = new Set(representedSensors.map((item) => `${item.targetType || 'section'}|${item.targetName || ''}|${item.spatialScope || 'representative'}`))
-  const mixedGroupContext = grouped && groupContexts.size > 1
   const initialChoice = sensor.targetType === 'section' ? 'section' : 'target'
   const [choice, setChoice] = useState<'section' | 'target'>(initialChoice)
   const [context, setContext] = useState<SensorContext>({
-    role: sensor.role || (sensor.port === 'ds18b20' ? 'unassigned_temperature' : sensor.port === 'sht45' ? 'air_climate' : 'environment'),
+    role: sensor.role || defaultSensorRole(sensor),
     label: sensor.label || sensorLabel(sensor),
     medium: sensor.medium || (sensor.port === 'ds18b20' ? 'substrate' : 'air'),
     targetType: sensor.targetType || (sensor.port === 'ds18b20' ? 'pot' : 'section'),
@@ -546,11 +527,10 @@ function SensorRow({ sensor, groupSensors, index, configurable, initiallyOpen, b
     ? tx("Represents the whole Section")
     : `${tx(context.targetType === 'incubator' || context.targetType === 'equipment' ? "Equipment measurement" : "Separate measurement")}: ${context.targetName || tx("name required")}`
   const setupComplete = context.targetType === 'section' || Boolean(context.targetName.trim())
-  const setupNeedsAttention = mixedGroupContext || !setupComplete
-  const displayName = grouped ? tx("Built-in climate sensors") : sensorLabel(sensor)
-  const sensorModels = representedSensors.map((item) => item.sensorModel || item.port || sensorLabel(item)).join(' · ')
-  const displayedSummary = mixedGroupContext ? tx("Different measurement locations — review setup") : summary
-  return <><div className="nc-node-sensor-row"><span><i className={`fa-solid ${grouped ? 'fa-microchip' : index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{displayName}</strong><small>{tx("Detected ·")} {sensorModels} · {displayedSummary}</small></div><div className="nc-node-sensor-actions"><span className="node-detail-status" data-tone={setupNeedsAttention ? 'warning' : 'optimal'}><i className="fa-solid fa-circle" />{tx(setupNeedsAttention ? mixedGroupContext ? "Review setup" : "Needs setup" : "Ready")}</span>{configurable ? <button type="button" className="nc-sensor-context-toggle" onClick={() => setEditing(true)}><i className="fa-solid fa-sliders" />{tx(setupNeedsAttention ? "Set up" : "Measurement setup")}</button> : null}</div></div>{configurable && editing ? <ModalPortal><div className="nc-nodes-modal-layer"><button className="nc-nodes-modal-backdrop" onClick={() => setEditing(false)} aria-label={tx("Close")} /><section className="management-modal-shell nc-sensor-setup-modal" role="dialog" aria-modal="true" aria-labelledby={`sensorSetupTitle-${index}`}><header className="node-edit-modal-head"><div><p className="eyebrow">{tx(grouped ? "Shared measurement location" : "Sensor measurement")}</p><h2 id={`sensorSetupTitle-${index}`}>{displayName}</h2><span>{sensorModels} · {displayedSummary}</span></div><button type="button" className="node-edit-close" onClick={() => setEditing(false)} aria-label={tx("Close setup")}><i className="fa-solid fa-xmark" /></button></header><div className="nc-node-sensor-context">
+  const setupNeedsAttention = !setupComplete
+  const displayName = sensorLabel(sensor)
+  const sensorModel = sensor.sensorModel || sensor.port || displayName
+  return <><div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{displayName}</strong><small>{tx("Detected ·")} {sensorModel} · {summary}</small></div><div className="nc-node-sensor-actions"><span className="node-detail-status" data-tone={setupNeedsAttention ? 'warning' : 'optimal'}><i className="fa-solid fa-circle" />{tx(setupNeedsAttention ? "Needs setup" : "Ready")}</span>{configurable ? <button type="button" className="nc-sensor-context-toggle" onClick={() => setEditing(true)}><i className="fa-solid fa-sliders" />{tx(setupNeedsAttention ? "Set up" : "Measurement setup")}</button> : null}</div></div>{configurable && editing ? <ModalPortal><div className="nc-nodes-modal-layer"><button className="nc-nodes-modal-backdrop" onClick={() => setEditing(false)} aria-label={tx("Close")} /><section className="management-modal-shell nc-sensor-setup-modal" role="dialog" aria-modal="true" aria-labelledby={`sensorSetupTitle-${index}`}><header className="node-edit-modal-head"><div><p className="eyebrow">{tx("Sensor measurement")}</p><h2 id={`sensorSetupTitle-${index}`}>{displayName}</h2><span>{sensorModel} · {summary}</span></div><button type="button" className="node-edit-close" onClick={() => setEditing(false)} aria-label={tx("Close setup")}><i className="fa-solid fa-xmark" /></button></header><div className="nc-node-sensor-context">
       <div className="nc-sensor-purpose-question wide"><span className="nc-sensor-step">1</span><div><strong>{tx("What does this sensor represent?")}</strong><span>{tx("Configure this sensor separately from the other sensors connected to the node.")}</span></div></div>
       <div className="nc-sensor-purpose-cards wide">
         <button type="button" data-selected={choice === 'section'} onClick={() => choosePurpose('section')}><i className="fa-solid fa-layer-group" /><span><strong>{tx("The whole Section")}</strong><small>{tx("Use when this reading represents the general growing climate.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>
