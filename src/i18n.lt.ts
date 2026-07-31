@@ -926,5 +926,18 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "this spot": "ši vieta",
   "It will not change the Section average, Growing Score, Section alerts or heatmap.": "Nekeis sekcijos vidurkio, Growing Score, sekcijos perspėjimų ar šilumos žemėlapio.",
   "Enter a name before saving.": "Prieš išsaugodami įrašykite pavadinimą.",
-  "Save measurement use": "Išsaugoti matavimo paskirtį"
+  "Save measurement use": "Išsaugoti matavimo paskirtį",
+  "What does this sensor represent?": "Ką atspindi šis sensorius?",
+  "Configure this sensor separately from the other sensors connected to the node.": "Nustatykite šį sensorių atskirai nuo kitų prie mazgo prijungtų sensorių.",
+  "A specific place or object": "Konkreti vieta arba objektas",
+  "Use for one pot, bed, reservoir, pipe, incubator or other local target.": "Rinkitės vienam vazonui, lysvei, rezervuarui, vamzdžiui, inkubatoriui ar kitam vietiniam objektui.",
+  "Which exact place or object does it measure?": "Kurią konkrečią vietą arba objektą jis matuoja?",
+  "Place or object type": "Vietos arba objekto tipas",
+  "Pot / container": "Vazonas / talpa",
+  "Bed / growing table": "Lysvė / auginimo stalas",
+  "Incubator / chamber": "Inkubatorius / kamera",
+  "Reservoir": "Rezervuaras",
+  "Pipe": "Vamzdis",
+  "Equipment": "Įranga",
+  "Other target": "Kita vieta arba objektas"
 })

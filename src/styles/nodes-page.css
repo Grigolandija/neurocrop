@@ -536,7 +536,7 @@
 .designer-app #nodesManagementSection .nc-sensor-purpose-question strong { color: var(--node-text); font-size: 13px; }
 .designer-app #nodesManagementSection .nc-sensor-purpose-question > div > span { color: var(--node-text-muted); font-size: 10px; }
 .designer-app #nodesManagementSection .nc-sensor-step { display: grid; width: 22px; height: 22px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: var(--node-primary); color: #fff; font-size: 10px; font-weight: 800; }
-.designer-app #nodesManagementSection .nc-sensor-purpose-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.designer-app #nodesManagementSection .nc-sensor-purpose-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .designer-app #nodesManagementSection .nc-sensor-purpose-cards button { position: relative; display: flex; min-width: 0; min-height: 86px; align-items: flex-start; gap: 10px; border: 1px solid var(--node-border); border-radius: 10px; padding: 12px 32px 12px 12px; background: var(--node-surface); color: var(--node-text); text-align: left; }
 .designer-app #nodesManagementSection .nc-sensor-purpose-cards button:hover { border-color: rgba(33, 79, 64, .42); }
 .designer-app #nodesManagementSection .nc-sensor-purpose-cards button[data-selected="true"] { border-color: var(--node-primary); background: rgba(33, 79, 64, .07); box-shadow: inset 0 0 0 1px var(--node-primary); }

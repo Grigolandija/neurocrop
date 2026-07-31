@@ -534,8 +534,8 @@ export default function NodesWorkspace() {
 
 function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sensor; index: number; configurable: boolean; busy: boolean; onSave: (sensor: Sensor, context: SensorContext) => Promise<void> }) {
   const [editing, setEditing] = useState(false)
-  const initialChoice = sensor.targetType === 'section' ? 'section' : ['incubator', 'equipment'].includes(sensor.targetType || '') ? 'equipment' : 'target'
-  const [choice, setChoice] = useState<'section' | 'target' | 'equipment'>(initialChoice)
+  const initialChoice = sensor.targetType === 'section' ? 'section' : 'target'
+  const [choice, setChoice] = useState<'section' | 'target'>(initialChoice)
   const [context, setContext] = useState<SensorContext>({
     role: sensor.role || (sensor.port === 'ds18b20' ? 'unassigned_temperature' : sensor.port === 'sht45' ? 'air_climate' : 'environment'),
     label: sensor.label || sensorLabel(sensor),
@@ -548,26 +548,23 @@ function SensorRow({ sensor, index, configurable, busy, onSave }: { sensor: Sens
     useForSectionScore: sensor.useForSectionScore ?? sensor.port !== 'ds18b20',
     allowSpatialInterpolation: sensor.allowSpatialInterpolation ?? sensor.port !== 'ds18b20',
   })
-  const choosePurpose = (next: 'section' | 'target' | 'equipment') => {
+  const choosePurpose = (next: 'section' | 'target') => {
     setChoice(next)
     setContext((current) => next === 'section'
       ? { ...current, targetType: 'section', targetName: '', spatialScope: 'representative', useForSectionScore: true, allowSpatialInterpolation: true }
-      : next === 'equipment'
-        ? { ...current, medium: ['sht45', 'scd4x'].includes(sensor.port || '') ? 'air' : current.medium, targetType: 'incubator', targetName: '', spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false }
-        : { ...current, targetType: sensor.port === 'ds18b20' ? 'pot' : 'custom', targetName: '', spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false })
+      : { ...current, targetType: sensor.port === 'ds18b20' ? 'pot' : ['incubator', 'equipment'].includes(current.targetType) ? current.targetType : 'custom', targetName: '', spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false })
   }
   const targetMissing = context.targetType !== 'section' && !context.targetName.trim()
   const summary = context.targetType === 'section'
     ? tx("Represents the whole Section")
     : `${tx(context.targetType === 'incubator' || context.targetType === 'equipment' ? "Equipment measurement" : "Separate measurement")}: ${context.targetName || tx("name required")}`
   return <div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{sensorLabel(sensor)}</strong><small>{tx("Detected ·")} {sensor.sensorModel || sensor.port || `Port ${index + 1}`} · {summary}</small>{configurable ? <><button type="button" className="nc-sensor-context-toggle" onClick={() => setEditing((value) => !value)}><i className="fa-solid fa-location-dot" />{editing ? tx("Close measurement context") : tx("Configure measurement context")}</button>{editing ? <div className="nc-node-sensor-context">
-      <div className="nc-sensor-purpose-question wide"><span className="nc-sensor-step">1</span><div><strong>{tx("Where does this sensor measure?")}</strong><span>{tx("Choose what this sensor represents. This determines where its data appears.")}</span></div></div>
+      <div className="nc-sensor-purpose-question wide"><span className="nc-sensor-step">1</span><div><strong>{tx("What does this sensor represent?")}</strong><span>{tx("Configure this sensor separately from the other sensors connected to the node.")}</span></div></div>
       <div className="nc-sensor-purpose-cards wide">
         <button type="button" data-selected={choice === 'section'} onClick={() => choosePurpose('section')}><i className="fa-solid fa-layer-group" /><span><strong>{tx("The whole Section")}</strong><small>{tx("Use when this reading represents the general growing climate.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>
-        <button type="button" data-selected={choice === 'target'} onClick={() => choosePurpose('target')}><i className="fa-solid fa-location-dot" /><span><strong>{tx("One specific spot")}</strong><small>{tx("Use for one pot, bed, reservoir, pipe or other local point.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>
-        <button type="button" data-selected={choice === 'equipment'} onClick={() => choosePurpose('equipment')}><i className="fa-solid fa-box" /><span><strong>{tx("Inside equipment")}</strong><small>{tx("Use for an incubator, chamber or another machine.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>
+        <button type="button" data-selected={choice === 'target'} onClick={() => choosePurpose('target')}><i className="fa-solid fa-location-dot" /><span><strong>{tx("A specific place or object")}</strong><small>{tx("Use for one pot, bed, reservoir, pipe, incubator or other local target.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>
       </div>
-      {choice !== 'section' ? <div className="nc-sensor-target-fields wide"><div className="nc-sensor-purpose-question"><span className="nc-sensor-step">2</span><div><strong>{tx(choice === 'equipment' ? "Which equipment is it inside?" : "Which exact spot does it measure?")}</strong><span>{tx("This name will be shown in Readings and Trends.")}</span></div></div><div className="nc-sensor-target-inputs"><label><span>{tx(choice === 'equipment' ? "Equipment type" : "Spot type")}</span><select value={context.targetType} onChange={(event) => setContext({ ...context, targetType: event.target.value })}>{targetTypes.filter(([value]) => choice === 'equipment' ? ['incubator', 'equipment', 'custom'].includes(value) : ['pot', 'bed', 'reservoir', 'pipe', 'custom'].includes(value)).map(([value, copy]) => <option value={value} key={value}>{copy}</option>)}</select></label><label><span>{tx("Give it a clear name")}</span><input value={context.targetName} maxLength={120} placeholder={choice === 'equipment' ? tx("e.g. Incubator 1") : tx("e.g. Pot 12")} onChange={(event) => setContext({ ...context, targetName: event.target.value })} /></label></div></div> : null}
+      {choice === 'target' ? <div className="nc-sensor-target-fields wide"><div className="nc-sensor-purpose-question"><span className="nc-sensor-step">2</span><div><strong>{tx("Which exact place or object does it measure?")}</strong><span>{tx("This name will be shown in Readings and Trends.")}</span></div></div><div className="nc-sensor-target-inputs"><label><span>{tx("Place or object type")}</span><select value={context.targetType} onChange={(event) => setContext({ ...context, targetType: event.target.value })}>{targetTypes.filter(([value]) => ['pot', 'bed', 'reservoir', 'pipe', 'incubator', 'equipment', 'custom'].includes(value)).map(([value, copy]) => <option value={value} key={value}>{tx(copy)}</option>)}</select></label><label><span>{tx("Give it a clear name")}</span><input value={context.targetName} maxLength={120} placeholder={['incubator', 'equipment'].includes(context.targetType) ? tx("e.g. Incubator 1") : tx("e.g. Pot 12")} onChange={(event) => setContext({ ...context, targetName: event.target.value })} /></label></div></div> : null}
       <div className="nc-sensor-purpose-preview wide" data-section={choice === 'section'}><i className={`fa-solid ${choice === 'section' ? 'fa-circle-check' : 'fa-location-dot'}`} /><div><strong>{tx("How NeuroCrop will use this data")}</strong><span>{choice === 'section' ? tx("Included in the Section average, Growing Score, alerts and heatmap.") : <>{tx("Shown separately as")} <strong>{context.targetName || tx("this spot")}</strong>. {tx("It will not change the Section average, Growing Score, Section alerts or heatmap.")}</>}</span></div></div>
       <details className="nc-sensor-context-advanced wide"><summary>{tx("Advanced and installation details")}</summary><div>
         <label><span>{tx("Display label")}</span><input value={context.label} maxLength={80} onChange={(event) => setContext({ ...context, label: event.target.value })} /></label>
