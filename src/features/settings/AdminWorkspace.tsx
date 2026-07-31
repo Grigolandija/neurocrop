@@ -1,5 +1,5 @@
 import { translateInterfaceText as tx } from '../../i18n'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { ModalPortal } from '../../components/ModalPortal'
 import { neurocropApi } from '../../services/api/neurocropApi'
@@ -190,6 +190,8 @@ function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
   diagnostics: { organization: Organization; nodes: DiagnosticNode[]; gateways: PlatformGateway[]; loading: boolean }
   onClose: () => void
 }) {
+  const [expandedNode, setExpandedNode] = useState<string | null>(null)
+  const [expandedGateway, setExpandedGateway] = useState<string | null>(null)
   const liveNodes = diagnostics.nodes.filter((node) => node.transportStatus === 'live').length
   const lowBatteryNodes = diagnostics.nodes.filter((node) => hasFiniteNumber(node.level) && Number(node.level) <= 20).length
   const faultNodes = diagnostics.nodes.filter((node) => !['healthy'].includes(String(node.health?.state || '')) || node.transportStatus !== 'live').length
@@ -219,14 +221,16 @@ function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
             const counters = counterEntries(node.errorCounters)
             const gateways = node.receivingGateways || []
             const healthTone = node.health?.state === 'healthy' && node.transportStatus === 'live' ? 'success' : node.health?.state === 'fault' ? 'warning' : 'neutral'
-            return <tr key={node.devEui}>
+            const open = expandedNode === node.devEui
+            return <Fragment key={node.devEui}><tr>
               <td><strong>{node.name}</strong><small>{[node.areaName, node.sectionName].filter(Boolean).join(' · ') || tx("Unassigned")}</small><small className="nc-technical-value">{node.devEui}</small></td>
               <td><span className="nc-settings-status" data-tone={healthTone}><i />{node.health?.label || formatStatusLabel(node.transportStatus)}</span><small>{formatRelativeTime(node.lastSeen)}</small><small>{node.health?.detail || tx("No active fault")}</small></td>
               <td><strong>{hasFiniteNumber(node.level) ? `${node.level}%` : tx("Unknown")}</strong><small>{hasFiniteNumber(node.batteryMv) ? `${(Number(node.batteryMv) / 1000).toFixed(2)} V` : tx("Voltage unavailable")}</small></td>
               <td><strong>{hasFiniteNumber(node.rssi) ? `${node.rssi} dBm` : tx("Unknown")}</strong><small>{hasFiniteNumber(node.snr) ? `SNR ${node.snr}` : 'SNR —'} · {hasFiniteNumber(node.spreadingFactor) ? `SF${node.spreadingFactor}` : 'SF—'}</small></td>
               <td><strong>{gateways.map((gateway) => gateway.name || gateway.serialNumber || gateway.gatewayId).join(', ') || tx("Not reported")}</strong><small>{gateways.length ? `${gateways.length} ${tx("receiving gateway(s)")}` : tx("No gateway metadata")}</small></td>
               <td><strong>{node.firmwareVersion || tx("Unknown")}</strong><small>{node.profile || node.nodeType || tx("Profile unavailable")}</small></td>
-              <td><details className="nc-equipment-details"><summary>{tx("View all")}</summary><dl>
+              <td><button type="button" className="nc-equipment-expand-button" aria-expanded={open} onClick={() => setExpandedNode(open ? null : node.devEui)}>{open ? tx("Hide") : tx("View all")}<i className={`fa-solid fa-chevron-${open ? 'up' : 'down'}`} /></button></td>
+            </tr>{open ? <tr className="nc-equipment-expanded-row"><td colSpan={7}><dl>
                 <div><dt>{tx("Sensors detected")}</dt><dd>{sensors.join(', ') || tx("Not reported")}</dd></div>
                 <div><dt>{tx("Active flags")}</dt><dd>{flags.join(', ') || tx("None")}</dd></div>
                 <div><dt>{tx("Error counters")}</dt><dd>{counters.join(', ') || tx("None")}</dd></div>
@@ -234,8 +238,7 @@ function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
                 <div><dt>{tx("Data source")}</dt><dd>{node.source || tx("Unknown")}</dd></div>
                 <div><dt>{tx("Registered")}</dt><dd>{formatDate(node.createdAt)}</dd></div>
                 <div><dt>{tx("Last packet")}</dt><dd>{formatDate(node.lastSeen)}</dd></div>
-              </dl></details></td>
-            </tr>
+              </dl></td></tr> : null}</Fragment>
           })}{!diagnostics.nodes.length ? <tr><td colSpan={7}>{tx("No nodes are registered for this organization.")}</td></tr> : null}</tbody></table></div>
         </section>
 
@@ -244,14 +247,16 @@ function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
           <div className="nc-admin-table-wrap"><table className="nc-equipment-table"><thead><tr><th>{tx("Gateway")}</th><th>{tx("Agent")}</th><th>{tx("Services")}</th><th>{tx("Nodes heard")}</th><th>{tx("Software")}</th><th>{tx("System")}</th><th>{tx("Diagnostics")}</th></tr></thead><tbody>{diagnostics.gateways.map((gateway) => {
             const services = gatewayServices(gateway)
             const updateFailed = ['failed', 'rolled_back'].includes(gateway.updateStatus)
-            return <tr key={gateway.gatewayId}>
+            const open = expandedGateway === gateway.gatewayId
+            return <Fragment key={gateway.gatewayId}><tr>
               <td><strong>{gateway.name || gateway.serialNumber}</strong><small>{gateway.serialNumber}</small><small className="nc-technical-value">{gateway.gatewayId}</small></td>
               <td><span className="nc-settings-status" data-tone={gateway.agentStatus === 'online' ? 'success' : 'neutral'}><i />{formatStatusLabel(gateway.agentStatus)}</span><small>{formatRelativeTime(gateway.lastSeenAt)}</small></td>
               <td><span className="nc-settings-status" data-tone={services.tone}><i />{services.label}</span><small>{gateway.lastHealth?.packetForwarder === false ? tx("Packet forwarder fault") : gateway.lastHealth?.packetForwarder === true ? tx("Packet forwarder OK") : tx("No packet forwarder data")}</small></td>
               <td><strong>{gateway.recentlyReceivedNodeCount ?? 0} {tx("recent")}</strong><small>{gateway.receivingNodeCount ?? 0} {tx("associated with latest uplink")}</small></td>
               <td><strong>{gateway.agentVersion || gateway.imageVersion || tx("Unknown")}</strong><small><span className="nc-settings-status" data-tone={updateFailed ? 'warning' : gateway.updateStatus === 'succeeded' ? 'success' : 'neutral'}><i />{formatStatusLabel(gateway.updateStatus)}</span></small>{gateway.targetAgentVersion ? <small>{tx("Target")}: {gateway.targetAgentVersion}</small> : null}</td>
               <td><strong>{hasFiniteNumber(gateway.lastHealth?.temperatureC) ? `${gateway.lastHealth?.temperatureC} °C` : tx("Temperature unavailable")}</strong><small>{hasFiniteNumber(gateway.lastHealth?.uptimeSeconds) ? `${Math.floor(Number(gateway.lastHealth?.uptimeSeconds) / 3600)} h ${tx("uptime")}` : tx("Uptime unavailable")}</small></td>
-              <td><details className="nc-equipment-details"><summary>{tx("View all")}</summary><dl>
+              <td><button type="button" className="nc-equipment-expand-button" aria-expanded={open} onClick={() => setExpandedGateway(open ? null : gateway.gatewayId)}>{open ? tx("Hide") : tx("View all")}<i className={`fa-solid fa-chevron-${open ? 'up' : 'down'}`} /></button></td>
+            </tr>{open ? <tr className="nc-equipment-expanded-row"><td colSpan={7}><dl>
                 <div><dt>{tx("Hardware")}</dt><dd>{gateway.hardwareModel || tx("Unknown")}</dd></div>
                 <div><dt>{tx("Image")}</dt><dd>{gateway.imageVersion || tx("Unknown")}</dd></div>
                 <div><dt>{tx("Agent")}</dt><dd>{gateway.agentVersion || tx("Unknown")}</dd></div>
@@ -260,8 +265,7 @@ function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
                 <div><dt>{tx("Update error")}</dt><dd>{gateway.updateError || tx("None")}</dd></div>
                 <div><dt>{tx("Last enrollment")}</dt><dd>{formatDate(gateway.lastEnrolledAt)}</dd></div>
                 <div><dt>{tx("Last agent report")}</dt><dd>{formatDate(gateway.lastSeenAt)}</dd></div>
-              </dl></details></td>
-            </tr>
+              </dl></td></tr> : null}</Fragment>
           })}{!diagnostics.gateways.length ? <tr><td colSpan={7}>{tx("No gateways are assigned to this organization.")}</td></tr> : null}</tbody></table></div>
         </section>
       </div>}
