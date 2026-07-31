@@ -588,8 +588,9 @@ test('sensor measurement contexts control Section evaluation without deleting ra
   assert.match(api, /pointDefault \? 'unconfigured' : 'representative'/);
   assert.match(api, /pointDefault \? null : 'section'/);
   assert.match(api, /pointSensors/);
-  assert.match(api, /spatialScope === 'representative'/);
-  assert.match(api, /sectionDevEuis\.filter\(\(devEui\) => contextForNode\(devEui\)\.spatialScope === 'representative'\)/);
+  assert.match(api, /source\.measurementContext\.useForSectionScore === true/);
+  assert.match(api, /isIntegratedAirMetric/);
+  assert.match(api, /: sectionDevEuis;/);
   assert.match(api, /measurementContext: requestedMeasurementContext/);
   assert.match(api, /measurementForSectionEvaluation\(latestByDevEui\.get\(devEui\)/);
   assert.match(api, /config\.use_for_section_score !== false/);

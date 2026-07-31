@@ -2292,7 +2292,13 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
 
     const observations = Object.fromEntries(
       Object.entries(sourcesByMetric).map(([metric, sources]) => {
-        const sectionSources = sources.filter((source) => source.measurementContext.spatialScope === 'representative');
+        const isIntegratedAirMetric = metric === 'airTemp' || metric === 'humidity' || metric === 'vpd';
+        const sectionSources = isIntegratedAirMetric
+          ? sources.filter((source) => (
+            source.measurementContext.spatialScope === 'representative'
+            || source.measurementContext.useForSectionScore === true
+          ))
+          : sources;
         const values = sectionSources.map((source) => source.value);
         const value = meanValue(values);
         const oneHourBaselineSources = oneHourBaselineSourcesByMetric[metric] || [];
@@ -2317,7 +2323,7 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
           unit: METRIC_UNITS[metric] || '',
           aggregation: 'section_mean',
           reportingSensors: sectionSources.length,
-          pointSensors: sources.length - sectionSources.length,
+          pointSensors: sources.filter((source) => source.measurementContext.spatialScope === 'point').length,
           range: values.length ? { min: Math.min(...values), max: Math.max(...values) } : null,
           nodes: sources
         }];
@@ -2418,9 +2424,15 @@ app.get('/history', requireAuth, async (req, res) => {
     const historyContexts = sensorConfigsByNode(historyContextRows);
     const contextForNode = (devEui) => publicMeasurementContextForMetric(historyContexts.get(devEui), metric);
     const requestedMeasurementContext = requestedDevEui ? contextForNode(requestedDevEui) : null;
+    const isIntegratedAirMetric = metric === 'airTemp' || metric === 'humidity' || metric === 'vpd';
     const devEuis = requestedDevEui
       ? [requestedDevEui]
-      : sectionDevEuis.filter((devEui) => contextForNode(devEui).spatialScope === 'representative');
+      : isIntegratedAirMetric
+        ? sectionDevEuis.filter((devEui) => {
+          const context = contextForNode(devEui);
+          return context.spatialScope === 'representative' || context.useForSectionScore === true;
+        })
+        : sectionDevEuis;
 
     if (!devEuis.length) {
       return res.json({
@@ -3223,6 +3235,8 @@ function publicMeasurementContextForMetric(configs, metric) {
     spatialScope: effectiveContext?.spatial_scope || (pointDefault ? 'unconfigured' : 'representative'),
     depthCm: config?.depth_cm ?? null,
     heightCm: config?.height_cm ?? null,
+    useForSectionScore: effectiveContext?.use_for_section_score === true,
+    allowSpatialInterpolation: effectiveContext?.allow_spatial_interpolation === true,
     configured,
     inheritedFromNode: effectiveContext === inheritedContext && Boolean(inheritedContext)
   };
