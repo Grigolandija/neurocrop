@@ -3048,7 +3048,9 @@ function hasUsableMeasurementContext(config) {
 }
 
 function publicSensorContext(config, defaults, inheritedContext = null) {
-  const effectiveContext = hasUsableMeasurementContext(config) ? config : inheritedContext;
+  // A Node's named point is its canonical physical location. Connected sensors
+  // inherit it so stale per-port targets cannot contradict the Node assignment.
+  const effectiveContext = inheritedContext || (hasUsableMeasurementContext(config) ? config : null);
   return {
     medium: config?.medium || defaults.medium,
     targetType: effectiveContext?.target_type || defaults.targetType,
@@ -3210,7 +3212,7 @@ function publicMeasurementContextForMetric(configs, metric) {
     && String(nodeContext?.target_name || '').trim()
     ? nodeContext
     : null;
-  const effectiveContext = hasUsableMeasurementContext(config) ? config : inheritedContext;
+  const effectiveContext = inheritedContext || (hasUsableMeasurementContext(config) ? config : null);
   const pointDefault = isProbeSensorPort(port);
   const configured = Boolean(effectiveContext);
   return {
