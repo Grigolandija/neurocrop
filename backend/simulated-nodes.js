@@ -17,7 +17,6 @@ const METRICS = {
 const OPTIONAL_SENSORS = Object.freeze([
   'scd41',
   'bh1750',
-  'ds18b20',
   'soil_moisture_probe',
   'ec_probe',
   'ph_probe',
@@ -42,6 +41,7 @@ export function simulatedSensorPresence(devEui) {
   const connected = new Set(shuffled.slice(0, connectedCount));
   return Object.fromEntries([
     ['sht45', { present: true }],
+    ['ds18b20', { present: true }],
     ...OPTIONAL_SENSORS.map((sensor) => [sensor, { present: connected.has(sensor) }])
   ]);
 }
