@@ -936,7 +936,7 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "What does this sensor represent?": "Ką atspindi šis sensorius?",
   "Configure this sensor separately from the other sensors connected to the node.": "Nustatykite šį sensorių atskirai nuo kitų prie mazgo prijungtų sensorių.",
   "Include air temperature and humidity in the Section climate": "Įtraukti oro temperatūrą ir drėgmę į bendrą sekcijos mikroklimatą",
-  "Use this when the SHT45 still measures the surrounding room air, even though the Node is assigned to a specific place.": "Pasirinkite, kai SHT45 matuoja bendrą patalpos orą, nors pats mazgas priskirtas konkrečiai vietai.",
+  "Use this when the integrated air sensor measures the surrounding room air, even though the Node is assigned to a specific place.": "Pasirinkite, kai integruotas oro sensorius matuoja bendrą patalpos orą, nors pats mazgas priskirtas konkrečiai vietai.",
   "Shown as": "Rodoma kaip",
   "Air temperature and humidity will also be included in the Section climate, score, alerts and heatmap.": "Oro temperatūra ir drėgmė taip pat bus įtrauktos į sekcijos mikroklimatą, įvertį, perspėjimus ir šilumos žemėlapį.",
   "Search name, place or section": "Ieškoti pagal pavadinimą, vietą arba sekciją",
@@ -966,9 +966,9 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Sensor setup required": "Reikia nustatyti sensorių",
   "Configure this sensor before NeuroCrop uses its data.": "Nustatykite šį sensorių prieš NeuroCrop pradedant naudoti jo duomenis.",
   "Set up": "Nustatyti",
-  "Only SHT45 is integrated into the Node. Configure every other connected sensor separately.": "Į Node integruotas tik SHT45. Kiekvieną kitą prijungtą sensorių nustatykite atskirai.",
-  "Integrated SHT45 sensor": "Integruotas SHT45 sensorius",
-  "The Node's integrated SHT45 measures air temperature and humidity.": "Į Node integruotas SHT45 matuoja oro temperatūrą ir drėgmę.",
+  "The air climate sensor is integrated into the Node. Configure every other connected sensor separately.": "Oro mikroklimato sensorius integruotas į Node. Kiekvieną kitą prijungtą sensorių nustatykite atskirai.",
+  "Integrated air climate sensor": "Integruotas oro mikroklimato sensorius",
+  "Measures air temperature and humidity around the Node.": "Matuoja oro temperatūrą ir drėgmę aplink Node.",
   "Connected sensors and probes": "Prijungti sensoriai ir zondai",
   "Configure the measurement location of each connected sensor separately.": "Kiekvienam prijungtam sensoriui atskirai nustatykite jo matavimo vietą."
 })
