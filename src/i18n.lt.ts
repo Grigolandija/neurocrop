@@ -939,6 +939,7 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Use this when the SHT45 still measures the surrounding room air, even though the Node is assigned to a specific place.": "Pasirinkite, kai SHT45 matuoja bendrą patalpos orą, nors pats mazgas priskirtas konkrečiai vietai.",
   "Shown as": "Rodoma kaip",
   "Air temperature and humidity will also be included in the Section climate, score, alerts and heatmap.": "Oro temperatūra ir drėgmė taip pat bus įtrauktos į sekcijos mikroklimatą, įvertį, perspėjimus ir šilumos žemėlapį.",
+  "Search name, place or section": "Ieškoti pagal pavadinimą, vietą arba sekciją",
   "A specific place or object": "Konkreti vieta arba objektas",
   "Use for one pot, bed, reservoir, pipe, incubator or other local target.": "Rinkitės vienam vazonui, lysvei, rezervuarui, vamzdžiui, inkubatoriui ar kitam vietiniam objektui.",
   "Which exact place or object does it measure?": "Kurią konkrečią vietą arba objektą jis matuoja?",

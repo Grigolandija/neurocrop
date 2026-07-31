@@ -23,6 +23,7 @@ type NodeRow = JsonRecord & {
   areaName: string
   sectionId: string
   sectionName: string
+  targetName: string
   source: 'physical' | 'simulated'
   simulated: boolean
   transportStatus: string
@@ -141,6 +142,7 @@ function normalizeNodes(payload: unknown, areas: Area[], sections: Section[]) {
       areaName: text(source.areaName || source.area_name || areaMap.get(areaId)?.name, 'Unassigned'),
       sectionId,
       sectionName: text(source.sectionName || source.section_name || section?.name, 'Unassigned'),
+      targetName: text(source.targetName || source.target_name),
       source: source.source === 'simulated' ? 'simulated' : 'physical',
       simulated: source.simulated === true || source.source === 'simulated',
       transportStatus: freshness.transportStatus,
@@ -304,7 +306,7 @@ export default function NodesWorkspace() {
     const needle = query.trim().toLowerCase()
     return nodes.filter((node) => areaFilter === 'all' || node.areaId === areaFilter)
       .filter((node) => stateFilter === 'all' || nodeState(node).key === stateFilter)
-      .filter((node) => !needle || `${node.name} ${node.devEui} ${node.areaName} ${node.sectionName}`.toLowerCase().includes(needle))
+      .filter((node) => !needle || `${node.name} ${node.targetName} ${node.areaName} ${node.sectionName}`.toLowerCase().includes(needle))
   }, [areaFilter, nodes, query, stateFilter])
 
   const counts = useMemo(() => ({
@@ -475,7 +477,7 @@ export default function NodesWorkspace() {
     </section>
     {feedback ? <div className="management-notice success"><i className="fa-solid fa-circle-check" />{feedback}</div> : null}
     <section className="nc-node-list">
-      <div className="nc-list-toolbar"><label className="nc-search-field"><i className="fa-solid fa-magnifying-glass" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, DevEUI or section" /></label><div className="nc-toolbar-selects">
+      <div className="nc-list-toolbar"><label className="nc-search-field"><i className="fa-solid fa-magnifying-glass" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tx("Search name, place or section")} /></label><div className="nc-toolbar-selects">
         <label className="block"><span className="sr-only">{tx("Filter by area")}</span><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}><option value="all">{tx("All areas")}</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label>
         <label className="block"><span className="sr-only">{tx("Filter by state")}</span><select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}><option value="all">{tx("All states")}</option><option value="healthy">{tx("Healthy")}</option><option value="fault">{tx("Fault")}</option><option value="offline">{tx("Offline")}</option></select></label>
       </div></div>
@@ -485,7 +487,7 @@ export default function NodesWorkspace() {
           const lastPayload = formatLastPayload(node, node, translate)
           const batteryLow = Number.isFinite(node.level) && Number(node.level) < 30
           return <tr key={node.devEui || node.id}>
-            <td><button type="button" className="nc-node-identity" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)}><strong>{node.name}</strong>{node.simulated ? <em>{tx("Simulated")}</em> : null}<small>{node.devEui || node.id}</small></button></td>
+            <td><button type="button" className="nc-node-identity" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)}><strong>{node.name}</strong>{node.simulated ? <em>{tx("Simulated")}</em> : null}{node.targetName ? <small>{node.targetName}</small> : null}</button></td>
             <td><strong>{node.sectionName}</strong><small>{node.areaName}</small></td>
             <td><span className={`nc-status-new ${state.tone}`}><span className={`nc-state-dot ${state.tone}`} />{state.label}</span></td>
             <td><span className={`nc-node-battery ${batteryLow ? 'is-low' : ''}`}><i className={`fa-solid ${Number(node.level) < 25 ? 'fa-battery-quarter' : 'fa-battery-three-quarters'}`} />{Number.isFinite(node.level) ? `${node.transportStatus === 'offline' ? 'Last ' : ''}${node.level}%` :tx("Battery unknown")}</span></td>

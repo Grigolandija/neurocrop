@@ -3284,6 +3284,16 @@ app.get('/nodes', requireAuth, async (req, res) => {
          n.last_sensor_presence, n.last_error_flags, n.last_error_counters,
          n.last_gateway_ids, n.source,
          COALESCE((
+           SELECT NULLIF(TRIM(nsc.target_name), '')
+           FROM node_sensor_configs nsc
+           WHERE nsc.node_dev_eui=n.dev_eui
+             AND nsc.organization_id=n.organization_id
+             AND nsc.port IN ('sht45', 'internal')
+             AND nsc.spatial_scope='point'
+           ORDER BY CASE WHEN nsc.port='sht45' THEN 0 ELSE 1 END
+           LIMIT 1
+         ), '') AS target_name,
+         COALESCE((
            SELECT jsonb_agg(
              jsonb_build_object(
                'gatewayId', g.gateway_id,
@@ -3324,6 +3334,7 @@ app.get('/nodes', requireAuth, async (req, res) => {
           areaName: row.area_name || null,
           sectionId: row.section_id,
           sectionName: row.section_name || null,
+          targetName: row.target_name || null,
           active: transportStatus !== 'offline',
           transportStatus,
           gatewayStatus,
