@@ -956,6 +956,9 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Close setup": "Uždaryti nustatymus",
   "Sensor setup": "Sensorių nustatymai",
   "Configure sensors": "Nustatyti sensorius",
+  "Node location": "Node vieta",
+  "Change location": "Keisti vietą",
+  "Climate use": "Naudojimas mikroklimatui",
   "Probe depth, cm (optional)": "Zondo gylis, cm (neprivaloma)",
   "e.g. 10": "pvz., 10",
   "You can change this later without deleting any readings.": "Tai galėsite pakeisti vėliau neprarasdami rodmenų.",
@@ -967,8 +970,10 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Configure this sensor before NeuroCrop uses its data.": "Nustatykite šį sensorių prieš NeuroCrop pradedant naudoti jo duomenis.",
   "Set up": "Nustatyti",
   "The air climate sensor is integrated into the Node. Configure every other connected sensor separately.": "Oro mikroklimato sensorius integruotas į Node. Kiekvieną kitą prijungtą sensorių nustatykite atskirai.",
+  "Sensors use the Node location automatically. Change a sensor only if it measures somewhere else.": "Sensoriai automatiškai naudoja Node vietą. Keiskite konkretų sensorių tik tada, jei jis matuoja kitoje vietoje.",
   "Integrated air climate sensor": "Integruotas oro mikroklimato sensorius",
   "Measures air temperature and humidity around the Node.": "Matuoja oro temperatūrą ir drėgmę aplink Node.",
   "Connected sensors and probes": "Prijungti sensoriai ir zondai",
-  "Configure the measurement location of each connected sensor separately.": "Kiekvienam prijungtam sensoriui atskirai nustatykite jo matavimo vietą."
+  "Configure the measurement location of each connected sensor separately.": "Kiekvienam prijungtam sensoriui atskirai nustatykite jo matavimo vietą.",
+  "These sensors inherit the Node location unless you change one separately.": "Šie sensoriai paveldi Node vietą, nebent konkrečiam sensoriui ją pakeisite atskirai."
 })

@@ -75,6 +75,7 @@ type Sensor = Omit<Partial<SensorContext>, 'spatialScope'> & {
   detected?: boolean
   metrics?: string[]
   configurable?: boolean
+  inheritedFromNode?: boolean
 }
 
 const translate = (english: string) => english
@@ -456,10 +457,10 @@ export default function NodesWorkspace() {
         </div>
       </section>
       <div className="node-detail-columns node-detail-columns-single">
-        <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("The air climate sensor is integrated into the Node. Configure every other connected sensor separately.")}</span></header>
+        <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("Sensors use the Node location automatically. Change a sensor only if it measures somewhere else.")}</span></header>
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? <div className="nc-sensor-groups">
             {integratedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Integrated air climate sensor")}</h4><p>{tx("Measures air temperature and humidity around the Node.")}</p></div></header><div className="node-detail-sensors">{integratedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && index === 0} returnToNodesOnClose={openSensorSetup} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
-            {connectedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Connected sensors and probes")}</h4><p>{tx("Configure the measurement location of each connected sensor separately.")}</p></div></header><div className="node-detail-sensors">{connectedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index + integratedSensors.length} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && !integratedSensors.length && index === 0} returnToNodesOnClose={openSensorSetup} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
+            {connectedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Connected sensors and probes")}</h4><p>{tx("These sensors inherit the Node location unless you change one separately.")}</p></div></header><div className="node-detail-sensors">{connectedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index + integratedSensors.length} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && !integratedSensors.length && index === 0} returnToNodesOnClose={openSensorSetup} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
           </div> : <p className="node-detail-muted">{tx("No sensor presence information was reported.")}</p>}
         </section>
       </div>
@@ -507,6 +508,7 @@ function SensorRow({ sensor, index, configurable, initiallyOpen, returnToNodesOn
   const isAirClimateSensor = ['sht45', 'internal'].includes(sensor.port || '')
   const isTemperatureProbe = ['ds18b20', 'onewire'].includes(sensor.port || '')
   const isConnectedProbe = isTemperatureProbe || String(sensor.port || '').endsWith('_probe')
+  const inheritsNodeLocation = sensor.inheritedFromNode === true
   const unconfigured = sensor.spatialScope === 'unconfigured' || (isConnectedProbe && !sensor.targetType)
   const initialChoice = sensor.targetType === 'section' ? 'section' : 'target'
   const [choice, setChoice] = useState<'section' | 'target'>(initialChoice)
@@ -542,7 +544,9 @@ function SensorRow({ sensor, index, configurable, initiallyOpen, returnToNodesOn
   }))
   const targetMissing = context.targetType !== 'section' && !context.targetName.trim()
   const editorConfigured = !unconfigured || context.targetType === 'section' || Boolean(context.targetName.trim())
-  const summary = !editorConfigured ? tx("Measurement purpose not set") : context.targetType === 'section'
+  const summary = !editorConfigured ? tx("Measurement purpose not set") : inheritsNodeLocation && context.targetName
+    ? `${tx("Node location")}: ${context.targetName}`
+    : context.targetType === 'section'
     ? tx("Represents the whole Section")
     : `${tx(context.targetType === 'incubator' || context.targetType === 'equipment' ? "Equipment measurement" : "Separate measurement")}: ${context.targetName || tx("name required")}`
   const setupComplete = editorConfigured && (context.targetType === 'section' || Boolean(context.targetName.trim()))
@@ -552,7 +556,8 @@ function SensorRow({ sensor, index, configurable, initiallyOpen, returnToNodesOn
     setEditing(false)
     if (returnToNodesOnClose) navigate('/nodes', { replace: true })
   }
-  return <><div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{displayName}</strong><small>{summary}</small></div><div className="nc-node-sensor-actions"><span className="node-detail-status" data-tone={setupNeedsAttention ? 'warning' : 'optimal'}><i className="fa-solid fa-circle" />{tx(setupNeedsAttention ? "Needs setup" : "Ready")}</span>{configurable ? <button type="button" className="nc-sensor-context-toggle" onClick={() => setEditing(true)}><i className="fa-solid fa-sliders" />{tx(setupNeedsAttention ? "Set up" : "Measurement setup")}</button> : null}</div></div>{configurable && editing ? <ModalPortal><div className="nc-nodes-modal-layer"><button className="nc-nodes-modal-backdrop" onClick={closeSetup} aria-label={tx("Close")} /><section className="management-modal-shell nc-sensor-setup-modal" role="dialog" aria-modal="true" aria-labelledby={`sensorSetupTitle-${index}`}><header className="node-edit-modal-head"><div><p className="eyebrow">{tx("Sensor measurement")}</p><h2 id={`sensorSetupTitle-${index}`}>{displayName}</h2><span>{summary}</span></div><button type="button" className="node-edit-close" onClick={closeSetup} aria-label={tx("Close setup")}><i className="fa-solid fa-xmark" /></button></header><div className="nc-node-sensor-context">
+  const actionLabel = setupNeedsAttention ? tx("Set up") : isAirClimateSensor ? tx("Climate use") : tx("Change location")
+  return <><div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{displayName}</strong><small>{summary}</small></div><div className="nc-node-sensor-actions"><span className="node-detail-status" data-tone={setupNeedsAttention ? 'warning' : 'optimal'}><i className="fa-solid fa-circle" />{tx(setupNeedsAttention ? "Needs setup" : "Ready")}</span>{configurable ? <button type="button" className="nc-sensor-context-toggle" data-attention={setupNeedsAttention} onClick={() => setEditing(true)}><i className={`fa-solid ${isAirClimateSensor ? 'fa-cloud-sun' : 'fa-location-dot'}`} />{actionLabel}</button> : null}</div></div>{configurable && editing ? <ModalPortal><div className="nc-nodes-modal-layer"><button className="nc-nodes-modal-backdrop" onClick={closeSetup} aria-label={tx("Close")} /><section className="management-modal-shell nc-sensor-setup-modal" role="dialog" aria-modal="true" aria-labelledby={`sensorSetupTitle-${index}`}><header className="node-edit-modal-head"><div><p className="eyebrow">{tx("Sensor measurement")}</p><h2 id={`sensorSetupTitle-${index}`}>{displayName}</h2><span>{summary}</span></div><button type="button" className="node-edit-close" onClick={closeSetup} aria-label={tx("Close setup")}><i className="fa-solid fa-xmark" /></button></header><div className="nc-node-sensor-context">
       <div className="nc-sensor-purpose-question wide"><span className="nc-sensor-step">1</span><div><strong>{tx("What does this sensor represent?")}</strong><span>{tx("Configure this sensor separately from the other sensors connected to the node.")}</span></div></div>
       <div className="nc-sensor-purpose-cards wide">
         <button type="button" data-selected={choice === 'section'} onClick={() => choosePurpose('section')}><i className="fa-solid fa-layer-group" /><span><strong>{tx("The whole Section")}</strong><small>{tx("Use when this reading represents the general growing climate.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>

@@ -553,21 +553,28 @@
 
 .designer-app #nodesManagementSection .nc-sensor-context-toggle {
   display: inline-flex;
-  min-height: 30px;
+  min-height: 28px;
   align-items: center;
   gap: 7px;
-  border: 1px solid var(--node-primary);
+  border: 1px solid var(--node-border);
   border-radius: 8px;
-  padding: 0 10px;
-  background: var(--node-primary);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 750;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--node-text-muted);
+  font-size: 9px;
+  font-weight: 700;
 }
 
-.designer-app #nodesManagementSection .nc-sensor-context-toggle[data-open="true"] {
-  background: var(--node-surface);
+.designer-app #nodesManagementSection .nc-sensor-context-toggle:hover {
+  border-color: rgba(33, 79, 64, .32);
+  background: rgba(33, 79, 64, .05);
   color: var(--node-primary);
+}
+
+.designer-app #nodesManagementSection .nc-sensor-context-toggle[data-attention="true"] {
+  border-color: var(--node-primary);
+  background: var(--node-primary);
+  color: #fff;
 }
 
 .designer-app #nodesManagementSection .nc-node-sensor-context {
