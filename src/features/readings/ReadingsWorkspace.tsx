@@ -385,6 +385,21 @@ function nodeAssignedPlaces(section: SectionReading, node: JsonRecord) {
   return [...new Set(places)]
 }
 
+const naturalPlaceCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: 'base',
+})
+
+function compareNodesByAssignedPlace(section: SectionReading, left: JsonRecord, right: JsonRecord) {
+  const leftPlace = nodeAssignedPlaces(section, left)[0]?.trim() || ''
+  const rightPlace = nodeAssignedPlaces(section, right)[0]?.trim() || ''
+  if (!leftPlace && rightPlace) return 1
+  if (leftPlace && !rightPlace) return -1
+  const placeOrder = naturalPlaceCollator.compare(leftPlace, rightPlace)
+  if (placeOrder) return placeOrder
+  return naturalPlaceCollator.compare(String(left.name || left.id || ''), String(right.name || right.id || ''))
+}
+
 function formatTimestampAge(timestamp: string | null) {
   if (!timestamp) return 'No timestamp'
   const age = Math.max(0, (Date.now() - new Date(timestamp).getTime()) / 1000)
@@ -397,7 +412,7 @@ function formatTimestampAge(timestamp: string | null) {
 function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }: { section: SectionReading; profile?: JsonRecord; visibleMetrics: Metric[]; matrixStyle: CSSProperties }) {
   return <section className="nc-node-measurements" id={`nc-section-nodes-${section.id}`} aria-label={`${section.name} node measurements`}>
     <h3 className="sr-only">{tx("Node measurements")}</h3>
-    {section.nodes.length ? section.nodes.map((node, index) => {
+    {section.nodes.length ? [...section.nodes].sort((left, right) => compareNodesByAssignedPlace(section, left, right)).map((node, index) => {
       const nodeId = String(node.devEui || node.dev_eui || node.id || index)
       const assignedPlaces = nodeAssignedPlaces(section, node)
       const latestAt = nodeLatestTimestamp(section, node)
