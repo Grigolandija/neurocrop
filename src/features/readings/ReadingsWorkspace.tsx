@@ -382,7 +382,7 @@ function nodeAssignedPlaces(section: SectionReading, node: JsonRecord) {
     const targetName = String(context?.targetName || context?.target_name || '').trim()
     return targetName ? [targetName] : []
   })
-  return [...new Set(places)].join(' · ')
+  return [...new Set(places)]
 }
 
 function formatTimestampAge(timestamp: string | null) {
@@ -407,16 +407,21 @@ function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }
         <div className="nc-node-measurement-identity">
           <span className="nc-node-branch" aria-hidden="true" />
           <i className="fa-solid fa-microchip" aria-hidden="true" />
-          <span><strong>{String(node.name || node.id || nodeId)}</strong>{assignedPlaces ? <small>{assignedPlaces}</small> : null}</span>
+          <span><strong>{String(node.name || node.id || nodeId)}</strong>{assignedPlaces.length ? <small>{assignedPlaces.join(' · ')}</small> : null}</span>
         </div>
         {visibleMetrics.map((metric) => {
           const value = getNodeMetricValue(section, node, metric)
           const quality = nodeMetricQuality(section, node, metric)
           const contextLabel = measurementContextLabel(getNodeSource(section, node, metric))
+          const showContextLabel = Boolean(contextLabel) && (
+            contextLabel === 'Unassigned'
+              || assignedPlaces.length !== 1
+              || contextLabel !== assignedPlaces[0]
+          )
           const qualityLabel = quality === 'live' ? 'Current' : quality === 'stale' ? 'Delayed' : value === null ? 'No data' : 'Last known'
           return <div className="nc-node-measurement-value" data-tone={nodeMetricTone(value, metric, profile)} data-quality={quality} aria-label={`${metric.label}: ${value === null ? 'No data' : `${formatValue(value, metric)} ${metric.unit}`}. ${qualityLabel}`} key={metric.key}>
             <strong>{value === null ?tx("No data") : <><span>{formatValue(value, metric)}</span><small>{metric.unit}</small></>}</strong>
-            {contextLabel ? <em className="nc-reading-target-label" title={`${tx("Separate measurement")}: ${contextLabel}`}><i className="fa-solid fa-location-dot" />{tx(contextLabel)}</em> : null}
+            {showContextLabel ? <em className="nc-reading-target-label" title={`${tx("Separate measurement")}: ${contextLabel}`}><i className="fa-solid fa-location-dot" />{tx(contextLabel)}</em> : null}
           </div>
         })}
         <span className="nc-node-measurement-freshness" data-quality={overallQuality}><strong>{formatTimestampAge(latestAt)}</strong></span>
