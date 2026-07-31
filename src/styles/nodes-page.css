@@ -510,14 +510,15 @@
 .designer-app .nc-sensor-setup-modal .nc-sensor-target-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-left: 34px; }
 .designer-app .nc-sensor-setup-modal .nc-sensor-target-inputs label { display: grid; gap: 6px; }
 .designer-app .nc-sensor-setup-modal .nc-sensor-target-inputs label > span { color: var(--node-text-muted); font-size: 9px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; }
-.designer-app .nc-sensor-setup-modal :is(input, select) { width: 100%; min-height: 42px; border: 1px solid var(--node-border); border-radius: 9px; padding: 0 11px; background: var(--node-surface); color: var(--node-text); font-size: 11px; }
+.designer-app .nc-sensor-setup-modal :is(input:not([type="checkbox"]):not([type="radio"]), select) { width: 100%; min-height: 42px; border: 1px solid var(--node-border); border-radius: 9px; padding: 0 11px; background: var(--node-surface); color: var(--node-text); font-size: 11px; }
 .designer-app .nc-sensor-setup-modal .nc-sensor-purpose-preview { display: flex; align-items: flex-start; gap: 10px; border: 1px solid rgba(33, 79, 64, .2); border-radius: 10px; padding: 12px 14px; background: rgba(33, 79, 64, .06); color: var(--node-text-muted); font-size: 10px; line-height: 1.5; }
 .designer-app .nc-sensor-setup-modal .nc-sensor-purpose-preview > i { margin-top: 2px; color: var(--node-primary); }
 .designer-app .nc-sensor-setup-modal .nc-sensor-purpose-preview > div { display: grid; gap: 3px; }
 .designer-app .nc-sensor-setup-modal .nc-sensor-purpose-preview strong { color: var(--node-text); }
 .designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion { display: flex; align-items: flex-start; gap: 11px; border: 1px solid var(--node-border); border-radius: 10px; padding: 12px 14px; background: var(--node-surface); cursor: pointer; }
 .designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion[data-enabled="true"] { border-color: rgba(33, 79, 64, .35); background: rgba(33, 79, 64, .06); }
-.designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion input { width: 17px; height: 17px; flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--node-primary); }
+.designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion input { width: 17px; height: 17px; min-height: 0; flex: 0 0 auto; margin: 1px 0 0; border: 0; padding: 0; outline: 0; box-shadow: none; accent-color: var(--node-primary); }
+.designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--color-focus-ring); }
 .designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion > span { display: grid; gap: 4px; }
 .designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion strong { color: var(--node-text); font-size: 11px; }
 .designer-app .nc-sensor-setup-modal .nc-sensor-section-inclusion small { color: var(--node-text-muted); font-size: 10px; line-height: 1.4; }
