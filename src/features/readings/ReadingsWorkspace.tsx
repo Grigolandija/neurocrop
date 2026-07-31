@@ -302,22 +302,24 @@ function getNodeMetricValue(section: SectionReading, node: JsonRecord, metric: M
 function measurementContextLabel(source: JsonRecord | null) {
   const context = source?.measurementContext || source?.measurement_context
   const scope = String(context?.spatialScope || context?.spatial_scope || '')
-  if (scope === 'unconfigured') return 'Needs setup'
+  const targetName = String(context?.targetName || context?.target_name || '').trim()
+  const explicitlyConfigured = context?.configured === true || context?.configured === 'true'
+  if (scope === 'unconfigured' || (scope === 'point' && !targetName && !explicitlyConfigured)) return 'Needs setup'
   if (!context || scope !== 'point') return ''
-  const target = String(context.targetName || context.target_name || context.targetType || context.target_type || '').trim()
-  return target || 'Specific measurement'
+  return targetName || 'Specific measurement'
 }
 
 function hasSeparateMeasurements(section: SectionReading, metric: Metric) {
   return asArray<JsonRecord>(getObservation(section, metric)?.nodes).some((source) =>
     String(source?.measurementContext?.spatialScope || source?.measurement_context?.spatial_scope || '') === 'point'
+      && measurementContextLabel(source) !== 'Needs setup'
       && numeric(source.value) !== null
   )
 }
 
 function hasUnconfiguredMeasurements(section: SectionReading, metric: Metric) {
   return asArray<JsonRecord>(getObservation(section, metric)?.nodes).some((source) =>
-    String(source?.measurementContext?.spatialScope || source?.measurement_context?.spatial_scope || '') === 'unconfigured'
+    measurementContextLabel(source) === 'Needs setup'
       && numeric(source.value) !== null
   )
 }
