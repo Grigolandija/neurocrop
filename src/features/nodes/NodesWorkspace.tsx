@@ -67,7 +67,14 @@ type SensorContext = {
   useForSectionScore: boolean
   allowSpatialInterpolation: boolean
 }
-type Sensor = Partial<SensorContext> & { port?: string; sensorModel?: string | null; detected?: boolean; metrics?: string[]; configurable?: boolean }
+type Sensor = Omit<Partial<SensorContext>, 'spatialScope'> & {
+  spatialScope?: SensorContext['spatialScope'] | 'unconfigured'
+  port?: string
+  sensorModel?: string | null
+  detected?: boolean
+  metrics?: string[]
+  configurable?: boolean
+}
 
 const translate = (english: string) => english
 
@@ -494,21 +501,23 @@ export default function NodesWorkspace() {
 
 function SensorRow({ sensor, index, configurable, initiallyOpen, busy, error, onSave }: { sensor: Sensor; index: number; configurable: boolean; initiallyOpen: boolean; busy: boolean; error: string; onSave: (sensor: Sensor, context: SensorContext) => Promise<boolean> }) {
   const [editing, setEditing] = useState(initiallyOpen)
+  const isTemperatureProbe = ['ds18b20', 'onewire'].includes(sensor.port || '')
+  const isConnectedProbe = isTemperatureProbe || String(sensor.port || '').endsWith('_probe')
+  const unconfigured = sensor.spatialScope === 'unconfigured' || (isConnectedProbe && !sensor.targetType)
   const initialChoice = sensor.targetType === 'section' ? 'section' : 'target'
   const [choice, setChoice] = useState<'section' | 'target'>(initialChoice)
   const [context, setContext] = useState<SensorContext>({
     role: sensor.role || defaultSensorRole(sensor),
     label: sensor.label || sensorLabel(sensor),
     medium: sensor.medium || (sensor.port === 'ds18b20' ? 'substrate' : 'air'),
-    targetType: sensor.targetType || (sensor.port === 'ds18b20' ? 'pot' : 'section'),
+    targetType: sensor.targetType || (isConnectedProbe ? 'custom' : 'section'),
     targetName: sensor.targetName || '',
-    spatialScope: sensor.spatialScope || (sensor.port === 'ds18b20' ? 'point' : 'representative'),
+    spatialScope: sensor.spatialScope === 'unconfigured' ? 'point' : sensor.spatialScope || (isConnectedProbe ? 'point' : 'representative'),
     depthCm: sensor.depthCm ?? null,
     heightCm: sensor.heightCm ?? null,
     useForSectionScore: sensor.useForSectionScore ?? sensor.port !== 'ds18b20',
     allowSpatialInterpolation: sensor.allowSpatialInterpolation ?? sensor.port !== 'ds18b20',
   })
-  const isTemperatureProbe = ['ds18b20', 'onewire'].includes(sensor.port || '')
   const probeContext = (targetType: string) => {
     if (['pot', 'bed', 'section'].includes(targetType)) return { medium: 'substrate', role: 'substrate_temperature' }
     if (targetType === 'reservoir') return { medium: 'water', role: 'water_temperature' }
@@ -519,14 +528,15 @@ function SensorRow({ sensor, index, configurable, initiallyOpen, busy, error, on
     setChoice(next)
     setContext((current) => next === 'section'
       ? { ...current, ...(isTemperatureProbe ? probeContext('section') : {}), targetType: 'section', targetName: '', spatialScope: 'representative', useForSectionScore: true, allowSpatialInterpolation: true }
-      : { ...current, ...(isTemperatureProbe ? probeContext('pot') : {}), targetType: isTemperatureProbe ? 'pot' : ['incubator', 'equipment'].includes(current.targetType) ? current.targetType : 'custom', targetName: '', spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false })
+      : { ...current, targetType: ['pot', 'bed', 'reservoir', 'pipe', 'incubator', 'equipment', 'custom'].includes(current.targetType) ? current.targetType : 'custom', targetName: '', spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false })
   }
   const chooseTargetType = (targetType: string) => setContext((current) => ({ ...current, ...(isTemperatureProbe ? probeContext(targetType) : {}), targetType }))
   const targetMissing = context.targetType !== 'section' && !context.targetName.trim()
-  const summary = context.targetType === 'section'
+  const editorConfigured = !unconfigured || context.targetType === 'section' || Boolean(context.targetName.trim())
+  const summary = !editorConfigured ? tx("Measurement purpose not set") : context.targetType === 'section'
     ? tx("Represents the whole Section")
     : `${tx(context.targetType === 'incubator' || context.targetType === 'equipment' ? "Equipment measurement" : "Separate measurement")}: ${context.targetName || tx("name required")}`
-  const setupComplete = context.targetType === 'section' || Boolean(context.targetName.trim())
+  const setupComplete = editorConfigured && (context.targetType === 'section' || Boolean(context.targetName.trim()))
   const setupNeedsAttention = !setupComplete
   const displayName = sensorLabel(sensor)
   const sensorModel = sensor.sensorModel || sensor.port || displayName

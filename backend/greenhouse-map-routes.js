@@ -114,7 +114,7 @@ function mayInterpolateMetric(sensorContexts, metricId) {
     || (port === 'sht45' ? sensorContexts?.internal : null)
     || (port === 'scd4x' ? sensorContexts?.i2c : null)
     || (port === 'ds18b20' ? sensorContexts?.onewire : null) : null;
-  if (!context) return metricId !== 'soilTemp';
+  if (!context) return port !== 'ds18b20' && !port?.endsWith('_probe');
   return context.allowSpatialInterpolation ?? context.allow_spatial_interpolation ?? true;
 }
 

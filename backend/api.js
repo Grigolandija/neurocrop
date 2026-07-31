@@ -3047,6 +3047,10 @@ function publicSensorContext(config, defaults) {
   };
 }
 
+function isProbeSensorPort(port) {
+  return port === 'ds18b20' || port?.endsWith('_probe');
+}
+
 function buildDetectedNodeSensors(measurement, configsByPort = {}) {
   const configuredSht45 = configsByPort.sht45 || configsByPort.internal || {};
   const configuredScd4x = configsByPort.scd4x || configsByPort.i2c || {};
@@ -3116,7 +3120,7 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
       label: configuredDs18b20.label || 'Temperature probe',
       configurable: true,
       ...publicSensorContext(configuredDs18b20, {
-        medium: 'substrate', targetType: 'pot', spatialScope: 'point',
+        medium: 'substrate', targetType: '', spatialScope: 'unconfigured',
         useForSectionScore: false, allowSpatialInterpolation: false
       })
     },
@@ -3125,8 +3129,7 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
       metrics, role: configsByPort[port]?.role || null, label: configsByPort[port]?.label || label, configurable: true,
       ...publicSensorContext(configsByPort[port], {
         medium: port === 'leaf_temperature_probe' ? 'plant' : port.startsWith('soil_') ? 'substrate' : 'water',
-        targetType: port === 'leaf_temperature_probe' ? 'bed' : port.startsWith('soil_') ? 'pot' : 'reservoir',
-        spatialScope: 'point', useForSectionScore: false, allowSpatialInterpolation: false
+        targetType: '', spatialScope: 'unconfigured', useForSectionScore: false, allowSpatialInterpolation: false
       })
     }))
   ];
@@ -3185,15 +3188,17 @@ function publicMeasurementContextForMetric(configs, metric) {
     || (port === 'sht45' ? configs?.get('internal') : null)
     || (port === 'scd4x' ? configs?.get('i2c') : null)
     || (port === 'ds18b20' ? configs?.get('onewire') : null) : null;
-  const pointDefault = port === 'ds18b20' || port?.endsWith('_probe');
+  const pointDefault = isProbeSensorPort(port);
+  const configured = Boolean(config);
   return {
     channel: port || null,
     medium: config?.medium || (port?.startsWith('soil_') || port === 'ds18b20' ? 'substrate' : 'air'),
-    targetType: config?.target_type || (pointDefault ? 'pot' : 'section'),
+    targetType: config?.target_type || (pointDefault ? null : 'section'),
     targetName: config?.target_name || null,
-    spatialScope: config?.spatial_scope || (pointDefault ? 'point' : 'representative'),
+    spatialScope: config?.spatial_scope || (pointDefault ? 'unconfigured' : 'representative'),
     depthCm: config?.depth_cm ?? null,
-    heightCm: config?.height_cm ?? null
+    heightCm: config?.height_cm ?? null,
+    configured
   };
 }
 
@@ -3210,7 +3215,13 @@ function sensorConfigsByNode(rows = []) {
 function measurementForSectionEvaluation(measurement, configs) {
   if (!measurement) return measurement;
   const filtered = { ...measurement };
-  if (!configs?.has('ds18b20') && !configs?.has('onewire')) filtered.soil_temperature = null;
+  Object.entries(SENSOR_SCORE_COLUMNS).forEach(([port, columns]) => {
+    if (!isProbeSensorPort(port) || configs?.has(port)) return;
+    columns.forEach((column) => { filtered[column] = null; });
+  });
+  if (!configs?.has('ds18b20') && configs?.has('onewire')) {
+    filtered.soil_temperature = measurement.soil_temperature;
+  }
   if (!configs?.size) return filtered;
   configs.forEach((config, port) => {
     if (config.use_for_section_score !== false) return;

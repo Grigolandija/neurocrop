@@ -85,6 +85,22 @@ test('point-only sensor contexts are excluded from continuous heatmap interpolat
   assert.equal(output.rootTemperatureC, null);
 });
 
+test('unconfigured probes are excluded from continuous heatmap interpolation', () => {
+  const output = publicHeatmapMeasurements({
+    time: '2026-07-31T12:00:00.000Z',
+    temperature: 23,
+    humidity: 65,
+    soil_moisture: 52,
+    soil_ec: 1.8,
+    water_temperature: 20
+  });
+  assert.equal(output.airTemperatureC, 23);
+  assert.equal(output.relativeHumidityPercent, 65);
+  assert.equal(output.soilMoisturePercent, null);
+  assert.equal(output.soilEcMsCm, null);
+  assert.equal(output.waterTemperatureC, null);
+});
+
 test('sensor measurement context migration makes configured probes point-only by default', async () => {
   const migration = await fs.readFile(new URL('../migrations/0033_sensor_measurement_context.sql', import.meta.url), 'utf8');
   assert.match(migration, /spatial_scope TEXT NOT NULL DEFAULT 'representative'/);

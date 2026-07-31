@@ -301,14 +301,24 @@ function getNodeMetricValue(section: SectionReading, node: JsonRecord, metric: M
 
 function measurementContextLabel(source: JsonRecord | null) {
   const context = source?.measurementContext || source?.measurement_context
-  if (!context || String(context.spatialScope || context.spatial_scope) !== 'point') return ''
+  const scope = String(context?.spatialScope || context?.spatial_scope || '')
+  if (scope === 'unconfigured') return 'Needs setup'
+  if (!context || scope !== 'point') return ''
   const target = String(context.targetName || context.target_name || context.targetType || context.target_type || '').trim()
   return target || 'Specific measurement'
 }
 
 function hasSeparateMeasurements(section: SectionReading, metric: Metric) {
   return asArray<JsonRecord>(getObservation(section, metric)?.nodes).some((source) =>
-    measurementContextLabel(source) && numeric(source.value) !== null
+    String(source?.measurementContext?.spatialScope || source?.measurement_context?.spatial_scope || '') === 'point'
+      && numeric(source.value) !== null
+  )
+}
+
+function hasUnconfiguredMeasurements(section: SectionReading, metric: Metric) {
+  return asArray<JsonRecord>(getObservation(section, metric)?.nodes).some((source) =>
+    String(source?.measurementContext?.spatialScope || source?.measurement_context?.spatial_scope || '') === 'unconfigured'
+      && numeric(source.value) !== null
   )
 }
 
@@ -426,18 +436,19 @@ function getDistributionVisual(section: SectionReading, metric: Metric, profile:
 
 function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section: SectionReading; metric: Metric; profile?: JsonRecord; mode: ReadingMode; onOpenTrend: () => void }) {
   const value = getValue(section, metric)
+  const setupRequired = value === null && hasUnconfiguredMeasurements(section, metric)
   const separateOnly = value === null && hasSeparateMeasurements(section, metric)
   const quality = getQuality(section, metric)
   const tone = getTone(section, metric, profile)
   const target = getRange(profile, metric)
   const delta = getDelta(section, metric)
-  let display = separateOnly ? 'Separate measurements below' : value === null ? qualityLabels[quality] : `${formatValue(value, metric)} ${metric.unit}`
-  if (!separateOnly && mode === 'target') {
+  let display = setupRequired ? 'Sensor setup required' : separateOnly ? 'Separate measurements below' : value === null ? qualityLabels[quality] : `${formatValue(value, metric)} ${metric.unit}`
+  if (!setupRequired && !separateOnly && mode === 'target') {
     display = target ? `${formatValue(target[0], metric)}–${formatValue(target[1], metric)} ${metric.unit}` : 'No crop target'
-  } else if (!separateOnly && mode === 'change') {
+  } else if (!setupRequired && !separateOnly && mode === 'change') {
     display = delta === null ? 'No 1h baseline' : `${delta > 0 ? '+' : ''}${formatValue(delta, metric)} ${metric.unit} / 1h`
   }
-  return <button type="button" className="nc-reading-cell" data-tone={separateOnly ? 'neutral' : tone} data-quality={quality} data-separate-only={separateOnly || undefined} onClick={onOpenTrend} title={separateOnly ? tx("Expand this Section to view its separate measurements.") : `Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={separateOnly ? tx("Separate measurements are shown below") : `Open ${section.name} ${metric.label} trend`}>
+  return <button type="button" className="nc-reading-cell" data-tone={setupRequired || separateOnly ? 'neutral' : tone} data-quality={quality} data-separate-only={setupRequired || separateOnly || undefined} onClick={onOpenTrend} title={setupRequired ? tx("Configure this sensor before NeuroCrop uses its data.") : separateOnly ? tx("Expand this Section to view its separate measurements.") : `Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={setupRequired ? tx("Sensor setup required") : separateOnly ? tx("Separate measurements are shown below") : `Open ${section.name} ${metric.label} trend`}>
     <strong>{tx(display)}</strong><i aria-label={qualityLabels[quality]} />
   </button>
 }

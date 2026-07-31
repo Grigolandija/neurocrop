@@ -585,6 +585,8 @@ test('sensor measurement contexts control Section evaluation without deleting ra
   assert.match(route, /useForSectionScore \|\| allowSpatialInterpolation/);
   assert.match(route, /allow_spatial_interpolation/);
   assert.match(api, /publicMeasurementContextForMetric/);
+  assert.match(api, /pointDefault \? 'unconfigured' : 'representative'/);
+  assert.match(api, /pointDefault \? null : 'section'/);
   assert.match(api, /pointSensors/);
   assert.match(api, /spatialScope === 'representative'/);
   assert.match(api, /sectionDevEuis\.filter\(\(devEui\) => contextForNode\(devEui\)\.spatialScope === 'representative'\)/);
