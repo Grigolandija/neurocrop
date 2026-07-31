@@ -3034,16 +3034,31 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
 });
 
 
-function publicSensorContext(config, defaults) {
+function nodePointContext(configsByPort = {}) {
+  const config = configsByPort.sht45 || configsByPort.internal || null;
+  const scope = config?.spatial_scope;
+  const targetName = String(config?.target_name || '').trim();
+  return scope === 'point' && targetName ? config : null;
+}
+
+function hasUsableMeasurementContext(config) {
+  if (!config) return false;
+  if (config.spatial_scope === 'representative') return true;
+  return config.spatial_scope === 'point' && Boolean(String(config.target_name || '').trim());
+}
+
+function publicSensorContext(config, defaults, inheritedContext = null) {
+  const effectiveContext = hasUsableMeasurementContext(config) ? config : inheritedContext;
   return {
     medium: config?.medium || defaults.medium,
-    targetType: config?.target_type || defaults.targetType,
-    targetName: config?.target_name || '',
-    spatialScope: config?.spatial_scope || defaults.spatialScope,
+    targetType: effectiveContext?.target_type || defaults.targetType,
+    targetName: effectiveContext?.target_name || '',
+    spatialScope: effectiveContext?.spatial_scope || defaults.spatialScope,
     depthCm: config?.depth_cm ?? null,
     heightCm: config?.height_cm ?? null,
     useForSectionScore: config?.use_for_section_score ?? defaults.useForSectionScore,
-    allowSpatialInterpolation: config?.allow_spatial_interpolation ?? defaults.allowSpatialInterpolation
+    allowSpatialInterpolation: config?.allow_spatial_interpolation ?? defaults.allowSpatialInterpolation,
+    inheritedFromNode: effectiveContext === inheritedContext && Boolean(inheritedContext)
   };
 }
 
@@ -3053,9 +3068,10 @@ function isProbeSensorPort(port) {
 
 function buildDetectedNodeSensors(measurement, configsByPort = {}) {
   const configuredSht45 = configsByPort.sht45 || configsByPort.internal || {};
-  const configuredScd4x = configsByPort.scd4x || configsByPort.i2c || {};
-  const configuredBh1750 = configsByPort.bh1750 || {};
-  const configuredDs18b20 = configsByPort.ds18b20 || configsByPort.onewire || {};
+  const configuredScd4x = configsByPort.scd4x || configsByPort.i2c || null;
+  const configuredBh1750 = configsByPort.bh1750 || null;
+  const configuredDs18b20 = configsByPort.ds18b20 || configsByPort.onewire || null;
+  const inheritedContext = nodePointContext(configsByPort);
   const hasSht45 = measurementReportsMetric(measurement, 'airTemp')
     || measurementReportsMetric(measurement, 'humidity');
   const hasScd41 = measurementReportsMetric(measurement, 'co2');
@@ -3090,39 +3106,39 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
       sensorModel: 'SCD4x',
       detected: hasScd41,
       metrics: ['co2'],
-      role: configuredScd4x.role || 'air_co2',
-      label: configuredScd4x.label || 'CO₂ sensor',
+      role: configuredScd4x?.role || 'air_co2',
+      label: configuredScd4x?.label || 'CO₂ sensor',
       configurable: true,
       ...publicSensorContext(configuredScd4x, {
         medium: 'air', targetType: 'section', spatialScope: 'representative',
         useForSectionScore: true, allowSpatialInterpolation: true
-      })
+      }, inheritedContext)
     },
     {
       port: 'bh1750',
       sensorModel: 'BH1750',
       detected: hasBh1750,
       metrics: ['lux'],
-      role: configuredBh1750.role || 'light',
-      label: configuredBh1750.label || 'Light sensor',
+      role: configuredBh1750?.role || 'light',
+      label: configuredBh1750?.label || 'Light sensor',
       configurable: true,
       ...publicSensorContext(configuredBh1750, {
         medium: 'air', targetType: 'section', spatialScope: 'representative',
         useForSectionScore: true, allowSpatialInterpolation: true
-      })
+      }, inheritedContext)
     },
     {
       port: 'ds18b20',
       sensorModel: 'DS18B20',
       detected: hasDs18b20,
       metrics: hasDs18b20 ? ['temperature'] : [],
-      role: configuredDs18b20.role || 'unassigned_temperature',
-      label: configuredDs18b20.label || 'Temperature probe',
+      role: configuredDs18b20?.role || 'unassigned_temperature',
+      label: configuredDs18b20?.label || 'Temperature probe',
       configurable: true,
       ...publicSensorContext(configuredDs18b20, {
         medium: 'substrate', targetType: '', spatialScope: 'unconfigured',
         useForSectionScore: false, allowSpatialInterpolation: false
-      })
+      }, inheritedContext)
     },
     ...auxiliaryDefinitions.map(([port, label, metrics]) => ({
       port, sensorModel: null, detected: metrics.some((metric) => measurementReportsMetric(measurement, metric)),
@@ -3130,7 +3146,7 @@ function buildDetectedNodeSensors(measurement, configsByPort = {}) {
       ...publicSensorContext(configsByPort[port], {
         medium: port === 'leaf_temperature_probe' ? 'plant' : port.startsWith('soil_') ? 'substrate' : 'water',
         targetType: '', spatialScope: 'unconfigured', useForSectionScore: false, allowSpatialInterpolation: false
-      })
+      }, inheritedContext)
     }))
   ];
 }
@@ -3188,17 +3204,25 @@ function publicMeasurementContextForMetric(configs, metric) {
     || (port === 'sht45' ? configs?.get('internal') : null)
     || (port === 'scd4x' ? configs?.get('i2c') : null)
     || (port === 'ds18b20' ? configs?.get('onewire') : null) : null;
+  const nodeContext = configs?.get('sht45') || configs?.get('internal') || null;
+  const inheritedContext = port !== 'sht45'
+    && nodeContext?.spatial_scope === 'point'
+    && String(nodeContext?.target_name || '').trim()
+    ? nodeContext
+    : null;
+  const effectiveContext = hasUsableMeasurementContext(config) ? config : inheritedContext;
   const pointDefault = isProbeSensorPort(port);
-  const configured = Boolean(config);
+  const configured = Boolean(effectiveContext);
   return {
     channel: port || null,
     medium: config?.medium || (port?.startsWith('soil_') || port === 'ds18b20' ? 'substrate' : 'air'),
-    targetType: config?.target_type || (pointDefault ? null : 'section'),
-    targetName: config?.target_name || null,
-    spatialScope: config?.spatial_scope || (pointDefault ? 'unconfigured' : 'representative'),
+    targetType: effectiveContext?.target_type || (pointDefault ? null : 'section'),
+    targetName: effectiveContext?.target_name || null,
+    spatialScope: effectiveContext?.spatial_scope || (pointDefault ? 'unconfigured' : 'representative'),
     depthCm: config?.depth_cm ?? null,
     heightCm: config?.height_cm ?? null,
-    configured
+    configured,
+    inheritedFromNode: effectiveContext === inheritedContext && Boolean(inheritedContext)
   };
 }
 
