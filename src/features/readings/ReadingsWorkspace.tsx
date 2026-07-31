@@ -375,6 +375,16 @@ function nodeLatestTimestamp(section: SectionReading, node: JsonRecord) {
     .sort((left, right) => right.time - left.time)[0]?.value || null
 }
 
+function nodeAssignedPlaces(section: SectionReading, node: JsonRecord) {
+  const places = metrics.flatMap((metric) => {
+    const source = getNodeSource(section, node, metric)
+    const context = source?.measurementContext || source?.measurement_context
+    const targetName = String(context?.targetName || context?.target_name || '').trim()
+    return targetName ? [targetName] : []
+  })
+  return [...new Set(places)].join(' · ')
+}
+
 function formatTimestampAge(timestamp: string | null) {
   if (!timestamp) return 'No timestamp'
   const age = Math.max(0, (Date.now() - new Date(timestamp).getTime()) / 1000)
@@ -389,6 +399,7 @@ function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }
     <h3 className="sr-only">{tx("Node measurements")}</h3>
     {section.nodes.length ? section.nodes.map((node, index) => {
       const nodeId = String(node.devEui || node.dev_eui || node.id || index)
+      const assignedPlaces = nodeAssignedPlaces(section, node)
       const latestAt = nodeLatestTimestamp(section, node)
       const nodeQualities = visibleMetrics.map((metric) => nodeMetricQuality(section, node, metric))
       const overallQuality = nodeQualities.includes('live') ? 'live' : nodeQualities.includes('stale') ? 'stale' : 'offline'
@@ -396,7 +407,7 @@ function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }
         <div className="nc-node-measurement-identity">
           <span className="nc-node-branch" aria-hidden="true" />
           <i className="fa-solid fa-microchip" aria-hidden="true" />
-          <span><strong>{String(node.name || node.id || nodeId)}</strong><small>{nodeId}</small></span>
+          <span><strong>{String(node.name || node.id || nodeId)}</strong>{assignedPlaces ? <small>{assignedPlaces}</small> : null}</span>
         </div>
         {visibleMetrics.map((metric) => {
           const value = getNodeMetricValue(section, node, metric)
