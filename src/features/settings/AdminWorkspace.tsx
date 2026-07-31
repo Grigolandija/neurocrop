@@ -1,6 +1,7 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
+import { ModalPortal } from '../../components/ModalPortal'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import '../../styles/settings-workspace.css'
 
@@ -198,7 +199,7 @@ function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
     return gateway.agentStatus !== 'online' || services.tone === 'warning' || ['failed', 'rolled_back'].includes(gateway.updateStatus)
   }).length
 
-  return <div className="nc-admin-modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+  return <ModalPortal><div className="nc-admin-modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <section className="nc-admin-diagnostics nc-equipment-diagnostics" role="dialog" aria-modal="true" aria-labelledby="adminDiagnosticsTitle">
       <header><div><p>{tx("Customer equipment health")}</p><h2 id="adminDiagnosticsTitle">{diagnostics.organization.name}</h2><span>{diagnostics.nodes.length} {tx("nodes")} · {diagnostics.gateways.length} {tx("gateways")}</span></div><button onClick={onClose} aria-label={tx("Close diagnostics")}><i className="fa-solid fa-xmark" /></button></header>
       {diagnostics.loading ? <div className="nc-settings-empty"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading equipment diagnostics")}</strong></div> : <div className="nc-equipment-diagnostics-body">
@@ -265,7 +266,7 @@ function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
         </section>
       </div>}
     </section>
-  </div>
+  </div></ModalPortal>
 }
 
 export default function AdminWorkspace() {
@@ -516,6 +517,6 @@ export default function AdminWorkspace() {
     </section>
 
     {diagnostics ? <EquipmentDiagnosticsDialog diagnostics={diagnostics} onClose={() => setDiagnostics(null)} /> : null}
-    {organizationMembers ? <div className="nc-admin-modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOrganizationMembers(null) }}><section className="nc-admin-diagnostics nc-admin-members-dialog" role="dialog" aria-modal="true" aria-labelledby="adminMembersTitle"><header><div><p>{tx("Organization members")}</p><h2 id="adminMembersTitle">{organizationMembers.organization.name}</h2><span>{organizationMembers.members.length} {tx("member accounts")}</span></div><button onClick={() => setOrganizationMembers(null)} aria-label={tx("Close members")}><i className="fa-solid fa-xmark" /></button></header>{organizationMembers.loading ? <div className="nc-settings-empty"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading organization members")}</strong></div> : <div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("User")}</th><th>{tx("Role")}</th><th>{tx("Account")}</th><th>{tx("Last login")}</th><th>{tx("Joined")}</th></tr></thead><tbody>{organizationMembers.members.map((member) => <tr key={member.id}><td><div className="nc-admin-person"><span>{initials(member.name || member.email)}</span><div><strong>{member.name ||tx("Unnamed user")}</strong><small>{member.email}</small></div></div></td><td><span className="nc-settings-status" data-tone={member.role === 'owner' ? 'success' : 'neutral'}><i />{member.role}</span></td><td><span className="nc-settings-status" data-tone={member.active ? 'success' : 'neutral'}><i />{member.isSuperAdmin ?tx("Super admin") : member.isPlatformAdmin ?tx("Platform admin") : member.active ?tx("Active") :tx("Inactive")}</span></td><td>{formatDate(member.lastLoginAt)}</td><td>{formatDate(member.joinedAt)}</td></tr>)}{!organizationMembers.members.length ? <tr><td colSpan={5}>{tx("No users belong to this organization.")}</td></tr> : null}</tbody></table></div>}</section></div> : null}
+    {organizationMembers ? <ModalPortal><div className="nc-admin-modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOrganizationMembers(null) }}><section className="nc-admin-diagnostics nc-admin-members-dialog" role="dialog" aria-modal="true" aria-labelledby="adminMembersTitle"><header><div><p>{tx("Organization members")}</p><h2 id="adminMembersTitle">{organizationMembers.organization.name}</h2><span>{organizationMembers.members.length} {tx("member accounts")}</span></div><button onClick={() => setOrganizationMembers(null)} aria-label={tx("Close members")}><i className="fa-solid fa-xmark" /></button></header>{organizationMembers.loading ? <div className="nc-settings-empty"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading organization members")}</strong></div> : <div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("User")}</th><th>{tx("Role")}</th><th>{tx("Account")}</th><th>{tx("Last login")}</th><th>{tx("Joined")}</th></tr></thead><tbody>{organizationMembers.members.map((member) => <tr key={member.id}><td><div className="nc-admin-person"><span>{initials(member.name || member.email)}</span><div><strong>{member.name ||tx("Unnamed user")}</strong><small>{member.email}</small></div></div></td><td><span className="nc-settings-status" data-tone={member.role === 'owner' ? 'success' : 'neutral'}><i />{member.role}</span></td><td><span className="nc-settings-status" data-tone={member.active ? 'success' : 'neutral'}><i />{member.isSuperAdmin ?tx("Super admin") : member.isPlatformAdmin ?tx("Platform admin") : member.active ?tx("Active") :tx("Inactive")}</span></td><td>{formatDate(member.lastLoginAt)}</td><td>{formatDate(member.joinedAt)}</td></tr>)}{!organizationMembers.members.length ? <tr><td colSpan={5}>{tx("No users belong to this organization.")}</td></tr> : null}</tbody></table></div>}</section></div></ModalPortal> : null}
   </main>
 }
