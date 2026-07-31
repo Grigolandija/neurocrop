@@ -87,6 +87,7 @@ const presets = [
 ] as const
 
 const readingsColumnsStorageKey = 'neurocrop-readings-columns-v1'
+const readingsHiddenColumnsStorageKey = 'neurocrop-readings-hidden-columns-v1'
 const supportedMetricKeys = new Set(metrics.map((metric) => metric.key))
 
 function storedVisibleKeys() {
@@ -98,6 +99,17 @@ function storedVisibleKeys() {
     return keys.length ? keys : [...presets[0].keys]
   } catch {
     return [...presets[0].keys]
+  }
+}
+
+function storedHiddenKeys() {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored: unknown = JSON.parse(window.localStorage.getItem(readingsHiddenColumnsStorageKey) || 'null')
+    if (!Array.isArray(stored)) return []
+    return [...new Set(stored.filter((key): key is string => typeof key === 'string' && supportedMetricKeys.has(key)))]
+  } catch {
+    return []
   }
 }
 
@@ -536,6 +548,7 @@ export default function ReadingsWorkspace() {
   const [mode, setMode] = useState<ReadingMode>('value')
   const [activePreset, setActivePreset] = useState(() => matchingPreset(storedVisibleKeys()))
   const [visibleKeys, setVisibleKeys] = useState<string[]>(storedVisibleKeys)
+  const [hiddenKeys, setHiddenKeys] = useState<string[]>(storedHiddenKeys)
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [pinned, setPinned] = useState<string[]>([])
   const [drawerId, setDrawerId] = useState<string | null>(null)
@@ -563,6 +576,30 @@ export default function ReadingsWorkspace() {
       // Storage restrictions must not prevent the readings workspace from working.
     }
   }, [visibleKeys])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(readingsHiddenColumnsStorageKey, JSON.stringify(hiddenKeys))
+    } catch {
+      // Storage restrictions must not prevent automatic column selection.
+    }
+  }, [hiddenKeys])
+
+  useEffect(() => {
+    const detectedKeys = metrics.filter((metric) => sections.some((section) =>
+      section.availableMetrics.has(metric.key)
+        || section.configuredMetrics.has(metric.key)
+        || getObservation(section, metric) !== null
+        || getValue(section, metric) !== null
+    )).map((metric) => metric.key)
+    if (!detectedKeys.length) return
+    const merged = metrics.map((metric) => metric.key).filter((key) =>
+      !hiddenKeys.includes(key) && (visibleKeys.includes(key) || detectedKeys.includes(key))
+    )
+    if (merged.length === visibleKeys.length && merged.every((key, index) => key === visibleKeys[index])) return
+    setVisibleKeys(merged)
+    setActivePreset(matchingPreset(merged))
+  }, [sections, hiddenKeys, visibleKeys])
 
   useEffect(() => {
     let cancelled = false
@@ -763,12 +800,21 @@ export default function ReadingsWorkspace() {
   const lensMetric = metrics.find((metric) => metric.key === lensMetricKey) || metrics[0]
   const matrixStyle = { gridTemplateColumns: `minmax(15rem,1.3fr) repeat(${visibleMetrics.length},minmax(7.5rem,.7fr)) minmax(7.75rem,.72fr) 2.5rem`, minWidth: `${27 + visibleMetrics.length * 8}rem` }
   function selectPreset(preset: typeof presets[number]) {
+    const presetKeys = new Set<string>(preset.keys)
     setActivePreset(preset.key)
     setVisibleKeys([...preset.keys])
+    setHiddenKeys(metrics.map((metric) => metric.key).filter((key) => !presetKeys.has(key)))
   }
 
   function toggleMetric(key: string) {
-    setVisibleKeys((current) => current.includes(key) ? (current.length === 1 ? current : current.filter((item) => item !== key)) : [...current, key])
+    const isVisible = visibleKeys.includes(key)
+    if (isVisible && visibleKeys.length === 1) return
+    setVisibleKeys(isVisible
+      ? visibleKeys.filter((item) => item !== key)
+      : metrics.map((metric) => metric.key).filter((metricKey) => visibleKeys.includes(metricKey) || metricKey === key))
+    setHiddenKeys((hidden) => isVisible
+      ? (hidden.includes(key) ? hidden : [...hidden, key])
+      : hidden.filter((item) => item !== key))
     setActivePreset('custom')
   }
 
