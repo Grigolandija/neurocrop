@@ -110,11 +110,15 @@ function firstFiniteMeasurement(measurement, columns) {
 
 function mayInterpolateMetric(sensorContexts, metricId) {
   const port = HEATMAP_SENSOR_PORT[metricId];
+  // Every connected sensor uses the Node's physical position on the saved Area
+  // map. Only the integrated air-climate sensor has an explicit customer-facing
+  // switch that can exclude its readings from spatial interpolation.
+  if (port !== 'sht45') return true;
   const context = port ? sensorContexts?.[port]
     || (port === 'sht45' ? sensorContexts?.internal : null)
     || (port === 'scd4x' ? sensorContexts?.i2c : null)
     || (port === 'ds18b20' ? sensorContexts?.onewire : null) : null;
-  if (!context) return port !== 'ds18b20' && !port?.endsWith('_probe');
+  if (!context) return true;
   return context.allowSpatialInterpolation ?? context.allow_spatial_interpolation ?? true;
 }
 

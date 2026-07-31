@@ -69,7 +69,7 @@ test('greenhouse map validation accepts wall-mounted openings and rejects detach
   assert.match(validateGreenhouseMap(detached).message, /detached from its perimeter wall/i);
 });
 
-test('point-only sensor contexts are excluded from continuous heatmap interpolation', () => {
+test('connected probes use the Node map position for heatmap interpolation', () => {
   const measurement = {
     time: '2026-07-31T12:00:00.000Z',
     temperature: 23,
@@ -82,10 +82,10 @@ test('point-only sensor contexts are excluded from continuous heatmap interpolat
   });
   assert.equal(output.airTemperatureC, 23);
   assert.equal(output.relativeHumidityPercent, 65);
-  assert.equal(output.rootTemperatureC, null);
+  assert.equal(output.rootTemperatureC, 19);
 });
 
-test('unconfigured probes are excluded from continuous heatmap interpolation', () => {
+test('connected probes do not require a separate heatmap location', () => {
   const output = publicHeatmapMeasurements({
     time: '2026-07-31T12:00:00.000Z',
     temperature: 23,
@@ -96,9 +96,9 @@ test('unconfigured probes are excluded from continuous heatmap interpolation', (
   });
   assert.equal(output.airTemperatureC, 23);
   assert.equal(output.relativeHumidityPercent, 65);
-  assert.equal(output.soilMoisturePercent, null);
-  assert.equal(output.soilEcMsCm, null);
-  assert.equal(output.waterTemperatureC, null);
+  assert.equal(output.soilMoisturePercent, 52);
+  assert.equal(output.soilEcMsCm, 1.8);
+  assert.equal(output.waterTemperatureC, 20);
 });
 
 test('sensor measurement context migration makes configured probes point-only by default', async () => {
