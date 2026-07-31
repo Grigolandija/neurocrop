@@ -68,10 +68,11 @@ test('workspace navigation unlocks in Area and Section stages', async ({ page })
   await expect(navigation(page, 'overview')).toBeDisabled()
 })
 
-test('React shell mounts only the active primary workspace during navigation', async ({ page }) => {
+test('React shell keeps every primary workspace mounted during navigation', async ({ page }) => {
   await authenticate(page)
   await expect(page.locator('#headerAccountEmail')).toHaveText('tenant-a@ci.neurocrop.test')
-  await expect(page.locator('[data-workspace-host]')).toHaveCount(1)
+  await expect(page.locator('[data-workspace-host]')).toHaveCount(12)
+  await expect(page.locator('[data-workspace-host]:not([hidden])')).toHaveCount(1)
   await expect(page.locator('[data-nc-react-workspace="overview"]')).toBeVisible()
 
   const routes = [
@@ -91,7 +92,8 @@ test('React shell mounts only the active primary workspace during navigation', a
   for (const [action, route, workspace] of routes) {
     await navigation(page, action).click()
     await expect(page).toHaveURL(new RegExp(`${route.replace('/', '\\/')}$`))
-    await expect(page.locator('[data-workspace-host]')).toHaveCount(1)
+    await expect(page.locator('[data-workspace-host]')).toHaveCount(12)
+    await expect(page.locator('[data-workspace-host]:not([hidden])')).toHaveCount(1)
     await expect(page.locator('[data-workspace-host]:not([hidden])').locator(workspace)).toBeVisible()
     await expect(page.locator('.app-route-loading')).toHaveCount(0)
   }

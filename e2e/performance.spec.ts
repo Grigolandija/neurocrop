@@ -14,17 +14,17 @@ async function authenticate(page: Page) {
   }))
 }
 
-test('initial dashboard warms inactive workspaces and charting for instant navigation', async ({ page }) => {
+test('initial dashboard mounts inactive workspaces for instant navigation', async ({ page }) => {
   await authenticate(page)
   await page.goto('/')
   await expect(page.locator('#dashboardShell')).toBeVisible()
+  await expect(page.locator('[data-all-workspaces-mounted]')).toBeVisible()
+  await expect(page.locator('[data-workspace-host]')).toHaveCount(12)
+  await expect(page.locator('[data-workspace-host]:not([hidden])')).toHaveCount(1)
   await expect(page.locator('[data-overview-heatmap-settled="true"]')).toBeVisible()
-
-  await expect.poll(async () => {
-    const resources = await page.evaluate(() => performance.getEntriesByType('resource').map((entry) => entry.name))
-    return ['echarts-vendor-', 'TrendsWorkspace-', 'SettingsWorkspace-', 'AdminWorkspace-']
-      .every((chunk) => resources.some((url) => url.includes(chunk)))
-  }).toBe(true)
+  await expect(page.locator('.nc-trends-page')).toHaveCount(1)
+  await expect(page.locator('.nc-settings-page')).toHaveCount(1)
+  await expect(page.locator('.nc-areas-page')).toHaveCount(1)
 })
 
 test('primary workspaces emit no uncaught page or console errors', async ({ page }) => {
