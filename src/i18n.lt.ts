@@ -131,6 +131,8 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Change the filters or select another status.": "Pakeiskite filtrus arba pasirinkite kitą būseną.",
   "Change your password and revoke other authenticated sessions.": "Pakeiskite slaptažodį ir nutraukite kitas prisijungimo sesijas.",
   "Chart values are aggregated from this Section's sensor history. Drag or scroll the chart to inspect dense periods.": "Diagramos reikšmės apibendrintos iš šios sekcijos sensorių istorijos. Vilkite arba slinkite, kad peržiūrėtumėte tankius laikotarpius.",
+  "Chart could not be rendered": "Grafiko nepavyko parodyti",
+  "Change the parameter selection or refresh to try again.": "Pakeiskite parametrų pasirinkimą arba atnaujinkite puslapį ir bandykite dar kartą.",
   "Checking infrastructure": "Tikrinama infrastruktūra",
   "Checking invitation": "Tikrinamas kvietimas",
   "Choose Area for climate snapshot": "Pasirinkite erdvę klimato suvestinei",

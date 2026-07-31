@@ -1,11 +1,12 @@
 import { translateInterfaceText as tx } from '../../i18n'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
 import { useInterfaceLanguage } from '../../i18n'
 import { useLocation } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { getMetricDefinition } from '../../domain/metricRegistry'
 import { consumeTrendIntent, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { resolveTrendContext } from './resolveTrendContext'
+import { installEChartsEngine } from '../../vendor/echartsEngine'
 import {
   buildNightIntervals,
   nightMarkAreaData,
@@ -246,6 +247,25 @@ type MetricChartInput = {
   target: [number, number] | null
 }
 
+class TrendChartErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  componentDidCatch(error: Error, details: ErrorInfo) {
+    console.error('[trends-chart] render failed', error, details.componentStack)
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <div className="nc-trends-empty" data-state="error" role="alert"><i className="fa-solid fa-triangle-exclamation" /><strong>{tx("Chart could not be rendered")}</strong><span>{tx("Change the parameter selection or refresh to try again.")}</span></div>
+    }
+    return this.props.children
+  }
+}
+
 function TrendChart({ series, metric, target, range, dayNightSchedule }: { series: ChartInput[]; metric: Metric; target: [number, number] | null; range: RangeKey; dayNightSchedule: TrendDayNightSchedule }) {
   const ref = useRef<HTMLDivElement>(null)
   const { language } = useInterfaceLanguage()
@@ -271,8 +291,10 @@ function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricCha
   const ref = useRef<HTMLDivElement>(null)
   const { language } = useInterfaceLanguage()
   useEffect(() => {
+    installEChartsEngine()
     const echarts = window.echarts as {
       init?: (element: HTMLElement) => { setOption: (option: JsonRecord) => void; resize: () => void; dispose: () => void }
+      getInstanceByDom?: (element: HTMLElement) => { dispose: () => void } | undefined
     } | undefined
     const visibleItems = items.filter((item) => item.points.length > 1)
     if (!ref.current || !visibleItems.length) return
@@ -294,6 +316,7 @@ function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricCha
       }
     }
     if (!echarts?.init) return
+    echarts.getInstanceByDom?.(ref.current)?.dispose()
     const chart = echarts.init(ref.current)
     const stacked = visibleItems.length > 2
     const timestamps = visibleItems.flatMap((item) =>
@@ -467,7 +490,10 @@ export default function TrendsWorkspace() {
     || sections.find((section) => section.areaId === areaId)
     || sections[0]
   const selectedMetric = metrics.find((metric) => metric.key === metricKey) || metrics[0]
-  const activeMetricKeys = [metricKey, ...secondaryMetricKeys.filter((key) => key !== metricKey)].slice(0, 3)
+  const activeMetricKeys = useMemo(
+    () => [metricKey, ...secondaryMetricKeys.filter((key) => key !== metricKey)].slice(0, 3),
+    [metricKey, secondaryMetricKeys],
+  )
   const metricSelectionKey = activeMetricKeys.join(',')
   const areas = useMemo(() => [...new Map(sections.map((section) => [section.areaId, section.areaName])).entries()], [sections])
   const areaIdExists = areas.some(([id]) => id === areaId)
@@ -819,7 +845,7 @@ export default function TrendsWorkspace() {
     : compare && comparison.length > 1
       ? comparison
       : [sectionSeries]
-  const metricChartItems = activeMetricKeys.map((key, index) => {
+  const metricChartItems = useMemo(() => activeMetricKeys.map((key, index) => {
     const metric = metrics.find((item) => item.key === key) || metrics[0]
     return {
       metric,
@@ -827,7 +853,7 @@ export default function TrendsWorkspace() {
       color: chartColors[index % chartColors.length],
       target: profileRange(profiles, selectedSection?.profileId || '', key),
     }
-  })
+  }), [activeMetricKeys, metricHistories, profiles, selectedSection?.profileId])
 
   function changeArea(nextAreaId: string) {
     setAreaId(nextAreaId)
@@ -1004,7 +1030,7 @@ export default function TrendsWorkspace() {
             : compare
             ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} />
             : activeMetricKeys.length > 1
-              ? <MultiMetricChart items={metricChartItems} range={range} dayNightSchedule={dayNightSchedule} />
+              ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}`}><MultiMetricChart items={metricChartItems} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
               : <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} />
           : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{!selectedSection ?tx("Select an Area and Section") : status === 'loading' ?tx("Loading measured history") : status === 'error' ?tx("History could not be loaded") :tx("Not enough measurements yet")}</strong><span>{!selectedSection ?tx("Trend data is shown only for an explicitly selected Section.") : error ||tx("At least two measured points are required to draw a trend.")}</span></div>}
       </article>
