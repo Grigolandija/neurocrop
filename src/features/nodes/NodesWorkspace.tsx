@@ -166,6 +166,15 @@ function gatewaySummary(node: NodeRow) {
   return names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`
 }
 
+function signalQuality(node: NodeRow) {
+  if (node.transportStatus === 'offline') return tx("Disconnected")
+  if (!Number.isFinite(node.rssi)) return tx("Unavailable")
+  if (Number(node.rssi) >= -80) return tx("Excellent")
+  if (Number(node.rssi) >= -100) return tx("Good")
+  if (Number(node.rssi) >= -115) return tx("Weak")
+  return tx("Very weak")
+}
+
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
 }
@@ -429,25 +438,31 @@ export default function NodesWorkspace() {
     const gateways = gatewayNames(selectedNode)
     return <div className="node-detail-page" data-react-nodes-workspace>
       <nav className="node-detail-breadcrumbs" aria-label="Breadcrumb"><button onClick={() => navigate('/nodes')}>{tx("Nodes")}</button><i className="fa-solid fa-chevron-right" /><span>{selectedNode.name}</span></nav>
-      <header className="node-detail-head"><div><p>{selectedNode.devEui}</p><h2>{selectedNode.name}</h2><span>{selectedNode.simulated ? `${tx("Simulated")} · ` : ''}{selectedNode.areaName} · {selectedNode.sectionName}</span></div><div className="node-detail-actions"><button type="button" className="node-detail-secondary-action actionable" onClick={() => openEditor(selectedNode)}><i className="fa-solid fa-pen" />{tx("Edit node")}</button></div></header>
+      <header className="node-detail-head"><div><p>{tx("Sensor node")}</p><h2>{selectedNode.name}</h2><span>{selectedNode.simulated ? `${tx("Simulated")} · ` : ''}{selectedNode.areaName} · {selectedNode.sectionName}</span></div><div className="node-detail-actions"><button type="button" className="node-detail-secondary-action actionable" onClick={() => openEditor(selectedNode)}><i className="fa-solid fa-pen" />{tx("Edit node")}</button></div></header>
       {feedback ? <div className="management-notice success"><i className="fa-solid fa-circle-check" />{feedback}</div> : null}
       {modalError && !editor ? <div className="management-notice warning"><i className="fa-solid fa-triangle-exclamation" />{modalError}</div> : null}
       <section className="node-detail-overview">
         <div className="node-detail-health"><span className="node-detail-orbit" data-tone={state.tone}><i className="fa-solid fa-microchip" /></span><div><span className="node-detail-status" data-tone={state.tone}><i className="fa-solid fa-circle" />{state.label}</span><h3>{selectedNode.gatewayStatus === 'offline' ?tx("Gateway offline") : selectedNode.transportStatus === 'offline' ?tx("No recent uplink") : health.tone === 'optimal' ?tx("Reporting normally") :tx("Device diagnostics require review")}</h3><p>{tx("Last payload")} {lastPayload.relative}</p></div></div>
         <div className="node-detail-facts">
-          <div><small>{tx("Battery")}</small><strong>{Number.isFinite(selectedNode.level) ? `${selectedNode.level}%` : '—'}</strong><span className="node-detail-track"><i style={{ width: `${Number(selectedNode.level) || 0}%` }} /></span>{Number.isFinite(selectedNode.batteryMv) ? <p>{(selectedNode.batteryMv / 1000).toFixed(2)} V</p> : null}</div>
-          <div><small>{tx("Signal")}</small><strong>{Number.isFinite(selectedNode.rssi) ? `${selectedNode.rssi} dBm` : '—'}</strong><p>{Number.isFinite(selectedNode.snr) ? `SNR ${selectedNode.snr}${Number.isFinite(selectedNode.spreadingFactor) ? ` · SF${selectedNode.spreadingFactor}` : ''}` : 'SNR unavailable'}</p></div>
-          <div><small>{tx("Reporting mode")}</small><strong>{getReportingModeLabel(selectedNode.profile)}</strong><p>{selectedNode.transportStatus === 'live' ?tx("Live uplink") : state.label}</p></div>
+          <div><small>{tx("Battery")}</small><strong>{Number.isFinite(selectedNode.level) ? `${selectedNode.level}%` : '—'}</strong><span className="node-detail-track"><i style={{ width: `${Number(selectedNode.level) || 0}%` }} /></span><p>{Number.isFinite(selectedNode.level) && Number(selectedNode.level) < 25 ? tx("Charge or replace soon") : tx("Battery level")}</p></div>
+          <div><small>{tx("Last connection")}</small><strong>{lastPayload.relative}</strong><p>{tx("Latest data received")}</p></div>
         </div>
       </section>
-      <div className="node-detail-columns">
+      <div className="node-detail-columns node-detail-columns-simple">
         <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3></header><div className="node-detail-sensors">
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? detected.map((sensor, index) => {
             const configurable = 'port' in sensor && sensor.port === 'onewire'
             return <SensorRow sensor={sensor as Sensor} index={index} configurable={configurable} busy={busy} onSave={saveSensor} key={`${(sensor as Sensor).port || sensorLabel(sensor as Sensor)}-${index}`} />
           }) : <p className="node-detail-muted">{tx("No sensor presence information was reported.")}</p>}
         </div></section>
-        <section className="node-detail-section"><header><p>{tx("Diagnostics")}</p><h3>{tx("Latest device report")}</h3></header><dl className="node-detail-diagnostics">
+        <section className="node-detail-section node-detail-connection"><header><p>{tx("Connection")}</p><h3>{tx("Network status")}</h3></header><div className="node-detail-connection-summary"><span data-tone={state.tone}><i className="fa-solid fa-signal" /></span><div><strong>{signalQuality(selectedNode)}</strong><p>{selectedNode.transportStatus === 'offline' ? tx("No recent uplink") : tx("Node is communicating normally")}</p></div></div></section>
+      </div>
+      <details className="node-detail-advanced">
+        <summary><span><i className="fa-solid fa-sliders" /><span><strong>{tx("Advanced diagnostics")}</strong><small>{tx("Technical information for installation and support")}</small></span></span><i className="fa-solid fa-chevron-down" /></summary>
+        <dl className="node-detail-diagnostics">
+          <div><dt>{tx("Device identifier")}</dt><dd>{selectedNode.devEui}</dd></div>
+          <div><dt>{tx("Battery voltage")}</dt><dd>{Number.isFinite(selectedNode.batteryMv) ? `${(selectedNode.batteryMv / 1000).toFixed(2)} V` : tx("Unavailable")}</dd></div>
+          <div><dt>{tx("Reporting mode")}</dt><dd>{getReportingModeLabel(selectedNode.profile)}</dd></div>
           <div><dt>{tx("Firmware")}</dt><dd>{selectedNode.firmwareVersion ||tx("Unavailable")}</dd></div>
           <div><dt>{tx("Read failures")}</dt><dd>{Number.isFinite(Number(counters.read_fail)) ? counters.read_fail :tx("Unavailable")}</dd></div>
           <div><dt>{tx("Transmit failures")}</dt><dd>{Number.isFinite(Number(counters.tx_fail)) ? counters.tx_fail :tx("Unavailable")}</dd></div>
@@ -455,8 +470,8 @@ export default function NodesWorkspace() {
           <div><dt>{tx("Last uplink received by")}</dt><dd>{gateways.length ? gateways.join(' · ') : tx("Not recorded")}</dd></div>
           {flags.length ? <div><dt>{tx("Fault flags")}</dt><dd>{flags.join(' · ')}</dd></div> : null}
           <div><dt>{tx("Signal detail")}</dt><dd>{formatSignal(selectedNode)}</dd></div>
-        </dl></section>
-      </div>
+        </dl>
+      </details>
       {editor ? <NodeEditor editor={editor} areas={areas} sections={sections} busy={busy} error={modalError} onChange={setEditor} onAreaChange={chooseEditorArea} onClose={() => setEditor(null)} onSave={saveNode} onRemove={removeNode} /> : null}
     </div>
   }

@@ -615,7 +615,7 @@
 .designer-app #nodesManagementSection .node-detail-health p,
 .designer-app #nodesManagementSection .node-detail-facts p { margin: 0; color: var(--node-text-muted); font-size: 9px; }
 
-.designer-app #nodesManagementSection .node-detail-facts { display: grid; grid-template-columns: repeat(3, 1fr); }
+.designer-app #nodesManagementSection .node-detail-facts { display: grid; grid-template-columns: repeat(2, 1fr); }
 .designer-app #nodesManagementSection .node-detail-facts > div { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 20px; border-right: 1px solid var(--node-border); }
 .designer-app #nodesManagementSection .node-detail-facts > div:last-child { border-right: 0; }
 .designer-app #nodesManagementSection .node-detail-facts small { color: var(--node-text-muted); font-size: 9px; }
@@ -624,6 +624,7 @@
 .designer-app #nodesManagementSection .node-detail-track i { display: block; height: 100%; background: var(--node-primary); }
 
 .designer-app #nodesManagementSection .node-detail-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 38px; }
+.designer-app #nodesManagementSection .node-detail-columns-simple { margin-bottom: 24px; }
 .designer-app #nodesManagementSection .node-detail-section { border-top: 1px solid var(--node-border); padding-top: 24px; }
 .designer-app #nodesManagementSection .node-detail-section > header h3 { margin: 0 0 22px; font-family: 'Space Grotesk', sans-serif; font-size: 24px; letter-spacing: -.035em; }
 .designer-app #nodesManagementSection .node-detail-sensors > div { display: grid; min-height: 58px; grid-template-columns: 34px 1fr auto; align-items: center; gap: 12px; border-bottom: 1px solid rgba(20, 32, 27, .08); }
@@ -636,6 +637,28 @@
 .designer-app #nodesManagementSection .node-detail-diagnostics > div { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid rgba(20, 32, 27, .08); font-size: 10px; }
 .designer-app #nodesManagementSection .node-detail-diagnostics dt { color: var(--node-text-muted); }
 .designer-app #nodesManagementSection .node-detail-diagnostics dd { margin: 0; font-weight: 800; text-align: right; }
+.designer-app #nodesManagementSection .node-detail-connection-summary { display: flex; min-height: 70px; align-items: center; gap: 14px; border-top: 1px solid var(--node-border); border-bottom: 1px solid rgba(20, 32, 27, .08); }
+.designer-app #nodesManagementSection .node-detail-connection-summary > span { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: rgba(47, 117, 88, .10); color: var(--node-success); }
+.designer-app #nodesManagementSection .node-detail-connection-summary > span[data-tone="offline"],
+.designer-app #nodesManagementSection .node-detail-connection-summary > span[data-tone="critical"] { background: rgba(161, 69, 55, .10); color: var(--node-critical); }
+.designer-app #nodesManagementSection .node-detail-connection-summary strong,
+.designer-app #nodesManagementSection .node-detail-connection-summary p { display: block; margin: 0; }
+.designer-app #nodesManagementSection .node-detail-connection-summary strong { font-family: 'Space Grotesk', sans-serif; font-size: 17px; }
+.designer-app #nodesManagementSection .node-detail-connection-summary p { margin-top: 4px; color: var(--node-text-muted); font-size: 10px; }
+.designer-app #nodesManagementSection .node-detail-advanced { overflow: hidden; border: 1px solid var(--node-border); border-radius: 12px; background: rgba(255, 255, 255, .5); }
+.designer-app #nodesManagementSection .node-detail-advanced > summary { display: flex; min-height: 68px; cursor: pointer; list-style: none; align-items: center; justify-content: space-between; gap: 20px; padding: 0 20px; }
+.designer-app #nodesManagementSection .node-detail-advanced > summary::-webkit-details-marker { display: none; }
+.designer-app #nodesManagementSection .node-detail-advanced > summary > span { display: flex; align-items: center; gap: 12px; }
+.designer-app #nodesManagementSection .node-detail-advanced > summary > span > i { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 9px; background: var(--node-muted); color: var(--node-text-muted); }
+.designer-app #nodesManagementSection .node-detail-advanced > summary strong,
+.designer-app #nodesManagementSection .node-detail-advanced > summary small { display: block; }
+.designer-app #nodesManagementSection .node-detail-advanced > summary strong { font-size: 11px; }
+.designer-app #nodesManagementSection .node-detail-advanced > summary small { margin-top: 3px; color: var(--node-text-muted); font-size: 9px; }
+.designer-app #nodesManagementSection .node-detail-advanced > summary > i { color: var(--node-text-muted); transition: transform .2s ease; }
+.designer-app #nodesManagementSection .node-detail-advanced[open] > summary > i { transform: rotate(180deg); }
+.designer-app #nodesManagementSection .node-detail-advanced .node-detail-diagnostics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 20px 16px; }
+.designer-app #nodesManagementSection .node-detail-advanced .node-detail-diagnostics > div:nth-child(odd) { padding-right: 20px; }
+.designer-app #nodesManagementSection .node-detail-advanced .node-detail-diagnostics > div:nth-child(even) { padding-left: 20px; border-left: 1px solid rgba(20, 32, 27, .08); }
 .designer-app #nodesManagementSection .node-detail-muted { color: var(--node-text-muted); font-size: 10px; }
 .designer-app #nodesManagementSection .node-detail-empty { border: 1px solid var(--node-border); border-radius: 12px; padding: 28px; background: var(--node-surface); }
 
@@ -918,6 +941,8 @@
   .designer-app #nodesManagementSection .node-detail-health { align-items: flex-start; }
   .designer-app #nodesManagementSection .node-detail-facts { grid-template-columns: 1fr; }
   .designer-app #nodesManagementSection .node-detail-facts > div { border-right: 0; border-bottom: 1px solid var(--node-border); }
+  .designer-app #nodesManagementSection .node-detail-advanced .node-detail-diagnostics { grid-template-columns: 1fr; }
+  .designer-app #nodesManagementSection .node-detail-advanced .node-detail-diagnostics > div:nth-child(n) { padding-inline: 0; border-left: 0; }
 }
 
 /* Copied from the approved trial node editor; keep values in sync. */
