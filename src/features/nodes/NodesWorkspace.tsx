@@ -393,14 +393,16 @@ export default function NodesWorkspace() {
   }
 
   async function saveSensor(sensor: Sensor, context: SensorContext) {
-    if (!selectedNode?.devEui || busy) return
+    if (!selectedNode?.devEui || busy) return false
     setBusy(true); setModalError('')
     try {
       const payload = await neurocropApi.updateNodeSensor(selectedNode.devEui, sensor.port || 'onewire', context)
       setSensors(records(payload, ['sensors']))
-      setFeedback('Sensor measurement context saved.')
+      setFeedback(tx("Sensor measurement settings saved."))
+      return true
     } catch (mutationError) {
       setModalError(errorMessage(mutationError, 'Sensor purpose could not be saved.'))
+      return false
     } finally {
       setBusy(false)
     }
@@ -431,7 +433,7 @@ export default function NodesWorkspace() {
         <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("Set what each sensor measures and how NeuroCrop should use its data.")}</span></header><div className="node-detail-sensors">
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? detected.map((sensor, index) => {
             const configurable = 'port' in sensor && sensor.configurable === true
-            return <SensorRow sensor={sensor as Sensor} index={index} configurable={configurable} initiallyOpen={openSensorSetup && index === 0} busy={busy} onSave={saveSensor} key={`${(sensor as Sensor).port || sensorLabel(sensor as Sensor)}-${index}`} />
+            return <SensorRow sensor={sensor as Sensor} index={index} configurable={configurable} initiallyOpen={openSensorSetup && index === 0} busy={busy} error={modalError} onSave={saveSensor} key={`${(sensor as Sensor).port || sensorLabel(sensor as Sensor)}-${index}`} />
           }) : <p className="node-detail-muted">{tx("No sensor presence information was reported.")}</p>}
         </div></section>
       </div>
@@ -473,7 +475,7 @@ export default function NodesWorkspace() {
   </div>
 }
 
-function SensorRow({ sensor, index, configurable, initiallyOpen, busy, onSave }: { sensor: Sensor; index: number; configurable: boolean; initiallyOpen: boolean; busy: boolean; onSave: (sensor: Sensor, context: SensorContext) => Promise<void> }) {
+function SensorRow({ sensor, index, configurable, initiallyOpen, busy, error, onSave }: { sensor: Sensor; index: number; configurable: boolean; initiallyOpen: boolean; busy: boolean; error: string; onSave: (sensor: Sensor, context: SensorContext) => Promise<boolean> }) {
   const [editing, setEditing] = useState(initiallyOpen)
   const initialChoice = sensor.targetType === 'section' ? 'section' : 'target'
   const [choice, setChoice] = useState<'section' | 'target'>(initialChoice)
@@ -515,7 +517,8 @@ function SensorRow({ sensor, index, configurable, initiallyOpen, busy, onSave }:
       </div>
       {choice === 'target' ? <div className="nc-sensor-target-fields wide"><div className="nc-sensor-purpose-question"><span className="nc-sensor-step">2</span><div><strong>{tx("Which exact place or object does it measure?")}</strong><span>{tx("This name will be shown in Readings and Trends.")}</span></div></div><div className="nc-sensor-target-inputs"><label><span>{tx("Place or object type")}</span><select value={context.targetType} onChange={(event) => chooseTargetType(event.target.value)}>{targetTypes.filter(([value]) => ['pot', 'bed', 'reservoir', 'pipe', 'incubator', 'equipment', 'custom'].includes(value)).map(([value, copy]) => <option value={value} key={value}>{tx(copy)}</option>)}</select></label><label><span>{tx("Give it a clear name")}</span><input value={context.targetName} maxLength={120} placeholder={['incubator', 'equipment'].includes(context.targetType) ? tx("e.g. Incubator 1") : tx("e.g. Pot 12")} onChange={(event) => setContext({ ...context, targetName: event.target.value })} /></label>{isTemperatureProbe && ['pot', 'bed'].includes(context.targetType) ? <label><span>{tx("Probe depth, cm (optional)")}</span><input type="number" min="0" max="1000" step="0.1" value={context.depthCm ?? ''} placeholder={tx("e.g. 10")} onChange={(event) => setContext({ ...context, depthCm: event.target.value === '' ? null : Number(event.target.value) })} /></label> : null}</div></div> : null}
       <div className="nc-sensor-purpose-preview wide" data-section={choice === 'section'}><i className={`fa-solid ${choice === 'section' ? 'fa-circle-check' : 'fa-location-dot'}`} /><div><strong>{tx("How NeuroCrop will use this data")}</strong><span>{choice === 'section' ? tx("Included in the Section average, Growing Score, alerts and heatmap.") : <>{tx("Shown separately as")} <strong>{context.targetName || tx("this spot")}</strong>. {tx("It will not change the Section average, Growing Score, Section alerts or heatmap.")}</>}</span></div></div>
-      <footer className="wide"><span>{targetMissing ? tx("Enter a name before saving.") : tx("You can change this later without deleting any readings.")}</span><button type="button" disabled={busy || targetMissing || !context.label.trim()} onClick={() => void onSave(sensor, { ...context, label: context.label.trim(), targetName: context.targetName.trim() })}>{busy ? tx("Saving…") : tx("Save measurement use")}</button></footer>
+      {error ? <p className="management-modal-error wide" role="alert">{error}</p> : null}
+      <footer className="wide"><span>{targetMissing ? tx("Enter a name before saving.") : tx("You can change this later without deleting any readings.")}</span><button type="button" disabled={busy || targetMissing || !context.label.trim()} onClick={() => void onSave(sensor, { ...context, label: context.label.trim(), targetName: context.targetName.trim() }).then((saved) => { if (saved) setEditing(false) })}>{busy ? tx("Saving…") : tx("Save measurement use")}</button></footer>
     </div></section></div></ModalPortal> : null}</>
 }
 

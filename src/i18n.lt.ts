@@ -948,5 +948,6 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Probe depth, cm (optional)": "Zondo gylis, cm (neprivaloma)",
   "e.g. 10": "pvz., 10",
   "You can change this later without deleting any readings.": "Tai galėsite pakeisti vėliau neprarasdami rodmenų.",
-  "Sensor measurement": "Sensoriaus matavimas"
+  "Sensor measurement": "Sensoriaus matavimas",
+  "Sensor measurement settings saved.": "Sensoriaus matavimo nustatymai išsaugoti."
 })
