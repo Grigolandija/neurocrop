@@ -773,7 +773,7 @@
 }
 
 .designer-app #nodesManagementSection .node-detail-status i { font-size: 7px; }
-.designer-app #nodesManagementSection .node-detail-status[data-tone="warning"],
+.designer-app #nodesManagementSection .node-detail-status[data-tone="warning"] { background: rgba(169, 109, 22, .11); color: var(--node-warning); }
 .designer-app #nodesManagementSection .node-detail-status[data-tone="critical"] { background: rgba(161, 69, 55, .10); color: var(--node-critical); }
 .designer-app #nodesManagementSection .node-detail-status[data-tone="offline"] { background: rgba(92, 101, 96, .10); color: #626963; }
 
@@ -798,6 +798,12 @@
 .designer-app #nodesManagementSection .node-detail-columns-simple { margin-bottom: 24px; }
 .designer-app #nodesManagementSection .node-detail-section { border-top: 1px solid var(--node-border); padding-top: 24px; }
 .designer-app #nodesManagementSection .node-detail-section > header h3 { margin: 0 0 22px; font-family: 'Space Grotesk', sans-serif; font-size: 24px; letter-spacing: -.035em; }
+.designer-app #nodesManagementSection .nc-sensor-groups { display: grid; gap: 28px; }
+.designer-app #nodesManagementSection .nc-sensor-group { display: grid; gap: 8px; }
+.designer-app #nodesManagementSection .nc-sensor-group > header { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+.designer-app #nodesManagementSection .nc-sensor-group > header h4 { margin: 0; color: var(--node-text); font-family: 'Space Grotesk', sans-serif; font-size: 15px; }
+.designer-app #nodesManagementSection .nc-sensor-group > header p { margin: 3px 0 0; color: var(--node-text-muted); font-size: 9px; }
+.designer-app #nodesManagementSection .nc-sensor-group .node-detail-sensors { border-top: 1px solid var(--node-border); }
 .designer-app #nodesManagementSection .node-detail-sensors > div { display: grid; min-height: 58px; grid-template-columns: 34px 1fr auto; align-items: center; gap: 12px; border-bottom: 1px solid rgba(20, 32, 27, .08); }
 .designer-app #nodesManagementSection .node-detail-sensors > div > span:first-child { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 8px; background: rgba(26, 111, 120, .10); color: #1a6f78; font-size: 11px; }
 .designer-app #nodesManagementSection .node-detail-sensors strong,

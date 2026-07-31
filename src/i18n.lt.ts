@@ -949,5 +949,16 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "e.g. 10": "pvz., 10",
   "You can change this later without deleting any readings.": "Tai galėsite pakeisti vėliau neprarasdami rodmenų.",
   "Sensor measurement": "Sensoriaus matavimas",
-  "Sensor measurement settings saved.": "Sensoriaus matavimo nustatymai išsaugoti."
+  "Sensor measurement settings saved.": "Sensoriaus matavimo nustatymai išsaugoti.",
+  "Built-in sensor measurement settings saved.": "Integruotų sensorių matavimo nustatymai išsaugoti.",
+  "Built-in sensors share the Node location. External probes can monitor different places or objects.": "Integruoti sensoriai naudoja bendrą Node vietą. Išoriniai zondai gali stebėti skirtingas vietas ar objektus.",
+  "Built-in climate sensors": "Integruoti klimato sensoriai",
+  "These sensors are inside the same Node and use one shared measurement location.": "Šie sensoriai yra tame pačiame Node ir naudoja vieną bendrą matavimo vietą.",
+  "External probes": "Išoriniai zondai",
+  "Set the specific place or object monitored by each probe.": "Nurodykite konkrečią vietą arba objektą, kurį stebi kiekvienas zondas.",
+  "Different measurement locations — review setup": "Skirtingos matavimo vietos — patikrinkite nustatymus",
+  "Review setup": "Patikrinti nustatymus",
+  "Needs setup": "Reikia nustatyti",
+  "Set up": "Nustatyti",
+  "Shared measurement location": "Bendra matavimo vieta"
 })
