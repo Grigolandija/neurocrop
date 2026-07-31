@@ -417,7 +417,6 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   ), [map.objects])
   const insufficientHeatmapSources = mode === 'environment'
     && map.heatmapSettings.enabled
-    && points.length > 0
     && points.length < MIN_HEATMAP_SENSOR_COUNT
   useEffect(() => {
     let firstPaintFrame = 0
@@ -962,8 +961,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> {tr('Latest LoRa quality based on RSSI, SNR and node status. It is not a propagation map.', 'Naujausia LoRa ryšio kokybė pagal RSSI, SNR ir mazgo būseną. Tai nėra signalo sklidimo žemėlapis.')}</div> : null}
     {insufficientHeatmapSources ? <div className="gh-insufficient-heatmap" role="status">
       <i className="fa-solid fa-chart-area" />
-      <strong>{tr('Not enough data for a heatmap', 'Nepakanka duomenų heatmap žemėlapiui')}</strong>
-      <span>{tr(`At least ${MIN_HEATMAP_SENSOR_COUNT} sensor sources are required for this metric. ${points.length} available.`, `Šiam rodikliui reikia bent ${MIN_HEATMAP_SENSOR_COUNT} sensorių šaltinių. Dabar yra ${points.length}.`)}</span>
+      <strong>{tr('Not enough measurements', 'Nepakanka matavimų')}</strong>
+      <span>{tr(`At least ${MIN_HEATMAP_SENSOR_COUNT} valid sensor measurements are required to build this map. ${points.length} available.`, `Šiam žemėlapiui sudaryti reikia bent ${MIN_HEATMAP_SENSOR_COUNT} tinkamų sensorių matavimų. Dabar yra ${points.length}.`)}</span>
     </div> : null}
     {dailyView ? <aside className="gh-daily-summary">
       <small>{tr('TODAY', 'ŠIANDIEN')}</small><h2>{actions.length || sensorIssues.length || (targetState !== 'optimal' && targetState !== 'unknown') ? tr('Items need attention', 'Reikia dėmesio') : tr('Area is stable', 'Erdvė stabili')}</h2>

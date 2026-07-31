@@ -187,14 +187,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const measurementSets = useMemo(() => timeMode === 'history'
     ? (history?.frames.flatMap((frame) => frame.nodes.map((node) => node.measurements)) ?? [])
     : (context?.nodes.map((node) => node.measurements) ?? []), [context?.nodes, history?.frames, timeMode])
-  const availableMetrics = useMemo(() => {
-    return heatmapMetrics.filter((key) => measurementSets.some((measurements) => {
-      if (key === 'soil-ec' && measurements?.soilEcByDepth?.length) return true
-      const value = measurements?.[METRICS[key].field]
-      return typeof value === 'number' && Number.isFinite(value)
-    }))
-  }, [measurementSets])
-  const selectedMetric = availableMetrics.includes(metric) ? metric : availableMetrics[0] || metric
+  const selectedMetric = metric
   const availableSoilEcDepths = useMemo(() => [...new Set(measurementSets.flatMap((measurements) =>
     measurements?.soilEcByDepth?.map((reading) => reading.depthCm) ?? []))].sort((left, right) => left - right), [measurementSets])
   const selectedSoilEcDepthCm = selectedMetric === 'soil-ec' && availableSoilEcDepths.length
@@ -286,7 +279,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
           <button type="button" className={timeMode === 'live' ? 'active' : ''} onClick={() => selectTimeMode('live')}>{lithuanian ? 'Dabar' :tx("Live")}</button>
           <button type="button" className={timeMode === 'history' ? 'active' : ''} disabled={!historyAvailable} title={historyError || undefined} onClick={() => selectTimeMode('history')}>{lithuanian ? 'Istorija' :tx("History")}</button>
         </div>
-        <label><span>{tx("Metric")}</span><select value={availableMetrics.length ? selectedMetric : ''} disabled={!availableMetrics.length} onChange={(event) => setMetric(event.target.value as MetricKey)}>{availableMetrics.length ? availableMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>) : <option value="">{lithuanian ? 'Nėra matavimų' : 'No measurements'}</option>}</select></label>
+        <label><span>{tx("Metric")}</span><select value={selectedMetric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{heatmapMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>)}</select></label>
         {selectedMetric === 'soil-ec' && availableSoilEcDepths.length ? <label className="nc-climate-depth"><span>{lithuanian ? 'Gylis' : 'Depth'}</span><select value={selectedSoilEcDepthCm} onChange={(event) => selectSoilEcDepth(Number(event.target.value))}>{availableSoilEcDepths.map((depthCm) => <option value={depthCm} key={depthCm}>{depthCm} cm</option>)}</select></label> : null}
         {!overviewPresentation ? <span className="nc-climate-lock"><i className="fa-solid fa-lock" />{tx("Read only")}</span> : null}
       </div>
