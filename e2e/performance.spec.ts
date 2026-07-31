@@ -22,9 +22,9 @@ test('initial dashboard mounts inactive workspaces for instant navigation', asyn
   await expect(page.locator('[data-workspace-host]')).toHaveCount(12)
   await expect(page.locator('[data-workspace-host]:not([hidden])')).toHaveCount(1)
   await expect(page.locator('[data-overview-heatmap-settled="true"]')).toBeVisible()
-  await expect(page.locator('.nc-trends-page')).toHaveCount(1)
-  await expect(page.locator('.nc-settings-page')).toHaveCount(1)
-  await expect(page.locator('.nc-areas-page')).toHaveCount(1)
+  await expect(page.locator('[data-workspace-route="/history"] .nc-trends-page')).toHaveCount(1)
+  await expect(page.locator('[data-workspace-route="/settings"] .nc-settings-page')).toHaveCount(1)
+  await expect(page.locator('[data-workspace-route="/areas"] .nc-areas-page')).toHaveCount(1)
 })
 
 test('primary workspaces emit no uncaught page or console errors', async ({ page }) => {

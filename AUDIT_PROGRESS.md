@@ -24,13 +24,13 @@ configuration, Docker/proxy/deployment, jobs, security, tests, and documentation
 
 | Area | Result | Evidence |
 |---|---|---|
-| Backend unit/contract/migration tests | Pass | 120 total: 117 pass, 3 DB/API integration tests skipped locally, 0 fail |
+| Backend unit/contract/migration tests | Pass | 204 total: 200 pass, 4 DB/API integration tests skipped locally, 0 fail; GitHub runs the PostgreSQL/API integration path |
 | Backend syntax | Pass | `npm run check`, including API, ingest, ingest health and retention worker |
 | Frontend state/runtime tests | Pass | 4 state golden vectors plus runtime invariants |
 | Frontend lint/typecheck/build | Pass | ESLint and Vite production build |
 | Dependency audit | Pass after fix | `npm audit --omit=dev` and `pnpm audit --prod`: no known vulnerabilities |
-| Gateway factory Python tests | Pass | 6 tests passed during baseline |
-| Shell syntax | Pass | Deployment and rollback scripts parsed with `sh -n` |
+| Gateway factory Python tests | Pass locally | 10 private factory/updater tests; `gateway-factory/` is intentionally excluded from the public repository and its CI belongs in the private factory repository |
+| Shell syntax | Pass | Tracked deployment, backup and rollback scripts parsed with `bash -n` locally and in CI |
 | PostgreSQL integration | Not run locally | No local PostgreSQL client/service or Docker CLI |
 | Compose runtime validation | Not run locally | Docker CLI unavailable |
 | Production runtime | Pass with findings | Read-only inspection of containers, both databases, ChirpStack metadata, logs, timers, backups, proxy and public endpoints |
@@ -51,6 +51,10 @@ configuration, Docker/proxy/deployment, jobs, security, tests, and documentation
 | AUD-010 | Medium | Fixed | Environment documentation | No canonical example covered actual API, DB, MQTT, ChirpStack and mail variables | Added `backend/.env.example` with blank sensitive values and production-secret guidance | Manual variable inventory |
 | AUD-016 | Medium | Fixed | Crop Profile validation | Known sensor targets could be saved outside physically possible ranges and poison scoring | Added physical-limit validation for known profile metrics while preserving custom metrics | Unit tests cover impossible RH/pH and valid custom metrics |
 | AUD-017 | Medium | Fixed | Alerts API contract | Frontend `getAlerts()` defaulted to unsupported `status=open` while backend accepts `all`, `acknowledged`, `snoozed`, `resolved` | Changed the client default to `all` | Runtime invariant test |
+| AUD-025 | High | Fixed | Current readings | Section averages included stale/offline last-known samples, so the UI could present old measurements as current operational state | Current Section averages now include only live or delayed measurement sources while per-Node rows retain last-known diagnostics | Backend freshness contract plus full backend test suite |
+| AUD-026 | Medium | Fixed | Frontend render performance | Readings column discovery synchronously updated state from an effect, causing a redundant render and possible navigation flicker | Visible columns are now derived with memoization while explicit user-hidden columns remain respected | ESLint, state/runtime tests and production build |
+| AUD-027 | Medium | Fixed | CI coverage | Public CI attempted to execute the intentionally ignored private `gateway-factory/` tree, making clean GitHub checkouts fail before testing tracked operations | Public CI validates only tracked operational scripts and the production Compose model; private gateway tests remain in the private factory release flow | Clean-checkout GitHub Actions run |
+| AUD-028 | Low | Fixed | E2E reliability | The preload assertion counted a shared presentation class used by both Settings and Organization workspaces | E2E now scopes each assertion to its unique `data-workspace-route` host and still proves every workspace mounts before navigation | Playwright CI |
 | AUD-019 | Medium | Fixed locally | Browser security | Production static frontend returned no HSTS, MIME-sniffing, frame, referrer or browser-permission policy headers | Added non-breaking headers to the shipped `.htaccess`; deployment is still required | Runtime invariant test; production headers captured before fix |
 | AUD-024 | Medium | Fixed locally | Overview decision UX | Watch-level Section evidence exposed only a generic out-of-range message because `/dashboard` omitted the main metric value and target | Dashboard now returns the exact main condition; until that backend is deployed, Overview enriches legacy responses from existing latest-reading and Crop Profile endpoints, then shows current value, target, deviation and the minimum increase/decrease required | Backend scoring regression test, frontend runtime invariant, lint and production build |
 | AUD-020 | Medium | Open | Production operations | Production has 24 available OS updates, including one standard security update; package metadata is over one week old | Schedule a maintenance window, refresh package metadata, assess updates, snapshot/backup and patch with rollback available | Read-only host inspection |
