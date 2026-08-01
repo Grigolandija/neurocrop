@@ -482,8 +482,12 @@ function SectionParameterSummary({ section, profile, onOpenTrend }: { section: S
     const quality = getQuality(section, metric)
     const target = getRange(profile, metric)
     return <button type="button" className="nc-section-parameter" data-tone={getTone(section, metric, profile)} data-quality={quality} onClick={() => onOpenTrend(metric)} key={metric.key}>
-      <span className="nc-section-parameter-label"><i className={`fa-solid ${metric.icon}`} /><strong>{metric.label}</strong><small>{tx(qualityLabels[quality])}</small></span>
-      <span className="nc-section-parameter-value"><strong>{value === null ? tx(qualityLabels[quality]) : <>{formatValue(value, metric)} <small>{metric.unit}</small></>}</strong><small>{tx("Crop target")}: {target ? `${target.map((bound) => formatValue(bound, metric)).join('–')} ${metric.unit}` : tx("No target")}</small></span>
+      <span className="nc-section-parameter-head">
+        <span><i className={`fa-solid ${metric.icon}`} /><strong>{metric.label}</strong></span>
+        <small>{tx(qualityLabels[quality])}</small>
+      </span>
+      <strong className="nc-section-parameter-reading">{value === null ? tx(qualityLabels[quality]) : <>{formatValue(value, metric)} <small>{metric.unit}</small></>}</strong>
+      <small className="nc-section-parameter-target">{tx("Crop target")}: {target ? `${target.map((bound) => formatValue(bound, metric)).join('–')} ${metric.unit}` : tx("No target")}</small>
     </button>
   })}</div>
 }
