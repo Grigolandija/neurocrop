@@ -559,6 +559,12 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
 
 .nc-overview-section-summary {
   min-width: 0;
+  margin: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .nc-overview-section-summary > p,
