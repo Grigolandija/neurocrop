@@ -14,17 +14,16 @@ async function authenticate(page: Page) {
   }))
 }
 
-test('initial dashboard mounts inactive workspaces for instant navigation', async ({ page }) => {
+test('initial dashboard renders the active workspace without mounting inactive workspaces', async ({ page }) => {
   await authenticate(page)
   await page.goto('/')
   await expect(page.locator('#dashboardShell')).toBeVisible()
-  await expect(page.locator('[data-all-workspaces-mounted]')).toBeVisible()
-  await expect(page.locator('[data-workspace-host]')).toHaveCount(12)
-  await expect(page.locator('[data-workspace-host]:not([hidden])')).toHaveCount(1)
+  await expect(page.locator('[data-workspace-host]')).toHaveCount(1)
+  await expect(page.locator('[data-workspace-host]')).toHaveAttribute('data-workspace-route', '/')
   await expect(page.locator('[data-overview-heatmap-settled="true"]')).toBeVisible()
-  await expect(page.locator('[data-workspace-route="/history"] .nc-trends-page')).toHaveCount(1)
-  await expect(page.locator('[data-workspace-route="/settings"] .nc-settings-page')).toHaveCount(1)
-  await expect(page.locator('[data-workspace-route="/areas"] .nc-areas-page')).toHaveCount(1)
+  await expect(page.locator('[data-workspace-route="/history"] .nc-trends-page')).toHaveCount(0)
+  await expect(page.locator('[data-workspace-route="/settings"] .nc-settings-page')).toHaveCount(0)
+  await expect(page.locator('[data-workspace-route="/areas"] .nc-areas-page')).toHaveCount(0)
 })
 
 test('primary workspaces emit no uncaught page or console errors', async ({ page }) => {
