@@ -106,7 +106,7 @@ function warmWorkspaceModules(loaders: Array<() => Promise<WorkspaceModule>>) {
       }, { timeout: 1_500 })
       return
     }
-    timerHandle = window.setTimeout(() => {
+    timerHandle = globalThis.setTimeout(() => {
       timerHandle = null
       finishPendingWait?.()
     }, 50)
@@ -129,7 +129,7 @@ function warmWorkspaceModules(loaders: Array<() => Promise<WorkspaceModule>>) {
   return () => {
     cancelled = true
     if (idleHandle !== null) window.cancelIdleCallback(idleHandle)
-    if (timerHandle !== null) window.clearTimeout(timerHandle)
+    if (timerHandle !== null) globalThis.clearTimeout(timerHandle)
     finishPendingWait?.()
   }
 }
