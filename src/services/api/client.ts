@@ -1,3 +1,6 @@
+import { measurePerformance } from '../performanceDiagnostics'
+import { getDashboardState, notifyUnauthorized, setApiConnected, subscribeDashboardState } from '../../state/dashboardStore'
+
 export type ApiRequest = <T = unknown>(path: string, options?: RequestInit) => Promise<T>
 
 const GET_CACHE_TTL_MS = 60_000
@@ -145,10 +148,10 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
     return await readResponseBody(response) as T
   }
 
-  if (!cacheable) return await execute()
+  if (!cacheable) return await measurePerformance('api', `${method} ${path}`, execute)
 
   const requestGeneration = cacheGeneration
-  const pending = execute()
+  const pending = measurePerformance('api', `${method} ${path}`, execute)
     .then((value) => {
       if (requestGeneration === cacheGeneration) {
         storeCachedGet(cacheKey, value)
@@ -214,4 +217,3 @@ export function queryString(params: Record<string, unknown> = {}) {
 export function isApiConnected() {
   return Boolean(String(window.NEUROCROP_CONFIG?.apiBaseUrl || '').trim())
 }
-import { notifyUnauthorized, setApiConnected, subscribeDashboardState, getDashboardState } from '../../state/dashboardStore'

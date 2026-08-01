@@ -5,6 +5,8 @@ import { useInterfaceLanguage } from '../i18n'
 import { neurocropApi } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
 import { canAccessWorkspaceRoute, useWorkspaceAccess, workspaceLockReason } from '../state/workspaceAccess'
+import PerformanceDiagnosticsPanel from './PerformanceDiagnosticsPanel'
+import { beginRoutePerformance } from '../services/performanceDiagnostics'
 
 export type DashboardUser = {
   email: string
@@ -136,6 +138,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
 
   function go(route: string) {
     if (!canAccessWorkspaceRoute(workspaceAccess.stage, route)) return
+    beginRoutePerformance(route)
     onPrefetchRoute?.(route)
     startNavigationTransition(() => navigate(route))
   }
@@ -240,6 +243,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
         })}
         <button type="button" className="mobile-dock-button mobile-dock-command" onClick={() => setMobileOpen(true)}><i className="fa-solid fa-bars" /><span>{t('Manage')}</span></button>
       </nav>
+      <PerformanceDiagnosticsPanel />
     </>
   )
 }

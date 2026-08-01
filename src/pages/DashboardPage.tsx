@@ -5,6 +5,7 @@ import { getInterfaceLanguage, useInterfaceLanguage } from '../i18n'
 import { invalidateRequestCache } from '../services/api/client'
 import { neurocropApi, prefetchWorkspaceData, prefetchWorkspaceRouteData } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
+import { completeRoutePerformance, measurePerformance } from '../services/performanceDiagnostics'
 
 type WorkspaceModule = { default: ComponentType }
 const workspaceReloadKey = 'neurocrop-stale-workspace-reload'
@@ -25,7 +26,7 @@ function setWorkspaceReloadMarker(value: string | null) {
 function recoverWorkspaceImport<T extends WorkspaceModule>(name: string, loader: () => Promise<T>) {
   return async () => {
     try {
-      const module = await loader()
+      const module = await measurePerformance('module', name, loader)
       if (workspaceReloadMarker() === name) setWorkspaceReloadMarker(null)
       return module
     } catch (error) {
@@ -211,6 +212,17 @@ function Workspaces({ pathname, includeAdmin }: { pathname: string; includeAdmin
     ] : []),
   ]
   const workspace = workspaces.find((candidate) => candidate.route === activeRoute) || workspaces[0]
+
+  useEffect(() => {
+    let paintedFrame = 0
+    const committedFrame = requestAnimationFrame(() => {
+      paintedFrame = requestAnimationFrame(() => completeRoutePerformance(workspace.route))
+    })
+    return () => {
+      cancelAnimationFrame(committedFrame)
+      if (paintedFrame) cancelAnimationFrame(paintedFrame)
+    }
+  }, [workspace.route])
 
   // Modules and shared API data are preloaded after sign-in, but only the
   // visible workspace is rendered. Mounting every chart, map, observer and
