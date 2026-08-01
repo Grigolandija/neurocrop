@@ -441,6 +441,18 @@ test('VPD history is aggregated in PostgreSQL instead of loading every raw row i
   assert.equal(/SELECT time, temperature, humidity\s+FROM measurements/.test(source), false);
 });
 
+test('analytics telemetry events are filtered and bounded in PostgreSQL', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const helperStart = source.indexOf('async function getTelemetryEvents');
+  const helperEnd = source.indexOf("app.get('/analytics/section'", helperStart);
+  const helper = source.slice(helperStart, helperEnd);
+
+  assert.match(helper, /LAG\(time\) OVER node_window/);
+  assert.match(helper, /LAG\(profile\) OVER node_window/);
+  assert.match(helper, /SELECT \* FROM events ORDER BY occurred_at DESC, event_order DESC LIMIT 80/);
+  assert.equal(helper.includes('SELECT time, dev_eui, profile, raw_object'), false);
+});
+
 test('ingestion normalizes device identity, deduplicates MQTT deliveries and commits atomically', () => {
   const source = fs.readFileSync(new URL('../ingest.js', import.meta.url), 'utf8');
   assert.match(source, /String\(dev\.devEui \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);

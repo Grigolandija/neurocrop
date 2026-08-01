@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { randomUUID } from 'crypto';
+import { performance } from 'node:perf_hooks';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { query, pool } from './db.js';
@@ -2655,45 +2656,66 @@ async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes, o
 
 async function getTelemetryEvents(devEuis, from, to) {
   const { rows } = await query(
-    `SELECT time, dev_eui, profile, raw_object
-     FROM measurements
-     WHERE dev_eui = ANY($1) AND time BETWEEN $2 AND $3
-     ORDER BY dev_eui ASC, time ASC`,
+    `WITH samples AS (
+       SELECT time,
+              m.dev_eui,
+              profile,
+              LAG(time) OVER node_window AS previous_time,
+              LAG(profile) OVER node_window AS previous_profile,
+              lower(COALESCE(raw_object->'error_flags'->>'last_tx_failed', '')) IN ('true', '1') AS tx_failed,
+              LAG(lower(COALESCE(raw_object->'error_flags'->>'last_tx_failed', '')) IN ('true', '1'))
+                OVER node_window AS previous_tx_failed,
+              COALESCE(
+                CASE
+                  WHEN btrim(COALESCE(raw_object->>'expected_uplink_interval_s', '')) ~ '^[+]?[0-9]+([.][0-9]+)?$'
+                    THEN NULLIF((raw_object->>'expected_uplink_interval_s')::double precision, 0)
+                  ELSE NULL
+                END,
+                300
+              ) AS interval_sec
+       FROM measurements m
+       WHERE m.dev_eui = ANY($1) AND time BETWEEN $2 AND $3
+       WINDOW node_window AS (PARTITION BY m.dev_eui ORDER BY time ASC)
+     ), events AS (
+       SELECT time AS occurred_at, 1 AS event_order, 'reporting_mode_changed' AS type,
+              'info' AS severity, dev_eui, previous_profile AS from_profile,
+              profile AS to_profile, NULL::integer AS duration_minutes
+       FROM samples
+       WHERE previous_profile IS NOT NULL AND previous_profile <> ''
+         AND profile IS NOT NULL AND profile <> '' AND previous_profile <> profile
+       UNION ALL
+       SELECT time, 2, 'delivery_gap', 'warning', dev_eui, NULL, NULL,
+              ROUND(EXTRACT(EPOCH FROM (time - previous_time)) / 60)::integer
+       FROM samples
+       WHERE previous_time IS NOT NULL
+         AND EXTRACT(EPOCH FROM (time - previous_time)) > interval_sec * 3
+       UNION ALL
+       SELECT time, 3, 'transmission_failed', 'warning', dev_eui, NULL, NULL, NULL
+       FROM samples
+       WHERE tx_failed=true AND COALESCE(previous_tx_failed, false)=false
+     ), latest AS (
+       SELECT * FROM events ORDER BY occurred_at DESC, event_order DESC LIMIT 80
+     )
+     SELECT occurred_at, type, severity, dev_eui, from_profile, to_profile, duration_minutes
+     FROM latest
+     ORDER BY occurred_at ASC, event_order ASC`,
     [devEuis, from, to]
   );
-  const events = [];
-  const previousByNode = new Map();
-  rows.forEach((row) => {
-    const devEui = normalizeDevEui(row.dev_eui);
-    const previous = previousByNode.get(devEui);
-    const observedAt = new Date(row.time);
-    const intervalSec = Number(row.raw_object?.expected_uplink_interval_s) || 300;
-    if (previous?.profile && row.profile && previous.profile !== row.profile) {
-      events.push({
-        occurredAt: row.time,
-        type: 'reporting_mode_changed',
-        severity: 'info',
-        devEui,
-        from: previous.profile,
-        to: row.profile
-      });
-    }
-    if (previous?.time && observedAt.getTime() - previous.time.getTime() > intervalSec * 3 * 1000) {
-      events.push({
-        occurredAt: row.time,
-        type: 'delivery_gap',
-        severity: 'warning',
-        devEui,
-        durationMinutes: Math.round((observedAt.getTime() - previous.time.getTime()) / 60000)
-      });
-    }
-    const txFailed = normalizeTelemetryBoolean(row.raw_object?.error_flags?.last_tx_failed) === true;
-    if (txFailed && !previous?.txFailed) {
-      events.push({ occurredAt: row.time, type: 'transmission_failed', severity: 'warning', devEui });
-    }
-    previousByNode.set(devEui, { time: observedAt, profile: row.profile || '', txFailed });
-  });
-  return events.sort((left, right) => new Date(left.occurredAt) - new Date(right.occurredAt)).slice(-80);
+  return rows.map((row) => ({
+    occurredAt: row.occurred_at,
+    type: row.type,
+    severity: row.severity,
+    devEui: normalizeDevEui(row.dev_eui),
+    ...(row.from_profile ? { from: row.from_profile } : {}),
+    ...(row.to_profile ? { to: row.to_profile } : {}),
+    ...(row.duration_minutes != null ? { durationMinutes: Number(row.duration_minutes) } : {})
+  }));
+}
+
+async function measureAnalyticsSource(work) {
+  const startedAt = performance.now();
+  const value = await work();
+  return { value, durationMs: performance.now() - startedAt };
 }
 
 app.get('/analytics/section', requireAuth, async (req, res) => {
@@ -2718,12 +2740,29 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
     if (!devEuis.length) return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
     timing.mark('setup', 'section and profile');
 
-    const [points, heatmapPoints, events] = await Promise.all([
-      getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes),
-      getMetricHistoryBuckets(devEuis, metric, from, to, 60),
-      getTelemetryEvents(devEuis, from, to)
+    const pointsPromise = measureAnalyticsSource(
+      () => getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes)
+    );
+    const heatmapPointsPromise = stepMinutes === 60
+      ? pointsPromise
+      : measureAnalyticsSource(() => getMetricHistoryBuckets(devEuis, metric, from, to, 60));
+    const eventsPromise = measureAnalyticsSource(() => getTelemetryEvents(devEuis, from, to));
+    const [pointsResult, heatmapResult, eventsResult] = await Promise.all([
+      pointsPromise,
+      heatmapPointsPromise,
+      eventsPromise
     ]);
     timing.mark('history', 'history and events');
+    timing.add('series', pointsResult.durationMs, 'trend buckets');
+    timing.add(
+      'heatmap',
+      stepMinutes === 60 ? 0 : heatmapResult.durationMs,
+      stepMinutes === 60 ? 'reused' : 'hour buckets'
+    );
+    timing.add('events', eventsResult.durationMs, 'filtered in database');
+    const points = pointsResult.value;
+    const heatmapPoints = heatmapResult.value;
+    const events = eventsResult.value;
     const minutesByState = { optimal: 0, warning: 0, critical: 0 };
     points.forEach((point) => {
       const state = analyticsStateForValue(point.value, rule);
