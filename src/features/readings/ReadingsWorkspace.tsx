@@ -458,6 +458,29 @@ function normalizedDeviation(section: SectionReading, metricList: Metric[], prof
   }, 0)
 }
 
+function getDistributionVisual(section: SectionReading, metric: Metric, profile: JsonRecord | undefined) {
+  const value = getValue(section, metric)
+  const optimal = getRange(profile, metric)
+  const warning = getRange(profile, metric, 'warning') || optimal
+  const critical = getRange(profile, metric, 'critical') || warning
+  if (!optimal || !warning || !critical) return { marker: null, zones: [] as Array<{ tone: ReadingTone; left: number; width: number }> }
+  const scaleMin = Math.min(critical[0], warning[0], optimal[0], value ?? critical[0])
+  const scaleMax = Math.max(critical[1], warning[1], optimal[1], value ?? critical[1])
+  const span = Math.max(.001, scaleMax - scaleMin)
+  const position = (point: number) => Math.max(0, Math.min(100, ((point - scaleMin) / span) * 100))
+  const zone = (tone: ReadingTone, start: number, end: number) => ({ tone, left: position(start), width: Math.max(0, position(end) - position(start)) })
+  return {
+    marker: value === null ? null : Math.max(2, Math.min(98, position(value))),
+    zones: [
+      zone('critical', scaleMin, warning[0]),
+      zone('watch', warning[0], optimal[0]),
+      zone('good', optimal[0], optimal[1]),
+      zone('watch', optimal[1], warning[1]),
+      zone('critical', warning[1], scaleMax),
+    ].filter((item) => item.width > 0),
+  }
+}
+
 function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section: SectionReading; metric: Metric; profile?: JsonRecord; mode: ReadingMode; onOpenTrend: () => void }) {
   const value = getValue(section, metric)
   const quality = getQuality(section, metric)
@@ -477,19 +500,21 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
 }
 
 function SectionParameterSummary({ section, profile, onOpenTrend }: { section: SectionReading; profile?: JsonRecord; onOpenTrend: (metric: Metric) => void }) {
-  return <div className="nc-section-parameter-grid">{metrics.map((metric) => {
+  return <><div className="nc-section-parameter-legend"><span data-tone="good">{tx("Optimal")}</span><span data-tone="watch">{tx("Warning")}</span><span data-tone="critical">{tx("Critical")}</span></div><div className="nc-section-parameter-grid">{metrics.map((metric) => {
     const value = getValue(section, metric)
     const quality = getQuality(section, metric)
     const target = getRange(profile, metric)
-    return <button type="button" className="nc-section-parameter" data-tone={getTone(section, metric, profile)} data-quality={quality} onClick={() => onOpenTrend(metric)} key={metric.key}>
+    const visual = getDistributionVisual(section, metric, profile)
+    const tone = getTone(section, metric, profile)
+    return <button type="button" className="nc-section-parameter" data-tone={tone} data-quality={quality} onClick={() => onOpenTrend(metric)} key={metric.key}>
       <span className="nc-section-parameter-head">
         <span><i className={`fa-solid ${metric.icon}`} /><strong>{metric.label}</strong></span>
         <small>{tx(qualityLabels[quality])}</small>
       </span>
-      <strong className="nc-section-parameter-reading">{value === null ? tx(qualityLabels[quality]) : <>{formatValue(value, metric)} <small>{metric.unit}</small></>}</strong>
-      <small className="nc-section-parameter-target">{tx("Crop target")}: {target ? `${target.map((bound) => formatValue(bound, metric)).join('–')} ${metric.unit}` : tx("No target")}</small>
+      <span className="nc-section-parameter-detail"><strong className="nc-section-parameter-reading">{value === null ? tx(qualityLabels[quality]) : <>{formatValue(value, metric)} <small>{metric.unit}</small></>}</strong><small className="nc-section-parameter-target">{tx("Crop target")}: {target ? `${target.map((bound) => formatValue(bound, metric)).join('–')} ${metric.unit}` : tx("No target")}</small></span>
+      <span className="nc-section-parameter-track" data-empty={!visual.zones.length}>{visual.zones.map((zone, index) => <span data-tone={zone.tone} style={{ left: `${zone.left}%`, width: `${zone.width}%` }} key={index} />)}{visual.marker !== null ? <i style={{ left: `${visual.marker}%` }} data-tone={tone} /> : null}</span>
     </button>
-  })}</div>
+  })}</div></>
 }
 
 function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; label: string; periodLabel?: string }) {
