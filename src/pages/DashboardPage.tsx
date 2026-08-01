@@ -1,38 +1,92 @@
-import { Component, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, useRef, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import DashboardShell, { type DashboardUser } from '../components/DashboardShell'
-import WorkspaceLoading from '../components/WorkspaceLoading'
 import { getInterfaceLanguage, useInterfaceLanguage } from '../i18n'
 import { invalidateRequestCache } from '../services/api/client'
 import { neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
-import ActionsWorkspace from '../features/actions/ActionsWorkspace'
-import AlertsWorkspace from '../features/alerts/AlertsWorkspace'
-import AreasWorkspace from '../features/areas/AreasWorkspace'
-import NodesWorkspace from '../features/nodes/NodesWorkspace'
-import OverviewWorkspace from '../features/overview/OverviewWorkspace'
-import ReadingsWorkspace from '../features/readings/ReadingsWorkspace'
-import SectionsWorkspace from '../features/sections/SectionsWorkspace'
-import SettingsWorkspace from '../features/settings/SettingsWorkspace'
-import OrganizationWorkspace from '../features/settings/OrganizationWorkspace'
-import AdminWorkspace from '../features/settings/AdminWorkspace'
-import AdminIntegrationsWorkspace from '../features/settings/AdminIntegrationsWorkspace'
-import CropProfilesWorkspace from '../features/settings/CropProfilesWorkspace'
-import SimulatorWorkspace from '../features/simulator/SimulatorWorkspace'
-import TrendsWorkspace from '../features/trends/TrendsWorkspace'
 
-let workspaceDataReady = false
-let workspaceDataPromise: Promise<void> | null = null
+type WorkspaceModule = { default: ComponentType }
+const workspaceReloadKey = 'neurocrop-stale-workspace-reload'
 
-function prepareWorkspaceData() {
-  if (workspaceDataReady) return Promise.resolve()
-  if (!workspaceDataPromise) {
-    workspaceDataPromise = prefetchWorkspaceData().then(() => {
-      workspaceDataReady = true
-    })
-  }
-  return workspaceDataPromise
+function workspaceReloadMarker() {
+  try { return sessionStorage.getItem(workspaceReloadKey) } catch { return null }
 }
+
+function setWorkspaceReloadMarker(value: string | null) {
+  try {
+    if (value === null) sessionStorage.removeItem(workspaceReloadKey)
+    else sessionStorage.setItem(workspaceReloadKey, value)
+  } catch {
+    // Import recovery must still work when browser storage is unavailable.
+  }
+}
+
+function recoverWorkspaceImport<T extends WorkspaceModule>(name: string, loader: () => Promise<T>) {
+  return async () => {
+    try {
+      const module = await loader()
+      if (workspaceReloadMarker() === name) setWorkspaceReloadMarker(null)
+      return module
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const staleDeploymentChunk = /dynamically imported module|failed to fetch|importing a module script|chunkloaderror/i.test(message)
+      if (staleDeploymentChunk && workspaceReloadMarker() !== name) {
+        setWorkspaceReloadMarker(name)
+        window.location.reload()
+        return new Promise<T>(() => undefined)
+      }
+      throw error
+    }
+  }
+}
+
+const loadAreasWorkspace = recoverWorkspaceImport('areas', () => import('../features/areas/AreasWorkspace'))
+const loadReadingsWorkspace = recoverWorkspaceImport('readings', () => import('../features/readings/ReadingsWorkspace'))
+const loadSectionsWorkspace = recoverWorkspaceImport('sections', () => import('../features/sections/SectionsWorkspace'))
+const loadSettingsWorkspace = recoverWorkspaceImport('settings', () => import('../features/settings/SettingsWorkspace'))
+const loadOrganizationWorkspace = recoverWorkspaceImport('organization', () => import('../features/settings/OrganizationWorkspace'))
+const loadAdminWorkspace = recoverWorkspaceImport('admin', () => import('../features/settings/AdminWorkspace'))
+const loadAdminIntegrationsWorkspace = recoverWorkspaceImport('admin-integrations', () => import('../features/settings/AdminIntegrationsWorkspace'))
+const loadOverviewWorkspace = recoverWorkspaceImport('overview', () => import('../features/overview/OverviewWorkspace'))
+const loadSimulatorWorkspace = recoverWorkspaceImport('simulator', () => import('../features/simulator/SimulatorWorkspace'))
+const loadActionsWorkspace = recoverWorkspaceImport('actions', () => import('../features/actions/ActionsWorkspace'))
+const loadAlertsWorkspace = recoverWorkspaceImport('alerts', () => import('../features/alerts/AlertsWorkspace'))
+const loadTrendsWorkspace = recoverWorkspaceImport('trends', () => import('../features/trends/TrendsWorkspace'))
+const loadNodesWorkspace = recoverWorkspaceImport('nodes', () => import('../features/nodes/NodesWorkspace'))
+const loadCropProfilesWorkspace = recoverWorkspaceImport('crop-profiles', () => import('../features/settings/CropProfilesWorkspace'))
+
+const AreasWorkspace = lazy(loadAreasWorkspace)
+const ReadingsWorkspace = lazy(loadReadingsWorkspace)
+const SectionsWorkspace = lazy(loadSectionsWorkspace)
+const SettingsWorkspace = lazy(loadSettingsWorkspace)
+const OrganizationWorkspace = lazy(loadOrganizationWorkspace)
+const AdminWorkspace = lazy(loadAdminWorkspace)
+const AdminIntegrationsWorkspace = lazy(loadAdminIntegrationsWorkspace)
+const OverviewWorkspace = lazy(loadOverviewWorkspace)
+const SimulatorWorkspace = lazy(loadSimulatorWorkspace)
+const ActionsWorkspace = lazy(loadActionsWorkspace)
+const AlertsWorkspace = lazy(loadAlertsWorkspace)
+const TrendsWorkspace = lazy(loadTrendsWorkspace)
+const NodesWorkspace = lazy(loadNodesWorkspace)
+const CropProfilesWorkspace = lazy(loadCropProfilesWorkspace)
+
+const workspaceModuleLoaders = [
+  loadAreasWorkspace,
+  loadReadingsWorkspace,
+  loadSectionsWorkspace,
+  loadSettingsWorkspace,
+  loadOrganizationWorkspace,
+  loadAdminWorkspace,
+  loadAdminIntegrationsWorkspace,
+  loadOverviewWorkspace,
+  loadSimulatorWorkspace,
+  loadActionsWorkspace,
+  loadAlertsWorkspace,
+  loadTrendsWorkspace,
+  loadNodesWorkspace,
+  loadCropProfilesWorkspace,
+]
 
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
@@ -75,8 +129,6 @@ class WorkspaceErrorBoundary extends Component<{ children: ReactNode }, { failed
 function Workspaces({ pathname, includeAdmin }: { pathname: string; includeAdmin: boolean }) {
   const { language } = useInterfaceLanguage()
   const activeRoute = pathname.startsWith('/nodes/') ? '/nodes' : pathname
-  const hostRef = useRef<HTMLDivElement>(null)
-  const [allWorkspacesReady, setAllWorkspacesReady] = useState(false)
   const workspaces = [
     { route: '/', content: <OverviewWorkspace /> },
     { route: '/areas', content: <AreasWorkspace /> },
@@ -95,35 +147,23 @@ function Workspaces({ pathname, includeAdmin }: { pathname: string; includeAdmin
       { route: '/admin/integrations', content: <AdminIntegrationsWorkspace /> },
     ] : []),
   ]
+  const workspace = workspaces.find((candidate) => candidate.route === activeRoute) || workspaces[0]
 
-  useEffect(() => {
-    if (allWorkspacesReady) return
-    const host = hostRef.current
-    if (!host) return
-    if (host.querySelectorAll('[data-workspace-route]').length !== workspaces.length) return
-
-    // Every workspace is already mounted here, so its data requests have started.
-    // Do not hold a full-screen, click-blocking loader until every background
-    // workspace clears aria-busy: one unavailable endpoint must not lock the app.
-    const frame = requestAnimationFrame(() => setAllWorkspacesReady(true))
-    return () => cancelAnimationFrame(frame)
-  }, [allWorkspacesReady, includeAdmin, workspaces.length])
-
-  return <>
-    {!allWorkspacesReady ? <WorkspaceLoading /> : null}
-    <div ref={hostRef} hidden={!allWorkspacesReady} data-all-workspaces-mounted>
-      {workspaces.map((workspace) => <div
-        id={workspaceHostIds[workspace.route]}
-        key={workspace.route}
-        hidden={workspace.route !== activeRoute}
-        data-workspace-host
-        data-workspace-route={workspace.route}
-        data-interface-language={language}
-      >
-        <WorkspaceErrorBoundary>{workspace.content}</WorkspaceErrorBoundary>
-      </div>)}
-    </div>
-  </>
+  // Modules and shared API data are preloaded after sign-in, but only the
+  // visible workspace is rendered. Mounting every chart, map, observer and
+  // refresh timer at once can monopolize the browser's main thread.
+  return <div
+    id={workspaceHostIds[workspace.route]}
+    data-workspace-host
+    data-workspace-route={workspace.route}
+    data-interface-language={language}
+  >
+    <WorkspaceErrorBoundary key={workspace.route}>
+      <Suspense fallback={<div data-workspace-suspense aria-busy="true" />}>
+        {workspace.content}
+      </Suspense>
+    </WorkspaceErrorBoundary>
+  </div>
 }
 
 type DashboardPageProps = {
@@ -137,10 +177,11 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   const unauthorizedVersionAtMount = useRef(dashboardState.unauthorizedVersion)
 
   useEffect(() => {
-    // Warm the shared request cache immediately after sign-in, but never make
-    // the whole interface wait for every endpoint. Workspaces mount below and
-    // reuse the same in-flight requests, so navigation still becomes instant.
-    void prepareWorkspaceData()
+    // Download every route module and warm shared GET data after sign-in. Only
+    // the active route is rendered, so background charts and timers cannot
+    // block the UI while later navigation still uses warm caches.
+    void Promise.allSettled(workspaceModuleLoaders.map((load) => load()))
+    void prefetchWorkspaceData()
     return () => {
       delete document.body.dataset.primaryPage
     }
