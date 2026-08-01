@@ -458,29 +458,6 @@ function normalizedDeviation(section: SectionReading, metricList: Metric[], prof
   }, 0)
 }
 
-function getDistributionVisual(section: SectionReading, metric: Metric, profile: JsonRecord | undefined) {
-  const value = getValue(section, metric)
-  const optimal = getRange(profile, metric)
-  const warning = getRange(profile, metric, 'warning') || optimal
-  const critical = getRange(profile, metric, 'critical') || warning
-  if (!optimal || !warning || !critical) return { marker: 4, zones: [] as Array<{ tone: ReadingTone; left: number; width: number }> }
-  const scaleMin = Math.min(critical[0], warning[0], optimal[0], value ?? critical[0])
-  const scaleMax = Math.max(critical[1], warning[1], optimal[1], value ?? critical[1])
-  const span = Math.max(.001, scaleMax - scaleMin)
-  const position = (point: number) => Math.max(0, Math.min(100, ((point - scaleMin) / span) * 100))
-  const zone = (tone: ReadingTone, start: number, end: number) => ({ tone, left: position(start), width: Math.max(0, position(end) - position(start)) })
-  return {
-    marker: Math.max(2, Math.min(98, position(value ?? scaleMin))),
-    zones: [
-      zone('critical', scaleMin, warning[0]),
-      zone('watch', warning[0], optimal[0]),
-      zone('good', optimal[0], optimal[1]),
-      zone('watch', optimal[1], warning[1]),
-      zone('critical', warning[1], scaleMax),
-    ].filter((item) => item.width > 0),
-  }
-}
-
 function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section: SectionReading; metric: Metric; profile?: JsonRecord; mode: ReadingMode; onOpenTrend: () => void }) {
   const value = getValue(section, metric)
   const quality = getQuality(section, metric)
@@ -497,6 +474,18 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
   return <button type="button" className="nc-reading-cell" data-tone={tone} data-quality={quality} onClick={onOpenTrend} title={`Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={`Open ${section.name} ${metric.label} trend`}>
     <strong>{tx(display)}{showAverage ? <small className="nc-reading-average">{tx("avg")}</small> : null}</strong><i aria-label={qualityLabels[quality]} />
   </button>
+}
+
+function SectionParameterSummary({ section, profile, onOpenTrend }: { section: SectionReading; profile?: JsonRecord; onOpenTrend: (metric: Metric) => void }) {
+  return <div className="nc-section-parameter-grid">{metrics.map((metric) => {
+    const value = getValue(section, metric)
+    const quality = getQuality(section, metric)
+    const target = getRange(profile, metric)
+    return <button type="button" className="nc-section-parameter" data-tone={getTone(section, metric, profile)} data-quality={quality} onClick={() => onOpenTrend(metric)} key={metric.key}>
+      <span className="nc-section-parameter-label"><i className={`fa-solid ${metric.icon}`} /><strong>{metric.label}</strong><small>{tx(qualityLabels[quality])}</small></span>
+      <span className="nc-section-parameter-value"><strong>{value === null ? tx(qualityLabels[quality]) : <>{formatValue(value, metric)} <small>{metric.unit}</small></>}</strong><small>{tx("Crop target")}: {target ? `${target.map((bound) => formatValue(bound, metric)).join('–')} ${metric.unit}` : tx("No target")}</small></span>
+    </button>
+  })}</div>
 }
 
 function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; label: string; periodLabel?: string }) {
@@ -583,6 +572,7 @@ export default function ReadingsWorkspace() {
   const [pinned, setPinned] = useState<string[]>([])
   const [drawerId, setDrawerId] = useState<string | null>(null)
   const [expandedSectionId, setExpandedSectionId] = useState<string | null>(null)
+  const [summarySectionId, setSummarySectionId] = useState('')
   const [lensMetricKey, setLensMetricKey] = useState('humidity')
   const [pinnedHistory, setPinnedHistory] = useState<Record<string, PinnedHistoryState>>({})
   const [trendPreview, setTrendPreview] = useState<{ sectionId: string; metricKey: string } | null>(null)
@@ -825,6 +815,7 @@ export default function ReadingsWorkspace() {
   const trendPreviewMetric = metrics.find((metric) => metric.key === trendPreview?.metricKey)
   const pinnedSections = pinned.map((id) => sections.find((section) => section.id === id)).filter((section): section is SectionReading => Boolean(section))
   const lensMetric = metrics.find((metric) => metric.key === lensMetricKey) || metrics[0]
+  const summarySection = visibleSections.find((section) => section.id === summarySectionId) || visibleSections[0]
   const matrixStyle = { gridTemplateColumns: `minmax(15rem,1.3fr) repeat(${visibleMetrics.length},minmax(7.5rem,.7fr)) minmax(7.75rem,.72fr) 2.5rem`, minWidth: `${27 + visibleMetrics.length * 8}rem` }
   function selectPreset(preset: typeof presets[number]) {
     const presetKeys = new Set<string>(preset.keys)
@@ -945,7 +936,7 @@ export default function ReadingsWorkspace() {
       </article>
     })}</div></section> : null}
 
-    <section className="nc-signal-lens"><header className="nc-signal-lens-head"><span><i className="fa-solid fa-chart-simple" /><span><strong>{tx("Profile-normalized signal lens")}</strong><small>{tx("Compare one parameter across different crop targets when you need deeper analysis.")}</small></span></span></header><div className="nc-signal-lens-content"><header><h2>{lensMetric.label} {tx("across sections")}</h2><select value={lensMetricKey} onChange={(event) => setLensMetricKey(event.target.value)}>{metrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}</select></header>{visibleSections.map((section) => { const value = getValue(section, lensMetric); const visual = getDistributionVisual(section, lensMetric, profiles.get(section.profileId)); const isPinned = pinned.includes(section.id); return <div className="nc-distribution-row" key={section.id}><span><strong>{section.name}</strong><small>{section.areaName} · {section.profileName}</small></span><div className="nc-distribution-track">{visual.zones.map((zone, index) => <span data-tone={zone.tone} style={{ left: `${zone.left}%`, width: `${zone.width}%` }} key={index} />)}<i style={{ left: `${visual.marker}%` }} data-tone={getTone(section, lensMetric, profiles.get(section.profileId))} /></div><strong>{formatValue(value, lensMetric)} <small>{lensMetric.unit}</small></strong><button type="button" className={isPinned ? 'pinned' : ''} onClick={() => togglePin(section.id)} disabled={!isPinned && pinned.length >= 3} aria-pressed={isPinned} aria-label={`${isPinned ? 'Remove' : 'Add'} ${section.name} ${isPinned ? 'from' : 'to'} comparison`} title={isPinned ? 'Selected for comparison' : 'Add to comparison'}><i className="fa-solid fa-thumbtack" /></button></div>})}</div></section>
+    {summarySection ? <section className="nc-section-summary"><header className="nc-section-summary-head"><div><p className="nc-overline">{tx("Section detail")}</p><h2>{summarySection.name}</h2><span>{summarySection.areaName} · {summarySection.profileName} · {formatAge(summarySection)}</span></div><label><span>{tx("Select Section")}</span><select value={summarySection.id} onChange={(event) => setSummarySectionId(event.target.value)}>{visibleSections.map((section) => <option value={section.id} key={section.id}>{section.areaName} · {section.name}</option>)}</select></label></header><SectionParameterSummary section={summarySection} profile={profiles.get(summarySection.profileId)} onOpenTrend={(metric) => openTrendPreview(summarySection, metric)} /></section> : null}
 
     {trendPreviewSection && trendPreviewMetric ? <ModalPortal><div className="nc-readings-drawer-backdrop nc-trend-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setTrendPreview(null) }}><aside className="nc-readings-drawer nc-trend-preview" role="dialog" aria-modal="true" aria-label={`${trendPreviewSection.name} ${trendPreviewMetric.label} trend`}><header><div><p className="nc-overline">{tx("Measurement trend")}</p><h2>{trendPreviewMetric.label}</h2><span>{trendPreviewSection.areaName} · {trendPreviewSection.name}</span></div><button type="button" onClick={() => setTrendPreview(null)} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header><div className="nc-trend-preview-body"><div className="nc-trend-current" data-tone={getTone(trendPreviewSection, trendPreviewMetric, profiles.get(trendPreviewSection.profileId))}><span><small>{tx("Current reading")}</small><strong>{formatValue(getValue(trendPreviewSection, trendPreviewMetric), trendPreviewMetric)} <em>{trendPreviewMetric.unit}</em></strong></span><span><small>{tx("Crop target")}</small><strong>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)?.map((bound) => formatValue(bound, trendPreviewMetric)).join('–') ||tx("Not set")} <em>{getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric) ? trendPreviewMetric.unit : ''}</em></strong></span></div><div className="nc-trend-range" role="group" aria-label={tx("Trend period")}>{(Object.keys(trendRanges) as TrendRangeKey[]).map((range) => <button type="button" className={trendRange === range ? 'active' : ''} onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setTrendRange(range) }} key={range}>{range}</button>)}</div>{trendPreviewHistory.status === 'ready' ? <TrendPreviewChart points={trendPreviewHistory.points} target={getRange(profiles.get(trendPreviewSection.profileId), trendPreviewMetric)} metric={trendPreviewMetric} periodLabel={trendRange} /> : <div className="nc-trend-preview-state" data-state={trendPreviewHistory.status}>{trendPreviewHistory.status === 'loading' ?tx("Loading measurement history…") : trendPreviewHistory.status === 'error' ?tx("History could not be loaded") :tx("Not enough measurements for this period")}</div>}<p className="nc-trend-preview-note"><i className="fa-solid fa-circle-info" /> {tx("Chart values are aggregated from this Section's sensor history. Drag or scroll the chart to inspect dense periods.")}</p></div><footer><button type="button" onClick={() => { setTrendPreviewHistory({ status: 'loading', points: [] }); setRefreshToken((value) => value + 1) }}><i className="fa-solid fa-rotate" />{tx("Refresh")}</button><button type="button" className="primary" onClick={() => { setTrendPreview(null); openMetricTrend(trendPreviewSection, trendPreviewMetric) }}>{tx("Open full Trends")} <i className="fa-solid fa-arrow-right" /></button></footer></aside></div></ModalPortal> : null}
 
