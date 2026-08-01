@@ -887,9 +887,7 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   transition: none !important;
 }
 
-/* Preloaded routes stay mounted for instant navigation. Explicitly keep every
-   inactive route out of layout even when a workspace stylesheet sets display. */
-[data-all-workspaces-mounted][hidden],
+/* A suspended route host must never participate in layout while hidden. */
 [data-workspace-host][hidden] {
   display: none !important;
 }

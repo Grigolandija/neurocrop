@@ -117,6 +117,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   useEffect(() => {
     if (!playing || timeMode !== 'history' || !history?.frames.length) return
     const timer = window.setInterval(() => {
+      if (document.hidden) return
       setHistoryIndex((current) => {
         if (current >= history.frames.length - 1) {
           setPlaying(false)

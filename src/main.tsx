@@ -27,10 +27,12 @@ const application = <App />
 if ('serviceWorker' in navigator) {
   void navigator.serviceWorker.getRegistrations()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+    .catch(() => undefined)
 }
 if ('caches' in window) {
   void caches.keys()
     .then((keys) => Promise.all(keys.filter((key) => key.startsWith('neurocrop-')).map((key) => caches.delete(key))))
+    .catch(() => undefined)
 }
 
 createRoot(document.getElementById('root')!).render(

@@ -227,7 +227,9 @@ export default function NodesWorkspace() {
   }, [])
 
   useEffect(() => {
-    const interval = window.setInterval(() => setRefreshToken((value) => value + 1), 60_000)
+    const interval = window.setInterval(() => {
+      if (!document.hidden) setRefreshToken((value) => value + 1)
+    }, 60_000)
     return () => window.clearInterval(interval)
   }, [])
 

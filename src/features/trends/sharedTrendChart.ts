@@ -482,7 +482,20 @@ export function renderTrendChart(element: HTMLElement, input: TrendChartInput): 
   if (!option || !engine?.init) return null
   const chart = engine.init(element)
   chart.setOption(option, { notMerge: true })
-  window.requestAnimationFrame(() => chart.resize())
-  return chart
+  let disposed = false
+  const resizeFrame = window.requestAnimationFrame(() => {
+    if (!disposed) chart.resize()
+  })
+  return {
+    resize: () => {
+      if (!disposed) chart.resize()
+    },
+    dispose: () => {
+      if (disposed) return
+      disposed = true
+      window.cancelAnimationFrame(resizeFrame)
+      chart.dispose()
+    },
+  }
 }
 import { getInterfaceLanguage, translateInterfaceText } from '../../i18n'

@@ -19,8 +19,8 @@ export default function WorkspaceLoading({ compact = false }: WorkspaceLoadingPr
       <h1>{lithuanian ? 'Ruošiama darbo aplinka' : 'Preparing your workspace'}</h1>
       <p>
         {lithuanian
-          ? 'Kraunami visi puslapiai ir naujausi duomenys. Po to navigacija bus momentinė.'
-          : 'Loading every page and its latest data. Navigation will be instant when this finishes.'}
+          ? 'Tikrinama paskyra ir ruošiama darbo aplinka.'
+          : 'Checking your account and preparing the workspace.'}
       </p>
       <span
         className="app-route-loading-progress"

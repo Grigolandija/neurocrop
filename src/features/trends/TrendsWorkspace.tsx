@@ -468,9 +468,6 @@ export default function TrendsWorkspace() {
   const location = useLocation()
   const dashboardState = useDashboardState()
   const [stored] = useState(() => loadStoredSelection())
-  const hydrationBusyRef = useRef(false)
-  const retryContextAfterLoginRef = useRef(false)
-  const sectionsRef = useRef<Section[]>([])
   const [sections, setSections] = useState<Section[]>([])
   const [nodes, setNodes] = useState<NodeOption[]>([])
   const [profiles, setProfiles] = useState<JsonRecord[]>([])
@@ -531,7 +528,6 @@ export default function TrendsWorkspace() {
     let active = true
     function applyWorkspaceContext(nextSections: Section[], nextProfiles?: JsonRecord[], requestedAreaId = '', requestedSectionId = '') {
       if (!active || !nextSections.length) return
-      sectionsRef.current = nextSections
       setSections(nextSections)
       if (nextProfiles) setProfiles(nextProfiles)
       const initialSection = nextSections.find((section) => section.id === requestedSectionId)
@@ -547,9 +543,6 @@ export default function TrendsWorkspace() {
       setSecondaryMetricKeys((current) => current.filter((key) => initialSection.available.has(key)).slice(0, 2))
     }
     async function hydrateContext() {
-      if (hydrationBusyRef.current) return
-      hydrationBusyRef.current = true
-      retryContextAfterLoginRef.current = false
       try {
         const [dashboardResult, areaResult, sectionResult, profileResult, nodeResult] = await Promise.allSettled([
           neurocropApi.getDashboard(),
@@ -571,25 +564,18 @@ export default function TrendsWorkspace() {
         setNodes(nodeList(nodePayload))
       } catch (reason) {
         if (!active) return
-        retryContextAfterLoginRef.current = true
         setError(reason instanceof Error ? reason.message : 'Workspace context could not be loaded.')
         setStatus('error')
-      } finally {
-        hydrationBusyRef.current = false
       }
     }
     void hydrateContext()
     return () => {
       active = false
     }
-    // Initial workspace hydration intentionally runs once.
+    // A connectivity transition safely retries the context load. The previous
+    // request is ignored after cleanup, so a recovery cannot get lost while an
+    // older request is still settling.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    if (dashboardState.connected && (retryContextAfterLoginRef.current || sectionsRef.current.length === 0)) {
-      retryContextAfterLoginRef.current = false
-    }
   }, [dashboardState.connected])
 
   useEffect(() => {

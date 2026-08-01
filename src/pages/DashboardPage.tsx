@@ -88,6 +88,52 @@ const workspaceModuleLoaders = [
   loadCropProfilesWorkspace,
 ]
 
+function warmWorkspaceModules(loaders: Array<() => Promise<WorkspaceModule>>) {
+  let cancelled = false
+  let idleHandle: number | null = null
+  let timerHandle: number | null = null
+  let finishPendingWait: (() => void) | null = null
+
+  const waitForIdle = () => new Promise<void>((resolve) => {
+    finishPendingWait = () => {
+      finishPendingWait = null
+      resolve()
+    }
+    if ('requestIdleCallback' in window) {
+      idleHandle = window.requestIdleCallback(() => {
+        idleHandle = null
+        finishPendingWait?.()
+      }, { timeout: 1_500 })
+      return
+    }
+    timerHandle = window.setTimeout(() => {
+      timerHandle = null
+      finishPendingWait?.()
+    }, 50)
+  })
+
+  void (async () => {
+    for (const load of loaders) {
+      if (cancelled) return
+      await waitForIdle()
+      if (cancelled) return
+      try {
+        await load()
+      } catch {
+        // The active route has its own error boundary. Background warming must
+        // never interrupt the workspace or prevent the remaining routes loading.
+      }
+    }
+  })()
+
+  return () => {
+    cancelled = true
+    if (idleHandle !== null) window.cancelIdleCallback(idleHandle)
+    if (timerHandle !== null) window.clearTimeout(timerHandle)
+    finishPendingWait?.()
+  }
+}
+
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
   '/history', '/settings', '/organization', '/crop-profiles', '/admin',
@@ -177,12 +223,12 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   const unauthorizedVersionAtMount = useRef(dashboardState.unauthorizedVersion)
 
   useEffect(() => {
-    // Download every route module and warm shared GET data after sign-in. Only
-    // the active route is rendered, so background charts and timers cannot
-    // block the UI while later navigation still uses warm caches.
-    void Promise.allSettled(workspaceModuleLoaders.map((load) => load()))
+    // Warm route modules one at a time while the browser is idle. Parsing every
+    // large workspace chunk in parallel can briefly monopolize the main thread.
+    const stopModuleWarming = warmWorkspaceModules(workspaceModuleLoaders)
     void prefetchWorkspaceData()
     return () => {
+      stopModuleWarming()
       delete document.body.dataset.primaryPage
     }
   }, [])

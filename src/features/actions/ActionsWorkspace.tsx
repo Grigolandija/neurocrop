@@ -150,6 +150,7 @@ export default function ActionsWorkspace() {
       if (active) setLoading(false)
     })
     const refreshTimer = window.setInterval(() => {
+      if (document.hidden) return
       Promise.all([
         neurocropApi.getTodayActions(),
         neurocropApi.getActionHistory(100),

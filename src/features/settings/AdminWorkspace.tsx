@@ -347,6 +347,7 @@ export default function AdminWorkspace() {
   useEffect(() => {
     if (section !== 'gateways' || !currentUser?.isSuperAdmin) return
     const timer = window.setInterval(() => {
+      if (document.hidden) return
       void loadGatewayFleet().catch(() => {})
     }, 30_000)
     return () => window.clearInterval(timer)

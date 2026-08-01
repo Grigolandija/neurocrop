@@ -1024,7 +1024,7 @@ export default function OverviewWorkspace() {
 
         <figure className="nc-coverage" aria-labelledby="nc-coverage-title">
           <div className="nc-coverage-summary">
-            <div className="nc-section-summary">
+            <div className="nc-overview-section-summary">
               <p id="nc-coverage-title">{tx("Live status")}</p>
               <div>
                 <span className="action"><i />{actionRows.length} {tx("need")}{actionRows.length === 1 ? 's' : ''} {tx("action")}</span>
