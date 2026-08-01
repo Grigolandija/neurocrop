@@ -326,12 +326,6 @@ body.designer-app {
   }
 }
 
-@media (min-width: 1800px) {
-  .designer-app .dashboard-shell {
-    background: linear-gradient(90deg, var(--color-sidebar-bg) 0 304px, var(--color-background) 304px 322px, transparent 322px) !important;
-  }
-}
-
 /* Global chrome and surfaces */
 .designer-app #dashboardHeader.global-system-bar {
   border-color: var(--color-border) !important;

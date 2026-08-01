@@ -38,18 +38,6 @@
   }
 }
 
-@media (min-width: 1800px) {
-  .designer-app #dashboardHeader.global-system-bar {
-    left: 304px;
-    width: calc(100vw - 304px);
-  }
-
-  .designer-app #dashboardMain {
-    width: calc(100% - 304px);
-    margin-left: 304px;
-  }
-}
-
 @media (max-width: 1279px) {
   .designer-app .dashboard-shell,
   .designer-app #dashboardMain,

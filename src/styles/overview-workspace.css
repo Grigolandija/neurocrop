@@ -110,22 +110,6 @@ body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
   }
 }
 
-@media (min-width: 1800px) {
-  body[data-primary-page="overview"] .dashboard-shell {
-    background: linear-gradient(90deg, var(--color-sidebar-bg) 0 304px, transparent 304px) !important;
-  }
-
-  body[data-primary-page="overview"] #dashboardHeader.global-system-bar {
-    left: 304px;
-    width: calc(100vw - 304px);
-  }
-
-  body[data-primary-page="overview"] #dashboardMain {
-    width: calc(100% - 304px);
-    margin-left: 304px;
-  }
-}
-
 .nc-overview {
   --ov-ink: #10231a;
   --ov-muted: #6d7d74;
