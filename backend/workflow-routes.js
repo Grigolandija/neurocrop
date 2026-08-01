@@ -4,6 +4,7 @@ import { requireRole, requireUserAuth } from './auth-users.js';
 import { buildCurrentMetricEvaluations } from './score.js';
 import { buildCanonicalAlertState, canonicalAlertContext } from './alert-lifecycle.js';
 import { dispatchAlertPushNotifications } from './push-notifications.js';
+import { createServerTiming } from './server-timing.js';
 
 const workflowRoles = requireRole('owner', 'admin', 'grower', 'technician');
 const OUTCOME_STATUSES = new Set(['successful', 'no_change', 'made_worse', 'not_relevant']);
@@ -285,6 +286,7 @@ async function requireAlert(req, res) {
 
 export function registerWorkflowRoutes(app) {
   app.get('/alerts', requireUserAuth, async (req, res, next) => {
+    const timing = createServerTiming();
     try {
       res.set('Cache-Control', 'no-store');
       const status = String(req.query.status || 'all');
@@ -293,7 +295,9 @@ export function registerWorkflowRoutes(app) {
       }
       const tenantId = organizationId(req);
       const canonicalState = await loadCanonicalAlerts(tenantId);
+      timing.mark('load', 'canonical alert state');
       await synchronizeCanonicalAlerts(tenantId, canonicalState.alerts, canonicalState.clearableIds);
+      timing.mark('sync', 'alert lifecycle');
       void dispatchAlertPushNotifications(tenantId, canonicalState.alerts)
         .catch((error) => console.warn('[push] dispatch failed:', error?.message || error));
       const parameters = [tenantId];
@@ -313,6 +317,8 @@ export function registerWorkflowRoutes(app) {
          LIMIT 500`,
         parameters
       );
+      timing.mark('read', 'workflow rows');
+      timing.apply(res);
       res.json({ alerts: rows.map(publicAlertWorkflow) });
     } catch (error) {
       next(error);

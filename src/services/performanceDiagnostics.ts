@@ -1,4 +1,4 @@
-export type PerformanceMetricKind = 'route' | 'module' | 'api'
+export type PerformanceMetricKind = 'route' | 'module' | 'api' | 'server'
 
 export type PerformanceMetric = {
   id: number
@@ -39,13 +39,22 @@ function publishMetric(kind: PerformanceMetricKind, name: string, durationMs: nu
   console.info(`[performance] ${kind} ${name}: ${metric.durationMs} ms`)
 }
 
-export async function measurePerformance<T>(kind: Exclude<PerformanceMetricKind, 'route'>, name: string, operation: () => Promise<T>) {
+export async function measurePerformance<T>(kind: 'module' | 'api', name: string, operation: () => Promise<T>) {
   if (!performanceDiagnosticsEnabled()) return await operation()
   const startedAt = performance.now()
   try {
     return await operation()
   } finally {
     publishMetric(kind, name, performance.now() - startedAt)
+  }
+}
+
+export function recordServerTiming(requestName: string, header: string | null) {
+  if (!header || !performanceDiagnosticsEnabled()) return
+  for (const entry of header.split(',')) {
+    const [rawName, ...parameters] = entry.trim().split(';')
+    const duration = Number(parameters.find((parameter) => parameter.trim().startsWith('dur='))?.trim().slice(4))
+    if (rawName && Number.isFinite(duration)) publishMetric('server', `${requestName} · ${rawName}`, duration)
   }
 }
 

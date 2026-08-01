@@ -9,6 +9,7 @@ import {
 function metricLabel(kind: string) {
   if (kind === 'route') return 'PAGE'
   if (kind === 'module') return 'CODE'
+  if (kind === 'server') return 'SERVER'
   return 'API'
 }
 

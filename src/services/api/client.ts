@@ -1,4 +1,4 @@
-import { measurePerformance } from '../performanceDiagnostics'
+import { measurePerformance, recordServerTiming } from '../performanceDiagnostics'
 import { getDashboardState, notifyUnauthorized, setApiConnected, subscribeDashboardState } from '../../state/dashboardStore'
 
 export type ApiRequest = <T = unknown>(path: string, options?: RequestInit) => Promise<T>
@@ -131,6 +131,7 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
       signal: requestSignal(options.signal, 15_000),
       headers: await requestHeaders(options),
     })
+    recordServerTiming(`${method} ${path}`, response.headers.get('Server-Timing'))
 
     if (!response.ok) {
       // An unauthenticated /auth/me response is the normal signed-out state, not

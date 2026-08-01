@@ -24,21 +24,28 @@ function setWorkspaceReloadMarker(value: string | null) {
 }
 
 function recoverWorkspaceImport<T extends WorkspaceModule>(name: string, loader: () => Promise<T>) {
-  return async () => {
-    try {
-      const module = await measurePerformance('module', name, loader)
-      if (workspaceReloadMarker() === name) setWorkspaceReloadMarker(null)
-      return module
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      const staleDeploymentChunk = /dynamically imported module|failed to fetch|importing a module script|chunkloaderror/i.test(message)
-      if (staleDeploymentChunk && workspaceReloadMarker() !== name) {
-        setWorkspaceReloadMarker(name)
-        window.location.reload()
-        return new Promise<T>(() => undefined)
-      }
-      throw error
+  let modulePromise: Promise<T> | null = null
+  return () => {
+    if (!modulePromise) {
+      modulePromise = (async () => {
+        try {
+          const module = await measurePerformance('module', name, loader)
+          if (workspaceReloadMarker() === name) setWorkspaceReloadMarker(null)
+          return module
+        } catch (error) {
+          modulePromise = null
+          const message = error instanceof Error ? error.message : String(error)
+          const staleDeploymentChunk = /dynamically imported module|failed to fetch|importing a module script|chunkloaderror/i.test(message)
+          if (staleDeploymentChunk && workspaceReloadMarker() !== name) {
+            setWorkspaceReloadMarker(name)
+            window.location.reload()
+            return new Promise<T>(() => undefined)
+          }
+          throw error
+        }
+      })()
     }
+    return modulePromise
   }
 }
 

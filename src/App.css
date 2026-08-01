@@ -1095,7 +1095,7 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
 
 .performance-diagnostics p {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
   gap: 8px;
   margin: 0;
   padding: 5px 12px;
@@ -1104,6 +1104,7 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
 .performance-diagnostics p > b { color: #7fd4ae; }
 .performance-diagnostics p[data-kind="module"] > b { color: #91c5ff; }
 .performance-diagnostics p[data-kind="api"] > b { color: #f3bd72; }
+.performance-diagnostics p[data-kind="server"] > b { color: #c69cff; }
 .performance-diagnostics p > span { overflow: hidden; color: rgba(255, 255, 255, .72); text-overflow: ellipsis; white-space: nowrap; }
 .performance-diagnostics p > strong { font-variant-numeric: tabular-nums; }
 .performance-diagnostics small { padding: 14px 12px; color: rgba(255, 255, 255, .58); }

@@ -46,6 +46,7 @@ import { registerPasswordResetRoutes } from './password-reset-routes.js';
 import { resolveOptionalClerkAuth } from './clerk-auth.js';
 import { registerPushNotificationRoutes } from './push-notifications.js';
 import { buildCropRisks } from './crop-risk.js';
+import { createServerTiming } from './server-timing.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -78,6 +79,7 @@ app.use((req, res, next) => {
   if (originAllowed && origin) res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
+  res.header('Access-Control-Expose-Headers', 'Server-Timing');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   if (!originAllowed && !['GET', 'HEAD'].includes(req.method)) {
@@ -836,6 +838,7 @@ app.delete('/crop-profiles/:id', requireAuth, requireRole('owner', 'admin', 'gro
 });
 
 app.get('/dashboard', requireAuth, async (req, res) => {
+  const timing = createServerTiming();
   try {
     const organizationId = getOrganizationId(req);
     const [areasResult, sectionsResult, nodesResult, profilesResult, measurementsResult, sensorConfigsResult] = await Promise.all([
@@ -880,6 +883,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
         [organizationId]
       )
     ]);
+    timing.mark('db', 'dashboard queries');
 
     const sectionsByArea = new Map();
     for (const section of sectionsResult.rows) {
@@ -965,6 +969,8 @@ app.get('/dashboard', requireAuth, async (req, res) => {
       };
     });
 
+    timing.mark('compute', 'dashboard model');
+    timing.apply(res);
     res.json({ sites });
   } catch (e) {
     console.error('[api] /dashboard:', e.message);
@@ -1451,6 +1457,7 @@ async function synchronizeCropRiskEpisodes(organizationId, risks, sectionIds) {
 }
 
 app.get('/actions/today', requireAuth, async (req, res) => {
+  const timing = createServerTiming();
   try {
     res.set('Cache-Control', 'no-store');
     const organizationId = getOrganizationId(req);
@@ -1485,6 +1492,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
         [organizationId]
       )
     ]);
+    timing.mark('db', 'action source queries');
 
     const sections = requestedSectionId
       ? sectionsResult.rows.filter((section) => section.id === requestedSectionId)
@@ -1545,11 +1553,13 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       limit: Math.min(100, Math.max(3, snapshots.length * 2))
     });
     const provisionalRisks = buildCropRisks(recommendedActions, snapshots);
+    timing.mark('compute', 'action evaluation');
     const episodes = await synchronizeCropRiskEpisodes(
       organizationId,
       provisionalRisks,
       sections.map((section) => String(section.id))
     );
+    timing.mark('sync', 'risk lifecycle');
     const actions = buildCropRisks(recommendedActions, snapshots, episodes);
     const actionIds = actions.map((action) => action.id);
     let feedbackByActionId = new Map();
@@ -1578,7 +1588,9 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       feedbackByActionId = new Map(feedbackResult.rows.map((row) => [row.action_id, row]));
       assignmentByActionId = new Map(assignmentResult.rows.map((row) => [row.action_id, row]));
     }
+    timing.mark('workflow', 'feedback and assignments');
 
+    timing.apply(res);
     res.json({
       generatedAt: new Date().toISOString(),
       sectionId: requestedSectionId || null,
@@ -2105,43 +2117,54 @@ app.get('/actions/overview-summary', requireAuth, async (req, res) => {
 });
 
 app.get('/readings/latest', requireAuth, async (req, res) => {
+  const timing = createServerTiming();
   try {
-    const section = await getSectionById(req.query.sectionId, getOrganizationId(req));
+    const organizationId = getOrganizationId(req);
+    const requestedSectionId = String(req.query.sectionId || '');
+    const [section, nodeResult] = await Promise.all([
+      getSectionById(requestedSectionId, organizationId),
+      query(
+        `SELECT dev_eui, name, last_profile
+         FROM nodes
+         WHERE organization_id=$1 AND section_id=$2 AND archived_at IS NULL
+         ORDER BY created_at ASC`,
+        [organizationId, requestedSectionId]
+      )
+    ]);
     if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
-
-    const { rows: nodeRows } = await query(
-      `SELECT dev_eui, name, last_profile
-       FROM nodes
-       WHERE organization_id=$1 AND section_id=$2 AND archived_at IS NULL
-       ORDER BY created_at ASC`,
-      [getOrganizationId(req), section.id]
-    );
+    const nodeRows = nodeResult.rows;
     if (!nodeRows.length) {
       return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
     }
+    timing.mark('setup', 'section and nodes');
 
     const devEuis = nodeRows.map((node) => normalizeDevEui(node.dev_eui));
-    const { rows: readingContextRows } = await query(
-      `SELECT node_dev_eui, port, medium, target_type, target_name, spatial_scope,
-              depth_cm, height_cm, use_for_section_score, allow_spatial_interpolation
-       FROM node_sensor_configs
-       WHERE organization_id=$1 AND node_dev_eui=ANY($2::text[])`,
-      [getOrganizationId(req), devEuis]
-    );
+    const [readingContextResult, recentResult] = await Promise.all([
+      query(
+        `SELECT node_dev_eui, port, medium, target_type, target_name, spatial_scope,
+                depth_cm, height_cm, use_for_section_score, allow_spatial_interpolation
+         FROM node_sensor_configs
+         WHERE organization_id=$1 AND node_dev_eui=ANY($2::text[])`,
+        [organizationId, devEuis]
+      ),
+      query(
+        `SELECT recent.*
+         FROM unnest($1::text[]) requested(dev_eui)
+         JOIN LATERAL (
+           SELECT measurement.*
+           FROM measurements measurement
+           WHERE measurement.dev_eui=requested.dev_eui
+           ORDER BY measurement.time DESC
+           LIMIT 100
+         ) recent ON TRUE
+         ORDER BY recent.dev_eui, recent.time DESC`,
+        [devEuis]
+      )
+    ]);
+    const readingContextRows = readingContextResult.rows;
     const readingContexts = sensorConfigsByNode(readingContextRows);
-    const { rows: recentRows } = await query(
-      `SELECT recent.*
-       FROM unnest($1::text[]) requested(dev_eui)
-       JOIN LATERAL (
-         SELECT measurement.*
-         FROM measurements measurement
-         WHERE measurement.dev_eui=requested.dev_eui
-         ORDER BY measurement.time DESC
-         LIMIT 100
-       ) recent ON TRUE
-       ORDER BY recent.dev_eui, recent.time DESC`,
-      [devEuis]
-    );
+    const recentRows = recentResult.rows;
+    timing.mark('source', 'contexts and recent readings');
     const recentByDevEui = new Map();
     recentRows.forEach((row) => {
       const devEui = normalizeDevEui(row.dev_eui);
@@ -2197,6 +2220,7 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
         [currentDevEuis]
       )
       : { rows: [] };
+    timing.mark('baseline', 'one hour baseline');
     const oneHourBaselineByDevEui = new Map(
       oneHourBaselineRows.map((row) => [normalizeDevEui(row.dev_eui), row])
     );
@@ -2351,7 +2375,9 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     );
     const airTemp = observations.airTemp?.value;
     const humidity = observations.humidity?.value;
+    timing.mark('compute', 'readings model');
 
+    timing.apply(res);
     res.json({
       sectionId: section.id,
       lastReceivedAt: latestReceivedAt,
@@ -2658,6 +2684,7 @@ async function getTelemetryEvents(devEuis, from, to) {
 }
 
 app.get('/analytics/section', requireAuth, async (req, res) => {
+  const timing = createServerTiming();
   try {
     const organizationId = getOrganizationId(req);
     const section = await getSectionById(req.query.sectionId, organizationId);
@@ -2675,12 +2702,14 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
     if (!rule) return res.status(400).json({ error: { code: 'UNCONFIGURED_METRIC', message: 'This metric has no profile ranges' } });
     const devEuis = await getSectionDevEuis(section.id, organizationId, { includeArchived: true });
     if (!devEuis.length) return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
+    timing.mark('setup', 'section and profile');
 
     const [points, heatmapPoints, events] = await Promise.all([
       getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes),
       getMetricHistoryBuckets(devEuis, metric, from, to, 60),
       getTelemetryEvents(devEuis, from, to)
     ]);
+    timing.mark('history', 'history and events');
     const minutesByState = { optimal: 0, warning: 0, critical: 0 };
     points.forEach((point) => {
       const state = analyticsStateForValue(point.value, rule);
@@ -2688,7 +2717,9 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
     });
     const expectedMinutes = Math.ceil((to.getTime() - from.getTime()) / 60000 / stepMinutes) * stepMinutes;
     const coveredMinutes = Object.values(minutesByState).reduce((total, value) => total + value, 0);
+    timing.mark('compute', 'analytics model');
 
+    timing.apply(res);
     res.json({
       sectionId: section.id,
       metric,
