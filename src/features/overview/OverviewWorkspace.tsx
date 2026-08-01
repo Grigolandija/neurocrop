@@ -35,6 +35,7 @@ type OverviewRow = {
   direction: 'above' | 'below' | 'inside' | 'unknown'
   reporting: string
   priorityScore: number
+  riskKind: string
 }
 
 type OverviewModel = {
@@ -212,11 +213,20 @@ function correctionInstruction(
 
 function rowConditionSummary(row: OverviewRow) {
   if (row.currentValue === null || !row.target) return row.detail
-  return `${row.metricLabel} ${formatMeasurement(row.currentValue, row.unit)} · target ${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}`
+  if (row.riskKind === 'uniformity') {
+    return getInterfaceLanguage() === 'lt'
+      ? `${tx(row.metricLabel)} skirtumas ${formatMeasurement(row.currentValue, row.unit)} · leidžiama ≤${formatMeasurement(row.target[1], row.unit)}`
+      : `${row.metricLabel} spread ${formatMeasurement(row.currentValue, row.unit)} · allowed ≤${formatMeasurement(row.target[1], row.unit)}`
+  }
+  return `${tx(row.metricLabel)} ${formatMeasurement(row.currentValue, row.unit)} · ${getInterfaceLanguage() === 'lt' ? 'tikslas' : 'target'} ${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}`
 }
 
 function rowCorrectionSummary(row: OverviewRow) {
   if (row.deviation === null || (row.direction !== 'above' && row.direction !== 'below')) return ''
+  if (row.riskKind === 'uniformity') return getInterfaceLanguage() === 'lt'
+    ? `Sumažinti skirtumą ${formatDifference(row.deviation, row.unit)}`
+    : `Reduce difference by ${formatDifference(row.deviation, row.unit)}`
+  if (getInterfaceLanguage() === 'lt') return `${row.direction === 'above' ? 'Sumažinti' : 'Padidinti'} ${formatDifference(row.deviation, row.unit)}`
   return `${row.direction === 'above' ? 'Decrease' : 'Increase'} by ${formatDifference(row.deviation, row.unit)}`
 }
 
@@ -335,6 +345,7 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   const rows = zones.map((zone): OverviewRow => {
     const action = actionBySection.get(String(zone.id))
     const condition = action || zone.mainCondition
+    const riskKind = String(action?.riskKind || 'target-deviation')
     const rawScore = zone.score === null || zone.score === undefined || zone.score === ''
       ? null
       : Number.isFinite(Number(zone.score)) ? Number(zone.score) : null
@@ -360,8 +371,8 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
       name: String(zone.name || 'Unnamed Section'),
       crop: profileLabel(zone),
       status: tone === 'action' ? 'Needs action' : tone === 'watch' ? 'Watch' : tone === 'good' ? 'Inside target' : 'Unverified',
-      detail: action?.riskKind === 'uniformity'
-        ? String(action.reason || `${rowMetricLabel} differs between nodes.`)
+      detail: riskKind === 'uniformity'
+        ? String(action?.reason || `${rowMetricLabel} differs between nodes.`)
         : actionCanBeVerified
         ? correctionInstruction(rowMetricLabel, deviation, direction, target, unit)
         : conditionCanBeVerified
@@ -384,6 +395,7 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
       direction,
       reporting: `${reportingNodes} of ${totalNodes} nodes reporting`,
       priorityScore: Number(action?.priorityScore || 0),
+      riskKind,
     }
   }).sort((left, right) =>
     ['action', 'watch', 'unknown', 'good'].indexOf(left.tone) - ['action', 'watch', 'unknown', 'good'].indexOf(right.tone)
@@ -399,9 +411,15 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
   const priority = reviewableActions.find((action) =>
     rows.some((row) => row.id === String(action.sectionId) && row.tone === 'action'),
   ) || null
-  const scoreDriver = rows
-    .filter((row) => (row.tone === 'action' || row.tone === 'watch') && row.metricKey)
-    .sort((left, right) => (left.score ?? 101) - (right.score ?? 101))[0]?.metricLabel || null
+  const scoreDriver = (priority
+    ? rows.find((row) => row.id === String(priority.sectionId) && row.metricKey === String(priority.metricId || priority.metricKey || ''))
+    : null)
+    || rows
+      .filter((row) => (row.tone === 'action' || row.tone === 'watch') && row.metricKey)
+      .sort((left, right) => (left.score ?? 101) - (right.score ?? 101))[0]
+  const scoreDriverLabel = scoreDriver
+    ? scoreDriver.riskKind === 'uniformity' ? `${scoreDriver.metricLabel} distribution` : scoreDriver.metricLabel
+    : null
   return {
     areaId: String(site.id),
     areaName: String(site.name || 'Growing Area'),
@@ -413,7 +431,7 @@ function buildModel(dashboard: JsonRecord, actionPayload: JsonRecord, selectedAr
     growingScore: availableScores.length
       ? Math.round(availableScores.reduce((sum, score) => sum + score, 0) / availableScores.length)
       : null,
-    scoreDriver,
+    scoreDriver: scoreDriverLabel,
   }
 }
 
@@ -545,9 +563,9 @@ function EvidenceDrawer({ model, row, onClose }: {
       </section>
       {activeAction ? <AgronomicDiagnosis action={activeAction} /> : null}
       {row && row.currentValue !== null && row.target ? <section className="nc-evidence-metrics">
-        <div><span>{tx("Current")}</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
-        <div><span>{tx("Target")}</span><strong>{row.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` :tx("Not set")}</strong></div>
-        <div data-tone={row.tone}><span>{tx("Deviation")}</span><strong>{formatDeviation(row.deviation, row.direction, row.unit)}</strong></div>
+        <div><span>{row.riskKind === 'uniformity' ? tx("Measured spread") : tx("Current")}</span><strong>{formatMeasurement(row.currentValue, row.unit)}</strong></div>
+        <div><span>{row.riskKind === 'uniformity' ? tx("Allowed spread") : tx("Target")}</span><strong>{row.riskKind === 'uniformity' ? `≤${formatMeasurement(row.target[1], row.unit)}` : `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}`}</strong></div>
+        <div data-tone={row.tone}><span>{tx("Deviation")}</span><strong>{row.riskKind === 'uniformity' ? rowCorrectionSummary(row) : formatDeviation(row.deviation, row.direction, row.unit)}</strong></div>
         <div><span>{tx("Latest reading")}</span><strong>{row.updated}</strong></div>
       </section> : null}
       {row && row.currentValue !== null && row.target
@@ -691,9 +709,9 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
               <span className={`nc-workflow-status ${item.status}`}><i />{item.status === 'submitted' ?tx("Awaiting verification") : item.status === 'open' ?tx("Not started") :tx("In progress")}</span>
             </header>
             <div className="nc-action-values">
-              <div><span>{tx("Current")}</span><strong>{formatMeasurement(currentValue, unit)}</strong></div>
-              <div><span>{tx("Target")}</span><strong>{row?.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : formatTarget(targetRange(action.target), unit).replace(/^Target /, '')}</strong></div>
-              <div><span>{tx("Deviation")}</span><strong>{row ? formatDeviation(row.deviation, row.direction, row.unit) : action.reason}</strong></div>
+              <div><span>{row?.riskKind === 'uniformity' ? tx("Measured spread") : tx("Current")}</span><strong>{formatMeasurement(currentValue, unit)}</strong></div>
+              <div><span>{row?.riskKind === 'uniformity' ? tx("Allowed spread") : tx("Target")}</span><strong>{row?.riskKind === 'uniformity' && row.target ? `≤${formatMeasurement(row.target[1], row.unit)}` : row?.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : formatTarget(targetRange(action.target), unit).replace(/^Target /, '')}</strong></div>
+              <div><span>{tx("Deviation")}</span><strong>{row ? row.riskKind === 'uniformity' ? rowCorrectionSummary(row) : formatDeviation(row.deviation, row.direction, row.unit) : action.reason}</strong></div>
               <div><span>{tx("Latest reading")}</span><strong>{row?.updated ||tx("Unavailable")}</strong></div>
             </div>
             {action.ruleType === 'interaction'
@@ -828,6 +846,10 @@ export default function OverviewWorkspace() {
   const isLt = getInterfaceLanguage() === 'lt'
   const verifiedRows = model.rows.filter((row) => row.tone !== 'unknown')
   const stable = !model.priority && actionRows.length === 0 && watchRows.length === 0 && verifiedRows.length === model.rows.length
+  const priorityConditionRows = model.priority?.riskKind === 'uniformity'
+    ? actionRows.filter((row) => row.riskKind === 'uniformity' && row.metricKey === String(model.priority?.metricId || ''))
+    : actionRows
+  const priorityConditionCount = priorityConditionRows.length || actionRows.length
   const comparableActionRows = actionRows.filter((row) =>
     row.metricKey
     && row.metricKey === actionRows[0]?.metricKey
@@ -868,8 +890,8 @@ export default function OverviewWorkspace() {
       ? model.priority.reason
       : actionRows.length
       ? isLt
-        ? `Ši sąlyga veikia ${actionRows.length} iš ${model.rows.length} sekcijų ir labiausiai riboja dabartinį auginimo balą.`
-        : `This condition affects ${actionRows.length} of ${model.rows.length} sections and is the main limit on the current Growing Score.`
+        ? `Ši sąlyga veikia ${priorityConditionCount} iš ${model.rows.length} sekcijų ir labiausiai riboja dabartinį auginimo balą.`
+        : `This condition affects ${priorityConditionCount} of ${model.rows.length} sections and is the main limit on the current Growing Score.`
       : watchRows.length
         ? isLt
           ? `${watchRows.length} ${watchRows.length === 1 ? 'sekcijoje dabartinis rodmuo neatitinka tikslo' : 'sekcijose dabartiniai rodmenys neatitinka tikslo'}. Peržiūrėkite rekomenduojamas patikras.`
@@ -913,7 +935,7 @@ export default function OverviewWorkspace() {
   const scopeLabel = stable
     ? isLt ? `Visos ${model.rows.length} sekcijos` : `All ${model.rows.length} sections`
     : actionRows.length
-      ? isLt ? `Veikia ${actionRows.length} iš ${model.rows.length} sekcijų` : `Affects ${actionRows.length} of ${model.rows.length} sections`
+      ? isLt ? `Veikia ${priorityConditionCount} iš ${model.rows.length} sekcijų` : `Affects ${priorityConditionCount} of ${model.rows.length} sections`
       : watchRows.length
         ? isLt ? `Stebima ${watchRows.length} iš ${model.rows.length} sekcijų` : `${watchRows.length} of ${model.rows.length} sections on watch`
         : isLt ? `Nepatvirtinta ${unknownRows.length} iš ${model.rows.length} sekcijų` : `${unknownRows.length} of ${model.rows.length} sections unverified`
