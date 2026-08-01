@@ -500,21 +500,19 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
 }
 
 function SectionParameterSummary({ section, profile, onOpenTrend }: { section: SectionReading; profile?: JsonRecord; onOpenTrend: (metric: Metric) => void }) {
-  return <><div className="nc-section-parameter-legend"><span data-tone="good">{tx("Optimal")}</span><span data-tone="watch">{tx("Warning")}</span><span data-tone="critical">{tx("Critical")}</span></div><div className="nc-section-parameter-grid">{metrics.map((metric) => {
+  return <div className="nc-section-parameter-list">{metrics.map((metric) => {
     const value = getValue(section, metric)
     const quality = getQuality(section, metric)
     const target = getRange(profile, metric)
     const visual = getDistributionVisual(section, metric, profile)
     const tone = getTone(section, metric, profile)
-    return <button type="button" className="nc-section-parameter" data-tone={tone} data-quality={quality} onClick={() => onOpenTrend(metric)} key={metric.key}>
-      <span className="nc-section-parameter-head">
-        <span><i className={`fa-solid ${metric.icon}`} /><strong>{metric.label}</strong></span>
-        <small>{tx(qualityLabels[quality])}</small>
-      </span>
-      <span className="nc-section-parameter-detail"><strong className="nc-section-parameter-reading">{value === null ? tx(qualityLabels[quality]) : <>{formatValue(value, metric)} <small>{metric.unit}</small></>}</strong><small className="nc-section-parameter-target">{tx("Crop target")}: {target ? `${target.map((bound) => formatValue(bound, metric)).join('–')} ${metric.unit}` : tx("No target")}</small></span>
+    return <button type="button" className="nc-section-parameter-row" data-tone={tone} data-quality={quality} onClick={() => onOpenTrend(metric)} key={metric.key}>
+      <span className="nc-section-parameter-label"><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{tx("Crop target")}: {target ? `${target.map((bound) => formatValue(bound, metric)).join('–')} ${metric.unit}` : tx("No target")}</small></span></span>
       <span className="nc-section-parameter-track" data-empty={!visual.zones.length}>{visual.zones.map((zone, index) => <span data-tone={zone.tone} style={{ left: `${zone.left}%`, width: `${zone.width}%` }} key={index} />)}{visual.marker !== null ? <i style={{ left: `${visual.marker}%` }} data-tone={tone} /> : null}</span>
+      <strong className="nc-section-parameter-reading">{value === null ? tx(qualityLabels[quality]) : <>{formatValue(value, metric)} <small>{metric.unit}</small></>}</strong>
+      <small className="nc-section-parameter-quality">{tx(qualityLabels[quality])}</small>
     </button>
-  })}</div></>
+  })}</div>
 }
 
 function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }: { points: HistoryPoint[]; target: [number, number] | null; metric: Metric; label: string; periodLabel?: string }) {
