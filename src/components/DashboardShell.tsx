@@ -1,5 +1,5 @@
 import { translateInterfaceText as tx } from '../i18n'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useInterfaceLanguage } from '../i18n'
 import { neurocropApi } from '../services/api/neurocropApi'
@@ -71,6 +71,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
   const [accountMenu, setAccountMenu] = useState<'header' | 'sidebar' | null>(null)
   const [batteryOpen, setBatteryOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const [navigationPending, startNavigationTransition] = useTransition()
   const [nodes, setNodes] = useState<NodeSummary[]>([])
   const [alertCount, setAlertCount] = useState(0)
 
@@ -135,7 +136,8 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
 
   function go(route: string) {
     if (!canAccessWorkspaceRoute(workspaceAccess.stage, route)) return
-    navigate(route)
+    onPrefetchRoute?.(route)
+    startNavigationTransition(() => navigate(route))
   }
 
   async function signOut() {
@@ -165,7 +167,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
   return (
     <>
       <a className="skip-to-content" href="#dashboardMain">{t('Skip to main content')}</a>
-      <div id="dashboardShell" className="dashboard-shell flex min-h-screen">
+      <div id="dashboardShell" className="dashboard-shell flex min-h-screen" data-navigation-pending={navigationPending || undefined}>
         <header id="dashboardHeader" className="global-system-bar">
           <div className="global-system-bar-actions">
             <button className="sidebar-mobile-open" type="button" aria-label={t('Open navigation')} aria-controls="dashboardSidebar" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}>

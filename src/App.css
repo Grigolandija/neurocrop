@@ -1028,6 +1028,33 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   animation: route-loading-progress 1.05s ease-in-out infinite;
 }
 
+.workspace-route-loading {
+  display: grid;
+  min-height: calc(100dvh - 56px);
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  color: #66756f;
+}
+
+.workspace-route-loading > span {
+  width: 26px;
+  height: 26px;
+  border: 3px solid rgba(40, 123, 99, .16);
+  border-top-color: #287b63;
+  border-radius: 50%;
+  animation: workspace-route-spin .7s linear infinite;
+}
+
+.workspace-route-loading > strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@keyframes workspace-route-spin {
+  to { transform: rotate(360deg); }
+}
+
 .workspace-load-error {
   min-height: 28rem;
   display: grid;

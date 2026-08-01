@@ -222,7 +222,7 @@ function Workspaces({ pathname, includeAdmin }: { pathname: string; includeAdmin
     data-interface-language={language}
   >
     <WorkspaceErrorBoundary key={workspace.route}>
-      <Suspense fallback={<div data-workspace-suspense aria-busy="true" />}>
+      <Suspense fallback={<div className="workspace-route-loading" data-workspace-suspense role="status" aria-live="polite" aria-busy="true"><span /><strong>{language === 'lt' ? 'Kraunamas puslapis…' : 'Loading page…'}</strong></div>}>
         {workspace.content}
       </Suspense>
     </WorkspaceErrorBoundary>
