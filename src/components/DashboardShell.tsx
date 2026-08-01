@@ -16,6 +16,7 @@ export type DashboardUser = {
 type ShellProps = {
   user: DashboardUser
   onSignOut: () => Promise<void>
+  onPrefetchRoute?: (route: string) => void
   children: ReactNode
 }
 
@@ -60,7 +61,7 @@ function initials(value: string) {
     .map((part) => part[0]?.toUpperCase()).join('') || 'NC'
 }
 
-export default function DashboardShell({ user, onSignOut, children }: ShellProps) {
+export default function DashboardShell({ user, onSignOut, onPrefetchRoute, children }: ShellProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { language, setLanguage, t } = useInterfaceLanguage()
@@ -152,7 +153,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
     const locked = !canAccessWorkspaceRoute(workspaceAccess.stage, item.route)
     const lockReason = workspaceLockReason(workspaceAccess.stage)
     return (
-      <button key={item.route} type="button" className="rail-link nav-link nav-link-button" data-sidebar-action={item.action} data-active={active} data-disabled={locked} aria-current={active ? 'page' : undefined} aria-disabled={locked || undefined} disabled={locked} title={locked ? t(lockReason) : undefined} onClick={() => go(item.route)}>
+      <button key={item.route} type="button" className="rail-link nav-link nav-link-button" data-sidebar-action={item.action} data-active={active} data-disabled={locked} aria-current={active ? 'page' : undefined} aria-disabled={locked || undefined} disabled={locked} title={locked ? t(lockReason) : undefined} onPointerEnter={() => onPrefetchRoute?.(item.route)} onPointerDown={() => onPrefetchRoute?.(item.route)} onFocus={() => onPrefetchRoute?.(item.route)} onClick={() => go(item.route)}>
         <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
         <span>{t(item.label)}</span>
         {item.route === '/alerts' && alertCount > 0 ? <b className="nav-count" title={`${alertCount} ${t('open alerts')}`} aria-label={`${alertCount} ${t('open alerts')}`}>{alertCount}</b> : null}
@@ -233,7 +234,7 @@ export default function DashboardShell({ user, onSignOut, children }: ShellProps
           { route: '/alerts', label: 'Alerts', icon: 'fa-bell' },
         ].map((item) => {
           const locked = !canAccessWorkspaceRoute(workspaceAccess.stage, item.route)
-          return <button key={item.route} type="button" className="mobile-dock-button" data-active={pathIsActive(item.route)} data-disabled={locked} aria-disabled={locked || undefined} disabled={locked} onClick={() => go(item.route)}><i className={`fa-solid ${item.icon}`} /><span>{t(item.label)}</span></button>
+          return <button key={item.route} type="button" className="mobile-dock-button" data-active={pathIsActive(item.route)} data-disabled={locked} aria-disabled={locked || undefined} disabled={locked} onPointerDown={() => onPrefetchRoute?.(item.route)} onFocus={() => onPrefetchRoute?.(item.route)} onClick={() => go(item.route)}><i className={`fa-solid ${item.icon}`} /><span>{t(item.label)}</span></button>
         })}
         <button type="button" className="mobile-dock-button mobile-dock-command" onClick={() => setMobileOpen(true)}><i className="fa-solid fa-bars" /><span>{t('Manage')}</span></button>
       </nav>

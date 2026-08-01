@@ -108,6 +108,8 @@ export const neurocropApi = {
 }
 
 export async function prefetchWorkspaceData() {
+  // Prime only data shared by the main operational workspaces. Settings,
+  // organization, alerts and history fetch their data when opened.
   await Promise.allSettled([
     neurocropApi.getDashboard(),
     neurocropApi.getAreas(),
@@ -115,11 +117,18 @@ export async function prefetchWorkspaceData() {
     neurocropApi.getNodes(),
     neurocropApi.getCropProfiles(),
     neurocropApi.getTodayActions(),
-    neurocropApi.getActionHistory(100),
-    neurocropApi.getAlerts('all'),
-    neurocropApi.getOrganizations(),
-    neurocropApi.getTeam(),
-    neurocropApi.getInvitations(),
-    neurocropApi.getSessions(),
   ])
+}
+
+export async function prefetchWorkspaceRouteData(route: string) {
+  const requestsByRoute: Record<string, Array<() => Promise<unknown>>> = {
+    '/history': [neurocropApi.getDashboard, neurocropApi.getAreas, neurocropApi.getSections, neurocropApi.getNodes, neurocropApi.getCropProfiles],
+    '/alerts': [() => neurocropApi.getAlerts('all')],
+    '/actions': [neurocropApi.getTodayActions, () => neurocropApi.getActionHistory(100)],
+    '/crop-profiles': [neurocropApi.getCropProfiles, neurocropApi.getSections],
+    '/simulator': [neurocropApi.getCropProfiles],
+    '/settings': [neurocropApi.getCurrentUser, neurocropApi.getTeam, neurocropApi.getInvitations, neurocropApi.getSessions],
+    '/organization': [neurocropApi.getOrganizations, neurocropApi.getTeam, neurocropApi.getAreas, neurocropApi.getSections, neurocropApi.getNodes],
+  }
+  await Promise.allSettled((requestsByRoute[route] || []).map((requestData) => requestData()))
 }

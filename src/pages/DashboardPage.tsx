@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router'
 import DashboardShell, { type DashboardUser } from '../components/DashboardShell'
 import { getInterfaceLanguage, useInterfaceLanguage } from '../i18n'
 import { invalidateRequestCache } from '../services/api/client'
-import { neurocropApi, prefetchWorkspaceData } from '../services/api/neurocropApi'
+import { neurocropApi, prefetchWorkspaceData, prefetchWorkspaceRouteData } from '../services/api/neurocropApi'
 import { useDashboardState } from '../state/dashboardStore'
 
 type WorkspaceModule = { default: ComponentType }
@@ -71,21 +71,38 @@ const TrendsWorkspace = lazy(loadTrendsWorkspace)
 const NodesWorkspace = lazy(loadNodesWorkspace)
 const CropProfilesWorkspace = lazy(loadCropProfilesWorkspace)
 
-const workspaceModuleLoaders = [
-  loadAreasWorkspace,
-  loadReadingsWorkspace,
-  loadSectionsWorkspace,
-  loadSettingsWorkspace,
-  loadOrganizationWorkspace,
-  loadAdminWorkspace,
-  loadAdminIntegrationsWorkspace,
+const workspaceModuleLoadersByRoute: Record<string, () => Promise<WorkspaceModule>> = {
+  '/': loadOverviewWorkspace,
+  '/areas': loadAreasWorkspace,
+  '/sections': loadSectionsWorkspace,
+  '/nodes': loadNodesWorkspace,
+  '/readings': loadReadingsWorkspace,
+  '/history': loadTrendsWorkspace,
+  '/alerts': loadAlertsWorkspace,
+  '/actions': loadActionsWorkspace,
+  '/crop-profiles': loadCropProfilesWorkspace,
+  '/simulator': loadSimulatorWorkspace,
+  '/settings': loadSettingsWorkspace,
+  '/organization': loadOrganizationWorkspace,
+  '/admin': loadAdminWorkspace,
+  '/admin/integrations': loadAdminIntegrationsWorkspace,
+}
+
+function preloadWorkspaceRoute(route: string) {
+  const normalizedRoute = route.startsWith('/nodes/') ? '/nodes' : route
+  void workspaceModuleLoadersByRoute[normalizedRoute]?.().catch(() => undefined)
+  void prefetchWorkspaceRouteData(normalizedRoute)
+}
+
+// Keep the common operational path warm. Less frequently used workspaces stay
+// lazy and load only when the user opens them.
+const coreWorkspaceModuleLoaders = [
   loadOverviewWorkspace,
-  loadSimulatorWorkspace,
-  loadActionsWorkspace,
-  loadAlertsWorkspace,
-  loadTrendsWorkspace,
+  loadAreasWorkspace,
+  loadSectionsWorkspace,
   loadNodesWorkspace,
-  loadCropProfilesWorkspace,
+  loadReadingsWorkspace,
+  loadAlertsWorkspace,
 ]
 
 function warmWorkspaceModules(loaders: Array<() => Promise<WorkspaceModule>>) {
@@ -225,7 +242,7 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   useEffect(() => {
     // Warm route modules one at a time while the browser is idle. Parsing every
     // large workspace chunk in parallel can briefly monopolize the main thread.
-    const stopModuleWarming = warmWorkspaceModules(workspaceModuleLoaders)
+    const stopModuleWarming = warmWorkspaceModules(coreWorkspaceModuleLoaders)
     void prefetchWorkspaceData()
     return () => {
       stopModuleWarming()
@@ -240,7 +257,7 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   if (!isSupportedRoute(location.pathname)) return <Navigate to="/" replace />
 
   return (
-    <DashboardShell user={user} onSignOut={async () => {
+    <DashboardShell user={user} onPrefetchRoute={preloadWorkspaceRoute} onSignOut={async () => {
       try { await neurocropApi.logout() } finally {
         invalidateRequestCache()
         onSignedOut()
