@@ -5,6 +5,11 @@ export function createServerTiming() {
   const entries = [];
 
   return {
+    add(name, duration, description = '') {
+      const numericDuration = Number(duration);
+      if (!Number.isFinite(numericDuration) || numericDuration < 0) return;
+      entries.push({ name, description, duration: numericDuration });
+    },
     mark(name, description = '') {
       const now = performance.now();
       entries.push({ name, description, duration: now - checkpoint });

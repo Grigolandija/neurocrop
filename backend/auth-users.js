@@ -1,10 +1,13 @@
 import crypto from 'crypto';
 import { randomUUID } from 'crypto';
+import { performance } from 'node:perf_hooks';
 import { query } from './db.js';
 import { getSessionCookieOptions } from './config.js';
 
 export const MEMBER_ROLES = ['owner', 'admin', 'grower', 'technician', 'viewer'];
 const SESSION_TTL_DAYS = 30;
+const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
+const sessionTouchAfter = new Map();
 export const MAX_PASSWORD_LENGTH = 1024;
 
 export function normalizeEmail(value) {
@@ -110,8 +113,10 @@ export async function revokeUserSession(token, execute = query) {
 
 export async function getSessionUser(token) {
   if (!token) return null;
+  const tokenHash = hashSessionToken(token);
   const { rows } = await query(
-    `SELECT u.id, u.email, u.display_name, u.is_platform_admin, u.is_super_admin, m.role, m.organization_id, o.name AS organization_name
+    `SELECT u.id, u.email, u.display_name, u.is_platform_admin, u.is_super_admin,
+            m.role, m.organization_id, o.name AS organization_name, s.last_seen_at
      FROM auth_sessions s
      JOIN users u ON u.id=s.user_id
      JOIN organization_memberships m ON m.user_id=u.id AND m.organization_id=s.organization_id
@@ -121,28 +126,44 @@ export async function getSessionUser(token) {
        AND s.expires_at > now()
        AND u.is_active=true
      LIMIT 1`,
-    [hashSessionToken(token)]
+    [tokenHash]
   );
   const user = rows[0] || null;
-  if (user) {
-    await query(
+  if (user && new Date(user.last_seen_at || 0).getTime() < Date.now() - SESSION_TOUCH_INTERVAL_MS
+      && (sessionTouchAfter.get(tokenHash) || 0) <= Date.now()) {
+    const now = Date.now();
+    sessionTouchAfter.set(tokenHash, now + SESSION_TOUCH_INTERVAL_MS);
+    if (sessionTouchAfter.size > 1_000) {
+      for (const [cachedHash, touchAfter] of sessionTouchAfter) {
+        if (touchAfter <= now) sessionTouchAfter.delete(cachedHash);
+      }
+    }
+    void query(
       `UPDATE auth_sessions SET last_seen_at=now()
        WHERE token_hash=$1
          AND (last_seen_at IS NULL OR last_seen_at < now() - interval '5 minutes')`,
-      [hashSessionToken(token)]
-    );
+      [tokenHash]
+    ).catch((error) => {
+      sessionTouchAfter.delete(tokenHash);
+      console.warn('[auth] session touch failed:', error?.message || error);
+    });
   }
   return user;
 }
 
 export async function requireUserAuth(req, res, next) {
+  const startedAt = performance.now();
   try {
-    if (req.user) return next();
+    if (req.user) {
+      if (!Number.isFinite(req.authDurationMs)) req.authDurationMs = performance.now() - startedAt;
+      return next();
+    }
     const user = await getSessionUser(req.cookies?.neurocrop_session);
     if (!user) {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Login required' } });
     }
     req.user = publicUser(user);
+    req.authDurationMs = performance.now() - startedAt;
     next();
   } catch (error) {
     next(error);

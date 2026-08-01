@@ -123,11 +123,16 @@ async function loadCanonicalAlerts(tenantId) {
     ),
     query('SELECT id, metrics FROM crop_profiles WHERE organization_id=$1', [tenantId]),
     query(
-      `SELECT DISTINCT ON (m.dev_eui) m.*
-       FROM measurements m
-       JOIN nodes n ON n.dev_eui=m.dev_eui
+      `SELECT latest.*
+       FROM nodes n
+       JOIN LATERAL (
+         SELECT m.* FROM measurements m
+         WHERE m.dev_eui=n.dev_eui
+         ORDER BY m.time DESC
+         LIMIT 1
+       ) latest ON TRUE
        WHERE n.organization_id=$1 AND n.archived_at IS NULL
-       ORDER BY m.dev_eui, m.time DESC`,
+       ORDER BY n.created_at ASC`,
       [tenantId]
     )
   ]);
@@ -287,6 +292,7 @@ async function requireAlert(req, res) {
 export function registerWorkflowRoutes(app) {
   app.get('/alerts', requireUserAuth, async (req, res, next) => {
     const timing = createServerTiming();
+    timing.add('auth', req.authDurationMs, 'session');
     try {
       res.set('Cache-Control', 'no-store');
       const status = String(req.query.status || 'all');

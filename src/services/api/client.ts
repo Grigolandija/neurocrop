@@ -11,6 +11,9 @@ let cacheGeneration = 0
 let apiConnectionLost = !getDashboardState().connected
 let sessionCheckInFlight: Promise<boolean> | null = null
 let authTokenProvider: (() => Promise<string | null>) | null = null
+let authTokenInFlight: Promise<string | null> | null = null
+let cachedAuthToken: { value: string | null; expiresAt: number } | null = null
+let authTokenGeneration = 0
 subscribeDashboardState(() => {
   apiConnectionLost = !getDashboardState().connected
 })
@@ -88,7 +91,27 @@ async function requestHeaders(options: RequestInit, accept = 'application/json')
   const headers = new Headers(options.headers)
   if (!headers.has('Accept')) headers.set('Accept', accept)
   if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
-  const token = await authTokenProvider?.()
+  const now = Date.now()
+  if (!cachedAuthToken || cachedAuthToken.expiresAt <= now) {
+    if (!authTokenInFlight) {
+      const generation = authTokenGeneration
+      authTokenInFlight = Promise.resolve()
+        .then(() => authTokenProvider?.() ?? null)
+        .then((value) => {
+          if (authTokenGeneration === generation) {
+            cachedAuthToken = { value, expiresAt: Date.now() + 1_000 }
+          }
+          return value
+        })
+        .finally(() => {
+          if (authTokenGeneration === generation) authTokenInFlight = null
+        })
+    }
+  }
+  const reusableAuthToken = cachedAuthToken
+  const token = reusableAuthToken && reusableAuthToken.expiresAt > now
+    ? reusableAuthToken.value
+    : await authTokenInFlight
   if (token) headers.set('Authorization', `Bearer ${token}`)
   return headers
 }
@@ -173,7 +196,10 @@ export function invalidateRequestCache() {
 }
 
 export function setAuthTokenProvider(provider: (() => Promise<string | null>) | null) {
+  authTokenGeneration += 1
   authTokenProvider = provider
+  authTokenInFlight = null
+  cachedAuthToken = null
   sessionCheckInFlight = null
   invalidateRequestCache()
 }

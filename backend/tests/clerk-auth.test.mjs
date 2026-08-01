@@ -88,6 +88,32 @@ test('reads Clerk configuration without exposing the secret', () => {
   );
 });
 
+test('loads a linked Clerk user and selected organization in one database query', async () => {
+  const expectedUser = {
+    id: 'user-1',
+    organization_id: 'organization-1',
+    context_organization_id: 'organization-1'
+  };
+  let calls = 0;
+  const execute = async (sql, params) => {
+    calls += 1;
+    assert.match(sql, /JOIN organization_memberships/);
+    assert.match(sql, /LEFT JOIN clerk_session_contexts/);
+    assert.match(sql, /m\.organization_id=c\.organization_id/);
+    assert.deepEqual(params, ['clerk-user-1', 'clerk-session-1']);
+    return { rows: [expectedUser] };
+  };
+
+  const user = await clerkAuthInternals.linkedClerkSessionUser(
+    'clerk-user-1',
+    'clerk-session-1',
+    execute
+  );
+
+  assert.equal(calls, 1);
+  assert.equal(user, expectedUser);
+});
+
 test('deletes linked and exact-email Clerk identities without matching partial emails', async () => {
   const deleted = [];
   const createClient = ({ secretKey }) => {

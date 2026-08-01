@@ -1,9 +1,13 @@
 import fs from 'fs';
 import { randomBytes, randomUUID } from 'crypto';
+import { performance } from 'node:perf_hooks';
 import { createClerkClient, verifyToken } from '@clerk/express';
 import { query } from './db.js';
 import { getMemberships, hashUserPassword, normalizeEmail, publicUser } from './auth-users.js';
 import { defaultCropProfileMetricsJson } from './crop-profile-defaults.js';
+
+const SESSION_CONTEXT_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
+const sessionContextTouchAfter = new Map();
 
 function bearerToken(req) {
   const authorization = String(req.headers?.authorization || '').trim();
@@ -272,6 +276,52 @@ async function selectedMembership(userId, sessionId, execute = query) {
   return { membership: selected, memberships };
 }
 
+async function linkedClerkSessionUser(clerkUserId, sessionId, execute = query) {
+  const { rows } = await execute(
+    `SELECT u.id, u.email, u.display_name, u.is_active, u.is_platform_admin, u.is_super_admin,
+            m.role, m.organization_id, o.name AS organization_name,
+            c.organization_id AS context_organization_id,
+            c.last_seen_at AS context_last_seen_at
+     FROM users u
+     JOIN organization_memberships m ON m.user_id=u.id
+     JOIN organizations o ON o.id=m.organization_id AND o.status='active'
+     LEFT JOIN clerk_session_contexts c ON c.session_id=$2 AND c.user_id=u.id
+     WHERE u.clerk_user_id=$1
+     ORDER BY CASE WHEN m.organization_id=c.organization_id THEN 0 ELSE 1 END,
+              CASE m.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
+              o.created_at ASC
+     LIMIT 1`,
+    [clerkUserId, sessionId]
+  );
+  return rows[0] || null;
+}
+
+function scheduleClerkSessionContextTouch(sessionId, user, execute = query) {
+  const now = Date.now();
+  const lastSeenAt = new Date(user.context_last_seen_at || 0).getTime();
+  const contextMatches = user.context_organization_id === user.organization_id;
+  if (contextMatches && lastSeenAt >= now - SESSION_CONTEXT_TOUCH_INTERVAL_MS) return;
+  if ((sessionContextTouchAfter.get(sessionId) || 0) > now) return;
+  sessionContextTouchAfter.set(sessionId, now + SESSION_CONTEXT_TOUCH_INTERVAL_MS);
+  if (sessionContextTouchAfter.size > 1_000) {
+    for (const [cachedSessionId, touchAfter] of sessionContextTouchAfter) {
+      if (touchAfter <= now) sessionContextTouchAfter.delete(cachedSessionId);
+    }
+  }
+  void execute(
+    `INSERT INTO clerk_session_contexts (session_id, user_id, organization_id, last_seen_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (session_id) DO UPDATE
+       SET user_id=EXCLUDED.user_id,
+           organization_id=EXCLUDED.organization_id,
+           last_seen_at=now()`,
+    [sessionId, user.id, user.organization_id]
+  ).catch((error) => {
+    sessionContextTouchAfter.delete(sessionId);
+    console.warn('[auth] Clerk session touch failed:', error?.message || error);
+  });
+}
+
 export function clerkAuthEnabled(env = process.env) {
   return Boolean(clerkSecretKey(env));
 }
@@ -284,6 +334,7 @@ export async function resolveOptionalClerkAuth(req, res, next) {
 
   const token = bearerToken(req);
   if (!token) return next();
+  const startedAt = performance.now();
 
   const secretKey = clerkSecretKey();
   if (!secretKey) {
@@ -325,13 +376,19 @@ export async function resolveOptionalClerkAuth(req, res, next) {
       return next();
     }
 
-    const localUser = await localUserForClerkIdentity(clerkUserId, secretKey);
+    let localUser = await linkedClerkSessionUser(clerkUserId, sessionId);
+    let membership = localUser;
+    if (!localUser) {
+      localUser = await localUserForClerkIdentity(clerkUserId, secretKey);
+      ({ membership } = await selectedMembership(localUser.id, sessionId));
+    } else {
+      scheduleClerkSessionContextTouch(sessionId, localUser);
+    }
     if (!localUser.is_active) {
       return res.status(403).json({
         error: { code: 'ACCOUNT_DISABLED', message: 'This account is disabled' }
       });
     }
-    const { membership } = await selectedMembership(localUser.id, sessionId);
     if (!membership) {
       return res.status(403).json({
         error: { code: 'NO_ORGANIZATION', message: 'This account has no active organization' }
@@ -342,6 +399,7 @@ export async function resolveOptionalClerkAuth(req, res, next) {
     req.authProvider = 'clerk';
     req.clerkSessionId = sessionId;
     req.clerkUserId = clerkUserId;
+    req.authDurationMs = performance.now() - startedAt;
     next();
   } catch (error) {
     if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
@@ -379,6 +437,7 @@ export const clerkAuthInternals = {
   isGatewayMachineRequest,
   isInvitationAcceptanceRequest,
   isInvitationStatusRequest,
+  linkedClerkSessionUser,
   organizationNameFromClerkUser,
   verifiedEmailFromClerkUser
 };

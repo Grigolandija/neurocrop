@@ -839,6 +839,7 @@ app.delete('/crop-profiles/:id', requireAuth, requireRole('owner', 'admin', 'gro
 
 app.get('/dashboard', requireAuth, async (req, res) => {
   const timing = createServerTiming();
+  timing.add('auth', req.authDurationMs, 'session');
   try {
     const organizationId = getOrganizationId(req);
     const [areasResult, sectionsResult, nodesResult, profilesResult, measurementsResult, sensorConfigsResult] = await Promise.all([
@@ -869,11 +870,16 @@ app.get('/dashboard', requireAuth, async (req, res) => {
       ),
       query(`SELECT id, metrics FROM crop_profiles WHERE organization_id=$1`, [organizationId]),
       query(
-        `SELECT DISTINCT ON (m.dev_eui) m.*
-         FROM measurements m
-         JOIN nodes n ON n.dev_eui=m.dev_eui
+        `SELECT latest.*
+         FROM nodes n
+         JOIN LATERAL (
+           SELECT m.* FROM measurements m
+           WHERE m.dev_eui=n.dev_eui
+           ORDER BY m.time DESC
+           LIMIT 1
+         ) latest ON TRUE
          WHERE n.organization_id=$1 AND n.archived_at IS NULL
-         ORDER BY m.dev_eui, m.time DESC`,
+         ORDER BY n.created_at ASC`,
         [organizationId]
       ),
       query(
@@ -1458,6 +1464,7 @@ async function synchronizeCropRiskEpisodes(organizationId, risks, sectionIds) {
 
 app.get('/actions/today', requireAuth, async (req, res) => {
   const timing = createServerTiming();
+  timing.add('auth', req.authDurationMs, 'session');
   try {
     res.set('Cache-Control', 'no-store');
     const organizationId = getOrganizationId(req);
@@ -1478,11 +1485,16 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       ),
       query(`SELECT id, metrics FROM crop_profiles WHERE organization_id=$1`, [organizationId]),
       query(
-        `SELECT DISTINCT ON (m.dev_eui) m.*
-         FROM measurements m
-         JOIN nodes n ON n.dev_eui=m.dev_eui
+        `SELECT latest.*
+         FROM nodes n
+         JOIN LATERAL (
+           SELECT m.* FROM measurements m
+           WHERE m.dev_eui=n.dev_eui
+           ORDER BY m.time DESC
+           LIMIT 1
+         ) latest ON TRUE
          WHERE n.organization_id=$1 AND n.archived_at IS NULL
-         ORDER BY m.dev_eui, m.time DESC`,
+         ORDER BY n.created_at ASC`,
         [organizationId]
       ),
       query(
@@ -2118,6 +2130,7 @@ app.get('/actions/overview-summary', requireAuth, async (req, res) => {
 
 app.get('/readings/latest', requireAuth, async (req, res) => {
   const timing = createServerTiming();
+  timing.add('auth', req.authDurationMs, 'session');
   try {
     const organizationId = getOrganizationId(req);
     const requestedSectionId = String(req.query.sectionId || '');
@@ -2685,6 +2698,7 @@ async function getTelemetryEvents(devEuis, from, to) {
 
 app.get('/analytics/section', requireAuth, async (req, res) => {
   const timing = createServerTiming();
+  timing.add('auth', req.authDurationMs, 'session');
   try {
     const organizationId = getOrganizationId(req);
     const section = await getSectionById(req.query.sectionId, organizationId);
