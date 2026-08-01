@@ -430,7 +430,7 @@ test('database connection acquisition stays inside route error boundaries', () =
       ? api.indexOf(`app.get('${routeName}'`)
       : api.indexOf(`app.post('${routeName}'`);
     const route = api.slice(routeStart, routeStart + 900);
-    assert.ok(route.indexOf('try {') >= 0 && route.indexOf('try {') < route.indexOf('await getSectionById'), `${routeName} must guard its first database query`);
+    assert.ok(route.indexOf('try {') >= 0 && route.indexOf('try {') < route.indexOf('getSectionById'), `${routeName} must guard its first database query`);
   }
 });
 
