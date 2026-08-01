@@ -100,20 +100,13 @@ function Workspaces({ pathname, includeAdmin }: { pathname: string; includeAdmin
     if (allWorkspacesReady) return
     const host = hostRef.current
     if (!host) return
-    let frame = 0
-    const update = () => {
-      if (host.querySelectorAll('[data-workspace-route]').length !== workspaces.length) return
-      if (host.querySelector('[aria-busy="true"]')) return
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => setAllWorkspacesReady(true))
-    }
-    const observer = new MutationObserver(update)
-    observer.observe(host, { attributes: true, childList: true, subtree: true, attributeFilter: ['aria-busy'] })
-    update()
-    return () => {
-      cancelAnimationFrame(frame)
-      observer.disconnect()
-    }
+    if (host.querySelectorAll('[data-workspace-route]').length !== workspaces.length) return
+
+    // Every workspace is already mounted here, so its data requests have started.
+    // Do not hold a full-screen, click-blocking loader until every background
+    // workspace clears aria-busy: one unavailable endpoint must not lock the app.
+    const frame = requestAnimationFrame(() => setAllWorkspacesReady(true))
+    return () => cancelAnimationFrame(frame)
   }, [allWorkspacesReady, includeAdmin, workspaces.length])
 
   return <>
@@ -142,15 +135,13 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   const location = useLocation()
   const dashboardState = useDashboardState()
   const unauthorizedVersionAtMount = useRef(dashboardState.unauthorizedVersion)
-  const [prepared, setPrepared] = useState(workspaceDataReady)
 
   useEffect(() => {
-    let active = true
-    void prepareWorkspaceData().finally(() => {
-      if (active) setPrepared(true)
-    })
+    // Warm the shared request cache immediately after sign-in, but never make
+    // the whole interface wait for every endpoint. Workspaces mount below and
+    // reuse the same in-flight requests, so navigation still becomes instant.
+    void prepareWorkspaceData()
     return () => {
-      active = false
       delete document.body.dataset.primaryPage
     }
   }, [])
@@ -160,7 +151,6 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   }, [dashboardState.unauthorizedVersion, onSignedOut])
 
   if (!isSupportedRoute(location.pathname)) return <Navigate to="/" replace />
-  if (!prepared) return <WorkspaceLoading />
 
   return (
     <DashboardShell user={user} onSignOut={async () => {
