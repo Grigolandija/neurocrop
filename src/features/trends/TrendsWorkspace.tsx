@@ -22,7 +22,7 @@ type JsonRecord = Record<string, any>
 type RangeKey = '24h' | '7d' | '30d'
 type TrendScope = 'section' | 'nodes'
 type Point = { observedAt: string; value: number }
-type Section = { id: string; name: string; areaId: string; areaName: string; profileId: string; available: Set<string> }
+type Section = { id: string; name: string; areaId: string; areaName: string; profileId: string; available: Set<string>; measured: Set<string> }
 type NodeOption = { devEui: string; name: string; sectionId: string; transportStatus: string }
 type Metric = { key: string; label: string; short: string; unit: string; decimals: number; icon: string }
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
@@ -126,6 +126,16 @@ function metricSet(section: JsonRecord) {
   return available
 }
 
+function measuredMetricSet(section: JsonRecord) {
+  const available = new Set(
+    arrays({ items: section.availableMetrics || section.available_metrics }, ['items'])
+      .map((item) => typeof item === 'string' ? item : text(item?.key || item?.metric))
+      .filter(Boolean),
+  )
+  if (available.has('airTemp') && available.has('humidity')) available.add('vpd')
+  return available
+}
+
 function number(value: unknown) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
@@ -190,6 +200,7 @@ function sectionList(dashboard: JsonRecord, areaPayload: JsonRecord, sectionPayl
       areaName,
       profileId: sectionProfileId(merged),
       available,
+      measured: measuredMetricSet(merged),
     }
   }).filter((section): section is Section => Boolean(section))
 }
@@ -538,6 +549,15 @@ export default function TrendsWorkspace() {
   )
   const sectionNodeKey = sectionNodes.map((node) => node.devEui).join(',')
   const availableMetrics = metrics.filter((metric) => selectedSection?.available.has(metric.key))
+  const exportAvailableMetricKeys = useMemo(() => {
+    const relevantSections = exportScope === 'area'
+      ? sections.filter((section) => section.areaId === selectedSection?.areaId)
+      : selectedSection ? [selectedSection] : []
+    const available = new Set<string>()
+    relevantSections.forEach((section) => section.measured.forEach((key) => available.add(key)))
+    return metrics.map((metric) => metric.key).filter((key) => available.has(key))
+  }, [exportScope, sections, selectedSection])
+  const exportAvailableMetricKeySet = useMemo(() => new Set(exportAvailableMetricKeys), [exportAvailableMetricKeys])
   const target = profileRange(profiles, selectedSection?.profileId || '', selectedMetric.key)
   const dayNightSchedule = useMemo(
     () => profileDayNightSchedule(profiles, selectedSection?.profileId || ''),
@@ -985,7 +1005,7 @@ export default function TrendsWorkspace() {
     if (!selectedSection) return
     setExportScope('section')
     setExportRange(range)
-    setExportMetricKeys(metrics.map((metric) => metric.key))
+    setExportMetricKeys(metrics.map((metric) => metric.key).filter((key) => selectedSection.measured.has(key)))
     setExportError('')
     setExportOpen(true)
   }
@@ -1146,9 +1166,9 @@ export default function TrendsWorkspace() {
     </section>
     {exportOpen && selectedSection ? <ModalPortal><div className="nc-trends-export-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !exportBusy) setExportOpen(false) }}><div className="nc-trends-export-modal" role="dialog" aria-modal="true" aria-labelledby="nc-trends-export-title">
       <header><div><p>{tx("Data export")}</p><h2 id="nc-trends-export-title">{tx("Export measurements")}</h2><span>{tx("Choose what the CSV file should contain.")}</span></div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>
-      <section><h3>{tx("Scope")}</h3><div className="nc-trends-export-choice-list nc-trends-export-scope"><label><input type="radio" name="export-scope" checked={exportScope === 'section'} onChange={() => setExportScope('section')} /><span><strong>{tx("Current Section")}</strong><small>{selectedSection.name}</small></span></label><label><input type="radio" name="export-scope" checked={exportScope === 'area'} onChange={() => setExportScope('area')} /><span><strong>{tx("Entire Area")}</strong><small>{selectedSection.areaName} · {sections.filter((section) => section.areaId === selectedSection.areaId).length} {tx("Sections")}</small></span></label></div></section>
+      <section><h3>{tx("Scope")}</h3><div className="nc-trends-export-choice-list nc-trends-export-scope"><label><input type="radio" name="export-scope" checked={exportScope === 'section'} onChange={() => { setExportScope('section'); setExportMetricKeys(metrics.map((metric) => metric.key).filter((key) => selectedSection.measured.has(key))) }} /><span><strong>{tx("Current Section")}</strong><small>{selectedSection.name}</small></span></label><label><input type="radio" name="export-scope" checked={exportScope === 'area'} onChange={() => { const areaSections = sections.filter((section) => section.areaId === selectedSection.areaId); setExportScope('area'); setExportMetricKeys(metrics.map((metric) => metric.key).filter((key) => areaSections.some((section) => section.measured.has(key)))) }} /><span><strong>{tx("Entire Area")}</strong><small>{selectedSection.areaName} · {sections.filter((section) => section.areaId === selectedSection.areaId).length} {tx("Sections")}</small></span></label></div></section>
       <section><h3>{tx("Period")}</h3><div className="nc-trends-export-choice-list nc-trends-export-range">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <label key={key}><input type="radio" name="export-range" checked={exportRange === key} onChange={() => setExportRange(key)} /><span><strong>{key}</strong><small>{tx(rangeConfig[key].label)}</small></span></label>)}</div></section>
-      <section><div className="nc-trends-export-section-head"><h3>{tx("Metrics")}</h3><span><button type="button" onClick={() => setExportMetricKeys(metrics.map((metric) => metric.key))}>{tx("Select all")}</button><button type="button" onClick={() => setExportMetricKeys([])}>{tx("Clear")}</button></span></div><div className="nc-trends-export-metrics">{metrics.map((metric) => <label key={metric.key}><input type="checkbox" checked={exportMetricKeys.includes(metric.key)} onChange={() => setExportMetricKeys((current) => current.includes(metric.key) ? current.filter((key) => key !== metric.key) : [...current, metric.key])} /><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{metric.unit || tx("No unit")}</small></span></label>)}</div></section>
+      <section><div className="nc-trends-export-section-head"><h3>{tx("Metrics")}</h3><span><button type="button" onClick={() => setExportMetricKeys(exportAvailableMetricKeys)}>{tx("Select all")}</button><button type="button" onClick={() => setExportMetricKeys([])}>{tx("Clear")}</button></span></div><div className="nc-trends-export-metrics">{metrics.map((metric) => { const metricAvailable = exportAvailableMetricKeySet.has(metric.key); return <label key={metric.key}><input type="checkbox" disabled={!metricAvailable} checked={metricAvailable && exportMetricKeys.includes(metric.key)} onChange={() => setExportMetricKeys((current) => current.includes(metric.key) ? current.filter((key) => key !== metric.key) : [...current, metric.key])} /><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{metricAvailable ? metric.unit || tx("No unit") : tx("No measurements")}</small></span></label> })}</div></section>
       <footer><span>{exportError ? <em className="nc-trends-export-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{exportError}</em> : <>{exportMetricKeys.length} {tx("metrics selected")}</>}</span><div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy}>{tx("Cancel")}</button><button type="button" className="primary" onClick={() => void exportCsv()} disabled={exportBusy || !exportMetricKeys.length}>{exportBusy ? tx("Preparing CSV…") : tx("Download CSV")}</button></div></footer>
     </div></div></ModalPortal> : null}
   </main>

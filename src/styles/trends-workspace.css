@@ -454,6 +454,9 @@ body.designer-app .nc-trends-section-search input {
 }
 .nc-trends-export-choice-list label:has(input:checked),
 .nc-trends-export-metrics label:has(input:checked) { background: #f5faf7; }
+.nc-trends-export-metrics label:has(input:disabled) { background: #f7f8f7; color: #9aa49f; cursor: not-allowed; }
+.nc-trends-export-metrics label:has(input:disabled) > i,
+.nc-trends-export-metrics label:has(input:disabled) small { color: #a6afaa; }
 .nc-trends-export-modal input { flex: 0 0 auto; width: 15px; height: 15px; margin: 0; accent-color: #2d7863; }
 .nc-trends-export-modal label span { display: grid; min-width: 0; gap: 3px; }
 .nc-trends-export-modal label strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }

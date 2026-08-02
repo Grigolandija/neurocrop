@@ -3088,7 +3088,7 @@ function formatExportDateTime(value) {
 }
 
 function formatExportValue(value) {
-  return Number(value).toLocaleString('lt-LT', {
+  return Number(value).toLocaleString('en-US', {
     useGrouping: false,
     maximumFractionDigits: 3
   });
