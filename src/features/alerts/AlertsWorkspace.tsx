@@ -147,8 +147,20 @@ export default function AlertsWorkspace() {
     setPending(ids, true)
     setFeedback(null)
     try {
-      await Promise.all(actionable.map((item) => neurocropApi.acknowledgeAlert(item.id, { context: item.context })))
+      const results = await Promise.allSettled(actionable.map((item) => neurocropApi.acknowledgeAlert(item.id, { context: item.context })))
       await load(false)
+      const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+      if (failures.length) {
+        const onlyExpiredAlerts = failures.every((failure) => /alert not found/i.test(errorMessage(failure.reason, '')))
+        if (onlyExpiredAlerts) {
+          setFeedback({
+            tone: 'success',
+            text: copy('The alert was no longer active and has been removed from the list.', 'Perspėjimas nebebuvo aktyvus ir pašalintas iš sąrašo.'),
+          })
+          return
+        }
+        throw failures[0].reason
+      }
       setFeedback({
         tone: 'success',
         text: actionable.length === 1

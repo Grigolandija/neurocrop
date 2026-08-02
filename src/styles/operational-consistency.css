@@ -354,6 +354,7 @@
 }
 
 .designer-app .nc-alert-card-icon {
+  align-self: start;
   width: 2rem;
   height: 2rem;
   font-size: var(--type-body-sm);

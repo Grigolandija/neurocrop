@@ -243,6 +243,45 @@ async function synchronizeCanonicalAlerts(tenantId, activeAlerts, clearableIds) 
          AND alert_id = ANY($2::text[])`,
       [tenantId, clearableIds]
     );
+    // A deleted Section or Node cannot keep a live workflow visible forever.
+    // Resolve these orphaned alerts during the same synchronization pass so a
+    // later acknowledge/snooze action never targets a scope that no longer exists.
+    await client.query(
+      `UPDATE alert_workflows AS workflow
+       SET status='resolved',
+           active=false,
+           resolved_by=NULL,
+           resolved_at=now(),
+           recovered_at=now(),
+           resolution_reason='scope_removed',
+           snoozed_by=NULL,
+           snoozed_at=NULL,
+           snoozed_until=NULL,
+           updated_at=now()
+       WHERE workflow.organization_id=$1
+         AND workflow.managed=true
+         AND workflow.active=true
+         AND split_part(workflow.alert_id, ':', 1) IN ('metric', 'offline')
+         AND (
+           NOT EXISTS (
+             SELECT 1 FROM sections section_record
+             WHERE section_record.organization_id=workflow.organization_id
+               AND section_record.area_id=split_part(workflow.alert_id, ':', 2)
+               AND section_record.id=split_part(workflow.alert_id, ':', 3)
+           )
+           OR (
+             split_part(workflow.alert_id, ':', 1)='offline'
+             AND NOT EXISTS (
+               SELECT 1 FROM nodes node_record
+               WHERE node_record.organization_id=workflow.organization_id
+                 AND node_record.section_id=split_part(workflow.alert_id, ':', 3)
+                 AND LOWER(node_record.dev_eui)=LOWER(split_part(workflow.alert_id, ':', 4))
+                 AND node_record.archived_at IS NULL
+             )
+           )
+         )`,
+      [tenantId]
+    );
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
