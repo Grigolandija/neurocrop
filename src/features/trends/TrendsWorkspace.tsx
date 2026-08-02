@@ -13,6 +13,7 @@ import {
   renderTrendChart,
   type TrendDayNightSchedule,
 } from './sharedTrendChart'
+import { buildTrendsCsv, downloadTrendsCsv, filenamePart, type TrendExportSeries } from './trendsCsv'
 import '../../styles/trends-workspace.css'
 
 // API records remain open because telemetry payloads can gain metrics independently.
@@ -881,6 +882,41 @@ export default function TrendsWorkspace() {
       target: profileRange(profiles, selectedSection?.profileId || '', key),
     }
   }), [activeMetricKeys, metricHistories, profiles, selectedSection?.profileId])
+  const exportSeries: TrendExportSeries[] = (() => {
+    if (!selectedSection) return []
+    if (scope === 'nodes') {
+      return chartSeries.map((series, index) => ({
+        area: selectedSection.areaName,
+        section: selectedSection.name,
+        sourceType: index === 0 ? 'Section aggregate' : 'Node',
+        source: series.name,
+        metric: selectedMetric,
+        aggregation: index === 0 ? selectedAggregationLabel : 'Node history',
+        points: series.points,
+      }))
+    }
+    if (compare && comparison.length > 1) {
+      return comparison.map((series) => ({
+        area: selectedSection.areaName,
+        section: series.name,
+        sourceType: 'Section aggregate',
+        source: series.name,
+        metric: selectedMetric,
+        aggregation: 'Section comparison',
+        points: series.points,
+      }))
+    }
+    return metricChartItems.map((item) => ({
+      area: selectedSection.areaName,
+      section: selectedSection.name,
+      sourceType: 'Section aggregate',
+      source: selectedSection.name,
+      metric: item.metric,
+      aggregation: sectionAggregationLabel(metricAggregations[item.metric.key]),
+      points: item.points,
+    }))
+  })()
+  const exportHasData = exportSeries.some((series) => series.points.length)
 
   function changeArea(nextAreaId: string) {
     setAreaId(nextAreaId)
@@ -958,17 +994,12 @@ export default function TrendsWorkspace() {
   }
 
   function exportCsv() {
-    if (!selectedSection) return
-    const config = rangeConfig[range]
-    const to = new Date()
-    const from = new Date(to.getTime() - config.hours * 60 * 60 * 1000)
-    void neurocropApi.downloadMeasurementsCsv({
-      areaId: selectedSection.areaId,
-      sectionId: selectedSection.id,
-      metrics: metricKey,
-      from: from.toISOString(),
-      to: to.toISOString(),
-    })
+    if (!selectedSection || !exportHasData) return
+    const subject = compare && comparison.length > 1
+      ? `${selectedSection.areaName}-comparison`
+      : selectedSection.name
+    const filename = `neurocrop-trends-${filenamePart(subject) || 'data'}-${range}-${new Date().toISOString().slice(0, 10)}.csv`
+    downloadTrendsCsv(buildTrendsCsv(exportSeries, rangeConfig[range].label), filename)
   }
 
   return <main className="nc-trends-page" aria-busy={status === 'loading' || nodeHistoryLoading}>
@@ -976,7 +1007,7 @@ export default function TrendsWorkspace() {
       <div><p>{tx("Historical intelligence")}</p><h1>{tx("Trends")}</h1><span>{tx("See what changed, how long conditions stayed outside target, and whether intervention is working.")}</span></div>
       <div className="nc-trends-head-actions">
         <button type="button" onClick={() => setRefreshToken((value) => value + 1)}><i className="fa-solid fa-rotate" />{tx("Refresh")}</button>
-        <button type="button" className="primary" onClick={exportCsv} disabled={!selectedSection}><i className="fa-solid fa-download" />{tx("Export CSV")}</button>
+        <button type="button" className="primary" onClick={exportCsv} disabled={!selectedSection || !exportHasData}><i className="fa-solid fa-download" />{tx("Export CSV")}</button>
       </div>
     </header>
 

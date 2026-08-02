@@ -925,25 +925,10 @@ export default function ReadingsWorkspace() {
     setTrendPreview({ sectionId: section.id, metricKey: metric.key })
   }
 
-  function exportCsv() {
-    const header = ['Section', 'Area', 'Crop profile', ...visibleMetrics.map((metric) => `${metric.label} (${metric.unit})`), 'Latest data']
-    const rows = visibleSections.map((section) => [section.name, section.areaName, section.profileName, ...visibleMetrics.map((metric) => {
-      const value = getValue(section, metric)
-      return value === null ? qualityLabels[getQuality(section, metric)] : value
-    }), formatAge(section)])
-    const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n')
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = 'neurocrop-live-readings.csv'
-    anchor.click()
-    URL.revokeObjectURL(url)
-  }
-
   return <main className="nc-readings-workspace" aria-busy={status === 'loading'}>
     <header className="nc-readings-hero">
       <div><p className="nc-overline">{tx("Live workspace")}</p><h1>{tx("Live readings, section by section.")}</h1><p>{tx("Compare current measurements across the operation. Cell color shows crop status; the small marker shows whether the reading can be trusted.")}</p></div>
-      <div className="nc-readings-actions"><span><strong>{readingsUnavailable ?tx("Sections unavailable") : `${sections.length} sections monitored`}</strong><small>{refreshing ?tx("Refreshing current measurements…") : readingsUnavailable ?tx("Live data could not be loaded") :tx("Updated from live node packets")}</small></span><button type="button" onClick={() => setRefreshToken((value) => value + 1)} disabled={refreshing}><i className="fa-solid fa-rotate" />{tx("Refresh")}</button><button type="button" onClick={exportCsv} disabled={!visibleSections.length}><i className="fa-solid fa-download" />{tx("Export")}</button></div>
+      <div className="nc-readings-actions"><span><strong>{readingsUnavailable ?tx("Sections unavailable") : `${sections.length} sections monitored`}</strong><small>{refreshing ?tx("Refreshing current measurements…") : readingsUnavailable ?tx("Live data could not be loaded") :tx("Updated from live node packets")}</small></span><button type="button" onClick={() => setRefreshToken((value) => value + 1)} disabled={refreshing}><i className="fa-solid fa-rotate" />{tx("Refresh")}</button></div>
     </header>
 
     {status === 'error' ? <section className="nc-readings-state" role="alert"><i className="fa-solid fa-triangle-exclamation" /><div><strong>{tx("Readings could not be loaded")}</strong><p>{error}</p></div><button type="button" onClick={() => setRefreshToken((value) => value + 1)}>{tx("Try again")}</button></section> : null}

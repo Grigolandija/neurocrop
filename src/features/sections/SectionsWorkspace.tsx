@@ -119,22 +119,6 @@ function readinessCopy(section: SectionRow) {
   return { label: 'Needs attention', detail: section.reportingCount < section.nodeCount ? 'Hardware reporting gap' : 'Latest data is delayed' }
 }
 
-function csvCell(value: unknown) {
-  return `"${String(value ?? '').replaceAll('"', '""')}"`
-}
-
-function downloadCsv(rows: SectionRow[]) {
-  const header = ['Area', 'Section', 'Crop profile', 'Assigned nodes', 'Reporting nodes', 'Latest data', 'Readiness']
-  const body = rows.map((section) => [section.areaName, section.name, section.profileName, section.nodeCount, section.reportingCount, section.lastReceivedAt || '', readinessCopy(section).label])
-  const blob = new Blob([[header, ...body].map((row) => row.map(csvCell).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = 'neurocrop-sections.csv'
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
-
 export default function SectionsWorkspace() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -399,7 +383,7 @@ export default function SectionsWorkspace() {
   return <main className="nc-sections-page">
     <header className="nc-sections-head">
       <div><p>{tx("Workspace structure")}</p><h1>{tx("Sections")}</h1><span>{tx("Organize growing zones, verify hardware coverage, and keep crop profiles assigned correctly.")}</span></div>
-      <div><button type="button" className="nc-sections-button secondary" onClick={() => downloadCsv(filteredSections)} disabled={!filteredSections.length}><i className="fa-solid fa-download" />{tx("Export")}</button><button type="button" className="nc-sections-button primary" onClick={openCreate} disabled={!areas.length || !profiles.length}><i className="fa-solid fa-plus" />{tx("Create section")}</button></div>
+      <div><button type="button" className="nc-sections-button primary" onClick={openCreate} disabled={!areas.length || !profiles.length}><i className="fa-solid fa-plus" />{tx("Create section")}</button></div>
     </header>
 
     <section className="nc-sections-summary" aria-label={tx("Section readiness summary")}>
