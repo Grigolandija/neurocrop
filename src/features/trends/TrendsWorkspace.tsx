@@ -768,12 +768,18 @@ export default function TrendsWorkspace() {
       setSecondaryMetricKeys([])
       setSelectedNodeIds((current) => {
         const valid = current.filter((id) => eligibleIds.includes(id)).slice(0, 5)
-        return valid.length ? valid : eligibleIds.slice(0, 3)
+        return valid
       })
     })
   // sectionNodes is represented by its stable identity list to avoid resetting selection on unrelated renders.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope, sectionNodeKey, selectedSection?.id])
+
+  useEffect(() => {
+    if (scope === 'nodes' && !selectedNodeIds.length) {
+      queueMicrotask(() => setScope('section'))
+    }
+  }, [scope, selectedNodeIds.length])
 
   useEffect(() => {
     if (scope !== 'nodes' || !selectedSection || !selectedNodeIds.length) {
@@ -924,18 +930,31 @@ export default function TrendsWorkspace() {
       : [...current, id].slice(0, 6))
   }
 
-  function changeScope(nextScope: TrendScope) {
-    setScope(nextScope)
-    if (nextScope === 'nodes') {
+  function toggleNode(devEui: string) {
+    const next = selectedNodeIds.includes(devEui)
+      ? selectedNodeIds.filter((id) => id !== devEui)
+      : selectedNodeIds.length < 5 ? [...selectedNodeIds, devEui] : selectedNodeIds
+    setSelectedNodeIds(next)
+    setScope(next.length ? 'nodes' : 'section')
+    if (next.length) {
       setCompare(false)
       setSecondaryMetricKeys([])
     }
   }
 
-  function toggleNode(devEui: string) {
-    setSelectedNodeIds((current) => current.includes(devEui)
-      ? current.filter((id) => id !== devEui)
-      : current.length < 5 ? [...current, devEui] : current)
+  function selectAllNodes() {
+    const next = sectionNodes.slice(0, 5).map((node) => node.devEui)
+    setSelectedNodeIds(next)
+    setScope(next.length ? 'nodes' : 'section')
+    if (next.length) {
+      setCompare(false)
+      setSecondaryMetricKeys([])
+    }
+  }
+
+  function clearNodes() {
+    setSelectedNodeIds([])
+    setScope('section')
   }
 
   function exportCsv() {
@@ -986,28 +1005,22 @@ export default function TrendsWorkspace() {
             </select>
           : <span className="nc-trends-select-skeleton" aria-label={tx("Preparing Section selection")} />}
       </label>
-      <label className="nc-trends-source-field">
-        <span>{tx("Data source")}</span>
-        <select value={scope} onChange={(event) => changeScope(event.target.value as TrendScope)}>
-          <option value="section">{tx("Section aggregate")}</option>
-          <option value="nodes">{tx("Compare Nodes")}</option>
-        </select>
-      </label>
       <div className="nc-trends-range" role="group" aria-label={tx("Trend period")}>{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
-      {scope === 'nodes' ? <details className="nc-trends-node-select">
+      <details className="nc-trends-node-select">
         <summary>
-          <span><small>{tx("Nodes")}</small><strong>{selectedNodeIds.length ? `${selectedNodeIds.length} ${tx("selected")}` : tx("Select Nodes")}</strong></span>
+          <span><small>{tx("Displayed data")}</small><strong>{selectedNodeIds.length ? `${tx("Section")} + ${selectedNodeIds.length} ${tx("Nodes")}` : tx("Section only")}</strong></span>
           <i className="fa-solid fa-chevron-down" />
         </summary>
         <div className="nc-trends-node-menu">
           <header>
-            <span><strong>{tx("Compare Nodes")}</strong><small>{tx("Choose up to 5 Nodes")}</small></span>
+            <span><strong>{tx("Add Nodes to comparison")}</strong><small>{tx("Section aggregate is always shown")}</small></span>
             <span className="nc-trends-node-menu-actions">
-              <button type="button" onClick={() => setSelectedNodeIds(sectionNodes.slice(0, 5).map((node) => node.devEui))} disabled={!sectionNodes.length}>{tx("Select all")}</button>
-              <button type="button" onClick={() => setSelectedNodeIds([])} disabled={!selectedNodeIds.length}>{tx("Clear")}</button>
+              <button type="button" onClick={selectAllNodes} disabled={!sectionNodes.length}>{tx("Select all")}</button>
+              <button type="button" onClick={clearNodes} disabled={!selectedNodeIds.length}>{tx("Clear")}</button>
             </span>
           </header>
           <div className="nc-trends-node-options">
+            <div className="nc-trends-node-base"><i className="fa-solid fa-layer-group" /><span><strong>{tx("Section aggregate")}</strong><small>{tx("Always shown")}</small></span><b>{tx("Base")}</b></div>
             {sectionNodes.length ? sectionNodes.map((node) => {
               const selected = selectedNodeIds.includes(node.devEui)
               const disabled = !selected && selectedNodeIds.length >= 5
@@ -1020,7 +1033,8 @@ export default function TrendsWorkspace() {
             }) : <p>{tx("No Nodes are assigned to this Section.")}</p>}
           </div>
         </div>
-      </details> : <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />{tx("Compare Sections")}</button>}
+      </details>
+      <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => { clearNodes(); setCompare((value) => !value) }}><i className="fa-solid fa-code-compare" />{tx("Compare Sections")}</button>
     </section>
     {scope === 'nodes' && nodeHistoryError ? <p className="nc-trends-node-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{nodeHistoryError}</p> : null}
 
