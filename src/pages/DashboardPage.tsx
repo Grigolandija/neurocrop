@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useDeferredValue, useEffect, useRef, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useDeferredValue, useEffect, useLayoutEffect, useRef, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import DashboardShell, { type DashboardUser } from '../components/DashboardShell'
 import { getInterfaceLanguage, useInterfaceLanguage } from '../i18n'
@@ -96,9 +96,9 @@ const workspaceModuleLoadersByRoute: Record<string, () => Promise<WorkspaceModul
   '/admin/integrations': loadAdminIntegrationsWorkspace,
 }
 
-async function preloadWorkspaceRoute(route: string) {
+function preloadWorkspaceRoute(route: string) {
   const normalizedRoute = route.startsWith('/nodes/') ? '/nodes' : route
-  await Promise.allSettled([
+  void Promise.allSettled([
     workspaceModuleLoadersByRoute[normalizedRoute]?.() ?? Promise.resolve(),
     prefetchWorkspaceRouteData(normalizedRoute),
   ])
@@ -262,6 +262,12 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   const deferredPathname = useDeferredValue(location.pathname)
   const dashboardState = useDashboardState()
   const unauthorizedVersionAtMount = useRef(dashboardState.unauthorizedVersion)
+
+  useLayoutEffect(() => {
+    document.body.dataset.primaryPage = deferredPathname === '/'
+      ? 'overview'
+      : deferredPathname.slice(1).split('/')[0]
+  }, [deferredPathname])
 
   useEffect(() => {
     // Warm route modules one at a time while the browser is idle. Parsing every

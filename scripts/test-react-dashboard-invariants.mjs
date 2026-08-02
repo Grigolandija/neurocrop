@@ -86,6 +86,8 @@ assert(dashboard.includes('lazy(loadAreasWorkspace)'), 'Workspace modules must r
 assert(dashboard.includes('coreWorkspaceModuleLoaders'), 'Common operational workspace modules must be warmed after authentication.')
 assert(dashboard.includes('onPrefetchRoute={preloadWorkspaceRoute}'), 'Navigation intent must preload the destination workspace.')
 assert(dashboard.includes('prefetchWorkspaceData'), 'Authenticated dashboard must warm shared workspace data.')
+assert(!shell.includes('document.body.dataset.primaryPage'), 'The shell must not apply destination-page CSS before the deferred workspace is visible.')
+assert(dashboard.includes('document.body.dataset.primaryPage = deferredPathname'), 'Global page-scoped CSS must follow the workspace that is actually visible.')
 assert(dashboard.includes('data-workspace-suspense'), 'A route-scoped loading state must cover a workspace chunk that is not warm yet.')
 assert(dashboard.includes('completeRoutePerformance(workspace.route)'), 'Route performance must complete after the active workspace paints.')
 assert(main.includes("'vite:preloadError'"), 'The application must recover when a deployment removes a stale lazy chunk.')

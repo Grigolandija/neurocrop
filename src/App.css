@@ -1083,6 +1083,41 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   }
 }
 
+@supports (view-transition-name: none) {
+  .dashboard-main-inner {
+    view-transition-name: neurocrop-workspace;
+  }
+
+  ::view-transition-group(neurocrop-workspace) {
+    animation-duration: .42s;
+  }
+
+  ::view-transition-old(neurocrop-workspace) {
+    animation: neurocrop-workspace-out .42s ease-out both;
+  }
+
+  ::view-transition-new(neurocrop-workspace) {
+    animation: neurocrop-workspace-in .42s ease-out both;
+  }
+}
+
+@keyframes neurocrop-workspace-out {
+  0%, 58% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes neurocrop-workspace-in {
+  0%, 48% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(neurocrop-workspace),
+  ::view-transition-new(neurocrop-workspace) {
+    animation: none;
+  }
+}
+
 @keyframes workspace-route-spin {
   to { transform: rotate(360deg); }
 }
