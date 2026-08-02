@@ -8,6 +8,9 @@ import { getMetricDefinition } from '../../domain/metricRegistry'
 import { consumeTrendIntent, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { resolveTrendContext } from './resolveTrendContext'
 import { installEChartsEngine } from '../../vendor/echartsEngine'
+import { interpolateIdw } from '../greenhouse-map/heatmap/idwInterpolation'
+import { esriTemperatureColorAt } from '../greenhouse-map/heatmap/heatmapColorScale'
+import type { MeasurementPoint } from '../greenhouse-map/heatmap/heatmapTypes'
 import {
   buildNightIntervals,
   nightMarkAreaData,
@@ -26,7 +29,7 @@ type Section = { id: string; name: string; areaId: string; areaName: string; pro
 type NodeOption = { devEui: string; name: string; sectionId: string; transportStatus: string }
 type Metric = { key: string; label: string; short: string; unit: string; decimals: number; icon: string }
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
-type ExportMapNode = { devEui: string; name: string; sectionId: string; sectionName: string; status: string; left: number; top: number; positioned: boolean; metrics: Set<string> }
+type ExportMapNode = { devEui: string; name: string; sectionId: string; sectionName: string; status: string; left: number; top: number; positioned: boolean; temperature: number | null; metrics: Set<string> }
 type ExportMapObject = { id: string; name: string; type: string; left: number; top: number; width: number; height: number }
 type ExportMapState = { status: LoadState; configured: boolean; ratio: number; nodes: ExportMapNode[]; objects: ExportMapObject[]; error: string }
 
@@ -197,6 +200,7 @@ function normalizeExportMap(payload: JsonRecord): Omit<ExportMapState, 'status' 
       left: position?.left ?? ((index % columns) + 1) / (columns + 1) * 100,
       top: position?.top ?? (Math.floor(index / columns) + 1) / (Math.ceil(rawNodes.length / columns) + 1) * 100,
       positioned: Boolean(position),
+      temperature: number(node.measurements?.airTemperatureC),
       metrics: exportNodeMetrics(node),
     }
   }).filter((node): node is ExportMapNode => Boolean(node))
@@ -216,7 +220,7 @@ function normalizeExportMap(payload: JsonRecord): Omit<ExportMapState, 'status' 
       height: objectHeight / lengthM * 100,
     }]
   })
-  return { configured: Boolean(map && positions.size), ratio: Math.max(.55, Math.min(2.4, widthM / lengthM)), nodes, objects }
+  return { configured: Boolean(map && positions.size), ratio: widthM / lengthM, nodes, objects }
 }
 
 function number(value: unknown) {
@@ -570,6 +574,63 @@ function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricCha
   }, [dayNightSchedule, items, language, range])
   if (renderFailed) return <div className="nc-trends-empty" data-state="error" role="alert"><i className="fa-solid fa-triangle-exclamation" /><strong>{tx("Chart could not be rendered")}</strong><span>{tx("Change the parameter selection or refresh to try again.")}</span></div>
   return <div className="nc-trends-chart nc-trends-multi-chart" ref={ref} role="img" aria-label={`${items.map((item) => item.metric.label).join(', ')}, ${range} trend`} />
+}
+
+function ExportTemperatureLayer({ nodes }: { nodes: ExportMapNode[] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const points = useMemo<MeasurementPoint[]>(() => nodes.flatMap((node) => node.temperature === null ? [] : [{
+    id: node.devEui,
+    name: node.name,
+    xM: node.left,
+    yM: node.top,
+    value: node.temperature,
+  }]), [nodes])
+  const extent = useMemo(() => finiteExtent(points.map((point) => point.value)), [points])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !points.length || !extent) return
+    const draw = () => {
+      const bounds = canvas.getBoundingClientRect()
+      if (bounds.width < 1 || bounds.height < 1) return
+      const width = Math.max(1, Math.round(bounds.width * .5))
+      const height = Math.max(1, Math.round(bounds.height * .5))
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) return
+      const image = context.createImageData(width, height)
+      const useObservedRange = extent[1] - extent[0] >= .01
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const value = interpolateIdw(points, x / Math.max(1, width - 1) * 100, y / Math.max(1, height - 1) * 100)
+          if (value === null) continue
+          const [red, green, blue] = useObservedRange
+            ? esriTemperatureColorAt(value, extent[0], extent[1])
+            : esriTemperatureColorAt(value)
+          const offset = (y * width + x) * 4
+          image.data[offset] = red
+          image.data[offset + 1] = green
+          image.data[offset + 2] = blue
+          image.data[offset + 3] = 132
+        }
+      }
+      context.putImageData(image, 0, 0)
+    }
+    draw()
+    const observer = new ResizeObserver(draw)
+    observer.observe(canvas)
+    return () => observer.disconnect()
+  }, [extent, points])
+
+  return <>
+    <canvas className="nc-trends-export-temperature-layer" ref={canvasRef} aria-hidden="true" />
+    <span className="nc-trends-export-map-legend">
+      <i />
+      {tx("Air temperature")}
+      <small>{extent ? `${extent[0].toFixed(1)}–${extent[1].toFixed(1)} °C` : tx("No measurements")}</small>
+    </span>
+  </>
 }
 
 export default function TrendsWorkspace() {
@@ -1291,6 +1352,7 @@ export default function TrendsWorkspace() {
       <header><div><p>{tx("Data export")}</p><h2 id="nc-trends-export-title">{tx("Export measurements")}</h2><span>{tx("Choose what the CSV file should contain.")}</span></div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>
       <section className="nc-trends-export-map-section"><div className="nc-trends-export-section-head"><div><h3>{tx("Scope")}</h3><small>{selectedSection.areaName} · {exportNodeIds.length} of {exportMap.nodes.length} {tx("nodes selected")}</small></div><span><button type="button" disabled={exportMap.status !== 'ready'} onClick={() => chooseExportNodes(exportMap.nodes.filter((node) => node.sectionId === selectedSection.id).map((node) => node.devEui), true)}>{tx("Current Section")}</button><button type="button" disabled={exportMap.status !== 'ready'} onClick={() => chooseExportNodes(exportMap.nodes.map((node) => node.devEui), true)}>{tx("All nodes")}</button><button type="button" disabled={exportMap.status !== 'ready' || !exportNodeIds.length} onClick={() => chooseExportNodes([], true)}>{tx("Clear")}</button></span></div>
         {exportMap.status === 'loading' ? <div className="nc-trends-export-map-message"><i className="fa-solid fa-spinner fa-spin" />{tx("Loading Area map…")}</div> : exportMap.status === 'error' ? <div className="nc-trends-export-map-message error"><i className="fa-solid fa-triangle-exclamation" />{exportMap.error}</div> : exportMap.nodes.length ? exportMap.configured ? <div className="nc-trends-export-map" style={{ aspectRatio: exportMap.ratio }}>
+          <ExportTemperatureLayer nodes={exportMap.nodes.filter((node) => node.positioned)} />
           {exportMap.objects.map((object) => <span className="nc-trends-export-map-object" data-type={object.type} style={{ left: `${object.left}%`, top: `${object.top}%`, width: `${object.width}%`, height: `${object.height}%` }} key={object.id}>{object.name}</span>)}
           {exportMap.nodes.map((node) => <button type="button" className="nc-trends-export-map-node" data-selected={exportNodeIds.includes(node.devEui)} data-status={node.status} style={{ left: `${node.left}%`, top: `${node.top}%` }} title={`${node.name} · ${node.sectionName}`} aria-pressed={exportNodeIds.includes(node.devEui)} onClick={() => toggleExportNode(node.devEui)} key={node.devEui}><i className="fa-solid fa-microchip" /><span>{node.name}</span></button>)}
         </div> : <div className="nc-trends-export-node-list">{exportMap.nodes.map((node) => <label data-status={node.status} key={node.devEui}><input type="checkbox" checked={exportNodeIds.includes(node.devEui)} onChange={() => toggleExportNode(node.devEui)} /><i className="fa-solid fa-microchip" /><span><strong>{node.name}</strong><small>{node.sectionName}</small></span></label>)}</div> : <div className="nc-trends-export-map-message"><i className="fa-solid fa-circle-info" />{tx("No nodes are assigned to this Area.")}</div>}
