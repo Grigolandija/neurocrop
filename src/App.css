@@ -602,11 +602,21 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   border-bottom: 1px solid rgba(255, 255, 255, .1);
 }
 
+.performance-diagnostics > header > div {
+  display: flex;
+  gap: 6px;
+}
+
 .performance-diagnostics > header button {
   padding: 2px 7px;
   border: 1px solid rgba(255, 255, 255, .16);
   border-radius: 6px;
   color: rgba(255, 255, 255, .72);
+}
+
+.performance-diagnostics > header button:disabled {
+  cursor: default;
+  opacity: .45;
 }
 
 .performance-diagnostics > header strong small {
