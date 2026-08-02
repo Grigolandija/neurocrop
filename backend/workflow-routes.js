@@ -253,7 +253,7 @@ async function synchronizeCanonicalAlerts(tenantId, activeAlerts, clearableIds) 
            resolved_by=NULL,
            resolved_at=now(),
            recovered_at=now(),
-           resolution_reason='scope_removed',
+           resolution_reason='condition_cleared',
            snoozed_by=NULL,
            snoozed_at=NULL,
            snoozed_until=NULL,
