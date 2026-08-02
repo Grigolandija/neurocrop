@@ -583,10 +583,11 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       const sensor = object.metadata.sensor
       const value = getMetricMeasurementValue(sensor?.measurements, map.heatmapSettings.metric, soilEcDepthCm)
       if (object.type !== 'sensor-node' || !sensor) return []
+      const inactive = ['offline', 'stale', 'unassigned'].includes(sensor.status)
       return [{
         id: object.id,
         name: sensor.displayName || object.name,
-        value: typeof value === 'number' && Number.isFinite(value) ? value : null,
+        value: !inactive && typeof value === 'number' && Number.isFinite(value) ? value : null,
         xM: object.xM + object.widthM / 2,
         yM: object.yM + object.lengthM / 2,
         measuredAt: sensor.measurements?.measuredAt || sensor.lastSeenAt,
@@ -809,7 +810,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       {mode === 'environment' && showContours && contourLabels.length ? <Layer listening={false}>
         {contourLabels.map(({ level, x, y, label }) => {
           const widthPx = Math.max(38, label.length * 6.2)
-          return <Text key={level} x={x - widthPx / view.scale / 2} y={y - 6 / view.scale} width={widthPx / view.scale} height={12 / view.scale} text={label} align="center" verticalAlign="middle" fontFamily="IBM Plex Mono" fontStyle="bold" fontSize={10 / view.scale} fill="#111" />
+          return <Text key={level} x={x - widthPx / view.scale / 2} y={y - 6 / view.scale} width={widthPx / view.scale} height={12 / view.scale} text={label} align="center" verticalAlign="middle" fontFamily="IBM Plex Sans" fontStyle="bold" fontSize={10 / view.scale} fill="#111" />
         })}
       </Layer> : null}
       {mode === 'environment' && map.heatmapSettings.metric === 'soil-ec' && soilEcDepths.length > 1 ? <Layer>
