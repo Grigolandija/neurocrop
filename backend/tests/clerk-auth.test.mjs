@@ -200,15 +200,25 @@ test('derives safe onboarding names for a new Clerk identity', () => {
   );
 });
 
-test('new Clerk workspaces receive the crop profile required to create sections', () => {
+test('new Clerk identities require platform approval before receiving a workspace', () => {
   const provisioningStart = clerkAuthSource.indexOf('WITH new_user AS');
   const provisioningEnd = clerkAuthSource.indexOf('if (provisioned.rows[0])');
   const provisioning = clerkAuthSource.slice(provisioningStart, provisioningEnd);
 
-  assert.match(provisioning, /new_profile AS/);
-  assert.match(provisioning, /INSERT INTO crop_profiles/);
-  assert.match(provisioning, /'default', new_organization\.id/);
-  assert.match(provisioning, /ON CONFLICT \(organization_id, id\) DO NOTHING/);
+  assert.match(provisioning, /new_request AS/);
+  assert.match(provisioning, /INSERT INTO organization_requests/);
+  assert.match(provisioning, /'pending'/);
+  assert.doesNotMatch(provisioning, /INSERT INTO organizations/);
+  assert.doesNotMatch(provisioning, /INSERT INTO organization_memberships/);
+});
+
+test('Clerk users without a membership receive an explicit approval state', () => {
+  assert.match(clerkAuthSource, /code: 'ORGANIZATION_PENDING'/);
+  assert.match(clerkAuthSource, /code: 'ORGANIZATION_REJECTED'/);
+  assert.ok(
+    clerkAuthSource.indexOf("code: 'ORGANIZATION_PENDING'") < clerkAuthSource.indexOf("code: 'NO_ORGANIZATION'"),
+    'The pending approval state must be returned before the generic missing-organization error'
+  );
 });
 
 test('keeps invitation lookup public and reserves Clerk identity for acceptance', () => {

@@ -7,6 +7,7 @@ import WorkspaceLoading from './components/WorkspaceLoading'
 import type { DashboardUser } from './components/DashboardShell'
 import { neurocropApi } from './services/api/neurocropApi'
 import { canAccessWorkspaceRoute, useWorkspaceAccess, WorkspaceAccessProvider, workspaceStageRedirect } from './state/workspaceAccess'
+import { useInterfaceLanguage } from './i18n'
 import './App.css'
 import './styles/approved-dashboard.css'
 import './styles/typography-system.css'
@@ -34,6 +35,7 @@ const clerkConfigured = Boolean(String(import.meta.env.VITE_CLERK_PUBLISHABLE_KE
 
 function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?: string; onClerkSignOut?: () => Promise<void> }) {
   const location = useLocation()
+  const { t } = useInterfaceLanguage()
   const [user, setUser] = useState<DashboardUser | null>(null)
   const [authError, setAuthError] = useState('')
 
@@ -58,14 +60,16 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
   }, [clerkUserId])
 
   if (authError) {
+    const approvalPending = authError === 'Your workspace request is awaiting administrator approval.'
+    const approvalRejected = authError === 'Your workspace request was not approved.'
     return (
       <main className="login-screen">
         <section className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-8 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-[#f9e3df] text-xl text-ember"><i className="fa-solid fa-triangle-exclamation" /></div>
-          <h1 className="mt-6 font-display text-3xl font-bold text-ink">Account connection required</h1>
-          <p className="mt-3 text-sm leading-6 text-ink/60">{authError}</p>
-          <p className="mt-2 text-sm leading-6 text-ink/60">Use the same verified email address as your existing NeuroCrop account.</p>
-          <button className="login-submit mt-7 max-w-xs" type="button" onClick={() => void onClerkSignOut?.()}>Sign out</button>
+          <div className={`flex h-14 w-14 items-center justify-center rounded-3xl text-xl ${approvalPending ? 'bg-[#e5f1ea] text-pine' : 'bg-[#f9e3df] text-ember'}`}><i className={`fa-solid ${approvalPending ? 'fa-clock' : 'fa-triangle-exclamation'}`} /></div>
+          <h1 className="mt-6 font-display text-3xl font-bold text-ink">{t(approvalPending ? 'Workspace request pending' : approvalRejected ? 'Workspace request declined' : 'Account connection required')}</h1>
+          <p className="mt-3 text-sm leading-6 text-ink/60">{t(authError)}</p>
+          {approvalPending || approvalRejected ? null : <p className="mt-2 text-sm leading-6 text-ink/60">{t('Use the same verified email address as your existing NeuroCrop account.')}</p>}
+          <button className="login-submit mt-7 max-w-xs" type="button" onClick={() => void onClerkSignOut?.()}>{t('Sign out')}</button>
         </section>
       </main>
     )

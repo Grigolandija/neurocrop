@@ -4,7 +4,6 @@ import { performance } from 'node:perf_hooks';
 import { createClerkClient, verifyToken } from '@clerk/express';
 import { query } from './db.js';
 import { getMemberships, hashUserPassword, normalizeEmail, publicUser } from './auth-users.js';
-import { defaultCropProfileMetricsJson } from './crop-profile-defaults.js';
 
 const SESSION_CONTEXT_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 const sessionContextTouchAfter = new Map();
@@ -158,7 +157,7 @@ async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query
   const user = candidate.rows[0];
   if (!user) {
     const userId = randomUUID();
-    const organizationId = `org-${randomUUID().slice(0, 8)}`;
+    const requestId = randomUUID();
     const displayName = displayNameFromClerkUser(clerkUser, verifiedEmail);
     const organizationName = organizationNameFromClerkUser(clerkUser, displayName);
     const unusableLegacyPassword = hashUserPassword(randomBytes(48).toString('base64url'));
@@ -171,28 +170,13 @@ async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query
          VALUES ($1, $2, $3, $4, $5, true, now(), now(), now())
          ON CONFLICT DO NOTHING
          RETURNING id, email, display_name, is_active, is_platform_admin, is_super_admin
-       ), new_organization AS (
-         INSERT INTO organizations (id, name, status, created_at)
-         SELECT $6, $7, 'active', now()
+       ), new_request AS (
+         INSERT INTO organization_requests (
+           id, user_id, organization_name, status, created_at, updated_at
+         )
+         SELECT $6, new_user.id, $7, 'pending', now(), now()
          FROM new_user
          RETURNING id
-       ), new_membership AS (
-         INSERT INTO organization_memberships (organization_id, user_id, role, created_at)
-         SELECT new_organization.id, new_user.id, 'owner', now()
-         FROM new_organization, new_user
-         RETURNING organization_id
-       ), new_profile AS (
-         INSERT INTO crop_profiles (
-           id, organization_id, name, hero_name, stage, hint,
-           requires_review, metrics, created_at, updated_at
-         )
-         SELECT
-           'default', new_organization.id, 'Default', 'Default', 'Default',
-           'Universal starter profile. Review target ranges before assigning it to production sections.',
-           false, $8::jsonb, now(), now()
-         FROM new_organization
-         ON CONFLICT (organization_id, id) DO NOTHING
-         RETURNING organization_id
        )
        SELECT id, email, display_name, is_active, is_platform_admin, is_super_admin
        FROM new_user`,
@@ -202,9 +186,8 @@ async function localUserForClerkIdentity(clerkUserId, secretKey, execute = query
         displayName,
         unusableLegacyPassword,
         clerkUserId,
-        organizationId,
-        organizationName,
-        defaultCropProfileMetricsJson()
+        requestId,
+        organizationName
       ]
     );
     if (provisioned.rows[0]) return provisioned.rows[0];
@@ -390,6 +373,24 @@ export async function resolveOptionalClerkAuth(req, res, next) {
       });
     }
     if (!membership) {
+      const { rows: requestRows } = await query(
+        `SELECT status
+         FROM organization_requests
+         WHERE user_id=$1
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [localUser.id]
+      );
+      if (requestRows[0]?.status === 'pending') {
+        return res.status(403).json({
+          error: { code: 'ORGANIZATION_PENDING', message: 'Your workspace request is awaiting administrator approval.' }
+        });
+      }
+      if (requestRows[0]?.status === 'rejected') {
+        return res.status(403).json({
+          error: { code: 'ORGANIZATION_REJECTED', message: 'Your workspace request was not approved.' }
+        });
+      }
       return res.status(403).json({
         error: { code: 'NO_ORGANIZATION', message: 'This account has no active organization' }
       });
