@@ -480,13 +480,13 @@ body.designer-app .nc-trends-section-search input {
 .nc-trends-export-map-object { display: grid; position: absolute; z-index: 2; min-width: 6px; min-height: 6px; overflow: hidden; place-items: center; border: 1px dashed #8d978f; border-radius: 5px; background: rgba(194, 204, 194, .66); color: #59675f; font-size: 8px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .nc-trends-export-map-object[data-type*="door"],
 .nc-trends-export-map-object[data-type*="window"] { background: rgba(141, 169, 181, .35); }
-.nc-trends-export-map-node { display: grid; position: absolute; z-index: 4; width: 27px; height: 27px; padding: 0; transform: translate(-50%, -50%); place-items: center; border: 2px solid #fff; border-radius: 50%; background: #5f7068; box-shadow: 0 2px 8px rgba(26, 44, 35, .24); color: #fff; cursor: pointer; }
-.nc-trends-export-map-node > i { font-size: 10px; }
-.nc-trends-export-map-node > span { position: absolute; top: 30px; left: 50%; max-width: 110px; overflow: hidden; padding: 2px 5px; transform: translateX(-50%); border-radius: 4px; background: rgba(255, 255, 255, .9); box-shadow: 0 1px 3px rgba(20, 34, 27, .1); color: #33453c; font-size: 8px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.nc-trends-export-map-node { display: grid; position: absolute; z-index: 4; width: 22px; height: 22px; padding: 0; transform: translate(-50%, -50%); place-items: center; border: 1.5px solid #fff; border-radius: 50%; background: #5f7068; box-shadow: 0 2px 6px rgba(26, 44, 35, .2); color: #fff; cursor: pointer; }
+.nc-trends-export-map-node > i { font-size: 8px; }
+.nc-trends-export-map-node > span { position: absolute; top: 25px; left: 50%; max-width: 110px; overflow: hidden; padding: 2px 5px; transform: translateX(-50%); border-radius: 4px; background: rgba(255, 255, 255, .9); box-shadow: 0 1px 3px rgba(20, 34, 27, .1); color: #33453c; font-size: 8px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .nc-trends-export-map-node[data-status="offline"] { background: #9aa49f; }
 .nc-trends-export-map-node[data-status="warning"],
 .nc-trends-export-map-node[data-status="stale"] { background: #c08b30; }
-.nc-trends-export-map-node[data-selected="true"] { border-color: #d8f2e8; background: #247761; box-shadow: 0 0 0 3px rgba(36, 119, 97, .23), 0 3px 9px rgba(26, 44, 35, .25); }
+.nc-trends-export-map-node[data-selected="true"] { border-color: #d8f2e8; background: #247761; box-shadow: 0 0 0 2px rgba(36, 119, 97, .2), 0 2px 7px rgba(26, 44, 35, .22); }
 .nc-trends-export-node-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; border: 1px solid #dfe5e0; border-radius: 9px; }
 .nc-trends-export-node-list label { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 9px 10px; box-shadow: inset -1px -1px 0 #e6ebe7; cursor: pointer; }
 .nc-trends-export-node-list label:has(input:checked) { background: #f5faf7; }
