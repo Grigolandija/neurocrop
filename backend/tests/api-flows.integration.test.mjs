@@ -110,16 +110,18 @@ test('authenticated CRUD, scoring, Trends and CSV flow', { skip: !configured }, 
     const dashboard = await json(cookie, '/dashboard');
     const fixture = dashboard.sites.flatMap((site) => site.zones).find((zone) => zone.id === 'section-ci-a');
     assert.equal(typeof fixture.score, 'number');
+    const fixtureDevEui = fixture.batteryNodes[0].devEui;
     const history = await json(cookie, '/history?sectionId=section-ci-a&metric=airTemp');
     assert.ok(history.points.length > 0);
     const rollupHistory = await json(cookie, '/history?sectionId=section-ci-a&metric=airTemp&stepMinutes=10');
     assert.ok(rollupHistory.points.length > 0);
     assert.equal(rollupHistory.aggregation, 'section_median_10m');
-    const csv = await request(cookie, '/exports/measurements.csv?sectionId=section-ci-a');
+    const csv = await request(cookie, `/exports/measurements.csv?sectionId=section-ci-a&devEuis=${fixtureDevEui}`);
     assert.equal(csv.status, 200);
     assert.match(csv.headers.get('content-type') || '', /text\/csv/);
     const csvText = await csv.text();
     assert.match(csvText, /^sep=;\nDate;Time \(Europe\/Vilnius\);.*Air temperature \(/);
+    assert.match(csvText, new RegExp(fixture.batteryNodes[0].name || fixtureDevEui, 'i'));
     assert.match(csvText, /Air temperature \(/);
   } finally {
     if (sectionId) {

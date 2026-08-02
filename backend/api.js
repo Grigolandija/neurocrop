@@ -3176,6 +3176,21 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
     }
     const selectedColumns = [...columns];
     const sectionIds = selectedSections.map((section) => section.id);
+    const requestedDevEuis = [...new Set(String(req.query.devEuis || '').split(',').map(normalizeDevEui).filter(Boolean))];
+    if (requestedDevEuis.length > 100) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Choose no more than 100 nodes per export' } });
+    }
+    if (requestedDevEuis.length) {
+      const { rows: allowedNodes } = await query(
+        `SELECT LOWER(dev_eui) AS dev_eui
+         FROM nodes
+         WHERE organization_id=$1 AND section_id = ANY($2) AND LOWER(dev_eui) = ANY($3)`,
+        [organizationId, sectionIds, requestedDevEuis]
+      );
+      if (allowedNodes.length !== requestedDevEuis.length) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'One or more selected nodes do not belong to this export scope' } });
+      }
+    }
 
     const { rows } = await query(
       `SELECT m.time, m.dev_eui, m.raw_object, n.name AS node_name,
@@ -3189,9 +3204,10 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
          AND n.section_id = ANY($2)
          AND m.time >= $3
          AND m.time <= $4
+         AND ($5::text[] IS NULL OR LOWER(n.dev_eui) = ANY($5))
        ORDER BY m.time ASC, s.name ASC, n.name ASC, m.dev_eui ASC
        LIMIT 100001`,
-      [organizationId, sectionIds, from, to]
+      [organizationId, sectionIds, from, to, requestedDevEuis.length ? requestedDevEuis : null]
     );
 
     if (rows.length > 100000) {

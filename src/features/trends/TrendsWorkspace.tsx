@@ -26,7 +26,9 @@ type Section = { id: string; name: string; areaId: string; areaName: string; pro
 type NodeOption = { devEui: string; name: string; sectionId: string; transportStatus: string }
 type Metric = { key: string; label: string; short: string; unit: string; decimals: number; icon: string }
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
-type ExportScope = 'section' | 'area'
+type ExportMapNode = { devEui: string; name: string; sectionId: string; sectionName: string; status: string; left: number; top: number; positioned: boolean; metrics: Set<string> }
+type ExportMapObject = { id: string; name: string; type: string; left: number; top: number; width: number; height: number }
+type ExportMapState = { status: LoadState; configured: boolean; ratio: number; nodes: ExportMapNode[]; objects: ExportMapObject[]; error: string }
 
 const metrics: Metric[] = ([
   ['airTemp', 'Temperature', 'fa-temperature-half'],
@@ -134,6 +136,87 @@ function measuredMetricSet(section: JsonRecord) {
   )
   if (available.has('airTemp') && available.has('humidity')) available.add('vpd')
   return available
+}
+
+const exportMeasurementFields: Record<string, string> = {
+  airTemperatureC: 'airTemp',
+  relativeHumidityPercent: 'humidity',
+  co2Ppm: 'co2',
+  vpdKpa: 'vpd',
+  rootTemperatureC: 'soilTemp',
+  illuminanceLux: 'lux',
+  soilMoisturePercent: 'soilMoisture',
+  ecMsCm: 'ec',
+  ph: 'ph',
+  soilEcMsCm: 'soilEc',
+  leafTemperatureC: 'leafTemp',
+  waterTemperatureC: 'waterTemp',
+}
+
+function exportNodeMetrics(node: JsonRecord) {
+  const available = new Set<string>()
+  const measurements = node.measurements && typeof node.measurements === 'object' ? node.measurements as JsonRecord : {}
+  Object.entries(exportMeasurementFields).forEach(([field, key]) => {
+    if (number(measurements[field]) !== null) available.add(key)
+  })
+  if (number(node.batteryPercent ?? node.battery_percent) !== null) available.add('batteryLevel')
+  if (available.has('airTemp') && available.has('humidity')) available.add('vpd')
+  return available
+}
+
+function normalizeExportMap(payload: JsonRecord): Omit<ExportMapState, 'status' | 'error'> {
+  const map = payload.map && typeof payload.map === 'object' ? payload.map as JsonRecord : null
+  const dimensions = map?.dimensions && typeof map.dimensions === 'object' ? map.dimensions as JsonRecord : {}
+  const widthM = Math.max(1, number(dimensions.widthM || dimensions.width_m) || 1)
+  const lengthM = Math.max(1, number(dimensions.lengthM || dimensions.length_m) || 1)
+  const rawObjects = Array.isArray(map?.objects) ? map.objects as JsonRecord[] : []
+  const positions = new Map<string, { left: number; top: number }>()
+  rawObjects.forEach((object) => {
+    if (object.type !== 'sensor-node') return
+    const sensor = object.metadata?.sensor || {}
+    const devEui = text(sensor.devEui || sensor.dev_eui).toLowerCase()
+    if (!devEui) return
+    const x = number(object.xM || object.x_m) || 0
+    const y = number(object.yM || object.y_m) || 0
+    const objectWidth = number(object.widthM || object.width_m) || 0
+    const objectHeight = number(object.lengthM || object.length_m) || 0
+    positions.set(devEui, { left: Math.max(1, Math.min(99, (x + objectWidth / 2) / widthM * 100)), top: Math.max(1, Math.min(99, (y + objectHeight / 2) / lengthM * 100)) })
+  })
+  const rawNodes = arrays(payload, ['nodes', 'items'])
+  const columns = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, rawNodes.length) * widthM / lengthM)))
+  const nodes = rawNodes.map((node, index): ExportMapNode | null => {
+    const devEui = text(node.devEui || node.dev_eui).toLowerCase()
+    if (!devEui) return null
+    const position = positions.get(devEui)
+    return {
+      devEui,
+      name: text(node.displayName || node.display_name || node.name || node.nodeId || node.node_id, devEui),
+      sectionId: text(node.sectionId || node.section_id),
+      sectionName: text(node.sectionName || node.section_name, 'Unassigned'),
+      status: text(node.status || node.transportStatus || node.transport_status, 'unknown'),
+      left: position?.left ?? ((index % columns) + 1) / (columns + 1) * 100,
+      top: position?.top ?? (Math.floor(index / columns) + 1) / (Math.ceil(rawNodes.length / columns) + 1) * 100,
+      positioned: Boolean(position),
+      metrics: exportNodeMetrics(node),
+    }
+  }).filter((node): node is ExportMapNode => Boolean(node))
+  const objects = rawObjects.flatMap((object): ExportMapObject[] => {
+    if (object.type === 'sensor-node' || object.visible === false) return []
+    const x = number(object.xM || object.x_m) || 0
+    const y = number(object.yM || object.y_m) || 0
+    const objectWidth = Math.max(0, number(object.widthM || object.width_m) || 0)
+    const objectHeight = Math.max(0, number(object.lengthM || object.length_m) || 0)
+    return [{
+      id: text(object.id, `${object.type}-${x}-${y}`),
+      name: text(object.name),
+      type: text(object.type, 'object'),
+      left: x / widthM * 100,
+      top: y / lengthM * 100,
+      width: objectWidth / widthM * 100,
+      height: objectHeight / lengthM * 100,
+    }]
+  })
+  return { configured: Boolean(map && positions.size), ratio: Math.max(.55, Math.min(2.4, widthM / lengthM)), nodes, objects }
 }
 
 function number(value: unknown) {
@@ -523,9 +606,10 @@ export default function TrendsWorkspace() {
   const [refreshToken, setRefreshToken] = useState(0)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
-  const [exportScope, setExportScope] = useState<ExportScope>('section')
   const [exportRange, setExportRange] = useState<RangeKey>(range)
   const [exportMetricKeys, setExportMetricKeys] = useState<string[]>(() => metrics.map((metric) => metric.key))
+  const [exportNodeIds, setExportNodeIds] = useState<string[]>([])
+  const [exportMap, setExportMap] = useState<ExportMapState>({ status: 'empty', configured: false, ratio: 1.8, nodes: [], objects: [], error: '' })
   const [exportBusy, setExportBusy] = useState(false)
   const [exportError, setExportError] = useState('')
 
@@ -550,13 +634,14 @@ export default function TrendsWorkspace() {
   const sectionNodeKey = sectionNodes.map((node) => node.devEui).join(',')
   const availableMetrics = metrics.filter((metric) => selectedSection?.available.has(metric.key))
   const exportAvailableMetricKeys = useMemo(() => {
-    const relevantSections = exportScope === 'area'
-      ? sections.filter((section) => section.areaId === selectedSection?.areaId)
-      : selectedSection ? [selectedSection] : []
     const available = new Set<string>()
-    relevantSections.forEach((section) => section.measured.forEach((key) => available.add(key)))
+    if (exportMap.status === 'ready') {
+      exportMap.nodes.filter((node) => exportNodeIds.includes(node.devEui)).forEach((node) => node.metrics.forEach((key) => available.add(key)))
+    } else if (selectedSection) {
+      selectedSection.measured.forEach((key) => available.add(key))
+    }
     return metrics.map((metric) => metric.key).filter((key) => available.has(key))
-  }, [exportScope, sections, selectedSection])
+  }, [exportMap, exportNodeIds, selectedSection])
   const exportAvailableMetricKeySet = useMemo(() => new Set(exportAvailableMetricKeys), [exportAvailableMetricKeys])
   const target = profileRange(profiles, selectedSection?.profileId || '', selectedMetric.key)
   const dayNightSchedule = useMemo(
@@ -617,6 +702,27 @@ export default function TrendsWorkspace() {
     // older request is still settling.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dashboardState.connected])
+
+  useEffect(() => {
+    if (!exportOpen || !selectedSection) return
+    let active = true
+    neurocropApi.getGreenhouseMap(selectedSection.areaId).then((payload) => {
+      if (!active) return
+      const normalized = normalizeExportMap(payload as JsonRecord)
+      const initialNodeIds = normalized.nodes.filter((node) => node.sectionId === selectedSection.id).map((node) => node.devEui)
+      const initialMetrics = new Set<string>()
+      normalized.nodes.filter((node) => initialNodeIds.includes(node.devEui)).forEach((node) => node.metrics.forEach((key) => initialMetrics.add(key)))
+      setExportMap({ ...normalized, status: 'ready', error: '' })
+      setExportNodeIds(initialNodeIds)
+      setExportMetricKeys(metrics.map((metric) => metric.key).filter((key) => initialMetrics.has(key)))
+    }).catch((reason) => {
+      if (!active) return
+      setExportMap({ status: 'error', configured: false, ratio: 1.8, nodes: [], objects: [], error: reason instanceof Error ? reason.message : 'Area map could not be loaded.' })
+      setExportNodeIds([])
+      setExportMetricKeys([])
+    })
+    return () => { active = false }
+  }, [exportOpen, selectedSection])
 
   useEffect(() => {
     const nextAreaId = dashboardState.context.areaId
@@ -1001,17 +1107,33 @@ export default function TrendsWorkspace() {
     setScope('section')
   }
 
+  function chooseExportNodes(nextIds: string[], resetMetrics = false) {
+    const uniqueIds = [...new Set(nextIds.map((id) => id.toLowerCase()))]
+    const available = new Set<string>()
+    exportMap.nodes.filter((node) => uniqueIds.includes(node.devEui)).forEach((node) => node.metrics.forEach((key) => available.add(key)))
+    const availableKeys = metrics.map((metric) => metric.key).filter((key) => available.has(key))
+    setExportNodeIds(uniqueIds)
+    setExportMetricKeys((current) => resetMetrics || !exportNodeIds.length ? availableKeys : current.filter((key) => available.has(key)))
+  }
+
+  function toggleExportNode(devEui: string) {
+    chooseExportNodes(exportNodeIds.includes(devEui)
+      ? exportNodeIds.filter((id) => id !== devEui)
+      : [...exportNodeIds, devEui])
+  }
+
   function openExport() {
     if (!selectedSection) return
-    setExportScope('section')
     setExportRange(range)
     setExportMetricKeys(metrics.map((metric) => metric.key).filter((key) => selectedSection.measured.has(key)))
+    setExportNodeIds([])
+    setExportMap({ status: 'loading', configured: false, ratio: 1.8, nodes: [], objects: [], error: '' })
     setExportError('')
     setExportOpen(true)
   }
 
   async function exportCsv() {
-    if (!selectedSection || !exportMetricKeys.length || exportBusy) return
+    if (!selectedSection || !exportNodeIds.length || !exportMetricKeys.length || exportBusy) return
     const config = rangeConfig[exportRange]
     const to = new Date()
     const from = new Date(to.getTime() - config.hours * 60 * 60 * 1000)
@@ -1019,8 +1141,8 @@ export default function TrendsWorkspace() {
     setExportError('')
     try {
       await neurocropApi.downloadMeasurementsCsv({
-        areaId: exportScope === 'area' ? selectedSection.areaId : undefined,
-        sectionId: exportScope === 'section' ? selectedSection.id : undefined,
+        areaId: selectedSection.areaId,
+        devEuis: exportNodeIds.join(','),
         metrics: exportMetricKeys.join(','),
         stepMinutes: exportRange === '24h' ? 5 : config.stepMinutes,
         from: from.toISOString(),
@@ -1167,10 +1289,15 @@ export default function TrendsWorkspace() {
     </section>
     {exportOpen && selectedSection ? <ModalPortal><div className="nc-trends-export-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !exportBusy) setExportOpen(false) }}><div className="nc-trends-export-modal" role="dialog" aria-modal="true" aria-labelledby="nc-trends-export-title">
       <header><div><p>{tx("Data export")}</p><h2 id="nc-trends-export-title">{tx("Export measurements")}</h2><span>{tx("Choose what the CSV file should contain.")}</span></div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>
-      <section><h3>{tx("Scope")}</h3><div className="nc-trends-export-choice-list nc-trends-export-scope"><label><input type="radio" name="export-scope" checked={exportScope === 'section'} onChange={() => { setExportScope('section'); setExportMetricKeys(metrics.map((metric) => metric.key).filter((key) => selectedSection.measured.has(key))) }} /><span><strong>{tx("Current Section")}</strong><small>{selectedSection.name}</small></span></label><label><input type="radio" name="export-scope" checked={exportScope === 'area'} onChange={() => { const areaSections = sections.filter((section) => section.areaId === selectedSection.areaId); setExportScope('area'); setExportMetricKeys(metrics.map((metric) => metric.key).filter((key) => areaSections.some((section) => section.measured.has(key)))) }} /><span><strong>{tx("Entire Area")}</strong><small>{selectedSection.areaName} · {sections.filter((section) => section.areaId === selectedSection.areaId).length} {tx("Sections")}</small></span></label></div></section>
+      <section className="nc-trends-export-map-section"><div className="nc-trends-export-section-head"><div><h3>{tx("Scope")}</h3><small>{selectedSection.areaName} · {exportNodeIds.length} of {exportMap.nodes.length} {tx("nodes selected")}</small></div><span><button type="button" disabled={exportMap.status !== 'ready'} onClick={() => chooseExportNodes(exportMap.nodes.filter((node) => node.sectionId === selectedSection.id).map((node) => node.devEui), true)}>{tx("Current Section")}</button><button type="button" disabled={exportMap.status !== 'ready'} onClick={() => chooseExportNodes(exportMap.nodes.map((node) => node.devEui), true)}>{tx("All nodes")}</button><button type="button" disabled={exportMap.status !== 'ready' || !exportNodeIds.length} onClick={() => chooseExportNodes([], true)}>{tx("Clear")}</button></span></div>
+        {exportMap.status === 'loading' ? <div className="nc-trends-export-map-message"><i className="fa-solid fa-spinner fa-spin" />{tx("Loading Area map…")}</div> : exportMap.status === 'error' ? <div className="nc-trends-export-map-message error"><i className="fa-solid fa-triangle-exclamation" />{exportMap.error}</div> : exportMap.nodes.length ? exportMap.configured ? <div className="nc-trends-export-map" style={{ aspectRatio: exportMap.ratio }}>
+          {exportMap.objects.map((object) => <span className="nc-trends-export-map-object" data-type={object.type} style={{ left: `${object.left}%`, top: `${object.top}%`, width: `${object.width}%`, height: `${object.height}%` }} key={object.id}>{object.name}</span>)}
+          {exportMap.nodes.map((node) => <button type="button" className="nc-trends-export-map-node" data-selected={exportNodeIds.includes(node.devEui)} data-status={node.status} style={{ left: `${node.left}%`, top: `${node.top}%` }} title={`${node.name} · ${node.sectionName}`} aria-pressed={exportNodeIds.includes(node.devEui)} onClick={() => toggleExportNode(node.devEui)} key={node.devEui}><i className="fa-solid fa-microchip" /><span>{node.name}</span></button>)}
+        </div> : <div className="nc-trends-export-node-list">{exportMap.nodes.map((node) => <label data-status={node.status} key={node.devEui}><input type="checkbox" checked={exportNodeIds.includes(node.devEui)} onChange={() => toggleExportNode(node.devEui)} /><i className="fa-solid fa-microchip" /><span><strong>{node.name}</strong><small>{node.sectionName}</small></span></label>)}</div> : <div className="nc-trends-export-map-message"><i className="fa-solid fa-circle-info" />{tx("No nodes are assigned to this Area.")}</div>}
+      </section>
       <section><h3>{tx("Period")}</h3><div className="nc-trends-export-choice-list nc-trends-export-range">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <label key={key}><input type="radio" name="export-range" checked={exportRange === key} onChange={() => setExportRange(key)} /><span><strong>{key}</strong><small>{tx(rangeConfig[key].label)}</small></span></label>)}</div></section>
       <section><div className="nc-trends-export-section-head"><h3>{tx("Metrics")}</h3><span><button type="button" onClick={() => setExportMetricKeys(exportAvailableMetricKeys)}>{tx("Select all")}</button><button type="button" onClick={() => setExportMetricKeys([])}>{tx("Clear")}</button></span></div><div className="nc-trends-export-metrics">{metrics.map((metric) => { const metricAvailable = exportAvailableMetricKeySet.has(metric.key); return <label key={metric.key}><input type="checkbox" disabled={!metricAvailable} checked={metricAvailable && exportMetricKeys.includes(metric.key)} onChange={() => setExportMetricKeys((current) => current.includes(metric.key) ? current.filter((key) => key !== metric.key) : [...current, metric.key])} /><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{metricAvailable ? metric.unit || tx("No unit") : tx("No measurements")}</small></span></label> })}</div></section>
-      <footer><span>{exportError ? <em className="nc-trends-export-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{exportError}</em> : <>{exportMetricKeys.length} {tx("metrics selected")}</>}</span><div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy}>{tx("Cancel")}</button><button type="button" className="primary" onClick={() => void exportCsv()} disabled={exportBusy || !exportMetricKeys.length}>{exportBusy ? tx("Preparing CSV…") : tx("Download CSV")}</button></div></footer>
+      <footer><span>{exportError ? <em className="nc-trends-export-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{exportError}</em> : <>{exportNodeIds.length} {tx("nodes")} · {exportMetricKeys.length} {tx("metrics selected")}</>}</span><div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy}>{tx("Cancel")}</button><button type="button" className="primary" onClick={() => void exportCsv()} disabled={exportBusy || !exportNodeIds.length || !exportMetricKeys.length}>{exportBusy ? tx("Preparing CSV…") : tx("Download CSV")}</button></div></footer>
     </div></div></ModalPortal> : null}
   </main>
 }

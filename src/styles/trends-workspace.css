@@ -462,8 +462,38 @@ body.designer-app .nc-trends-section-search input {
 .nc-trends-export-modal label strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .nc-trends-export-modal label small { overflow: hidden; color: #718078; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .nc-trends-export-section-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.nc-trends-export-section-head > div { display: grid; gap: 3px; }
+.nc-trends-export-section-head > div > small { color: #7a8981; font-size: 10px; }
 .nc-trends-export-section-head > span { display: flex; gap: 6px; }
 .nc-trends-export-section-head button { border: 0; padding: 4px 7px; background: transparent; color: #376d5b; font-size: 11px; font-weight: 700; }
+.nc-trends-export-map-section { gap: 9px !important; }
+.nc-trends-export-map {
+  position: relative;
+  width: 100%;
+  height: min(230px, 30vh);
+  overflow: hidden;
+  border: 1px solid #d8e0da;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #f6f9f5, #eef4ed);
+}
+.nc-trends-export-map::after { position: absolute; inset: 0; z-index: 0; background-image: linear-gradient(rgba(79, 106, 91, .05) 1px, transparent 1px), linear-gradient(90deg, rgba(79, 106, 91, .05) 1px, transparent 1px); background-size: 24px 24px; content: ''; pointer-events: none; }
+.nc-trends-export-map-object { display: grid; position: absolute; z-index: 1; min-width: 6px; min-height: 6px; overflow: hidden; place-items: center; border: 1px dashed #aeb9b1; border-radius: 5px; background: rgba(194, 204, 194, .55); color: #6d7a72; font-size: 8px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.nc-trends-export-map-object[data-type*="door"],
+.nc-trends-export-map-object[data-type*="window"] { background: rgba(141, 169, 181, .35); }
+.nc-trends-export-map-node { display: grid; position: absolute; z-index: 3; width: 27px; height: 27px; padding: 0; transform: translate(-50%, -50%); place-items: center; border: 2px solid #fff; border-radius: 50%; background: #5f7068; box-shadow: 0 2px 8px rgba(26, 44, 35, .24); color: #fff; cursor: pointer; }
+.nc-trends-export-map-node > i { font-size: 10px; }
+.nc-trends-export-map-node > span { position: absolute; top: 30px; left: 50%; max-width: 110px; overflow: hidden; padding: 2px 5px; transform: translateX(-50%); border-radius: 4px; background: rgba(255, 255, 255, .9); box-shadow: 0 1px 3px rgba(20, 34, 27, .1); color: #33453c; font-size: 8px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.nc-trends-export-map-node[data-status="offline"] { background: #9aa49f; }
+.nc-trends-export-map-node[data-status="warning"],
+.nc-trends-export-map-node[data-status="stale"] { background: #c08b30; }
+.nc-trends-export-map-node[data-selected="true"] { border-color: #d8f2e8; background: #247761; box-shadow: 0 0 0 3px rgba(36, 119, 97, .23), 0 3px 9px rgba(26, 44, 35, .25); }
+.nc-trends-export-node-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; border: 1px solid #dfe5e0; border-radius: 9px; }
+.nc-trends-export-node-list label { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 9px 10px; box-shadow: inset -1px -1px 0 #e6ebe7; cursor: pointer; }
+.nc-trends-export-node-list label:has(input:checked) { background: #f5faf7; }
+.nc-trends-export-node-list label > i { color: #61766c; font-size: 12px; }
+.nc-trends-export-node-list label[data-status="offline"] > i { color: #9ca6a1; }
+.nc-trends-export-map-message { display: flex; min-height: 90px; align-items: center; justify-content: center; gap: 8px; border: 1px dashed #d8e0da; border-radius: 9px; background: #fafbfa; color: #718078; font-size: 11px; }
+.nc-trends-export-map-message.error { color: #aa493d; }
 .nc-trends-export-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; border: 1px solid #dfe5e0; border-radius: 9px; background: #fff; }
 .nc-trends-export-metrics label > i { width: 15px; color: #587069; font-size: 12px; text-align: center; }
 .nc-trends-export-error { display: flex; align-items: center; gap: 6px; color: #aa493d; font-size: 11px; font-style: normal; font-weight: 650; }
@@ -519,7 +549,8 @@ body.designer-app .nc-trends-section-search input {
   .nc-trends-export-modal { max-height: 92vh; border-radius: 18px 18px 0 0; }
   .nc-trends-export-scope,
   .nc-trends-export-range,
-  .nc-trends-export-metrics { grid-template-columns: 1fr; }
+  .nc-trends-export-metrics,
+  .nc-trends-export-node-list { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 430px) {

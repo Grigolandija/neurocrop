@@ -532,8 +532,8 @@ aiškiai kaip apytikslis pažymėtas iš lux įvertintas DLI.
 ## Measurement export
 
 ```text
-GET /exports/measurements.csv?sectionId=...&metrics=...&from=...&to=...
-GET /exports/measurements.csv?areaId=...&metrics=...&from=...&to=...
+GET /exports/measurements.csv?sectionId=...&devEuis=...&metrics=...&from=...&to=...
+GET /exports/measurements.csv?areaId=...&devEuis=...&metrics=...&from=...&to=...
 ```
 
 Eksportas yra autentifikuotas ir apribotas aktyvia vartotojo organizacija.
@@ -552,7 +552,9 @@ Area eksportas:    Date;Time (Europe/Vilnius);Section A / Node A — Air tempera
 ```
 
 `metrics` pasirinktinai priima kableliais atskirtą metric raktų sąrašą. MVP
-riboja vieną eksportą iki 31 dienos. `stepMinutes` nustato bendrą laiko žingsnį;
+`devEuis` pasirinktinai apriboja eksportą iki ne daugiau kaip 100 pasirinktai
+Section arba Area priklausančių node. Vieną eksportą riboja 31 diena.
+`stepMinutes` nustato bendrą laiko žingsnį;
 kiekvienam node paliekamas paskutinis to intervalo matavimas. Toks platus
 formatas neplaka skirtingų node reikšmių į vieną Excel duomenų seriją ir leidžia
 tiesiogiai braižyti atskiras node kreives. Didesniems laikotarpiams vėliau bus
