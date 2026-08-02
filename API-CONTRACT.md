@@ -532,17 +532,22 @@ aiškiai kaip apytikslis pažymėtas iš lux įvertintas DLI.
 ## Measurement export
 
 ```text
-GET /exports/measurements.csv?sectionId=...&from=...&to=...
+GET /exports/measurements.csv?sectionId=...&metrics=...&from=...&to=...
+GET /exports/measurements.csv?areaId=...&metrics=...&from=...&to=...
 ```
 
 Eksportas yra autentifikuotas ir apribotas aktyvia vartotojo organizacija.
-Jis grąžina ne Section vidurkį, o kiekvieno node neapdorotus matavimus CSV
-formatu. Nenurodžius `metrics`, eksportuojamos visos fiziškai aptiktos tos
-Section metrikos. CSV naudoja `;` skirtuką ir atskirus vietinio laiko datos bei
-laiko stulpelius, kad failas tiesiogiai atsidarytų Excel programoje:
+Užklausa turi nurodyti tik vieną apimtį: `sectionId` arba `areaId`. Ji grąžina
+ne Section vidurkį, o kiekvieno node neapdorotus matavimus CSV formatu.
+Nenurodžius `metrics`, eksportuojamos visos palaikomos metrikos; nurodžius
+`metrics`, kiekviena pasirinkta metrika gauna atskirą CSV stulpelį net tada,
+kai dalis eilučių tos reikšmės neturi. CSV naudoja `;` skirtuką ir atskirus
+Lietuvos laiko datos bei laiko stulpelius, kad failas tiesiogiai atsidarytų
+Excel programoje:
 
 ```text
-Date;Time;Area;Section;Sensor;Air temperature (°C);Relative humidity (%);...
+Section eksportas: Date;Time (Europe/Vilnius);Node;Air temperature (°C);...
+Area eksportas:    Date;Time (Europe/Vilnius);Section;Node;Air temperature (°C);...
 ```
 
 `metrics` pasirinktinai priima kableliais atskirtą metric raktų sąrašą. MVP

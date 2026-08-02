@@ -1,8 +1,9 @@
 import { translateInterfaceText as tx } from '../../i18n'
-import { Component, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
+import { Component, useEffect, useMemo, useRef, useState, type ErrorInfo, type FormEvent, type ReactNode } from 'react'
 import { useInterfaceLanguage } from '../../i18n'
 import { useLocation } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
+import { ModalPortal } from '../../components/ModalPortal'
 import { getMetricDefinition } from '../../domain/metricRegistry'
 import { consumeTrendIntent, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { resolveTrendContext } from './resolveTrendContext'
@@ -13,7 +14,6 @@ import {
   renderTrendChart,
   type TrendDayNightSchedule,
 } from './sharedTrendChart'
-import { buildTrendsCsv, downloadTrendsCsv, filenamePart, type TrendExportSeries } from './trendsCsv'
 import '../../styles/trends-workspace.css'
 
 // API records remain open because telemetry payloads can gain metrics independently.
@@ -26,6 +26,7 @@ type Section = { id: string; name: string; areaId: string; areaName: string; pro
 type NodeOption = { devEui: string; name: string; sectionId: string; transportStatus: string }
 type Metric = { key: string; label: string; short: string; unit: string; decimals: number; icon: string }
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
+type ExportScope = 'section' | 'area'
 
 const metrics: Metric[] = ([
   ['airTemp', 'Temperature', 'fa-temperature-half'],
@@ -510,6 +511,12 @@ export default function TrendsWorkspace() {
   const [error, setError] = useState('')
   const [refreshToken, setRefreshToken] = useState(0)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportScope, setExportScope] = useState<ExportScope>('section')
+  const [exportRange, setExportRange] = useState<RangeKey>(range)
+  const [exportMetricKeys, setExportMetricKeys] = useState<string[]>(() => metrics.map((metric) => metric.key))
+  const [exportBusy, setExportBusy] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   const selectedSection = sections.find((section) => section.id === sectionId)
     || sections.find((section) => section.areaId === areaId)
@@ -880,42 +887,6 @@ export default function TrendsWorkspace() {
       target: profileRange(profiles, selectedSection?.profileId || '', key),
     }
   }), [activeMetricKeys, metricHistories, profiles, selectedSection?.profileId])
-  const exportSeries: TrendExportSeries[] = (() => {
-    if (!selectedSection) return []
-    if (scope === 'nodes') {
-      return chartSeries.map((series, index) => ({
-        area: selectedSection.areaName,
-        section: selectedSection.name,
-        sourceType: index === 0 ? 'Section aggregate' : 'Node',
-        source: series.name,
-        metric: selectedMetric,
-        aggregation: index === 0 ? selectedAggregationLabel : 'Node history',
-        points: series.points,
-      }))
-    }
-    if (compare && comparison.length > 1) {
-      return comparison.map((series) => ({
-        area: selectedSection.areaName,
-        section: series.name,
-        sourceType: 'Section aggregate',
-        source: series.name,
-        metric: selectedMetric,
-        aggregation: 'Section comparison',
-        points: series.points,
-      }))
-    }
-    return metricChartItems.map((item) => ({
-      area: selectedSection.areaName,
-      section: selectedSection.name,
-      sourceType: 'Section aggregate',
-      source: selectedSection.name,
-      metric: item.metric,
-      aggregation: sectionAggregationLabel(metricAggregations[item.metric.key]),
-      points: item.points,
-    }))
-  })()
-  const exportHasData = exportSeries.some((series) => series.points.length)
-
   function activateSection(section: Section, remember: boolean) {
     const nextMetricKey = section.available.has(metricKey)
       ? metricKey
@@ -1010,13 +981,37 @@ export default function TrendsWorkspace() {
     setScope('section')
   }
 
-  function exportCsv() {
-    if (!selectedSection || !exportHasData) return
-    const subject = compare && comparison.length > 1
-      ? `${selectedSection.areaName}-comparison`
-      : selectedSection.name
-    const filename = `neurocrop-trends-${filenamePart(subject) || 'data'}-${range}-${new Date().toISOString().slice(0, 10)}.csv`
-    downloadTrendsCsv(buildTrendsCsv(exportSeries), filename)
+  function openExport() {
+    if (!selectedSection) return
+    setExportScope('section')
+    setExportRange(range)
+    setExportMetricKeys(metrics.map((metric) => metric.key))
+    setExportError('')
+    setExportOpen(true)
+  }
+
+  async function exportCsv(event: FormEvent) {
+    event.preventDefault()
+    if (!selectedSection || !exportMetricKeys.length || exportBusy) return
+    const config = rangeConfig[exportRange]
+    const to = new Date()
+    const from = new Date(to.getTime() - config.hours * 60 * 60 * 1000)
+    setExportBusy(true)
+    setExportError('')
+    try {
+      await neurocropApi.downloadMeasurementsCsv({
+        areaId: exportScope === 'area' ? selectedSection.areaId : undefined,
+        sectionId: exportScope === 'section' ? selectedSection.id : undefined,
+        metrics: exportMetricKeys.join(','),
+        from: from.toISOString(),
+        to: to.toISOString(),
+      })
+      setExportOpen(false)
+    } catch (reason) {
+      setExportError(reason instanceof Error ? reason.message : 'CSV export failed.')
+    } finally {
+      setExportBusy(false)
+    }
   }
 
   return <main className="nc-trends-page" aria-busy={status === 'loading' || nodeHistoryLoading}>
@@ -1024,7 +1019,7 @@ export default function TrendsWorkspace() {
       <div><p>{tx("Historical intelligence")}</p><h1>{tx("Trends")}</h1><span>{tx("See what changed, how long conditions stayed outside target, and whether intervention is working.")}</span></div>
       <div className="nc-trends-head-actions">
         <button type="button" onClick={() => setRefreshToken((value) => value + 1)}><i className="fa-solid fa-rotate" />{tx("Refresh")}</button>
-        <button type="button" className="primary" onClick={exportCsv} disabled={!selectedSection || !exportHasData}><i className="fa-solid fa-download" />{tx("Export CSV")}</button>
+        <button type="button" className="primary" onClick={openExport} disabled={!selectedSection}><i className="fa-solid fa-download" />{tx("Export CSV")}</button>
       </div>
     </header>
 
@@ -1150,5 +1145,13 @@ export default function TrendsWorkspace() {
         <div>{events.length ? events.map((event: JsonRecord, index: number) => <div key={`${event.occurredAt}-${index}`}><i className={`fa-solid ${event.type === 'delivery_gap' ? 'fa-signal' : event.type === 'transmission_failed' ? 'fa-triangle-exclamation' : 'fa-microchip'}`} /><span><strong>{String(event.type || 'sensor_event').replaceAll('_', ' ')}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleString() :tx("Time unavailable")}{event.durationMinutes ? ` · ${event.durationMinutes} min` : ''}</small></span></div>) : <div className="nc-trends-no-events"><i className="fa-solid fa-circle-check" /><span><strong>{tx("No device events detected")}</strong><small>{tx("The selected history window contains no reported delivery gaps or transport faults.")}</small></span></div>}</div>
       </article>
     </section>
+    {exportOpen && selectedSection ? <ModalPortal><div className="nc-trends-export-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !exportBusy) setExportOpen(false) }}><form className="nc-trends-export-modal" onSubmit={exportCsv} role="dialog" aria-modal="true" aria-labelledby="nc-trends-export-title">
+      <header><div><p>{tx("Data export")}</p><h2 id="nc-trends-export-title">{tx("Export measurements")}</h2><span>{tx("Choose what the CSV file should contain.")}</span></div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>
+      <section><h3>{tx("Scope")}</h3><div className="nc-trends-export-scope"><label><input type="radio" name="export-scope" checked={exportScope === 'section'} onChange={() => setExportScope('section')} /><span><strong>{tx("Current Section")}</strong><small>{selectedSection.name}</small></span></label><label><input type="radio" name="export-scope" checked={exportScope === 'area'} onChange={() => setExportScope('area')} /><span><strong>{tx("Entire Area")}</strong><small>{selectedSection.areaName} · {sections.filter((section) => section.areaId === selectedSection.areaId).length} {tx("Sections")}</small></span></label></div></section>
+      <section><h3>{tx("Period")}</h3><div className="nc-trends-export-range">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <label key={key}><input type="radio" name="export-range" checked={exportRange === key} onChange={() => setExportRange(key)} /><span><strong>{key}</strong><small>{tx(rangeConfig[key].label)}</small></span></label>)}</div></section>
+      <section><div className="nc-trends-export-section-head"><h3>{tx("Metrics")}</h3><span><button type="button" onClick={() => setExportMetricKeys(metrics.map((metric) => metric.key))}>{tx("Select all")}</button><button type="button" onClick={() => setExportMetricKeys([])}>{tx("Clear")}</button></span></div><div className="nc-trends-export-metrics">{metrics.map((metric) => <label key={metric.key}><input type="checkbox" checked={exportMetricKeys.includes(metric.key)} onChange={() => setExportMetricKeys((current) => current.includes(metric.key) ? current.filter((key) => key !== metric.key) : [...current, metric.key])} /><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{metric.unit || tx("No unit")}</small></span></label>)}</div></section>
+      {exportError ? <p className="nc-trends-export-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{exportError}</p> : null}
+      <footer><span>{exportMetricKeys.length} {tx("metrics selected")}</span><div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy}>{tx("Cancel")}</button><button type="submit" className="primary" disabled={exportBusy || !exportMetricKeys.length}>{exportBusy ? tx("Preparing CSV…") : tx("Download CSV")}</button></div></footer>
+    </form></div></ModalPortal> : null}
   </main>
 }

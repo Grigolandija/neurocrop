@@ -3118,10 +3118,11 @@ function rowReportsExportMetric(row, metric) {
 
 app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
   try {
+    const organizationId = getOrganizationId(req);
     const sectionId = String(req.query.sectionId || '').trim();
-    const section = await getSectionById(sectionId, getOrganizationId(req));
-    if (!section) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+    const areaId = String(req.query.areaId || '').trim();
+    if (Boolean(sectionId) === Boolean(areaId)) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Choose either one Section or one Area' } });
     }
 
     const from = req.query.from ? new Date(req.query.from) : new Date(Date.now() - 86400000);
@@ -3135,30 +3136,61 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'CSV export is limited to 31 days' } });
     }
 
-    const exportMetrics = [...Object.keys(METRIC_TO_COLUMN), 'vpd'];
-    const columns = [...new Set(Object.values(METRIC_TO_COLUMN))];
+    let selectedSections;
+    let exportName;
+    if (sectionId) {
+      const section = await getSectionById(sectionId, organizationId);
+      if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+      selectedSections = [section];
+      exportName = section.name;
+    } else {
+      const { rows: areaRows } = await query(
+        `SELECT id, name FROM areas WHERE organization_id=$1 AND id=$2 LIMIT 1`,
+        [organizationId, areaId]
+      );
+      if (!areaRows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown areaId' } });
+      const { rows: sectionRows } = await query(
+        `SELECT s.id, s.name, s.area_id, a.name AS area_name
+         FROM sections s
+         JOIN areas a ON a.id=s.area_id AND a.organization_id=s.organization_id
+         WHERE s.organization_id=$1 AND s.area_id=$2
+         ORDER BY s.created_at ASC`,
+        [organizationId, areaId]
+      );
+      selectedSections = sectionRows;
+      exportName = areaRows[0].name;
+    }
 
-    const { rows: latestNodeStates } = await query(
-      `SELECT DISTINCT ON (m.dev_eui) m.dev_eui, m.raw_object,
-              ${columns.map((column) => `m.${column}`).join(', ')}
-       FROM measurements m
-       JOIN nodes n ON n.dev_eui=m.dev_eui
-       WHERE n.organization_id=$1 AND n.section_id=$2
-       ORDER BY m.dev_eui, m.time DESC`,
-      [getOrganizationId(req), section.id]
-    );
+    const availableExportMetrics = [...new Set([...Object.keys(METRIC_TO_COLUMN), 'vpd'])];
+    const requestedMetrics = String(req.query.metrics || '').split(',').map((metric) => metric.trim()).filter(Boolean);
+    const unknownMetrics = requestedMetrics.filter((metric) => !availableExportMetrics.includes(metric));
+    if (unknownMetrics.length) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `Unsupported export metrics: ${unknownMetrics.join(', ')}` } });
+    }
+    const selectedMetrics = requestedMetrics.length ? [...new Set(requestedMetrics)] : availableExportMetrics;
+    const columns = new Set(selectedMetrics.map((metric) => METRIC_TO_COLUMN[metric]).filter(Boolean));
+    if (selectedMetrics.includes('vpd')) {
+      columns.add(METRIC_TO_COLUMN.airTemp);
+      columns.add(METRIC_TO_COLUMN.humidity);
+    }
+    const selectedColumns = [...columns];
+    const sectionIds = selectedSections.map((section) => section.id);
 
     const { rows } = await query(
-      `SELECT m.time, m.raw_object, ${columns.map((column) => `m.${column}`).join(', ')}
+      `SELECT m.time, m.dev_eui, m.raw_object, n.name AS node_name,
+              s.id AS section_id, s.name AS section_name, a.name AS area_name,
+              ${selectedColumns.map((column) => `m.${column}`).join(', ')}
        FROM measurements m
        JOIN nodes n ON n.dev_eui=m.dev_eui
+       JOIN sections s ON s.id=n.section_id AND s.organization_id=n.organization_id
+       JOIN areas a ON a.id=s.area_id AND a.organization_id=s.organization_id
        WHERE n.organization_id=$1
-         AND n.section_id=$2
+         AND n.section_id = ANY($2)
          AND m.time >= $3
          AND m.time <= $4
-       ORDER BY m.time ASC, m.dev_eui ASC
+       ORDER BY m.time ASC, s.name ASC, n.name ASC, m.dev_eui ASC
        LIMIT 100001`,
-      [getOrganizationId(req), section.id, from, to]
+      [organizationId, sectionIds, from, to]
     );
 
     if (rows.length > 100000) {
@@ -3170,28 +3202,21 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       });
     }
 
-    const installedMetrics = exportMetrics.filter((metric) => {
-      if (metric === 'batteryLevel') return true;
-      return latestNodeStates.some((node) => measurementReportsMetric(node, metric));
-    });
-
-    const metricsWithData = installedMetrics.filter((metric) =>
-      rows.some((row) => rowReportsExportMetric(row, metric))
-    );
     const headers = [
       'Date',
-      'Time',
-      'Area',
-      'Section',
-      ...metricsWithData.map((metric) =>
+      'Time (Europe/Vilnius)',
+      ...(areaId ? ['Section'] : []),
+      'Node',
+      ...selectedMetrics.map((metric) =>
         `${EXPORT_METRIC_LABELS[metric] || metric} (${EXPORT_METRIC_UNITS[metric] || ''})`
       )
     ];
     const lines = [headers.map(csvEscape).join(';')];
 
     for (const row of rows) {
+      if (!selectedMetrics.some((metric) => rowReportsExportMetric(row, metric))) continue;
       const { date, time } = formatExportDateTime(row.time);
-      const values = metricsWithData.map((metric) => {
+      const values = selectedMetrics.map((metric) => {
         const value = getExportMetricValue(row, metric);
         return rowReportsExportMetric(row, metric) ? formatExportValue(value) : '';
       });
@@ -3199,14 +3224,14 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       lines.push([
         date,
         time,
-        section.area_name || '',
-        section.name,
+        ...(areaId ? [row.section_name] : []),
+        row.node_name || row.dev_eui,
         ...values
       ].map(csvEscape).join(';'));
     }
 
-    const safeSectionName = section.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || section.id;
-    const filename = `neurocrop-${safeSectionName}-${from.toISOString().slice(0, 10)}-to-${to.toISOString().slice(0, 10)}.csv`;
+    const safeExportName = String(exportName || sectionId || areaId).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'measurements';
+    const filename = `neurocrop-${safeExportName}-${from.toISOString().slice(0, 10)}-to-${to.toISOString().slice(0, 10)}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(`\ufeff${lines.join('\n')}\n`);

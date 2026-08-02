@@ -398,6 +398,89 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-events strong { font-size: 11px; text-transform: capitalize; }
 .designer-app .nc-trends-events small { color: var(--trends-muted); font-size: 11px; }
 
+.nc-trends-export-backdrop {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 29, 25, .48);
+  backdrop-filter: blur(3px);
+}
+.nc-trends-export-modal {
+  display: grid;
+  width: min(760px, 100%);
+  max-height: min(860px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid #d8dfd9;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(18, 34, 27, .24);
+  color: #1d2b25;
+}
+.nc-trends-export-modal > header {
+  display: flex;
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid #e1e6e1;
+  padding: 22px 24px 19px;
+  background: #fff;
+}
+.nc-trends-export-modal > header p { margin: 0 0 5px; color: #467087; font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.nc-trends-export-modal > header h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
+.nc-trends-export-modal > header span { display: block; margin-top: 6px; color: #718078; font-size: 13px; }
+.nc-trends-export-modal > header button { width: 36px; height: 36px; border: 1px solid #dce2dd; border-radius: 9px; background: #f7f9f7; color: #4f5c55; }
+.nc-trends-export-modal > section { display: grid; gap: 12px; border-bottom: 1px solid #edf0ed; padding: 18px 24px; }
+.nc-trends-export-modal h3 { margin: 0; font-size: 13px; font-weight: 750; }
+.nc-trends-export-scope,
+.nc-trends-export-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.nc-trends-export-range { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.nc-trends-export-scope label,
+.nc-trends-export-range label,
+.nc-trends-export-metrics label {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid #dce2dd;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fafbf9;
+  cursor: pointer;
+}
+.nc-trends-export-scope label:has(input:checked),
+.nc-trends-export-range label:has(input:checked),
+.nc-trends-export-metrics label:has(input:checked) { border-color: #4d8270; background: #eef7f2; box-shadow: inset 0 0 0 1px #4d8270; }
+.nc-trends-export-modal input { width: 17px; height: 17px; margin: 0; accent-color: #2d7863; }
+.nc-trends-export-modal label span { display: grid; min-width: 0; gap: 3px; }
+.nc-trends-export-modal label strong { font-size: 13px; }
+.nc-trends-export-modal label small { overflow: hidden; color: #718078; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.nc-trends-export-section-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.nc-trends-export-section-head > span { display: flex; gap: 6px; }
+.nc-trends-export-section-head button { border: 0; padding: 4px 7px; background: transparent; color: #376d5b; font-size: 11px; font-weight: 700; }
+.nc-trends-export-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.nc-trends-export-metrics label > i { width: 18px; color: #587069; text-align: center; }
+.nc-trends-export-error { display: flex; gap: 8px; margin: 0; padding: 12px 24px; background: #fff1ee; color: #aa493d; font-size: 12px; }
+.nc-trends-export-modal > footer {
+  display: flex;
+  position: sticky;
+  bottom: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #fff;
+}
+.nc-trends-export-modal > footer > span { color: #718078; font-size: 12px; }
+.nc-trends-export-modal > footer > div { display: flex; gap: 9px; }
+.nc-trends-export-modal > footer button { min-height: 40px; border: 1px solid #d8dfd9; border-radius: 9px; padding: 0 15px; background: #fff; color: #27362f; font-weight: 700; }
+.nc-trends-export-modal > footer button.primary { border-color: #243f35; background: #243f35; color: #fff; }
+.nc-trends-export-modal button:disabled { cursor: not-allowed; opacity: .5; }
+
 
 @media (max-width: 1050px) {
   .designer-app .nc-trends-context { grid-template-columns: 1fr 1fr; }
@@ -429,6 +512,11 @@ body.designer-app .nc-trends-section-search input {
   .designer-app .nc-trends-multi-chart { height: 600px; min-height: 600px; }
   .designer-app .nc-trends-empty { min-height: 330px; }
   .designer-app .nc-trends-distribution { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; }
+  .nc-trends-export-backdrop { align-items: end; padding: 0; }
+  .nc-trends-export-modal { max-height: 92vh; border-radius: 18px 18px 0 0; }
+  .nc-trends-export-scope,
+  .nc-trends-export-range,
+  .nc-trends-export-metrics { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 430px) {

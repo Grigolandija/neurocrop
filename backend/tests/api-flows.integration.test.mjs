@@ -118,7 +118,9 @@ test('authenticated CRUD, scoring, Trends and CSV flow', { skip: !configured }, 
     const csv = await request(cookie, '/exports/measurements.csv?sectionId=section-ci-a');
     assert.equal(csv.status, 200);
     assert.match(csv.headers.get('content-type') || '', /text\/csv/);
-    assert.match(await csv.text(), /^Date;Time;/);
+    const csvText = await csv.text();
+    assert.match(csvText, /^Date;Time \(Europe\/Vilnius\);Node;/);
+    assert.match(csvText, /Air temperature \(/);
   } finally {
     if (sectionId) {
       await request(cookie, `/nodes/${devEui}`, 'DELETE');
