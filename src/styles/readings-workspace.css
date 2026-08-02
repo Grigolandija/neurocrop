@@ -1,7 +1,4 @@
 /* Readings Workspace: frontend-redesign interaction model on NeuroCrop tokens. */
-#readingsWorkspaceMount { display: none; }
-body[data-primary-page="readings"] #metricsSection { display: none !important; }
-body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 
 .nc-readings-workspace { width: 100%; color: var(--color-text); font-family: var(--font-ui); }
 .nc-readings-workspace *, .nc-readings-workspace *::before, .nc-readings-workspace *::after { box-sizing: border-box; }
@@ -45,18 +42,7 @@ body[data-primary-page="readings"] #readingsWorkspaceMount { display: block; }
 .nc-segmented { display: inline-flex; border: 1px solid var(--color-border); border-radius: .7rem; padding: 3px; background: var(--color-surface-subtle); }
 .nc-segmented button { min-height: 2rem; border: 0; border-radius: .5rem; padding: 0 var(--space-12); background: transparent; color: var(--color-text-secondary); font-size: var(--type-caption); font-weight: var(--weight-medium); }
 .nc-segmented button.active { background: var(--color-surface); color: var(--color-text); box-shadow: 0 1px 3px var(--color-shadow); }
-.nc-workspace-view-switch button { display: inline-flex; align-items: center; gap: var(--space-8); min-height: 2.4rem; }
-.nc-workspace-view-switch button i { color: var(--color-secondary); }
 .nc-reading-display-row { display: flex; min-height: 3rem; align-items: center; justify-content: space-between; gap: var(--space-20); }
-.nc-map-readonly-badge { display: inline-flex; min-height: var(--control-height-sm); align-items: center; gap: var(--space-8); border: 1px solid var(--color-border); border-radius: 99px; padding: 0 var(--space-12); color: var(--color-text-tertiary); font-size: var(--type-caption); }
-.nc-map-readonly-badge i { color: var(--color-secondary); }
-
-.nc-climate-node-card { position: absolute; top: var(--space-16); right: var(--space-16); z-index: 12; display: grid; min-width: 14rem; border: 1px solid var(--color-border-strong); border-radius: .65rem; padding: var(--space-12) var(--space-16); background: color-mix(in srgb,var(--color-surface) 96%,transparent); box-shadow: 0 .75rem 2rem var(--color-shadow); backdrop-filter: blur(8px); }
-.nc-climate-node-card > button { position: absolute; top: var(--space-8); right: var(--space-8); width: 1.75rem; height: 1.75rem; border: 0; border-radius: .4rem; background: var(--color-surface-subtle); color: var(--color-text-tertiary); }
-.nc-climate-node-card small, .nc-climate-node-card span { color: var(--color-text-tertiary); font-size: var(--type-micro); }
-.nc-climate-node-card strong { padding-right: var(--space-24); font-size: var(--type-body-sm); }
-.nc-climate-node-card b { margin: var(--space-8) 0 var(--space-4); font-family: var(--font-technical); font-size: var(--type-h2); }
-.nc-climate-node-card b em { color: var(--color-text-tertiary); font-family: var(--font-ui); font-size: var(--type-caption); font-style: normal; }
 
 .nc-readings-viewbar { position: relative; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: var(--space-16); border-block: 1px solid var(--color-border); padding: var(--space-8) 0; }
 .nc-reading-presets { display: flex; min-width: 0; gap: var(--space-4); overflow-x: auto; }

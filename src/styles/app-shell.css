@@ -47,56 +47,6 @@
   }
 }
 
-body[data-primary-page="history"] .trend-history-local-controls {
-  position: sticky;
-  z-index: 150;
-  top: 68px;
-  margin-top: 12px;
-  border: 1px solid rgba(36, 75, 56, .12);
-  border-radius: 18px;
-  padding: 9px;
-  background: rgba(247, 250, 245, .96);
-  box-shadow: 0 10px 28px rgba(27, 52, 39, .08);
-}
-
-body[data-primary-page="history"] .trend-history-context {
-  display: grid !important;
-  grid-template-columns: minmax(180px, .55fr) minmax(440px, 1.45fr);
-  align-items: end;
-  gap: 18px;
-  margin: 0;
-  border: 0;
-  border-radius: 13px;
-  padding: 7px 9px;
-  background: transparent;
-  box-shadow: none;
-}
-
-body[data-primary-page="history"] .trend-history-context-selects {
-  width: 100%;
-}
-
-body[data-primary-page="history"] .trend-history-toolbar {
-  margin-top: 7px;
-  border-color: rgba(36, 75, 56, .09);
-  background: rgba(255, 255, 255, .7);
-}
-
-@media (max-width: 900px) {
-  body[data-primary-page="history"] .trend-history-local-controls {
-    position: static;
-  }
-
-  body[data-primary-page="history"] .trend-history-context {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  body[data-primary-page="history"] .trend-history-context-selects {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 720px) {
   .designer-app #dashboardHeader.global-system-bar {
     left: 0;
@@ -110,26 +60,5 @@ body[data-primary-page="history"] .trend-history-toolbar {
 
   .designer-app .dashboard-shell {
     padding-top: 52px !important;
-  }
-
-  body[data-primary-page="history"] .trend-history-local-controls {
-    margin-inline: 0;
-    padding: 7px;
-  }
-
-  body[data-primary-page="history"] .trend-history-context {
-    gap: 12px;
-    padding: 7px;
-  }
-
-  body[data-primary-page="history"] .trend-history-metric-strip {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 3px;
-  }
-
-  body[data-primary-page="history"] .trend-history-controls {
-    width: 100%;
-    justify-content: flex-start;
   }
 }

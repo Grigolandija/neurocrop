@@ -264,7 +264,6 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-create-area button { width: 100%; }
 .gh-create-area button:disabled { opacity: .45; }
 .gh-create-area small { margin-top: 9px; color: #a35242; font-size: 9px; }
-.gh-section-health p { display: flex; align-items: center; gap: 7px; margin: 6px 0; padding: 7px; color: #56675f; background: #f1f4f1; font-size: 9px; }
 .gh-section-health p.good i { color: #2d805d; }
 .gh-section-health p.warning { color: #7b5430; background: #fff6e8; }
 .gh-section-health p.warning i { color: #b27731; }

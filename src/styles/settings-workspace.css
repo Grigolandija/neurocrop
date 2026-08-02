@@ -1,9 +1,3 @@
-body[data-react-settings-active="true"] #settingsManagementShell,
-body[data-react-organization-active="true"] #settingsManagementShell,
-body[data-react-admin-active="true"] #settingsManagementShell,
-body[data-react-admin-integrations-active="true"] #settingsManagementShell { display: none !important; }
-#settingsWorkspaceMount:empty, #organizationWorkspaceMount:empty, #adminWorkspaceMount:empty, #adminIntegrationsMount:empty { display: none; }
-
 .nc-settings-page { color: var(--color-text); }
 .nc-settings-page * { box-sizing: border-box; }
 .nc-settings-page button, .nc-settings-page input, .nc-settings-page select { font: inherit; }

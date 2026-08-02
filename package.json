@@ -14,7 +14,7 @@
     "test:e2e": "node ./scripts/run-e2e.mjs",
     "test:e2e:playwright": "playwright test",
     "test": "pnpm test:architecture && pnpm test:css && pnpm test:workspace-access && pnpm test:metric-registry && pnpm test:crop-profiles && pnpm test:greenhouse-map && pnpm test:trend-chart",
-    "test:css": "node ./scripts/prune-unused-dashboard-css.mjs --check",
+    "test:css": "node ./scripts/prune-unused-dashboard-css.mjs --check --all",
     "test:workspace-access": "vitest run src/state/workspaceAccess.test.ts",
     "test:metric-registry": "vitest run src/domain/metricRegistry.test.ts",
     "test:crop-profiles": "vitest run src/features/settings/cropProfileDefaults.test.ts",

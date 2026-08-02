@@ -1,6 +1,3 @@
-body[data-react-sections-active="true"] #blocksManagementShell { display: none !important; }
-#sectionsWorkspaceMount:empty { display: none; }
-
 .nc-sections-page { color: var(--color-text); }
 .nc-sections-page * { box-sizing: border-box; }
 .nc-sections-page :is(button,input,select) { font: inherit; }

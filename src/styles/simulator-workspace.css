@@ -1,11 +1,3 @@
-body[data-react-simulator-active="true"] #settingsManagementShell,
-body[data-react-simulator-active="true"] #settingsWorkspaceMount,
-body[data-react-simulator-active="true"] #organizationWorkspaceMount,
-body[data-react-simulator-active="true"] #adminWorkspaceMount,
-body[data-react-simulator-active="true"] #adminIntegrationsMount {
-  display: none !important;
-}
-
 .nc-simulator {
   --sim-ink: #202b26;
   --sim-muted: #6f7a74;
