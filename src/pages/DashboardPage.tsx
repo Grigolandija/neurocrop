@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useDeferredValue, useEffect, useLayoutEffect, useRef, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
+import { Component, Suspense, useDeferredValue, useEffect, useLayoutEffect, useRef, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import DashboardShell, { type DashboardUser } from '../components/DashboardShell'
 import { getInterfaceLanguage, useInterfaceLanguage } from '../i18n'
@@ -49,6 +49,33 @@ function recoverWorkspaceImport<T extends WorkspaceModule>(name: string, loader:
   }
 }
 
+function createPreloadableWorkspace(loader: () => Promise<WorkspaceModule>) {
+  let loadedModule: WorkspaceModule | null = null
+  let pendingModule: Promise<WorkspaceModule> | null = null
+
+  const preload = () => {
+    if (loadedModule) return Promise.resolve(loadedModule)
+    if (!pendingModule) {
+      pendingModule = loader().then((module) => {
+        loadedModule = module
+        return module
+      }).catch((error) => {
+        pendingModule = null
+        throw error
+      })
+    }
+    return pendingModule
+  }
+
+  const PreloadedWorkspace = () => {
+    if (!loadedModule) throw preload()
+    const Workspace = loadedModule.default
+    return <Workspace />
+  }
+
+  return { Component: PreloadedWorkspace, preload }
+}
+
 const loadAreasWorkspace = recoverWorkspaceImport('areas', () => import('../features/areas/AreasWorkspace'))
 const loadReadingsWorkspace = recoverWorkspaceImport('readings', () => import('../features/readings/ReadingsWorkspace'))
 const loadSectionsWorkspace = recoverWorkspaceImport('sections', () => import('../features/sections/SectionsWorkspace'))
@@ -64,36 +91,51 @@ const loadTrendsWorkspace = recoverWorkspaceImport('trends', () => import('../fe
 const loadNodesWorkspace = recoverWorkspaceImport('nodes', () => import('../features/nodes/NodesWorkspace'))
 const loadCropProfilesWorkspace = recoverWorkspaceImport('crop-profiles', () => import('../features/settings/CropProfilesWorkspace'))
 
-const AreasWorkspace = lazy(loadAreasWorkspace)
-const ReadingsWorkspace = lazy(loadReadingsWorkspace)
-const SectionsWorkspace = lazy(loadSectionsWorkspace)
-const SettingsWorkspace = lazy(loadSettingsWorkspace)
-const OrganizationWorkspace = lazy(loadOrganizationWorkspace)
-const AdminWorkspace = lazy(loadAdminWorkspace)
-const AdminIntegrationsWorkspace = lazy(loadAdminIntegrationsWorkspace)
-const OverviewWorkspace = lazy(loadOverviewWorkspace)
-const SimulatorWorkspace = lazy(loadSimulatorWorkspace)
-const ActionsWorkspace = lazy(loadActionsWorkspace)
-const AlertsWorkspace = lazy(loadAlertsWorkspace)
-const TrendsWorkspace = lazy(loadTrendsWorkspace)
-const NodesWorkspace = lazy(loadNodesWorkspace)
-const CropProfilesWorkspace = lazy(loadCropProfilesWorkspace)
+const areasWorkspace = createPreloadableWorkspace(loadAreasWorkspace)
+const readingsWorkspace = createPreloadableWorkspace(loadReadingsWorkspace)
+const sectionsWorkspace = createPreloadableWorkspace(loadSectionsWorkspace)
+const settingsWorkspace = createPreloadableWorkspace(loadSettingsWorkspace)
+const organizationWorkspace = createPreloadableWorkspace(loadOrganizationWorkspace)
+const adminWorkspace = createPreloadableWorkspace(loadAdminWorkspace)
+const adminIntegrationsWorkspace = createPreloadableWorkspace(loadAdminIntegrationsWorkspace)
+const overviewWorkspace = createPreloadableWorkspace(loadOverviewWorkspace)
+const simulatorWorkspace = createPreloadableWorkspace(loadSimulatorWorkspace)
+const actionsWorkspace = createPreloadableWorkspace(loadActionsWorkspace)
+const alertsWorkspace = createPreloadableWorkspace(loadAlertsWorkspace)
+const trendsWorkspace = createPreloadableWorkspace(loadTrendsWorkspace)
+const nodesWorkspace = createPreloadableWorkspace(loadNodesWorkspace)
+const cropProfilesWorkspace = createPreloadableWorkspace(loadCropProfilesWorkspace)
+
+const AreasWorkspace = areasWorkspace.Component
+const ReadingsWorkspace = readingsWorkspace.Component
+const SectionsWorkspace = sectionsWorkspace.Component
+const SettingsWorkspace = settingsWorkspace.Component
+const OrganizationWorkspace = organizationWorkspace.Component
+const AdminWorkspace = adminWorkspace.Component
+const AdminIntegrationsWorkspace = adminIntegrationsWorkspace.Component
+const OverviewWorkspace = overviewWorkspace.Component
+const SimulatorWorkspace = simulatorWorkspace.Component
+const ActionsWorkspace = actionsWorkspace.Component
+const AlertsWorkspace = alertsWorkspace.Component
+const TrendsWorkspace = trendsWorkspace.Component
+const NodesWorkspace = nodesWorkspace.Component
+const CropProfilesWorkspace = cropProfilesWorkspace.Component
 
 const workspaceModuleLoadersByRoute: Record<string, () => Promise<WorkspaceModule>> = {
-  '/': loadOverviewWorkspace,
-  '/areas': loadAreasWorkspace,
-  '/sections': loadSectionsWorkspace,
-  '/nodes': loadNodesWorkspace,
-  '/readings': loadReadingsWorkspace,
-  '/history': loadTrendsWorkspace,
-  '/alerts': loadAlertsWorkspace,
-  '/actions': loadActionsWorkspace,
-  '/crop-profiles': loadCropProfilesWorkspace,
-  '/simulator': loadSimulatorWorkspace,
-  '/settings': loadSettingsWorkspace,
-  '/organization': loadOrganizationWorkspace,
-  '/admin': loadAdminWorkspace,
-  '/admin/integrations': loadAdminIntegrationsWorkspace,
+  '/': overviewWorkspace.preload,
+  '/areas': areasWorkspace.preload,
+  '/sections': sectionsWorkspace.preload,
+  '/nodes': nodesWorkspace.preload,
+  '/readings': readingsWorkspace.preload,
+  '/history': trendsWorkspace.preload,
+  '/alerts': alertsWorkspace.preload,
+  '/actions': actionsWorkspace.preload,
+  '/crop-profiles': cropProfilesWorkspace.preload,
+  '/simulator': simulatorWorkspace.preload,
+  '/settings': settingsWorkspace.preload,
+  '/organization': organizationWorkspace.preload,
+  '/admin': adminWorkspace.preload,
+  '/admin/integrations': adminIntegrationsWorkspace.preload,
 }
 
 async function preloadWorkspaceRoute(route: string) {
@@ -107,12 +149,12 @@ async function preloadWorkspaceRoute(route: string) {
 // Keep the common operational path warm. Less frequently used workspaces stay
 // lazy and load only when the user opens them.
 const coreWorkspaceModuleLoaders = [
-  loadOverviewWorkspace,
-  loadAreasWorkspace,
-  loadSectionsWorkspace,
-  loadNodesWorkspace,
-  loadReadingsWorkspace,
-  loadAlertsWorkspace,
+  overviewWorkspace.preload,
+  areasWorkspace.preload,
+  sectionsWorkspace.preload,
+  nodesWorkspace.preload,
+  readingsWorkspace.preload,
+  alertsWorkspace.preload,
 ]
 
 function warmWorkspaceModules(loaders: Array<() => Promise<WorkspaceModule>>) {

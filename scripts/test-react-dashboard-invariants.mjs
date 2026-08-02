@@ -82,7 +82,11 @@ assert(!dashboard.includes('createPortal'), 'Dashboard workspaces must not use l
 assert(dashboard.includes("'/nodes': 'nodesManagementSection'"), 'The Nodes workspace host must preserve its scoped styling contract.')
 assert(dashboard.includes('const workspace = workspaces.find'), 'Dashboard must select only the active workspace for rendering.')
 assert(dashboard.includes('{workspace.content}'), 'Dashboard must render the selected workspace instead of mounting every route.')
-assert(dashboard.includes('lazy(loadAreasWorkspace)'), 'Workspace modules must remain route-split to protect initial responsiveness.')
+assert(
+  dashboard.includes("import('../features/areas/AreasWorkspace')")
+    && dashboard.includes('createPreloadableWorkspace(loadAreasWorkspace)'),
+  'Workspace modules must remain route-split and synchronously render after navigation preloading.'
+)
 assert(dashboard.includes('coreWorkspaceModuleLoaders'), 'Common operational workspace modules must be warmed after authentication.')
 assert(dashboard.includes('onPrefetchRoute={preloadWorkspaceRoute}'), 'Navigation intent must preload the destination workspace.')
 assert(dashboard.includes('prefetchWorkspaceData'), 'Authenticated dashboard must warm shared workspace data.')
