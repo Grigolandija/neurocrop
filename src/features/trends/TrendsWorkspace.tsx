@@ -1022,6 +1022,7 @@ export default function TrendsWorkspace() {
         areaId: exportScope === 'area' ? selectedSection.areaId : undefined,
         sectionId: exportScope === 'section' ? selectedSection.id : undefined,
         metrics: exportMetricKeys.join(','),
+        stepMinutes: exportRange === '24h' ? 5 : config.stepMinutes,
         from: from.toISOString(),
         to: to.toISOString(),
       })

@@ -3168,6 +3168,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `Unsupported export metrics: ${unknownMetrics.join(', ')}` } });
     }
     const selectedMetrics = requestedMetrics.length ? [...new Set(requestedMetrics)] : availableExportMetrics;
+    const stepMinutes = Math.max(1, Math.min(1440, Number.parseInt(String(req.query.stepMinutes || '5'), 10) || 5));
     const columns = new Set(selectedMetrics.map((metric) => METRIC_TO_COLUMN[metric]).filter(Boolean));
     if (selectedMetrics.includes('vpd')) {
       columns.add(METRIC_TO_COLUMN.airTemp);
@@ -3202,32 +3203,46 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       });
     }
 
-    const headers = [
-      'Date',
-      'Time (Europe/Vilnius)',
-      ...(areaId ? ['Section'] : []),
-      'Node',
-      ...selectedMetrics.map((metric) =>
-        `${EXPORT_METRIC_LABELS[metric] || metric} (${EXPORT_METRIC_UNITS[metric] || ''})`
+    const exportRows = rows.filter((row) =>
+      selectedMetrics.some((metric) => rowReportsExportMetric(row, metric))
+    );
+    const nodeSeries = [...new Map(exportRows.map((row) => [row.dev_eui, {
+      key: row.dev_eui,
+      name: row.node_name || row.dev_eui,
+      sectionName: row.section_name
+    }])).values()].sort((left, right) =>
+      left.sectionName.localeCompare(right.sectionName) || left.name.localeCompare(right.name)
+    );
+    const metricHeader = (metric) => {
+      const unit = EXPORT_METRIC_UNITS[metric] || '';
+      return `${EXPORT_METRIC_LABELS[metric] || metric}${unit ? ` (${unit})` : ''}`;
+    };
+    const headers = ['Date', 'Time (Europe/Vilnius)', ...nodeSeries.flatMap((node) =>
+      selectedMetrics.map((metric) =>
+        `${areaId ? `${node.sectionName} / ` : ''}${node.name} — ${metricHeader(metric)}`
       )
-    ];
+    )];
     const lines = [headers.map(csvEscape).join(';')];
 
-    for (const row of rows) {
-      if (!selectedMetrics.some((metric) => rowReportsExportMetric(row, metric))) continue;
-      const { date, time } = formatExportDateTime(row.time);
-      const values = selectedMetrics.map((metric) => {
-        const value = getExportMetricValue(row, metric);
-        return rowReportsExportMetric(row, metric) ? formatExportValue(value) : '';
+    const bucketMs = stepMinutes * 60 * 1000;
+    const buckets = new Map();
+    for (const row of exportRows) {
+      const bucketTime = Math.floor(new Date(row.time).getTime() / bucketMs) * bucketMs;
+      if (!buckets.has(bucketTime)) buckets.set(bucketTime, new Map());
+      // Rows arrive chronologically, so the final value retained in a bucket
+      // is that node's latest reading for the interval.
+      buckets.get(bucketTime).set(row.dev_eui, row);
+    }
+    for (const [bucketTime, nodeRows] of [...buckets.entries()].sort((left, right) => left[0] - right[0])) {
+      const { date, time } = formatExportDateTime(bucketTime);
+      const values = nodeSeries.flatMap((node) => {
+        const row = nodeRows.get(node.key);
+        return selectedMetrics.map((metric) => {
+          if (!row || !rowReportsExportMetric(row, metric)) return '';
+          return formatExportValue(getExportMetricValue(row, metric));
+        });
       });
-
-      lines.push([
-        date,
-        time,
-        ...(areaId ? [row.section_name] : []),
-        row.node_name || row.dev_eui,
-        ...values
-      ].map(csvEscape).join(';'));
+      lines.push([date, time, ...values].map(csvEscape).join(';'));
     }
 
     const safeExportName = String(exportName || sectionId || areaId).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'measurements';

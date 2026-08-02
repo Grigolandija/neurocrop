@@ -547,12 +547,15 @@ kad failas vienodai tiesiogiai atsidarytų Windows ir macOS Excel programose.
 Skaitinės reikšmės eksportuojamos su tašku kaip dešimtainiu skirtuku:
 
 ```text
-Section eksportas: Date;Time (Europe/Vilnius);Node;Air temperature (°C);...
-Area eksportas:    Date;Time (Europe/Vilnius);Section;Node;Air temperature (°C);...
+Section eksportas: Date;Time (Europe/Vilnius);Node A — Air temperature (°C);Node B — Air temperature (°C);...
+Area eksportas:    Date;Time (Europe/Vilnius);Section A / Node A — Air temperature (°C);...
 ```
 
 `metrics` pasirinktinai priima kableliais atskirtą metric raktų sąrašą. MVP
-riboja vieną eksportą iki 31 dienos; didesniems laikotarpiams vėliau bus
+riboja vieną eksportą iki 31 dienos. `stepMinutes` nustato bendrą laiko žingsnį;
+kiekvienam node paliekamas paskutinis to intervalo matavimas. Toks platus
+formatas neplaka skirtingų node reikšmių į vieną Excel duomenų seriją ir leidžia
+tiesiogiai braižyti atskiras node kreives. Didesniems laikotarpiams vėliau bus
 naudojami agreguoti arba asinchroniškai sugeneruoti eksportai.
 
 ## Alerts

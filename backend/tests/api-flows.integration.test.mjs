@@ -119,7 +119,7 @@ test('authenticated CRUD, scoring, Trends and CSV flow', { skip: !configured }, 
     assert.equal(csv.status, 200);
     assert.match(csv.headers.get('content-type') || '', /text\/csv/);
     const csvText = await csv.text();
-    assert.match(csvText, /^sep=;\nDate;Time \(Europe\/Vilnius\);Node;/);
+    assert.match(csvText, /^sep=;\nDate;Time \(Europe\/Vilnius\);.*Air temperature \(/);
     assert.match(csvText, /Air temperature \(/);
   } finally {
     if (sectionId) {
