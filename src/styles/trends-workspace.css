@@ -154,6 +154,65 @@ body.designer-app .nc-trends-section-search input {
 }
 .designer-app .nc-trends-scope button.active { background: #fff; color: #216b5f; box-shadow: 0 2px 7px rgba(26, 43, 34, .1); }
 .designer-app .nc-trends-compare-toggle.active { border-color: #5b7e91; background: #edf5f8; color: #315e75; }
+.designer-app .nc-trends-node-select { position: relative; min-width: 180px; }
+.designer-app .nc-trends-node-select summary {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #cadae1;
+  border-radius: 9px;
+  padding: 0 12px;
+  background: #f3f8fa;
+  color: #315e75;
+  cursor: pointer;
+  list-style: none;
+}
+.designer-app .nc-trends-node-select summary::-webkit-details-marker { display: none; }
+.designer-app .nc-trends-node-select summary > span { display: grid; min-width: 0; gap: 1px; }
+.designer-app .nc-trends-node-select summary small { color: #68808b; font-size: 9px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.designer-app .nc-trends-node-select summary strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.designer-app .nc-trends-node-select summary > i { font-size: 10px; transition: transform .16s ease; }
+.designer-app .nc-trends-node-select[open] summary > i { transform: rotate(180deg); }
+.designer-app .nc-trends-node-menu {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 7px);
+  right: 0;
+  width: min(360px, calc(100vw - 44px));
+  overflow: hidden;
+  border: 1px solid #d4ddd9;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(24, 38, 31, .2);
+}
+.designer-app .nc-trends-node-menu > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e5eae6; padding: 12px 13px; }
+.designer-app .nc-trends-node-menu > header > span:first-child { display: grid; gap: 2px; }
+.designer-app .nc-trends-node-menu > header strong { font-size: 12px; }
+.designer-app .nc-trends-node-menu > header small { color: var(--trends-muted); font-size: 10px; }
+.designer-app .nc-trends-node-menu-actions { display: flex; gap: 4px; }
+.designer-app .nc-trends-node-menu-actions button { min-height: 28px; border-radius: 7px; padding: 0 8px; background: #f0f4f1; color: #476158; font-size: 10px; font-weight: 700; }
+.designer-app .nc-trends-node-menu-actions button:disabled { opacity: .42; }
+.designer-app .nc-trends-node-options { display: grid; max-height: 300px; overflow-y: auto; padding: 5px; }
+.designer-app .nc-trends-node-options label { display: grid; grid-template-columns: 16px 8px minmax(0, 1fr) 18px; align-items: center; gap: 9px; border-radius: 8px; padding: 9px 10px; cursor: pointer; }
+.designer-app .nc-trends-node-options label:hover { background: #f2f6f3; }
+.designer-app .nc-trends-node-options label[data-disabled="true"] { cursor: not-allowed; opacity: .42; }
+.designer-app .nc-trends-node-options input { width: 16px; height: 16px; margin: 0; accent-color: #287f70; }
+.designer-app .nc-trends-node-options label > i:not(.nc-trends-node-check) { width: 7px; height: 7px; border-radius: 50%; background: #a5ada8; }
+.designer-app .nc-trends-node-options label > i[data-status="live"] { background: #3b9365; }
+.designer-app .nc-trends-node-options label > i[data-status="delayed"],
+.designer-app .nc-trends-node-options label > i[data-status="stale"] { background: #d59a2a; }
+.designer-app .nc-trends-node-options label > i[data-status="offline"] { background: #d35e49; }
+.designer-app .nc-trends-node-options label > span { display: grid; min-width: 0; gap: 2px; }
+.designer-app .nc-trends-node-options label strong,
+.designer-app .nc-trends-node-options label small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.designer-app .nc-trends-node-options label strong { color: var(--trends-ink); font-size: 12px; }
+.designer-app .nc-trends-node-options label small { color: var(--trends-muted); font-size: 9px; }
+.designer-app .nc-trends-node-check { color: #287f70; font-size: 11px; opacity: 0; }
+.designer-app .nc-trends-node-options label:has(input:checked) { background: #edf5f1; }
+.designer-app .nc-trends-node-options label:has(input:checked) .nc-trends-node-check { opacity: 1; }
+.designer-app .nc-trends-node-options > p { margin: 0; padding: 24px 12px; color: var(--trends-muted); font-size: 12px; text-align: center; }
 
 .designer-app .nc-trends-metric-controls {
   display: grid;
@@ -234,22 +293,15 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-comparison-picker label span { display: block; border: 1px solid #cbd9df; border-radius: 999px; padding: 7px 11px; background: #fff; color: #5f7068; font-size: 11px; font-weight: 650; }
 .designer-app .nc-trends-comparison-picker label:has(input:checked) span { border-color: #547c8f; background: #547c8f; color: #fff; }
 .designer-app .nc-trends-comparison-picker label:has(input:disabled) { cursor: not-allowed; opacity: .45; }
-.designer-app .nc-trends-node-picker label span { display: inline-flex; align-items: center; gap: 7px; }
-.designer-app .nc-trends-node-picker label span i { width: 7px; height: 7px; border-radius: 50%; background: #a5ada8; }
-.designer-app .nc-trends-node-picker label span i[data-status="live"] { background: #3b9365; }
-.designer-app .nc-trends-node-picker label span i[data-status="delayed"],
-.designer-app .nc-trends-node-picker label span i[data-status="stale"] { background: #d59a2a; }
-.designer-app .nc-trends-node-picker label span i[data-status="offline"] { background: #d35e49; }
-.designer-app .nc-trends-node-picker > div:last-child > p { margin: 0; color: var(--trends-muted); font-size: 12px; }
-.designer-app .nc-trends-node-picker:has(.nc-trends-node-error) { display: grid; grid-template-columns: auto minmax(0, 1fr); }
 .designer-app .nc-trends-node-error {
   display: flex;
-  grid-column: 1 / -1;
   align-items: center;
   gap: 8px;
   margin: 0;
-  border-top: 1px solid #ead6cf;
-  padding-top: 10px;
+  border: 1px solid #ead6cf;
+  border-radius: 9px;
+  padding: 9px 12px;
+  background: #fff7f4;
   color: #a64838;
   font-size: 12px;
   font-weight: 650;
@@ -358,6 +410,8 @@ body.designer-app .nc-trends-section-search input {
   .designer-app .nc-trends-head h1 { font-size: 29px; }
   .designer-app .nc-trends-head-actions button { flex: 1; }
   .designer-app .nc-trends-context { grid-template-columns: 1fr; padding: 11px; }
+  .designer-app .nc-trends-node-select { width: 100%; }
+  .designer-app .nc-trends-node-menu { right: auto; left: 0; }
   .designer-app .nc-trends-range { width: 100%; }
   .designer-app .nc-trends-range button { flex: 1; }
   .designer-app .nc-trends-comparison-picker { align-items: stretch; flex-direction: column; }

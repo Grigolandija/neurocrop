@@ -986,13 +986,43 @@ export default function TrendsWorkspace() {
             </select>
           : <span className="nc-trends-select-skeleton" aria-label={tx("Preparing Section selection")} />}
       </label>
-      <div className="nc-trends-scope" role="group" aria-label={tx("Trend data level")}>
-        <button type="button" className={scope === 'section' ? 'active' : ''} aria-pressed={scope === 'section'} onClick={() => changeScope('section')}><i className="fa-solid fa-layer-group" />{tx("Section")}</button>
-        <button type="button" className={scope === 'nodes' ? 'active' : ''} aria-pressed={scope === 'nodes'} onClick={() => changeScope('nodes')}><i className="fa-solid fa-microchip" />{tx("Nodes")}</button>
-      </div>
+      <label className="nc-trends-source-field">
+        <span>{tx("Data source")}</span>
+        <select value={scope} onChange={(event) => changeScope(event.target.value as TrendScope)}>
+          <option value="section">{tx("Section aggregate")}</option>
+          <option value="nodes">{tx("Compare Nodes")}</option>
+        </select>
+      </label>
       <div className="nc-trends-range" role="group" aria-label={tx("Trend period")}>{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
-      {scope === 'section' ? <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />{tx("Compare Sections")}</button> : null}
+      {scope === 'nodes' ? <details className="nc-trends-node-select">
+        <summary>
+          <span><small>{tx("Nodes")}</small><strong>{selectedNodeIds.length ? `${selectedNodeIds.length} ${tx("selected")}` : tx("Select Nodes")}</strong></span>
+          <i className="fa-solid fa-chevron-down" />
+        </summary>
+        <div className="nc-trends-node-menu">
+          <header>
+            <span><strong>{tx("Compare Nodes")}</strong><small>{tx("Choose up to 5 Nodes")}</small></span>
+            <span className="nc-trends-node-menu-actions">
+              <button type="button" onClick={() => setSelectedNodeIds(sectionNodes.slice(0, 5).map((node) => node.devEui))} disabled={!sectionNodes.length}>{tx("Select all")}</button>
+              <button type="button" onClick={() => setSelectedNodeIds([])} disabled={!selectedNodeIds.length}>{tx("Clear")}</button>
+            </span>
+          </header>
+          <div className="nc-trends-node-options">
+            {sectionNodes.length ? sectionNodes.map((node) => {
+              const selected = selectedNodeIds.includes(node.devEui)
+              const disabled = !selected && selectedNodeIds.length >= 5
+              return <label key={node.devEui} data-disabled={disabled || undefined}>
+                <input type="checkbox" checked={selected} disabled={disabled} onChange={() => toggleNode(node.devEui)} />
+                <i data-status={node.transportStatus} />
+                <span><strong>{node.name}</strong><small>{node.devEui}</small></span>
+                <i className="fa-solid fa-check nc-trends-node-check" />
+              </label>
+            }) : <p>{tx("No Nodes are assigned to this Section.")}</p>}
+          </div>
+        </div>
+      </details> : <button type="button" className={`nc-trends-compare-toggle ${compare ? 'active' : ''}`} onClick={() => setCompare((value) => !value)}><i className="fa-solid fa-code-compare" />{tx("Compare Sections")}</button>}
     </section>
+    {scope === 'nodes' && nodeHistoryError ? <p className="nc-trends-node-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{nodeHistoryError}</p> : null}
 
     <section className="nc-trends-metric-controls">
       <div className="nc-trends-metric-presets">
@@ -1015,21 +1045,6 @@ export default function TrendsWorkspace() {
     </section>
 
     {compare ? <section className="nc-trends-comparison-picker"><div><strong>{tx("Compare Sections")}</strong><span>{tx("Select 2–6 Sections in")} {selectedSection?.areaName}.</span></div><div>{sections.filter((section) => section.areaId === selectedSection?.areaId && section.available.has(metricKey)).map((section) => <label key={section.id}><input type="checkbox" checked={comparisonIds.includes(section.id)} onChange={() => toggleComparison(section.id)} /><span>{section.name}</span></label>)}</div></section> : null}
-    {scope === 'nodes' ? <section className="nc-trends-comparison-picker nc-trends-node-picker">
-      <div><strong>{tx("Compare Nodes")}</strong><span>{tx("The Section median stays visible. Select up to 5 Nodes ·")} {selectedNodeIds.length}{tx("/5 selected.")}</span></div>
-      <div>{sectionNodes.length
-        ? sectionNodes.map((node) => {
-            const selected = selectedNodeIds.includes(node.devEui)
-            const disabled = !selected && selectedNodeIds.length >= 5
-            return <label key={node.devEui} title={`${node.devEui} · ${node.transportStatus}`}>
-              <input type="checkbox" checked={selected} disabled={disabled} onChange={() => toggleNode(node.devEui)} />
-              <span><i data-status={node.transportStatus} />{node.name}</span>
-            </label>
-          })
-        : <p>{tx("No Nodes are assigned to this Section.")}</p>}</div>
-      {nodeHistoryError ? <p className="nc-trends-node-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{nodeHistoryError}</p> : null}
-    </section> : null}
-
     <section className="nc-trends-kpis">
       <article><small>{tx("Current")}</small><strong>{format(current, selectedMetric)} <em>{selectedMetric.unit}</em></strong><span>{target ? `Target ${format(target[0], selectedMetric)}–${format(target[1], selectedMetric)} ${selectedMetric.unit}` :tx("Target not configured")}</span></article>
       <article data-tone={delta === null ? 'neutral' : 'info'}><small>{tx("Period change")}</small><strong>{delta === null ? '—' : `${delta > 0 ? '+' : ''}${format(delta, selectedMetric)}`} <em>{delta === null ? '' : selectedMetric.unit}</em></strong><span>{rangeConfig[range].label}</span></article>
