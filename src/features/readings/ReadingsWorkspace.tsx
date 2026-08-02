@@ -140,20 +140,6 @@ function asArray<T = JsonRecord>(value: unknown): T[] {
   return Array.isArray(value) ? value : []
 }
 
-async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>) {
-  const results = new Array<R>(items.length)
-  let nextIndex = 0
-  async function worker() {
-    while (nextIndex < items.length) {
-      const index = nextIndex
-      nextIndex += 1
-      results[index] = await mapper(items[index])
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-  return results
-}
-
 function recordArray(payload: JsonRecord | null | undefined, keys: string[]) {
   if (Array.isArray(payload)) return payload as JsonRecord[]
   for (const root of [payload, payload?.data, payload?.dashboard, payload?.workspace]) {
@@ -714,14 +700,17 @@ export default function ReadingsWorkspace() {
         setStatus('ready')
         hasLoadedRef.current = true
 
-        const latestResults = await mapWithConcurrency(baseSections, 6, async (section) => {
-          try {
-            const latest = await neurocropApi.getLatestReadings(section.id) as JsonRecord
-            return { id: section.id, latest, loadFailed: false }
-          } catch {
-            return { id: section.id, latest: null, loadFailed: true }
-          }
-        })
+        const latestBatch = baseSections.length
+          ? await neurocropApi.getLatestReadingsBatch(baseSections.map((section) => section.id)) as {
+              readings?: Record<string, JsonRecord>
+              errors?: Record<string, unknown>
+            }
+          : { readings: {}, errors: {} }
+        const latestResults = baseSections.map((section) => ({
+          id: section.id,
+          latest: latestBatch.readings?.[section.id] || null,
+          loadFailed: Boolean(latestBatch.errors?.[section.id]) || !latestBatch.readings?.[section.id],
+        }))
         if (cancelled) return
         const latestBySection = new Map(latestResults.map((result) => [result.id, result]))
         setSections((current) => current.map((section) => {

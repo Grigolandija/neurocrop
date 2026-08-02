@@ -312,6 +312,7 @@ Istorinių alertų ribos turi likti audituojamos.
 
 ```text
 GET /readings/latest?sectionId=:sectionId
+GET /readings/latest-batch?sectionIds=:sectionId1,:sectionId2
 ```
 
 Pavyzdys:

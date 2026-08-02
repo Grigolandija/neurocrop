@@ -2135,6 +2135,28 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
   try {
     const organizationId = getOrganizationId(req);
     const requestedSectionId = String(req.query.sectionId || '');
+    const payload = await buildLatestReadings(requestedSectionId, organizationId, timing);
+    timing.apply(res);
+    res.json(payload);
+  } catch (e) {
+    if (Number(e?.status) >= 400 && Number(e?.status) < 500) {
+      return res.status(Number(e.status)).json({
+        error: { code: e.code || 'READINGS_ERROR', message: e.message }
+      });
+    }
+    console.error('[api] /readings/latest:', e.message);
+    res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  }
+});
+
+function latestReadingsError(status, code, message) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code;
+  return error;
+}
+
+async function buildLatestReadings(requestedSectionId, organizationId, timing = null) {
     const [section, nodeResult] = await Promise.all([
       getSectionById(requestedSectionId, organizationId),
       query(
@@ -2145,12 +2167,12 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
         [organizationId, requestedSectionId]
       )
     ]);
-    if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+    if (!section) throw latestReadingsError(404, 'NOT_FOUND', 'Unknown sectionId');
     const nodeRows = nodeResult.rows;
     if (!nodeRows.length) {
-      return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
+      throw latestReadingsError(404, 'NO_NODES', 'No nodes registered in this section');
     }
-    timing.mark('setup', 'section and nodes');
+    timing?.mark('setup', 'section and nodes');
 
     const devEuis = nodeRows.map((node) => normalizeDevEui(node.dev_eui));
     const [readingContextResult, recentResult] = await Promise.all([
@@ -2178,7 +2200,7 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     const readingContextRows = readingContextResult.rows;
     const readingContexts = sensorConfigsByNode(readingContextRows);
     const recentRows = recentResult.rows;
-    timing.mark('source', 'contexts and recent readings');
+    timing?.mark('source', 'contexts and recent readings');
     const recentByDevEui = new Map();
     recentRows.forEach((row) => {
       const devEui = normalizeDevEui(row.dev_eui);
@@ -2193,7 +2215,7 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     }));
     const reportingSamples = samples.filter((sample) => sample.measurement);
     if (!reportingSamples.length) {
-      return res.status(404).json({ error: { code: 'NO_DATA', message: 'No readings' } });
+      throw latestReadingsError(404, 'NO_DATA', 'No readings');
     }
 
     const expectedIntervalForSample = (sample) => {
@@ -2234,7 +2256,7 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
         [currentDevEuis]
       )
       : { rows: [] };
-    timing.mark('baseline', 'one hour baseline');
+    timing?.mark('baseline', 'one hour baseline');
     const oneHourBaselineByDevEui = new Map(
       oneHourBaselineRows.map((row) => [normalizeDevEui(row.dev_eui), row])
     );
@@ -2389,10 +2411,9 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
     );
     const airTemp = observations.airTemp?.value;
     const humidity = observations.humidity?.value;
-    timing.mark('compute', 'readings model');
+    timing?.mark('compute', 'readings model');
 
-    timing.apply(res);
-    res.json({
+    return {
       sectionId: section.id,
       lastReceivedAt: latestReceivedAt,
       expectedUplinkIntervalSec: sectionExpectedUplinkIntervalSec,
@@ -2403,9 +2424,63 @@ app.get('/readings/latest', requireAuth, async (req, res) => {
         dew_point: Number.isFinite(airTemp) && Number.isFinite(humidity) ? calcDewPoint(airTemp, humidity) : null,
         absolute_humidity: Number.isFinite(airTemp) && Number.isFinite(humidity) ? calcAbsoluteHumidity(airTemp, humidity) : null
       }
+    };
+}
+
+async function mapLatestReadings(sectionIds, organizationId, concurrency = 2) {
+  const results = new Array(sectionIds.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, sectionIds.length) }, async () => {
+    while (cursor < sectionIds.length) {
+      const index = cursor;
+      cursor += 1;
+      const sectionId = sectionIds[index];
+      try {
+        results[index] = { sectionId, value: await buildLatestReadings(sectionId, organizationId) };
+      } catch (error) {
+        results[index] = {
+          sectionId,
+          error: {
+            status: Number(error?.status) || 500,
+            code: error?.code || 'DB_ERROR',
+            message: Number(error?.status) >= 400 && Number(error?.status) < 500
+              ? error.message
+              : 'Latest readings could not be loaded'
+          }
+        };
+      }
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+app.get('/readings/latest-batch', requireAuth, async (req, res) => {
+  const timing = createServerTiming();
+  timing.add('auth', req.authDurationMs, 'session');
+  const sectionIds = [...new Set(String(req.query.sectionIds || '')
+    .split(',')
+    .map((sectionId) => sectionId.trim())
+    .filter(Boolean))];
+  if (!sectionIds.length || sectionIds.length > 50) {
+    return res.status(400).json({
+      error: { code: 'VALIDATION_ERROR', message: 'Provide between 1 and 50 sectionIds' }
     });
+  }
+  try {
+    const organizationId = getOrganizationId(req);
+    const results = await mapLatestReadings(sectionIds, organizationId);
+    const readings = {};
+    const errors = {};
+    results.forEach((result) => {
+      if (result.value) readings[result.sectionId] = result.value;
+      else errors[result.sectionId] = result.error;
+    });
+    timing.mark('sections', `${sectionIds.length} sections`);
+    timing.apply(res);
+    res.json({ readings, errors });
   } catch (e) {
-    console.error('[api] /readings/latest:', e.message);
+    console.error('[api] /readings/latest-batch:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
   }
 });

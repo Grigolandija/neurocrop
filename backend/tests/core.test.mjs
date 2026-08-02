@@ -425,12 +425,17 @@ test('database connection acquisition stays inside route error boundaries', () =
   }
 
   const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
-  for (const routeName of ["/readings/latest", "/history", "/exports/measurements.csv", "/nodes/register"]) {
+  for (const routeName of ["/readings/latest", "/readings/latest-batch", "/history", "/exports/measurements.csv", "/nodes/register"]) {
     const routeStart = api.indexOf(`app.get('${routeName}'`) >= 0
       ? api.indexOf(`app.get('${routeName}'`)
       : api.indexOf(`app.post('${routeName}'`);
     const route = api.slice(routeStart, routeStart + 900);
-    assert.ok(route.indexOf('try {') >= 0 && route.indexOf('try {') < route.indexOf('getSectionById'), `${routeName} must guard its first database query`);
+    const databaseCall = routeName === '/readings/latest'
+      ? 'buildLatestReadings'
+      : routeName === '/readings/latest-batch'
+        ? 'mapLatestReadings'
+        : 'getSectionById';
+    assert.ok(route.indexOf('try {') >= 0 && route.indexOf('try {') < route.indexOf(databaseCall), `${routeName} must guard its first database query`);
   }
 });
 
@@ -1782,4 +1787,20 @@ test('latest readings keep the newest valid value per metric when uplinks are st
   assert.match(route, /semanticallyIncludedSources\.filter/);
   assert.match(route, /status === 'live' \|\| status === 'delayed'/);
   assert.doesNotMatch(route, /const sourcesByMetric = collectSourcesByMetric\(currentSamples\)/);
+});
+
+test('Readings loads all Sections through one bounded authenticated batch', () => {
+  const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const client = fs.readFileSync(new URL('../../src/services/api/neurocropApi.ts', import.meta.url), 'utf8');
+  const workspace = fs.readFileSync(new URL('../../src/features/readings/ReadingsWorkspace.tsx', import.meta.url), 'utf8');
+  const routeStart = api.indexOf("app.get('/readings/latest-batch'");
+  const route = api.slice(routeStart, api.indexOf('function historicalSensorPresenceCondition', routeStart));
+  assert.ok(routeStart >= 0);
+  assert.match(route, /requireAuth/);
+  assert.match(route, /getOrganizationId\(req\)/);
+  assert.match(route, /sectionIds\.length > 50/);
+  assert.match(api, /mapLatestReadings\(sectionIds, organizationId, concurrency = 2\)/);
+  assert.match(client, /getLatestReadingsBatch/);
+  assert.match(workspace, /getLatestReadingsBatch\(baseSections\.map/);
+  assert.doesNotMatch(workspace, /getLatestReadings\(section\.id\)/);
 });

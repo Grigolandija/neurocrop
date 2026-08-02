@@ -74,6 +74,7 @@ export const neurocropApi = {
   getCropProfiles: () => request('/crop-profiles'),
   simulateAgronomicScenario: (payload: Payload) => request('/simulator/agronomic', { method: 'POST', body: json(payload) }),
   getLatestReadings: (sectionId: string) => request(`/readings/latest${queryString({ sectionId })}`),
+  getLatestReadingsBatch: (sectionIds: string[]) => request(`/readings/latest-batch${queryString({ sectionIds: sectionIds.join(',') })}`),
   getHistory: (params: Payload) => request(`/history${queryString(params)}`),
   getSectionAnalytics: (params: Payload) => request(`/analytics/section${queryString(params)}`),
   getSectionDynamics: (sectionId: string) => request(`/analytics/dynamics${queryString({ sectionId })}`),

@@ -38,6 +38,7 @@ const tenantRoutes = [
   "app.patch('/sections/:sectionId'",
   "app.delete('/sections/:sectionId'",
   "app.get('/readings/latest'",
+  "app.get('/readings/latest-batch'",
   "app.get('/history'",
   "app.get('/analytics/section'",
   "app.get('/analytics/site-comparison'",
