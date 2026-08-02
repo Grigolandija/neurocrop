@@ -168,7 +168,7 @@
 .score span { align-self: end; padding: 0 0 8px 15px; opacity: .74; }
 
 select,
-input {
+input:not([type="checkbox"]):not([type="radio"]) {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--line);
@@ -179,7 +179,22 @@ input {
 }
 
 select:focus,
-input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(47, 117, 88, .1); }
+input:not([type="checkbox"]):not([type="radio"]):focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(47, 117, 88, .1); }
+
+input[type="checkbox"],
+input[type="radio"] {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+input[type="checkbox"]:focus,
+input[type="radio"]:focus {
+  border: 0;
+  box-shadow: none;
+}
 
 .section-head,
 .list-head,
