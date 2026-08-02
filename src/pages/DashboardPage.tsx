@@ -96,10 +96,12 @@ const workspaceModuleLoadersByRoute: Record<string, () => Promise<WorkspaceModul
   '/admin/integrations': loadAdminIntegrationsWorkspace,
 }
 
-function preloadWorkspaceRoute(route: string) {
+async function preloadWorkspaceRoute(route: string) {
   const normalizedRoute = route.startsWith('/nodes/') ? '/nodes' : route
-  void workspaceModuleLoadersByRoute[normalizedRoute]?.().catch(() => undefined)
-  void prefetchWorkspaceRouteData(normalizedRoute)
+  await Promise.allSettled([
+    workspaceModuleLoadersByRoute[normalizedRoute]?.() ?? Promise.resolve(),
+    prefetchWorkspaceRouteData(normalizedRoute),
+  ])
 }
 
 // Keep the common operational path warm. Less frequently used workspaces stay

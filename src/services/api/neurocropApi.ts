@@ -122,6 +122,11 @@ export async function prefetchWorkspaceData() {
 
 export async function prefetchWorkspaceRouteData(route: string) {
   const requestsByRoute: Record<string, Array<() => Promise<unknown>>> = {
+    '/': [neurocropApi.getDashboard, neurocropApi.getAreas, neurocropApi.getSections, neurocropApi.getNodes, neurocropApi.getCropProfiles, neurocropApi.getTodayActions],
+    '/areas': [neurocropApi.getAreas, neurocropApi.getSections, neurocropApi.getNodes],
+    '/sections': [neurocropApi.getAreas, neurocropApi.getSections, neurocropApi.getNodes, neurocropApi.getCropProfiles],
+    '/nodes': [neurocropApi.getAreas, neurocropApi.getSections, neurocropApi.getNodes],
+    '/readings': [neurocropApi.getAreas, neurocropApi.getSections, neurocropApi.getNodes, neurocropApi.getCropProfiles],
     '/history': [neurocropApi.getDashboard, neurocropApi.getAreas, neurocropApi.getSections, neurocropApi.getNodes, neurocropApi.getCropProfiles],
     '/alerts': [() => neurocropApi.getAlerts('all')],
     '/actions': [neurocropApi.getTodayActions, () => neurocropApi.getActionHistory(100)],
