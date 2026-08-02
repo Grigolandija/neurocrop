@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useRef, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useDeferredValue, useEffect, useRef, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import DashboardShell, { type DashboardUser } from '../components/DashboardShell'
 import { getInterfaceLanguage, useInterfaceLanguage } from '../i18n'
@@ -197,7 +197,7 @@ class WorkspaceErrorBoundary extends Component<{ children: ReactNode }, { failed
   }
 }
 
-function Workspaces({ pathname, includeAdmin }: { pathname: string; includeAdmin: boolean }) {
+function Workspaces({ pathname, includeAdmin, routePending }: { pathname: string; includeAdmin: boolean; routePending: boolean }) {
   const { language } = useInterfaceLanguage()
   const activeRoute = pathname.startsWith('/nodes/') ? '/nodes' : pathname
   const workspaces = [
@@ -238,7 +238,9 @@ function Workspaces({ pathname, includeAdmin }: { pathname: string; includeAdmin
     id={workspaceHostIds[workspace.route]}
     data-workspace-host
     data-workspace-route={workspace.route}
+    data-route-pending={routePending || undefined}
     data-interface-language={language}
+    aria-busy={routePending || undefined}
   >
     <WorkspaceErrorBoundary key={workspace.route}>
       <Suspense fallback={<div className="workspace-route-loading" data-workspace-suspense role="status" aria-live="polite" aria-busy="true"><span /><strong>{language === 'lt' ? 'Kraunamas puslapis…' : 'Loading page…'}</strong></div>}>
@@ -255,6 +257,7 @@ type DashboardPageProps = {
 
 export default function DashboardPage({ user, onSignedOut }: DashboardPageProps) {
   const location = useLocation()
+  const deferredPathname = useDeferredValue(location.pathname)
   const dashboardState = useDashboardState()
   const unauthorizedVersionAtMount = useRef(dashboardState.unauthorizedVersion)
 
@@ -282,7 +285,11 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
         onSignedOut()
       }
     }}>
-      <Workspaces pathname={location.pathname} includeAdmin={user.isPlatformAdmin === true} />
+      <Workspaces
+        pathname={deferredPathname}
+        includeAdmin={user.isPlatformAdmin === true}
+        routePending={deferredPathname !== location.pathname}
+      />
     </DashboardShell>
   )
 }

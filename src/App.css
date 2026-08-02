@@ -1051,6 +1051,38 @@ input:focus { border-color: rgba(47, 117, 88, .45); box-shadow: 0 0 0 3px rgba(4
   font-weight: 700;
 }
 
+/* Keep the current workspace visible while the next lazy route is prepared. */
+[data-workspace-host] {
+  position: relative;
+}
+
+[data-workspace-host][data-route-pending]::after {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  width: 28%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #287b63, transparent);
+  content: '';
+  pointer-events: none;
+  animation: workspace-route-progress .8s ease-in-out infinite;
+}
+
+@keyframes workspace-route-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(357%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-workspace-host][data-route-pending]::after {
+    right: 0;
+    width: auto;
+    animation: none;
+  }
+}
+
 @keyframes workspace-route-spin {
   to { transform: rotate(360deg); }
 }
