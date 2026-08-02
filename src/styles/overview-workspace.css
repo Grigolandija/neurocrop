@@ -170,15 +170,18 @@ body[data-primary-page="overview"] .dashboard-main-inner {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(280px, .72fr) minmax(460px, 1.28fr);
+  width: 100%;
+  max-width: 1800px;
+  grid-template-columns: minmax(400px, .88fr) minmax(620px, 1.12fr);
   align-items: start;
-  gap: clamp(30px, 4vw, 76px);
+  gap: clamp(44px, 4.5vw, 86px);
   min-height: 0;
-  padding: clamp(56px, 7vh, 84px) clamp(38px, 4.8vw, 92px) 108px;
+  margin: 0 auto;
+  padding: clamp(56px, 7vh, 84px) clamp(38px, 4vw, 76px) 108px;
 }
 
 .nc-overview-copy {
-  max-width: 530px;
+  max-width: 620px;
 }
 
 .nc-overview-area-picker {
@@ -476,7 +479,7 @@ body[data-primary-page="overview"] .dashboard-main-inner {
 
 .nc-coverage-summary {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 30px;
   margin-bottom: 28px;
