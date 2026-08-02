@@ -55,6 +55,18 @@ const storageKey = 'neurocrop-trends-workspace-v2'
 const chartColors = ['#287f70', '#d87655', '#507ea2', '#b18a35', '#845f8e', '#68746f']
 const metricKeys = new Set(metrics.map((metric) => metric.key))
 
+function finiteExtent(values: Iterable<number>): [number, number] | null {
+  let minimum = Infinity
+  let maximum = -Infinity
+  for (const rawValue of values) {
+    const value = Number(rawValue)
+    if (!Number.isFinite(value)) continue
+    if (value < minimum) minimum = value
+    if (value > maximum) maximum = value
+  }
+  return minimum === Infinity ? null : [minimum, maximum]
+}
+
 function arrays(payload: JsonRecord | null | undefined, keys: string[]) {
   if (Array.isArray(payload)) return payload as JsonRecord[]
   for (const root of [payload, payload?.data, payload?.dashboard, payload?.workspace]) {
@@ -332,18 +344,18 @@ function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricCha
     const timestamps = visibleItems.flatMap((item) =>
       item.points.map((point) => new Date(point.observedAt).getTime()).filter(Number.isFinite),
     )
-    const nightAreas = timestamps.length
+    const timestampExtent = finiteExtent(timestamps)
+    const nightAreas = timestampExtent
       ? nightMarkAreaData(buildNightIntervals(
-          Math.min(...timestamps),
-          Math.max(...timestamps),
+          timestampExtent[0],
+          timestampExtent[1],
           dayNightSchedule,
         ))
       : []
     const axisStyle = (item: MetricChartInput, index: number) => {
       const values = item.points.map((point) => point.value)
       const domain = item.target ? [...values, ...item.target] : values
-      const minimum = Math.min(...domain)
-      const maximum = Math.max(...domain)
+      const [minimum, maximum] = finiteExtent(domain) || [0, 0]
       const padding = Math.max((maximum - minimum) * .12, 10 ** -item.metric.decimals * 4)
       const axisMinimum = item.metric.key === 'batteryLevel' ? 0 : minimum - padding
       const axisMaximum = item.metric.key === 'batteryLevel' ? 100 : maximum + padding
@@ -833,8 +845,9 @@ export default function TrendsWorkspace() {
   const current = values.at(-1) ?? null
   const first = values[0] ?? null
   const delta = current !== null && first !== null ? current - first : null
-  const minimum = values.length ? Math.min(...values) : null
-  const maximum = values.length ? Math.max(...values) : null
+  const valueExtent = finiteExtent(values)
+  const minimum = valueExtent?.[0] ?? null
+  const maximum = valueExtent?.[1] ?? null
   const summary = trendSummary(points, target, selectedMetric)
   const timeInTarget = analytics?.timeInTarget || {}
   const expectedMinutes = number(timeInTarget.expectedMinutes) || 0
@@ -1034,12 +1047,12 @@ export default function TrendsWorkspace() {
         </div> : null}
         {selectedSection && (status === 'ready' || comparison.length > 1)
           ? scope === 'nodes'
-            ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} />
+            ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-nodes`}><TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
             : compare
-            ? <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} />
+            ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-compare`}><TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
             : activeMetricKeys.length > 1
-              ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}`}><MultiMetricChart items={metricChartItems} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
-              : <TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} />
+              ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}`}><MultiMetricChart items={metricChartItems} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
+              : <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-single`}><TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
           : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{!selectedSection ?tx("Select an Area and Section") : status === 'loading' ?tx("Loading measured history") : status === 'error' ?tx("History could not be loaded") :tx("Not enough measurements yet")}</strong><span>{!selectedSection ?tx("Trend data is shown only for an explicitly selected Section.") : error ||tx("At least two measured points are required to draw a trend.")}</span></div>}
       </article>
     </section>

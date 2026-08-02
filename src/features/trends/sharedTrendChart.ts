@@ -67,6 +67,18 @@ const metricColorTokens: Record<string, [string, string]> = {
   batteryLevel: ['--chart-battery', '#738e95'],
 }
 
+function finiteExtent(values: Iterable<number>): [number, number] | null {
+  let minimum = Infinity
+  let maximum = -Infinity
+  for (const rawValue of values) {
+    const value = Number(rawValue)
+    if (!Number.isFinite(value)) continue
+    if (value < minimum) minimum = value
+    if (value > maximum) maximum = value
+  }
+  return minimum === Infinity ? null : [minimum, maximum]
+}
+
 function translate(value: string) {
   return translateInterfaceText(value)
 }
@@ -220,11 +232,10 @@ function escapeHtml(value: unknown) {
 
 export function getTrendAxisDomain(values: number[], metric: TrendMetric, target: [number, number] | null) {
   if (metric.key === 'batteryLevel') return [0, 100] as const
-  const finiteValues = values.map(Number).filter(Number.isFinite)
-  if (!finiteValues.length) return target || [0, 1]
+  const extent = finiteExtent(values)
+  if (!extent) return target || [0, 1]
 
-  const dataMinimum = Math.min(...finiteValues)
-  const dataMaximum = Math.max(...finiteValues)
+  const [dataMinimum, dataMaximum] = extent
   const precisionStep = 10 ** -Math.max(0, metric.decimals)
   const minimumSpan = Math.max(precisionStep * 4, Math.max(Math.abs(dataMinimum), Math.abs(dataMaximum), 1) * .02)
   const dataSpan = Math.max(dataMaximum - dataMinimum, minimumSpan)
@@ -265,10 +276,11 @@ export function buildTrendChartOption(input: TrendChartInput) {
   const colors = prepared.map((series, index) => seriesColor(series, metric, index, prepared.length))
   const allValues = displayed.flat()
   const allTimestamps = prepared.flatMap((series) => series.normalized.map((point) => point.timestamp))
-  const nightAreas = input.dayNightSchedule && allTimestamps.length
+  const timestampExtent = finiteExtent(allTimestamps)
+  const nightAreas = input.dayNightSchedule && timestampExtent
     ? nightMarkAreaData(buildNightIntervals(
-        Math.min(...allTimestamps),
-        Math.max(...allTimestamps),
+        timestampExtent[0],
+        timestampExtent[1],
         input.dayNightSchedule,
       ))
     : []
@@ -386,8 +398,7 @@ export function buildTrendChartOption(input: TrendChartInput) {
     series: prepared.map((item, index) => {
       const rawValues = item.normalized.map((point) => point.value)
       const values = displayed[index]
-      const minimum = Math.min(...values)
-      const maximum = Math.max(...values)
+      const [minimum, maximum] = finiteExtent(values) || [0, 0]
       const minimumPoint = item.normalized[values.indexOf(minimum)]
       const maximumPoint = item.normalized[values.indexOf(maximum)]
       const color = colors[index]
