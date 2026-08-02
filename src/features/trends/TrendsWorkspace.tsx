@@ -1,5 +1,5 @@
 import { translateInterfaceText as tx } from '../../i18n'
-import { Component, useEffect, useMemo, useRef, useState, type ErrorInfo, type FormEvent, type ReactNode } from 'react'
+import { Component, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
 import { useInterfaceLanguage } from '../../i18n'
 import { useLocation } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
@@ -990,8 +990,7 @@ export default function TrendsWorkspace() {
     setExportOpen(true)
   }
 
-  async function exportCsv(event: FormEvent) {
-    event.preventDefault()
+  async function exportCsv() {
     if (!selectedSection || !exportMetricKeys.length || exportBusy) return
     const config = rangeConfig[exportRange]
     const to = new Date()
@@ -1145,13 +1144,12 @@ export default function TrendsWorkspace() {
         <div>{events.length ? events.map((event: JsonRecord, index: number) => <div key={`${event.occurredAt}-${index}`}><i className={`fa-solid ${event.type === 'delivery_gap' ? 'fa-signal' : event.type === 'transmission_failed' ? 'fa-triangle-exclamation' : 'fa-microchip'}`} /><span><strong>{String(event.type || 'sensor_event').replaceAll('_', ' ')}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleString() :tx("Time unavailable")}{event.durationMinutes ? ` · ${event.durationMinutes} min` : ''}</small></span></div>) : <div className="nc-trends-no-events"><i className="fa-solid fa-circle-check" /><span><strong>{tx("No device events detected")}</strong><small>{tx("The selected history window contains no reported delivery gaps or transport faults.")}</small></span></div>}</div>
       </article>
     </section>
-    {exportOpen && selectedSection ? <ModalPortal><div className="nc-trends-export-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !exportBusy) setExportOpen(false) }}><form className="nc-trends-export-modal" onSubmit={exportCsv} role="dialog" aria-modal="true" aria-labelledby="nc-trends-export-title">
+    {exportOpen && selectedSection ? <ModalPortal><div className="nc-trends-export-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !exportBusy) setExportOpen(false) }}><div className="nc-trends-export-modal" role="dialog" aria-modal="true" aria-labelledby="nc-trends-export-title">
       <header><div><p>{tx("Data export")}</p><h2 id="nc-trends-export-title">{tx("Export measurements")}</h2><span>{tx("Choose what the CSV file should contain.")}</span></div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>
       <section><h3>{tx("Scope")}</h3><div className="nc-trends-export-scope"><label><input type="radio" name="export-scope" checked={exportScope === 'section'} onChange={() => setExportScope('section')} /><span><strong>{tx("Current Section")}</strong><small>{selectedSection.name}</small></span></label><label><input type="radio" name="export-scope" checked={exportScope === 'area'} onChange={() => setExportScope('area')} /><span><strong>{tx("Entire Area")}</strong><small>{selectedSection.areaName} · {sections.filter((section) => section.areaId === selectedSection.areaId).length} {tx("Sections")}</small></span></label></div></section>
       <section><h3>{tx("Period")}</h3><div className="nc-trends-export-range">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <label key={key}><input type="radio" name="export-range" checked={exportRange === key} onChange={() => setExportRange(key)} /><span><strong>{key}</strong><small>{tx(rangeConfig[key].label)}</small></span></label>)}</div></section>
       <section><div className="nc-trends-export-section-head"><h3>{tx("Metrics")}</h3><span><button type="button" onClick={() => setExportMetricKeys(metrics.map((metric) => metric.key))}>{tx("Select all")}</button><button type="button" onClick={() => setExportMetricKeys([])}>{tx("Clear")}</button></span></div><div className="nc-trends-export-metrics">{metrics.map((metric) => <label key={metric.key}><input type="checkbox" checked={exportMetricKeys.includes(metric.key)} onChange={() => setExportMetricKeys((current) => current.includes(metric.key) ? current.filter((key) => key !== metric.key) : [...current, metric.key])} /><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{metric.unit || tx("No unit")}</small></span></label>)}</div></section>
-      {exportError ? <p className="nc-trends-export-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{exportError}</p> : null}
-      <footer><span>{exportMetricKeys.length} {tx("metrics selected")}</span><div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy}>{tx("Cancel")}</button><button type="submit" className="primary" disabled={exportBusy || !exportMetricKeys.length}>{exportBusy ? tx("Preparing CSV…") : tx("Download CSV")}</button></div></footer>
-    </form></div></ModalPortal> : null}
+      <footer><span>{exportError ? <em className="nc-trends-export-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{exportError}</em> : <>{exportMetricKeys.length} {tx("metrics selected")}</>}</span><div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy}>{tx("Cancel")}</button><button type="button" className="primary" onClick={() => void exportCsv()} disabled={exportBusy || !exportMetricKeys.length}>{exportBusy ? tx("Preparing CSV…") : tx("Download CSV")}</button></div></footer>
+    </div></div></ModalPortal> : null}
   </main>
 }
