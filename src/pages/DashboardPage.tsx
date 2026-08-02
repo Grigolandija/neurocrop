@@ -1,4 +1,4 @@
-import { Activity, Component, lazy, Suspense, useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useDeferredValue, useEffect, useLayoutEffect, useRef, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import DashboardShell, { type DashboardUser } from '../components/DashboardShell'
 import { getInterfaceLanguage, useInterfaceLanguage } from '../i18n'
@@ -96,9 +96,9 @@ const workspaceModuleLoadersByRoute: Record<string, () => Promise<WorkspaceModul
   '/admin/integrations': loadAdminIntegrationsWorkspace,
 }
 
-function preloadWorkspaceRoute(route: string) {
+async function preloadWorkspaceRoute(route: string) {
   const normalizedRoute = route.startsWith('/nodes/') ? '/nodes' : route
-  void Promise.allSettled([
+  await Promise.allSettled([
     workspaceModuleLoadersByRoute[normalizedRoute]?.() ?? Promise.resolve(),
     prefetchWorkspaceRouteData(normalizedRoute),
   ])
@@ -199,22 +199,9 @@ class WorkspaceErrorBoundary extends Component<{ children: ReactNode }, { failed
   }
 }
 
-function WorkspaceRouteLoading({ language }: { language: string }) {
-  return <div className="workspace-route-loading" data-workspace-suspense role="status" aria-live="polite" aria-busy="true">
-    <strong>{language === 'lt' ? 'Kraunamas puslapis…' : 'Loading page…'}</strong>
-    <div className="workspace-route-skeleton-heading"><span /><span /></div>
-    <div className="workspace-route-skeleton-metrics"><span /><span /><span /></div>
-    <div className="workspace-route-skeleton-panel"><span /><span /><span /><span /></div>
-  </div>
-}
-
 function Workspaces({ pathname, includeAdmin, routePending }: { pathname: string; includeAdmin: boolean; routePending: boolean }) {
   const { language } = useInterfaceLanguage()
   const activeRoute = pathname.startsWith('/nodes/') ? '/nodes' : pathname
-  const [visitedState, setVisitedState] = useState(() => ({
-    activeRoute,
-    routes: new Set([activeRoute]),
-  }))
   const workspaces = [
     { route: '/', content: <OverviewWorkspace /> },
     { route: '/areas', content: <AreasWorkspace /> },
@@ -235,16 +222,6 @@ function Workspaces({ pathname, includeAdmin, routePending }: { pathname: string
   ]
   const workspace = workspaces.find((candidate) => candidate.route === activeRoute) || workspaces[0]
 
-  if (visitedState.activeRoute !== workspace.route) {
-    setVisitedState({
-      activeRoute: workspace.route,
-      routes: new Set([...visitedState.routes, workspace.route]),
-    })
-  }
-  const visitedRoutes = visitedState.activeRoute === workspace.route
-    ? visitedState.routes
-    : new Set([...visitedState.routes, workspace.route])
-
   useEffect(() => {
     let paintedFrame = 0
     const committedFrame = requestAnimationFrame(() => {
@@ -256,31 +233,23 @@ function Workspaces({ pathname, includeAdmin, routePending }: { pathname: string
     }
   }, [workspace.route])
 
-  // Preserve only workspaces the user has already visited. React Activity hides
-  // them and tears down their effects while retaining loaded data and UI state.
-  // This avoids both full-page loading flashes on return and background timers.
-  return <>
-    {workspaces.filter((candidate) => visitedRoutes.has(candidate.route) || candidate.route === workspace.route).map((candidate) => {
-      const active = candidate.route === workspace.route
-      return <Activity key={candidate.route} mode={active ? 'visible' : 'hidden'}>
-        <div
-          id={workspaceHostIds[candidate.route]}
-          data-workspace-host
-          data-workspace-route={candidate.route}
-          data-route-pending={active && routePending || undefined}
-          data-interface-language={language}
-          aria-busy={active && routePending || undefined}
-          hidden={!active}
-        >
-          <WorkspaceErrorBoundary>
-            <Suspense fallback={<WorkspaceRouteLoading language={language} />}>
-              {candidate.content}
-            </Suspense>
-          </WorkspaceErrorBoundary>
-        </div>
-      </Activity>
-    })}
-  </>
+  // Modules and shared API data are preloaded after sign-in, but only the
+  // visible workspace is rendered. Mounting every chart, map, observer and
+  // refresh timer at once can monopolize the browser's main thread.
+  return <div
+    id={workspaceHostIds[workspace.route]}
+    data-workspace-host
+    data-workspace-route={workspace.route}
+    data-route-pending={routePending || undefined}
+    data-interface-language={language}
+    aria-busy={routePending || undefined}
+  >
+    <WorkspaceErrorBoundary key={workspace.route}>
+      <Suspense fallback={<div className="workspace-route-loading" data-workspace-suspense role="status" aria-live="polite" aria-busy="true"><span /><strong>{language === 'lt' ? 'Kraunamas puslapis…' : 'Loading page…'}</strong></div>}>
+        {workspace.content}
+      </Suspense>
+    </WorkspaceErrorBoundary>
+  </div>
 }
 
 type DashboardPageProps = {

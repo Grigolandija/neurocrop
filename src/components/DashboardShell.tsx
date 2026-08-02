@@ -18,7 +18,7 @@ export type DashboardUser = {
 type ShellProps = {
   user: DashboardUser
   onSignOut: () => Promise<void>
-  onPrefetchRoute?: (route: string) => void
+  onPrefetchRoute?: (route: string) => Promise<void>
   children: ReactNode
 }
 
@@ -74,6 +74,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
   const [batteryOpen, setBatteryOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [navigationPending, startNavigationTransition] = useTransition()
+  const [preparingRoute, setPreparingRoute] = useState<string | null>(null)
   const [nodes, setNodes] = useState<NodeSummary[]>([])
   const [alertCount, setAlertCount] = useState(0)
 
@@ -135,11 +136,13 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
     ? location.pathname === route || location.pathname.startsWith('/nodes/')
     : location.pathname === route
 
-  function go(route: string) {
-    if (!canAccessWorkspaceRoute(workspaceAccess.stage, route)) return
+  async function go(route: string) {
+    if (!canAccessWorkspaceRoute(workspaceAccess.stage, route) || route === location.pathname || preparingRoute) return
     beginRoutePerformance(route)
-    onPrefetchRoute?.(route)
+    setPreparingRoute(route)
+    await onPrefetchRoute?.(route)
     startNavigationTransition(() => navigate(route, { viewTransition: true }))
+    requestAnimationFrame(() => requestAnimationFrame(() => setPreparingRoute(null)))
   }
 
   async function signOut() {
@@ -157,7 +160,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
     const locked = !canAccessWorkspaceRoute(workspaceAccess.stage, item.route)
     const lockReason = workspaceLockReason(workspaceAccess.stage)
     return (
-      <button key={item.route} type="button" className="rail-link nav-link nav-link-button" data-sidebar-action={item.action} data-active={active} data-disabled={locked} aria-current={active ? 'page' : undefined} aria-disabled={locked || undefined} disabled={locked} title={locked ? t(lockReason) : undefined} onPointerEnter={() => onPrefetchRoute?.(item.route)} onPointerDown={() => onPrefetchRoute?.(item.route)} onFocus={() => onPrefetchRoute?.(item.route)} onClick={() => go(item.route)}>
+      <button key={item.route} type="button" className="rail-link nav-link nav-link-button" data-sidebar-action={item.action} data-active={active} data-disabled={locked} aria-current={active ? 'page' : undefined} aria-disabled={locked || undefined} disabled={locked} title={locked ? t(lockReason) : undefined} onPointerEnter={() => void onPrefetchRoute?.(item.route)} onPointerDown={() => void onPrefetchRoute?.(item.route)} onFocus={() => void onPrefetchRoute?.(item.route)} onClick={() => void go(item.route)}>
         <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
         <span>{t(item.label)}</span>
         {item.route === '/alerts' && alertCount > 0 ? <b className="nav-count" title={`${alertCount} ${t('open alerts')}`} aria-label={`${alertCount} ${t('open alerts')}`}>{alertCount}</b> : null}
@@ -169,7 +172,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
   return (
     <>
       <a className="skip-to-content" href="#dashboardMain">{t('Skip to main content')}</a>
-      <div id="dashboardShell" className="dashboard-shell flex min-h-screen" data-navigation-pending={navigationPending || undefined}>
+      <div id="dashboardShell" className="dashboard-shell flex min-h-screen" data-navigation-pending={navigationPending || Boolean(preparingRoute) || undefined}>
         <header id="dashboardHeader" className="global-system-bar">
           <div className="global-system-bar-actions">
             <button className="sidebar-mobile-open" type="button" aria-label={t('Open navigation')} aria-controls="dashboardSidebar" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}>
@@ -227,7 +230,12 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
         </aside>
         <button type="button" className="rail-scrim" aria-label={t('Close navigation')} hidden={!mobileOpen} onClick={() => setMobileOpen(false)} />
         <main id="dashboardMain" className="min-w-0 flex-1" tabIndex={-1}>
-          <div className="dashboard-main-inner px-3 py-2 md:px-4 md:py-3 lg:px-4 lg:py-3">{children}</div>
+          <div className="dashboard-main-inner px-3 py-2 md:px-4 md:py-3 lg:px-4 lg:py-3">
+            {children}
+            {preparingRoute ? <div className="workspace-navigation-loading" role="status" aria-live="polite" aria-label={language === 'lt' ? 'Kraunamas pasirinktas puslapis' : 'Loading selected page'}>
+              <div><span /><strong>{language === 'lt' ? 'Kraunamas puslapis…' : 'Loading page…'}</strong></div>
+            </div> : null}
+          </div>
         </main>
       </div>
       <nav className="mobile-dock" aria-label="Mobile navigation">
@@ -238,7 +246,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
           { route: '/alerts', label: 'Alerts', icon: 'fa-bell' },
         ].map((item) => {
           const locked = !canAccessWorkspaceRoute(workspaceAccess.stage, item.route)
-          return <button key={item.route} type="button" className="mobile-dock-button" data-active={pathIsActive(item.route)} data-disabled={locked} aria-disabled={locked || undefined} disabled={locked} onPointerDown={() => onPrefetchRoute?.(item.route)} onFocus={() => onPrefetchRoute?.(item.route)} onClick={() => go(item.route)}><i className={`fa-solid ${item.icon}`} /><span>{t(item.label)}</span></button>
+          return <button key={item.route} type="button" className="mobile-dock-button" data-active={pathIsActive(item.route)} data-disabled={locked} aria-disabled={locked || undefined} disabled={locked} onPointerDown={() => void onPrefetchRoute?.(item.route)} onFocus={() => void onPrefetchRoute?.(item.route)} onClick={() => void go(item.route)}><i className={`fa-solid ${item.icon}`} /><span>{t(item.label)}</span></button>
         })}
         <button type="button" className="mobile-dock-button mobile-dock-command" onClick={() => setMobileOpen(true)}><i className="fa-solid fa-bars" /><span>{t('Manage')}</span></button>
       </nav>
