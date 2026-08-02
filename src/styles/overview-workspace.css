@@ -1,26 +1,8 @@
-#overviewWorkspaceMount:empty {
-  display: none;
-}
-
-#overviewWorkspaceMount:not(:empty) + #overviewTriageSection {
-  display: none !important;
-}
-
-#overviewWorkspaceMount:not(:empty) {
-  width: 100%;
-}
-
 body[data-primary-page="overview"] .dashboard-main-inner {
   width: 100%;
   max-width: none;
   margin: 0;
   padding: 0 !important;
-}
-
-/* Legacy metric controls can be re-rendered briefly while the active Area changes. */
-body[data-primary-page="overview"] #dashboardMain .metric-slider,
-body[data-primary-page="overview"] #dashboardMain .metric-scale {
-  display: none !important;
 }
 
 @media (min-width: 1181px) {
@@ -45,7 +27,6 @@ body[data-primary-page="overview"] #dashboardMain .metric-scale {
   }
 
   body[data-primary-page="overview"] .dashboard-main-inner,
-  body[data-primary-page="overview"] #overviewWorkspaceMount,
   body[data-primary-page="overview"] .nc-overview {
     height: 100%;
     min-height: 0;
@@ -60,31 +41,6 @@ body[data-primary-page="overview"] #dashboardMain .metric-scale {
     height: auto;
     min-height: 0;
   }
-}
-
-body[data-primary-page="overview"] .dashboard-shell {
-  padding-top: 56px;
-}
-
-body[data-primary-page="overview"] #dashboardHeader.global-system-bar {
-  min-height: 56px;
-  border-bottom-color: transparent !important;
-  background: linear-gradient(108deg, rgba(250, 252, 248, .98) 0%, rgba(245, 249, 242, .98) 48%, rgba(238, 246, 234, .98) 100%) !important;
-  box-shadow: none !important;
-}
-
-body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
-  min-height: 56px;
-  padding-block: 7px;
-}
-
-body[data-primary-page="overview"] #dashboardHeader .header-view-control,
-body[data-primary-page="overview"] #dashboardHeader .header-context-tools {
-  display: none;
-}
-
-body[data-primary-page="overview"] #dashboardHeader .global-system-bar-actions {
-  justify-content: flex-end;
 }
 
 @media (min-width: 1280px) {

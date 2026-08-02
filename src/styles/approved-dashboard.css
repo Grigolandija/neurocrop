@@ -1477,14 +1477,12 @@
 
     .designer-app .management-feedback i { margin-top: 2px; }
 
-    .designer-app #overviewTriageSection[aria-busy="true"],
     .designer-app #metricsSection[aria-busy="true"] {
       position: relative;
       min-height: 140px;
       overflow: hidden;
     }
 
-    .designer-app #overviewTriageSection[aria-busy="true"]::after,
     .designer-app #metricsSection[aria-busy="true"]::after {
       position: absolute;
       z-index: 5;

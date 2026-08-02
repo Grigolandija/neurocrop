@@ -271,8 +271,7 @@ td {
 
 .designer-app :is(
   #indicatorScore,
-  .grower-pulse-main strong,
-  .conditions-score > strong
+  .grower-pulse-main strong
 ) {
   font-size: var(--type-metric-lg) !important;
   font-weight: var(--weight-semibold) !important;
