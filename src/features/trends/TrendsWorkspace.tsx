@@ -1016,7 +1016,7 @@ export default function TrendsWorkspace() {
       ? `${selectedSection.areaName}-comparison`
       : selectedSection.name
     const filename = `neurocrop-trends-${filenamePart(subject) || 'data'}-${range}-${new Date().toISOString().slice(0, 10)}.csv`
-    downloadTrendsCsv(buildTrendsCsv(exportSeries, rangeConfig[range].label), filename)
+    downloadTrendsCsv(buildTrendsCsv(exportSeries), filename)
   }
 
   return <main className="nc-trends-page" aria-busy={status === 'loading' || nodeHistoryLoading}>

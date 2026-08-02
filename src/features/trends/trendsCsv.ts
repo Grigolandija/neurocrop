@@ -33,30 +33,36 @@ function exportDateTime(observedAt: string) {
   return { timestamp, date: local[0] || '', time: local[1] || '' }
 }
 
-export function buildTrendsCsv(series: TrendExportSeries[], rangeLabel: string) {
-  const header = [
-    'Timestamp (ISO 8601)', 'Local date', 'Local time (Europe/Vilnius)',
-    'Area', 'Section', 'Source type', 'Data source',
-    'Metric', 'Value', 'Unit', 'Aggregation', 'Selected range',
-  ]
-  const rows = series.flatMap((item) => item.points.map((point) => {
-    const dateTime = exportDateTime(point.observedAt)
+export function buildTrendsCsv(series: TrendExportSeries[]) {
+  const sameMetric = series.every((item) => item.metric.label === series[0]?.metric.label && item.metric.unit === series[0]?.metric.unit)
+  const sameSource = series.every((item) => item.section === series[0]?.section && item.source === series[0]?.source)
+  const usedLabels = new Map<string, number>()
+  const columns = series.map((item) => {
+    const metric = `${item.metric.label}${item.metric.unit ? ` (${item.metric.unit})` : ''}`
+    const base = series.length === 1 || sameSource
+      ? metric
+      : sameMetric
+        ? `${item.sourceType === 'Node' ? item.source : item.section}${item.metric.unit ? ` (${item.metric.unit})` : ''}`
+        : `${item.source} – ${metric}`
+    const occurrence = (usedLabels.get(base) || 0) + 1
+    usedLabels.set(base, occurrence)
     return {
-      timestampMs: new Date(point.observedAt).getTime(),
-      values: [
-        dateTime.timestamp, dateTime.date, dateTime.time,
-        item.area, item.section, item.sourceType, item.source,
-        item.metric.label, point.value.toFixed(item.metric.decimals), item.metric.unit,
-        item.aggregation, rangeLabel,
-      ],
+      label: occurrence === 1 ? base : `${base} ${occurrence}`,
+      decimals: item.metric.decimals,
+      values: new Map(item.points.map((point) => [new Date(point.observedAt).toISOString(), point.value])),
     }
-  })).sort((left, right) => {
-    const timeDifference = left.timestampMs - right.timestampMs
-    if (timeDifference) return timeDifference
-    return String(left.values[7]).localeCompare(String(right.values[7]))
-      || String(left.values[6]).localeCompare(String(right.values[6]))
   })
-  return `\ufeff${[header, ...rows.map((row) => row.values)].map((row) => row.map(csvCell).join(';')).join('\n')}\n`
+  const timestamps = [...new Set(series.flatMap((item) => item.points.map((point) => new Date(point.observedAt).toISOString())))]
+    .sort((left, right) => new Date(left).getTime() - new Date(right).getTime())
+  const rows = timestamps.map((timestamp) => {
+    const dateTime = exportDateTime(timestamp)
+    return [dateTime.date, dateTime.time, ...columns.map((column) => {
+      const value = column.values.get(timestamp)
+      return value === undefined ? '' : value.toFixed(column.decimals).replace('.', ',')
+    })]
+  })
+  const table = [['Date', 'Time', ...columns.map((column) => column.label)], ...rows]
+  return `\ufeff${table.map((row) => row.map(csvCell).join(';')).join('\n')}\n`
 }
 
 export function downloadTrendsCsv(content: string, filename: string) {

@@ -11,7 +11,7 @@ const temperature = {
 }
 
 describe('Trends CSV export', () => {
-  it('exports displayed data in chronological, analysis-friendly rows', () => {
+  it('exports a compact chronological table for a single metric', () => {
     const csv = buildTrendsCsv([{
       area: 'Šiltnamis 2',
       section: 'Pomidorai',
@@ -23,27 +23,36 @@ describe('Trends CSV export', () => {
         { observedAt: '2026-08-02T06:10:00.000Z', value: 26.24 },
         { observedAt: '2026-08-02T06:00:00.000Z', value: 25.96 },
       ],
-    }], 'Last 24 hours')
+    }])
 
     const lines = csv.trim().split('\n')
-    expect(lines[0]).toContain('"Timestamp (ISO 8601)";"Local date";"Local time (Europe/Vilnius)"')
-    expect(lines[1]).toContain('"2026-08-02T06:00:00.000Z";"2026-08-02";"09:00:00"')
-    expect(lines[1]).toContain('"Air temperature";"26.0";"°C";"section median";"Last 24 hours"')
-    expect(lines[2]).toContain('"2026-08-02T06:10:00.000Z"')
+    expect(lines[0]).toBe('"Date";"Time";"Air temperature (°C)"')
+    expect(lines[1]).toBe('"2026-08-02";"09:00:00";"26,0"')
+    expect(lines[2]).toBe('"2026-08-02";"09:10:00";"26,2"')
   })
 
-  it('prevents spreadsheet formulas in customer-controlled labels', () => {
+  it('places compared sources in separate columns and prevents spreadsheet formulas', () => {
     const csv = buildTrendsCsv([{
-      area: '=malicious()',
-      section: 'Section',
+      area: 'Area',
+      section: '=Section A',
+      sourceType: 'Section aggregate',
+      source: '=Section A',
+      metric: temperature,
+      aggregation: 'section median',
+      points: [{ observedAt: '2026-08-02T06:00:00.000Z', value: 20 }],
+    }, {
+      area: 'Area',
+      section: 'Section B',
       sourceType: 'Node',
       source: '+node',
       metric: temperature,
       aggregation: 'Node history',
-      points: [{ observedAt: '2026-08-02T06:00:00.000Z', value: 20 }],
-    }], 'Last 7 days')
+      points: [{ observedAt: '2026-08-02T06:00:00.000Z', value: 21.2 }],
+    }])
 
-    expect(csv).toContain('"\'=malicious()"')
-    expect(csv).toContain('"\'+node"')
+    const lines = csv.trim().split('\n')
+    expect(lines[0]).toContain('"\'=Section A (°C)"')
+    expect(lines[0]).toContain('"\'+node (°C)"')
+    expect(lines[1]).toBe('"2026-08-02";"09:00:00";"20,0";"21,2"')
   })
 })
