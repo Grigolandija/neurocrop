@@ -21,7 +21,6 @@ export function prepareReadOnlyClimateMap(context: AreaMapContext, metric: Metri
     })),
     objects: source.objects.flatMap((object) => {
       if (object.type === 'section-zone') return []
-      if (object.type === 'sensor-node' && object.metadata.sensor?.status === 'offline') return []
       return [{ ...object, locked: true }]
     }),
     heatmapSettings: {

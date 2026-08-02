@@ -878,7 +878,9 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         </Group> : null}
       </Layer> : null}
       {showReadOnlySensorLocations && readOnlySensorPoints.length ? <Layer>
-        {readOnlySensorPoints.map((sensor) => <Group
+        {readOnlySensorPoints.map((sensor) => {
+          const inactive = sensor.value === null || ['offline', 'stale', 'unassigned'].includes(sensor.status)
+          return <Group
           key={sensor.id}
           x={sensor.xM}
           y={map.dimensions.lengthM - sensor.yM}
@@ -905,12 +907,12 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         >
           <Circle radius={10 / view.scale} fill="rgba(0,0,0,0.001)" />
           <Circle
-            radius={hoveredSensorId === sensor.id || selectedSensorId === sensor.id ? 4.5 / view.scale : sensor.value === null ? 3.5 / view.scale : 3 / view.scale}
-            fill={sensor.value === null ? 'rgba(255,255,255,.92)' : '#111'}
+            radius={hoveredSensorId === sensor.id || selectedSensorId === sensor.id ? 4.5 / view.scale : inactive ? 3.5 / view.scale : 3 / view.scale}
+            fill={inactive ? 'rgba(255,255,255,.92)' : '#111'}
             stroke={statusColors[sensor.status] ?? '#fff'}
-            strokeWidth={sensor.value === null ? 1.75 / view.scale : hoveredSensorId === sensor.id || selectedSensorId === sensor.id ? 1.5 / view.scale : 1 / view.scale}
+            strokeWidth={inactive ? 1.75 / view.scale : hoveredSensorId === sensor.id || selectedSensorId === sensor.id ? 1.5 / view.scale : 1 / view.scale}
           />
-        </Group>)}
+        </Group>})}
       </Layer> : null}
       <Layer listening={false}>
         <Rect width={map.dimensions.widthM} height={map.dimensions.lengthM} stroke="#30483f" strokeWidth={Math.max(map.wallThicknessM, 2 / view.scale)} />
