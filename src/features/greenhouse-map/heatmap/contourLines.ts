@@ -37,12 +37,7 @@ export const CONTOUR_INTERVALS = Object.fromEntries(
   Object.entries(METRIC_LEVELS).map(([metric, levels]) => [metric, levels.contourInterval]),
 ) as Record<MetricKey, number>
 
-export function isTemperatureMetric(metric: MetricKey): boolean {
-  return HEATMAP_REGISTRY[metric].temperature
-}
-
 export function getAdaptiveContourInterval(metric: MetricKey, values: number[], sensorCount: number): number {
-  if (isTemperatureMetric(metric)) return 1
   const config = ADAPTIVE_CONTOUR_INTERVALS[metric]
   const finiteValues = values.filter(Number.isFinite)
   if (finiteValues.length < 2) return METRIC_LEVELS[metric].contourInterval

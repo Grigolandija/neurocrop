@@ -29,8 +29,8 @@
         "minimumSpan": 4,
         "colorInterval": 1,
         "contourInterval": 1,
-        "contourCandidates": [0.5, 1, 2, 5, 10],
-        "lowConfidenceMinimum": 1,
+        "contourCandidates": [0.1, 0.2, 0.5, 1, 2, 5, 10],
+        "lowConfidenceMinimum": 0.1,
         "palette": "temperature"
       }
     },
@@ -202,8 +202,8 @@
         "minimumSpan": 4,
         "colorInterval": 1,
         "contourInterval": 1,
-        "contourCandidates": [0.5, 1, 2, 5, 10],
-        "lowConfidenceMinimum": 1,
+        "contourCandidates": [0.1, 0.2, 0.5, 1, 2, 5, 10],
+        "lowConfidenceMinimum": 0.1,
         "palette": "temperature"
       }
     },
@@ -374,8 +374,8 @@
         "minimumSpan": 4,
         "colorInterval": 1,
         "contourInterval": 1,
-        "contourCandidates": [0.5, 1, 2, 5, 10],
-        "lowConfidenceMinimum": 1,
+        "contourCandidates": [0.1, 0.2, 0.5, 1, 2, 5, 10],
+        "lowConfidenceMinimum": 0.1,
         "palette": "temperature"
       }
     },
@@ -407,8 +407,8 @@
         "minimumSpan": 4,
         "colorInterval": 1,
         "contourInterval": 1,
-        "contourCandidates": [0.5, 1, 2, 5, 10],
-        "lowConfidenceMinimum": 1,
+        "contourCandidates": [0.1, 0.2, 0.5, 1, 2, 5, 10],
+        "lowConfidenceMinimum": 0.1,
         "palette": "temperature"
       }
     },

@@ -208,14 +208,15 @@ describe('heatmap contour lines', () => {
     expect(CONTOUR_INTERVALS.vpd).toBe(0.1)
     expect(CONTOUR_INTERVALS['root-temperature']).toBe(1)
   })
-  it('keeps temperature contours fixed while adapting other metric ranges', () => {
+  it('adapts contour spacing to both temperature and other metric ranges', () => {
     expect(getAdaptiveContourInterval('relative-humidity', [40, 48], 5)).toBe(2)
     expect(getAdaptiveContourInterval('relative-humidity', [40, 61], 5)).toBe(5)
-    expect(getAdaptiveContourInterval('air-temperature', [19, 22], 5)).toBe(1)
-    expect(getAdaptiveContourInterval('air-temperature', [16, 28], 5)).toBe(1)
-    expect(getAdaptiveContourInterval('root-temperature', [8, 35], 2)).toBe(1)
-    expect(getAdaptiveContourInterval('leaf-temperature', [12, 36], 8)).toBe(1)
-    expect(getAdaptiveContourInterval('water-temperature', [4, 31], 3)).toBe(1)
+    expect(getAdaptiveContourInterval('air-temperature', [26.2, 26.6], 5)).toBe(0.1)
+    expect(getAdaptiveContourInterval('air-temperature', [19, 22], 5)).toBe(0.5)
+    expect(getAdaptiveContourInterval('air-temperature', [16, 28], 5)).toBe(2)
+    expect(getAdaptiveContourInterval('root-temperature', [8, 35], 2)).toBe(5)
+    expect(getAdaptiveContourInterval('leaf-temperature', [12, 36], 8)).toBe(5)
+    expect(getAdaptiveContourInterval('water-temperature', [4, 31], 3)).toBe(5)
     expect(getAdaptiveContourInterval('co2', [500, 750], 5)).toBe(50)
     expect(getAdaptiveContourInterval('co2', [400, 1600], 5)).toBe(200)
     expect(getAdaptiveContourInterval('vpd', [0.8, 1.1], 5)).toBe(0.05)
@@ -228,12 +229,30 @@ describe('heatmap contour lines', () => {
   })
   it('does not imply fine precision with fewer than four sensors', () => {
     expect(getAdaptiveContourInterval('relative-humidity', [40, 48], 3)).toBe(5)
-    expect(getAdaptiveContourInterval('air-temperature', [19, 22], 2)).toBe(1)
+    expect(getAdaptiveContourInterval('air-temperature', [26.2, 26.6], 2)).toBe(0.1)
     expect(getAdaptiveContourInterval('co2', [500, 750], 3)).toBe(100)
     expect(getAdaptiveContourInterval('vpd', [0.8, 1.1], 2)).toBe(0.1)
   })
   it('creates only levels inside the measured range', () => {
     expect(getContourLevels(new Float32Array([21.2, 22.8]), 0.5)).toEqual([21.5, 22, 22.5])
+  })
+  it('creates visible temperature isolines for a small measured spread', () => {
+    const points = [
+      point(2, 2, 26.2),
+      point(8, 2, 26.3),
+      point(2, 7, 26.4),
+      point(8, 7, 26.5),
+      point(5, 5, 26.6),
+    ]
+    const map = createDemoMap()
+    map.heatmapSettings.maxInfluenceDistanceM = 100
+    const scale = getStableScale(points.map(({ value }) => value), 'air-temperature')
+    const grid = createMeasurementGrid(points, map, 'air-temperature', scale)!
+    const interval = getAdaptiveContourInterval('air-temperature', points.map(({ value }) => value), points.length)
+    const paths = createContourPaths(grid, interval)
+
+    expect(interval).toBe(0.1)
+    expect(paths.length).toBeGreaterThan(0)
   })
   it('extracts a line where a grid crosses a contour level', () => {
     const segments = createContourSegments({
