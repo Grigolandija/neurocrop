@@ -540,15 +540,17 @@ Eksportas yra autentifikuotas ir apribotas aktyvia vartotojo organizacija.
 Užklausa turi nurodyti tik vieną apimtį: `sectionId` arba `areaId`. Ji grąžina
 ne Section vidurkį, o kiekvieno node neapdorotus matavimus CSV formatu.
 Nenurodžius `metrics`, eksportuojamos visos palaikomos metrikos; nurodžius
-`metrics`, kiekviena pasirinkta metrika gauna atskirą CSV stulpelį net tada,
-kai dalis eilučių tos reikšmės neturi. CSV naudoja UTF-8 BOM, Excel `sep=;`
+`metrics`, kiekvienam node sukuriami tik tie pasirinktų metrikų stulpeliai,
+kuriuose per pasirinktą laikotarpį yra bent viena reikšmė. Visiškai tušti
+node ir metrikos stulpeliai neįtraukiami. CSV naudoja UTF-8 BOM, Excel `sep=;`
 deklaraciją, `;` skirtuką ir atskirus Lietuvos laiko datos bei laiko stulpelius,
 kad failas vienodai tiesiogiai atsidarytų Windows ir macOS Excel programose.
-Skaitinės reikšmės eksportuojamos su tašku kaip dešimtainiu skirtuku:
+Antraštėse naudojami Excel saugūs ASCII ženklai (`-`, `CO2`, `deg C`), o
+skaitinės reikšmės eksportuojamos su tašku kaip dešimtainiu skirtuku:
 
 ```text
-Section eksportas: Date;Time (Europe/Vilnius);Node A — Air temperature (°C);Node B — Air temperature (°C);...
-Area eksportas:    Date;Time (Europe/Vilnius);Section A / Node A — Air temperature (°C);...
+Section eksportas: Date;Time (Europe/Vilnius);Node A - Air temperature (deg C);Node B - Air temperature (deg C);...
+Area eksportas:    Date;Time (Europe/Vilnius);Section A / Node A - Air temperature (deg C);...
 ```
 
 `metrics` pasirinktinai priima kableliais atskirtą metric raktų sąrašą. MVP

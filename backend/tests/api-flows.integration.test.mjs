@@ -120,9 +120,9 @@ test('authenticated CRUD, scoring, Trends and CSV flow', { skip: !configured }, 
     assert.equal(csv.status, 200);
     assert.match(csv.headers.get('content-type') || '', /text\/csv/);
     const csvText = await csv.text();
-    assert.match(csvText, /^sep=;\nDate;Time \(Europe\/Vilnius\);.*Air temperature \(/);
+    assert.match(csvText, /^sep=;\r?\nDate;Time \(Europe\/Vilnius\);.*Air temperature \(deg C\)/);
     assert.match(csvText, new RegExp(fixture.batteryNodes[0].name || fixtureDevEui, 'i'));
-    assert.match(csvText, /Air temperature \(/);
+    assert.match(csvText, /Air temperature \(deg C\)/);
   } finally {
     if (sectionId) {
       await request(cookie, `/nodes/${devEui}`, 'DELETE');

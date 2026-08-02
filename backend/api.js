@@ -3222,20 +3222,32 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
     const exportRows = rows.filter((row) =>
       selectedMetrics.some((metric) => rowReportsExportMetric(row, metric))
     );
+    if (!exportRows.length) {
+      return res.status(404).json({ error: { code: 'NO_MEASUREMENTS', message: 'No measurements were found for the selected nodes, metrics and period' } });
+    }
+    const reportedMetricsByNode = new Map();
+    for (const row of exportRows) {
+      if (!reportedMetricsByNode.has(row.dev_eui)) reportedMetricsByNode.set(row.dev_eui, new Set());
+      for (const metric of selectedMetrics) {
+        if (rowReportsExportMetric(row, metric)) reportedMetricsByNode.get(row.dev_eui).add(metric);
+      }
+    }
     const nodeSeries = [...new Map(exportRows.map((row) => [row.dev_eui, {
       key: row.dev_eui,
       name: row.node_name || row.dev_eui,
-      sectionName: row.section_name
+      sectionName: row.section_name,
+      metrics: selectedMetrics.filter((metric) => reportedMetricsByNode.get(row.dev_eui)?.has(metric))
     }])).values()].sort((left, right) =>
       left.sectionName.localeCompare(right.sectionName) || left.name.localeCompare(right.name)
     );
     const metricHeader = (metric) => {
-      const unit = EXPORT_METRIC_UNITS[metric] || '';
-      return `${EXPORT_METRIC_LABELS[metric] || metric}${unit ? ` (${unit})` : ''}`;
+      const label = String(EXPORT_METRIC_LABELS[metric] || metric).replaceAll('₂', '2');
+      const unit = String(EXPORT_METRIC_UNITS[metric] || '').replaceAll('°C', 'deg C');
+      return `${label}${unit ? ` (${unit})` : ''}`;
     };
     const headers = ['Date', 'Time (Europe/Vilnius)', ...nodeSeries.flatMap((node) =>
-      selectedMetrics.map((metric) =>
-        `${areaId ? `${node.sectionName} / ` : ''}${node.name} — ${metricHeader(metric)}`
+      node.metrics.map((metric) =>
+        `${areaId ? `${node.sectionName} / ` : ''}${node.name} - ${metricHeader(metric)}`
       )
     )];
     const lines = [headers.map(csvEscape).join(';')];
@@ -3253,7 +3265,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       const { date, time } = formatExportDateTime(bucketTime);
       const values = nodeSeries.flatMap((node) => {
         const row = nodeRows.get(node.key);
-        return selectedMetrics.map((metric) => {
+        return node.metrics.map((metric) => {
           if (!row || !rowReportsExportMetric(row, metric)) return '';
           return formatExportValue(getExportMetricValue(row, metric));
         });
@@ -3267,7 +3279,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     // Windows Excel otherwise derives the separator from the OS locale and
     // can mistake Lithuanian decimal commas for column separators.
-    res.send(`\ufeffsep=;\n${lines.join('\n')}\n`);
+    res.send(`\ufeffsep=;\r\n${lines.join('\r\n')}\r\n`);
   } catch (e) {
     console.error('[api] /exports/measurements.csv:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
