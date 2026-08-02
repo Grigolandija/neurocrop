@@ -40,7 +40,9 @@
 .nc-sections-feedback > button { background: transparent; color: currentColor; }
 
 .nc-sections-shell { overflow: visible; border: 1px solid var(--color-border); border-radius: 1rem; background: var(--color-surface); box-shadow: 0 .5rem 1.5rem var(--color-shadow); }
+.nc-sections-command-bar { position: relative; }
 .nc-sections-toolbar { display: grid; grid-template-columns: minmax(15rem,1.25fr) minmax(9rem,.65fr) minmax(11rem,.8fr) minmax(10rem,.72fr) auto; align-items: end; gap: var(--space-12); border-bottom: 1px solid var(--color-border); padding: var(--space-16); }
+.nc-sections-toolbar[data-obscured="true"] { visibility: hidden; }
 .nc-sections-toolbar > label:not(.nc-sections-search) { display: grid; gap: var(--space-4); }
 .nc-sections-toolbar > label > span { color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-label); text-transform: uppercase; }
 .nc-sections-toolbar :is(input,select) { width: 100%; height: var(--control-height-md); border: 1px solid var(--color-border); border-radius: var(--radius-control); outline: 0; background: var(--color-surface); color: var(--color-text); font-size: var(--type-body-sm); }
@@ -54,7 +56,7 @@
 .nc-sections-view button { display: flex; height: 100%; align-items: center; gap: var(--space-8); border-radius: .4rem; padding: 0 var(--space-12); background: transparent; color: var(--color-text-secondary); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
 .nc-sections-view button.active { background: var(--color-primary); color: var(--color-on-primary); box-shadow: 0 .1rem .3rem var(--color-shadow); }
 
-.nc-sections-bulk { display: flex; min-height: 3.5rem; align-items: center; gap: var(--space-8); border-bottom: 1px solid var(--color-info-border); padding: var(--space-8) var(--space-16); background: var(--color-info-soft); color: var(--color-text-secondary); }
+.nc-sections-bulk { position: absolute; z-index: 5; inset: 0; display: flex; min-height: 3.5rem; align-items: center; gap: var(--space-8); border-bottom: 1px solid var(--color-info-border); padding: var(--space-8) var(--space-16); background: var(--color-info-soft); color: var(--color-text-secondary); }
 .nc-sections-bulk strong { margin-right: auto; color: var(--color-text); font-size: var(--type-body-sm); }
 .nc-sections-bulk button { display: inline-flex; align-items: center; gap: var(--space-8); border-radius: .45rem; padding: .5rem .75rem; background: transparent; color: var(--color-info); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
 .nc-sections-bulk button:hover { background: var(--color-surface); }
