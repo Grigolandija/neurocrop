@@ -121,6 +121,21 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
   }, [location.pathname])
 
   useEffect(() => {
+    const routeCommitted = preparingRoute === '/nodes'
+      ? location.pathname === preparingRoute || location.pathname.startsWith('/nodes/')
+      : location.pathname === preparingRoute
+    if (!preparingRoute || !routeCommitted) return
+    let finishedFrame = 0
+    const committedFrame = requestAnimationFrame(() => {
+      finishedFrame = requestAnimationFrame(() => setPreparingRoute(null))
+    })
+    return () => {
+      cancelAnimationFrame(committedFrame)
+      if (finishedFrame) cancelAnimationFrame(finishedFrame)
+    }
+  }, [location.pathname, preparingRoute])
+
+  useEffect(() => {
     if (mobileOpen) document.body.dataset.sidebarOpen = 'true'
     else delete document.body.dataset.sidebarOpen
     return () => { delete document.body.dataset.sidebarOpen }
@@ -140,9 +155,14 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
     if (!canAccessWorkspaceRoute(workspaceAccess.stage, route) || route === location.pathname || preparingRoute) return
     beginRoutePerformance(route)
     setPreparingRoute(route)
+    // React can batch a cached preload and navigation into the same render. Let
+    // the current workspace paint once with its loading overlay before doing
+    // any route preparation, so it never disappears into an empty next page.
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
     await onPrefetchRoute?.(route)
     startNavigationTransition(() => navigate(route, { viewTransition: true }))
-    requestAnimationFrame(() => requestAnimationFrame(() => setPreparingRoute(null)))
   }
 
   async function signOut() {
