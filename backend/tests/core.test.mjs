@@ -542,7 +542,8 @@ test('gateway association follows the fresh authenticated heartbeat', () => {
 
 test('node inventory exposes the gateways that received the latest uplink', () => {
   const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
-  assert.match(api, /g\.gateway_id=ANY\(n\.last_gateway_ids\)/);
+  assert.match(api, /FROM unnest\(n\.last_gateway_ids\) AS received\(gateway_id\)/);
+  assert.match(api, /'gatewayId', received\.gateway_id/);
   assert.match(api, /receivingGateways: row\.receiving_gateways \|\| \[\]/);
 });
 

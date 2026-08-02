@@ -58,6 +58,7 @@ type DiagnosticNode = {
   expectedUplinkIntervalSec?: number | null
   source?: string | null
   createdAt?: string | null
+  lastGatewayIds?: string[]
   receivingGateways?: Array<{ gatewayId: string; name?: string | null; serialNumber?: string | null; lastSeenAt?: string | null }>
   lastSeen?: string | null
   health?: { state?: string; label?: string; detail?: string; reasons?: Array<{ code?: string; severity?: string; label?: string }> }
@@ -221,6 +222,9 @@ function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
             const flags = activeDiagnosticEntries(node.errorFlags)
             const counters = counterEntries(node.errorCounters)
             const gateways = node.receivingGateways || []
+            const gatewayLabels = gateways.map((gateway) => gateway.name || gateway.serialNumber || gateway.gatewayId).filter(Boolean)
+            const reportedGatewayIds = gatewayLabels.length ? [] : (node.lastGatewayIds || [])
+            const visibleGateways = gatewayLabels.length ? gatewayLabels : reportedGatewayIds
             const healthTone = node.health?.state === 'healthy' && node.transportStatus === 'live' ? 'success' : node.health?.state === 'fault' ? 'warning' : 'neutral'
             const open = expandedNode === node.devEui
             return <Fragment key={node.devEui}><tr>
@@ -228,7 +232,7 @@ function EquipmentDiagnosticsDialog({ diagnostics, onClose }: {
               <td><span className="nc-settings-status" data-tone={healthTone}><i />{node.health?.label || formatStatusLabel(node.transportStatus)}</span><small>{formatRelativeTime(node.lastSeen)}</small><small>{node.health?.detail || tx("No active fault")}</small></td>
               <td><strong>{hasFiniteNumber(node.level) ? `${node.level}%` : tx("Unknown")}</strong><small>{hasFiniteNumber(node.batteryMv) ? `${(Number(node.batteryMv) / 1000).toFixed(2)} V` : tx("Voltage unavailable")}</small></td>
               <td><strong>{hasFiniteNumber(node.rssi) ? `${node.rssi} dBm` : tx("Unknown")}</strong><small>{hasFiniteNumber(node.snr) ? `SNR ${node.snr}` : 'SNR —'} · {hasFiniteNumber(node.spreadingFactor) ? `SF${node.spreadingFactor}` : 'SF—'}</small></td>
-              <td><strong>{gateways.map((gateway) => gateway.name || gateway.serialNumber || gateway.gatewayId).join(', ') || tx("Not reported")}</strong><small>{gateways.length ? `${gateways.length} ${tx("receiving gateway(s)")}` : tx("No gateway metadata")}</small></td>
+              <td><strong>{visibleGateways.join(', ') || tx("Not reported")}</strong><small>{visibleGateways.length ? `${visibleGateways.length} ${tx("receiving gateway(s)")}` : tx("No gateway metadata")}</small></td>
               <td><strong>{node.firmwareVersion || tx("Unknown")}</strong><small>{node.profile || node.nodeType || tx("Profile unavailable")}</small></td>
               <td><button type="button" className="nc-equipment-expand-button" aria-expanded={open} onClick={() => setExpandedNode(open ? null : node.devEui)}>{open ? tx("Hide") : tx("View all")}<i className={`fa-solid fa-chevron-${open ? 'up' : 'down'}`} /></button></td>
             </tr>{open ? <tr className="nc-equipment-expanded-row"><td colSpan={7}><dl>

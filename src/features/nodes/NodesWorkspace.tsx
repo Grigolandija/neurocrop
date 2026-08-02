@@ -441,6 +441,10 @@ export default function NodesWorkspace() {
     const detected = sensors.length ? sensors.filter((sensor) => sensor.detected) : getDetectedSensorNames(selectedNode).map((label) => ({ label, detected: true }))
     const integratedSensors = detected.filter((sensor) => isIntegratedSensor(sensor as Sensor)) as Sensor[]
     const connectedSensors = detected.filter((sensor) => !isIntegratedSensor(sensor as Sensor)) as Sensor[]
+    const receivingGateways = selectedNode.receivingGateways || []
+    const gatewayLabels = receivingGateways.map((gateway) => gateway.name || gateway.serialNumber || gateway.gatewayId).filter(Boolean)
+    const visibleGateways = gatewayLabels.length ? gatewayLabels : (selectedNode.lastGatewayIds || [])
+    const radioSignal = [Number.isFinite(selectedNode.rssi) ? `${selectedNode.rssi} dBm` : '', Number.isFinite(selectedNode.snr) ? `SNR ${selectedNode.snr}` : '', Number.isFinite(selectedNode.spreadingFactor) ? `SF${selectedNode.spreadingFactor}` : ''].filter(Boolean).join(' · ')
     return <div className="node-detail-page" data-react-nodes-workspace>
       <nav className="node-detail-breadcrumbs" aria-label="Breadcrumb"><button onClick={() => navigate('/nodes')}>{tx("Nodes")}</button><i className="fa-solid fa-chevron-right" /><span>{selectedNode.name}</span></nav>
       <header className="node-detail-head"><div><p>{tx("Sensor node")}</p><h2>{selectedNode.name}</h2><span>{selectedNode.simulated ? `${tx("Simulated")} · ` : ''}{selectedNode.areaName} · {selectedNode.sectionName}</span></div><div className="node-detail-actions"><button type="button" className="node-detail-secondary-action actionable" onClick={() => openEditor(selectedNode)}><i className="fa-solid fa-pen" />{tx("Edit node")}</button></div></header>
@@ -451,6 +455,7 @@ export default function NodesWorkspace() {
         <div className="node-detail-facts">
           <div><small>{tx("Battery")}</small><strong>{Number.isFinite(selectedNode.level) ? `${selectedNode.level}%` : '—'}</strong><span className="node-detail-track"><i style={{ width: `${Number(selectedNode.level) || 0}%` }} /></span><p>{Number.isFinite(selectedNode.level) && Number(selectedNode.level) < 25 ? tx("Charge or replace soon") : tx("Battery level")}</p></div>
           <div><small>{tx("Last connection")}</small><strong>{lastPayload.relative}</strong><p>{tx("Latest data received")}</p></div>
+          <div><small>{tx("Receiving gateway")}</small><strong className="node-detail-gateway-value">{visibleGateways.join(', ') || '—'}</strong><p>{radioSignal || tx("No gateway metadata")}</p></div>
         </div>
       </section>
       <div className="node-detail-columns node-detail-columns-single">

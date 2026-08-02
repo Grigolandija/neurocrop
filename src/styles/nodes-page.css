@@ -800,11 +800,12 @@
 .designer-app #nodesManagementSection .node-detail-health p,
 .designer-app #nodesManagementSection .node-detail-facts p { margin: 0; color: var(--node-text-muted); font-size: 9px; }
 
-.designer-app #nodesManagementSection .node-detail-facts { display: grid; grid-template-columns: repeat(2, 1fr); }
+.designer-app #nodesManagementSection .node-detail-facts { display: grid; grid-template-columns: repeat(3, 1fr); }
 .designer-app #nodesManagementSection .node-detail-facts > div { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 20px; border-right: 1px solid var(--node-border); }
 .designer-app #nodesManagementSection .node-detail-facts > div:last-child { border-right: 0; }
 .designer-app #nodesManagementSection .node-detail-facts small { color: var(--node-text-muted); font-size: 9px; }
 .designer-app #nodesManagementSection .node-detail-facts strong { margin-top: 6px; font-family: 'Space Grotesk', sans-serif; font-size: 20px; letter-spacing: -.03em; }
+.designer-app #nodesManagementSection .node-detail-facts .node-detail-gateway-value { overflow-wrap: anywhere; font-size: 12px; letter-spacing: 0; }
 .designer-app #nodesManagementSection .node-detail-track { height: 3px; margin: 9px 0 5px; background: var(--node-muted); }
 .designer-app #nodesManagementSection .node-detail-track i { display: block; height: 100%; background: var(--node-primary); }
 

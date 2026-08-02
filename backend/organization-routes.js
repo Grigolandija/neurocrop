@@ -540,16 +540,17 @@ export function registerPlatformOrganizationRoutes(app) {
                 COALESCE((
                   SELECT jsonb_agg(
                     jsonb_build_object(
-                      'gatewayId', g.gateway_id,
+                      'gatewayId', received.gateway_id,
                       'name', g.display_name,
                       'serialNumber', g.serial_number,
                       'lastSeenAt', g.last_seen_at
                     )
-                    ORDER BY g.display_name, g.gateway_id
+                    ORDER BY COALESCE(g.display_name, received.gateway_id), received.gateway_id
                   )
-                  FROM gateways g
-                  WHERE g.gateway_id=ANY(n.last_gateway_ids)
-                    AND (g.organization_id=n.organization_id OR g.organization_id IS NULL)
+                  FROM unnest(n.last_gateway_ids) AS received(gateway_id)
+                  LEFT JOIN gateways g
+                    ON g.gateway_id=received.gateway_id
+                   AND (g.organization_id=n.organization_id OR g.organization_id IS NULL)
                 ), '[]'::jsonb) AS receiving_gateways
          FROM nodes n
          LEFT JOIN areas a ON a.id=n.area_id AND a.organization_id=n.organization_id

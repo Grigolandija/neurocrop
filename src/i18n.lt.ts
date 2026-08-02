@@ -1000,5 +1000,6 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Replace organization access": "Pakeisti organizacijos prieigą",
   "The user will lose access to every current organization. Empty personal organizations will be removed automatically; organizations with data require another owner.": "Naudotojas neteks prieigos prie visų dabartinių organizacijų. Tuščios asmeninės organizacijos bus pašalintos automatiškai, o organizacijoms su duomenimis pirmiausia reikės paskirti kitą savininką.",
   "Target organization": "Tikslinė organizacija",
-  "Role in target organization": "Rolė tikslinėje organizacijoje"
+  "Role in target organization": "Rolė tikslinėje organizacijoje",
+  "Receiving gateway": "Priimantis gateway"
 })
