@@ -1027,7 +1027,7 @@ export default function TrendsWorkspace() {
               return <label key={node.devEui} data-disabled={disabled || undefined}>
                 <input type="checkbox" checked={selected} disabled={disabled} onChange={() => toggleNode(node.devEui)} />
                 <i data-status={node.transportStatus} />
-                <span><strong>{node.name}</strong><small>{node.devEui}</small></span>
+                <span><strong>{node.name}</strong></span>
                 <i className="fa-solid fa-check nc-trends-node-check" />
               </label>
             }) : <p>{tx("No Nodes are assigned to this Section.")}</p>}

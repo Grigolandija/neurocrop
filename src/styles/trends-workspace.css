@@ -211,10 +211,8 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-node-options label > i[data-status="stale"] { background: #d59a2a; }
 .designer-app .nc-trends-node-options label > i[data-status="offline"] { background: #d35e49; }
 .designer-app .nc-trends-node-options label > span { display: grid; min-width: 0; gap: 2px; }
-.designer-app .nc-trends-node-options label strong,
-.designer-app .nc-trends-node-options label small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.designer-app .nc-trends-node-options label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .designer-app .nc-trends-node-options label strong { color: var(--trends-ink); font-size: 12px; }
-.designer-app .nc-trends-node-options label small { color: var(--trends-muted); font-size: 9px; }
 .designer-app .nc-trends-node-check { color: #287f70; font-size: 11px; opacity: 0; }
 .designer-app .nc-trends-node-options label:has(input:checked) { background: #edf5f1; }
 .designer-app .nc-trends-node-options label:has(input:checked) .nc-trends-node-check { opacity: 1; }
