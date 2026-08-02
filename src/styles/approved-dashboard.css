@@ -2338,23 +2338,6 @@
       color: #59615d;
     }
 
-    /* Simple Overview: a grower's work plan, deliberately separate from diagnostics. */
-
-    @media (max-width: 1179px) {
-      html:has(body[data-primary-page="overview"][data-experience-mode="simple"]),
-      body[data-primary-page="overview"][data-experience-mode="simple"],
-      body[data-primary-page="overview"][data-experience-mode="simple"] .designer-app {
-        overflow-x: hidden !important;
-      }
-
-      body[data-primary-page="overview"][data-experience-mode="simple"] .dashboard-shell {
-        width: 100%;
-        min-width: 0;
-      }
-    }
-
-    /* Keep the primary Overview workspace fully static on lower-power GPUs. */
-
     /* One dropdown language across the dashboard. */
 
     /* Settings workspace */
@@ -2689,9 +2672,3 @@
   }
 
 }
-
-/* Area-wide Live readings: Sections stay on rows so operators can compare
-   actual measurements without mistaking an Area average for one location. */
-    .designer-app [data-retired-overview][hidden] {
-      display: none !important;
-    }

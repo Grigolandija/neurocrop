@@ -586,14 +586,13 @@
     max-width: none;
   }
 
-  .designer-app :is(.nc-overview-page, .nc-alerts-page, .nc-actions-page, .nc-readings-page, .nc-areas-page, .nc-sections-page) {
+  .designer-app :is(.nc-alerts-page, .nc-actions-page, .nc-readings-page, .nc-areas-page, .nc-sections-page) {
     width: 100%;
     min-width: 0;
     padding-inline: 0 !important;
   }
 
   .designer-app :is(
-    .nc-overview-head,
     .nc-alerts-head,
     .nc-actions-head,
     .nc-readings-hero,
@@ -609,7 +608,6 @@
   }
 
   .designer-app :is(
-    .nc-overview-head,
     .nc-alerts-head,
     .nc-actions-head,
     .nc-readings-hero,
@@ -622,14 +620,14 @@
     width: 100%;
   }
 
-  .designer-app :is(.nc-overview-summary, .nc-alerts-summary, .nc-actions-summary, .nc-readings-health, .nc-areas-summary, .nc-sections-summary) {
+  .designer-app :is(.nc-alerts-summary, .nc-actions-summary, .nc-readings-health, .nc-areas-summary, .nc-sections-summary) {
     overflow-x: auto;
     overscroll-behavior-inline: contain;
     scroll-snap-type: x proximity;
     scrollbar-width: none;
   }
 
-  .designer-app :is(.nc-overview-summary, .nc-alerts-summary, .nc-actions-summary, .nc-readings-health, .nc-areas-summary, .nc-sections-summary) > * {
+  .designer-app :is(.nc-alerts-summary, .nc-actions-summary, .nc-readings-health, .nc-areas-summary, .nc-sections-summary) > * {
     min-width: min(78vw, 18rem);
     scroll-snap-align: start;
   }
@@ -740,8 +738,7 @@
     .nc-admin-modal-layer,
     .profile-create-backdrop,
     .nc-action-modal-backdrop,
-    .node-modal-backdrop,
-    .nc-overview-drawer-backdrop
+    .node-modal-backdrop
   ) {
     align-items: end !important;
     padding: 0 !important;
@@ -869,7 +866,7 @@
   .designer-app .mobile-dock-button {
     letter-spacing: -.01em;
   }
-  .designer-app :is(.nc-overview-summary, .nc-alerts-summary, .nc-actions-summary, .nc-readings-health, .nc-areas-summary, .nc-sections-summary) > * {
+  .designer-app :is(.nc-alerts-summary, .nc-actions-summary, .nc-readings-health, .nc-areas-summary, .nc-sections-summary) > * {
     min-width: 82vw;
   }
 }

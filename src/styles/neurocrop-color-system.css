@@ -574,7 +574,6 @@ body.designer-app {
 }
 
 /* Semantic status system */
-.designer-app [data-state="optimal"] .overview-section-state-dot,
 .designer-app .state-chip[data-state="optimal"]::before,
 .designer-app .grower-section-line[data-state="optimal"] .grower-section-state,
 .designer-app .pulse-dot {

@@ -654,7 +654,7 @@ td {
   padding: var(--space-20) var(--space-24) var(--space-48) !important;
 }
 
-.designer-app :is(.grower-overview, .settings-page-shell, .admin-page-shell, .crop-profiles-page) {
+.designer-app :is(.settings-page-shell, .admin-page-shell, .crop-profiles-page) {
   gap: var(--space-16);
 }
 
