@@ -158,12 +158,17 @@ describe('environment colour scale', () => {
     expect(high[1]).toBeGreaterThan(high[0])
   })
   it('uses stable semantic anchors instead of recolouring the observed minimum and maximum', () => {
-    expect(colorAtStops(16, METRICS['air-temperature'].colorStops!)).toEqual([27, 79, 255])
-    expect(colorAtStops(22, METRICS['air-temperature'].colorStops!)).toEqual([98, 231, 138])
-    expect(colorAtStops(32, METRICS['air-temperature'].colorStops!)).toEqual([217, 37, 37])
+    expect(colorAtStops(16, METRICS['air-temperature'].colorStops!)).toEqual([61, 140, 163])
+    expect(colorAtStops(22, METRICS['air-temperature'].colorStops!)).toEqual([131, 201, 107])
+    expect(colorAtStops(32, METRICS['air-temperature'].colorStops!)).toEqual([216, 69, 52])
     expect(colorAtStops(400, METRICS.co2.colorStops!)).toEqual([46, 139, 87])
     expect(colorAtStops(2000, METRICS.co2.colorStops!)).toEqual([106, 44, 145])
     expect(scaleGradient(19.5, 29.5, METRICS['air-temperature'], [20, 21]).match(/rgb\(/g)?.length).toBeGreaterThan(3)
+  })
+  it('shows ordinary greenhouse temperatures as green rather than cold blue', () => {
+    const [red, green, blue] = colorAtStops(19, METRICS['air-temperature'].colorStops!)
+    expect(green).toBeGreaterThan(red)
+    expect(green).toBeGreaterThan(blue)
   })
   it('reveals narrow local variation without remapping it to cold and hot extremes', () => {
     const definition = METRICS['air-temperature']

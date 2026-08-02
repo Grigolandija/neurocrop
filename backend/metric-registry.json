@@ -435,17 +435,18 @@
   },
   "palettes": {
     "temperature": {
-      "colors": ["#1B4FFF", "#3F8BFF", "#53D8FB", "#62E78A", "#B6F05A", "#FFE75C", "#FFB34A", "#FF6A3A", "#D92525"],
+      "colors": ["#285B9C", "#397FB0", "#45A58A", "#63BA72", "#83C96B", "#B9D662", "#E8D95A", "#F2B24C", "#E9783F", "#D84534"],
       "stops": [
-        {"value": 16, "color": "#1B4FFF"},
-        {"value": 18, "color": "#3F8BFF"},
-        {"value": 20, "color": "#53D8FB"},
-        {"value": 22, "color": "#62E78A"},
-        {"value": 24, "color": "#B6F05A"},
-        {"value": 26, "color": "#FFE75C"},
-        {"value": 28, "color": "#FFB34A"},
-        {"value": 30, "color": "#FF6A3A"},
-        {"value": 32, "color": "#D92525"}
+        {"value": 12, "color": "#285B9C"},
+        {"value": 15, "color": "#397FB0"},
+        {"value": 18, "color": "#45A58A"},
+        {"value": 20, "color": "#63BA72"},
+        {"value": 22, "color": "#83C96B"},
+        {"value": 24, "color": "#B9D662"},
+        {"value": 26, "color": "#E8D95A"},
+        {"value": 28, "color": "#F2B24C"},
+        {"value": 30, "color": "#E9783F"},
+        {"value": 32, "color": "#D84534"}
       ]
     },
     "humidity": {
