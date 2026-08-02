@@ -429,7 +429,8 @@ test('database connection acquisition stays inside route error boundaries', () =
     const routeStart = api.indexOf(`app.get('${routeName}'`) >= 0
       ? api.indexOf(`app.get('${routeName}'`)
       : api.indexOf(`app.post('${routeName}'`);
-    const route = api.slice(routeStart, routeStart + 900);
+    const nextRouteStart = api.indexOf('\napp.', routeStart + 1);
+    const route = api.slice(routeStart, nextRouteStart >= 0 ? nextRouteStart : undefined);
     const databaseCall = routeName === '/readings/latest'
       ? 'buildLatestReadings'
       : routeName === '/readings/latest-batch'

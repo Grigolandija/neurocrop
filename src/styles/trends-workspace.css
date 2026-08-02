@@ -438,7 +438,6 @@ body.designer-app .nc-trends-section-search input {
 .nc-trends-export-modal > section { display: grid; gap: 8px; border-bottom: 1px solid #edf0ed; padding: 12px 20px; }
 .nc-trends-export-modal h3 { margin: 0; font-size: 13px; font-weight: 750; }
 .nc-trends-export-choice-list { display: grid; overflow: hidden; border: 1px solid #dfe5e0; border-radius: 9px; background: #fff; }
-.nc-trends-export-scope { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .nc-trends-export-range { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .nc-trends-export-choice-list label,
 .nc-trends-export-metrics label {
@@ -547,7 +546,6 @@ body.designer-app .nc-trends-section-search input {
   .designer-app .nc-trends-distribution { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; }
   .nc-trends-export-backdrop { align-items: end; padding: 0; }
   .nc-trends-export-modal { max-height: 92vh; border-radius: 18px 18px 0 0; }
-  .nc-trends-export-scope,
   .nc-trends-export-range,
   .nc-trends-export-metrics,
   .nc-trends-export-node-list { grid-template-columns: 1fr; }

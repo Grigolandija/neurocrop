@@ -52,10 +52,6 @@
 .nc-sections-search > i { position: absolute; bottom: .78rem; left: var(--space-12); color: var(--color-text-tertiary); }
 .nc-sections-search input { padding: 0 2.25rem; }
 .nc-sections-search button { position: absolute; right: .4rem; bottom: .35rem; width: 2rem; height: 2rem; border-radius: .4rem; background: transparent; color: var(--color-text-tertiary); }
-.nc-sections-view { display: flex; height: var(--control-height-md); align-items: center; border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: .2rem; background: var(--color-surface-subtle); }
-.nc-sections-view button { display: flex; height: 100%; align-items: center; gap: var(--space-8); border-radius: .4rem; padding: 0 var(--space-12); background: transparent; color: var(--color-text-secondary); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
-.nc-sections-view button.active { background: var(--color-primary); color: var(--color-on-primary); box-shadow: 0 .1rem .3rem var(--color-shadow); }
-
 .nc-sections-bulk { position: absolute; z-index: 5; inset: 0; display: flex; min-height: 3.5rem; align-items: center; gap: var(--space-8); border-bottom: 1px solid var(--color-info-border); padding: var(--space-8) var(--space-16); background: var(--color-info-soft); color: var(--color-text-secondary); }
 .nc-sections-bulk strong { margin-right: auto; color: var(--color-text); font-size: var(--type-body-sm); }
 .nc-sections-bulk button { display: inline-flex; align-items: center; gap: var(--space-8); border-radius: .45rem; padding: .5rem .75rem; background: transparent; color: var(--color-info); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
@@ -101,17 +97,6 @@
 .nc-section-status > i { width: .375rem; height: .375rem; flex: 0 0 auto; border-radius: 50%; background: currentColor; }
 .nc-section-status[data-state="ready"] { background: var(--color-success-soft); color: var(--color-success); }
 .nc-section-status[data-state="attention"] { background: var(--color-warning-soft); color: var(--color-warning); }
-
-.nc-section-coverage { display: grid; min-width: 0; justify-items: center; gap: .15rem; color: var(--color-offline); text-align: center; }
-.nc-section-coverage > i { display: grid; width: 1.5rem; height: 1.5rem; place-items: center; border-radius: 50%; background: var(--color-offline-soft); font-size: var(--type-micro); }
-.nc-section-coverage small { overflow: hidden; max-width: 100%; font-size: var(--type-micro); text-overflow: ellipsis; white-space: nowrap; }
-.nc-section-coverage[data-state="full"] { color: var(--color-success); }
-.nc-section-coverage[data-state="full"] > i { background: var(--color-success-soft); }
-.nc-section-coverage[data-state="partial"] { color: var(--color-warning); }
-.nc-section-coverage[data-state="partial"] > i { background: var(--color-warning-soft); }
-.nc-section-coverage[data-state="missing"] { color: var(--color-danger); }
-.nc-section-coverage[data-state="missing"] > i { background: var(--color-danger-soft); }
-.nc-section-coverage[data-state="optional"] { color: var(--color-text-tertiary); }
 
 .nc-section-actions { position: relative; display: grid; height: 100%; place-items: center; padding: 0 !important; }
 .nc-section-actions > button { width: 2rem; height: 2rem; border-radius: .45rem; background: transparent; color: var(--color-text-secondary); }
@@ -172,7 +157,6 @@
 
 @media (max-width: 1500px) {
   .nc-sections-toolbar { grid-template-columns: minmax(14rem,1fr) repeat(3,minmax(9rem,.65fr)); }
-  .nc-sections-view { grid-column: 1/-1; width: max-content; }
   .nc-section-register { overflow-x: auto; }
   .nc-section-register-head, .nc-section-row { min-width: 68rem; }
   .nc-section-register-head.coverage, .nc-section-row.coverage { min-width: 76rem; }
@@ -196,8 +180,7 @@
   .nc-sections-summary > :nth-last-child(-n+2) { border-bottom: 0; }
   .nc-sections-summary-note { align-items: flex-start; justify-content: flex-start; }
   .nc-sections-toolbar { grid-template-columns: 1fr; }
-  .nc-sections-search, .nc-sections-view { grid-column: auto; width: 100%; }
-  .nc-sections-view button { flex: 1; justify-content: center; }
+  .nc-sections-search { grid-column: auto; width: 100%; }
   .nc-sections-bulk { align-items: stretch; flex-direction: column; }
   .nc-sections-bulk strong { margin: 0 0 var(--space-4); }
   .nc-sections-form { grid-template-columns: 1fr; }
