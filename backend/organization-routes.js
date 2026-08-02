@@ -239,7 +239,22 @@ export function registerPlatformOrganizationRoutes(app) {
       }
 
       const { rows: soleOwnerRows } = await client.query(
-        `SELECT o.id, o.name
+        `SELECT o.id, o.name,
+                (SELECT COUNT(*)::int FROM organization_memberships other_member
+                 WHERE other_member.organization_id=o.id AND other_member.user_id<>membership.user_id) AS other_member_count,
+                (SELECT COUNT(*)::int FROM areas a WHERE a.organization_id=o.id) AS area_count,
+                (SELECT COUNT(*)::int FROM sections s WHERE s.organization_id=o.id) AS section_count,
+                (SELECT COUNT(*)::int FROM nodes n WHERE n.organization_id=o.id) AS node_count,
+                (SELECT COUNT(*)::int FROM gateways g WHERE g.organization_id=o.id) AS gateway_count,
+                (SELECT COUNT(*)::int FROM invitations i
+                 WHERE i.organization_id=o.id AND i.accepted_at IS NULL AND i.revoked_at IS NULL) AS pending_invitation_count,
+                (SELECT COUNT(*)::int FROM crop_profiles p
+                 WHERE p.organization_id=o.id AND p.id<>'default') AS custom_profile_count,
+                ((SELECT COUNT(*) FROM action_feedback af WHERE af.organization_id=o.id)
+                 + (SELECT COUNT(*) FROM action_assignments aa WHERE aa.organization_id=o.id)
+                 + (SELECT COUNT(*) FROM alert_workflows aw WHERE aw.organization_id=o.id)
+                 + (SELECT COUNT(*) FROM interventions intervention WHERE intervention.organization_id=o.id)
+                 + (SELECT COUNT(*) FROM crop_risk_episodes episode WHERE episode.organization_id=o.id))::int AS operational_record_count
          FROM organization_memberships membership
          JOIN organizations o ON o.id=membership.organization_id
          WHERE membership.user_id=$1
@@ -252,18 +267,30 @@ export function registerPlatformOrganizationRoutes(app) {
                AND other.user_id<>membership.user_id
                AND other.role='owner'
            )
-         LIMIT 1`,
+         FOR UPDATE OF o`,
         [userId, organizationId]
       );
-      if (soleOwnerRows[0]) {
+      const nonEmptyOwnerOrganization = soleOwnerRows.find((row) =>
+        Number(row.other_member_count) > 0
+        || Number(row.area_count) > 0
+        || Number(row.section_count) > 0
+        || Number(row.node_count) > 0
+        || Number(row.gateway_count) > 0
+        || Number(row.pending_invitation_count) > 0
+        || Number(row.custom_profile_count) > 0
+        || Number(row.operational_record_count) > 0
+      );
+      if (nonEmptyOwnerOrganization) {
         await client.query('ROLLBACK');
         return res.status(409).json({
           error: {
             code: 'SOLE_ORGANIZATION_OWNER',
-            message: `Assign another owner to ${soleOwnerRows[0].name} before moving this user`
+            message: `Assign another owner to ${nonEmptyOwnerOrganization.name} before moving this user`
           }
         });
       }
+      const emptyOrganizationIds = soleOwnerRows.map((row) => row.id);
+      const emptyOrganizationNames = soleOwnerRows.map((row) => row.name);
 
       const { rows: existingRows } = await client.query(
         `SELECT organization_id, role FROM organization_memberships WHERE user_id=$1 FOR UPDATE`,
@@ -281,6 +308,9 @@ export function registerPlatformOrganizationRoutes(app) {
          VALUES ($1, $2, $3, now())`,
         [organizationId, userId, role]
       );
+      if (emptyOrganizationIds.length) {
+        await client.query(`DELETE FROM organizations WHERE id=ANY($1::text[])`, [emptyOrganizationIds]);
+      }
       await client.query(
         `UPDATE organization_requests
          SET status='cancelled', reviewed_by=$2, reviewed_at=now(), updated_at=now()
@@ -299,7 +329,8 @@ export function registerPlatformOrganizationRoutes(app) {
         moved: true,
         user: { id: user.id, email: user.email, name: user.display_name },
         organization: { id: targetOrganization.id, name: targetOrganization.name },
-        role
+        role,
+        removedEmptyOrganizations: emptyOrganizationNames
       });
     } catch (error) {
       await client?.query('ROLLBACK').catch(() => {});

@@ -650,7 +650,7 @@ The authenticated user payload from `POST /auth/login` and `GET /auth/me` includ
 | `POST` | `/platform/admins` | Super Admin | Grant Platform Admin using `{ "userId": "..." }`. |
 | `DELETE` | `/platform/admins/:userId` | Super Admin | Revoke Platform Admin. |
 | `PATCH` | `/platform/users/:userId/status` | Super Admin | Activate/deactivate using `{ "active": true/false }`; deactivation revokes active sessions. |
-| `PATCH` | `/platform/users/:userId/organization` | Super Admin | Move a non-super-admin user to one active organization using `{ "organizationId": "org-...", "role": "grower" }`; replaces existing memberships, resets session context, and protects sole owners. |
+| `PATCH` | `/platform/users/:userId/organization` | Super Admin | Move a non-super-admin user to one active organization using `{ "organizationId": "org-...", "role": "grower" }`; replaces existing memberships and resets session context. Empty sole-member source organizations are removed; source organizations with data require another owner. |
 | `DELETE` | `/platform/users/:userId?confirm=delete` | Super Admin | Permanently remove an account, sessions, requests, invitations, and memberships; organization measurements remain. |
 | `DELETE` | `/platform/organizations/:organizationId?confirm=delete` | Super Admin | Permanently remove an organization and all organization-owned operational data. |
 # Area Map Beta

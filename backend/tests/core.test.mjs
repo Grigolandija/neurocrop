@@ -1628,9 +1628,13 @@ test('super administrators can move a user between organizations without leaving
   assert.match(route, /PROTECTED_ACCOUNT/);
   assert.match(route, /ARCHIVED_ORGANIZATION/);
   assert.match(route, /SOLE_ORGANIZATION_OWNER/);
+  assert.match(route, /other_member_count/);
+  assert.match(route, /operational_record_count/);
   assert.match(route, /DELETE FROM action_assignments WHERE assigned_to=\$1 AND organization_id<>\$2/);
   assert.match(route, /DELETE FROM organization_memberships WHERE user_id=\$1/);
   assert.match(route, /INSERT INTO organization_memberships/);
+  assert.match(route, /DELETE FROM organizations WHERE id=ANY\(\$1::text\[\]\)/);
+  assert.match(route, /removedEmptyOrganizations/);
   assert.match(route, /UPDATE auth_sessions SET revoked_at/);
   assert.match(route, /DELETE FROM clerk_session_contexts WHERE user_id=\$1/);
   assert.match(route, /status='cancelled'/);
