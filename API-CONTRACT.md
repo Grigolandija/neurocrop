@@ -541,9 +541,9 @@ Užklausa turi nurodyti tik vieną apimtį: `sectionId` arba `areaId`. Ji grąž
 ne Section vidurkį, o kiekvieno node neapdorotus matavimus CSV formatu.
 Nenurodžius `metrics`, eksportuojamos visos palaikomos metrikos; nurodžius
 `metrics`, kiekviena pasirinkta metrika gauna atskirą CSV stulpelį net tada,
-kai dalis eilučių tos reikšmės neturi. CSV naudoja `;` skirtuką ir atskirus
-Lietuvos laiko datos bei laiko stulpelius, kad failas tiesiogiai atsidarytų
-Excel programoje:
+kai dalis eilučių tos reikšmės neturi. CSV naudoja UTF-8 BOM, Excel `sep=;`
+deklaraciją, `;` skirtuką ir atskirus Lietuvos laiko datos bei laiko stulpelius,
+kad failas vienodai tiesiogiai atsidarytų Windows ir macOS Excel programose:
 
 ```text
 Section eksportas: Date;Time (Europe/Vilnius);Node;Air temperature (°C);...

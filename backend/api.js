@@ -3234,7 +3234,9 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
     const filename = `neurocrop-${safeExportName}-${from.toISOString().slice(0, 10)}-to-${to.toISOString().slice(0, 10)}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(`\ufeff${lines.join('\n')}\n`);
+    // Windows Excel otherwise derives the separator from the OS locale and
+    // can mistake Lithuanian decimal commas for column separators.
+    res.send(`\ufeffsep=;\n${lines.join('\n')}\n`);
   } catch (e) {
     console.error('[api] /exports/measurements.csv:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
