@@ -1789,7 +1789,7 @@ test('latest readings keep the newest valid value per metric when uplinks are st
   assert.doesNotMatch(route, /const sourcesByMetric = collectSourcesByMetric\(currentSamples\)/);
 });
 
-test('Readings loads all Sections through one bounded authenticated batch', () => {
+test('Readings loads Sections through one batch with a bounded compatibility fallback', () => {
   const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   const client = fs.readFileSync(new URL('../../src/services/api/neurocropApi.ts', import.meta.url), 'utf8');
   const workspace = fs.readFileSync(new URL('../../src/features/readings/ReadingsWorkspace.tsx', import.meta.url), 'utf8');
@@ -1801,6 +1801,8 @@ test('Readings loads all Sections through one bounded authenticated batch', () =
   assert.match(route, /sectionIds\.length > 50/);
   assert.match(api, /mapLatestReadings\(sectionIds, organizationId, concurrency = 2\)/);
   assert.match(client, /getLatestReadingsBatch/);
-  assert.match(workspace, /getLatestReadingsBatch\(baseSections\.map/);
-  assert.doesNotMatch(workspace, /getLatestReadings\(section\.id\)/);
+  assert.match(workspace, /getLatestReadingsBatch\(sections\.map/);
+  assert.match(workspace, /missingSections = sections\.filter/);
+  assert.match(workspace, /mapWithConcurrency\(missingSections, 2/);
+  assert.match(workspace, /getLatestReadings\(section\.id\)/);
 });

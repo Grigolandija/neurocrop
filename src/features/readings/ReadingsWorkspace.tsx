@@ -140,6 +140,59 @@ function asArray<T = JsonRecord>(value: unknown): T[] {
   return Array.isArray(value) ? value : []
 }
 
+async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>) {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await mapper(items[index])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
+}
+
+async function loadLatestReadings(sections: SectionReading[]) {
+  const readings: Record<string, JsonRecord> = {}
+
+  if (sections.length) {
+    try {
+      const batch = await neurocropApi.getLatestReadingsBatch(sections.map((section) => section.id)) as {
+        readings?: Record<string, JsonRecord>
+      }
+      sections.forEach((section) => {
+        const latest = batch?.readings?.[section.id]
+        if (latest && typeof latest === 'object') readings[section.id] = latest
+      })
+    } catch {
+      // A mixed-version deployment can temporarily have the new frontend before
+      // the batch endpoint is available. The compatibility pass below keeps the
+      // page correct during that rollout window.
+    }
+  }
+
+  const missingSections = sections.filter((section) => !readings[section.id])
+  const fallbacks = await mapWithConcurrency(missingSections, 2, async (section) => {
+    try {
+      const latest = await neurocropApi.getLatestReadings(section.id) as JsonRecord
+      return { id: section.id, latest }
+    } catch {
+      return { id: section.id, latest: null }
+    }
+  })
+  fallbacks.forEach(({ id, latest }) => {
+    if (latest) readings[id] = latest
+  })
+
+  return sections.map((section) => ({
+    id: section.id,
+    latest: readings[section.id] || null,
+    loadFailed: !readings[section.id],
+  }))
+}
+
 function recordArray(payload: JsonRecord | null | undefined, keys: string[]) {
   if (Array.isArray(payload)) return payload as JsonRecord[]
   for (const root of [payload, payload?.data, payload?.dashboard, payload?.workspace]) {
@@ -700,17 +753,7 @@ export default function ReadingsWorkspace() {
         setStatus('ready')
         hasLoadedRef.current = true
 
-        const latestBatch = baseSections.length
-          ? await neurocropApi.getLatestReadingsBatch(baseSections.map((section) => section.id)) as {
-              readings?: Record<string, JsonRecord>
-              errors?: Record<string, unknown>
-            }
-          : { readings: {}, errors: {} }
-        const latestResults = baseSections.map((section) => ({
-          id: section.id,
-          latest: latestBatch.readings?.[section.id] || null,
-          loadFailed: Boolean(latestBatch.errors?.[section.id]) || !latestBatch.readings?.[section.id],
-        }))
+        const latestResults = await loadLatestReadings(baseSections)
         if (cancelled) return
         const latestBySection = new Map(latestResults.map((result) => [result.id, result]))
         setSections((current) => current.map((section) => {
