@@ -308,6 +308,41 @@ body[data-primary-page="overview"] .dashboard-main-inner {
   min-height: 152px;
 }
 
+.nc-overview-decision {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: clamp(28px, 3vw, 56px);
+  margin-top: 10px;
+}
+
+.nc-overview-decision.has-risk {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 480px);
+}
+
+.nc-overview-decision .nc-risk-facts {
+  margin-top: 0;
+}
+
+.nc-overview-decision .nc-overview-actions-slot {
+  display: flex;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  align-items: stretch;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.nc-overview-decision .nc-overview-action,
+.nc-overview-decision .nc-overview-normal {
+  width: 100%;
+  justify-content: space-between;
+  margin-top: 0;
+}
+
 .nc-risk-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1705,6 +1740,14 @@ body[data-primary-page="overview"] .dashboard-main-inner {
 
   .nc-overview-copy {
     max-width: 760px;
+  }
+
+  .nc-overview-decision,
+  .nc-overview-decision.has-risk {
+    grid-column: 1;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-top: 0;
   }
 
   .nc-overview-insights {

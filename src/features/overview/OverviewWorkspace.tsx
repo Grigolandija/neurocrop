@@ -998,28 +998,6 @@ export default function OverviewWorkspace() {
           </div>
           <h1>{headline}</h1>
           <p>{explanation}</p>
-          {primaryRisk ? <section className="nc-risk-facts" aria-label={isLt ? 'Rizikos įrodymai' : 'Risk evidence'}>
-            <div><span>{isLt ? 'Trukmė' : 'Duration'}</span><strong>{priorityObservedSince ? formatDuration(priorityObservedSince) : (isLt ? 'Pradžia dar nenustatyta' : 'Start time not established')}</strong></div>
-            <div data-trend={priorityTrend}><span>{isLt ? 'Tendencija' : 'Trend'}</span><strong>{priorityTrend === 'worsening' ? (isLt ? 'Blogėja' : 'Worsening') : priorityTrend === 'recovering' ? (isLt ? 'Gerėja' : 'Recovering') : priorityTrend === 'stable' ? (isLt ? 'Nekinta' : 'Stable') : (isLt ? 'Naujai aptikta' : 'Newly detected')}</strong></div>
-            <div><span>{priorityCoverageLabel}</span><strong>{priorityCoverage}</strong></div>
-            <p><span>{isLt ? 'Tikėtina priežastis' : 'Likely cause'}</span><strong>{primaryRisk.likelyCause || primaryRisk.diagnosis?.title || primaryRisk.title}</strong></p>
-          </section> : null}
-          <div className="nc-overview-actions-slot">
-            {model.priority
-              ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{primaryActionLabel}<i className="fa-solid fa-arrow-right" /></button>
-              : stable
-                ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />{tx("No action required")}</div>
-                : effectiveWatchActions.length
-                  ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{primaryActionLabel}<i className="fa-solid fa-arrow-right" /></button>
-                  : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>{tx("Review Section setup")}<i className="fa-solid fa-arrow-right" /></button>}
-            {(confirmedToday || awaitingToday || failedToday) ? <div className="nc-result-loop">
-              <i className="fa-solid fa-rotate" />
-              <p><strong>{isLt ? 'Šiandienos rezultatai' : "Today's results"}</strong><span>{confirmedToday} {isLt ? 'pagerėjo' : 'improved'} · {awaitingToday} {isLt ? 'tikrinama' : 'verifying'}{failedToday ? ` · ${failedToday} ${isLt ? 'nepadėjo' : 'need review'}` : ''}</span></p>
-            </div> : null}
-            {unknownRows.length && effectiveWatchActions.length
-              ? <button className="nc-overview-setup-link" type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-sliders" />{tx("Review setup for")} {unknownRows.length} {tx("unverified Section")}{unknownRows.length === 1 ? '' : 's'}</button>
-              : null}
-          </div>
         </section>
 
         <figure className="nc-coverage" aria-labelledby="nc-coverage-title">
@@ -1064,6 +1042,31 @@ export default function OverviewWorkspace() {
             <figcaption title={tx("Current Growing Score combines all available metrics; status and deviation show the limiting condition.")}><i className="fa-solid fa-circle-info" />{isLt ? 'Apie auginimo balą' : 'About Growing Score'}</figcaption>
           </div>
         </figure>
+
+        <section className={`nc-overview-decision${primaryRisk ? ' has-risk' : ''}`}>
+          {primaryRisk ? <section className="nc-risk-facts" aria-label={isLt ? 'Rizikos įrodymai' : 'Risk evidence'}>
+            <div><span>{isLt ? 'Trukmė' : 'Duration'}</span><strong>{priorityObservedSince ? formatDuration(priorityObservedSince) : (isLt ? 'Pradžia dar nenustatyta' : 'Start time not established')}</strong></div>
+            <div data-trend={priorityTrend}><span>{isLt ? 'Tendencija' : 'Trend'}</span><strong>{priorityTrend === 'worsening' ? (isLt ? 'Blogėja' : 'Worsening') : priorityTrend === 'recovering' ? (isLt ? 'Gerėja' : 'Recovering') : priorityTrend === 'stable' ? (isLt ? 'Nekinta' : 'Stable') : (isLt ? 'Naujai aptikta' : 'Newly detected')}</strong></div>
+            <div><span>{priorityCoverageLabel}</span><strong>{priorityCoverage}</strong></div>
+            <p><span>{isLt ? 'Tikėtina priežastis' : 'Likely cause'}</span><strong>{primaryRisk.likelyCause || primaryRisk.diagnosis?.title || primaryRisk.title}</strong></p>
+          </section> : null}
+          <div className="nc-overview-actions-slot">
+            {model.priority
+              ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{primaryActionLabel}<i className="fa-solid fa-arrow-right" /></button>
+              : stable
+                ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />{tx("No action required")}</div>
+                : effectiveWatchActions.length
+                  ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{primaryActionLabel}<i className="fa-solid fa-arrow-right" /></button>
+                  : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>{tx("Review Section setup")}<i className="fa-solid fa-arrow-right" /></button>}
+            {(confirmedToday || awaitingToday || failedToday) ? <div className="nc-result-loop">
+              <i className="fa-solid fa-rotate" />
+              <p><strong>{isLt ? 'Šiandienos rezultatai' : "Today's results"}</strong><span>{confirmedToday} {isLt ? 'pagerėjo' : 'improved'} · {awaitingToday} {isLt ? 'tikrinama' : 'verifying'}{failedToday ? ` · ${failedToday} ${isLt ? 'nepadėjo' : 'need review'}` : ''}</span></p>
+            </div> : null}
+            {unknownRows.length && effectiveWatchActions.length
+              ? <button className="nc-overview-setup-link" type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-sliders" />{tx("Review setup for")} {unknownRows.length} {tx("unverified Section")}{unknownRows.length === 1 ? '' : 's'}</button>
+              : null}
+          </div>
+        </section>
       </div>
       <footer className="nc-overview-trust">
         <span><i />{model.reporting}</span>
