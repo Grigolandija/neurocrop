@@ -4,20 +4,17 @@ import { useLocation, useNavigate } from 'react-router'
 import { ModalPortal } from '../../components/ModalPortal'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { useWorkspaceAccess } from '../../state/workspaceAccess'
-import { withStarterMetrics } from '../settings/cropProfileDefaults'
 import '../../styles/sections-workspace.css'
 
 // Management payloads can contain both dashboard and API naming conventions.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonRecord = Record<string, any>
-type ViewMode = 'directory' | 'coverage'
 type Readiness = 'ready' | 'attention' | 'unconfigured'
 type ReadinessFilter = 'all' | Readiness
 type SortMode = 'area' | 'name' | 'profile' | 'freshness'
-type CoverageState = 'full' | 'partial' | 'missing' | 'optional'
 
 type AreaOption = { id: string; name: string; kind: string; location: string }
-type ProfileOption = { id: string; name: string; crop: string; stage: string; metrics: JsonRecord }
+type ProfileOption = { id: string; name: string; crop: string; stage: string }
 type SectionRow = {
   id: string
   name: string
@@ -33,20 +30,9 @@ type SectionRow = {
   reportingCount: number
   lastReceivedAt: string | null
   expectedIntervalSec: number
-  configuredMetrics: Set<string>
-  availableMetrics: Set<string>
-  requiredMetrics: Set<string>
 }
 type EditorState = { mode: 'create' | 'edit'; id?: string; name: string; areaId: string; profileId: string }
 type Feedback = { tone: 'success' | 'warning'; message: string } | null
-
-const metricGroups = {
-  climate: ['airTemp', 'humidity', 'vpd', 'leafTemp'],
-  root: ['soilMoisture', 'soilTemp', 'ec', 'soilEc', 'ph', 'waterTemp'],
-  lighting: ['lux'],
-  co2: ['co2'],
-  system: ['batteryLevel'],
-} as const
 
 function asArray<T = JsonRecord>(value: unknown): T[] {
   return Array.isArray(value) ? value : []
@@ -98,10 +84,6 @@ function nodeSectionId(node: JsonRecord) {
   return text(node.sectionId || node.section_id || node.zoneId || node.zone_id || node.section?.id || node.zone?.id)
 }
 
-function metricKeys(value: unknown) {
-  return new Set(asArray(value).map((item) => typeof item === 'string' ? item : text((item as JsonRecord)?.key || (item as JsonRecord)?.metric)).filter(Boolean))
-}
-
 function latestTimestamp(values: Array<unknown>) {
   const valid = values.map((value) => value ? new Date(String(value)).getTime() : NaN).filter(Number.isFinite)
   return valid.length ? new Date(Math.max(...valid)).toISOString() : null
@@ -125,9 +107,7 @@ function formatFreshness(section: SectionRow) {
 }
 
 function readiness(section: SectionRow): Readiness {
-  if (!section.hasProfile || section.requiredMetrics.size === 0 || section.nodeCount === 0) return 'unconfigured'
-  const installed = new Set([...section.configuredMetrics, ...section.availableMetrics])
-  if ([...section.requiredMetrics].some((key) => !installed.has(key))) return 'attention'
+  if (!section.hasProfile || section.nodeCount === 0) return 'unconfigured'
   if (section.reportingCount < section.nodeCount || formatFreshness(section).state !== 'live') return 'attention'
   return 'ready'
 }
@@ -135,28 +115,8 @@ function readiness(section: SectionRow): Readiness {
 function readinessCopy(section: SectionRow) {
   const state = readiness(section)
   if (state === 'ready') return { label: 'Ready', detail: 'Profile, hardware and data aligned' }
-  if (state === 'unconfigured') return { label: 'Not configured', detail: section.nodeCount ? 'Crop profile requirements missing' : 'No nodes assigned' }
-  const installed = new Set([...section.configuredMetrics, ...section.availableMetrics])
-  if ([...section.requiredMetrics].some((key) => !installed.has(key))) return { label: 'Needs attention', detail: 'Sensor coverage gap' }
+  if (state === 'unconfigured') return { label: 'Not configured', detail: section.nodeCount ? 'Crop profile required' : 'No nodes assigned' }
   return { label: 'Needs attention', detail: section.reportingCount < section.nodeCount ? 'Hardware reporting gap' : 'Latest data is delayed' }
-}
-
-function profileMetricKeys(profile: ProfileOption | undefined) {
-  return new Set(Object.entries(profile?.metrics || {}).filter(([, definition]) => !(definition as JsonRecord)?.configured === false).map(([key]) => key))
-}
-
-function coverageFor(section: SectionRow, keys: readonly string[]): CoverageState {
-  const required = [...section.requiredMetrics].filter((key) => keys.includes(key))
-  if (!required.length) return 'optional'
-  const installed = new Set([...section.configuredMetrics, ...section.availableMetrics])
-  const covered = required.filter((key) => installed.has(key)).length
-  if (covered === required.length) return 'full'
-  if (covered > 0) return 'partial'
-  return 'missing'
-}
-
-function coverageLabel(value: CoverageState) {
-  return value === 'full' ? 'Covered' : value === 'partial' ? 'Partial' : value === 'optional' ? 'Not required' : 'Missing'
 }
 
 function csvCell(value: unknown) {
@@ -189,7 +149,6 @@ export default function SectionsWorkspace() {
   const [feedback, setFeedback] = useState<Feedback>(null)
   const [modalError, setModalError] = useState('')
   const [refreshToken, setRefreshToken] = useState(0)
-  const [view, setView] = useState<ViewMode>('directory')
   const [query, setQuery] = useState('')
   const [areaFilter, setAreaFilter] = useState('all')
   const [profileFilter, setProfileFilter] = useState('all')
@@ -264,7 +223,7 @@ export default function SectionsWorkspace() {
 
         const profileRows = recordArray(profilePayload, ['profiles', 'items']).map((profile): ProfileOption => {
           const id = profileIdentity(profile)
-          return { id, name: text(profile.name || id, 'Unnamed profile'), crop: text(profile.crop || profile.cropName || profile.crop_name), stage: text(profile.stage || profile.growthStage || profile.growth_stage), metrics: withStarterMetrics(profile.metrics) }
+          return { id, name: text(profile.name || id, 'Unnamed profile'), crop: text(profile.crop || profile.cropName || profile.crop_name), stage: text(profile.stage || profile.growthStage || profile.growth_stage) }
         }).filter((profile) => profile.id)
         const profileMap = new Map(profileRows.map((profile) => [profile.id, profile]))
         const nodes = recordArray(nodePayload, ['nodes', 'items'])
@@ -297,8 +256,6 @@ export default function SectionsWorkspace() {
             id, name: text(merged.name || id), areaId, areaName: areaMap.get(areaId)?.name || 'Unassigned area', profileId,
             profileName: profile?.name || text(merged.profileName || merged.profile_name, 'No profile'), hasProfile: Boolean(profile), crop: profile?.crop || '', stage: profile?.stage || '',
             nodes: sectionNodes, nodeCount: explicitNodeCount, reportingCount: 0, lastReceivedAt: latest, expectedIntervalSec,
-            configuredMetrics: metricKeys(merged.configuredMetrics || merged.configured_metrics), availableMetrics: metricKeys(merged.availableMetrics || merged.available_metrics),
-            requiredMetrics: profileMetricKeys(profile),
           }
           const reporting = sectionNodes.filter((node) => {
             const nodeLatest = latestTimestamp([node.lastReceivedAt, node.last_received_at, node.lastSeen, node.last_seen])
@@ -460,7 +417,6 @@ export default function SectionsWorkspace() {
           <label><span>{tx("Area")}</span><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}><option value="all">{tx("All areas")}</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label>
           <label><span>{tx("Crop profile")}</span><select value={profileFilter} onChange={(event) => setProfileFilter(event.target.value)}><option value="all">{tx("All profiles")}</option>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name}</option>)}</select></label>
           <label><span>{tx("Sort")}</span><select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="area">{tx("Area, then name")}</option><option value="name">{tx("Section name")}</option><option value="profile">{tx("Crop profile")}</option><option value="freshness">{tx("Oldest data first")}</option></select></label>
-          <div className="nc-sections-view" role="group" aria-label={tx("Sections view")}><button type="button" className={view === 'directory' ? 'active' : ''} onClick={() => setView('directory')}><i className="fa-solid fa-list" />{tx("Directory")}</button><button type="button" className={view === 'coverage' ? 'active' : ''} onClick={() => setView('coverage')}><i className="fa-solid fa-table-cells" />{tx("Coverage")}</button></div>
         </div>
 
         {selectedIds.length ? <div className="nc-sections-bulk"><strong>{selectedIds.length} {tx("selected")}</strong><button type="button" onClick={() => { setBulkProfileId(profiles[0]?.id || ''); setBulkProfileOpen(true) }}><i className="fa-solid fa-seedling" />{tx("Assign profile")}</button><button type="button" onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />{tx("Assign nodes")}</button><button type="button" className="danger" onClick={() => setDeleteIds(selectedIds)}><i className="fa-solid fa-trash" />{tx("Delete")}</button><button type="button" onClick={() => setSelectedIds([])}>{tx("Clear")}</button></div> : null}
@@ -468,8 +424,8 @@ export default function SectionsWorkspace() {
 
       {status === 'loading' ? <div className="nc-sections-loading" aria-busy="true"><span /><span /><span /><span /></div> : null}
       {status === 'error' ? <div className="nc-sections-empty"><i className="fa-solid fa-cloud-arrow-down" /><h2>{tx("Sections could not be loaded")}</h2><p>{error}</p><button type="button" onClick={() => setRefreshToken((value) => value + 1)}>{tx("Try again")}</button></div> : null}
-      {status === 'ready' ? <div className={`nc-section-register ${view}`}>
-        <div className={`nc-section-register-head ${view}`}><label><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} aria-label={tx("Select all visible sections")} /></label><span>{tx("Section")}</span>{view === 'directory' ? <><span>{tx("Crop profile")}</span><span>{tx("Assigned nodes")}</span><span>{tx("Latest data")}</span><span>{tx("Readiness")}</span></> : <><span>{tx("Climate")}</span><span>{tx("Root zone")}</span><span>{tx("Lighting")}</span><span>CO₂</span><span>{tx("System")}</span><span>{tx("Overall")}</span></>}<span /></div>
+      {status === 'ready' ? <div className="nc-section-register directory">
+        <div className="nc-section-register-head directory"><label><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} aria-label={tx("Select all visible sections")} /></label><span>{tx("Section")}</span><span>{tx("Crop profile")}</span><span>{tx("Assigned nodes")}</span><span>{tx("Latest data")}</span><span>{tx("Readiness")}</span><span /></div>
         {areaGroups.length ? areaGroups.map(({ area, sections: areaSections }) => {
           const collapsed = collapsedAreas?.includes(area.id) ?? true
           const readyCount = areaSections.filter((section) => readiness(section) === 'ready').length
@@ -482,12 +438,11 @@ export default function SectionsWorkspace() {
               const expanded = expandedId === section.id
               const fresh = formatFreshness(section)
               const ready = readinessCopy(section)
-              const coverage = Object.fromEntries(Object.entries(metricGroups).map(([key, keys]) => [key, coverageFor(section, keys)])) as Record<keyof typeof metricGroups, CoverageState>
               return <article className={expanded ? 'expanded' : ''} key={section.id}>
-                <div className={`nc-section-row ${view}`}>
+                <div className="nc-section-row directory">
                   <label><input type="checkbox" checked={selectedIds.includes(section.id)} onChange={() => toggleSelected(section.id)} aria-label={`Select ${section.name}`} /></label>
                   <button type="button" className="nc-section-name" onClick={() => setExpandedId(expanded ? null : section.id)}><span data-state={readiness(section)}>{section.name.slice(0, 2).toUpperCase()}</span><span><strong>{section.name}</strong><small>{section.areaName}</small></span><i className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} /></button>
-                  {view === 'directory' ? <><div className="nc-section-profile"><strong>{section.profileName}</strong><small>{[section.crop, section.stage].filter(Boolean).join(' · ') ||tx("Crop evaluation profile")}</small></div><div className="nc-section-nodes"><strong>{section.nodeCount ? `${section.reportingCount}/${section.nodeCount} reporting` :tx("No nodes assigned")}</strong><span><i style={{ width: `${section.nodeCount ? Math.min(100, section.reportingCount / section.nodeCount * 100) : 0}%` }} /></span></div><div className="nc-section-freshness" data-state={fresh.state}><strong>{fresh.label}</strong><small>{fresh.detail}</small></div><span className="nc-section-status" data-state={readiness(section)}><i />{ready.label}</span></> : <>{(Object.keys(metricGroups) as Array<keyof typeof metricGroups>).map((key) => <span className="nc-section-coverage" data-state={coverage[key]} title={coverageLabel(coverage[key])} key={key}><i className={`fa-solid ${coverage[key] === 'full' ? 'fa-check' : coverage[key] === 'partial' ? 'fa-minus' : coverage[key] === 'optional' ? 'fa-circle' : 'fa-xmark'}`} /><small>{coverageLabel(coverage[key])}</small></span>)}<span className="nc-section-status" data-state={readiness(section)}><i />{ready.label}</span></>}
+                  <div className="nc-section-profile"><strong>{section.profileName}</strong><small>{[section.crop, section.stage].filter(Boolean).join(' · ') ||tx("Crop evaluation profile")}</small></div><div className="nc-section-nodes"><strong>{section.nodeCount ? `${section.reportingCount}/${section.nodeCount} reporting` :tx("No nodes assigned")}</strong><span><i style={{ width: `${section.nodeCount ? Math.min(100, section.reportingCount / section.nodeCount * 100) : 0}%` }} /></span></div><div className="nc-section-freshness" data-state={fresh.state}><strong>{fresh.label}</strong><small>{fresh.detail}</small></div><span className="nc-section-status" data-state={readiness(section)}><i />{ready.label}</span>
                   <div className="nc-section-actions"><button type="button" aria-label={`Actions for ${section.name}`} onClick={() => setMenuId(menuId === section.id ? null : section.id)}><i className="fa-solid fa-ellipsis" /></button>{menuId === section.id ? <div><button type="button" onClick={() => openEdit(section)}><i className="fa-solid fa-pen" />{tx("Edit details")}</button><button type="button" onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />{tx("Assign nodes")}</button><button type="button" onClick={() => duplicateSection(section)}><i className="fa-regular fa-copy" />{tx("Duplicate")}</button><button type="button" className="danger" onClick={() => { setMenuId(null); setDeleteIds([section.id]) }}><i className="fa-solid fa-trash" />{tx("Delete")}</button></div> : null}</div>
                 </div>
                 {expanded ? <div className="nc-section-detail"><div><p>{tx("Section identity")}</p><dl><div><dt>{tx("Physical area")}</dt><dd>{section.areaName}</dd></div><div><dt>{tx("Crop profile")}</dt><dd>{section.profileName}</dd></div><div><dt>{tx("Section ID")}</dt><dd>{section.id}</dd></div></dl></div><div><p>{tx("Hardware assignment")}</p><dl><div><dt>{tx("Assigned nodes")}</dt><dd>{section.nodeCount}</dd></div><div><dt>{tx("Currently reporting")}</dt><dd>{section.reportingCount}</dd></div><div><dt>{tx("Data state")}</dt><dd>{fresh.detail}</dd></div></dl></div><div><p>{tx("Quick actions")}</p><nav><button type="button" onClick={() => openEdit(section)}><i className="fa-solid fa-pen" />{tx("Edit section")}</button><button type="button" onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />{tx("Manage nodes")}</button><button type="button" onClick={() => navigate('/readings')}><i className="fa-solid fa-wave-square" />{tx("Open readings")}</button></nav></div></div> : null}
@@ -495,7 +450,7 @@ export default function SectionsWorkspace() {
             }) : null}
           </section>
         }) : <div className="nc-sections-empty"><i className="fa-solid fa-filter-circle-xmark" /><h2>{tx("No sections match this view")}</h2><p>{tx("Clear one or more filters, or create a new section.")}</p><button type="button" onClick={resetFilters}>{tx("Reset filters")}</button></div>}
-        <footer><span>{tx("Showing")} <strong>{filteredSections.length}</strong> {tx("of")} {sections.length} {tx("sections")}</span>{view === 'coverage' ? <p><i data-state="full" />{tx("Covered")} <i data-state="partial" />{tx("Partial")} <i data-state="missing" />{tx("Missing")} <i data-state="optional" />{tx("Not required")}</p> : null}</footer>
+        <footer><span>{tx("Showing")} <strong>{filteredSections.length}</strong> {tx("of")} {sections.length} {tx("sections")}</span></footer>
       </div> : null}
     </section>
 
