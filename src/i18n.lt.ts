@@ -993,5 +993,12 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Connected sensors and probes": "Prijungti sensoriai ir zondai",
   "Configure the measurement location of each connected sensor separately.": "Kiekvienam prijungtam sensoriui atskirai nustatykite jo matavimo vietą.",
   "These sensors inherit the Node location unless you change one separately.": "Šie sensoriai paveldi Node vietą, nebent konkrečiam sensoriui ją pakeisite atskirai.",
-  "These sensors use the same location as the Node.": "Šie sensoriai naudoja tą pačią vietą kaip Node."
+  "These sensors use the same location as the Node.": "Šie sensoriai naudoja tą pačią vietą kaip Node.",
+  "Move to another organization": "Perkelti į kitą organizaciją",
+  "Move user": "Perkelti naudotoją",
+  "No organization": "Be organizacijos",
+  "Replace organization access": "Pakeisti organizacijos prieigą",
+  "The user will lose access to every current organization. Open sessions will continue only in the target organization.": "Naudotojas neteks prieigos prie visų dabartinių organizacijų. Atviros sesijos galės veikti tik tikslinėje organizacijoje.",
+  "Target organization": "Tikslinė organizacija",
+  "Role in target organization": "Rolė tikslinėje organizacijoje"
 })

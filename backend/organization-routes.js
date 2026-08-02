@@ -152,12 +152,20 @@ export function registerPlatformOrganizationRoutes(app) {
     try {
       const { rows } = await query(
         `SELECT u.id, u.email, u.display_name, u.is_active, u.is_platform_admin, u.is_super_admin, u.last_login_at, u.created_at,
-                COUNT(DISTINCT m.organization_id)::int AS organization_count,
-                COUNT(DISTINCT r.id) FILTER (WHERE r.status='pending')::int AS pending_request_count
+                (SELECT COUNT(*)::int FROM organization_memberships m WHERE m.user_id=u.id) AS organization_count,
+                (SELECT COUNT(*)::int FROM organization_requests r WHERE r.user_id=u.id AND r.status='pending') AS pending_request_count,
+                COALESCE((
+                  SELECT json_agg(json_build_object(
+                    'id', o.id,
+                    'name', o.name,
+                    'status', o.status,
+                    'role', m.role
+                  ) ORDER BY o.name)
+                  FROM organization_memberships m
+                  JOIN organizations o ON o.id=m.organization_id
+                  WHERE m.user_id=u.id
+                ), '[]'::json) AS organizations
          FROM users u
-         LEFT JOIN organization_memberships m ON m.user_id=u.id
-         LEFT JOIN organization_requests r ON r.user_id=u.id
-         GROUP BY u.id
          ORDER BY u.created_at DESC`
       );
 
@@ -170,6 +178,7 @@ export function registerPlatformOrganizationRoutes(app) {
           isPlatformAdmin: row.is_platform_admin || row.is_super_admin,
           isSuperAdmin: row.is_super_admin,
           organizationCount: row.organization_count,
+          organizations: row.organizations,
           pendingRequestCount: row.pending_request_count,
           lastLoginAt: row.last_login_at,
           createdAt: row.created_at
@@ -177,6 +186,126 @@ export function registerPlatformOrganizationRoutes(app) {
       });
     } catch (error) {
       next(error);
+    }
+  });
+
+  app.patch('/platform/users/:userId/organization', requireUserAuth, requireSuperAdmin, async (req, res, next) => {
+    const userId = String(req.params.userId || '').trim();
+    const organizationId = String(req.body?.organizationId || '').trim();
+    const role = String(req.body?.role || '').trim().toLowerCase();
+    const allowedRoles = new Set(['owner', 'admin', 'grower', 'technician', 'viewer']);
+
+    if (!userId || !organizationId || !allowedRoles.has(role)) {
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'User id, target organization, and a valid role are required' }
+      });
+    }
+    if (userId === req.user.id) {
+      return res.status(409).json({ error: { code: 'SELF_MOVE', message: 'You cannot move your own super administrator account' } });
+    }
+
+    let client;
+    try {
+      client = await pool.connect();
+      await client.query('BEGIN');
+
+      const { rows: userRows } = await client.query(
+        `SELECT id, email, display_name, is_super_admin
+         FROM users WHERE id=$1 FOR UPDATE`,
+        [userId]
+      );
+      const user = userRows[0];
+      if (!user) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
+      }
+      if (user.is_super_admin) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: { code: 'PROTECTED_ACCOUNT', message: 'Super administrator account cannot be moved' } });
+      }
+
+      const { rows: organizationRows } = await client.query(
+        `SELECT id, name, status FROM organizations WHERE id=$1 FOR UPDATE`,
+        [organizationId]
+      );
+      const targetOrganization = organizationRows[0];
+      if (!targetOrganization) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Target organization not found' } });
+      }
+      if (targetOrganization.status === 'archived') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: { code: 'ARCHIVED_ORGANIZATION', message: 'A user cannot be moved to an archived organization' } });
+      }
+
+      const { rows: soleOwnerRows } = await client.query(
+        `SELECT o.id, o.name
+         FROM organization_memberships membership
+         JOIN organizations o ON o.id=membership.organization_id
+         WHERE membership.user_id=$1
+           AND membership.organization_id<>$2
+           AND membership.role='owner'
+           AND o.status<>'archived'
+           AND NOT EXISTS (
+             SELECT 1 FROM organization_memberships other
+             WHERE other.organization_id=membership.organization_id
+               AND other.user_id<>membership.user_id
+               AND other.role='owner'
+           )
+         LIMIT 1`,
+        [userId, organizationId]
+      );
+      if (soleOwnerRows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: {
+            code: 'SOLE_ORGANIZATION_OWNER',
+            message: `Assign another owner to ${soleOwnerRows[0].name} before moving this user`
+          }
+        });
+      }
+
+      const { rows: existingRows } = await client.query(
+        `SELECT organization_id, role FROM organization_memberships WHERE user_id=$1 FOR UPDATE`,
+        [userId]
+      );
+      if (existingRows.length === 1 && existingRows[0].organization_id === organizationId && existingRows[0].role === role) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: { code: 'NO_CHANGE', message: 'The user already has this organization and role' } });
+      }
+
+      await client.query(`DELETE FROM action_assignments WHERE assigned_to=$1 AND organization_id<>$2`, [userId, organizationId]);
+      await client.query(`DELETE FROM organization_memberships WHERE user_id=$1`, [userId]);
+      await client.query(
+        `INSERT INTO organization_memberships (organization_id, user_id, role, created_at)
+         VALUES ($1, $2, $3, now())`,
+        [organizationId, userId, role]
+      );
+      await client.query(
+        `UPDATE organization_requests
+         SET status='cancelled', reviewed_by=$2, reviewed_at=now(), updated_at=now()
+         WHERE user_id=$1 AND status='pending'`,
+        [userId, req.user.id]
+      );
+      await client.query(
+        `UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at, now())
+         WHERE user_id=$1 AND revoked_at IS NULL`,
+        [userId]
+      );
+      await client.query(`DELETE FROM clerk_session_contexts WHERE user_id=$1`, [userId]);
+      await client.query('COMMIT');
+
+      res.json({
+        moved: true,
+        user: { id: user.id, email: user.email, name: user.display_name },
+        organization: { id: targetOrganization.id, name: targetOrganization.name },
+        role
+      });
+    } catch (error) {
+      await client?.query('ROLLBACK').catch(() => {});
+      next(error);
+    } finally {
+      client?.release();
     }
   });
 

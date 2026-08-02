@@ -228,6 +228,9 @@ input:checked + .nc-settings-switch::after { transform: translateX(1rem); }
 .nc-admin-person > span { display: grid; width: 2rem; height: 2rem; flex: 0 0 auto; place-items: center; border-radius: .5rem; background: var(--color-info-soft); color: var(--color-info); font-size: var(--type-caption); font-weight: var(--weight-bold); }
 .nc-admin-person strong, .nc-admin-person small { display: block; }
 .nc-admin-person small { margin-top: .1rem; color: var(--color-text-tertiary); font-size: var(--type-caption); }
+.nc-admin-user-organizations { display: flex; min-width: 10rem; flex-wrap: wrap; gap: var(--space-4); }
+.nc-admin-user-organizations > span { display: inline-flex; align-items: center; gap: var(--space-4); border: 1px solid var(--color-border); border-radius: 999px; padding: .2rem .5rem; background: var(--color-surface-subtle); color: var(--color-text-secondary); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
+.nc-admin-user-organizations small { color: var(--color-text-tertiary); font-size: var(--type-micro); text-transform: capitalize; }
 .nc-admin-readonly { color: var(--color-text-tertiary); font-size: var(--type-caption); }
 .nc-admin-text-danger { background: transparent; font-size: var(--type-caption); font-weight: var(--weight-semibold); white-space: nowrap; }
 .nc-admin-request-list { display: grid; gap: var(--space-8); padding-top: var(--space-20); }
@@ -252,6 +255,18 @@ input:checked + .nc-settings-switch::after { transform: translateX(1rem); }
 .nc-admin-diagnostics > header button { display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border: 1px solid var(--color-border); border-radius: .625rem; background: var(--color-surface); color: var(--color-text-secondary); }
 .nc-admin-diagnostics > .nc-admin-table-wrap { max-height: calc(90vh - 7rem); }
 .nc-admin-members-dialog { width: min(62rem,100%); }
+.nc-admin-move-user-dialog { width: min(36rem,100%); }
+.nc-admin-move-user-dialog form { display: grid; gap: var(--space-16); padding: var(--space-20) var(--space-24) var(--space-24); }
+.nc-admin-move-user-dialog label { display: grid; gap: var(--space-6); color: var(--color-text-secondary); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
+.nc-admin-move-user-dialog select { width: 100%; min-height: 2.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: 0 var(--space-12); background: var(--color-surface); color: var(--color-text); }
+.nc-admin-move-warning { display: flex; align-items: flex-start; gap: var(--space-12); border: 1px solid var(--color-warning-border); border-radius: .75rem; padding: var(--space-12); background: var(--color-warning-soft); color: var(--color-warning); }
+.nc-admin-move-warning > i { margin-top: .2rem; }
+.nc-admin-move-warning strong, .nc-admin-move-warning span { display: block; }
+.nc-admin-move-warning span { margin-top: var(--space-4); color: var(--color-text-secondary); font-size: var(--type-caption); font-weight: var(--weight-regular); }
+.nc-admin-move-user-dialog footer { display: flex; justify-content: flex-end; gap: var(--space-8); border-top: 1px solid var(--color-border); padding-top: var(--space-16); }
+.nc-admin-move-user-dialog footer button { display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; gap: var(--space-8); border-radius: var(--radius-control); padding: 0 var(--space-16); background: var(--color-primary); color: var(--color-on-primary); font-weight: var(--weight-semibold); }
+.nc-admin-move-user-dialog footer button.secondary { border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.nc-admin-move-user-dialog footer button:disabled { background: var(--color-disabled-bg); color: var(--color-disabled); }
 .nc-equipment-diagnostics { width: min(94rem,100%); max-height: 92vh; }
 .nc-equipment-diagnostics-body { max-height: calc(92vh - 6.5rem); overflow: auto; padding: var(--space-20) var(--space-24) var(--space-24); }
 .nc-equipment-kpis { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); margin-bottom: var(--space-20); overflow: hidden; border: 1px solid var(--color-border); border-radius: .875rem; background: var(--color-surface); }

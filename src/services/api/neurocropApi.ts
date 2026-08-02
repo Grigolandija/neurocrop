@@ -53,6 +53,7 @@ export const neurocropApi = {
   grantPlatformAdmin: (payload: Payload) => request('/platform/admins', { method: 'POST', body: json(payload) }),
   revokePlatformAdmin: (id: string) => request(`/platform/admins/${encoded(id)}`, { method: 'DELETE' }),
   setPlatformUserActive: (id: string, active: boolean) => request(`/platform/users/${encoded(id)}/status`, { method: 'PATCH', body: json({ active }) }),
+  movePlatformUser: (id: string, payload: Payload) => request(`/platform/users/${encoded(id)}/organization`, { method: 'PATCH', body: json(payload) }),
   deletePlatformUser: (id: string) => request(`/platform/users/${encoded(id)}?confirm=delete`, { method: 'DELETE' }),
   getDashboard: () => request('/dashboard'),
   getTodayActions: (sectionId?: string) => request(`/actions/today${queryString({ sectionId })}`),

@@ -1618,6 +1618,25 @@ test('platform user deletion removes external identity and every user-owned acce
   assert.ok(clerkDelete < localDelete, 'Clerk identity must be removed before the local account can be deleted');
 });
 
+test('super administrators can move a user between organizations without leaving orphaned access', () => {
+  const source = fs.readFileSync(new URL('../organization-routes.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.patch('/platform/users/:userId/organization'");
+  const route = source.slice(routeStart, source.indexOf("app.get('/platform/organization-requests'", routeStart));
+
+  assert.ok(routeStart >= 0);
+  assert.match(route, /requireSuperAdmin/);
+  assert.match(route, /PROTECTED_ACCOUNT/);
+  assert.match(route, /ARCHIVED_ORGANIZATION/);
+  assert.match(route, /SOLE_ORGANIZATION_OWNER/);
+  assert.match(route, /DELETE FROM action_assignments WHERE assigned_to=\$1 AND organization_id<>\$2/);
+  assert.match(route, /DELETE FROM organization_memberships WHERE user_id=\$1/);
+  assert.match(route, /INSERT INTO organization_memberships/);
+  assert.match(route, /UPDATE auth_sessions SET revoked_at/);
+  assert.match(route, /DELETE FROM clerk_session_contexts WHERE user_id=\$1/);
+  assert.match(route, /status='cancelled'/);
+  assert.match(route, /COMMIT/);
+});
+
 test('push notification routes are authenticated, tenant scoped and deduplicate alert delivery', () => {
   const source = fs.readFileSync(new URL('../push-notifications.js', import.meta.url), 'utf8');
   const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
