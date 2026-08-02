@@ -594,12 +594,13 @@ export default function TrendsWorkspace() {
   useEffect(() => {
     const nextAreaId = dashboardState.context.areaId
     const nextSectionId = dashboardState.context.sectionId
-    const next = resolveTrendContext(sections, areaId, sectionId, nextAreaId, nextSectionId)
+    if (!nextAreaId && !nextSectionId) return
+    const next = resolveTrendContext(sections, nextAreaId, nextSectionId, nextAreaId, nextSectionId)
     queueMicrotask(() => {
-      if (next.areaId !== areaId) setAreaId(next.areaId)
-      if (next.sectionId !== sectionId) setSectionId(next.sectionId)
+      setAreaId((current) => current === next.areaId ? current : next.areaId)
+      setSectionId((current) => current === next.sectionId ? current : next.sectionId)
     })
-  }, [areaId, dashboardState.context.areaId, dashboardState.context.sectionId, sectionId, sections])
+  }, [dashboardState.context.areaId, dashboardState.context.sectionId, sections])
 
   useEffect(() => {
     if (location.pathname === '/history' && (areaId || sectionId)) {
@@ -609,11 +610,8 @@ export default function TrendsWorkspace() {
 
   useEffect(() => {
     if (!sections.length) return
-    const exactSection = sections.find((section) => section.id === sectionId)
-    if (exactSection) {
-      if (areaId !== exactSection.areaId) queueMicrotask(() => setAreaId(exactSection.areaId))
-      return
-    }
+    const exactSection = sections.find((section) => section.id === sectionId && section.areaId === areaId)
+    if (exactSection) return
     const validSection = sections.find((section) => section.areaId === areaId) || sections[0]
     queueMicrotask(() => {
       setAreaId(validSection.areaId)
@@ -918,21 +916,40 @@ export default function TrendsWorkspace() {
   })()
   const exportHasData = exportSeries.some((series) => series.points.length)
 
-  function changeArea(nextAreaId: string) {
-    setAreaId(nextAreaId)
-    const firstSection = sections.find((section) => section.areaId === nextAreaId)
-    if (firstSection) setSectionId(firstSection.id)
+  function activateSection(section: Section, remember: boolean) {
+    const nextMetricKey = section.available.has(metricKey)
+      ? metricKey
+      : metrics.find((metric) => section.available.has(metric.key))?.key || metricKey
+    setAreaId(section.areaId)
+    setSectionId(section.id)
+    setDashboardContext({ areaId: section.areaId, sectionId: section.id })
+    if (remember) setRecentSectionIds((current) => [section.id, ...current.filter((id) => id !== section.id)].slice(0, 5))
+    if (nextMetricKey !== metricKey) setMetricKey(nextMetricKey)
+    setSecondaryMetricKeys((current) => current.filter((key) => section.available.has(key) && key !== nextMetricKey).slice(0, 2))
+    setSelectedNodeIds([])
+    setScope('section')
     setCompare(false)
+    setComparison([])
+    setComparisonIds([])
+    setNodeSeries([])
+    setPoints([])
+    setMetricHistories({})
+    setMetricAggregations({})
+    setAnalytics(null)
+    setUpdatedAt(null)
+    setError('')
+    setStatus('loading')
+  }
+
+  function changeArea(nextAreaId: string) {
+    const firstSection = sections.find((section) => section.areaId === nextAreaId)
+    if (firstSection) activateSection(firstSection, false)
   }
 
   function changeSection(nextSectionId: string) {
     const section = sections.find((item) => item.id === nextSectionId)
     if (!section) return
-    setSectionId(section.id)
-    setAreaId(section.areaId)
-    setRecentSectionIds((current) => [section.id, ...current.filter((id) => id !== section.id)].slice(0, 5))
-    if (!section.available.has(metricKey)) setMetricKey(metrics.find((metric) => section.available.has(metric.key))?.key || metricKey)
-    setSecondaryMetricKeys((current) => current.filter((key) => section.available.has(key)).slice(0, 2))
+    activateSection(section, true)
   }
 
   function toggleMetric(nextMetricKey: string) {
