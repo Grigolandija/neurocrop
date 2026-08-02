@@ -1803,6 +1803,8 @@ test('Readings loads Sections through one batch with a bounded compatibility fal
   assert.match(client, /getLatestReadingsBatch/);
   assert.match(workspace, /getLatestReadingsBatch\(sections\.map/);
   assert.match(workspace, /missingSections = sections\.filter/);
+  assert.match(workspace, /\['NO_DATA', 'NO_NODES'\]/);
+  assert.match(workspace, /!expectedEmptySections\.has\(section\.id\)/);
   assert.match(workspace, /mapWithConcurrency\(missingSections, 2/);
   assert.match(workspace, /getLatestReadings\(section\.id\)/);
 });

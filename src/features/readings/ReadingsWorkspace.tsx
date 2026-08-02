@@ -156,15 +156,21 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item
 
 async function loadLatestReadings(sections: SectionReading[]) {
   const readings: Record<string, JsonRecord> = {}
+  const expectedEmptySections = new Set<string>()
 
   if (sections.length) {
     try {
       const batch = await neurocropApi.getLatestReadingsBatch(sections.map((section) => section.id)) as {
         readings?: Record<string, JsonRecord>
+        errors?: Record<string, { status?: number; code?: string }>
       }
       sections.forEach((section) => {
         const latest = batch?.readings?.[section.id]
         if (latest && typeof latest === 'object') readings[section.id] = latest
+        const error = batch?.errors?.[section.id]
+        if (Number(error?.status) === 404 && ['NO_DATA', 'NO_NODES'].includes(String(error?.code))) {
+          expectedEmptySections.add(section.id)
+        }
       })
     } catch {
       // A mixed-version deployment can temporarily have the new frontend before
@@ -173,7 +179,9 @@ async function loadLatestReadings(sections: SectionReading[]) {
     }
   }
 
-  const missingSections = sections.filter((section) => !readings[section.id])
+  const missingSections = sections.filter((section) => (
+    !readings[section.id] && !expectedEmptySections.has(section.id)
+  ))
   const fallbacks = await mapWithConcurrency(missingSections, 2, async (section) => {
     try {
       const latest = await neurocropApi.getLatestReadings(section.id) as JsonRecord
@@ -189,7 +197,7 @@ async function loadLatestReadings(sections: SectionReading[]) {
   return sections.map((section) => ({
     id: section.id,
     latest: readings[section.id] || null,
-    loadFailed: !readings[section.id],
+    loadFailed: !readings[section.id] && !expectedEmptySections.has(section.id),
   }))
 }
 
