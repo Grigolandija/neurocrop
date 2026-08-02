@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { ModalPortal } from '../../components/ModalPortal'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { useWorkspaceAccess } from '../../state/workspaceAccess'
+import { withStarterMetrics } from '../settings/cropProfileDefaults'
 import '../../styles/sections-workspace.css'
 
 // Management payloads can contain both dashboard and API naming conventions.
@@ -34,13 +35,14 @@ type SectionRow = {
   expectedIntervalSec: number
   configuredMetrics: Set<string>
   availableMetrics: Set<string>
+  requiredMetrics: Set<string>
 }
 type EditorState = { mode: 'create' | 'edit'; id?: string; name: string; areaId: string; profileId: string }
 type Feedback = { tone: 'success' | 'warning'; message: string } | null
 
 const metricGroups = {
   climate: ['airTemp', 'humidity', 'vpd', 'leafTemp'],
-  root: ['soilMoisture', 'soilTemp', 'ec', 'ph', 'waterTemp'],
+  root: ['soilMoisture', 'soilTemp', 'ec', 'soilEc', 'ph', 'waterTemp'],
   lighting: ['lux'],
   co2: ['co2'],
   system: ['batteryLevel'],
@@ -123,7 +125,9 @@ function formatFreshness(section: SectionRow) {
 }
 
 function readiness(section: SectionRow): Readiness {
-  if (!section.hasProfile || section.nodeCount === 0) return 'unconfigured'
+  if (!section.hasProfile || section.requiredMetrics.size === 0 || section.nodeCount === 0) return 'unconfigured'
+  const installed = new Set([...section.configuredMetrics, ...section.availableMetrics])
+  if ([...section.requiredMetrics].some((key) => !installed.has(key))) return 'attention'
   if (section.reportingCount < section.nodeCount || formatFreshness(section).state !== 'live') return 'attention'
   return 'ready'
 }
@@ -131,7 +135,9 @@ function readiness(section: SectionRow): Readiness {
 function readinessCopy(section: SectionRow) {
   const state = readiness(section)
   if (state === 'ready') return { label: 'Ready', detail: 'Profile, hardware and data aligned' }
-  if (state === 'unconfigured') return { label: 'Not configured', detail: section.nodeCount ? 'Crop profile required' : 'No nodes assigned' }
+  if (state === 'unconfigured') return { label: 'Not configured', detail: section.nodeCount ? 'Crop profile requirements missing' : 'No nodes assigned' }
+  const installed = new Set([...section.configuredMetrics, ...section.availableMetrics])
+  if ([...section.requiredMetrics].some((key) => !installed.has(key))) return { label: 'Needs attention', detail: 'Sensor coverage gap' }
   return { label: 'Needs attention', detail: section.reportingCount < section.nodeCount ? 'Hardware reporting gap' : 'Latest data is delayed' }
 }
 
@@ -139,8 +145,8 @@ function profileMetricKeys(profile: ProfileOption | undefined) {
   return new Set(Object.entries(profile?.metrics || {}).filter(([, definition]) => !(definition as JsonRecord)?.configured === false).map(([key]) => key))
 }
 
-function coverageFor(section: SectionRow, profile: ProfileOption | undefined, keys: readonly string[]): CoverageState {
-  const required = [...profileMetricKeys(profile)].filter((key) => keys.includes(key))
+function coverageFor(section: SectionRow, keys: readonly string[]): CoverageState {
+  const required = [...section.requiredMetrics].filter((key) => keys.includes(key))
   if (!required.length) return 'optional'
   const installed = new Set([...section.configuredMetrics, ...section.availableMetrics])
   const covered = required.filter((key) => installed.has(key)).length
@@ -258,7 +264,7 @@ export default function SectionsWorkspace() {
 
         const profileRows = recordArray(profilePayload, ['profiles', 'items']).map((profile): ProfileOption => {
           const id = profileIdentity(profile)
-          return { id, name: text(profile.name || id, 'Unnamed profile'), crop: text(profile.crop || profile.cropName || profile.crop_name), stage: text(profile.stage || profile.growthStage || profile.growth_stage), metrics: profile.metrics || {} }
+          return { id, name: text(profile.name || id, 'Unnamed profile'), crop: text(profile.crop || profile.cropName || profile.crop_name), stage: text(profile.stage || profile.growthStage || profile.growth_stage), metrics: withStarterMetrics(profile.metrics) }
         }).filter((profile) => profile.id)
         const profileMap = new Map(profileRows.map((profile) => [profile.id, profile]))
         const nodes = recordArray(nodePayload, ['nodes', 'items'])
@@ -292,6 +298,7 @@ export default function SectionsWorkspace() {
             profileName: profile?.name || text(merged.profileName || merged.profile_name, 'No profile'), hasProfile: Boolean(profile), crop: profile?.crop || '', stage: profile?.stage || '',
             nodes: sectionNodes, nodeCount: explicitNodeCount, reportingCount: 0, lastReceivedAt: latest, expectedIntervalSec,
             configuredMetrics: metricKeys(merged.configuredMetrics || merged.configured_metrics), availableMetrics: metricKeys(merged.availableMetrics || merged.available_metrics),
+            requiredMetrics: profileMetricKeys(profile),
           }
           const reporting = sectionNodes.filter((node) => {
             const nodeLatest = latestTimestamp([node.lastReceivedAt, node.last_received_at, node.lastSeen, node.last_seen])
@@ -475,8 +482,7 @@ export default function SectionsWorkspace() {
               const expanded = expandedId === section.id
               const fresh = formatFreshness(section)
               const ready = readinessCopy(section)
-              const profile = profiles.find((item) => item.id === section.profileId)
-              const coverage = Object.fromEntries(Object.entries(metricGroups).map(([key, keys]) => [key, coverageFor(section, profile, keys)])) as Record<keyof typeof metricGroups, CoverageState>
+              const coverage = Object.fromEntries(Object.entries(metricGroups).map(([key, keys]) => [key, coverageFor(section, keys)])) as Record<keyof typeof metricGroups, CoverageState>
               return <article className={expanded ? 'expanded' : ''} key={section.id}>
                 <div className={`nc-section-row ${view}`}>
                   <label><input type="checkbox" checked={selectedIds.includes(section.id)} onChange={() => toggleSelected(section.id)} aria-label={`Select ${section.name}`} /></label>
