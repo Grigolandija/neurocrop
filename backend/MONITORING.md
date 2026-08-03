@@ -37,4 +37,6 @@ The system uses two independent layers:
 - the VPS systemd timer checks API, ingest, MQTT, PostgreSQL, containers, disk, backup and restore freshness;
 - `.github/workflows/uptime.yml` checks the public API from outside the VPS, so a full server or network outage is still reported.
 
-Configure GitHub repository secrets `RESEND_API_KEY` and `MONITOR_EMAIL_TO` (`agrigas1@gmail.com`) before enabling external alerts.
+The GitHub workflow stores the previous external availability state in an Actions cache. It sends one outage email when a failure is first confirmed, suppresses duplicate outage emails while the failure continues, and sends one recovery email with the outage duration when both public probes become healthy again.
+
+Configure GitHub repository secrets `RESEND_API_KEY` and `MONITOR_EMAIL_TO` (`agrigas1@gmail.com`) before enabling external transition emails.

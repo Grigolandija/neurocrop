@@ -16,12 +16,21 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   health:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+      - name: Restore previous uptime state
+        uses: actions/cache/restore@v4
+        with:
+          path: .uptime-state
+          key: production-uptime-state-${{ github.run_id }}
+          restore-keys: |
+            production-uptime-state-
       - name: Check public API
         id: api
         continue-on-error: true
@@ -71,31 +80,63 @@ jobs:
             test "$attempt" = 5 || sleep 15
           done
           exit 1
-      - name: Send outage email
-        if: steps.api.outcome == 'failure' || steps.frontend.outcome == 'failure'
+      - name: Determine availability transition
+        id: transition
+        if: always()
+        env:
+          API_OUTCOME: ${{ steps.api.outcome }}
+          FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}
+        run: |
+          current=healthy
+          if test "$API_OUTCOME" = failure || test "$FRONTEND_OUTCOME" = failure; then current=outage; fi
+          result=$(node scripts/uptime-state.mjs .uptime-state/state.json "$current")
+          echo "current=$(jq -r '.current' <<<"$result")" >> "$GITHUB_OUTPUT"
+          echo "transition=$(jq -r '.transition' <<<"$result")" >> "$GITHUB_OUTPUT"
+          echo "checked_at=$(jq -r '.checkedAt' <<<"$result")" >> "$GITHUB_OUTPUT"
+          echo "outage_started_at=$(jq -r '.outageStartedAt // ""' <<<"$result")" >> "$GITHUB_OUTPUT"
+          echo "duration_seconds=$(jq -r '.durationSeconds' <<<"$result")" >> "$GITHUB_OUTPUT"
+      - name: Save current uptime state
+        if: always() && steps.transition.outputs.current != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .uptime-state
+          key: production-uptime-state-${{ github.run_id }}
+      - name: Send availability transition email
+        if: steps.transition.outputs.transition == 'outage' || steps.transition.outputs.transition == 'recovery'
         continue-on-error: true
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MONITOR_EMAIL_TO: ${{ secrets.MONITOR_EMAIL_TO }}
           API_OUTCOME: ${{ steps.api.outcome }}
           FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}
+          TRANSITION: ${{ steps.transition.outputs.transition }}
+          CHECKED_AT: ${{ steps.transition.outputs.checked_at }}
+          OUTAGE_STARTED_AT: ${{ steps.transition.outputs.outage_started_at }}
+          DURATION_SECONDS: ${{ steps.transition.outputs.duration_seconds }}
         run: |
           if test -z "$RESEND_API_KEY" || test -z "$MONITOR_EMAIL_TO"; then
-            echo "::warning::Uptime email was not sent because monitor secrets are missing."
+            echo "::warning::Availability email was not sent because monitor secrets are missing."
             exit 0
+          fi
+          if test "$TRANSITION" = recovery; then
+            subject='[NeuroCrop] Platform operational again'
+            minutes=$(( (DURATION_SECONDS + 59) / 60 ))
+            message="NeuroCrop is reachable again as of ${CHECKED_AT}. Confirmed outage started at ${OUTAGE_STARTED_AT} and lasted approximately ${minutes} minute(s). API: ${API_OUTCOME}; frontend: ${FRONTEND_OUTCOME}."
+          else
+            subject='[NeuroCrop] Confirmed production availability failure'
+            message="External probes confirmed a production availability failure at ${CHECKED_AT}. API: ${API_OUTCOME}; frontend: ${FRONTEND_OUTCOME}. Check DNS, VPS, Caddy, Docker and application containers."
           fi
           payload=$(jq -n \
             --arg to "$MONITOR_EMAIL_TO" \
-            --arg time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg api "$API_OUTCOME" \
-            --arg frontend "$FRONTEND_OUTCOME" \
-            '{from:"NeuroCrop Monitor <monitor@neurocrop.lt>",to:[$to],subject:"[NeuroCrop] Confirmed production availability failure",text:("Three-attempt external probe failed at " + $time + ". API: " + $api + "; frontend: " + $frontend + ". Check DNS, VPS, Caddy, Docker and application containers.")}')
+            --arg subject "$subject" \
+            --arg message "$message" \
+            '{from:"NeuroCrop Monitor <monitor@neurocrop.lt>",to:[$to],subject:$subject,text:$message}')
           curl --fail --show-error --silent https://api.resend.com/emails \
             -H "Authorization: Bearer $RESEND_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$payload"
       - name: Fail confirmed outage
-        if: steps.api.outcome == 'failure' || steps.frontend.outcome == 'failure'
+        if: steps.transition.outputs.current == 'outage'
         env:
           API_OUTCOME: ${{ steps.api.outcome }}
           FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}

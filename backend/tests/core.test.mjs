@@ -9,6 +9,7 @@ import { validateCropProfileMetrics } from '../validation.js';
 import { createMemoryRateLimiter } from '../rate-limit.js';
 import { METRIC_TO_COLUMN } from '../metrics.js';
 import { buildNodeHealth, expectedUplinkIntervalSec, gatewayAssociationStatus, normalizeErrorCounters, normalizeErrorFlags } from '../node-health.js';
+import { advanceUptimeState } from '../../scripts/uptime-state.mjs';
 import {
   buildTodayActions,
   evaluateActionOutcome,
@@ -350,9 +351,30 @@ test('production uptime confirms failures and cannot let notification errors mas
   assert.match(workflow, /test -s \/tmp\/neurocrop-frontend\.html/);
   assert.doesNotMatch(workflow, /<title>NeuroCrop Control Center<\/title>/);
   assert.match(workflow, /id: frontend/);
-  assert.match(workflow, /name: Send outage email\n\s+if:[\s\S]*?continue-on-error: true/);
+  assert.match(workflow, /name: Send availability transition email\n\s+if:[\s\S]*?continue-on-error: true/);
+  assert.match(workflow, /actions\/cache\/restore@v4/);
+  assert.match(workflow, /actions\/cache\/save@v4/);
+  assert.match(workflow, /Platform operational again/);
   assert.match(workflow, /name: Fail confirmed outage/);
   assert.match(workflow, /API=\$API_OUTCOME frontend=\$FRONTEND_OUTCOME/);
+});
+
+test('production uptime state emits one outage and one recovery transition', () => {
+  const startedAt = '2026-08-03T02:25:00.000Z';
+  const failed = advanceUptimeState(null, 'outage', startedAt);
+  assert.equal(failed.result.transition, 'outage');
+  assert.equal(failed.state.outageStartedAt, startedAt);
+
+  const stillFailed = advanceUptimeState(failed.state, 'outage', '2026-08-03T02:30:00.000Z');
+  assert.equal(stillFailed.result.transition, 'none');
+  assert.equal(stillFailed.state.outageStartedAt, startedAt);
+
+  const recovered = advanceUptimeState(stillFailed.state, 'healthy', '2026-08-03T02:32:30.000Z');
+  assert.equal(recovered.result.transition, 'recovery');
+  assert.equal(recovered.result.durationSeconds, 450);
+
+  const staysHealthy = advanceUptimeState(recovered.state, 'healthy', '2026-08-03T02:40:00.000Z');
+  assert.equal(staysHealthy.result.transition, 'none');
 });
 
 test('platform monitor does not treat customer node availability as a VPS outage', () => {
