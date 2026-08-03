@@ -114,10 +114,12 @@ function storedHiddenKeys() {
   }
 }
 
-function matchingPreset(keys: string[]) {
-  return presets.find((preset) =>
-    preset.keys.length === keys.length && preset.keys.every((key, index) => key === keys[index])
-  )?.key || 'custom'
+function matchingPreset(keys: string[], availableKeys: string[]) {
+  const available = new Set(availableKeys)
+  return presets.find((preset) => {
+    const availablePresetKeys = preset.keys.filter((key) => available.has(key))
+    return availablePresetKeys.length === keys.length && availablePresetKeys.every((key, index) => key === keys[index])
+  })?.key || 'custom'
 }
 
 const qualityLabels: Record<ReadingQuality, string> = {
@@ -679,18 +681,21 @@ export default function ReadingsWorkspace() {
     }
   }, [hiddenKeys])
 
-  const effectiveVisibleKeys = useMemo(() => {
-    const detectedKeys = metrics.filter((metric) => sections.some((section) =>
+  const metricScopeSections = useMemo(() => sections.filter((section) =>
+    areaFilter === 'all' || section.areaId === areaFilter
+  ), [sections, areaFilter])
+  const availableMetricKeys = useMemo(() => metrics.filter((metric) => metricScopeSections.some((section) =>
       section.availableMetrics.has(metric.key)
         || section.configuredMetrics.has(metric.key)
         || getObservation(section, metric) !== null
         || getValue(section, metric) !== null
-    )).map((metric) => metric.key)
-    return metrics.map((metric) => metric.key).filter((key) =>
-      !hiddenKeys.includes(key) && (visibleKeys.includes(key) || detectedKeys.includes(key))
-    )
-  }, [sections, hiddenKeys, visibleKeys])
-  const activePreset = matchingPreset(effectiveVisibleKeys)
+    )).map((metric) => metric.key), [metricScopeSections])
+  const availableMetricKeySet = useMemo(() => new Set(availableMetricKeys), [availableMetricKeys])
+  const effectiveVisibleKeys = useMemo(() => {
+    const selected = availableMetricKeys.filter((key) => !hiddenKeys.includes(key))
+    return selected.length ? selected : availableMetricKeys.slice(0, 1)
+  }, [availableMetricKeys, hiddenKeys])
+  const activePreset = matchingPreset(effectiveVisibleKeys, availableMetricKeys)
 
   useEffect(() => {
     let cancelled = false
@@ -886,16 +891,17 @@ export default function ReadingsWorkspace() {
   const matrixStyle = { gridTemplateColumns: `minmax(15rem,1.3fr) repeat(${visibleMetrics.length},minmax(7.5rem,.7fr)) minmax(7.75rem,.72fr) 2.5rem`, minWidth: `${27 + visibleMetrics.length * 8}rem` }
   function selectPreset(preset: typeof presets[number]) {
     const presetKeys = new Set<string>(preset.keys)
-    setVisibleKeys([...preset.keys])
+    const availablePresetKeys = preset.keys.filter((key) => availableMetricKeySet.has(key))
+    if (!availablePresetKeys.length) return
+    setVisibleKeys(availablePresetKeys)
     setHiddenKeys(metrics.map((metric) => metric.key).filter((key) => !presetKeys.has(key)))
   }
 
   function toggleMetric(key: string) {
+    if (!availableMetricKeySet.has(key)) return
     const isVisible = effectiveVisibleKeys.includes(key)
     if (isVisible && effectiveVisibleKeys.length === 1) return
-    setVisibleKeys(isVisible
-      ? effectiveVisibleKeys.filter((item) => item !== key)
-      : metrics.map((metric) => metric.key).filter((metricKey) => effectiveVisibleKeys.includes(metricKey) || metricKey === key))
+    setVisibleKeys((current) => isVisible ? current.filter((item) => item !== key) : [...new Set([...current, key])])
     setHiddenKeys((hidden) => isVisible
       ? (hidden.includes(key) ? hidden : [...hidden, key])
       : hidden.filter((item) => item !== key))
@@ -948,7 +954,13 @@ export default function ReadingsWorkspace() {
         <div className="nc-readings-control-actions"><button type="button" className={attentionOnly ? 'active' : ''} onClick={() => setAttentionOnly(!attentionOnly)}><i className="fa-solid fa-filter" />{tx("Needs attention")}</button><label className="nc-sort"><span>{tx("Sort")}</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="severity">{tx("Most outside target")}</option><option value="freshest">{tx("Freshest data")}</option><option value="oldest">{tx("Oldest data")}</option><option value="area">{tx("Area")}</option><option value="section">{tx("Section")}</option></select></label></div>
       </div>
       <>
-        <div className="nc-readings-viewbar"><div className="nc-reading-presets">{presets.map((preset) => <button type="button" className={activePreset === preset.key ? 'active' : ''} onClick={() => selectPreset(preset)} key={preset.key}><i className={`fa-solid ${preset.icon}`} />{preset.label}<b>{preset.keys.length}</b></button>)}</div><div className="nc-column-control"><button type="button" className={columnsOpen ? 'active' : ''} onClick={() => setColumnsOpen(!columnsOpen)}><i className="fa-solid fa-table-columns" />{tx("Columns")} <b>{visibleMetrics.length}/13</b></button>{columnsOpen ? <div className="nc-column-menu"><header><strong>{tx("Visible parameters")}</strong><button onClick={() => setColumnsOpen(false)} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>{(['climate', 'root', 'lighting', 'system'] as const).map((group) => <fieldset key={group}><legend>{group === 'root' ?tx("Root zone") : group}</legend>{metrics.filter((metric) => metric.group === group).map((metric) => <label key={metric.key}><input type="checkbox" checked={effectiveVisibleKeys.includes(metric.key)} onChange={() => toggleMetric(metric.key)} /><i className={`fa-solid ${metric.icon}`} /><span>{metric.label}</span><small>{metric.unit}</small></label>)}</fieldset>)}</div> : null}</div></div>
+        <div className="nc-readings-viewbar"><div className="nc-reading-presets">{presets.map((preset) => {
+          const availableCount = preset.keys.filter((key) => availableMetricKeySet.has(key)).length
+          return <button type="button" className={activePreset === preset.key ? 'active' : ''} onClick={() => selectPreset(preset)} disabled={!availableCount} key={preset.key}><i className={`fa-solid ${preset.icon}`} />{preset.label}<b>{availableCount}</b></button>
+        })}</div><div className="nc-column-control"><button type="button" className={columnsOpen ? 'active' : ''} onClick={() => setColumnsOpen(!columnsOpen)}><i className="fa-solid fa-table-columns" />{tx("Columns")} <b>{visibleMetrics.length}/{availableMetricKeys.length}</b></button>{columnsOpen ? <div className="nc-column-menu"><header><strong>{tx("Visible parameters")}</strong><button onClick={() => setColumnsOpen(false)} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>{(['climate', 'root', 'lighting', 'system'] as const).map((group) => <fieldset key={group}><legend>{group === 'root' ?tx("Root zone") : group}</legend>{metrics.filter((metric) => metric.group === group).map((metric) => {
+          const available = availableMetricKeySet.has(metric.key)
+          return <label className={available ? '' : 'unavailable'} aria-disabled={!available} title={available ? undefined :tx("No sensors for this parameter in the selected Area")} key={metric.key}><input type="checkbox" checked={available && effectiveVisibleKeys.includes(metric.key)} disabled={!available} onChange={() => toggleMetric(metric.key)} /><i className={`fa-solid ${metric.icon}`} /><span>{metric.label}</span><small>{available ? metric.unit :tx("Unavailable")}</small></label>
+        })}</fieldset>)}</div> : null}</div></div>
         <div className="nc-reading-display-row"><div className="nc-segmented" role="group" aria-label={tx("Reading display")}><button className={mode === 'value' ? 'active' : ''} onClick={() => setMode('value')}>{tx("Values")}</button><button className={mode === 'target' ? 'active' : ''} onClick={() => setMode('target')}>{tx("Against target")}</button><button className={mode === 'change' ? 'active' : ''} onClick={() => setMode('change')}>{tx("1h change")}</button></div><div className="nc-reading-legend"><span><i data-state="good" />{tx("Within crop target")}</span><span><i data-state="watch" />{tx("Outside target")}</span><span><i data-state="critical" />{tx("Critical")}</span><span><b />{tx("Data quality marker")}</span></div></div>
         <div className="nc-readings-matrix-scroll">
           <div className="nc-readings-row nc-readings-row-head" style={matrixStyle}><span>{tx("Section")}</span>{visibleMetrics.map((metric) => <span key={metric.key}>{metric.short}<small>{metric.unit}</small></span>)}<span>{tx("Latest data")}</span><span /></div>
