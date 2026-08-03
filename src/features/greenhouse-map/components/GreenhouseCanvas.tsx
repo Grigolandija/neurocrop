@@ -716,6 +716,14 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   }, [contourPaths, map.dimensions.lengthM, map.dimensions.widthM, map.heatmapSettings.metric, orderedObjects, view.scale, visibleLayers])
   const average = points.length ? points.reduce((sum, point) => sum + point.value, 0) / points.length : null
   const targetState = average === null || !target ? 'unknown' : average < target[0] ? 'low' : average > target[1] ? 'high' : 'optimal'
+  const targetMarker = heatmap && target && heatmap.max > heatmap.min && target[1] >= heatmap.min && target[0] <= heatmap.max
+    ? (() => {
+        const scaleRange = heatmap.max - heatmap.min
+        const left = Math.max(0, Math.min(1, (target[0] - heatmap.min) / scaleRange))
+        const right = Math.max(0, Math.min(1, (target[1] - heatmap.min) / scaleRange))
+        return { left: `${left * 100}%`, width: `${Math.max((right - left) * 100, 0.8)}%` }
+      })()
+    : null
   const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
   const editable = mode === 'layout' && !readOnly
   const heatmapLegend = mode === 'environment' ? <div className={`gh-heatmap-legend ${compactLegend ? 'gh-heatmap-legend-compact' : ''}`}>
@@ -723,7 +731,15 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     {heatmap ? <>
       <div className="gh-legend-scale">
         <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)} title={tr('Contour spacing adapts to the measured range and data coverage.', 'Izolinijų žingsnis prisitaiko prie matuojamo diapazono ir duomenų padengimo.')}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {heatmap.contourInterval} {METRICS[map.heatmapSettings.metric].unit}</button>
-        <div className="gh-color-scale" style={{ background: scaleGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric], [heatmap.observedMin, heatmap.observedMax]) }} />
+        <div className="gh-color-scale-wrap">
+          <div className="gh-color-scale" style={{ background: scaleGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric], [heatmap.observedMin, heatmap.observedMax]) }} />
+          {targetMarker ? <span
+            className="gh-target-range-marker"
+            style={targetMarker}
+            title={`${tr('Crop target', 'Augalo tikslas')}: ${target?.[0]}–${target?.[1]} ${METRICS[map.heatmapSettings.metric].unit}`}
+            aria-hidden="true"
+          /> : null}
+        </div>
         <div className="gh-legend-range"><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>
       </div>
       <div className="gh-legend-meta">

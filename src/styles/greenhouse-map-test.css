@@ -165,7 +165,13 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-contour-toggle { display: flex; align-items: center; gap: 5px; width: 100%; margin-bottom: 8px; border: 1px solid #cbd4cd; padding: 5px 7px; color: #607169; background: #f4f6f3; font: 600 8px 'IBM Plex Mono'; }
 .gh-contour-toggle.active { border-color: #7da08f; color: #285f4b; background: #e7f0e9; }
 .gh-contour-toggle:disabled { cursor: not-allowed; opacity: .48; }
+.gh-color-scale-wrap { position: relative; }
 .gh-color-scale { height: 8px; border: 1px solid rgba(0,0,0,.08); }
+.gh-target-range-marker {
+  position: absolute; top: -3px; bottom: -3px; min-width: 3px; border-inline: 2px solid rgba(22,47,39,.92);
+  background: repeating-linear-gradient(135deg,rgba(255,255,255,.34) 0,rgba(255,255,255,.34) 3px,rgba(22,47,39,.18) 3px,rgba(22,47,39,.18) 5px);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.7); pointer-events: none;
+}
 .gh-legend-range { display: flex; justify-content: space-between; margin-top: 4px; font: 500 8px 'IBM Plex Mono'; }
 .gh-legend-meta p { margin: 8px 0 5px; color: #4d6058; font-size: 9px; }
 .gh-legend-meta em { display: block; color: #79684d; font-size: 8px; line-height: 1.35; }

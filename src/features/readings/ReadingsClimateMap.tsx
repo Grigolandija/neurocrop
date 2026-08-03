@@ -1,6 +1,7 @@
 import { translateInterfaceText as tx } from '../../i18n'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { getMetricIdByHeatmapKey } from '../../domain/metricRegistry'
 import { useInterfaceLanguage } from '../../i18n'
 import GreenhouseCanvas from '../greenhouse-map/components/GreenhouseCanvas'
 import { getMetricMeasurementValue } from '../greenhouse-map/heatmap/heatmapMetrics'
@@ -189,6 +190,25 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
     ? (history?.frames.flatMap((frame) => frame.nodes.map((node) => node.measurements)) ?? [])
     : (context?.nodes.map((node) => node.measurements) ?? []), [context?.nodes, history?.frames, timeMode])
   const selectedMetric = metric
+  const selectedMetricId = getMetricIdByHeatmapKey(selectedMetric)
+  const target = useMemo<[number, number] | undefined>(() => {
+    if (!context || !selectedMetricId) return undefined
+    const profileByReference = new Map(context.profiles.flatMap((profile) => [
+      [profile.id, profile] as const,
+      [profile.name, profile] as const,
+    ]))
+    const ranges = context.sections.flatMap((section) => {
+      const profile = section.cropProfile ? profileByReference.get(section.cropProfile) : undefined
+      const optimal = profile?.metrics[selectedMetricId]?.optimal
+      return optimal && Number.isFinite(optimal[0]) && Number.isFinite(optimal[1]) && optimal[0] <= optimal[1]
+        ? [optimal]
+        : []
+    })
+    if (!ranges.length) return undefined
+    const sharedLow = Math.max(...ranges.map((range) => range[0]))
+    const sharedHigh = Math.min(...ranges.map((range) => range[1]))
+    return sharedLow <= sharedHigh ? [sharedLow, sharedHigh] : undefined
+  }, [context, selectedMetricId])
   const availableSoilEcDepths = useMemo(() => [...new Set(measurementSets.flatMap((measurements) =>
     measurements?.soilEcByDepth?.map((reading) => reading.depthCm) ?? []))].sort((left, right) => left - right), [measurementSets])
   const selectedSoilEcDepthCm = selectedMetric === 'soil-ec' && availableSoilEcDepths.length
@@ -330,6 +350,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         onAdd={() => undefined}
         onRenderReady={handleCanvasRenderReady}
         referenceTime={historyFrameEnd}
+        target={target}
       />
     </div>
     <div className="nc-climate-soil-section-slot" ref={setSoilProfileHost} />

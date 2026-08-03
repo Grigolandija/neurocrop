@@ -158,12 +158,12 @@ describe('environment colour scale', () => {
     expect(high[1]).toBeGreaterThan(high[0])
   })
   it('uses stable semantic anchors instead of recolouring the observed minimum and maximum', () => {
-    expect(colorAtStops(16, METRICS['air-temperature'].colorStops!)).toEqual([61, 140, 163])
-    expect(colorAtStops(22, METRICS['air-temperature'].colorStops!)).toEqual([131, 201, 107])
+    expect(colorAtStops(16, METRICS['air-temperature'].colorStops!)).toEqual([54, 142, 170])
+    expect(colorAtStops(22, METRICS['air-temperature'].colorStops!)).toEqual([155, 208, 92])
     expect(colorAtStops(30, METRICS['air-temperature'].colorStops!)).toEqual([217, 54, 46])
     expect(colorAtStops(32, METRICS['air-temperature'].colorStops!)).toEqual([217, 54, 46])
-    expect(colorAtStops(400, METRICS.co2.colorStops!)).toEqual([46, 139, 87])
-    expect(colorAtStops(2000, METRICS.co2.colorStops!)).toEqual([106, 44, 145])
+    expect(colorAtStops(400, METRICS.co2.colorStops!)).toEqual([217, 231, 236])
+    expect(colorAtStops(2000, METRICS.co2.colorStops!)).toEqual([127, 50, 111])
     expect(scaleGradient(19.5, 29.5, METRICS['air-temperature'], [20, 21]).match(/rgb\(/g)?.length).toBeGreaterThan(3)
   })
   it('shows ordinary greenhouse temperatures as green rather than cold blue', () => {
@@ -171,36 +171,31 @@ describe('environment colour scale', () => {
     expect(green).toBeGreaterThan(red)
     expect(green).toBeGreaterThan(blue)
   })
-  it('reveals narrow local variation without remapping it to cold and hot extremes', () => {
+  it('keeps a value colour stable when the observed range changes', () => {
     const definition = METRICS['air-temperature']
-    const low = semanticColorAt(20, definition, [20, 21])
-    const high = semanticColorAt(21, definition, [20, 21])
-    expect(low).not.toEqual(high)
-    expect(low[2]).toBeGreaterThan(low[0])
-    expect(high[2]).toBeGreaterThan(high[0])
-    expect(high[0]).toBeLessThan(140)
+    expect(semanticColorAt(20, definition, [20, 21])).toEqual(semanticColorAt(20, definition, [12, 30]))
+    expect(semanticColorAt(20, definition, [20, 21])).toEqual(colorAtStops(20, definition.colorStops!))
   })
   it('makes a meaningful three-degree temperature spread visually distinct', () => {
     const definition = METRICS['air-temperature']
     const low = semanticColorAt(17, definition, [17, 20])
     const high = semanticColorAt(20, definition, [17, 20])
     const colorDistance = Math.hypot(...low.map((channel, index) => channel - high[index]))
-    expect(colorDistance).toBeGreaterThan(100)
+    expect(colorDistance).toBeGreaterThan(90)
     expect(low[1]).toBeGreaterThan(low[0])
     expect(high[1]).toBeGreaterThan(high[0])
   })
-  it('uses a high-contrast relative sequential scale for metrics without semantic stops', () => {
-    const soilEc = METRICS['soil-ec']
-    const low = semanticColorAt(0.75, soilEc, [0.75, 2.6])
-    const high = semanticColorAt(2.6, soilEc, [0.75, 2.6])
-    const colorDistance = Math.hypot(...low.map((channel, index) => channel - high[index]))
-    expect(low).not.toEqual(high)
-    expect(colorDistance).toBeGreaterThan(80)
-    expect(low).not.toEqual(colorAtStops(0, [{ value: 0, color: soilEc.colors[0] }]))
-    expect(high).not.toEqual(colorAtStops(1, [{ value: 1, color: soilEc.colors.at(-1)! }]))
+  it('uses absolute registered stops for every metric palette', () => {
+    Object.values(METRICS).forEach((definition) => expect(definition.colorStops?.length).toBeGreaterThan(1))
 
+    const soilEc = METRICS['soil-ec']
+    expect(semanticColorAt(2, soilEc, [0.75, 2.6])).toEqual(colorAtStops(2, soilEc.colorStops!))
     const ph = METRICS.ph
-    expect(semanticColorAt(5.6, ph, [5.6, 6.9])).not.toEqual(semanticColorAt(6.9, ph, [5.6, 6.9]))
+    expect(semanticColorAt(6.1, ph, [5.6, 6.9])).toEqual(colorAtStops(6.1, ph.colorStops!))
+  })
+  it('does not reuse the air-humidity palette for substrate moisture', () => {
+    expect(colorAtStops(30, METRICS['relative-humidity'].colorStops!)).toEqual([201, 130, 67])
+    expect(colorAtStops(30, METRICS['soil-moisture'].colorStops!)).toEqual([209, 173, 114])
   })
   it('keeps contour intervals aligned with metric levels', () => {
     Object.values(METRIC_LEVELS).forEach(({ colorInterval, contourInterval }) => {

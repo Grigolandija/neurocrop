@@ -36,39 +36,18 @@ export function colorAtStops(value: number, stops: ReadonlyArray<{ value: number
 
 type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops' | 'colorInterval'>
 
-function blendColor(color: [number, number, number], target: [number, number, number], amount: number): [number, number, number] {
-  return color.map((channel, index) =>
-    Math.round(channel + (target[index] - channel) * Math.max(0, Math.min(1, amount))),
-  ) as [number, number, number]
-}
-
 export function semanticColorAt(value: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): [number, number, number] {
   const absoluteBase = definition.colorStops?.length
     ? colorAtStops(value, definition.colorStops)
     : colorAt(value, definition.bounds[0], definition.bounds[1], definition.colors)
-  if (!observedRange || observedRange[1] - observedRange[0] < 1e-6) return absoluteBase
+  // Registered stops are absolute: the same physical value must always have the
+  // same colour, regardless of what other values happen to be visible today.
+  if (definition.colorStops?.length || !observedRange || observedRange[1] - observedRange[0] < 1e-6) return absoluteBase
 
   const observedSpan = observedRange[1] - observedRange[0]
   const localPosition = Math.max(0, Math.min(1, (value - observedRange[0]) / observedSpan))
-  if (!definition.colorStops?.length) {
-    const relativePalettePosition = 0.12 + localPosition * 0.7
-    return colorAt(relativePalettePosition, 0, 1, definition.colors)
-  }
-
-  const semanticMin = definition.colorStops?.[0]?.value ?? definition.bounds[0]
-  const semanticMax = definition.colorStops?.at(-1)?.value ?? definition.bounds[1]
-  const semanticSpan = Math.max(semanticMax - semanticMin, 1e-6)
-  const narrowness = Math.max(0, Math.min(1, 1 - observedSpan / (semanticSpan * 0.35)))
-  const meaningfulSpan = Math.max(definition.colorInterval * 3, 1e-6)
-  const significance = Math.max(0, Math.min(1, observedSpan / meaningfulSpan))
-  const localContrast = Math.max(Math.sqrt(narrowness), significance)
-
-  if (localPosition < 0.5) {
-    const strength = 0.34 + significance * 0.22
-    return blendColor(absoluteBase, [255, 255, 255], (0.5 - localPosition) * 2 * localContrast * strength)
-  }
-  const strength = 0.28 + significance * 0.22
-  return blendColor(absoluteBase, [24, 38, 45], (localPosition - 0.5) * 2 * localContrast * strength)
+  const relativePalettePosition = 0.12 + localPosition * 0.7
+  return colorAt(relativePalettePosition, 0, 1, definition.colors)
 }
 
 export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): string {
