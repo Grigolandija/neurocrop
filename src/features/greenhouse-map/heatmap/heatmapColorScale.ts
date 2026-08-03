@@ -34,7 +34,7 @@ export function colorAtStops(value: number, stops: ReadonlyArray<{ value: number
   ) as [number, number, number]
 }
 
-type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops'>
+type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops' | 'colorInterval'>
 
 function blendColor(color: [number, number, number], target: [number, number, number], amount: number): [number, number, number] {
   return color.map((channel, index) =>
@@ -59,12 +59,16 @@ export function semanticColorAt(value: number, definition: SemanticScaleDefiniti
   const semanticMax = definition.colorStops?.at(-1)?.value ?? definition.bounds[1]
   const semanticSpan = Math.max(semanticMax - semanticMin, 1e-6)
   const narrowness = Math.max(0, Math.min(1, 1 - observedSpan / (semanticSpan * 0.35)))
-  const localContrast = Math.sqrt(narrowness)
+  const meaningfulSpan = Math.max(definition.colorInterval * 3, 1e-6)
+  const significance = Math.max(0, Math.min(1, observedSpan / meaningfulSpan))
+  const localContrast = Math.max(Math.sqrt(narrowness), significance)
 
   if (localPosition < 0.5) {
-    return blendColor(absoluteBase, [255, 255, 255], (0.5 - localPosition) * 2 * localContrast * 0.34)
+    const strength = 0.34 + significance * 0.22
+    return blendColor(absoluteBase, [255, 255, 255], (0.5 - localPosition) * 2 * localContrast * strength)
   }
-  return blendColor(absoluteBase, [24, 38, 45], (localPosition - 0.5) * 2 * localContrast * 0.28)
+  const strength = 0.28 + significance * 0.22
+  return blendColor(absoluteBase, [24, 38, 45], (localPosition - 0.5) * 2 * localContrast * strength)
 }
 
 export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): string {

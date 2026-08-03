@@ -204,6 +204,7 @@ export type HeatmapMetricDefinition = {
   bounds: [number, number]
   colors: readonly string[]
   colorStops?: ReadonlyArray<{ value: number; color: string }>
+  colorInterval: number
 }
 
 export const METRICS = createHeatmapMetricDefinitions() as unknown as Record<MetricKey, HeatmapMetricDefinition>

@@ -179,6 +179,15 @@ describe('environment colour scale', () => {
     expect(high[2]).toBeGreaterThan(high[0])
     expect(high[0]).toBeLessThan(140)
   })
+  it('makes a meaningful three-degree temperature spread visually distinct', () => {
+    const definition = METRICS['air-temperature']
+    const low = semanticColorAt(17, definition, [17, 20])
+    const high = semanticColorAt(20, definition, [17, 20])
+    const colorDistance = Math.hypot(...low.map((channel, index) => channel - high[index]))
+    expect(colorDistance).toBeGreaterThan(100)
+    expect(low[1]).toBeGreaterThan(low[0])
+    expect(high[1]).toBeGreaterThan(high[0])
+  })
   it('uses a high-contrast relative sequential scale for metrics without semantic stops', () => {
     const soilEc = METRICS['soil-ec']
     const low = semanticColorAt(0.75, soilEc, [0.75, 2.6])
