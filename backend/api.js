@@ -2234,16 +2234,11 @@ async function buildLatestReadings(requestedSectionId, organizationId, timing = 
     });
 
     const currentDevEuis = currentSamples.map((sample) => normalizeDevEui(sample.node.dev_eui));
+    const currentMeasurementTimes = currentSamples.map((sample) => sample.measurement.time);
     const { rows: oneHourBaselineRows } = currentDevEuis.length
       ? await query(
-        `WITH latest AS (
-           SELECT DISTINCT ON (dev_eui) dev_eui, time
-           FROM measurements
-           WHERE dev_eui = ANY($1::text[])
-           ORDER BY dev_eui, time DESC
-         )
-         SELECT baseline.*
-         FROM latest
+        `SELECT baseline.*
+         FROM unnest($1::text[], $2::timestamptz[]) latest(dev_eui, time)
          JOIN LATERAL (
            SELECT measurement.*
            FROM measurements measurement
@@ -2253,7 +2248,7 @@ async function buildLatestReadings(requestedSectionId, organizationId, timing = 
            ORDER BY ABS(EXTRACT(EPOCH FROM (measurement.time - (latest.time - INTERVAL '1 hour'))))
            LIMIT 1
          ) baseline ON TRUE`,
-        [currentDevEuis]
+        [currentDevEuis, currentMeasurementTimes]
       )
       : { rows: [] };
     timing?.mark('baseline', 'one hour baseline');

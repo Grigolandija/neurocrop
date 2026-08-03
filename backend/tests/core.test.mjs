@@ -1799,6 +1799,9 @@ test('latest readings expose a one-hour change from a bounded historical baselin
   const routeStart = source.indexOf("app.get('/readings/latest'");
   const route = source.slice(routeStart, source.indexOf("function historicalSensorPresenceCondition", routeStart));
   assert.ok(routeStart >= 0);
+  assert.match(route, /currentMeasurementTimes = currentSamples\.map/);
+  assert.match(route, /unnest\(\$1::text\[\], \$2::timestamptz\[\]\) latest\(dev_eui, time\)/);
+  assert.doesNotMatch(route, /DISTINCT ON \(dev_eui\)/);
   assert.match(route, /INTERVAL '1 hour'/);
   assert.match(route, /INTERVAL '80 minutes'/);
   assert.match(route, /INTERVAL '40 minutes'/);
