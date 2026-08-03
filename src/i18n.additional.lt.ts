@@ -57,6 +57,7 @@ export const additionalLtTranslations: Readonly<Record<string, string>> = Object
   'registered': 'registruoti',
   'lowest': 'mažiausia',
   'No sensors for this parameter in the selected Area': 'Pasirinktoje erdvėje nėra šio parametro sensorių',
+  'Section average': 'Sekcijos vidurkis',
   'Reusable target ranges that turn sensor readings into crop-specific status and scores.': 'Pakartotinai naudojami tiksliniai diapazonai, paverčiantys sensorių rodmenis konkrečios kultūros būsena ir balais.',
   'Select replacement profile': 'Pasirinkite pakaitinį profilį',
   'Select 2–6 Sections in': 'Pasirinkite 2–6 sekcijas:',
