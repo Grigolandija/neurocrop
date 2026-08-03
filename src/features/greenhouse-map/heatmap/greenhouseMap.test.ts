@@ -160,7 +160,8 @@ describe('environment colour scale', () => {
   it('uses stable semantic anchors instead of recolouring the observed minimum and maximum', () => {
     expect(colorAtStops(16, METRICS['air-temperature'].colorStops!)).toEqual([61, 140, 163])
     expect(colorAtStops(22, METRICS['air-temperature'].colorStops!)).toEqual([131, 201, 107])
-    expect(colorAtStops(32, METRICS['air-temperature'].colorStops!)).toEqual([216, 69, 52])
+    expect(colorAtStops(30, METRICS['air-temperature'].colorStops!)).toEqual([217, 54, 46])
+    expect(colorAtStops(32, METRICS['air-temperature'].colorStops!)).toEqual([217, 54, 46])
     expect(colorAtStops(400, METRICS.co2.colorStops!)).toEqual([46, 139, 87])
     expect(colorAtStops(2000, METRICS.co2.colorStops!)).toEqual([106, 44, 145])
     expect(scaleGradient(19.5, 29.5, METRICS['air-temperature'], [20, 21]).match(/rgb\(/g)?.length).toBeGreaterThan(3)
