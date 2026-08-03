@@ -262,7 +262,9 @@ function getObservation(section: SectionReading, metric: Metric): JsonRecord | n
 
 function getValue(section: SectionReading, metric: Metric): number | null {
   if (metric.key === 'batteryLevel') {
-    const levels = section.nodes.map((node) => numeric(node.level ?? node.batteryPercent)).filter((value): value is number => value !== null)
+    const reportingNodes = section.nodes.filter((node) => node.active !== false && String(node.health?.state || '').toLowerCase() !== 'offline')
+    const batteryNodes = reportingNodes.length ? reportingNodes : section.nodes
+    const levels = batteryNodes.map((node) => numeric(node.level ?? node.batteryPercent)).filter((value): value is number => value !== null)
     if (levels.length) return Math.min(...levels)
   }
   const observation = getObservation(section, metric)
@@ -392,10 +394,12 @@ function nodeMetricQuality(section: SectionReading, node: JsonRecord, metric: Me
   const observedAt = source?.observedAt || (metric.key === 'batteryLevel' ? node.lastReceivedAt || node.lastSeen : null)
   const observedMs = observedAt ? new Date(observedAt).getTime() : NaN
   if (!Number.isFinite(observedMs) || getNodeMetricValue(section, node, metric) === null) return 'no-data'
+  const transportQuality = nodeTransportQuality(section, node)
+  if (transportQuality === 'offline') return 'offline'
   const expected = Math.max(30, numeric(source?.expectedIntervalSec) || numeric(section.latest?.expectedUplinkIntervalSec) || 600)
   const age = Math.max(0, (Date.now() - observedMs) / 1000)
   if (age > expected * 6) return 'offline'
-  if (age > expected * 2.5) return 'stale'
+  if (transportQuality === 'stale' || age > expected * 2.5) return 'stale'
   return 'live'
 }
 
@@ -425,6 +429,21 @@ function nodeLatestTimestamp(section: SectionReading, node: JsonRecord) {
     .sort((left, right) => right.time - left.time)[0]?.value || null
 }
 
+function nodeTransportQuality(section: SectionReading, node: JsonRecord): Extract<ReadingQuality, 'live' | 'stale' | 'offline'> {
+  const healthState = String(node.health?.state || '').toLowerCase()
+  const healthLabel = String(node.health?.label || node.health?.detail || '').toLowerCase()
+  if (node.active === false || healthState === 'offline' || healthLabel.includes('offline') || healthLabel.includes('no recent uplink')) return 'offline'
+  if (healthLabel.includes('delayed') || healthLabel.includes('stale')) return 'stale'
+  const latestAt = nodeLatestTimestamp(section, node)
+  const latestMs = latestAt ? new Date(latestAt).getTime() : NaN
+  if (!Number.isFinite(latestMs)) return 'offline'
+  const expected = Math.max(30, numeric(section.latest?.expectedUplinkIntervalSec) || 600)
+  const age = Math.max(0, (Date.now() - latestMs) / 1000)
+  if (age > expected * 6) return 'offline'
+  if (age > expected * 2.5) return 'stale'
+  return 'live'
+}
+
 function nodeAssignedPlaces(section: SectionReading, node: JsonRecord) {
   const places = metrics.flatMap((metric) => {
     const source = getNodeSource(section, node, metric)
@@ -441,6 +460,9 @@ const naturalPlaceCollator = new Intl.Collator(undefined, {
 })
 
 function compareNodesByAssignedPlace(section: SectionReading, left: JsonRecord, right: JsonRecord) {
+  const qualityOrder = { live: 0, stale: 1, offline: 2 }
+  const qualityDifference = qualityOrder[nodeTransportQuality(section, left)] - qualityOrder[nodeTransportQuality(section, right)]
+  if (qualityDifference) return qualityDifference
   const leftPlace = nodeAssignedPlaces(section, left)[0]?.trim() || ''
   const rightPlace = nodeAssignedPlaces(section, right)[0]?.trim() || ''
   if (!leftPlace && rightPlace) return 1
@@ -466,9 +488,9 @@ function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }
       const nodeId = String(node.devEui || node.dev_eui || node.id || index)
       const assignedPlaces = nodeAssignedPlaces(section, node)
       const latestAt = nodeLatestTimestamp(section, node)
-      const nodeQualities = visibleMetrics.map((metric) => nodeMetricQuality(section, node, metric))
-      const overallQuality = nodeQualities.includes('live') ? 'live' : nodeQualities.includes('stale') ? 'stale' : 'offline'
-      return <div className="nc-node-measurement" style={matrixStyle} key={nodeId}>
+      const overallQuality = nodeTransportQuality(section, node)
+      const freshnessLabel = overallQuality === 'offline' ?tx("Offline") : overallQuality === 'stale' ?tx("Delayed") :tx("Current")
+      return <div className="nc-node-measurement" data-quality={overallQuality} style={matrixStyle} key={nodeId}>
         <div className="nc-node-measurement-identity">
           <span className="nc-node-branch" aria-hidden="true" />
           <i className="fa-solid fa-microchip" aria-hidden="true" />
@@ -484,12 +506,13 @@ function NodeMeasurementsPanel({ section, profile, visibleMetrics, matrixStyle }
               || contextLabel !== assignedPlaces[0]
           )
           const qualityLabel = quality === 'live' ? 'Current' : quality === 'stale' ? 'Delayed' : value === null ? 'No data' : 'Last known'
-          return <div className="nc-node-measurement-value" data-tone={nodeMetricTone(value, metric, profile)} data-quality={quality} aria-label={`${metric.label}: ${value === null ? 'No data' : `${formatValue(value, metric)} ${metric.unit}`}. ${qualityLabel}`} key={metric.key}>
+          return <div className="nc-node-measurement-value" data-tone={quality === 'live' ? nodeMetricTone(value, metric, profile) : 'neutral'} data-quality={quality} aria-label={`${metric.label}: ${value === null ? 'No data' : `${formatValue(value, metric)} ${metric.unit}`}. ${qualityLabel}`} key={metric.key}>
             <strong>{value === null ?tx("No data") : <><span>{formatValue(value, metric)}</span><small>{metric.unit}</small></>}</strong>
+            {quality !== 'live' && value !== null ? <em className="nc-node-last-known">{tx(qualityLabel)}</em> : null}
             {showContextLabel ? <em className="nc-reading-target-label" title={`${tx("Separate measurement")}: ${contextLabel}`}><i className="fa-solid fa-location-dot" />{tx(contextLabel)}</em> : null}
           </div>
         })}
-        <span className="nc-node-measurement-freshness" data-quality={overallQuality}><strong>{formatTimestampAge(latestAt)}</strong></span>
+        <span className="nc-node-measurement-freshness" data-quality={overallQuality}><strong>{freshnessLabel}</strong><small>{formatTimestampAge(latestAt)}</small></span>
         <span className="nc-node-measurement-end" />
       </div>
     }) : <p className="nc-node-measurement-empty">{tx("No Nodes are assigned to this Section.")}</p>}
@@ -542,9 +565,10 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
   } else if (mode === 'change') {
     display = delta === null ? 'No 1h baseline' : `${delta > 0 ? '+' : ''}${formatValue(delta, metric)} ${metric.unit} / 1h`
   }
-  const showAverage = mode === 'value' && value !== null
+  const summaryLabel = metric.key === 'batteryLevel' ? 'lowest' : 'avg'
+  const showSummaryLabel = mode === 'value' && value !== null
   return <button type="button" className="nc-reading-cell" data-tone={tone} data-quality={quality} onClick={onOpenTrend} title={`Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={`Open ${section.name} ${metric.label} trend`}>
-    <strong>{tx(display)}{showAverage ? <small className="nc-reading-average">{tx("avg")}</small> : null}</strong><i aria-label={qualityLabels[quality]} />
+    <strong>{tx(display)}{showSummaryLabel ? <small className="nc-reading-average">{tx(summaryLabel)}</small> : null}</strong><i aria-label={qualityLabels[quality]} />
   </button>
 }
 
@@ -970,7 +994,7 @@ export default function ReadingsWorkspace() {
               <div className={`nc-readings-row ${expanded ? 'expanded' : ''}`} style={matrixStyle}>
                 <div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => toggleSectionNodes(section.id)} title={`${section.name} · ${section.areaName} · ${section.profileName}`} aria-expanded={expanded} aria-controls={`nc-section-nodes-${section.id}`}><strong>{section.name}</strong></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-pressed={pinned.includes(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>
                 {visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openTrendPreview(section, metric)} key={metric.key} />)}
-                <span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)} · {section.nodes.length ? `${section.nodes.length} nodes` :tx("No nodes")}</strong></span>
+                <span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{formatAge(section)} · {section.nodes.length ? <>{numeric(section.latest?.reportingNodes) ?? section.nodes.filter((node) => node.active !== false).length} {tx("reporting")} · {numeric(section.latest?.registeredNodes) ?? section.nodes.length} {tx("registered")}</> :tx("No nodes")}</strong></span>
                 <button className="nc-reading-open" onClick={() => toggleSectionNodes(section.id)} aria-expanded={expanded} aria-controls={`nc-section-nodes-${section.id}`} aria-label={`${expanded ? 'Hide' : 'Show'} ${section.name} node measurements`}><i className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} /></button>
               </div>
               {expanded ? <NodeMeasurementsPanel section={section} profile={profiles.get(section.profileId)} visibleMetrics={visibleMetrics} matrixStyle={matrixStyle} /> : null}
