@@ -3,6 +3,14 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { getMetricDefinition, profileMetricIds } from '../../domain/metricRegistry'
 import { withStarterMetrics } from './cropProfileDefaults'
+import {
+  createMetricsFromLibraryTemplate,
+  cropProfileLibrary,
+  cropProfileLibraryCrops,
+  cropProfileLibraryVersion,
+  libraryProfileHint,
+  type CropProfileLibraryTemplate,
+} from './cropProfileLibrary'
 import '../../styles/redesign-profiles.css'
 
 // Profile metric payloads are intentionally extensible for new firmware sensors.
@@ -122,6 +130,7 @@ export default function CropProfilesWorkspace() {
   const [draft, setDraft] = useState<ProfileDraft | null>(null)
   const [editorSection, setEditorSection] = useState('climate')
   const [expandedMetric, setExpandedMetric] = useState('')
+  const [libraryOpen, setLibraryOpen] = useState(false)
   const [createState, setCreateState] = useState<CreateState | null>(null)
   const [duplicateState, setDuplicateState] = useState<DuplicateState | null>(null)
   const [deleteState, setDeleteState] = useState<DeleteState | null>(null)
@@ -186,10 +195,26 @@ export default function CropProfilesWorkspace() {
     optimal[bound] = value
     if (optimal[0] >= optimal[1]) return
     const alerts = automaticRanges(metricKey, metric, optimal)
+    const currentTarget = Number(metric.target)
+    const target = Number.isFinite(currentTarget)
+      ? Math.min(optimal[1], Math.max(optimal[0], currentTarget))
+      : round((optimal[0] + optimal[1]) / 2, metricMeta(metricKey, metric).decimals)
     setDraft({
       ...draft,
       requiresReview: false,
-      metrics: { ...draft.metrics, [metricKey]: { ...metric, optimal, ...alerts } },
+      metrics: { ...draft.metrics, [metricKey]: { ...metric, target, optimal, ...alerts } },
+    })
+  }
+
+  function updateTarget(metricKey: string, value: number) {
+    if (!draft || !Number.isFinite(value)) return
+    const metric = draft.metrics[metricKey]
+    const optimal = range(metric, 'optimal')
+    if (value < optimal[0] || value > optimal[1]) return
+    setDraft({
+      ...draft,
+      requiresReview: false,
+      metrics: { ...draft.metrics, [metricKey]: { ...metric, target: value } },
     })
   }
 
@@ -250,6 +275,43 @@ export default function CropProfilesWorkspace() {
     }
   }
 
+  async function createFromLibrary(template: CropProfileLibraryTemplate) {
+    if (busy) return
+    const baseId = slug(template.profile_id.replace('.', '-'))
+    let id = baseId
+    let suffix = 2
+    while (profiles.some((profile) => profile.id === id)) id = `${baseId}-${suffix++}`
+    const name = `${template.crop.name_en} · ${template.phase.name_en}`
+    setBusy(true); setError('')
+    try {
+      const payload = await neurocropApi.createCropProfile({
+        id,
+        name,
+        heroName: template.crop.name_en,
+        stage: template.phase.name_en,
+        hint: libraryProfileHint(template),
+        requiresReview: true,
+        metrics: createMetricsFromLibraryTemplate(template),
+      }) as { profile?: JsonRecord }
+      const created = normalizeProfile(payload.profile || {
+        id,
+        name,
+        heroName: template.crop.name_en,
+        stage: template.phase.name_en,
+        hint: libraryProfileHint(template),
+        requiresReview: true,
+        metrics: createMetricsFromLibraryTemplate(template),
+      })
+      setLibraryOpen(false); setSelectedId(created.id); setDraft(created)
+      setFeedback(`${created.name} created from library v${cropProfileLibraryVersion}. Review the targets before assigning sections.`)
+      setRefreshToken((value) => value + 1)
+    } catch (mutationError) {
+      setError(errorMessage(mutationError, 'Library profile could not be created.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function duplicateProfile(event: FormEvent) {
     event.preventDefault()
     if (!duplicateState || busy) return
@@ -291,7 +353,7 @@ export default function CropProfilesWorkspace() {
   if (status === 'error' && !profiles.length) return <div className="crop-profile-standalone nc-profile-state" data-react-crop-profiles role="alert"><h2>{tx("Crop profiles could not be loaded")}</h2><p>{error}</p><button className="settings-secondary-button" onClick={() => setRefreshToken((value) => value + 1)}>{tx("Try again")}</button></div>
 
   if (!selected || !draft) return <div className="crop-profile-standalone" data-react-crop-profiles><section className="crop-profiles-page" aria-labelledby="settingsProfilesTitle">
-    <header className="crop-profiles-page-head"><div><p className="profile-page-eyebrow">{tx("Agronomic configuration")}</p><h2 id="settingsProfilesTitle">{tx("Crop profiles")}</h2><p>{tx("Reusable target ranges that turn sensor readings into crop-specific status and scores.")}</p></div><div className="crop-profiles-page-actions"><button type="button" className="settings-primary-button" onClick={() => setCreateState({ name: '', heroName: '', stage: '', sourceId: profiles[0]?.id || '' })}><i className="fa-solid fa-plus" />{tx("Create profile")}</button></div></header>
+    <header className="crop-profiles-page-head"><div><p className="profile-page-eyebrow">{tx("Agronomic configuration")}</p><h2 id="settingsProfilesTitle">{tx("Crop profiles")}</h2><p>{tx("Reusable target ranges that turn sensor readings into crop-specific status and scores.")}</p></div><div className="crop-profiles-page-actions"><button type="button" className="settings-secondary-button" onClick={() => setCreateState({ name: '', heroName: '', stage: '', sourceId: profiles[0]?.id || '' })}><i className="fa-solid fa-pen-ruler" />{tx("Custom profile")}</button><button type="button" className="settings-primary-button" onClick={() => { setError(''); setLibraryOpen(true) }}><i className="fa-solid fa-book-open" />{tx("Profile library")}</button></div></header>
     {feedback ? <p className="crop-profile-save-feedback" data-tone="success" role="status">{feedback}</p> : null}
     {error ? <p className="crop-profile-save-feedback" data-tone="warning" role="alert">{error}</p> : null}
     <div className="profile-layout"><aside className="profile-guide"><p className="profile-eyebrow">{tx("Profile logic")}</p><h3>{tx("One source of truth for every crop stage.")}</h3><p>{tx("Profiles define ideal ranges, warning boundaries, critical limits, photoperiod, and sensor coverage expectations.")}</p><ol><li><span>1</span>{tx("Set targets")}</li><li><span>2</span>{tx("Assign sections")}</li><li><span>3</span>{tx("Monitor score")}</li></ol></aside>
@@ -300,6 +362,7 @@ export default function CropProfilesWorkspace() {
         return <button type="button" className="crop-profile-switcher-option" onClick={() => openProfile(profile)} key={profile.id}><span className="crop-monogram">{(profile.heroName || profile.name).slice(0, 2).toUpperCase()}</span><span className="profile-list-identity"><strong>{profile.name}</strong><small>{profile.heroName} · {profile.stage || 'No growth stage'}</small></span><span className="profile-list-assignment">{count} {tx("section")}{count === 1 ? '' : 's'}</span><span className="profile-list-status" data-tone={count ? 'active' : 'draft'}>{count ?tx("Active") : 'Draft'}</span><span className="profile-list-edit">{tx("Edit")} <i className="fa-solid fa-arrow-right" /></span></button>
       })}</section>
     </div>
+    {libraryOpen ? <LibraryDialog busy={busy} error={error} onClose={() => setLibraryOpen(false)} onUse={createFromLibrary} /> : null}
     {createState ? <CreateDialog state={createState} profiles={profiles} busy={busy} error={error} onChange={setCreateState} onClose={() => setCreateState(null)} onSubmit={createProfile} /> : null}
   </section></div>
 
@@ -311,7 +374,7 @@ export default function CropProfilesWorkspace() {
     <section className="crop-profile-identity-editor"><header><p>{tx("Profile details")}</p><span>{tx("Name this program for how it is actually used in your workspace.")}</span></header><div className="crop-profile-detail-fields"><label><span>{tx("Profile name")}</span><input value={draft.id === 'default' ? 'Default' : draft.name} readOnly={draft.id === 'default'} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label><span>{tx("Crop")}</span><input value={draft.heroName} onChange={(event) => setDraft({ ...draft, heroName: event.target.value })} /></label><label><span>{tx("Growth stage")}</span><input value={draft.stage} onChange={(event) => setDraft({ ...draft, stage: event.target.value })} /></label></div></section>
     <div className="crop-profile-editor-grid profile-editor-new"><aside className="profile-editor-navigation"><p>{tx("Profile sections")}</p>{sections.map((section, index) => <button type="button" data-active={section.id === activeEditorSection.id} onClick={() => { setEditorSection(section.id); setExpandedMetric('') }} key={section.id}><span>{index + 1}</span>{section.label}<i className="fa-solid fa-chevron-right" /></button>)}</aside>
       <main className="crop-profile-editor-main"><header className="crop-profile-editor-section-head"><div><p>{activeEditorSection.kicker}</p><h3>{activeEditorSection.title}</h3></div></header><p className="profile-editor-intro">{activeEditorSection.note}</p>
-        {activeEditorSection.id === 'alert-boundaries' ? <BoundaryList profile={draft} /> : <div className="range-editor-list">{visibleMetricKeys.map((key) => <MetricEditor key={key} metricKey={key} metric={draft.metrics[key]} expanded={expandedMetric === key} onExpand={() => setExpandedMetric(expandedMetric === key ? '' : key)} onOptimal={updateOptimal} onLighting={updateLighting} />)}</div>}
+        {activeEditorSection.id === 'alert-boundaries' ? <BoundaryList profile={draft} /> : <div className="range-editor-list">{visibleMetricKeys.map((key) => <MetricEditor key={key} metricKey={key} metric={draft.metrics[key]} expanded={expandedMetric === key} onExpand={() => setExpandedMetric(expandedMetric === key ? '' : key)} onOptimal={updateOptimal} onTarget={updateTarget} onLighting={updateLighting} />)}</div>}
       </main>
     </div>
   </form>
@@ -320,14 +383,15 @@ export default function CropProfilesWorkspace() {
   </section></div>
 }
 
-function MetricEditor({ metricKey, metric, expanded, onExpand, onOptimal, onLighting }: { metricKey: string; metric: JsonRecord; expanded: boolean; onExpand: () => void; onOptimal: (key: string, bound: 0 | 1, value: number) => void; onLighting: (field: string, value: string | number | boolean) => void }) {
+function MetricEditor({ metricKey, metric, expanded, onExpand, onOptimal, onTarget, onLighting }: { metricKey: string; metric: JsonRecord; expanded: boolean; onExpand: () => void; onOptimal: (key: string, bound: 0 | 1, value: number) => void; onTarget: (key: string, value: number) => void; onLighting: (field: string, value: string | number | boolean) => void }) {
   const meta = metricMeta(metricKey, metric)
   const optimal = range(metric, 'optimal')
   const warning = range(metric, 'warning')
   const critical = range(metric, 'critical')
+  const target = Number.isFinite(Number(metric.target)) ? Number(metric.target) : round((optimal[0] + optimal[1]) / 2, meta.decimals)
   const step = meta.decimals === 0 ? 1 : 10 ** -meta.decimals
   const schedule = metric.lightingSchedule || {}
-  return <div className="range-editor crop-profile-metric-row" data-expanded={expanded}><div className="crop-profile-metric-name"><strong>{meta.label}</strong><span>{meta.unit}</span></div><label className="range-editor-field"><span>{tx("Optimal minimum")}</span><input className="profile-target-input" type="number" step={step} value={optimal[0]} onChange={(event) => onOptimal(metricKey, 0, Number(event.target.value))} /></label><label className="range-editor-field"><span>{tx("Optimal maximum")}</span><input className="profile-target-input" type="number" step={step} value={optimal[1]} onChange={(event) => onOptimal(metricKey, 1, Number(event.target.value))} /></label><button type="button" className="range-editor-more" onClick={onExpand} aria-expanded={expanded}><i className="fa-solid fa-ellipsis-vertical" /></button>
+  return <div className="range-editor crop-profile-metric-row" data-expanded={expanded}><div className="crop-profile-metric-name"><strong>{meta.label}</strong><span>{meta.unit}</span></div><label className="range-editor-field"><span>{tx("Minimum")}</span><input className="profile-target-input" type="number" step={step} value={optimal[0]} onChange={(event) => onOptimal(metricKey, 0, Number(event.target.value))} /></label><label className="range-editor-field range-editor-target"><span>{tx("Target")}</span><input className="profile-target-input" type="number" step={step} min={optimal[0]} max={optimal[1]} value={target} onChange={(event) => onTarget(metricKey, Number(event.target.value))} /></label><label className="range-editor-field"><span>{tx("Maximum")}</span><input className="profile-target-input" type="number" step={step} value={optimal[1]} onChange={(event) => onOptimal(metricKey, 1, Number(event.target.value))} /></label><button type="button" className="range-editor-more" onClick={onExpand} aria-expanded={expanded}><i className="fa-solid fa-ellipsis-vertical" /></button>
     <div className="range-editor-advanced" hidden={!expanded}><div className="crop-profile-metric-boundary crop-profile-metric-warning"><b>{tx("Warning")}</b>{formatRange(warning, meta.unit)}</div><div className="crop-profile-metric-boundary crop-profile-metric-critical"><b>{tx("Critical")}</b>{formatRange(critical, meta.unit)}</div><p>{tx("These boundaries follow the saved optimal range and update automatically.")}</p></div>
     {metricKey === 'lux' ? <div className="crop-profile-lighting-schedule" data-enabled={schedule.enabled === true}><div className="lighting-schedule-head"><div><strong>{tx("Day / night schedule")}</strong><span>{tx("This schedule shades night-time periods in Trends. Enable lighting alerts only when darkness during daytime should be treated as a fault.")}</span></div><label className="lighting-schedule-toggle"><input type="checkbox" checked={schedule.enabled === true} onChange={(event) => onLighting('enabled', event.target.checked)} /><span className="lighting-toggle-track"><i /></span><span>{tx("Use for lighting alerts")}</span></label></div><div className="lighting-schedule-fields"><label><span>{tx("Day starts")}</span><input type="time" value={schedule.start || '06:00'} onChange={(event) => onLighting('start', event.target.value)} /></label><label><span>{tx("Night starts")}</span><input type="time" value={schedule.end || '22:00'} onChange={(event) => onLighting('end', event.target.value)} /></label><label><span>{tx("Dark threshold")}</span><div className="lighting-threshold-input"><input type="number" min={0} step={10} value={schedule.darkThresholdLux ?? 100} onChange={(event) => onLighting('darkThresholdLux', Number(event.target.value))} /><small>lx</small></div></label></div></div> : null}
   </div>
@@ -336,8 +400,28 @@ function MetricEditor({ metricKey, metric, expanded, onExpand, onOptimal, onLigh
 function BoundaryList({ profile }: { profile: Profile }) {
   return <div className="profile-boundary-list">{Object.entries(profile.metrics).filter(([key]) => key !== 'batteryLevel').map(([key, metric]) => {
     const meta = metricMeta(key, metric)
-    return <div className="profile-boundary-row" key={key}><span><strong>{meta.label}</strong><small>{meta.unit}</small></span><span><small>{tx("Optimal")}</small><b>{formatRange(range(metric, 'optimal'), meta.unit)}</b></span><span><small>{tx("Warning")}</small><b>{formatRange(range(metric, 'warning'), meta.unit)}</b></span><span><small>{tx("Critical")}</small><b>{formatRange(range(metric, 'critical'), meta.unit)}</b></span></div>
+    const optimal = range(metric, 'optimal')
+    const target = Number.isFinite(Number(metric.target)) ? Number(metric.target) : round((optimal[0] + optimal[1]) / 2, meta.decimals)
+    return <div className="profile-boundary-row" key={key}><span><strong>{meta.label}</strong><small>{meta.unit}</small></span><span><small>{tx("Target / operating range")}</small><b>{target} {meta.unit} · {formatRange(optimal, meta.unit)}</b></span><span><small>{tx("Warning")}</small><b>{formatRange(range(metric, 'warning'), meta.unit)}</b></span><span><small>{tx("Critical")}</small><b>{formatRange(range(metric, 'critical'), meta.unit)}</b></span></div>
   })}</div>
+}
+
+function LibraryDialog({ busy, error, onClose, onUse }: { busy: boolean; error: string; onClose: () => void; onUse: (template: CropProfileLibraryTemplate) => void }) {
+  const [cropId, setCropId] = useState(cropProfileLibraryCrops[0]?.code || '')
+  const templates = cropProfileLibrary.filter((template) => template.crop.code === cropId)
+  return <div className="profile-create-backdrop"><section className="crop-profile-library" role="dialog" aria-modal="true" aria-labelledby="cropProfileLibraryTitle"><header><div><p>{tx("NeuroCrop defaults")} · v{cropProfileLibraryVersion}</p><h3 id="cropProfileLibraryTitle">{tx("Crop profile library")}</h3><span>{tx("Choose a crop and growth stage. NeuroCrop creates an independent workspace copy that you can review and adapt.")}</span></div><button type="button" onClick={onClose} aria-label={tx("Close library")}><i className="fa-solid fa-xmark" /></button></header>
+    <nav className="profile-library-filters" aria-label={tx("Crops")}>{cropProfileLibraryCrops.map((crop) => {
+      const count = cropProfileLibrary.filter((template) => template.crop.code === crop.code).length
+      return <button type="button" data-active={crop.code === cropId} onClick={() => setCropId(crop.code)} key={crop.code}>{crop.name_en}<span>{count}</span></button>
+    })}</nav>
+    <div className="profile-library-list">{templates.map((template) => {
+      const enabled = template.parameters.filter((parameter) => parameter.enabled)
+      const duration = template.phase.duration_max_days === null ? `${template.phase.duration_min_days}+ days` : `${template.phase.duration_min_days}–${template.phase.duration_max_days} days`
+      return <article className="profile-library-item" key={template.profile_id}><span className="crop-monogram">{template.phase.order}</span><div><small>{duration} · {template.confidence} confidence</small><h4>{template.phase.name_en}</h4><p>{template.system.name_lt}</p><div className="profile-library-metrics">{enabled.slice(0, 5).map((parameter) => <span key={parameter.code}>{getMetricDefinition(parameter.metricId)?.label || parameter.labelLt} <b>{parameter.min}–{parameter.max} {parameter.unit}</b></span>)}{enabled.length > 5 ? <span>+{enabled.length - 5} parameters</span> : null}</div></div><button type="button" className="settings-primary-button" disabled={busy} onClick={() => void onUse(template)}>{busy ? tx("Creating…") : tx("Use template")}</button></article>
+    })}</div>
+    {error ? <p className="nc-profile-modal-error profile-library-error" role="alert">{error}</p> : null}
+    <footer><i className="fa-solid fa-shield-halved" /><span>{tx("Starting values are agronomic baselines, not cultivar guarantees. Review them for your cultivar, season, equipment and calibrated sensors before assignment.")}</span></footer>
+  </section></div>
 }
 
 function CreateDialog({ state, profiles, busy, error, onChange, onClose, onSubmit }: { state: CreateState; profiles: Profile[]; busy: boolean; error: string; onChange: (state: CreateState) => void; onClose: () => void; onSubmit: (event: FormEvent) => void }) {

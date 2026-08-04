@@ -1,0 +1,4306 @@
+{
+  "metadata": {
+    "library_name": "NeuroCrop Default Crop Profiles Library",
+    "version": "1.0.0",
+    "created_date": "2026-08-03",
+    "language": "lt",
+    "stage_profile_count": 27,
+    "crop_count": 6,
+    "parameter_count": 12,
+    "parameter_record_count": 324,
+    "basis_lt": "Dienos / aktyvaus fotoperiodo min–tikslas–max profiliai. Tai paleidimo bazė, o ne veislės garantinė technologinė instrukcija.",
+    "lux_conversion_basis_lt": "Apytiksliai 54 lx per 1 µmol/m²/s, tinkama saulės arba plataus balto spektro orientyrui.",
+    "substrate_ec_basis_lt": "Porų vandens / šaknų zonos EC ties 25 °C; neapdorotam bulk EC reikalinga jutiklio ir substrato kalibracija.",
+    "substrate_moisture_basis_lt": "Kalibruotas VWC pagal konkrečią substrato rūšį; netaikoma NFT/DWC gamybinėse fazėse."
+  },
+  "parameter_definitions": [
+    {
+      "parameter_code": "air_temperature",
+      "name_lt": "Oro temperatūra",
+      "unit": "°C",
+      "role_lt": "Valdymo nustatymas",
+      "recommended_mode_lt": "Tikslas + min/max perspėjimo ribos",
+      "applicability_lt": "Visos fazės",
+      "implementation_note_lt": "V1 reikšmės skirtos dienai / aktyviam fotoperiodui. Nakties temperatūrą saugoti atskiru grafiku arba fazės metaduomenyse."
+    },
+    {
+      "parameter_code": "relative_humidity",
+      "name_lt": "Santykinė oro drėgmė",
+      "unit": "%",
+      "role_lt": "Valdymo nustatymas",
+      "recommended_mode_lt": "Tikslas + min/max perspėjimo ribos",
+      "applicability_lt": "Visos fazės",
+      "implementation_note_lt": "Vertinti kartu su temperatūra, VPD ir rasos tašku; vien RH nepakanka."
+    },
+    {
+      "parameter_code": "co2",
+      "name_lt": "CO₂ koncentracija",
+      "unit": "ppm",
+      "role_lt": "Valdymo nustatymas aktyvioje šviesoje",
+      "recommended_mode_lt": "Tikslas + min/max; ambient fallback",
+      "applicability_lt": "Po sudygimo, kai vyksta fotosintezė",
+      "implementation_note_lt": "Praturtinimą taikyti tik aktyvaus apšvietimo metu ir kai ventiliacija nepašalina CO₂; be praturtinimo tikslas apie aplinkos foną."
+    },
+    {
+      "parameter_code": "vpd",
+      "name_lt": "VPD",
+      "unit": "kPa",
+      "role_lt": "Apskaičiuojama kontrolinė riba",
+      "recommended_mode_lt": "Skaičiuoti iš T ir RH; perspėjimai pagal min/max",
+      "applicability_lt": "Visos fazės",
+      "implementation_note_lt": "Neleisti vartotojui nustatyti su temperatūra ir RH nesuderinamų reikšmių. Lapų VPD ateityje skaičiuoti su lapų temperatūra."
+    },
+    {
+      "parameter_code": "leaf_temperature",
+      "name_lt": "Lapų temperatūra",
+      "unit": "°C",
+      "role_lt": "Stebėjimo / fiziologinė riba",
+      "recommended_mode_lt": "Numatomas intervalas + perspėjimai",
+      "applicability_lt": "Tik atsiradus išsivysčiusiems lapams",
+      "implementation_note_lt": "Tai paprastai nėra tiesioginis aktuatoriaus setpointas. Naudoti ΔT lapas–oras ir lapų VPD skaičiavimui."
+    },
+    {
+      "parameter_code": "substrate_temperature",
+      "name_lt": "Substrato temperatūra",
+      "unit": "°C",
+      "role_lt": "Šaknų zonos stebėjimas / valdymas",
+      "recommended_mode_lt": "Tikslas + min/max",
+      "applicability_lt": "Substratinės ir daiginimo sistemos",
+      "implementation_note_lt": "Jutiklį montuoti aktyvioje šaknų zonoje, ne paviršiuje ar prie vamzdžio."
+    },
+    {
+      "parameter_code": "substrate_moisture",
+      "name_lt": "Substrato drėgmė",
+      "unit": "% VWC",
+      "role_lt": "Laistymo valdymas",
+      "recommended_mode_lt": "Kalibruotas tikslas + min/max",
+      "applicability_lt": "Tik substratinėse sistemose",
+      "implementation_note_lt": "Reikšmės galioja tik kalibruotam tūriniam vandens kiekiui (VWC) ir profilyje nurodytam substratui. NFT/DWC fazėse išjungta."
+    },
+    {
+      "parameter_code": "solution_ec",
+      "name_lt": "Maistinio tirpalo EC",
+      "unit": "mS/cm",
+      "role_lt": "Valdymo nustatymas",
+      "recommended_mode_lt": "Tikslas + min/max",
+      "applicability_lt": "Visos fertigracijos / hidroponikos fazės",
+      "implementation_note_lt": "Normalizuoti iki 25 °C. Tai tiekiamo ar rezervuaro tirpalo EC, ne tas pats kaip substrato EC."
+    },
+    {
+      "parameter_code": "substrate_ec",
+      "name_lt": "Substrato EC",
+      "unit": "mS/cm",
+      "role_lt": "Šaknų zonos kontrolinė riba",
+      "recommended_mode_lt": "Pore-water / šaknų zonos tikslas + min/max",
+      "applicability_lt": "Tik substratinėse sistemose",
+      "implementation_note_lt": "Bibliotekoje numanomas porų vandens / šaknų zonos EC ties 25 °C. Neapdorotas bulk EC priklauso nuo VWC, substrato ir jutiklio; reikalinga konversija arba vietinė kalibracija."
+    },
+    {
+      "parameter_code": "solution_ph",
+      "name_lt": "Maistinio tirpalo pH",
+      "unit": "pH",
+      "role_lt": "Valdymo nustatymas",
+      "recommended_mode_lt": "Tikslas + min/max",
+      "applicability_lt": "Visos fertigracijos / hidroponikos fazės",
+      "implementation_note_lt": "Matuoti ir koreguoti paruošus galutinį EC; atsižvelgti į šaltinio vandens šarmingumą."
+    },
+    {
+      "parameter_code": "water_temperature",
+      "name_lt": "Vandens temperatūra",
+      "unit": "°C",
+      "role_lt": "Stebėjimas / valdymas",
+      "recommended_mode_lt": "Tikslas + min/max",
+      "applicability_lt": "Visos hidroponikos ir fertigracijos fazės",
+      "implementation_note_lt": "Matuoti rezervuare arba prie šaknų zonos tiekimo taško; vengti labai šalto ar perkaitusio tirpalo."
+    },
+    {
+      "parameter_code": "illuminance",
+      "name_lt": "Apšviestumas",
+      "unit": "lx",
+      "role_lt": "Orientacinis apšvietimo tikslas",
+      "recommended_mode_lt": "Minkšta orientacinė juosta",
+      "applicability_lt": "Aktyvaus fotoperiodo fazės",
+      "implementation_note_lt": "lx priklauso nuo spektro ir vertina žmogaus regą. V1 perskaičiuota apytiksliai taikant 54 lx vienam µmol/m²/s (saulė / platus baltas spektras). Produkto plane pridėti PPFD, fotoperiodą ir DLI."
+    }
+  ],
+  "crops": [
+    {
+      "crop_code": "lettuce",
+      "crop_name_lt": "Salotos",
+      "crop_name_en": "Lettuce",
+      "cultivar_scope_lt": "Lapinės / sviestinės salotos",
+      "default_system_lt": "Daiginimo kamštis → NFT / DWC",
+      "stage_count": 3,
+      "confidence": "high"
+    },
+    {
+      "crop_code": "basil",
+      "crop_name_lt": "Bazilikas",
+      "crop_name_en": "Basil",
+      "cultivar_scope_lt": "Saldusis / Genovese tipo bazilikas",
+      "default_system_lt": "Daiginimo kamštis → NFT / DWC",
+      "stage_count": 4,
+      "confidence": "medium-high"
+    },
+    {
+      "crop_code": "tomato",
+      "crop_name_lt": "Pomidoras",
+      "crop_name_en": "Tomato",
+      "cultivar_scope_lt": "Indeterminantinis šiltnaminis pomidoras",
+      "default_system_lt": "Akmens vatos blokelis → akmens vatos plokštė",
+      "stage_count": 5,
+      "confidence": "high"
+    },
+    {
+      "crop_code": "cucumber",
+      "crop_name_lt": "Agurkas",
+      "crop_name_en": "Cucumber",
+      "cultivar_scope_lt": "Ilgavaisis / English tipo šiltnaminis agurkas",
+      "default_system_lt": "Akmens vatos blokelis → akmens vatos plokštė",
+      "stage_count": 5,
+      "confidence": "medium"
+    },
+    {
+      "crop_code": "sweet_pepper",
+      "crop_name_lt": "Saldžioji paprika",
+      "crop_name_en": "Sweet pepper",
+      "cultivar_scope_lt": "Blokinio tipo šiltnaminė paprika",
+      "default_system_lt": "Akmens vatos blokelis → akmens vatos plokštė",
+      "stage_count": 5,
+      "confidence": "medium"
+    },
+    {
+      "crop_code": "strawberry",
+      "crop_name_lt": "Braškė",
+      "crop_name_en": "Strawberry",
+      "cultivar_scope_lt": "Dienai neutrali šiltnaminė braškė",
+      "default_system_lt": "Kokoso / durpių substrato lovelis arba vazonas",
+      "stage_count": 5,
+      "confidence": "medium"
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "lettuce.germination",
+      "crop": {
+        "code": "lettuce",
+        "name_lt": "Salotos",
+        "name_en": "Lettuce"
+      },
+      "system": {
+        "code": "nft_dwc_plug",
+        "name_lt": "Daiginimo kamštis → NFT / DWC"
+      },
+      "phase": {
+        "code": "germination",
+        "order": 1,
+        "name_lt": "Dygimas",
+        "name_en": "Germination",
+        "duration_min_days": 0,
+        "duration_max_days": 3,
+        "transition_criterion_lt": "Sėklaskiltės prasiskleidusios; vienodas sudygimas."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Temperatūrą laikyti apie 20 °C; atskiro nakties sumažinimo nereikia.",
+      "substrate_basis_lt": "Akmens vatos arba durpinis daiginimo kamštis",
+      "confidence": "high",
+      "source_ids": [
+        "S1",
+        "S3",
+        "S4",
+        "S5"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 0,
+        "target": 25,
+        "max": 50
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 19,
+          "target": 20,
+          "max": 22,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 88,
+          "target": 90,
+          "max": 95,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": "Netaikoma iki sudygimo"
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.1,
+          "target": 0.23,
+          "max": 0.35,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": "Nėra išsivysčiusių lapų"
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 19,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 80,
+          "target": 85,
+          "max": 92,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 0.3,
+          "target": 0.5,
+          "max": 0.6,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 0.3,
+          "target": 0.5,
+          "max": 0.8,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.0,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 0,
+          "target": 1350,
+          "max": 2700,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "lettuce.seedling",
+      "crop": {
+        "code": "lettuce",
+        "name_lt": "Salotos",
+        "name_en": "Lettuce"
+      },
+      "system": {
+        "code": "nft_dwc_plug",
+        "name_lt": "Daiginimo kamštis → NFT / DWC"
+      },
+      "phase": {
+        "code": "seedling",
+        "order": 2,
+        "name_lt": "Daigai",
+        "name_en": "Seedling",
+        "duration_min_days": 4,
+        "duration_max_days": 14,
+        "transition_criterion_lt": "3–4 tikrieji lapai; šaknys išaugusios per kamštį."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 18–20 °C.",
+      "substrate_basis_lt": "Akmens vatos arba durpinis daiginimo kamštis",
+      "confidence": "high",
+      "source_ids": [
+        "S1",
+        "S3",
+        "S4",
+        "S5"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 90,
+        "target": 135,
+        "max": 180
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 19,
+          "target": 21,
+          "max": 22,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 70,
+          "target": 78,
+          "max": 85,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 450,
+          "target": 600,
+          "max": 800,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.35,
+          "target": 0.55,
+          "max": 0.8,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 22,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 72,
+          "target": 80,
+          "max": 88,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 0.8,
+          "target": 1.0,
+          "max": 1.2,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 0.8,
+          "target": 1.1,
+          "max": 1.4,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.0,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 4860,
+          "target": 7290,
+          "max": 9720,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "lettuce.head_growth",
+      "crop": {
+        "code": "lettuce",
+        "name_lt": "Salotos",
+        "name_en": "Lettuce"
+      },
+      "system": {
+        "code": "nft_dwc_plug",
+        "name_lt": "Daiginimo kamštis → NFT / DWC"
+      },
+      "phase": {
+        "code": "head_growth",
+        "order": 3,
+        "name_lt": "Vegetatyvinis augimas / gūžės formavimas",
+        "name_en": "Vegetative / head formation",
+        "duration_min_days": 15,
+        "duration_max_days": 42,
+        "transition_criterion_lt": "Pasiekta veislei ir rinkai tinkama gūžės ar lapų masė."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį apie 18 °C; dieną neviršyti ~24 °C.",
+      "substrate_basis_lt": "NFT arba DWC; substrato VWC ir substrato EC išjungiami",
+      "confidence": "high",
+      "source_ids": [
+        "S1",
+        "S3",
+        "S4",
+        "S5",
+        "S6"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 200,
+        "target": 270,
+        "max": 330
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 21,
+          "max": 24,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 50,
+          "target": 65,
+          "max": 75,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 600,
+          "target": 800,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.6,
+          "target": 0.87,
+          "max": 1.15,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 17,
+          "target": 20,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 22,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": "Netaikoma NFT/DWC gamybos fazėje"
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.2,
+          "target": 1.5,
+          "max": 1.8,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": "Netaikoma NFT/DWC gamybos fazėje"
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.0,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 22,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 10800,
+          "target": 14580,
+          "max": 17820,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "basil.germination",
+      "crop": {
+        "code": "basil",
+        "name_lt": "Bazilikas",
+        "name_en": "Sweet basil"
+      },
+      "system": {
+        "code": "nft_dwc_plug",
+        "name_lt": "Daiginimo kamštis → NFT / DWC"
+      },
+      "phase": {
+        "code": "germination",
+        "order": 1,
+        "name_lt": "Dygimas",
+        "name_en": "Germination",
+        "duration_min_days": 0,
+        "duration_max_days": 6,
+        "transition_criterion_lt": "Sėklaskiltės prasiskleidusios; vienodas sudygimas."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Laikyti stabiliai šiltai, 24–27 °C.",
+      "substrate_basis_lt": "Akmens vatos arba durpinis daiginimo kamštis",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S7",
+        "S8"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 0,
+        "target": 25,
+        "max": 50
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 24,
+          "target": 26,
+          "max": 28,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 85,
+          "target": 90,
+          "max": 95,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": "Netaikoma iki sudygimo"
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.15,
+          "target": 0.34,
+          "max": 0.5,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": "Nėra išsivysčiusių lapų"
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 25,
+          "target": 27,
+          "max": 29,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 80,
+          "target": 85,
+          "max": 92,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 0.4,
+          "target": 0.6,
+          "max": 0.8,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 0.4,
+          "target": 0.6,
+          "max": 0.9,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.0,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 25,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 0,
+          "target": 1350,
+          "max": 2700,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "basil.seedling",
+      "crop": {
+        "code": "basil",
+        "name_lt": "Bazilikas",
+        "name_en": "Sweet basil"
+      },
+      "system": {
+        "code": "nft_dwc_plug",
+        "name_lt": "Daiginimo kamštis → NFT / DWC"
+      },
+      "phase": {
+        "code": "seedling",
+        "order": 2,
+        "name_lt": "Daigai",
+        "name_en": "Seedling",
+        "duration_min_days": 7,
+        "duration_max_days": 20,
+        "transition_criterion_lt": "3–4 tikrieji lapai; stipri šaknų sistema kamštyje."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 20–22 °C.",
+      "substrate_basis_lt": "Akmens vatos arba durpinis daiginimo kamštis",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S7",
+        "S8"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 150,
+        "target": 220,
+        "max": 280
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 26,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 65,
+          "target": 72,
+          "max": 80,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 500,
+          "target": 650,
+          "max": 850,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.5,
+          "target": 0.84,
+          "max": 1.05,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 25,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 70,
+          "target": 78,
+          "max": 85,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 0.8,
+          "target": 1.0,
+          "max": 1.2,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 0.9,
+          "target": 1.2,
+          "max": 1.5,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.0,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 8100,
+          "target": 11880,
+          "max": 15120,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "basil.vegetative",
+      "crop": {
+        "code": "basil",
+        "name_lt": "Bazilikas",
+        "name_en": "Sweet basil"
+      },
+      "system": {
+        "code": "nft_dwc_plug",
+        "name_lt": "Daiginimo kamštis → NFT / DWC"
+      },
+      "phase": {
+        "code": "vegetative",
+        "order": 3,
+        "name_lt": "Vegetatyvinis augimas",
+        "name_en": "Vegetative growth",
+        "duration_min_days": 21,
+        "duration_max_days": 45,
+        "transition_criterion_lt": "6–8 mazgai; pasiekta pirmo pjovimo masė."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 19–22 °C.",
+      "substrate_basis_lt": "NFT arba DWC; substrato VWC ir substrato EC išjungiami",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S7",
+        "S8"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 260,
+        "target": 333,
+        "max": 450
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 23,
+          "target": 25,
+          "max": 28,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 55,
+          "target": 65,
+          "max": 70,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 650,
+          "target": 800,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.8,
+          "target": 1.11,
+          "max": 1.35,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 27,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 25,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": "Netaikoma NFT/DWC gamybos fazėje"
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.2,
+          "target": 1.5,
+          "max": 1.7,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": "Netaikoma NFT/DWC gamybos fazėje"
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.1,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 14040,
+          "target": 17982,
+          "max": 24300,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "basil.regrowth",
+      "crop": {
+        "code": "basil",
+        "name_lt": "Bazilikas",
+        "name_en": "Sweet basil"
+      },
+      "system": {
+        "code": "nft_dwc_plug",
+        "name_lt": "Daiginimo kamštis → NFT / DWC"
+      },
+      "phase": {
+        "code": "regrowth",
+        "order": 4,
+        "name_lt": "Atžėlimas po pjovimo",
+        "name_en": "Regrowth after cutting",
+        "duration_min_days": 7,
+        "duration_max_days": 21,
+        "transition_criterion_lt": "Ataugę 3–4 nauji mazgai; pasiekta pakartotinio pjovimo masė."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 19–22 °C.",
+      "substrate_basis_lt": "NFT arba DWC; substrato VWC ir substrato EC išjungiami",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S7",
+        "S8"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 300,
+        "target": 370,
+        "max": 480
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 23,
+          "target": 25,
+          "max": 27,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 55,
+          "target": 63,
+          "max": 70,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 700,
+          "target": 850,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.9,
+          "target": 1.17,
+          "max": 1.4,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 26,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": "Netaikoma NFT/DWC gamybos fazėje"
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.4,
+          "target": 1.6,
+          "max": 1.8,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": "Netaikoma NFT/DWC gamybos fazėje"
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.9,
+          "max": 6.1,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 16200,
+          "target": 19980,
+          "max": 25920,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "tomato.germination",
+      "crop": {
+        "code": "tomato",
+        "name_lt": "Pomidoras",
+        "name_en": "Indeterminate tomato"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "germination",
+        "order": 1,
+        "name_lt": "Dygimas",
+        "name_en": "Germination",
+        "duration_min_days": 0,
+        "duration_max_days": 7,
+        "transition_criterion_lt": "Sėklaskiltės prasiskleidusios; vienodas sudygimas."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Laikyti stabiliai 24–26 °C iki sudygimo.",
+      "substrate_basis_lt": "Akmens vatos daiginimo kamštis",
+      "confidence": "high",
+      "source_ids": [
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S9"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 0,
+        "target": 20,
+        "max": 50
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 24,
+          "target": 25,
+          "max": 27,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 85,
+          "target": 90,
+          "max": 95,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": "Netaikoma iki sudygimo"
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.15,
+          "target": 0.32,
+          "max": 0.45,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": "Nėra išsivysčiusių lapų"
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 24,
+          "target": 25,
+          "max": 27,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 80,
+          "target": 85,
+          "max": 92,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 0.4,
+          "target": 0.6,
+          "max": 0.8,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 0.4,
+          "target": 0.6,
+          "max": 0.9,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.2,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 25,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 0,
+          "target": 1080,
+          "max": 2700,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "tomato.nursery",
+      "crop": {
+        "code": "tomato",
+        "name_lt": "Pomidoras",
+        "name_en": "Indeterminate tomato"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "nursery",
+        "order": 2,
+        "name_lt": "Daigynas",
+        "name_en": "Nursery seedling",
+        "duration_min_days": 8,
+        "duration_max_days": 42,
+        "transition_criterion_lt": "5–7 tikrieji lapai; transplantacijai tinkama tvirta šaknų sistema."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 18–20 °C.",
+      "substrate_basis_lt": "Akmens vatos kubelis",
+      "confidence": "high",
+      "source_ids": [
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S9"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 180,
+        "target": 280,
+        "max": 370
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 25,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 65,
+          "target": 72,
+          "max": 80,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 600,
+          "target": 800,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.5,
+          "target": 0.79,
+          "max": 0.95,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 70,
+          "target": 78,
+          "max": 85,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.2,
+          "target": 1.5,
+          "max": 1.8,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.3,
+          "target": 1.6,
+          "max": 2.0,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.2,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 9720,
+          "target": 15120,
+          "max": 19980,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "tomato.establishment_vegetative",
+      "crop": {
+        "code": "tomato",
+        "name_lt": "Pomidoras",
+        "name_en": "Indeterminate tomato"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "establishment_vegetative",
+        "order": 3,
+        "name_lt": "Prigijimas / vegetatyvinis augimas",
+        "name_en": "Establishment / vegetative",
+        "duration_min_days": 14,
+        "duration_max_days": 35,
+        "transition_criterion_lt": "Augalas aktyviai auga; matoma pirmoji kekė."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 18–20 °C.",
+      "substrate_basis_lt": "Akmens vatos blokas / plokštė; VWC kalibruotas mineralinei vatai",
+      "confidence": "high",
+      "source_ids": [
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 330,
+        "target": 460,
+        "max": 590
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 26,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 65,
+          "target": 70,
+          "max": 75,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 700,
+          "target": 900,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.7,
+          "target": 0.9,
+          "max": 1.1,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 25,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 65,
+          "target": 72,
+          "max": 80,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.8,
+          "target": 2.1,
+          "max": 2.4,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.8,
+          "target": 2.4,
+          "max": 3.0,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.2,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 17820,
+          "target": 24840,
+          "max": 31860,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "tomato.flowering_fruit_set",
+      "crop": {
+        "code": "tomato",
+        "name_lt": "Pomidoras",
+        "name_en": "Indeterminate tomato"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "flowering_fruit_set",
+        "order": 4,
+        "name_lt": "Žydėjimas / vaisių mezgimas",
+        "name_en": "Flowering / fruit set",
+        "duration_min_days": 21,
+        "duration_max_days": 60,
+        "transition_criterion_lt": "Stabiliai mezga vaisius keliose kekėse."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 18–20 °C; vengti ilgalaikio >27–28 °C žydėjimo metu.",
+      "substrate_basis_lt": "Akmens vatos plokštė; VWC kalibruotas mineralinei vatai",
+      "confidence": "high",
+      "source_ids": [
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 460,
+        "target": 650,
+        "max": 830
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 26,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 60,
+          "target": 65,
+          "max": 70,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 800,
+          "target": 900,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.8,
+          "target": 1.04,
+          "max": 1.25,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23.5,
+          "max": 26,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 58,
+          "target": 65,
+          "max": 72,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 2.2,
+          "target": 2.5,
+          "max": 2.8,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 2.5,
+          "target": 3.2,
+          "max": 4.0,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.6,
+          "target": 5.9,
+          "max": 6.2,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 24840,
+          "target": 35100,
+          "max": 44820,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "tomato.fruit_fill_harvest",
+      "crop": {
+        "code": "tomato",
+        "name_lt": "Pomidoras",
+        "name_en": "Indeterminate tomato"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "fruit_fill_harvest",
+        "order": 5,
+        "name_lt": "Vaisių augimas / derlius",
+        "name_en": "Fruit fill / continuous harvest",
+        "duration_min_days": 45,
+        "duration_max_days": null,
+        "transition_criterion_lt": "Tęstinė derliaus fazė iki ciklo pabaigos."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 18–20 °C; 24 h vidurkį koreguoti pagal apkrovą ir sezoną.",
+      "substrate_basis_lt": "Akmens vatos plokštė; VWC kalibruotas mineralinei vatai",
+      "confidence": "high",
+      "source_ids": [
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 560,
+        "target": 740,
+        "max": 930
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 24,
+          "max": 26,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 60,
+          "target": 65,
+          "max": 72,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 800,
+          "target": 900,
+          "max": 1100,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.8,
+          "target": 1.04,
+          "max": 1.35,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 23,
+          "max": 26,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 23,
+          "max": 25,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 55,
+          "target": 62,
+          "max": 70,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 2.5,
+          "target": 2.8,
+          "max": 3.2,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 3.0,
+          "target": 3.8,
+          "max": 5.0,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.7,
+          "target": 6.0,
+          "max": 6.3,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 30240,
+          "target": 39960,
+          "max": 50220,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "cucumber.germination",
+      "crop": {
+        "code": "cucumber",
+        "name_lt": "Agurkas",
+        "name_en": "Long English cucumber"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "germination",
+        "order": 1,
+        "name_lt": "Dygimas",
+        "name_en": "Germination",
+        "duration_min_days": 0,
+        "duration_max_days": 4,
+        "transition_criterion_lt": "Sėklaskiltės prasiskleidusios; vienodas sudygimas."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Laikyti stabiliai 25–27 °C iki sudygimo.",
+      "substrate_basis_lt": "Akmens vatos daiginimo kamštis",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S10"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 0,
+        "target": 20,
+        "max": 50
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 25,
+          "target": 27,
+          "max": 28,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 85,
+          "target": 90,
+          "max": 95,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": "Netaikoma iki sudygimo"
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.15,
+          "target": 0.36,
+          "max": 0.5,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": "Nėra išsivysčiusių lapų"
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 25,
+          "target": 27,
+          "max": 28,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 80,
+          "target": 86,
+          "max": 92,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 0.4,
+          "target": 0.6,
+          "max": 0.8,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 0.4,
+          "target": 0.6,
+          "max": 0.9,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.0,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 23,
+          "target": 25,
+          "max": 26,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 0,
+          "target": 1080,
+          "max": 2700,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "cucumber.seedling",
+      "crop": {
+        "code": "cucumber",
+        "name_lt": "Agurkas",
+        "name_en": "Long English cucumber"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "seedling",
+        "order": 2,
+        "name_lt": "Daigai",
+        "name_en": "Seedling",
+        "duration_min_days": 5,
+        "duration_max_days": 21,
+        "transition_criterion_lt": "3–4 tikrieji lapai; transplantacijai tinkamas šaknynas."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 20–22 °C.",
+      "substrate_basis_lt": "Akmens vatos kubelis",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S10"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 180,
+        "target": 280,
+        "max": 370
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 23,
+          "target": 25,
+          "max": 27,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 70,
+          "target": 78,
+          "max": 85,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 600,
+          "target": 800,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.4,
+          "target": 0.7,
+          "max": 0.95,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 26,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 25,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 75,
+          "target": 82,
+          "max": 88,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.1,
+          "target": 1.4,
+          "max": 1.6,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.2,
+          "target": 1.5,
+          "max": 1.8,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.0,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 9720,
+          "target": 15120,
+          "max": 19980,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "cucumber.establishment_vegetative",
+      "crop": {
+        "code": "cucumber",
+        "name_lt": "Agurkas",
+        "name_en": "Long English cucumber"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "establishment_vegetative",
+        "order": 3,
+        "name_lt": "Prigijimas / vegetatyvinis augimas",
+        "name_en": "Establishment / vegetative",
+        "duration_min_days": 7,
+        "duration_max_days": 21,
+        "transition_criterion_lt": "Augalas pasiekė vielą ar 5–7 mazgus; aktyvus lapyno augimas."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 19–21 °C.",
+      "substrate_basis_lt": "Akmens vatos blokas / plokštė; VWC kalibruotas mineralinei vatai",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S10",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 370,
+        "target": 520,
+        "max": 650
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 23,
+          "target": 25,
+          "max": 27,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 68,
+          "target": 75,
+          "max": 82,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 700,
+          "target": 900,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.55,
+          "target": 0.79,
+          "max": 1.05,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 26,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 65,
+          "target": 74,
+          "max": 82,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.6,
+          "target": 1.8,
+          "max": 2.0,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.6,
+          "target": 2.1,
+          "max": 2.6,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.1,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 19980,
+          "target": 28080,
+          "max": 35100,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "cucumber.flowering_fruit_set",
+      "crop": {
+        "code": "cucumber",
+        "name_lt": "Agurkas",
+        "name_en": "Long English cucumber"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "flowering_fruit_set",
+        "order": 4,
+        "name_lt": "Žydėjimas / vaisių mezgimas",
+        "name_en": "Flowering / fruit set",
+        "duration_min_days": 14,
+        "duration_max_days": 35,
+        "transition_criterion_lt": "Tolygiai formuojami ir auga pirmieji prekiniai vaisiai."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 19–21 °C.",
+      "substrate_basis_lt": "Akmens vatos plokštė; VWC kalibruotas mineralinei vatai",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S10",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 460,
+        "target": 650,
+        "max": 830
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 23,
+          "target": 25,
+          "max": 27,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 65,
+          "target": 72,
+          "max": 80,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 800,
+          "target": 900,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.65,
+          "target": 0.89,
+          "max": 1.15,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 27,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 62,
+          "target": 72,
+          "max": 80,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.8,
+          "target": 2.0,
+          "max": 2.2,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 2.0,
+          "target": 2.5,
+          "max": 3.2,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.1,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 24840,
+          "target": 35100,
+          "max": 44820,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "cucumber.continuous_harvest",
+      "crop": {
+        "code": "cucumber",
+        "name_lt": "Agurkas",
+        "name_en": "Long English cucumber"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "continuous_harvest",
+        "order": 5,
+        "name_lt": "Tęstinis derlius",
+        "name_en": "Continuous harvest",
+        "duration_min_days": 28,
+        "duration_max_days": null,
+        "transition_criterion_lt": "Tęstinė derliaus fazė iki ciklo pabaigos."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 19–21 °C; vandens poreikis stipriai priklauso nuo radiacijos ir lapų ploto.",
+      "substrate_basis_lt": "Akmens vatos plokštė; VWC kalibruotas mineralinei vatai",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S10",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 560,
+        "target": 740,
+        "max": 930
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 23,
+          "target": 25,
+          "max": 28,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 65,
+          "target": 72,
+          "max": 80,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 800,
+          "target": 900,
+          "max": 1100,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.7,
+          "target": 0.89,
+          "max": 1.25,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 27,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 60,
+          "target": 70,
+          "max": 78,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.8,
+          "target": 2.1,
+          "max": 2.4,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 2.2,
+          "target": 2.7,
+          "max": 3.5,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.2,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 30240,
+          "target": 39960,
+          "max": 50220,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "sweet_pepper.germination",
+      "crop": {
+        "code": "sweet_pepper",
+        "name_lt": "Saldžioji paprika",
+        "name_en": "Sweet pepper"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "germination",
+        "order": 1,
+        "name_lt": "Dygimas",
+        "name_en": "Germination",
+        "duration_min_days": 0,
+        "duration_max_days": 14,
+        "transition_criterion_lt": "Sėklaskiltės prasiskleidusios; vienodas sudygimas."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Laikyti stabiliai 26–28 °C iki sudygimo.",
+      "substrate_basis_lt": "Akmens vatos arba durpinis daiginimo kamštis",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S11"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 0,
+        "target": 20,
+        "max": 50
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 25,
+          "target": 27,
+          "max": 29,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 85,
+          "target": 90,
+          "max": 95,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": "Netaikoma iki sudygimo"
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.15,
+          "target": 0.36,
+          "max": 0.5,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": false,
+          "min": null,
+          "target": null,
+          "max": null,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": "Nėra išsivysčiusių lapų"
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 26,
+          "target": 27,
+          "max": 29,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 80,
+          "target": 86,
+          "max": 92,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 0.4,
+          "target": 0.6,
+          "max": 0.8,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 0.4,
+          "target": 0.6,
+          "max": 0.9,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.0,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 23,
+          "target": 25,
+          "max": 26,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 0,
+          "target": 1080,
+          "max": 2700,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "sweet_pepper.seedling",
+      "crop": {
+        "code": "sweet_pepper",
+        "name_lt": "Saldžioji paprika",
+        "name_en": "Sweet pepper"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "seedling",
+        "order": 2,
+        "name_lt": "Daigai",
+        "name_en": "Seedling",
+        "duration_min_days": 15,
+        "duration_max_days": 70,
+        "transition_criterion_lt": "6–8 tikrieji lapai; 35–45 cm augalas, tinkamas persodinti."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 20–21 °C.",
+      "substrate_basis_lt": "Daiginimo kamštis / akmens vatos kubelis",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S11"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 180,
+        "target": 280,
+        "max": 370
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 25,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 65,
+          "target": 72,
+          "max": 80,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 600,
+          "target": 800,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.5,
+          "target": 0.79,
+          "max": 0.95,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 70,
+          "target": 78,
+          "max": 85,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.0,
+          "target": 1.3,
+          "max": 1.5,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.1,
+          "target": 1.4,
+          "max": 1.8,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.1,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 9720,
+          "target": 15120,
+          "max": 19980,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "sweet_pepper.establishment_vegetative",
+      "crop": {
+        "code": "sweet_pepper",
+        "name_lt": "Saldžioji paprika",
+        "name_en": "Sweet pepper"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "establishment_vegetative",
+        "order": 3,
+        "name_lt": "Prigijimas / vegetatyvinis augimas",
+        "name_en": "Establishment / vegetative",
+        "duration_min_days": 14,
+        "duration_max_days": 35,
+        "transition_criterion_lt": "Suformuotos pagrindinės šakos; aktyvus lapyno augimas."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 18–21 °C.",
+      "substrate_basis_lt": "Akmens vatos blokas / plokštė; VWC kalibruotas mineralinei vatai",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S11",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 330,
+        "target": 460,
+        "max": 590
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 26,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 60,
+          "target": 68,
+          "max": 75,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 700,
+          "target": 900,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.75,
+          "target": 0.95,
+          "max": 1.25,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 25,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 60,
+          "target": 68,
+          "max": 75,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.4,
+          "target": 1.7,
+          "max": 1.9,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.6,
+          "target": 2.1,
+          "max": 2.7,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.2,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 17820,
+          "target": 24840,
+          "max": 31860,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "sweet_pepper.flowering_fruit_set",
+      "crop": {
+        "code": "sweet_pepper",
+        "name_lt": "Saldžioji paprika",
+        "name_en": "Sweet pepper"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "flowering_fruit_set",
+        "order": 4,
+        "name_lt": "Žydėjimas / vaisių mezgimas",
+        "name_en": "Flowering / fruit set",
+        "duration_min_days": 21,
+        "duration_max_days": 60,
+        "transition_criterion_lt": "Tolygus vaisių mezgimas ant kelių aukštų."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 18–21 °C; vengti ilgalaikio >30–32 °C.",
+      "substrate_basis_lt": "Akmens vatos plokštė; VWC kalibruotas mineralinei vatai",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S11",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 460,
+        "target": 650,
+        "max": 830
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 25,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 60,
+          "target": 65,
+          "max": 70,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 800,
+          "target": 900,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.75,
+          "target": 0.98,
+          "max": 1.2,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 55,
+          "target": 62,
+          "max": 70,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.6,
+          "target": 1.8,
+          "max": 2.1,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 2.0,
+          "target": 2.5,
+          "max": 3.2,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.6,
+          "target": 5.9,
+          "max": 6.2,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 24840,
+          "target": 35100,
+          "max": 44820,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "sweet_pepper.fruit_fill_ripening",
+      "crop": {
+        "code": "sweet_pepper",
+        "name_lt": "Saldžioji paprika",
+        "name_en": "Sweet pepper"
+      },
+      "system": {
+        "code": "substrate_drip_rockwool",
+        "name_lt": "Lašelinė fertigacija akmens vatos substrate"
+      },
+      "phase": {
+        "code": "fruit_fill_ripening",
+        "order": 5,
+        "name_lt": "Vaisių augimas / nokimas",
+        "name_en": "Fruit fill / ripening",
+        "duration_min_days": 45,
+        "duration_max_days": null,
+        "transition_criterion_lt": "Tęstinė derliaus fazė iki ciklo pabaigos."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 18–21 °C.",
+      "substrate_basis_lt": "Akmens vatos plokštė; VWC kalibruotas mineralinei vatai",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S9",
+        "S11",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 560,
+        "target": 740,
+        "max": 930
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 22,
+          "target": 24,
+          "max": 27,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 58,
+          "target": 65,
+          "max": 72,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 800,
+          "target": 900,
+          "max": 1100,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.85,
+          "target": 1.04,
+          "max": 1.35,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 21,
+          "target": 23,
+          "max": 26,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 52,
+          "target": 60,
+          "max": 68,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.8,
+          "target": 2.1,
+          "max": 2.4,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 2.2,
+          "target": 2.9,
+          "max": 3.8,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.7,
+          "target": 6.0,
+          "max": 6.3,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 20,
+          "target": 22,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 30240,
+          "target": 39960,
+          "max": 50220,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "strawberry.establishment",
+      "crop": {
+        "code": "strawberry",
+        "name_lt": "Braškė",
+        "name_en": "Day-neutral strawberry"
+      },
+      "system": {
+        "code": "substrate_drip_coir",
+        "name_lt": "Lašelinė fertigacija kokoso / durpių substrate"
+      },
+      "phase": {
+        "code": "establishment",
+        "order": 1,
+        "name_lt": "Prigijimas",
+        "name_en": "Establishment",
+        "duration_min_days": 0,
+        "duration_max_days": 14,
+        "transition_criterion_lt": "Susiformavo naujos šaknys ir 1–2 nauji lapai."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 12–16 °C; vengti kondensacijos ant lapų ir žiedynų.",
+      "substrate_basis_lt": "Kokoso / durpių mišinys; VWC būtina kalibruoti konkrečiam substratui",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S12",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 180,
+        "target": 280,
+        "max": 370
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 22,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 70,
+          "target": 78,
+          "max": 85,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 500,
+          "target": 650,
+          "max": 850,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.35,
+          "target": 0.51,
+          "max": 0.8,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 17,
+          "target": 19,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 68,
+          "target": 75,
+          "max": 82,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.2,
+          "target": 1.4,
+          "max": 1.6,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.2,
+          "target": 1.6,
+          "max": 2.0,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.1,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 9720,
+          "target": 15120,
+          "max": 19980,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "strawberry.vegetative_crown",
+      "crop": {
+        "code": "strawberry",
+        "name_lt": "Braškė",
+        "name_en": "Day-neutral strawberry"
+      },
+      "system": {
+        "code": "substrate_drip_coir",
+        "name_lt": "Lašelinė fertigacija kokoso / durpių substrate"
+      },
+      "phase": {
+        "code": "vegetative_crown",
+        "order": 2,
+        "name_lt": "Vegetatyvinis / kerelio augimas",
+        "name_en": "Vegetative / crown growth",
+        "duration_min_days": 14,
+        "duration_max_days": 42,
+        "transition_criterion_lt": "Aktyviai formuojami lapai ir žiedynų užuomazgos."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 10–15 °C; 24 h vidurkis apie 18 °C.",
+      "substrate_basis_lt": "Kokoso / durpių mišinys; VWC būtina kalibruoti konkrečiam substratui",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S12",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 280,
+        "target": 410,
+        "max": 520
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 21,
+          "max": 23,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 65,
+          "target": 70,
+          "max": 78,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 650,
+          "target": 800,
+          "max": 950,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.55,
+          "target": 0.75,
+          "max": 1.0,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 17,
+          "target": 20,
+          "max": 22,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 62,
+          "target": 70,
+          "max": 78,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.4,
+          "target": 1.6,
+          "max": 1.8,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.4,
+          "target": 1.8,
+          "max": 2.2,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.1,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 15120,
+          "target": 22140,
+          "max": 28080,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "strawberry.flowering_pollination",
+      "crop": {
+        "code": "strawberry",
+        "name_lt": "Braškė",
+        "name_en": "Day-neutral strawberry"
+      },
+      "system": {
+        "code": "substrate_drip_coir",
+        "name_lt": "Lašelinė fertigacija kokoso / durpių substrate"
+      },
+      "phase": {
+        "code": "flowering_pollination",
+        "order": 3,
+        "name_lt": "Žydėjimas / apdulkinimas",
+        "name_en": "Flowering / pollination",
+        "duration_min_days": 7,
+        "duration_max_days": 28,
+        "transition_criterion_lt": "Dauguma žiedų apdulkinti; matomos vaisių užuomazgos."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 10–14 °C; RH mažinti prieš rytą, kad nebūtų kondensacijos.",
+      "substrate_basis_lt": "Kokoso / durpių mišinys; VWC būtina kalibruoti konkrečiam substratui",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S12",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 330,
+        "target": 460,
+        "max": 590
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 22,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 60,
+          "target": 65,
+          "max": 72,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 700,
+          "target": 800,
+          "max": 950,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.65,
+          "target": 0.82,
+          "max": 1.05,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 17,
+          "target": 19,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 58,
+          "target": 65,
+          "max": 72,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.6,
+          "target": 1.8,
+          "max": 2.0,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.5,
+          "target": 1.9,
+          "max": 2.4,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.1,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 17820,
+          "target": 24840,
+          "max": 31860,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "strawberry.fruit_set_green",
+      "crop": {
+        "code": "strawberry",
+        "name_lt": "Braškė",
+        "name_en": "Day-neutral strawberry"
+      },
+      "system": {
+        "code": "substrate_drip_coir",
+        "name_lt": "Lašelinė fertigacija kokoso / durpių substrate"
+      },
+      "phase": {
+        "code": "fruit_set_green",
+        "order": 4,
+        "name_lt": "Vaisių mezgimas / žali vaisiai",
+        "name_en": "Fruit set / green fruit",
+        "duration_min_days": 14,
+        "duration_max_days": 35,
+        "transition_criterion_lt": "Vaisiai pasiekia veislei būdingą dydį; prasideda spalvos kitimas."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 12–15 °C.",
+      "substrate_basis_lt": "Kokoso / durpių mišinys; VWC būtina kalibruoti konkrečiam substratui",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S12",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 370,
+        "target": 520,
+        "max": 650
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 19,
+          "target": 22,
+          "max": 24,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 60,
+          "target": 68,
+          "max": 75,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 700,
+          "target": 850,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.7,
+          "target": 0.85,
+          "max": 1.15,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 21,
+          "max": 23,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 58,
+          "target": 65,
+          "max": 72,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.8,
+          "target": 2.0,
+          "max": 2.2,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.6,
+          "target": 2.1,
+          "max": 2.6,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.5,
+          "target": 5.8,
+          "max": 6.2,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 19980,
+          "target": 28080,
+          "max": 35100,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    },
+    {
+      "profile_id": "strawberry.ripening_harvest",
+      "crop": {
+        "code": "strawberry",
+        "name_lt": "Braškė",
+        "name_en": "Day-neutral strawberry"
+      },
+      "system": {
+        "code": "substrate_drip_coir",
+        "name_lt": "Lašelinė fertigacija kokoso / durpių substrate"
+      },
+      "phase": {
+        "code": "ripening_harvest",
+        "order": 5,
+        "name_lt": "Nokimas / derlius",
+        "name_en": "Ripening / harvest",
+        "duration_min_days": 28,
+        "duration_max_days": null,
+        "transition_criterion_lt": "Tęstinė žydėjimo ir derliaus fazė iki ciklo pabaigos."
+      },
+      "period_basis_lt": "Dienos / aktyvaus fotoperiodo profilis",
+      "night_note_lt": "Naktį 10–14 °C; vėsesnė naktis paprastai palanki kokybei, bet veislinė reakcija skiriasi.",
+      "substrate_basis_lt": "Kokoso / durpių mišinys; VWC būtina kalibruoti konkrečiam substratui",
+      "confidence": "medium",
+      "source_ids": [
+        "S3",
+        "S4",
+        "S5",
+        "S12",
+        "S13"
+      ],
+      "ppfd_reference_umol_m2_s": {
+        "min": 410,
+        "target": 560,
+        "max": 700
+      },
+      "parameters": {
+        "air_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 21,
+          "max": 23,
+          "unit": "°C",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "relative_humidity": {
+          "enabled": true,
+          "min": 60,
+          "target": 65,
+          "max": 72,
+          "unit": "%",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "co2": {
+          "enabled": true,
+          "min": 700,
+          "target": 850,
+          "max": 1000,
+          "unit": "ppm",
+          "role": "control_setpoint_light_only",
+          "note_lt": null
+        },
+        "vpd": {
+          "enabled": true,
+          "min": 0.7,
+          "target": 0.87,
+          "max": 1.1,
+          "unit": "kPa",
+          "role": "calculated_guardrail",
+          "note_lt": null
+        },
+        "leaf_temperature": {
+          "enabled": true,
+          "min": 17,
+          "target": 20,
+          "max": 22,
+          "unit": "°C",
+          "role": "monitor_guardrail",
+          "note_lt": null
+        },
+        "substrate_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "substrate_moisture": {
+          "enabled": true,
+          "min": 55,
+          "target": 62,
+          "max": 68,
+          "unit": "% VWC",
+          "role": "irrigation_control",
+          "note_lt": null
+        },
+        "solution_ec": {
+          "enabled": true,
+          "min": 1.8,
+          "target": 2.0,
+          "max": 2.2,
+          "unit": "mS/cm",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "substrate_ec": {
+          "enabled": true,
+          "min": 1.7,
+          "target": 2.2,
+          "max": 2.8,
+          "unit": "mS/cm",
+          "role": "root_zone_guardrail",
+          "note_lt": null
+        },
+        "solution_ph": {
+          "enabled": true,
+          "min": 5.6,
+          "target": 5.9,
+          "max": 6.2,
+          "unit": "pH",
+          "role": "control_setpoint",
+          "note_lt": null
+        },
+        "water_temperature": {
+          "enabled": true,
+          "min": 18,
+          "target": 20,
+          "max": 21,
+          "unit": "°C",
+          "role": "monitor_or_control",
+          "note_lt": null
+        },
+        "illuminance": {
+          "enabled": true,
+          "min": 22140,
+          "target": 30240,
+          "max": 37800,
+          "unit": "lx",
+          "role": "advisory_light_target",
+          "note_lt": "Orientacinė kontroliuojamo apšvietimo juosta; ne kieta viršutinė saulės šviesos riba."
+        }
+      },
+      "notes_lt": ""
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "S1",
+      "title": "Hydroponic Lettuce Production in Controlled Environments",
+      "organization": "University of Kentucky Center for Crop Diversification",
+      "year": 2026,
+      "use_lt": "Salotų dygimas, temperatūra, RH, EC/pH, PPFD ir DLI.",
+      "url": "https://ccd.uky.edu/sites/default/files/2026-02/ccd-cp-63_hydrolettuce_accessible-2.pdf"
+    },
+    {
+      "source_id": "S2",
+      "title": "Review of Optimum Temperature, Humidity and Vapour Pressure Deficit for Microclimate Evaluation and Control in Greenhouse Cultivation of Tomato",
+      "organization": "USDA-hosted / International Agrophysics",
+      "year": 2018,
+      "use_lt": "Pomidorų temperatūra, RH, VPD ir šaknų zonos temperatūra.",
+      "url": "https://www.ars.usda.gov/ARSUserFiles/57795/Shamshiri2018%20-%20review%20optimum%20microclimate%20greenhouse.pdf"
+    },
+    {
+      "source_id": "S3",
+      "title": "Electrical Conductivity and pH Guide for Hydroponics",
+      "organization": "Oklahoma State University Extension",
+      "year": 2017,
+      "use_lt": "Augalų maistinio tirpalo EC/pH bazinės ribos ir bendras vandens temperatūros orientyras.",
+      "url": "https://extension.okstate.edu/fact-sheets/electrical-conductivity-and-ph-guide-for-hydroponics"
+    },
+    {
+      "source_id": "S4",
+      "title": "Greenhouse Carbon Dioxide Supplementation",
+      "organization": "Oklahoma State University Extension",
+      "year": 2023,
+      "use_lt": "CO₂ koncentracijos, taikymo laikas ir apribojimai.",
+      "url": "https://extension.okstate.edu/fact-sheets/greenhouse-carbon-dioxide-supplementation"
+    },
+    {
+      "source_id": "S5",
+      "title": "Conversion – PPFD to Lux",
+      "organization": "Apogee Instruments",
+      "year": null,
+      "use_lt": "Apytikslis PPFD–lx perskaičiavimas pagal šviesos šaltinį.",
+      "url": "https://www.apogeeinstruments.com/conversion-ppfd-to-lux/"
+    },
+    {
+      "source_id": "S6",
+      "title": "Important Considerations for Providing Supplemental Light to Indoor Plants",
+      "organization": "Iowa State University Extension",
+      "year": null,
+      "use_lt": "Kodėl augalams tinkamesni PPFD/DLI nei lx.",
+      "url": "https://yardandgarden.extension.iastate.edu/how-to/growing-indoor-plants-under-supplemental-lights/important-considerations-providing-supplemental-light-indoor-plants"
+    },
+    {
+      "source_id": "S7",
+      "title": "Effects of Nutrient Solution Concentration and Daily Light Integral on Growth and Nutrient Concentration of Several Basil Species in Hydroponic Production",
+      "organization": "HortScience",
+      "year": 2018,
+      "use_lt": "Baziliko EC ir DLI poveikis augimui.",
+      "url": "https://journals.ashs.org/view/journals/hortsci/53/9/article-p1319.xml"
+    },
+    {
+      "source_id": "S8",
+      "title": "Modeling Purple Basil, Sage, Spearmint, and Sweet Basil Growth and Development in Response to Mean Daily Temperature and Daily Light Integral",
+      "organization": "PLOS ONE",
+      "year": 2023,
+      "use_lt": "Baziliko temperatūros ir DLI poveikis augimui.",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0294905"
+    },
+    {
+      "source_id": "S9",
+      "title": "Small-Scale Greenhouse Training Guide for Indigenous Communities in British Columbia",
+      "organization": "Government of British Columbia",
+      "year": 2025,
+      "use_lt": "Pomidorų, agurkų ir paprikų daigyno bei šiltnamio gairės.",
+      "url": "https://www2.gov.bc.ca/assets/gov/farming-natural-resources-and-industry/agriculture-and-seafood/programs/indigenous-pathfinder-service/small-scale_greenhouse_training_guide_for_indigenous_communities_in_british_columbia.pdf"
+    },
+    {
+      "source_id": "S10",
+      "title": "Nutrient Use Efficiency and Cucumber Productivity as Affected by Fertigation Strategy",
+      "organization": "Peer-reviewed research article",
+      "year": 2024,
+      "use_lt": "Agurkų auginimo aplinkos ir fertigracijos orientyrai.",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11510781/"
+    },
+    {
+      "source_id": "S11",
+      "title": "Greenhouse Crop Selection and Management",
+      "organization": "Government of British Columbia",
+      "year": 2026,
+      "use_lt": "Šiltnaminių paprikų ir kitų vaisinių daržovių auginimo gairės.",
+      "url": "https://www2.gov.bc.ca/assets/gov/farming-natural-resources-and-industry/agriculture-and-seafood/programs/indigenous-agriculture-development/factsheets/greenhouse_crop_selection_and_management.pdf"
+    },
+    {
+      "source_id": "S12",
+      "title": "Controlled Environment Berry Production Information – Environment",
+      "organization": "The Ohio State University",
+      "year": null,
+      "use_lt": "Braškės temperatūros ir aplinkos orientyrai kontroliuojamose sąlygose.",
+      "url": "https://u.osu.edu/indoorberry/environment/"
+    },
+    {
+      "source_id": "S13",
+      "title": "Substrate versus Fertilizer-based Electrical Conductivity Measurements",
+      "organization": "Purdue University Extension",
+      "year": 2020,
+      "use_lt": "Substrato EC ir tiekiamo tirpalo EC skirtumai; matavimo metodo apribojimai.",
+      "url": "https://edustore.purdue.edu/ho-322-w.html"
+    },
+    {
+      "source_id": "S14",
+      "title": "Hydroponic Day-neutral Strawberry Production Observations",
+      "organization": "University of Illinois Extension",
+      "year": 2023,
+      "use_lt": "Praktinis dienai neutralių braškių hidroponinio auginimo EC/pH pavyzdys.",
+      "url": "https://extension.illinois.edu/blogs/commercial-fruit-and-vegetable-growers/2023-10-27-hydroponic-day-neutral-strawberry"
+    },
+    {
+      "source_id": "S15",
+      "title": "The Effect of Humidity on the Performance of Greenhouse Grown Strawberry",
+      "organization": "International Society for Horticultural Science",
+      "year": 2002,
+      "use_lt": "Braškės santykinės oro drėgmės orientyrai.",
+      "url": "https://www.ishs.org/ishs-article/567_101"
+    }
+  ]
+}

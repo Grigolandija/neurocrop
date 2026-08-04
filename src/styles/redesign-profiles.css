@@ -1124,13 +1124,19 @@
 .designer-app .profile-editor-new .range-editor {
   display: grid;
   min-height: 0;
-  grid-template-columns: minmax(9.375rem, 1fr) repeat(2, 8rem) 1.625rem;
+  grid-template-columns: minmax(9.375rem, 1fr) repeat(3, 7.25rem) 1.625rem;
   align-items: end;
   gap: var(--space-12);
   border-bottom: 1px solid var(--color-border);
   border-top: 0;
   padding: var(--space-16) 0;
   background: var(--color-surface);
+}
+
+.designer-app .range-editor-target input {
+  border-color: color-mix(in srgb, var(--color-secondary) 55%, var(--color-border-strong));
+  background: color-mix(in srgb, var(--color-info-soft) 42%, var(--color-surface));
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .profile-editor-new .range-editor:hover {
@@ -1557,6 +1563,32 @@
   font-size: var(--type-body-sm);
 }
 
+.designer-app .profile-library-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-8);
+  margin-top: var(--space-8);
+}
+
+.designer-app .profile-library-metrics span {
+  border-radius: 999px;
+  padding: .25rem .5rem;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-tertiary);
+  font-size: var(--type-micro);
+  line-height: 1.25;
+}
+
+.designer-app .profile-library-metrics b {
+  margin-left: .2rem;
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-semibold);
+}
+
+.designer-app .profile-library-error {
+  margin: var(--space-12) var(--space-32) 0;
+}
+
 .designer-app .profile-library-item > button {
   min-height: var(--control-height-md);
   white-space: nowrap;
@@ -1700,7 +1732,7 @@
   }
 
   .designer-app .profile-editor-new .range-editor {
-    grid-template-columns: minmax(9.375rem, 1fr) repeat(2, 8rem) 1.625rem;
+    grid-template-columns: minmax(9.375rem, 1fr) repeat(3, 7rem) 1.625rem;
   }
 }
 
@@ -1753,7 +1785,7 @@
   }
 
   .designer-app .profile-editor-new .range-editor {
-    grid-template-columns: minmax(9rem, 1fr) repeat(2, minmax(7rem, 1fr)) 1.625rem;
+    grid-template-columns: minmax(9rem, 1fr) repeat(3, minmax(6.5rem, 1fr)) 1.625rem;
     min-height: 0;
   }
 
@@ -1788,6 +1820,10 @@
   .designer-app .profile-library-list,
   .designer-app .crop-profile-library > footer {
     padding-inline: var(--space-16);
+  }
+
+  .designer-app .profile-library-error {
+    margin-inline: var(--space-16);
   }
 
   .designer-app .profile-library-item {
