@@ -134,5 +134,5 @@ export function libraryProfileHint(template: CropProfileLibraryTemplate) {
   const duration = template.phase.duration_max_days === null
     ? `from day ${template.phase.duration_min_days ?? 0}`
     : `${template.phase.duration_min_days ?? 0}–${template.phase.duration_max_days} days`
-  return `NeuroCrop library v${cropProfileLibraryVersion} · ${template.system.name_lt} · ${duration}. Review for cultivar, season, equipment and local calibration before assignment.`
+  return `NeuroCrop library v${cropProfileLibraryVersion} · ${duration}. Review for cultivar, season, equipment and local calibration before assignment.`
 }

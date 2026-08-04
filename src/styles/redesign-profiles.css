@@ -1441,6 +1441,12 @@
   box-shadow: 0 28px 80px color-mix(in srgb, var(--color-neutral-950) 22%, transparent);
 }
 
+@media (min-width: 1280px) {
+  .designer-app .profile-library-backdrop {
+    left: 244px;
+  }
+}
+
 .designer-app .crop-profile-library > header,
 .designer-app .crop-profile-delete-dialog > header {
   display: flex;
@@ -1555,12 +1561,6 @@
   color: var(--color-text);
   font-size: var(--type-card-title);
   font-weight: var(--weight-semibold);
-}
-
-.designer-app .profile-library-item p {
-  margin: var(--space-4) 0 0;
-  color: var(--color-text-tertiary);
-  font-size: var(--type-body-sm);
 }
 
 .designer-app .profile-library-metrics {
