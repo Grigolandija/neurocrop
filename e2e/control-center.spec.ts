@@ -240,8 +240,9 @@ test('crop profile editor always exposes editable target ranges', async ({ page 
   await page.locator('.crop-profile-switcher-option').first().click()
   await expect(page.getByRole('heading', { name: 'Operating envelope' })).toBeVisible()
   await expect(page.locator('.range-editor-list .range-editor').first()).toBeVisible()
-  await expect(page.getByLabel('Optimal minimum').first()).toBeEditable()
-  await expect(page.getByLabel('Optimal maximum').first()).toBeEditable()
+  await expect(page.getByLabel('Minimum').first()).toBeEditable()
+  await expect(page.getByLabel('Target').first()).toBeEditable()
+  await expect(page.getByLabel('Maximum').first()).toBeEditable()
 })
 
 test('crop profile editor exposes every canonical metric group', async ({ page }) => {
