@@ -369,6 +369,9 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const [panning, setPanning] = useState(false)
   const [showContours, setShowContours] = useState(true)
   const [mouse, setMouse] = useState<{ xM: number; yM: number } | null>(null)
+  const pointerFrameRef = useRef<number | null>(null)
+  const pendingPointerRef = useRef<{ xM: number; yM: number } | null>(null)
+  const coordinateStatusRef = useRef<HTMLSpanElement>(null)
   const [hoveredSensorId, setHoveredSensorId] = useState<string | null>(null)
   const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null)
   const [soilEcProfile, setSoilEcProfile] = useState<SoilEcProfile | null>(null)
@@ -490,6 +493,44 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     if (!pointer) return null
     return { xM: (pointer.x - view.x) / view.scale, yM: map.dimensions.lengthM - (pointer.y - view.y) / view.scale }
   }, [map.dimensions.lengthM, view])
+
+  const updatePointer = useCallback(() => {
+    pendingPointerRef.current = pointerWorld()
+    if (pointerFrameRef.current !== null) return
+    pointerFrameRef.current = window.requestAnimationFrame(() => {
+      pointerFrameRef.current = null
+      const position = pendingPointerRef.current
+      const inside = Boolean(position
+        && position.xM >= 0
+        && position.yM >= 0
+        && position.xM <= map.dimensions.widthM
+        && position.yM <= map.dimensions.lengthM)
+
+      // Environment mode needs React state for the interactive heatmap tooltip.
+      // Layout mode only displays coordinates, so updating the small status node
+      // directly avoids re-rendering the complete Konva scene on every pointer move.
+      if (mode === 'environment') setMouse(position)
+      if (coordinateStatusRef.current) {
+        coordinateStatusRef.current.textContent = inside && position
+          ? `X ${position.xM.toFixed(2)} m · Y ${position.yM.toFixed(2)} m`
+          : tr('Outside plan', 'Už plano ribų')
+      }
+    })
+  }, [map.dimensions.lengthM, map.dimensions.widthM, mode, pointerWorld, tr])
+
+  const clearPointer = useCallback(() => {
+    pendingPointerRef.current = null
+    if (pointerFrameRef.current !== null) {
+      window.cancelAnimationFrame(pointerFrameRef.current)
+      pointerFrameRef.current = null
+    }
+    if (mode === 'environment') setMouse(null)
+    if (coordinateStatusRef.current) coordinateStatusRef.current.textContent = tr('Outside plan', 'Už plano ribų')
+  }, [mode, tr])
+
+  useEffect(() => () => {
+    if (pointerFrameRef.current !== null) window.cancelAnimationFrame(pointerFrameRef.current)
+  }, [])
 
   const selectSoilEcProfile = useCallback(() => {
     const position = pointerWorld()
@@ -768,8 +809,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   >
     <Stage
       ref={stageRef} width={size.width} height={size.height}
-      onMouseMove={() => setMouse(pointerWorld())}
-      onMouseLeave={() => setMouse(null)}
+      onMouseMove={updatePointer}
+      onMouseLeave={clearPointer}
       onMouseDown={(event) => {
         if (event.target === event.target.getStage()) {
           if (!event.evt.shiftKey) onSelect([])
@@ -993,6 +1034,6 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       {sensorIssues.slice(0, Math.max(0, 3 - actions.length)).map((object) => <p data-tone={object.metadata.sensor?.status === 'offline' ? 'critical' : 'warning'} key={object.id}><i className="fa-solid fa-microchip" /><span><b>{object.name}</b>{object.metadata.sensor?.status}</span></p>)}
       {!actions.length && !sensorIssues.length && targetState === 'optimal' ? <p data-tone="good"><i className="fa-solid fa-circle-check" /><span><b>{tr('No priority actions', 'Nėra prioritetinių veiksmų')}</b>{tr('Current readings are inside target.', 'Dabartiniai rodmenys tiksliniame diapazone.')}</span></p> : null}
     </aside> : null}
-    {!readOnly ? <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> {mouse && mouse.xM >= 0 && mouse.yM >= 0 && mouse.xM <= map.dimensions.widthM && mouse.yM <= map.dimensions.lengthM ? `X ${mouse.xM.toFixed(2)} m · Y ${mouse.yM.toFixed(2)} m` : tr('Outside plan', 'Už plano ribų')}</span><span>{tr('Grid', 'Tinklelis')} {map.gridSizeM} m</span><span>{tr('Zoom', 'Mastelis')} {Math.round(view.scale / 40 * 100)}%</span><span>{selectedIds.length ? `${selectedIds.length} ${tr('selected', 'pasirinkta')}` : snap ? tr('Snap enabled', 'Lygiavimas įjungtas') : tr('Free placement', 'Laisvas išdėstymas')}</span></footer> : null}
+    {!readOnly ? <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> <span ref={coordinateStatusRef}>{tr('Outside plan', 'Už plano ribų')}</span></span><span>{tr('Grid', 'Tinklelis')} {map.gridSizeM} m</span><span>{tr('Zoom', 'Mastelis')} {Math.round(view.scale / 40 * 100)}%</span><span>{selectedIds.length ? `${selectedIds.length} ${tr('selected', 'pasirinkta')}` : snap ? tr('Snap enabled', 'Lygiavimas įjungtas') : tr('Free placement', 'Laisvas išdėstymas')}</span></footer> : null}
   </main>
 }
