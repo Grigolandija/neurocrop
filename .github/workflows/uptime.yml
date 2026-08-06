@@ -2,7 +2,9 @@ name: Production uptime
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    # Avoid the busiest quarter-hour boundaries for GitHub-hosted runners while
+    # preserving the 15-minute monitoring interval.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
   push:
     branches:
