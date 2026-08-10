@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 
 export type NeuroCropProduct = 'field' | 'greenhouse'
 
-const productStorageKey = 'neurocrop-product-choice-v1'
+const productStorageKey = 'neurocrop-product-choice-v2'
 
 function readProductChoice(): NeuroCropProduct | null {
   try {

@@ -6,10 +6,9 @@ import type { DashboardUser } from './DashboardShell'
 
 type LoginScreenProps = {
   onAuthenticated: (user: DashboardUser) => void
-  onChangeProduct?: () => void
 }
 
-export default function LoginScreen({ onAuthenticated, onChangeProduct }: LoginScreenProps) {
+export default function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const { language, setLanguage, t } = useInterfaceLanguage()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -49,10 +48,8 @@ export default function LoginScreen({ onAuthenticated, onChangeProduct }: LoginS
             <button type="button" data-language-option="lt" data-active={language === 'lt'} aria-pressed={language === 'lt'} onClick={() => setLanguage('lt')}>LT</button>
             <button type="button" data-language-option="en" data-active={language === 'en'} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
           </div>
-          {onChangeProduct ? <button className="login-product-switch" type="button" onClick={onChangeProduct}><i className="fa-solid fa-arrow-left" /> {t('Change product')}</button> : null}
-          <div className="login-product-badge"><i className="fa-solid fa-house-chimney-window" /> NeuroCrop Greenhouse</div>
           <p className="text-xs font-bold uppercase tracking-[0.26em] text-pine/52">{t('Workspace access')}</p>
-          <h2 id="loginTitle" className="mt-3 font-display text-3xl font-bold text-ink">{t('Sign in to NeuroCrop Greenhouse')}</h2>
+          <h2 id="loginTitle" className="mt-3 font-display text-3xl font-bold text-ink">{t('Sign in to NeuroCrop')}</h2>
           <p className="mt-3 max-w-md text-sm leading-6 text-ink/60">{t('Use the email address assigned to your farm workspace.')}</p>
           <form id="loginForm" className="mt-8 space-y-5" autoComplete="on" noValidate onSubmit={(event) => void submit(event)}>
             <label className="block"><span className="text-sm font-bold text-ink/76">{t('Email address')}</span><input id="loginEmail" className="login-field mt-2" name="username" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@farm.com" required /></label>

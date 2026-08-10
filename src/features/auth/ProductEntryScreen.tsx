@@ -3,6 +3,7 @@ import type { NeuroCropProduct } from './productChoice'
 
 type ProductEntryScreenProps = {
   onSelect: (product: NeuroCropProduct) => void
+  onSignOut?: () => void
 }
 
 function LanguageSwitch() {
@@ -15,14 +16,17 @@ function LanguageSwitch() {
   )
 }
 
-export function ProductEntryScreen({ onSelect }: ProductEntryScreenProps) {
+export function ProductEntryScreen({ onSelect, onSignOut }: ProductEntryScreenProps) {
   const { language } = useInterfaceLanguage()
   const lt = language === 'lt'
 
   return (
     <main className="product-entry-screen">
       <section className="product-entry-shell" aria-labelledby="productEntryTitle">
-        <LanguageSwitch />
+        <div className="product-entry-toolbar">
+          <LanguageSwitch />
+          {onSignOut ? <button className="product-entry-signout" type="button" onClick={onSignOut}><i className="fa-solid fa-arrow-right-from-bracket" /> {lt ? 'Atsijungti' : 'Sign out'}</button> : null}
+        </div>
         <header className="product-entry-header">
           <span className="product-entry-mark" aria-hidden="true"><i className="fa-solid fa-seedling" /></span>
           <div>
@@ -43,7 +47,10 @@ export function ProductEntryScreen({ onSelect }: ProductEntryScreenProps) {
               <span className="product-choice-icon" aria-hidden="true"><i className="fa-solid fa-wheat-awn" /></span>
               <span className="product-choice-status pending">{lt ? 'Kuriama' : 'In development'}</span>
             </span>
-            <strong>NeuroCrop Field</strong>
+            <span className="product-choice-name">
+              <strong>NeuroCrop</strong>
+              <small>Field</small>
+            </span>
             <span className="product-choice-description">{lt ? 'Dirvožemiui, vietos orams ir lauko pasėlių rizikoms.' : 'For soil, local weather, and open-field crop risks.'}</span>
             <span className="product-choice-action">{lt ? 'Peržiūrėti kryptį' : 'View product direction'} <i className="fa-solid fa-arrow-right" /></span>
           </button>
@@ -53,7 +60,10 @@ export function ProductEntryScreen({ onSelect }: ProductEntryScreenProps) {
               <span className="product-choice-icon" aria-hidden="true"><i className="fa-solid fa-house-chimney-window" /></span>
               <span className="product-choice-status available">{lt ? 'Veikia' : 'Available'}</span>
             </span>
-            <strong>NeuroCrop Greenhouse</strong>
+            <span className="product-choice-name">
+              <strong>NeuroCrop</strong>
+              <small>Greenhouse</small>
+            </span>
             <span className="product-choice-description">{lt ? 'Mikroklimatui, energijai, laistymui ir įrangos būklei.' : 'For microclimate, energy, irrigation, and equipment health.'}</span>
             <span className="product-choice-action">{lt ? 'Prisijungti' : 'Sign in'} <i className="fa-solid fa-arrow-right" /></span>
           </button>
@@ -63,14 +73,17 @@ export function ProductEntryScreen({ onSelect }: ProductEntryScreenProps) {
   )
 }
 
-export function FieldComingSoonScreen({ onBack }: { onBack: () => void }) {
+export function FieldComingSoonScreen({ onBack, onSignOut }: { onBack: () => void; onSignOut?: () => void }) {
   const { language } = useInterfaceLanguage()
   const lt = language === 'lt'
 
   return (
     <main className="product-entry-screen">
       <section className="product-entry-shell product-entry-coming-soon" aria-labelledby="fieldTitle">
-        <LanguageSwitch />
+        <div className="product-entry-toolbar">
+          <LanguageSwitch />
+          {onSignOut ? <button className="product-entry-signout" type="button" onClick={onSignOut}><i className="fa-solid fa-arrow-right-from-bracket" /> {lt ? 'Atsijungti' : 'Sign out'}</button> : null}
+        </div>
         <button className="product-entry-back" type="button" onClick={onBack}><i className="fa-solid fa-arrow-left" /> {lt ? 'Keisti aplinką' : 'Change environment'}</button>
         <div className="field-coming-icon" aria-hidden="true"><i className="fa-solid fa-wheat-awn" /></div>
         <p className="product-entry-eyebrow">NeuroCrop Field</p>

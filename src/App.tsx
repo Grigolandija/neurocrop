@@ -43,6 +43,12 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
   const [authChecked, setAuthChecked] = useState(false)
   const { product, chooseProduct, clearProduct } = useProductChoice()
 
+  function signOutCurrentUser() {
+    clearProduct()
+    setUser(null)
+    void onClerkSignOut?.()
+  }
+
   useEffect(() => {
     document.body.classList.add('designer-app')
     let active = true
@@ -84,21 +90,19 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
     )
   }
 
-  if (!user) {
-    if (product === 'field') return <FieldComingSoonScreen onBack={clearProduct} />
-    if (product === 'greenhouse') return <LoginScreen onAuthenticated={setUser} onChangeProduct={clearProduct} />
-    return <ProductEntryScreen onSelect={chooseProduct} />
-  }
+  if (!user) return clerkConfigured
+    ? <WorkspaceLoading />
+    : <LoginScreen onAuthenticated={(current) => { clearProduct(); setUser(current) }} />
+
+  if (!product) return <ProductEntryScreen onSelect={chooseProduct} onSignOut={signOutCurrentUser} />
+  if (product === 'field') return <FieldComingSoonScreen onBack={clearProduct} onSignOut={signOutCurrentUser} />
 
   return (
     <WorkspaceAccessProvider bypass={user.isPlatformAdmin === true}>
       <AuthenticatedWorkspace
         user={user}
         pathname={location.pathname}
-        onSignedOut={() => {
-          setUser(null)
-          void onClerkSignOut?.()
-        }}
+        onSignedOut={signOutCurrentUser}
       />
     </WorkspaceAccessProvider>
   )
@@ -106,13 +110,8 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
 
 function ClerkMainRoute() {
   const { isLoaded, isSignedIn, userId, signOut } = useAuth()
-  const { product, chooseProduct, clearProduct } = useProductChoice()
   if (!isLoaded) return <WorkspaceLoading />
-  if (!isSignedIn || !userId) {
-    if (product === 'field') return <FieldComingSoonScreen onBack={clearProduct} />
-    if (product === 'greenhouse') return <ClerkLoginScreen onChangeProduct={clearProduct} />
-    return <ProductEntryScreen onSelect={chooseProduct} />
-  }
+  if (!isSignedIn || !userId) return <ClerkLoginScreen />
   return <AuthenticatedMainRoute key={userId} clerkUserId={userId} onClerkSignOut={() => signOut()} />
 }
 

@@ -45,10 +45,10 @@ assert(!overviewStyles.includes('margin-left: 304px'), 'Overview must keep the s
 
 assert(dashboard.includes('<DashboardShell'), 'DashboardPage must render the React DashboardShell.')
 assert(
-  app.includes('<ProductEntryScreen onSelect={chooseProduct} />')
-    && app.includes('<LoginScreen onAuthenticated={setUser} onChangeProduct={clearProduct} />')
-    && app.includes('<ClerkLoginScreen onChangeProduct={clearProduct} />'),
-  'Product selection must route both legacy and Clerk users into the Greenhouse login before authenticated workspace loading.'
+  app.includes('<LoginScreen onAuthenticated={(current) => { clearProduct(); setUser(current) }} />')
+    && app.includes('if (!product) return <ProductEntryScreen onSelect={chooseProduct} onSignOut={signOutCurrentUser} />')
+    && app.includes('if (!isSignedIn || !userId) return <ClerkLoginScreen />'),
+  'Both authentication paths must complete sign-in before showing the product selection screen.'
 )
 assert(
   app.includes('if (!isLoaded) return <WorkspaceLoading />'),

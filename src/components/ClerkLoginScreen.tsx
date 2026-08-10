@@ -8,7 +8,6 @@ type ClerkLoginScreenProps = {
   signInUrl?: string
   signUpUrl?: string
   initialEmail?: string
-  onChangeProduct?: () => void
 }
 
 function clerkErrorMessage(reason: unknown, fallback: string) {
@@ -337,7 +336,6 @@ export default function ClerkLoginScreen({
   signInUrl = '/',
   signUpUrl = '/sign-up',
   initialEmail,
-  onChangeProduct,
 }: ClerkLoginScreenProps) {
   const { language, setLanguage, t } = useInterfaceLanguage()
   const isSignUp = mode === 'sign-up'
@@ -372,8 +370,6 @@ export default function ClerkLoginScreen({
             <button type="button" data-language-option="lt" data-active={language === 'lt'} aria-pressed={language === 'lt'} onClick={() => setLanguage('lt')}>LT</button>
             <button type="button" data-language-option="en" data-active={language === 'en'} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
           </div>
-          {!isSignUp && !isRecovery && onChangeProduct ? <button className="login-product-switch" type="button" onClick={onChangeProduct}><i className="fa-solid fa-arrow-left" /> {t('Change product')}</button> : null}
-          {!isSignUp && !isRecovery ? <div className="login-product-badge"><i className="fa-solid fa-house-chimney-window" /> NeuroCrop Greenhouse</div> : null}
           {isSignUp
             ? <SignUp
                 routing="hash"
