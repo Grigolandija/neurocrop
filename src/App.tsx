@@ -8,6 +8,8 @@ import type { DashboardUser } from './components/DashboardShell'
 import { neurocropApi } from './services/api/neurocropApi'
 import { canAccessWorkspaceRoute, useWorkspaceAccess, WorkspaceAccessProvider, workspaceStageRedirect } from './state/workspaceAccess'
 import { useInterfaceLanguage } from './i18n'
+import { FieldComingSoonScreen, ProductEntryScreen } from './features/auth/ProductEntryScreen'
+import { useProductChoice } from './features/auth/productChoice'
 import './App.css'
 import './styles/approved-dashboard.css'
 import './styles/typography-system.css'
@@ -38,6 +40,8 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
   const { t } = useInterfaceLanguage()
   const [user, setUser] = useState<DashboardUser | null>(null)
   const [authError, setAuthError] = useState('')
+  const [authChecked, setAuthChecked] = useState(false)
+  const { product, chooseProduct, clearProduct } = useProductChoice()
 
   useEffect(() => {
     document.body.classList.add('designer-app')
@@ -52,12 +56,17 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
           setAuthError(reason instanceof Error ? reason.message : 'This account could not be connected to NeuroCrop.')
         }
       })
+      .finally(() => {
+        if (active) setAuthChecked(true)
+      })
     return () => {
       active = false
       document.body.classList.remove('designer-app')
       delete document.body.dataset.primaryPage
     }
   }, [clerkUserId])
+
+  if (!authChecked) return <WorkspaceLoading />
 
   if (authError) {
     const approvalPending = authError === 'Your workspace request is awaiting administrator approval.'
@@ -75,7 +84,11 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
     )
   }
 
-  if (!user) return clerkConfigured ? <WorkspaceLoading /> : <LoginScreen onAuthenticated={setUser} />
+  if (!user) {
+    if (product === 'field') return <FieldComingSoonScreen onBack={clearProduct} />
+    if (product === 'greenhouse') return <LoginScreen onAuthenticated={setUser} onChangeProduct={clearProduct} />
+    return <ProductEntryScreen onSelect={chooseProduct} />
+  }
 
   return (
     <WorkspaceAccessProvider bypass={user.isPlatformAdmin === true}>
@@ -93,8 +106,13 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
 
 function ClerkMainRoute() {
   const { isLoaded, isSignedIn, userId, signOut } = useAuth()
+  const { product, chooseProduct, clearProduct } = useProductChoice()
   if (!isLoaded) return <WorkspaceLoading />
-  if (!isSignedIn || !userId) return <ClerkLoginScreen />
+  if (!isSignedIn || !userId) {
+    if (product === 'field') return <FieldComingSoonScreen onBack={clearProduct} />
+    if (product === 'greenhouse') return <ClerkLoginScreen onChangeProduct={clearProduct} />
+    return <ProductEntryScreen onSelect={chooseProduct} />
+  }
   return <AuthenticatedMainRoute key={userId} clerkUserId={userId} onClerkSignOut={() => signOut()} />
 }
 

@@ -101,6 +101,8 @@ const authTranslations: Record<string, string> = {
   'A single workspace for live growing conditions, section history, alerts, and sensor health.': 'Viena sistema esamoms auginimo sąlygoms, sekcijų istorijai, perspėjimams ir sensorių būklei.',
   'Workspace access': 'Prieiga prie sistemos',
   'Sign in to NeuroCrop': 'Prisijungti prie „NeuroCrop“',
+  'Sign in to NeuroCrop Greenhouse': 'Prisijungti prie „NeuroCrop Greenhouse“',
+  'Change product': 'Keisti produktą',
   'Use the email address assigned to your farm workspace.': 'Naudokite jūsų ūkiui priskirtą el. pašto adresą.',
   'Enter your password': 'Įveskite slaptažodį',
   'Sign in': 'Prisijungti',
