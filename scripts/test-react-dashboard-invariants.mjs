@@ -77,7 +77,11 @@ assert(
     && !clerkLogin.includes('then choose Forgot password?'),
   'Password recovery must not send users back through the ordinary password sign-in flow.'
 )
-assert(app.includes('<Suspense fallback={<WorkspaceLoading />}>'), 'Workspace loading must be scoped to the authenticated dashboard.')
+assert(
+  app.includes('const loading = showWorkspacePreparation ? <WorkspaceLoading /> : <SessionLoading />')
+    && app.includes('<Suspense fallback={loading}>'),
+  'Workspace preparation must appear only after an explicit product choice; restored sessions keep one neutral loading state.'
+)
 assert(!dashboard.includes('if (!bootstrapped)'), 'DashboardPage must not block the login screen while workspace modules preload.')
 assert(!login.includes('prefetchWorkspaceData'), 'Login must transition before workspace data prefetching starts.')
 assert(!dashboard.includes('?raw'), 'DashboardPage must not inject raw HTML.')

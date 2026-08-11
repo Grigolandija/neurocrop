@@ -42,7 +42,7 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
   const [user, setUser] = useState<DashboardUser | null>(null)
   const [authError, setAuthError] = useState('')
   const [authChecked, setAuthChecked] = useState(false)
-  const { product, chooseProduct, clearProduct } = useProductChoice()
+  const { product, selectedNow, chooseProduct, clearProduct } = useProductChoice()
 
   function signOutCurrentUser() {
     clearProduct()
@@ -104,6 +104,7 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
         user={user}
         pathname={location.pathname}
         onSignedOut={signOutCurrentUser}
+        showWorkspacePreparation={selectedNow}
       />
     </WorkspaceAccessProvider>
   )
@@ -126,12 +127,13 @@ function RegistrationRoute() {
     : <Suspense fallback={null}><RegisterPage /></Suspense>
 }
 
-function AuthenticatedWorkspace({ user, pathname, onSignedOut }: { user: DashboardUser; pathname: string; onSignedOut: () => void }) {
+function AuthenticatedWorkspace({ user, pathname, onSignedOut, showWorkspacePreparation }: { user: DashboardUser; pathname: string; onSignedOut: () => void; showWorkspacePreparation: boolean }) {
   const access = useWorkspaceAccess()
-  if (access.status === 'loading') return <WorkspaceLoading />
+  const loading = showWorkspacePreparation ? <WorkspaceLoading /> : <SessionLoading />
+  if (access.status === 'loading') return loading
   if (!canAccessWorkspaceRoute(access.stage, pathname)) return <Navigate to={workspaceStageRedirect(access.stage)} replace />
   return (
-    <Suspense fallback={<WorkspaceLoading />}>
+    <Suspense fallback={loading}>
       {pathname === '/area-map'
         ? <GreenhouseMapTestPage />
         : <DashboardPage user={user} onSignedOut={onSignedOut} />}

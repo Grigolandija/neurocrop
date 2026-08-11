@@ -340,7 +340,7 @@ test('production uptime confirms failures and cannot let notification errors mas
   assert.equal((workflow.match(/for attempt in 1 2 3 4 5;/g) || []).length, 1);
   assert.match(workflow, /test "\$attempt" = 3 \|\| sleep 10/);
   assert.match(workflow, /test "\$attempt" = 5 \|\| sleep 15/);
-  assert.match(workflow, /cron: "\*\/15 \* \* \* \*"/);
+  assert.match(workflow, /cron: "7,22,37,52 \* \* \* \*"/);
   assert.match(workflow, /--header 'Accept: text\/html,application\/xhtml\+xml'/);
   assert.match(workflow, /--user-agent 'Mozilla\/5\.0 \(compatible; NeuroCrop-Uptime\/1\.0;/);
   assert.match(workflow, /jq -e '\.status == "ok"'/);

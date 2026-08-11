@@ -43,6 +43,15 @@ test('sign-in shows product selection before preparing the Greenhouse workspace'
   expect(await page.evaluate(() => (window as Window & { __workspaceLoadingBeforeProductChoice?: boolean }).__workspaceLoadingBeforeProductChoice)).toBe(false)
 
   await selectGreenhouse(page)
+
+  await page.route('**/areas', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    await route.continue()
+  })
+  await page.reload()
+  await expect(page.locator('.session-loading')).toBeVisible()
+  await expect(page.locator('.app-route-loading')).toHaveCount(0)
+  await expect(page.locator('#dashboardShell')).toBeVisible()
 })
 
 test('password recovery requests only the account email', async ({ page }) => {

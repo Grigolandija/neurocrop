@@ -14,17 +14,25 @@ function readProductChoice(): NeuroCropProduct | null {
 }
 
 export function useProductChoice() {
-  const [product, setProduct] = useState<NeuroCropProduct | null>(readProductChoice)
+  const [choice, setChoice] = useState(() => ({
+    product: readProductChoice(),
+    selectedNow: false,
+  }))
 
   const chooseProduct = useCallback((next: NeuroCropProduct) => {
     try { sessionStorage.setItem(productStorageKey, next) } catch { /* Continue without persistence. */ }
-    setProduct(next)
+    setChoice({ product: next, selectedNow: true })
   }, [])
 
   const clearProduct = useCallback(() => {
     try { sessionStorage.removeItem(productStorageKey) } catch { /* Continue without persistence. */ }
-    setProduct(null)
+    setChoice({ product: null, selectedNow: false })
   }, [])
 
-  return { product, chooseProduct, clearProduct }
+  return {
+    product: choice.product,
+    selectedNow: choice.selectedNow,
+    chooseProduct,
+    clearProduct,
+  }
 }
