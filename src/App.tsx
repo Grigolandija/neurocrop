@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import LoginScreen from './components/LoginScreen'
 import ClerkLoginScreen from './components/ClerkLoginScreen'
 import WorkspaceLoading from './components/WorkspaceLoading'
+import SessionLoading from './components/SessionLoading'
 import type { DashboardUser } from './components/DashboardShell'
 import { neurocropApi } from './services/api/neurocropApi'
 import { canAccessWorkspaceRoute, useWorkspaceAccess, WorkspaceAccessProvider, workspaceStageRedirect } from './state/workspaceAccess'
@@ -72,7 +73,7 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
     }
   }, [clerkUserId])
 
-  if (!authChecked) return <WorkspaceLoading />
+  if (!authChecked) return <SessionLoading />
 
   if (authError) {
     const approvalPending = authError === 'Your workspace request is awaiting administrator approval.'
@@ -91,7 +92,7 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
   }
 
   if (!user) return clerkConfigured
-    ? <WorkspaceLoading />
+    ? <SessionLoading />
     : <LoginScreen onAuthenticated={(current) => { clearProduct(); setUser(current) }} />
 
   if (!product) return <ProductEntryScreen onSelect={chooseProduct} onSignOut={signOutCurrentUser} />
@@ -110,7 +111,7 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
 
 function ClerkMainRoute() {
   const { isLoaded, isSignedIn, userId, signOut } = useAuth()
-  if (!isLoaded) return <WorkspaceLoading />
+  if (!isLoaded) return <SessionLoading />
   if (!isSignedIn || !userId) return <ClerkLoginScreen />
   return <AuthenticatedMainRoute key={userId} clerkUserId={userId} onClerkSignOut={() => signOut()} />
 }

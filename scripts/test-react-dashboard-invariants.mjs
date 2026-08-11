@@ -51,8 +51,9 @@ assert(
   'Both authentication paths must complete sign-in before showing the product selection screen.'
 )
 assert(
-  app.includes('if (!isLoaded) return <WorkspaceLoading />'),
-  'Clerk session discovery must show a neutral loading state instead of flashing the login screen.'
+  app.includes('if (!isLoaded) return <SessionLoading />')
+    && app.includes('if (!authChecked) return <SessionLoading />'),
+  'Session discovery must show a neutral loading state instead of preparing a workspace before product selection.'
 )
 assert(
   !clerkSessionBridge.includes('WorkspaceLoading'),
