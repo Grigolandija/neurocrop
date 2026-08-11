@@ -1,20 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-
-const apiBaseUrl = process.env.E2E_API_URL || 'http://127.0.0.1:3100'
-const password = process.env.E2E_PASSWORD || 'NeuroCrop-CI-Password-2026'
-
-async function authenticate(page: Page) {
-  const response = await page.request.post(`${apiBaseUrl}/auth/login`, {
-    data: { email: 'tenant-a@ci.neurocrop.test', password },
-  })
-  expect(response.ok(), await response.text()).toBeTruthy()
-  await page.route('**/runtime-config.js*', (route) => route.fulfill({
-    contentType: 'application/javascript',
-    body: `window.NEUROCROP_CONFIG = { apiBaseUrl: ${JSON.stringify(apiBaseUrl)} };`,
-  }))
-  await page.goto('/')
-  await expect(page.locator('#dashboardShell')).toBeVisible()
-}
+import { expect, test } from '@playwright/test'
+import { authenticate } from './support/session'
 
 test('mobile navigation reaches core monitoring workspaces without overflow', async ({ page }) => {
   await authenticate(page)

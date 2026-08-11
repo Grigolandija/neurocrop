@@ -42,7 +42,7 @@ export function ProductEntryScreen({ onSelect, onSignOut }: ProductEntryScreenPr
         </div>
 
         <div className="product-entry-grid">
-          <button className="product-choice-card field" type="button" onClick={() => onSelect('field')}>
+          <button className="product-choice-card field" data-product-choice="field" type="button" onClick={() => onSelect('field')}>
             <span className="product-choice-topline">
               <span className="product-choice-identity">
                 <span className="product-choice-icon" aria-hidden="true"><i className="fa-solid fa-wheat-awn" /></span>
@@ -57,7 +57,7 @@ export function ProductEntryScreen({ onSelect, onSignOut }: ProductEntryScreenPr
             <span className="product-choice-action">{lt ? 'Kas planuojama' : 'What’s planned'} <i className="fa-solid fa-arrow-right" /></span>
           </button>
 
-          <button className="product-choice-card greenhouse" type="button" onClick={() => onSelect('greenhouse')}>
+          <button className="product-choice-card greenhouse" data-product-choice="greenhouse" type="button" onClick={() => onSelect('greenhouse')}>
             <span className="product-choice-topline">
               <span className="product-choice-identity">
                 <span className="product-choice-icon" aria-hidden="true"><i className="fa-solid fa-temperature-half" /></span>

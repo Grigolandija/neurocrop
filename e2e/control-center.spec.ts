@@ -1,30 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
-
-const apiBaseUrl = process.env.E2E_API_URL || 'http://127.0.0.1:3100'
-const password = process.env.E2E_PASSWORD || 'NeuroCrop-CI-Password-2026'
-
-async function prepare(page: Page) {
-  await page.route('**/runtime-config.js*', (route) => route.fulfill({
-    contentType: 'application/javascript',
-    body: `window.NEUROCROP_CONFIG = { apiBaseUrl: ${JSON.stringify(apiBaseUrl)} };`,
-  }))
-}
-
-async function authenticate(page: Page, email = 'tenant-a@ci.neurocrop.test') {
-  const response = await page.request.post(`${apiBaseUrl}/auth/login`, { data: { email, password } })
-  expect(response.ok(), await response.text()).toBeTruthy()
-  await prepare(page)
-  await page.goto('/')
-  await expect(page.locator('#dashboardShell')).toBeVisible()
-  await expect(page.locator('.app-route-loading')).toHaveCount(0)
-}
+import { apiBaseUrl, authenticate, password, prepareRuntime, selectGreenhouse } from './support/session'
 
 function navigation(page: Page, action: string) {
   return page.locator(`[data-sidebar-action="${action}"]:visible`)
 }
 
 test('wrong password shows an inline login error', async ({ page }) => {
-  await prepare(page)
+  await prepareRuntime(page)
   await page.goto('/')
   await page.locator('#loginEmail').fill('tenant-a@ci.neurocrop.test')
   await page.locator('#loginPassword').fill('Definitely-wrong-password')
@@ -33,8 +15,38 @@ test('wrong password shows an inline login error', async ({ page }) => {
   await expect(page.locator('#dashboardShell')).toHaveCount(0)
 })
 
+test('sign-in shows product selection before preparing the Greenhouse workspace', async ({ page }) => {
+  await prepareRuntime(page)
+  await page.goto('/')
+  await expect(page.locator('#loginForm')).toBeVisible()
+  await expect(page.locator('.product-entry-screen')).toHaveCount(0)
+  await expect(page.locator('.app-route-loading')).toHaveCount(0)
+
+  await page.evaluate(() => {
+    const state = window as Window & { __workspaceLoadingBeforeProductChoice?: boolean }
+    state.__workspaceLoadingBeforeProductChoice = false
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('.app-route-loading') && !document.querySelector('[data-product-choice]')) {
+        state.__workspaceLoadingBeforeProductChoice = true
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+  })
+
+  await page.locator('#loginEmail').fill('tenant-a@ci.neurocrop.test')
+  await page.locator('#loginPassword').fill(password)
+  await page.locator('#loginSubmit').click()
+
+  await expect(page.locator('[data-product-choice="field"]')).toBeVisible()
+  await expect(page.locator('[data-product-choice="greenhouse"]')).toBeVisible()
+  await expect(page.locator('#dashboardShell')).toHaveCount(0)
+  expect(await page.evaluate(() => (window as Window & { __workspaceLoadingBeforeProductChoice?: boolean }).__workspaceLoadingBeforeProductChoice)).toBe(false)
+
+  await selectGreenhouse(page)
+})
+
 test('password recovery requests only the account email', async ({ page }) => {
-  await prepare(page)
+  await prepareRuntime(page)
   await page.goto('/forgot-password')
   await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible()
   await expect(page.locator('input[type="password"]')).toHaveCount(0)
@@ -104,7 +116,7 @@ test('Overview turns crop risk into a prioritized, verifiable task', async ({ pa
     data: { email: 'tenant-a@ci.neurocrop.test', password },
   })
   expect(response.ok(), await response.text()).toBeTruthy()
-  await prepare(page)
+  await prepareRuntime(page)
   await page.route('**/actions/today', (route) => route.fulfill({
     contentType: 'application/json',
     body: JSON.stringify({
@@ -150,6 +162,7 @@ test('Overview turns crop risk into a prioritized, verifiable task', async ({ pa
   }))
 
   await page.goto('/')
+  await selectGreenhouse(page)
   await expect(page.locator('.nc-risk-facts')).toContainText('Worsening')
   await expect(page.locator('.nc-risk-facts')).toContainText('3 / 5 nodes')
   await expect(page.locator('.nc-result-loop')).toContainText('2 improved')
@@ -273,7 +286,7 @@ test('crop profile editor exposes every canonical metric group', async ({ page }
 })
 
 test('new customer can register and receives confirmation', async ({ page }) => {
-  await prepare(page)
+  await prepareRuntime(page)
   await page.goto('/register')
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   await page.getByLabel('Email address').fill(`e2e-${suffix}@example.invalid`)
