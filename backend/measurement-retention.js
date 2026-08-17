@@ -4,6 +4,7 @@ const DEFAULT_ROLLUP_10M_RETENTION_DAYS = 93;
 const DEFAULT_ROLLUP_60M_RETENTION_DAYS = 1095;
 const DEFAULT_BATCH_SIZE = 10_000;
 const DEFAULT_MAX_BATCHES = 100;
+const ANALYZE_AFTER_DELETIONS = 10_000;
 const RETENTION_LOCK_NAME = 'neurocrop-measurement-retention-v1';
 
 export function getMeasurementRetentionDays(env = process.env) {
@@ -98,8 +99,10 @@ export async function runMeasurementRetention(pool, options = {}) {
       }
     }
 
-    if (deleted > 0) await client.query('ANALYZE measurements');
-    if (rollupsDeleted > 0) await client.query('ANALYZE measurement_rollups');
+    // Small rolling-retention batches do not materially change planner stats.
+    // Let autovacuum handle them; ANALYZE only after a substantial cleanup.
+    if (deleted >= ANALYZE_AFTER_DELETIONS) await client.query('ANALYZE measurements');
+    if (rollupsDeleted >= ANALYZE_AFTER_DELETIONS) await client.query('ANALYZE measurement_rollups');
     return { deleted, rollupsDeleted, skipped: false, cutoff };
   } finally {
     if (locked) {

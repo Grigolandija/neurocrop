@@ -240,8 +240,8 @@ test('measurement retention is bounded, batched and protected by an advisory loc
   assert.equal(result.cutoff.toISOString(), '2026-06-19T12:00:00.000Z');
   assert.equal(calls.filter((call) => call.sql.includes('DELETE FROM measurements')).length, 2);
   assert.equal(calls.filter((call) => call.sql.includes('DELETE FROM measurement_rollups')).length, 2);
-  assert.equal(calls.some((call) => call.sql === 'ANALYZE measurements'), true);
-  assert.equal(calls.some((call) => call.sql === 'ANALYZE measurement_rollups'), true);
+  assert.equal(calls.some((call) => call.sql === 'ANALYZE measurements'), false);
+  assert.equal(calls.some((call) => call.sql === 'ANALYZE measurement_rollups'), false);
   assert.equal(calls.at(-1).sql, 'release');
 });
 
