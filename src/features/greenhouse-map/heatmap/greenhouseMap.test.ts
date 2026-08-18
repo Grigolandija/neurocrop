@@ -173,13 +173,13 @@ describe('environment colour scale', () => {
     expect(green).toBeGreaterThan(red)
     expect(green).toBeGreaterThan(blue)
   })
-  it('keeps semantic hue anchors while adding stabilized local contrast', () => {
+  it('uses the full palette across the stabilized local range', () => {
     const definition = METRICS['air-temperature']
     const low = semanticColorAt(15.2, definition, [14.5, 17.5])
     const high = semanticColorAt(16.6, definition, [14.5, 17.5])
-    expect(Math.hypot(...low.map((channel, index) => channel - high[index]))).toBeGreaterThan(30)
+    expect(Math.hypot(...low.map((channel, index) => channel - high[index]))).toBeGreaterThan(100)
     expect(low[2]).toBeGreaterThan(low[0])
-    expect(high[1]).toBeGreaterThan(high[0])
+    expect(high[0]).toBeGreaterThan(low[0])
   })
   it('makes a meaningful three-degree temperature spread visually distinct', () => {
     const definition = METRICS['air-temperature']
@@ -188,7 +188,7 @@ describe('environment colour scale', () => {
     const colorDistance = Math.hypot(...low.map((channel, index) => channel - high[index]))
     expect(colorDistance).toBeGreaterThan(90)
     expect(low[1]).toBeGreaterThan(low[0])
-    expect(high[1]).toBeGreaterThan(high[0])
+    expect(high[0]).toBeGreaterThan(high[1])
   })
   it('uses registered stops as the absolute semantic base for every metric palette', () => {
     Object.values(METRICS).forEach((definition) => expect(definition.colorStops?.length).toBeGreaterThan(1))
