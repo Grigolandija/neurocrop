@@ -84,6 +84,29 @@ function text(value: unknown, fallback = '') {
   return value === null || value === undefined || value === '' ? fallback : String(value)
 }
 
+function telemetryEventPresentation(event: JsonRecord, nodeName: string, lithuanian: boolean) {
+  const type = text(event.type, 'sensor_event')
+  const duration = number(event.durationMinutes)
+  const profileFrom = text(event.from).replaceAll('_', ' ')
+  const profileTo = text(event.to).replaceAll('_', ' ')
+  if (type === 'delivery_gap') return {
+    title: lithuanian ? 'Duomenų perdavimo tarpas' : 'Delivery gap',
+    detail: `${nodeName}${duration !== null ? ` · ${duration} min ${lithuanian ? 'be duomenų' : 'without data'}` : ''}`,
+  }
+  if (type === 'reporting_mode_changed') return {
+    title: lithuanian ? 'Pakeistas duomenų siuntimo režimas' : 'Reporting mode changed',
+    detail: `${nodeName}${profileFrom && profileTo ? ` · ${profileFrom} → ${profileTo}` : ''}`,
+  }
+  if (type === 'transmission_failed') return {
+    title: lithuanian ? 'Nepavyko perduoti duomenų' : 'Transmission failed',
+    detail: nodeName,
+  }
+  return {
+    title: type.replaceAll('_', ' '),
+    detail: nodeName,
+  }
+}
+
 function areaIdentity(area: JsonRecord) {
   return text(area.id || area.areaId || area.area_id || area.siteId || area.site_id)
 }
@@ -574,6 +597,9 @@ function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricCha
 
 export default function TrendsWorkspace() {
   const location = useLocation()
+  const { language } = useInterfaceLanguage()
+  const lithuanian = language === 'lt'
+  const locale = lithuanian ? 'lt-LT' : 'en-GB'
   const dashboardState = useDashboardState()
   const [stored] = useState(() => loadStoredSelection())
   const [sections, setSections] = useState<Section[]>([])
@@ -997,6 +1023,7 @@ export default function TrendsWorkspace() {
   const coveragePct = expectedMinutes ? Math.min(100, Math.round(coveredMinutes / expectedMinutes * 100)) : null
   const showMeasuredConclusion = scope === 'section' && !compare && activeMetricKeys.length === 1 && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
   const events = Array.isArray(analytics?.events) ? analytics.events.slice(-6).reverse() : []
+  const eventNodeNames = new Map(sectionNodes.map((node) => [node.devEui.toLowerCase(), node.name]))
   const selectedAggregationLabel = sectionAggregationLabel(metricAggregations[metricKey])
   const sectionSeries = { name: `${selectedSection?.name || 'Selected section'} · ${selectedAggregationLabel}`, points, color: chartColors[0] }
   const chartSeries = scope === 'nodes'
@@ -1284,7 +1311,12 @@ export default function TrendsWorkspace() {
       </article>
       <article className="nc-trends-events">
         <header><div><p>{tx("Sensor timeline")}</p><h2>{tx("Events in this period")}</h2></div><span>{events.length} {tx("detected")}</span></header>
-        <div>{events.length ? events.map((event: JsonRecord, index: number) => <div key={`${event.occurredAt}-${index}`}><i className={`fa-solid ${event.type === 'delivery_gap' ? 'fa-signal' : event.type === 'transmission_failed' ? 'fa-triangle-exclamation' : 'fa-microchip'}`} /><span><strong>{String(event.type || 'sensor_event').replaceAll('_', ' ')}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleString() :tx("Time unavailable")}{event.durationMinutes ? ` · ${event.durationMinutes} min` : ''}</small></span></div>) : <div className="nc-trends-no-events"><i className="fa-solid fa-circle-check" /><span><strong>{tx("No device events detected")}</strong><small>{tx("The selected history window contains no reported delivery gaps or transport faults.")}</small></span></div>}</div>
+        <div>{events.length ? events.map((event: JsonRecord, index: number) => {
+          const devEui = text(event.devEui).toLowerCase()
+          const nodeName = eventNodeNames.get(devEui) || devEui.toUpperCase() || (lithuanian ? 'Nežinomas mazgas' : 'Unknown node')
+          const presentation = telemetryEventPresentation(event, nodeName, lithuanian)
+          return <div key={`${event.occurredAt}-${devEui}-${event.type}-${index}`}><i className={`fa-solid ${event.type === 'delivery_gap' ? 'fa-signal' : event.type === 'transmission_failed' ? 'fa-triangle-exclamation' : 'fa-microchip'}`} /><span><strong>{presentation.title}</strong><small>{presentation.detail}</small><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleString(locale) : tx("Time unavailable")}</small></span></div>
+        }) : <div className="nc-trends-no-events"><i className="fa-solid fa-circle-check" /><span><strong>{tx("No device events detected")}</strong><small>{tx("The selected history window contains no reported delivery gaps or transport faults.")}</small></span></div>}</div>
       </article>
     </section>
     {exportOpen && selectedSection ? <ModalPortal><div className="nc-trends-export-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !exportBusy) setExportOpen(false) }}><div className="nc-trends-export-modal" role="dialog" aria-modal="true" aria-labelledby="nc-trends-export-title">
