@@ -24,8 +24,11 @@
 .nc-climate-history-controls label { display: grid; grid-template-columns: auto minmax(10rem,1fr); align-items: center; gap: var(--space-12); color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-semibold); white-space: nowrap; }
 .nc-climate-history-controls input[type="range"] { width: 100%; accent-color: var(--color-secondary); cursor: pointer; }
 .nc-climate-history-controls > strong { min-width: 8.5rem; color: var(--color-text); font-size: var(--type-caption); font-variant-numeric: tabular-nums; text-align: center; }
-.nc-climate-playback { display: inline-flex; min-height: var(--control-height-sm); align-items: center; justify-content: center; gap: var(--space-8); border: 1px solid var(--color-secondary); border-radius: .55rem; padding: 0 var(--space-12); background: var(--color-secondary); color: #fff; font-size: var(--type-caption); font-weight: var(--weight-semibold); }
-.nc-climate-playback:hover { background: var(--color-secondary-strong); }
+.nc-climate-history-stepper { display: inline-flex; overflow: hidden; border: 1px solid var(--color-secondary); border-radius: .55rem; background: var(--color-surface); }
+.nc-climate-history-stepper button { display: grid; width: var(--control-height-sm); min-height: var(--control-height-sm); place-items: center; border: 0; background: var(--color-secondary); color: #fff; }
+.nc-climate-history-stepper button + button { border-left: 1px solid color-mix(in srgb,#fff 28%,transparent); }
+.nc-climate-history-stepper button:hover:not(:disabled) { background: var(--color-secondary-strong); }
+.nc-climate-history-stepper button:disabled { cursor: not-allowed; opacity: .38; }
 .nc-climate-coverage { display: inline-flex; align-items: center; gap: var(--space-8); color: var(--color-text-tertiary); font-size: var(--type-micro); white-space: nowrap; }
 .nc-climate-coverage i { color: var(--color-info); }
 .nc-climate-history-warning { display: flex; align-items: center; gap: var(--space-8); border-bottom: 1px solid var(--color-warning-border); padding: var(--space-8) var(--space-20); background: var(--color-warning-soft); color: var(--color-text-secondary); font-size: var(--type-caption); }

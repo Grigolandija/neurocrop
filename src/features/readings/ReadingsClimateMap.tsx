@@ -35,7 +35,6 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const [history, setHistory] = useState<AreaMapHistory | null>(null)
   const [timeMode, setTimeMode] = useState<ClimateTimeMode>('live')
   const [historyIndex, setHistoryIndex] = useState(0)
-  const [playing, setPlaying] = useState(false)
   const [historyError, setHistoryError] = useState('')
   const [metric, setMetric] = useState<MetricKey>('air-temperature')
   const [soilEcDepthCm, setSoilEcDepthCm] = useState<number | null>(() => {
@@ -82,7 +81,6 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
           const savedMetric = next.map?.heatmapSettings.metric
           setMetric(savedMetric && Object.hasOwn(METRICS, savedMetric) ? savedMetric : 'air-temperature')
           setTimeMode('live')
-          setPlaying(false)
         }
         if (historyResult.status === 'fulfilled') {
           setHistory(historyResult.value)
@@ -114,21 +112,6 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       })
     return () => { cancelled = true }
   }, [areaId, refreshToken])
-
-  useEffect(() => {
-    if (!playing || timeMode !== 'history' || !history?.frames.length) return
-    const timer = window.setInterval(() => {
-      if (document.hidden) return
-      setHistoryIndex((current) => {
-        if (current >= history.frames.length - 1) {
-          setPlaying(false)
-          return current
-        }
-        return current + 1
-      })
-    }, 700)
-    return () => window.clearInterval(timer)
-  }, [history, playing, timeMode])
 
   const historyFrame = timeMode === 'history' ? history?.frames[historyIndex] : null
   const historyFrameEnd = historyFrame && history
@@ -279,13 +262,9 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const selectTimeMode = (next: ClimateTimeMode) => {
     if (next === 'history' && !historyAvailable) return
     setTimeMode(next)
-    if (next === 'live') setPlaying(false)
   }
-  const togglePlayback = () => {
-    if (!history?.frames.length) return
-    if (!playing && historyIndex >= history.frames.length - 1) setHistoryIndex(0)
-    setPlaying((current) => !current)
-  }
+  const stepHistory = (direction: -1 | 1) => setHistoryIndex((current) =>
+    Math.max(0, Math.min((history?.frames.length ?? 1) - 1, current + direction)))
 
   return <section className={`nc-live-climate-map ${overviewPresentation ? 'nc-overview-presentation' : ''}`} data-overview-heatmap-settled={overviewPresentation && canvasReady ? 'true' : undefined} aria-label={`${context.area.name} live climate map`}>
     <header>
@@ -307,10 +286,10 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
     </header>
     {timeMode === 'history' && history?.frames.length
       ? <div className="nc-climate-history-controls">
-          <button type="button" className="nc-climate-playback" onClick={togglePlayback}>
-            <i className={`fa-solid ${playing ? 'fa-pause' : 'fa-play'}`} />
-            {playing ? lithuanian ? 'Pristabdyti' :tx("Pause") : lithuanian ? 'Paleisti' :tx("Play")}
-          </button>
+          <div className="nc-climate-history-stepper" aria-label={lithuanian ? 'Keisti istorijos laiką' : 'Change history time'}>
+            <button type="button" onClick={() => stepHistory(-1)} disabled={historyIndex === 0} title={lithuanian ? 'Ankstesnis laikas' : 'Previous time'} aria-label={lithuanian ? 'Ankstesnis laikas' : 'Previous time'}><i className="fa-solid fa-arrow-left" /></button>
+            <button type="button" onClick={() => stepHistory(1)} disabled={historyIndex === history.frames.length - 1} title={lithuanian ? 'Kitas laikas' : 'Next time'} aria-label={lithuanian ? 'Kitas laikas' : 'Next time'}><i className="fa-solid fa-arrow-right" /></button>
+          </div>
           <label>
             <span>{lithuanian ? '24 valandų istorija' :tx("24-hour history")}</span>
             <input
@@ -320,7 +299,6 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
               step={1}
               value={historyIndex}
               onChange={(event) => {
-                setPlaying(false)
                 setHistoryIndex(Number(event.target.value))
               }}
               aria-label={lithuanian ? 'Istorinio klimato žemėlapio laikas' : 'Historical climate map time'}
