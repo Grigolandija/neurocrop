@@ -34,27 +34,32 @@ export function colorAtStops(value: number, stops: ReadonlyArray<{ value: number
   ) as [number, number, number]
 }
 
-type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops' | 'colorInterval'>
+type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops' | 'colorInterval' | 'fullContrastSpan'>
 
-// Keep local spatial differences visible without falsely mapping every observed
-// minimum and maximum to the two extremes of the full metric palette. Sampling
-// the semantic scale around the local centre preserves the agronomic meaning of
-// every colour (including diverging scales such as VPD), while a modest stretch
-// makes differences between nearby sensors easier to see.
-const LOCAL_SEMANTIC_CONTRAST = 1.65
+const MAX_LOCAL_PALETTE_WIDTH = 0.6
+
+export function getLocalPaletteWidth(observedSpan: number, fullContrastSpan: number) {
+  const meaningfulRatio = Math.min(1, Math.max(0, observedSpan) / Math.max(fullContrastSpan, 1e-6))
+  return Math.sqrt(meaningfulRatio) * MAX_LOCAL_PALETTE_WIDTH
+}
 
 export function semanticColorAt(value: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): [number, number, number] {
-  let semanticValue = value
-  if (observedRange && observedRange[1] - observedRange[0] >= 1e-6) {
-    const localCenter = (observedRange[0] + observedRange[1]) / 2
-    semanticValue = Math.max(
-      definition.bounds[0],
-      Math.min(definition.bounds[1], localCenter + (value - localCenter) * LOCAL_SEMANTIC_CONTRAST),
-    )
+  if (!observedRange || observedRange[1] - observedRange[0] < 1e-6) {
+    return definition.colorStops?.length
+      ? colorAtStops(value, definition.colorStops)
+      : colorAt(value, definition.bounds[0], definition.bounds[1], definition.colors)
   }
-  return definition.colorStops?.length
-    ? colorAtStops(semanticValue, definition.colorStops)
-    : colorAt(semanticValue, definition.bounds[0], definition.bounds[1], definition.colors)
+
+  // Environment maps answer a spatial question, while the adjacent target badge
+  // answers the absolute agronomic-status question. Use only a centred portion
+  // of the metric's directional palette. Its width grows from the real sensor
+  // spread relative to a metric-specific meaningful span, so small differences
+  // stay visible without ever turning every frame into full-scale extremes.
+  const observedSpan = observedRange[1] - observedRange[0]
+  const localPosition = Math.max(0, Math.min(1, (value - observedRange[0]) / observedSpan))
+  const paletteWidth = getLocalPaletteWidth(observedSpan, definition.fullContrastSpan)
+  const palettePosition = 0.5 + (localPosition - 0.5) * paletteWidth
+  return colorAt(palettePosition, 0, 1, definition.colors)
 }
 
 export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): string {

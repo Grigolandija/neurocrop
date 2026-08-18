@@ -457,7 +457,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         else {
           const observedValues = scaleValues
           const observedRange: [number, number] = [Math.min(...observedValues), Math.max(...observedValues)]
-          const contrastRange: [number, number] = [scale.min, scale.max]
+          const contrastRange: [number, number] = observedRange
           setHeatmap({
             canvas: renderHeatmapCanvas(
               grid,
@@ -758,11 +758,13 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   }, [contourPaths, map.dimensions.lengthM, map.dimensions.widthM, map.heatmapSettings.metric, orderedObjects, view.scale, visibleLayers])
   const average = points.length ? points.reduce((sum, point) => sum + point.value, 0) / points.length : null
   const targetState = average === null || !target ? 'unknown' : average < target[0] ? 'low' : average > target[1] ? 'high' : 'optimal'
-  const targetMarker = heatmap && target && heatmap.max > heatmap.min && target[1] >= heatmap.min && target[0] <= heatmap.max
+  const legendMin = heatmap?.observedMin ?? 0
+  const legendMax = heatmap?.observedMax ?? 0
+  const targetMarker = heatmap && target && legendMax > legendMin && target[1] >= legendMin && target[0] <= legendMax
     ? (() => {
-        const scaleRange = heatmap.max - heatmap.min
-        const left = Math.max(0, Math.min(1, (target[0] - heatmap.min) / scaleRange))
-        const right = Math.max(0, Math.min(1, (target[1] - heatmap.min) / scaleRange))
+        const scaleRange = legendMax - legendMin
+        const left = Math.max(0, Math.min(1, (target[0] - legendMin) / scaleRange))
+        const right = Math.max(0, Math.min(1, (target[1] - legendMin) / scaleRange))
         return { left: `${left * 100}%`, width: `${Math.max((right - left) * 100, 0.8)}%` }
       })()
     : null
@@ -774,7 +776,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       <div className="gh-legend-scale">
         <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)} title={tr('Contour spacing adapts to the measured range and data coverage.', 'Izolinijų žingsnis prisitaiko prie matuojamo diapazono ir duomenų padengimo.')}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {heatmap.contourInterval} {METRICS[map.heatmapSettings.metric].unit}</button>
         <div className="gh-color-scale-wrap">
-          <div className="gh-color-scale" style={{ background: scaleGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric], [heatmap.min, heatmap.max]) }} />
+          <div className="gh-color-scale" style={{ background: scaleGradient(legendMin, legendMax, METRICS[map.heatmapSettings.metric], [legendMin, legendMax]) }} />
           {targetMarker ? <span
             className="gh-target-range-marker"
             style={targetMarker}
@@ -782,7 +784,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
             aria-hidden="true"
           /> : null}
         </div>
-        <div className="gh-legend-range"><span>{heatmap.min} {METRICS[map.heatmapSettings.metric].unit}</span><span>{heatmap.max} {METRICS[map.heatmapSettings.metric].unit}</span></div>
+        <div className="gh-legend-range"><span>{Number(legendMin.toFixed(METRICS[map.heatmapSettings.metric].decimals))} {METRICS[map.heatmapSettings.metric].unit}</span><span>{Number(legendMax.toFixed(METRICS[map.heatmapSettings.metric].decimals))} {METRICS[map.heatmapSettings.metric].unit}</span></div>
       </div>
       <div className="gh-legend-meta">
         {target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}

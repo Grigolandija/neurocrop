@@ -27,6 +27,7 @@ export type MetricHeatmapDefinition = {
   bounds: NumericRange
   scaleStep: number
   minimumSpan: number
+  fullContrastSpan: number
   colorInterval: number
   contourInterval: number
   contourCandidates: number[]
@@ -117,6 +118,7 @@ export function createHeatmapMetricDefinitions() {
           decimals: heatmap.decimals ?? definition.decimals,
           scaleStep: heatmap.scaleStep,
           minimumSpan: heatmap.minimumSpan,
+          fullContrastSpan: heatmap.fullContrastSpan,
           field: heatmap.field,
           bounds: heatmap.bounds,
           colors: palette.colors,

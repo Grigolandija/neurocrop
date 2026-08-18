@@ -200,6 +200,7 @@ export type HeatmapMetricDefinition = {
   decimals: number
   scaleStep: number
   minimumSpan: number
+  fullContrastSpan: number
   field: Exclude<keyof SensorMeasurements, 'measuredAt' | 'pressureHpa' | 'soilEcByDepth'>
   bounds: [number, number]
   colors: readonly string[]
