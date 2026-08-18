@@ -1844,7 +1844,9 @@ test('latest readings keep the newest valid value per metric when uplinks are st
   const routeStart = source.indexOf("app.get('/readings/latest'");
   const route = source.slice(routeStart, source.indexOf("function historicalSensorPresenceCondition", routeStart));
   assert.ok(routeStart >= 0);
-  assert.match(route, /JOIN LATERAL/);
+  assert.match(route, /loadRecentMeasurementsByNode\(devEuis/);
+  assert.match(route, /WHERE measurement\.dev_eui=\$1[\s\S]*ORDER BY measurement\.time DESC[\s\S]*LIMIT 100/);
+  assert.match(route, /concurrency = 4/);
   assert.match(route, /LIMIT 100/);
   assert.match(route, /collectLatestKnownSourcesByMetric/);
   assert.match(route, /measurementReportsMetric\(candidate, metric\)/);

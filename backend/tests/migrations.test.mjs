@@ -149,6 +149,12 @@ test('case-insensitive DevEUI operations have functional indexes', async () => {
   assert.match(migration, /idx_measurements_dev_eui_lower[\s\S]*lower\(dev_eui\)/);
 });
 
+test('latest readings keep an explicitly ordered per-device index', async () => {
+  const migration = await fs.readFile(new URL('../migrations/0035_restore_latest_measurements_index.sql', import.meta.url), 'utf8');
+  assert.match(migration, /idx_measurements_deveui_time/);
+  assert.match(migration, /measurements \(dev_eui, time DESC\)/);
+});
+
 test('area metadata migration preserves existing rows with usable defaults', async () => {
   const sql = await fs.readFile(new URL('../migrations/0013_area_metadata.sql', import.meta.url), 'utf8');
   assert.match(sql, /ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'Growing area'/);

@@ -2156,6 +2156,28 @@ function latestReadingsError(status, code, message) {
   return error;
 }
 
+async function loadRecentMeasurementsByNode(devEuis, concurrency = 4) {
+  const results = new Array(devEuis.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, devEuis.length) }, async () => {
+    while (cursor < devEuis.length) {
+      const index = cursor;
+      cursor += 1;
+      const { rows } = await query(
+        `SELECT measurement.*
+         FROM measurements measurement
+         WHERE measurement.dev_eui=$1
+         ORDER BY measurement.time DESC
+         LIMIT 100`,
+        [devEuis[index]]
+      );
+      results[index] = rows;
+    }
+  });
+  await Promise.all(workers);
+  return results.flat();
+}
+
 async function buildLatestReadings(requestedSectionId, organizationId, timing = null) {
     const [section, nodeResult] = await Promise.all([
       getSectionById(requestedSectionId, organizationId),
@@ -2175,7 +2197,7 @@ async function buildLatestReadings(requestedSectionId, organizationId, timing = 
     timing?.mark('setup', 'section and nodes');
 
     const devEuis = nodeRows.map((node) => normalizeDevEui(node.dev_eui));
-    const [readingContextResult, recentResult] = await Promise.all([
+    const [readingContextResult, recentRows] = await Promise.all([
       query(
         `SELECT node_dev_eui, port, medium, target_type, target_name, spatial_scope,
                 depth_cm, height_cm, use_for_section_score, allow_spatial_interpolation
@@ -2183,23 +2205,14 @@ async function buildLatestReadings(requestedSectionId, organizationId, timing = 
          WHERE organization_id=$1 AND node_dev_eui=ANY($2::text[])`,
         [organizationId, devEuis]
       ),
-      query(
-        `SELECT recent.*
-         FROM unnest($1::text[]) requested(dev_eui)
-         JOIN LATERAL (
-           SELECT measurement.*
-           FROM measurements measurement
-           WHERE measurement.dev_eui=requested.dev_eui
-           ORDER BY measurement.time DESC
-           LIMIT 100
-         ) recent ON TRUE
-         ORDER BY recent.dev_eui, recent.time DESC`,
-        [devEuis]
-      )
+      // A separate bounded lookup gives PostgreSQL each concrete DevEUI. This
+      // reliably selects the composite latest-by-Node index; the former
+      // parameterized LATERAL query could scan most of the global time index
+      // once per Node as the measurements table grew.
+      loadRecentMeasurementsByNode(devEuis)
     ]);
     const readingContextRows = readingContextResult.rows;
     const readingContexts = sensorConfigsByNode(readingContextRows);
-    const recentRows = recentResult.rows;
     timing?.mark('source', 'contexts and recent readings');
     const recentByDevEui = new Map();
     recentRows.forEach((row) => {
