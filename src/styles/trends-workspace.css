@@ -439,6 +439,7 @@ body.designer-app .nc-trends-section-search input {
 .nc-trends-export-modal h3 { margin: 0; font-size: 13px; font-weight: 750; }
 .nc-trends-export-choice-list { display: grid; overflow: hidden; border: 1px solid #dfe5e0; border-radius: 9px; background: #fff; }
 .nc-trends-export-range { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.nc-trends-export-resolution { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .nc-trends-export-choice-list label,
 .nc-trends-export-metrics label {
   display: flex;
@@ -547,6 +548,7 @@ body.designer-app .nc-trends-section-search input {
   .nc-trends-export-backdrop { align-items: end; padding: 0; }
   .nc-trends-export-modal { max-height: 92vh; border-radius: 18px 18px 0 0; }
   .nc-trends-export-range,
+  .nc-trends-export-resolution,
   .nc-trends-export-metrics,
   .nc-trends-export-node-list { grid-template-columns: 1fr; }
 }

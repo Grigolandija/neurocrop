@@ -21,6 +21,7 @@ import '../../styles/trends-workspace.css'
 type JsonRecord = Record<string, any>
 type RangeKey = '24h' | '7d' | '30d'
 type TrendScope = 'section' | 'nodes'
+type ExportResolution = 'raw' | '5' | '10' | '60'
 type Point = { observedAt: string; value: number }
 type Section = { id: string; name: string; areaId: string; areaName: string; profileId: string; available: Set<string>; measured: Set<string> }
 type NodeOption = { devEui: string; name: string; sectionId: string; transportStatus: string }
@@ -55,6 +56,12 @@ const rangeConfig: Record<RangeKey, { hours: number; stepMinutes: number; label:
   '7d': { hours: 168, stepMinutes: 60, label: 'Last 7 days' },
   '30d': { hours: 720, stepMinutes: 240, label: 'Last 30 days' },
 }
+const exportResolutions: Array<{ key: ExportResolution; label: string; labelLt: string; detail: string; detailLt: string }> = [
+  { key: 'raw', label: 'Original readings', labelLt: 'Originalūs matavimai', detail: 'Every received uplink', detailLt: 'Kiekvienas gautas uplink' },
+  { key: '5', label: '5 minutes', labelLt: '5 minutės', detail: 'Latest value in interval', detailLt: 'Naujausia intervalo reikšmė' },
+  { key: '10', label: '10 minutes', labelLt: '10 minučių', detail: 'Latest value in interval', detailLt: 'Naujausia intervalo reikšmė' },
+  { key: '60', label: '1 hour', labelLt: '1 valanda', detail: 'Latest value in interval', detailLt: 'Naujausia intervalo reikšmė' },
+]
 const storageKey = 'neurocrop-trends-workspace-v2'
 const chartColors = ['#287f70', '#d87655', '#507ea2', '#b18a35', '#845f8e', '#68746f']
 const metricKeys = new Set(metrics.map((metric) => metric.key))
@@ -633,6 +640,7 @@ export default function TrendsWorkspace() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [exportRange, setExportRange] = useState<RangeKey>(range)
+  const [exportResolution, setExportResolution] = useState<ExportResolution>(range === '24h' ? 'raw' : '60')
   const [exportMetricKeys, setExportMetricKeys] = useState<string[]>(() => metrics.map((metric) => metric.key))
   const [exportNodeIds, setExportNodeIds] = useState<string[]>([])
   const [exportMap, setExportMap] = useState<ExportMapState>({ status: 'empty', configured: false, ratio: 1.8, nodes: [], objects: [], error: '' })
@@ -1152,6 +1160,7 @@ export default function TrendsWorkspace() {
   function openExport() {
     if (!selectedSection) return
     setExportRange(range)
+    setExportResolution(range === '24h' ? 'raw' : '60')
     setExportMetricKeys(metrics.map((metric) => metric.key).filter((key) => selectedSection.measured.has(key)))
     setExportNodeIds([])
     setExportMap({ status: 'loading', configured: false, ratio: 1.8, nodes: [], objects: [], error: '' })
@@ -1171,7 +1180,7 @@ export default function TrendsWorkspace() {
         areaId: selectedSection.areaId,
         devEuis: exportNodeIds.join(','),
         metrics: exportMetricKeys.join(','),
-        stepMinutes: exportRange === '24h' ? 5 : config.stepMinutes,
+        resolution: exportResolution,
         from: from.toISOString(),
         to: to.toISOString(),
       })
@@ -1327,7 +1336,8 @@ export default function TrendsWorkspace() {
           {exportMap.nodes.map((node) => <button type="button" className="nc-trends-export-map-node" data-selected={exportNodeIds.includes(node.devEui)} data-status={node.status} style={{ left: `${node.left}%`, top: `${node.top}%` }} title={`${node.name} · ${node.sectionName}`} aria-pressed={exportNodeIds.includes(node.devEui)} onClick={() => toggleExportNode(node.devEui)} key={node.devEui}><i className="fa-solid fa-microchip" /><span>{node.name}</span></button>)}
         </div> : <div className="nc-trends-export-node-list">{exportMap.nodes.map((node) => <label data-status={node.status} key={node.devEui}><input type="checkbox" checked={exportNodeIds.includes(node.devEui)} onChange={() => toggleExportNode(node.devEui)} /><i className="fa-solid fa-microchip" /><span><strong>{node.name}</strong><small>{node.sectionName}</small></span></label>)}</div> : <div className="nc-trends-export-map-message"><i className="fa-solid fa-circle-info" />{tx("No nodes are assigned to this Area.")}</div>}
       </section>
-      <section><h3>{tx("Period")}</h3><div className="nc-trends-export-choice-list nc-trends-export-range">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <label key={key}><input type="radio" name="export-range" checked={exportRange === key} onChange={() => setExportRange(key)} /><span><strong>{key}</strong><small>{tx(rangeConfig[key].label)}</small></span></label>)}</div></section>
+      <section><h3>{tx("Period")}</h3><div className="nc-trends-export-choice-list nc-trends-export-range">{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <label key={key}><input type="radio" name="export-range" checked={exportRange === key} onChange={() => { setExportRange(key); setExportResolution(key === '24h' ? 'raw' : '60') }} /><span><strong>{key}</strong><small>{tx(rangeConfig[key].label)}</small></span></label>)}</div></section>
+      <section><h3>{lithuanian ? 'Duomenų raiška' : 'Data resolution'}</h3><div className="nc-trends-export-choice-list nc-trends-export-resolution">{exportResolutions.map((option) => <label key={option.key}><input type="radio" name="export-resolution" value={option.key} checked={exportResolution === option.key} onChange={() => setExportResolution(option.key)} /><span><strong>{lithuanian ? option.labelLt : option.label}</strong><small>{lithuanian ? option.detailLt : option.detail}</small></span></label>)}</div></section>
       <section><div className="nc-trends-export-section-head"><h3>{tx("Metrics")}</h3><span><button type="button" onClick={() => setExportMetricKeys(exportAvailableMetricKeys)}>{tx("Select all")}</button><button type="button" onClick={() => setExportMetricKeys([])}>{tx("Clear")}</button></span></div><div className="nc-trends-export-metrics">{metrics.map((metric) => { const metricAvailable = exportAvailableMetricKeySet.has(metric.key); return <label key={metric.key}><input type="checkbox" disabled={!metricAvailable} checked={metricAvailable && exportMetricKeys.includes(metric.key)} onChange={() => setExportMetricKeys((current) => current.includes(metric.key) ? current.filter((key) => key !== metric.key) : [...current, metric.key])} /><i className={`fa-solid ${metric.icon}`} /><span><strong>{metric.label}</strong><small>{metricAvailable ? metric.unit || tx("No unit") : tx("No measurements")}</small></span></label> })}</div></section>
       <footer><span>{exportError ? <em className="nc-trends-export-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{exportError}</em> : <>{exportNodeIds.length} {tx("nodes")} · {exportMetricKeys.length} {tx("metrics selected")}</>}</span><div><button type="button" onClick={() => setExportOpen(false)} disabled={exportBusy}>{tx("Cancel")}</button><button type="button" className="primary" onClick={() => void exportCsv()} disabled={exportBusy || !exportNodeIds.length || !exportMetricKeys.length}>{exportBusy ? tx("Preparing CSV…") : tx("Download CSV")}</button></div></footer>
     </div></div></ModalPortal> : null}

@@ -484,6 +484,18 @@ test('analytics telemetry events are filtered and bounded in PostgreSQL', () => 
   assert.equal(helper.includes('SELECT time, dev_eui, profile, raw_object'), false);
 });
 
+test('measurement export can preserve every raw uplink and its reporting cadence', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const routeStart = source.indexOf("app.get('/exports/measurements.csv'");
+  const routeEnd = source.indexOf('\nfunction nodePointContext', routeStart);
+  const route = source.slice(routeStart, routeEnd);
+  assert.match(route, /requestedResolution === 'raw'/);
+  assert.match(route, /rawResolution \? measuredAt/);
+  assert.match(route, /m\.profile, m\.raw_object/);
+  assert.match(route, /Reporting mode/);
+  assert.match(route, /Expected interval \(s\)/);
+});
+
 test('ingestion normalizes device identity, deduplicates MQTT deliveries and commits atomically', () => {
   const source = fs.readFileSync(new URL('../ingest.js', import.meta.url), 'utf8');
   assert.match(source, /String\(dev\.devEui \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);

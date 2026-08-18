@@ -3166,7 +3166,13 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `Unsupported export metrics: ${unknownMetrics.join(', ')}` } });
     }
     const selectedMetrics = requestedMetrics.length ? [...new Set(requestedMetrics)] : availableExportMetrics;
-    const stepMinutes = Math.max(1, Math.min(1440, Number.parseInt(String(req.query.stepMinutes || '5'), 10) || 5));
+    const requestedResolution = String(req.query.resolution || '').trim().toLowerCase();
+    if (requestedResolution && requestedResolution !== 'raw' && !/^\d+$/.test(requestedResolution)) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unsupported export resolution' } });
+    }
+    const rawResolution = requestedResolution === 'raw';
+    const requestedStep = requestedResolution || String(req.query.stepMinutes || '5');
+    const stepMinutes = rawResolution ? null : Math.max(1, Math.min(1440, Number.parseInt(requestedStep, 10) || 5));
     const columns = new Set(selectedMetrics.map((metric) => METRIC_TO_COLUMN[metric]).filter(Boolean));
     if (selectedMetrics.includes('vpd')) {
       columns.add(METRIC_TO_COLUMN.airTemp);
@@ -3191,7 +3197,7 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
     }
 
     const { rows } = await query(
-      `SELECT m.time, m.dev_eui, m.raw_object, n.name AS node_name,
+      `SELECT m.time, m.dev_eui, m.profile, m.raw_object, n.name AS node_name,
               s.id AS section_id, s.name AS section_name, a.name AS area_name,
               ${selectedColumns.map((column) => `m.${column}`).join(', ')}
        FROM measurements m
@@ -3243,17 +3249,19 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       const unit = String(EXPORT_METRIC_UNITS[metric] || '').replaceAll('°C', 'deg C');
       return `${label}${unit ? ` (${unit})` : ''}`;
     };
-    const headers = ['Date', 'Time (Europe/Vilnius)', ...nodeSeries.flatMap((node) =>
-      node.metrics.map((metric) =>
-        `${areaId ? `${node.sectionName} / ` : ''}${node.name} - ${metricHeader(metric)}`
-      )
-    )];
+    const nodeHeaderPrefix = (node) => `${areaId ? `${node.sectionName} / ` : ''}${node.name}`;
+    const headers = ['Date', 'Time (Europe/Vilnius)', ...nodeSeries.flatMap((node) => [
+      ...node.metrics.map((metric) => `${nodeHeaderPrefix(node)} - ${metricHeader(metric)}`),
+      `${nodeHeaderPrefix(node)} - Reporting mode`,
+      `${nodeHeaderPrefix(node)} - Expected interval (s)`
+    ])];
     const lines = [headers.map(csvEscape).join(';')];
 
-    const bucketMs = stepMinutes * 60 * 1000;
+    const bucketMs = rawResolution ? null : stepMinutes * 60 * 1000;
     const buckets = new Map();
     for (const row of exportRows) {
-      const bucketTime = Math.floor(new Date(row.time).getTime() / bucketMs) * bucketMs;
+      const measuredAt = new Date(row.time).getTime();
+      const bucketTime = rawResolution ? measuredAt : Math.floor(measuredAt / bucketMs) * bucketMs;
       if (!buckets.has(bucketTime)) buckets.set(bucketTime, new Map());
       // Rows arrive chronologically, so the final value retained in a bucket
       // is that node's latest reading for the interval.
@@ -3263,10 +3271,12 @@ app.get('/exports/measurements.csv', requireAuth, async (req, res) => {
       const { date, time } = formatExportDateTime(bucketTime);
       const values = nodeSeries.flatMap((node) => {
         const row = nodeRows.get(node.key);
-        return node.metrics.map((metric) => {
+        const metricValues = node.metrics.map((metric) => {
           if (!row || !rowReportsExportMetric(row, metric)) return '';
           return formatExportValue(getExportMetricValue(row, metric));
         });
+        const expectedInterval = row?.raw_object?.expected_uplink_interval_s;
+        return [...metricValues, row?.profile || '', normalizeTelemetryNumber(expectedInterval) ?? ''];
       });
       lines.push([date, time, ...values].map(csvEscape).join(';'));
     }
