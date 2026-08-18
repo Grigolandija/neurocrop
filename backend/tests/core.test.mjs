@@ -477,6 +477,9 @@ test('analytics telemetry events are filtered and bounded in PostgreSQL', () => 
 
   assert.match(helper, /LAG\(time\) OVER node_window/);
   assert.match(helper, /LAG\(profile\) OVER node_window/);
+  assert.match(helper, /LAG\(interval_sec\) OVER node_window AS previous_interval_sec/);
+  assert.match(helper, /time - previous_time\)\) > previous_interval_sec \* 3/);
+  assert.doesNotMatch(helper, /time - previous_time\)\) > interval_sec \* 3/);
   assert.match(helper, /SELECT \* FROM events ORDER BY occurred_at DESC, event_order DESC LIMIT 80/);
   assert.equal(helper.includes('SELECT time, dev_eui, profile, raw_object'), false);
 });

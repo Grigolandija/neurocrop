@@ -2726,15 +2726,11 @@ async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes, o
 
 async function getTelemetryEvents(devEuis, from, to) {
   const { rows } = await query(
-    `WITH samples AS (
+    `WITH raw_samples AS (
        SELECT time,
               m.dev_eui,
               profile,
-              LAG(time) OVER node_window AS previous_time,
-              LAG(profile) OVER node_window AS previous_profile,
               lower(COALESCE(raw_object->'error_flags'->>'last_tx_failed', '')) IN ('true', '1') AS tx_failed,
-              LAG(lower(COALESCE(raw_object->'error_flags'->>'last_tx_failed', '')) IN ('true', '1'))
-                OVER node_window AS previous_tx_failed,
               COALESCE(
                 CASE
                   WHEN btrim(COALESCE(raw_object->>'expected_uplink_interval_s', '')) ~ '^[+]?[0-9]+([.][0-9]+)?$'
@@ -2745,7 +2741,14 @@ async function getTelemetryEvents(devEuis, from, to) {
               ) AS interval_sec
        FROM measurements m
        WHERE m.dev_eui = ANY($1) AND time BETWEEN $2 AND $3
-       WINDOW node_window AS (PARTITION BY m.dev_eui ORDER BY time ASC)
+     ), samples AS (
+       SELECT *,
+              LAG(time) OVER node_window AS previous_time,
+              LAG(profile) OVER node_window AS previous_profile,
+              LAG(tx_failed) OVER node_window AS previous_tx_failed,
+              LAG(interval_sec) OVER node_window AS previous_interval_sec
+       FROM raw_samples
+       WINDOW node_window AS (PARTITION BY dev_eui ORDER BY time ASC)
      ), events AS (
        SELECT time AS occurred_at, 1 AS event_order, 'reporting_mode_changed' AS type,
               'info' AS severity, dev_eui, previous_profile AS from_profile,
@@ -2758,7 +2761,7 @@ async function getTelemetryEvents(devEuis, from, to) {
               ROUND(EXTRACT(EPOCH FROM (time - previous_time)) / 60)::integer
        FROM samples
        WHERE previous_time IS NOT NULL
-         AND EXTRACT(EPOCH FROM (time - previous_time)) > interval_sec * 3
+         AND EXTRACT(EPOCH FROM (time - previous_time)) > previous_interval_sec * 3
        UNION ALL
        SELECT time, 3, 'transmission_failed', 'warning', dev_eui, NULL, NULL, NULL
        FROM samples
