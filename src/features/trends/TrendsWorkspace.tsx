@@ -30,6 +30,7 @@ type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 type ExportMapNode = { devEui: string; name: string; sectionId: string; sectionName: string; status: string; left: number; top: number; positioned: boolean; metrics: Set<string> }
 type ExportMapObject = { id: string; name: string; type: string; left: number; top: number; width: number; height: number }
 type ExportMapState = { status: LoadState; configured: boolean; ratio: number; nodes: ExportMapNode[]; objects: ExportMapObject[]; error: string }
+type TrendNodeMapState = ExportMapState & { areaId: string }
 
 const metrics: Metric[] = ([
   ['airTemp', 'Temperature', 'fa-temperature-half'],
@@ -628,6 +629,9 @@ export default function TrendsWorkspace() {
   )
   const [showSectionAggregate, setShowSectionAggregate] = useState(stored.showSectionAggregate !== false)
   const nodeSelectRef = useRef<HTMLDetailsElement>(null)
+  const [nodeMenuOpen, setNodeMenuOpen] = useState(false)
+  const [trendNodeMap, setTrendNodeMap] = useState<TrendNodeMapState>({ areaId: '', status: 'empty', configured: false, ratio: 1.8, nodes: [], objects: [], error: '' })
+  const trendNodeMapAreaRef = useRef('')
   const [nodeSeries, setNodeSeries] = useState<ChartInput[]>([])
   const [nodeHistoryLoading, setNodeHistoryLoading] = useState(false)
   const [nodeHistoryError, setNodeHistoryError] = useState('')
@@ -667,6 +671,10 @@ export default function TrendsWorkspace() {
     () => nodes.filter((node) => node.sectionId === selectedSection?.id),
     [nodes, selectedSection?.id],
   )
+  const trendMapSectionNodes = useMemo(
+    () => trendNodeMap.nodes.filter((node) => node.sectionId === selectedSection?.id),
+    [selectedSection?.id, trendNodeMap.nodes],
+  )
   const sectionNodeKey = sectionNodes.map((node) => node.devEui).join(',')
   const availableMetrics = metrics.filter((metric) => selectedSection?.available.has(metric.key))
   const exportAvailableMetricKeys = useMemo(() => {
@@ -693,6 +701,26 @@ export default function TrendsWorkspace() {
     document.addEventListener('pointerdown', closeNodeMenuOnOutsidePointerDown, true)
     return () => document.removeEventListener('pointerdown', closeNodeMenuOnOutsidePointerDown, true)
   }, [])
+
+  useEffect(() => {
+    const requestedAreaId = selectedSection?.areaId || ''
+    if (!nodeMenuOpen || !requestedAreaId || trendNodeMapAreaRef.current === requestedAreaId) return
+    let active = true
+    trendNodeMapAreaRef.current = requestedAreaId
+    queueMicrotask(() => {
+      if (active) setTrendNodeMap({ areaId: requestedAreaId, status: 'loading', configured: false, ratio: 1.8, nodes: [], objects: [], error: '' })
+    })
+    neurocropApi.getGreenhouseMap(requestedAreaId).then((payload) => {
+      if (!active) return
+      const normalized = normalizeExportMap(payload as JsonRecord)
+      setTrendNodeMap({ areaId: requestedAreaId, ...normalized, status: 'ready', error: '' })
+    }).catch((reason) => {
+      if (!active) return
+      if (trendNodeMapAreaRef.current === requestedAreaId) trendNodeMapAreaRef.current = ''
+      setTrendNodeMap({ areaId: requestedAreaId, status: 'error', configured: false, ratio: 1.8, nodes: [], objects: [], error: reason instanceof Error ? reason.message : 'Area map could not be loaded.' })
+    })
+    return () => { active = false }
+  }, [nodeMenuOpen, selectedSection?.areaId])
 
   useEffect(() => {
     let active = true
@@ -1244,7 +1272,7 @@ export default function TrendsWorkspace() {
           : <span className="nc-trends-select-skeleton" aria-label={tx("Preparing Section selection")} />}
       </label>
       <div className="nc-trends-range" role="group" aria-label={tx("Trend period")}>{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
-      <details className="nc-trends-node-select" ref={nodeSelectRef}>
+      <details className="nc-trends-node-select" ref={nodeSelectRef} onToggle={(event) => setNodeMenuOpen(event.currentTarget.open)}>
         <summary>
           <span><small>{tx("Displayed data")}</small><strong>{selectedNodeIds.length ? showSectionAggregate ? `${tx("Section")} + ${selectedNodeIds.length} ${tx("Nodes")}` : `${selectedNodeIds.length} ${tx("Nodes")}` : tx("Section only")}</strong></span>
           <i className="fa-solid fa-chevron-down" />
@@ -1264,7 +1292,18 @@ export default function TrendsWorkspace() {
               <span><strong>{tx("Section aggregate")}</strong><small>{tx(showSectionAggregate ? "Shown in chart" : "Hidden from chart")}</small></span>
               <i className="fa-solid fa-check nc-trends-node-check" />
             </label>
-            {sectionNodes.length ? sectionNodes.map((node) => {
+            {trendNodeMap.status === 'loading'
+              ? <div className="nc-trends-node-map-message"><i className="fa-solid fa-spinner fa-spin" />{tx("Loading Section map…")}</div>
+              : trendNodeMap.status === 'ready' && trendNodeMap.configured && trendMapSectionNodes.length
+                ? <div className="nc-trends-node-map-wrap"><div className="nc-trends-export-map nc-trends-node-map" style={{ aspectRatio: trendNodeMap.ratio }}>
+                    {trendNodeMap.objects.map((object) => <span className="nc-trends-export-map-object" data-type={object.type} style={{ left: `${object.left}%`, top: `${object.top}%`, width: `${object.width}%`, height: `${object.height}%` }} key={object.id}>{object.name}</span>)}
+                    {trendMapSectionNodes.map((node) => {
+                      const selected = selectedNodeIds.includes(node.devEui)
+                      const disabled = !selected && selectedNodeIds.length >= 5
+                      return <button type="button" className="nc-trends-export-map-node" data-selected={selected} data-status={node.status} data-disabled={disabled || undefined} disabled={disabled} style={{ left: `${node.left}%`, top: `${node.top}%` }} title={node.name} aria-label={node.name} aria-pressed={selected} onClick={() => toggleNode(node.devEui)} key={node.devEui}><i className="fa-solid fa-microchip" /><span>{node.name}</span></button>
+                    })}
+                  </div><small>{tx("Select up to 5 Nodes directly on the map")}</small></div>
+              : sectionNodes.length ? sectionNodes.map((node) => {
               const selected = selectedNodeIds.includes(node.devEui)
               const disabled = !selected && selectedNodeIds.length >= 5
               return <label key={node.devEui} data-disabled={disabled || undefined}>

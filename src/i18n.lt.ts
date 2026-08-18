@@ -176,6 +176,8 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Show the Section aggregate and up to 5 Nodes": "Rodykite sekcijos suvestinę ir iki 5 mazgų",
   "Shown in chart": "Rodoma grafike",
   "Hidden from chart": "Nerodoma grafike",
+  "Loading Section map…": "Įkeliamas sekcijos žemėlapis…",
+  "Select up to 5 Nodes directly on the map": "Pasirinkite iki 5 mazgų tiesiai žemėlapyje",
   "Compare Sections": "Palyginti sekcijas",
   "Compare current measurements across the operation. Cell color shows crop status; the small marker shows whether the reading can be trusted.": "Palyginkite dabartinius matavimus visoje sistemoje. Langelio spalva rodo augalo būklę, o mažas žymeklis – duomenų patikimumą.",
   "Compare one parameter across different crop targets when you need deeper analysis.": "Kai reikia išsamesnės analizės, palyginkite vieną parametrą tarp skirtingų kultūros tikslų.",

@@ -180,7 +180,7 @@ body.designer-app .nc-trends-section-search input {
   z-index: 100;
   top: calc(100% + 7px);
   right: 0;
-  width: min(360px, calc(100vw - 44px));
+  width: min(620px, calc(100vw - 44px));
   overflow: hidden;
   border: 1px solid #d4ddd9;
   border-radius: 12px;
@@ -216,6 +216,11 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-node-options label:has(input:checked) { background: #edf5f1; }
 .designer-app .nc-trends-node-options label:has(input:checked) .nc-trends-node-check { opacity: 1; }
 .designer-app .nc-trends-node-options > p { margin: 0; padding: 24px 12px; color: var(--trends-muted); font-size: 12px; text-align: center; }
+.designer-app .nc-trends-node-map-wrap { display: grid; gap: 7px; padding: 8px; }
+.designer-app .nc-trends-node-map-wrap > small { color: var(--trends-muted); font-size: 10px; text-align: center; }
+.designer-app .nc-trends-node-map { min-height: 230px; max-height: 390px; }
+.designer-app .nc-trends-node-map .nc-trends-export-map-node:disabled { cursor: not-allowed; filter: grayscale(.45); opacity: .42; }
+.designer-app .nc-trends-node-map-message { display: flex; min-height: 220px; align-items: center; justify-content: center; gap: 8px; color: var(--trends-muted); font-size: 11px; }
 
 .designer-app .nc-trends-metric-controls {
   display: grid;
