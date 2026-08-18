@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   buildNightIntervals,
   buildTrendChartOption,
-  calculateTimeAwareEwma,
   getTrendAxisDomain,
   type TrendMetric,
 } from './sharedTrendChart'
@@ -71,12 +70,16 @@ describe('shared trend chart', () => {
     expect(option.series[0].data.map((entry) => entry[2])).toEqual([20, 21])
   })
 
-  it('uses elapsed time rather than point count for EWMA smoothing', () => {
-    const regular = calculateTimeAwareEwma([20, 26], [0, 10 * 60_000], 30, 10)
-    const delayed = calculateTimeAwareEwma([20, 26], [0, 60 * 60_000], 30, 10)
+  it('plots the measured value instead of a different smoothed value', () => {
+    const option = buildTrendChartOption({
+      metric: temperature,
+      rangeKey: '24h',
+      target: [18, 22],
+      series: [{ name: 'Section', points: [point(10, 16.1), point(11, 15.6), point(12, 15.2)] }],
+    }) as unknown as { series: Array<{ data: Array<[number, number, number]> }> }
 
-    expect(regular[1]).toBeCloseTo(21.7, 1)
-    expect(delayed[1]).toBeCloseTo(25.2, 1)
+    expect(option.series[0].data.map((entry) => entry[1])).toEqual([16.1, 15.6, 15.2])
+    expect(option.series[0].data.map((entry) => entry[2])).toEqual([16.1, 15.6, 15.2])
   })
 
   it('builds separate grey night intervals around the configured daytime', () => {

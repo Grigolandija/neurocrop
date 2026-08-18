@@ -195,32 +195,6 @@ export function nightMarkAreaData(intervals: Array<[number, number]>) {
   ])
 }
 
-function ewmaTimeConstantMinutes(metricKey: string) {
-  if (metricKey === 'co2') return 15
-  if (metricKey === 'lux') return 20
-  if (['airTemp', 'humidity', 'vpd'].includes(metricKey)) return 30
-  return null
-}
-
-export function calculateTimeAwareEwma(values: number[], timestamps: number[], timeConstantMinutes: number, fallbackIntervalMinutes: number) {
-  if (!values.length) return []
-  let filteredValue = Number(values[0])
-  return values.map((value, index) => {
-    const rawValue = Number(value)
-    if (!Number.isFinite(rawValue)) return filteredValue
-    if (index === 0 || !Number.isFinite(filteredValue)) {
-      filteredValue = rawValue
-      return filteredValue
-    }
-    const elapsedMinutes = timestamps[index] > timestamps[index - 1]
-      ? (timestamps[index] - timestamps[index - 1]) / 60_000
-      : fallbackIntervalMinutes
-    const alpha = 1 - Math.exp(-Math.max(elapsedMinutes, .01) / timeConstantMinutes)
-    filteredValue += alpha * (rawValue - filteredValue)
-    return filteredValue
-  })
-}
-
 function escapeHtml(value: unknown) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -264,15 +238,10 @@ export function buildTrendChartOption(input: TrendChartInput) {
   if (!prepared.length) return null
 
   const { metric, target, rangeKey } = input
-  const fallbackIntervalMinutes = rangeKey === '24h' ? 10 : rangeKey === '7d' ? 60 : 240
-  const timeConstantMinutes = prepared.length === 1 ? ewmaTimeConstantMinutes(metric.key) : null
-  const displayed = prepared.map((series) => {
-    const rawValues = series.normalized.map((point) => point.value)
-    const timestamps = series.normalized.map((point) => point.timestamp)
-    return timeConstantMinutes
-      ? calculateTimeAwareEwma(rawValues, timestamps, timeConstantMinutes, fallbackIntervalMinutes)
-      : rawValues
-  })
+  // Every visual point must stay on its measured value. ECharts may round the
+  // joins between points, but the line, tooltip and extrema all share the same
+  // Y value at each timestamp.
+  const displayed = prepared.map((series) => series.normalized.map((point) => point.value))
   const colors = prepared.map((series, index) => seriesColor(series, metric, index, prepared.length))
   const allValues = displayed.flat()
   const allTimestamps = prepared.flatMap((series) => series.normalized.map((point) => point.timestamp))
@@ -348,8 +317,8 @@ export function buildTrendChartOption(input: TrendChartInput) {
         if (!first?.value) return ''
         const timestamp = dateFormatter.format(new Date(Number(first.value[0])))
         const rows = params.filter((param) => Array.isArray(param.value)).map((param) => {
-          const rawValue = Number(param.value?.[2] ?? param.value?.[1])
-          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:6px;"><span style="display:flex;align-items:center;gap:7px;"><i style="width:8px;height:8px;border-radius:50%;background:${escapeHtml(param.color || '#287f70')}"></i>${escapeHtml(param.seriesName || metric.label)}</span><strong>${escapeHtml(valueLabel(rawValue))}</strong></div>`
+          const displayedValue = Number(param.value?.[1])
+          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:6px;"><span style="display:flex;align-items:center;gap:7px;"><i style="width:8px;height:8px;border-radius:50%;background:${escapeHtml(param.color || '#287f70')}"></i>${escapeHtml(param.seriesName || metric.label)}</span><strong>${escapeHtml(valueLabel(displayedValue))}</strong></div>`
         }).join('')
         return `<div style="font-weight:500;color:rgba(255,255,255,.72)">${escapeHtml(timestamp)}</div>${rows}`
       },
@@ -409,8 +378,8 @@ export function buildTrendChartOption(input: TrendChartInput) {
         showSymbol: false,
         symbol: 'circle',
         symbolSize: 7,
-        smooth: timeConstantMinutes || rangeKey === '24h' ? .32 : false,
-        smoothMonotone: timeConstantMinutes || rangeKey === '24h' ? 'x' : undefined,
+        smooth: rangeKey === '24h' ? .32 : false,
+        smoothMonotone: rangeKey === '24h' ? 'x' : undefined,
         connectNulls: false,
         animation: false,
         lineStyle: { width: 2, cap: 'round', join: 'round' },
