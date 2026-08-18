@@ -7,7 +7,7 @@ import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_C
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
-import { colorAtStops, scaleGradient, semanticColorAt } from './heatmapColorScale'
+import { colorAt, colorAtStops, scaleGradient, semanticColorAt } from './heatmapColorScale'
 import { DEFAULT_HEATMAP_SETTINGS, GREENHOUSE_WALL_THICKNESS_M, METRICS, normalizeHeatmapSettings } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
@@ -173,22 +173,37 @@ describe('environment colour scale', () => {
     expect(green).toBeGreaterThan(red)
     expect(green).toBeGreaterThan(blue)
   })
-  it('uses the full palette across the stabilized local range', () => {
+  it('boosts local differences without assigning the full palette extremes', () => {
     const definition = METRICS['air-temperature']
     const low = semanticColorAt(15.2, definition, [14.5, 17.5])
     const high = semanticColorAt(16.6, definition, [14.5, 17.5])
-    expect(Math.hypot(...low.map((channel, index) => channel - high[index]))).toBeGreaterThan(100)
+    const distance = Math.hypot(...low.map((channel, index) => channel - high[index]))
+    expect(distance).toBeGreaterThan(25)
+    expect(distance).toBeLessThan(100)
     expect(low[2]).toBeGreaterThan(low[0])
-    expect(high[0]).toBeGreaterThan(low[0])
+    expect(high[1]).toBeGreaterThan(low[1])
   })
   it('makes a meaningful three-degree temperature spread visually distinct', () => {
     const definition = METRICS['air-temperature']
     const low = semanticColorAt(17, definition, [17, 20])
     const high = semanticColorAt(20, definition, [17, 20])
     const colorDistance = Math.hypot(...low.map((channel, index) => channel - high[index]))
-    expect(colorDistance).toBeGreaterThan(90)
+    expect(colorDistance).toBeGreaterThan(50)
     expect(low[1]).toBeGreaterThan(low[0])
-    expect(high[0]).toBeGreaterThan(high[1])
+    expect(high[1]).toBeGreaterThan(high[0])
+  })
+  it('keeps a ten-point humidity spread moderate and agronomically anchored', () => {
+    const definition = METRICS['relative-humidity']
+    const low = semanticColorAt(56, definition, [55, 67])
+    const high = semanticColorAt(66, definition, [55, 67])
+    const fullLow = colorAt(0, 0, 1, definition.colors)
+    const fullHigh = colorAt(1, 0, 1, definition.colors)
+    const localDistance = Math.hypot(...low.map((channel, index) => channel - high[index]))
+    const fullPaletteDistance = Math.hypot(...fullLow.map((channel, index) => channel - fullHigh[index]))
+    expect(localDistance).toBeGreaterThan(40)
+    expect(localDistance).toBeLessThan(fullPaletteDistance * 0.75)
+    expect(low[1]).toBeGreaterThan(low[0])
+    expect(high[1]).toBeGreaterThan(high[0])
   })
   it('uses registered stops as the absolute semantic base for every metric palette', () => {
     Object.values(METRICS).forEach((definition) => expect(definition.colorStops?.length).toBeGreaterThan(1))
