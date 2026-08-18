@@ -21,6 +21,7 @@ const apiClient = await read('src/services/api/client.ts')
 const neurocropApi = await read('src/services/api/neurocropApi.ts')
 const overview = await read('src/features/overview/OverviewWorkspace.tsx')
 const readingsClimateMap = await read('src/features/readings/ReadingsClimateMap.tsx')
+const readings = await read('src/features/readings/ReadingsWorkspace.tsx')
 const trends = await read('src/features/trends/TrendsWorkspace.tsx')
 const sections = await read('src/features/sections/SectionsWorkspace.tsx')
 const nodes = await read('src/features/nodes/NodesWorkspace.tsx')
@@ -117,6 +118,11 @@ assert(overview.includes('ReadingsClimateMap'), 'Overview must retain its live c
 assert(overview.includes('activeAreaOption?.mapEnabled'), 'Overview must render the climate map only for Areas that explicitly enable it.')
 assert(readingsClimateMap.includes('if (!context.map)'), 'Overview must not render a generated climate map before an Area Map is saved.')
 assert(readingsClimateMap.includes('data-state="unconfigured"'), 'An Area without a saved map must render an explicit unconfigured state.')
+assert(
+  readings.includes("if (sensorCount === 1) return tx('1 sensor')")
+    && readings.includes("`${tx('mean')} · ${sensorCount} ${tx('sensors short')}`"),
+  'Readings must distinguish one sensor from a multi-sensor Section mean.'
+)
 assert(!overview.includes('key={model.areaId}'), 'Area switching must not remount the full climate map.')
 assert(trends.includes("location.pathname === '/history'"), 'A hidden Trends workspace must not overwrite the active Area.')
 assert(shell.includes('useInterfaceLanguage'), 'DashboardShell must own the language control.')

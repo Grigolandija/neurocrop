@@ -285,6 +285,20 @@ function getValue(section: SectionReading, metric: Metric): number | null {
     : null
 }
 
+function getValueSummary(section: SectionReading, metric: Metric): string {
+  if (metric.key === 'batteryLevel') return tx('lowest')
+
+  const observation = getObservation(section, metric)
+  const reportedCount = numeric(observation?.reportingSensors)
+  const sensorCount = reportedCount === null
+    ? asArray<JsonRecord>(observation?.nodes).filter((source) => numeric(source.value) !== null).length
+    : Math.max(0, Math.round(reportedCount))
+
+  if (sensorCount === 1) return tx('1 sensor')
+  if (sensorCount > 1) return `${tx('mean')} · ${sensorCount} ${tx('sensors short')}`
+  return tx('section mean')
+}
+
 function getAgeSeconds(section: SectionReading) {
   const receivedAt = section.latest?.lastReceivedAt
     || section.nodes.map((node) => node.lastReceivedAt || node.lastSeen).filter(Boolean).sort().at(-1)
@@ -565,10 +579,10 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
   } else if (mode === 'change') {
     display = delta === null ? 'No 1h baseline' : `${delta > 0 ? '+' : ''}${formatValue(delta, metric)} ${metric.unit} / 1h`
   }
-  const summaryLabel = metric.key === 'batteryLevel' ? 'lowest' : 'avg'
+  const summaryLabel = getValueSummary(section, metric)
   const showSummaryLabel = mode === 'value' && value !== null
   return <button type="button" className="nc-reading-cell" data-tone={tone} data-quality={quality} onClick={onOpenTrend} title={`Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={`Open ${section.name} ${metric.label} trend`}>
-    <strong>{tx(display)}{showSummaryLabel ? <small className="nc-reading-average">{tx(summaryLabel)}</small> : null}</strong><i aria-label={qualityLabels[quality]} />
+    <strong>{tx(display)}{showSummaryLabel ? <small className="nc-reading-average">{summaryLabel}</small> : null}</strong><i aria-label={qualityLabels[quality]} />
   </button>
 }
 
