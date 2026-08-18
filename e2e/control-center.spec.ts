@@ -256,6 +256,27 @@ test('Readings and Trends use API-backed measurement data', async ({ page }) => 
   await expect(page.getByRole('button', { name: '7d', exact: true })).toHaveClass(/active/)
 })
 
+test('Trends displayed data closes outside and can hide the Section aggregate', async ({ page }) => {
+  await authenticate(page)
+  await navigation(page, 'history').click()
+  await expect(page.locator('.nc-trends-page')).toBeVisible()
+
+  const displayedData = page.locator('.nc-trends-node-select')
+  await displayedData.locator('summary').click()
+  await expect(displayedData).toHaveAttribute('open', '')
+  await page.locator('.nc-trends-head h1').click()
+  await expect(displayedData).not.toHaveAttribute('open', '')
+
+  await displayedData.locator('summary').click()
+  const firstNode = displayedData.locator('.nc-trends-node-options > label:not(.nc-trends-node-base) input[type="checkbox"]').first()
+  await firstNode.check()
+  const sectionAggregate = displayedData.locator('.nc-trends-node-base input[type="checkbox"]')
+  await expect(sectionAggregate).toBeEnabled()
+  await sectionAggregate.uncheck()
+  await expect(sectionAggregate).not.toBeChecked()
+  await expect(displayedData.locator('summary strong')).not.toContainText('Section +')
+})
+
 test('crop profile editor always exposes editable target ranges', async ({ page }) => {
   await authenticate(page)
   await navigation(page, 'crop-profiles').click()

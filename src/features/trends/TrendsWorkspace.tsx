@@ -626,6 +626,8 @@ export default function TrendsWorkspace() {
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(
     Array.isArray(stored.selectedNodeIds) ? stored.selectedNodeIds.map(String).slice(0, 5) : [],
   )
+  const [showSectionAggregate, setShowSectionAggregate] = useState(stored.showSectionAggregate !== false)
+  const nodeSelectRef = useRef<HTMLDetailsElement>(null)
   const [nodeSeries, setNodeSeries] = useState<ChartInput[]>([])
   const [nodeHistoryLoading, setNodeHistoryLoading] = useState(false)
   const [nodeHistoryError, setNodeHistoryError] = useState('')
@@ -682,6 +684,15 @@ export default function TrendsWorkspace() {
     () => profileDayNightSchedule(profiles, selectedSection?.profileId || ''),
     [profiles, selectedSection?.profileId],
   )
+
+  useEffect(() => {
+    function closeNodeMenuOnOutsidePointerDown(event: PointerEvent) {
+      const nodeSelect = nodeSelectRef.current
+      if (nodeSelect?.open && !nodeSelect.contains(event.target as Node)) nodeSelect.open = false
+    }
+    document.addEventListener('pointerdown', closeNodeMenuOnOutsidePointerDown, true)
+    return () => document.removeEventListener('pointerdown', closeNodeMenuOnOutsidePointerDown, true)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -872,8 +883,9 @@ export default function TrendsWorkspace() {
       recentSectionIds,
       secondaryMetricKeys,
       selectedNodeIds,
+      showSectionAggregate,
     }))
-  }, [metricKey, range, recentSectionIds, scope, secondaryMetricKeys, selectedNodeIds, selectedSection])
+  }, [metricKey, range, recentSectionIds, scope, secondaryMetricKeys, selectedNodeIds, selectedSection, showSectionAggregate])
 
   useEffect(() => {
     if (!compare || !selectedSection || comparisonIds.length < 2) {
@@ -943,7 +955,10 @@ export default function TrendsWorkspace() {
 
   useEffect(() => {
     if (scope === 'nodes' && !selectedNodeIds.length) {
-      queueMicrotask(() => setScope('section'))
+      queueMicrotask(() => {
+        setScope('section')
+        setShowSectionAggregate(true)
+      })
     }
   }, [scope, selectedNodeIds.length])
 
@@ -1035,7 +1050,7 @@ export default function TrendsWorkspace() {
   const selectedAggregationLabel = sectionAggregationLabel(metricAggregations[metricKey])
   const sectionSeries = { name: `${selectedSection?.name || 'Selected section'} · ${selectedAggregationLabel}`, points, color: chartColors[0] }
   const chartSeries = scope === 'nodes'
-    ? [sectionSeries, ...nodeSeries]
+    ? showSectionAggregate ? [sectionSeries, ...nodeSeries] : nodeSeries
     : compare && comparison.length > 1
       ? comparison
       : [sectionSeries]
@@ -1059,6 +1074,7 @@ export default function TrendsWorkspace() {
     if (nextMetricKey !== metricKey) setMetricKey(nextMetricKey)
     setSecondaryMetricKeys((current) => current.filter((key) => section.available.has(key) && key !== nextMetricKey).slice(0, 2))
     setSelectedNodeIds([])
+    setShowSectionAggregate(true)
     setScope('section')
     setCompare(false)
     setComparison([])
@@ -1139,6 +1155,7 @@ export default function TrendsWorkspace() {
 
   function clearNodes() {
     setSelectedNodeIds([])
+    setShowSectionAggregate(true)
     setScope('section')
   }
 
@@ -1227,21 +1244,26 @@ export default function TrendsWorkspace() {
           : <span className="nc-trends-select-skeleton" aria-label={tx("Preparing Section selection")} />}
       </label>
       <div className="nc-trends-range" role="group" aria-label={tx("Trend period")}>{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
-      <details className="nc-trends-node-select">
+      <details className="nc-trends-node-select" ref={nodeSelectRef}>
         <summary>
-          <span><small>{tx("Displayed data")}</small><strong>{selectedNodeIds.length ? `${tx("Section")} + ${selectedNodeIds.length} ${tx("Nodes")}` : tx("Section only")}</strong></span>
+          <span><small>{tx("Displayed data")}</small><strong>{selectedNodeIds.length ? showSectionAggregate ? `${tx("Section")} + ${selectedNodeIds.length} ${tx("Nodes")}` : `${selectedNodeIds.length} ${tx("Nodes")}` : tx("Section only")}</strong></span>
           <i className="fa-solid fa-chevron-down" />
         </summary>
         <div className="nc-trends-node-menu">
           <header>
-            <span><strong>{tx("Add Nodes to comparison")}</strong><small>{tx("Section aggregate is always shown")}</small></span>
+            <span><strong>{tx("Choose data to display")}</strong><small>{tx("Show the Section aggregate and up to 5 Nodes")}</small></span>
             <span className="nc-trends-node-menu-actions">
               <button type="button" onClick={selectAllNodes} disabled={!sectionNodes.length}>{tx("Select all")}</button>
               <button type="button" onClick={clearNodes} disabled={!selectedNodeIds.length}>{tx("Clear")}</button>
             </span>
           </header>
           <div className="nc-trends-node-options">
-            <div className="nc-trends-node-base"><i className="fa-solid fa-layer-group" /><span><strong>{tx("Section aggregate")}</strong><small>{tx("Always shown")}</small></span><b>{tx("Base")}</b></div>
+            <label className="nc-trends-node-base" data-disabled={!selectedNodeIds.length || undefined}>
+              <input type="checkbox" checked={showSectionAggregate} disabled={!selectedNodeIds.length} onChange={(event) => setShowSectionAggregate(event.target.checked)} />
+              <i className="fa-solid fa-layer-group" />
+              <span><strong>{tx("Section aggregate")}</strong><small>{tx(showSectionAggregate ? "Shown in chart" : "Hidden from chart")}</small></span>
+              <i className="fa-solid fa-check nc-trends-node-check" />
+            </label>
             {sectionNodes.length ? sectionNodes.map((node) => {
               const selected = selectedNodeIds.includes(node.devEui)
               const disabled = !selected && selectedNodeIds.length >= 5
@@ -1289,7 +1311,7 @@ export default function TrendsWorkspace() {
 
     <section className="nc-trends-main">
       <article className="nc-trends-chart-card">
-        <header><div><p>{scope === 'nodes' ?tx("Node comparison") : compare ?tx("Section comparison") : activeMetricKeys.length > 1 ?tx("Combined measured history") :tx("Measured history")}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? `${selectedSection?.name} · ${selectedAggregationLabel === 'section peak' ? 'Section peak' : 'Section median'} + ${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ?tx("Loading…") : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` :tx("Not updated")}</span></header>
+        <header><div><p>{scope === 'nodes' ?tx("Node comparison") : compare ?tx("Section comparison") : activeMetricKeys.length > 1 ?tx("Combined measured history") :tx("Measured history")}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? showSectionAggregate ? `${selectedSection?.name} · ${selectedAggregationLabel === 'section peak' ? 'Section peak' : 'Section median'} + ${selectedNodeIds.length} Nodes` : `${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ?tx("Loading…") : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` :tx("Not updated")}</span></header>
         {showMeasuredConclusion ? <div className="nc-trends-chart-conclusion" data-tone={summary.tone}>
           <span>{tx("Measured conclusion")}</span>
           <strong>{summary.title}</strong>

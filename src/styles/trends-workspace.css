@@ -195,12 +195,11 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-node-menu-actions button { min-height: 28px; border-radius: 7px; padding: 0 8px; background: #f0f4f1; color: #476158; font-size: 10px; font-weight: 700; }
 .designer-app .nc-trends-node-menu-actions button:disabled { opacity: .42; }
 .designer-app .nc-trends-node-options { display: grid; max-height: 300px; overflow-y: auto; padding: 5px; }
-.designer-app .nc-trends-node-base { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 9px; margin-bottom: 4px; border-bottom: 1px solid #e7ebe8; padding: 9px 10px 12px; }
-.designer-app .nc-trends-node-base > i { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 7px; background: #e8f1ed; color: #287f70; font-size: 10px; }
+.designer-app .nc-trends-node-options label.nc-trends-node-base { grid-template-columns: 16px 24px minmax(0, 1fr) 18px; margin-bottom: 4px; border-bottom: 1px solid #e7ebe8; border-radius: 0; padding: 9px 10px 12px; }
+.designer-app .nc-trends-node-base > i:not(.nc-trends-node-check) { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 7px; background: #e8f1ed; color: #287f70; font-size: 10px; }
 .designer-app .nc-trends-node-base > span { display: grid; gap: 2px; }
 .designer-app .nc-trends-node-base strong { color: var(--trends-ink); font-size: 12px; }
 .designer-app .nc-trends-node-base small { color: var(--trends-muted); font-size: 9px; }
-.designer-app .nc-trends-node-base b { border-radius: 999px; padding: 4px 7px; background: #edf3f0; color: #527066; font-size: 9px; text-transform: uppercase; }
 .designer-app .nc-trends-node-options label { display: grid; grid-template-columns: 16px 8px minmax(0, 1fr) 18px; align-items: center; gap: 9px; border-radius: 8px; padding: 9px 10px; cursor: pointer; }
 .designer-app .nc-trends-node-options label:hover { background: #f2f6f3; }
 .designer-app .nc-trends-node-options label[data-disabled="true"] { cursor: not-allowed; opacity: .42; }

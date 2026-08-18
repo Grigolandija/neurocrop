@@ -125,6 +125,14 @@ assert(
 )
 assert(!overview.includes('key={model.areaId}'), 'Area switching must not remount the full climate map.')
 assert(trends.includes("location.pathname === '/history'"), 'A hidden Trends workspace must not overwrite the active Area.')
+assert(
+  trends.includes("document.addEventListener('pointerdown', closeNodeMenuOnOutsidePointerDown, true)"),
+  'Displayed data must close when the user presses outside its menu.'
+)
+assert(
+  trends.includes('showSectionAggregate ? [sectionSeries, ...nodeSeries] : nodeSeries'),
+  'Node comparison must allow the Section aggregate series to be hidden.'
+)
 assert(shell.includes('useInterfaceLanguage'), 'DashboardShell must own the language control.')
 assert(shell.includes('useNavigate'), 'DashboardShell must own navigation.')
 assert(shell.includes("useState<'header' | 'sidebar' | null>(null)"), 'Header and sidebar account menus must track their own anchor.')
