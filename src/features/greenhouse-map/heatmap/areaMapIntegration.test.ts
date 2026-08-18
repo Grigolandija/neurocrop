@@ -92,7 +92,7 @@ describe('Area Map API context integration', () => {
     expect(medium).toBeLessThan(large)
   })
 
-  it('keeps saved interpolation settings in the read-only climate map', async () => {
+  it('keeps interpolation settings but always adapts the read-only colour scale', async () => {
     const { prepareReadOnlyClimateMap } = await import('../../readings/prepareReadOnlyClimateMap')
     const map = createDemoMap()
     map.areaId = 'area-1'
@@ -124,10 +124,10 @@ describe('Area Map API context integration', () => {
       idwPower: 5.9,
       opacity: 0.95,
       showConfidence: false,
-      scaleMode: 'manual',
-      manualMin: 18,
-      manualMax: 24,
+      scaleMode: 'auto',
     })
+    expect(savedMetric.heatmapSettings.manualMin).toBeUndefined()
+    expect(savedMetric.heatmapSettings.manualMax).toBeUndefined()
 
     const otherMetric = prepareReadOnlyClimateMap(context, 'relative-humidity')
     expect(otherMetric.heatmapSettings).toMatchObject({

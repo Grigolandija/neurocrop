@@ -457,13 +457,14 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         else {
           const observedValues = scaleValues
           const observedRange: [number, number] = [Math.min(...observedValues), Math.max(...observedValues)]
+          const contrastRange: [number, number] = [scale.min, scale.max]
           setHeatmap({
             canvas: renderHeatmapCanvas(
               grid,
               metric,
               map.heatmapSettings.opacity,
               map.heatmapSettings.showConfidence,
-              observedRange,
+              contrastRange,
             ),
             grid,
             min: grid.min,
@@ -773,7 +774,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       <div className="gh-legend-scale">
         <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)} title={tr('Contour spacing adapts to the measured range and data coverage.', 'Izolinijų žingsnis prisitaiko prie matuojamo diapazono ir duomenų padengimo.')}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {heatmap.contourInterval} {METRICS[map.heatmapSettings.metric].unit}</button>
         <div className="gh-color-scale-wrap">
-          <div className="gh-color-scale" style={{ background: scaleGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric], [heatmap.observedMin, heatmap.observedMax]) }} />
+          <div className="gh-color-scale" style={{ background: scaleGradient(heatmap.min, heatmap.max, METRICS[map.heatmapSettings.metric], [heatmap.min, heatmap.max]) }} />
           {targetMarker ? <span
             className="gh-target-range-marker"
             style={targetMarker}

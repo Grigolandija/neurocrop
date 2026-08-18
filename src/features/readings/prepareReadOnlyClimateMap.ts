@@ -9,7 +9,6 @@ export function prepareReadOnlyClimateMap(context: AreaMapContext, metric: Metri
   const source = context.map
     ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections)
     : createAreaMap(context.area, context.nodes, context.sections)
-  const usesSavedMetricScale = metric === source.heatmapSettings.metric
   const visibleLayerIds = new Set(['structure', 'cultivation', 'irrigation', 'climate', 'lighting', 'environment', 'labels'])
   return {
     ...source,
@@ -28,9 +27,9 @@ export function prepareReadOnlyClimateMap(context: AreaMapContext, metric: Metri
       enabled: true,
       metric,
       opacity: Math.max(0.95, source.heatmapSettings.opacity),
-      scaleMode: usesSavedMetricScale ? source.heatmapSettings.scaleMode : 'auto',
-      manualMin: usesSavedMetricScale ? source.heatmapSettings.manualMin : undefined,
-      manualMax: usesSavedMetricScale ? source.heatmapSettings.manualMax : undefined,
+      scaleMode: 'auto',
+      manualMin: undefined,
+      manualMax: undefined,
     },
   }
 }

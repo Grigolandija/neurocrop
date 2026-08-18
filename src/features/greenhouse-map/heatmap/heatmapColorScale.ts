@@ -40,14 +40,19 @@ export function semanticColorAt(value: number, definition: SemanticScaleDefiniti
   const absoluteBase = definition.colorStops?.length
     ? colorAtStops(value, definition.colorStops)
     : colorAt(value, definition.bounds[0], definition.bounds[1], definition.colors)
-  // Registered stops are absolute: the same physical value must always have the
-  // same colour, regardless of what other values happen to be visible today.
-  if (definition.colorStops?.length || !observedRange || observedRange[1] - observedRange[0] < 1e-6) return absoluteBase
+  if (!observedRange || observedRange[1] - observedRange[0] < 1e-6) return absoluteBase
 
+  // Hue remains anchored to the agronomic metric palette, while a restrained
+  // lightness modulation exposes spatial differences inside the current map.
+  // The stabilized display range (rather than the raw min/max) prevents sensor
+  // noise from being exaggerated across the entire contrast range.
   const observedSpan = observedRange[1] - observedRange[0]
   const localPosition = Math.max(0, Math.min(1, (value - observedRange[0]) / observedSpan))
-  const relativePalettePosition = 0.12 + localPosition * 0.7
-  return colorAt(relativePalettePosition, 0, 1, definition.colors)
+  const contrast = (localPosition - 0.5) * 0.42
+  return absoluteBase.map((channel) => contrast < 0
+    ? Math.round(channel * (1 + contrast))
+    : Math.round(channel + (255 - channel) * contrast),
+  ) as [number, number, number]
 }
 
 export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): string {

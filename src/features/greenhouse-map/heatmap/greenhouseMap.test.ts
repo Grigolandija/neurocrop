@@ -131,10 +131,12 @@ describe('measurement filtering and grid sizing', () => {
     expect(grid.values[0]).toBeGreaterThan(grid.values[(grid.height - 1) * grid.width])
   })
   it('honours valid manual scale limits', () => expect(getStableScale([20, 30], 'air-temperature', { min: 18, max: 32 })).toEqual({ min: 18, max: 32 }))
-  it('does not exaggerate a two-tenths temperature difference across the full palette', () => {
+  it('keeps sub-degree noise restrained while exposing agronomic temperature differences', () => {
     const scale = getStableScale([26.4, 26.6], 'air-temperature')
-    expect(scale.max - scale.min).toBeGreaterThanOrEqual(4)
-    expect((26.6 - 26.4) / (scale.max - scale.min)).toBeLessThanOrEqual(0.05)
+    expect(scale.max - scale.min).toBeGreaterThanOrEqual(2)
+    expect((26.6 - 26.4) / (scale.max - scale.min)).toBeLessThanOrEqual(0.1)
+    const agronomicScale = getStableScale([15.2, 15.9, 16.6], 'air-temperature')
+    expect((16.6 - 15.2) / (agronomicScale.max - agronomicScale.min)).toBeGreaterThanOrEqual(0.45)
   })
   it('reduces confidence with distance', () => {
     const points = [point(0, 0, 20), point(1, 0, 21)]
@@ -171,10 +173,13 @@ describe('environment colour scale', () => {
     expect(green).toBeGreaterThan(red)
     expect(green).toBeGreaterThan(blue)
   })
-  it('keeps a value colour stable when the observed range changes', () => {
+  it('keeps semantic hue anchors while adding stabilized local contrast', () => {
     const definition = METRICS['air-temperature']
-    expect(semanticColorAt(20, definition, [20, 21])).toEqual(semanticColorAt(20, definition, [12, 30]))
-    expect(semanticColorAt(20, definition, [20, 21])).toEqual(colorAtStops(20, definition.colorStops!))
+    const low = semanticColorAt(15.2, definition, [14.5, 17.5])
+    const high = semanticColorAt(16.6, definition, [14.5, 17.5])
+    expect(Math.hypot(...low.map((channel, index) => channel - high[index]))).toBeGreaterThan(30)
+    expect(low[2]).toBeGreaterThan(low[0])
+    expect(high[1]).toBeGreaterThan(high[0])
   })
   it('makes a meaningful three-degree temperature spread visually distinct', () => {
     const definition = METRICS['air-temperature']
@@ -185,13 +190,13 @@ describe('environment colour scale', () => {
     expect(low[1]).toBeGreaterThan(low[0])
     expect(high[1]).toBeGreaterThan(high[0])
   })
-  it('uses absolute registered stops for every metric palette', () => {
+  it('uses registered stops as the absolute semantic base for every metric palette', () => {
     Object.values(METRICS).forEach((definition) => expect(definition.colorStops?.length).toBeGreaterThan(1))
 
     const soilEc = METRICS['soil-ec']
-    expect(semanticColorAt(2, soilEc, [0.75, 2.6])).toEqual(colorAtStops(2, soilEc.colorStops!))
+    expect(semanticColorAt(2, soilEc)).toEqual(colorAtStops(2, soilEc.colorStops!))
     const ph = METRICS.ph
-    expect(semanticColorAt(6.1, ph, [5.6, 6.9])).toEqual(colorAtStops(6.1, ph.colorStops!))
+    expect(semanticColorAt(6.1, ph)).toEqual(colorAtStops(6.1, ph.colorStops!))
   })
   it('does not reuse the air-humidity palette for substrate moisture', () => {
     expect(colorAtStops(30, METRICS['relative-humidity'].colorStops!)).toEqual([201, 130, 67])
