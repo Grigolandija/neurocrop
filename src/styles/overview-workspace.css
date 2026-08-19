@@ -1678,9 +1678,9 @@ body[data-primary-page="overview"] .dashboard-main-inner {
 }
 
 .nc-overview-climate-card .nc-climate-map-legend-slot .gh-heatmap-legend-compact {
-  grid-template-columns: minmax(28rem, 1fr) auto;
+  grid-template-columns: minmax(28rem, 1fr) max-content;
   align-items: center;
-  gap: 32px;
+  gap: 24px;
 }
 
 .nc-overview-climate-card .gh-heatmap-legend-compact .gh-legend-scale {
@@ -1719,7 +1719,7 @@ body[data-primary-page="overview"] .dashboard-main-inner {
   gap: 0;
   border-left-color: rgba(43, 82, 62, .13);
   margin-left: 0;
-  padding-left: 28px;
+  padding-left: 24px;
   white-space: nowrap;
 }
 
