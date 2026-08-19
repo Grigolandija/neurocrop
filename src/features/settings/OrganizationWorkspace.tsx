@@ -146,6 +146,20 @@ export default function OrganizationWorkspace() {
     }
   }
 
+  async function removeMember(member: Member) {
+    if (!window.confirm(`Remove ${member.name || member.email} from ${user?.organizationName || 'this organization'}? Their account and data will not be deleted.`)) return
+    setBusyKey(`remove-${member.id}`)
+    try {
+      await neurocropApi.removeTeamMember(member.id)
+      setMembers((current) => current.filter((item) => item.id !== member.id))
+      setFeedback({ tone: 'success', text: `${member.name || member.email} removed from the organization.` })
+    } catch (reason) {
+      setFeedback({ tone: 'warning', text: errorMessage(reason) })
+    } finally {
+      setBusyKey('')
+    }
+  }
+
   async function revokeInvitation(invitation: Invitation) {
     if (!window.confirm(`Revoke the invitation for ${invitation.email}?`)) return
     setBusyKey(`revoke-${invitation.id}`)
@@ -174,6 +188,8 @@ export default function OrganizationWorkspace() {
 
   const normalizedQuery = memberQuery.trim().toLowerCase()
   const filteredMembers = members.filter((member) => !normalizedQuery || `${member.name || ''} ${member.email} ${member.role}`.toLowerCase().includes(normalizedQuery))
+  const canRemoveMember = (member: Member) => Boolean(canManage && member.id !== user?.id && member.role !== 'owner' && (user?.role === 'owner' || member.role !== 'admin'))
+  const canChangeMemberRole = (member: Member) => Boolean(canManage && member.id !== user?.id && member.role !== 'owner' && (user?.role === 'owner' || member.role !== 'admin'))
   const liveNodes = nodes.filter((node) => node.transportStatus === 'live').length
   const unassignedNodes = nodes.filter((node) => !node.sectionId).length
 
@@ -209,7 +225,7 @@ export default function OrganizationWorkspace() {
     <section className="nc-organization-team">
       <header><div><p>{tx("Organization access")}</p><h2>{tx("Members and roles")}</h2><span>{tx("People listed here can only access organizations where they hold a membership.")}</span></div><label><i className="fa-solid fa-magnifying-glass" /><input type="search" value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} placeholder={tx("Search members")} /></label></header>
       {canManage ? <form className="nc-organization-invite" onSubmit={inviteMember}><div><strong>{tx("Invite a member")}</strong><span>{tx("Access begins after the invitation is accepted.")}</span></div><label><span>{tx("Email address")}</span><input type="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="grower@company.com" /></label><label><span>{tx("Role")}</span><select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}><option value="grower">{tx("Grower")}</option><option value="technician">{tx("Technician")}</option><option value="viewer">{tx("Viewer")}</option>{user?.role === 'owner' ? <option value="admin">{tx("Admin")}</option> : null}</select></label><button disabled={busyKey === 'invite'}><i className="fa-solid fa-paper-plane" />{busyKey === 'invite' ?tx("Sending…") :tx("Send invite")}</button></form> : null}
-      <div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("Member")}</th><th>{tx("Role")}</th><th>{tx("Joined")}</th><th>{tx("Access")}</th></tr></thead><tbody>{filteredMembers.map((member) => <tr key={member.id}><td><div className="nc-admin-person"><span>{initials(member.name || member.email)}</span><div><strong>{member.name ||tx("Unnamed member")}</strong><small>{member.email}</small></div></div></td><td><select value={member.role} disabled={!canManage || member.role === 'owner' || member.id === user?.id || busyKey === `role-${member.id}`} onChange={(event) => void updateRole(member, event.target.value)}><option value="owner">{tx("Owner")}</option><option value="admin">{tx("Admin")}</option><option value="grower">{tx("Grower")}</option><option value="technician">{tx("Technician")}</option><option value="viewer">{tx("Viewer")}</option></select></td><td>{formatDate(member.joinedAt)}</td><td><span className="nc-settings-status" data-tone="success"><i />{tx("Active")}</span></td></tr>)}{!filteredMembers.length && !loading ? <tr><td colSpan={4}><div className="nc-settings-empty">{tx("No matching members.")}</div></td></tr> : null}</tbody></table></div>
+      <div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("Member")}</th><th>{tx("Role")}</th><th>{tx("Joined")}</th><th>{tx("Access")}</th>{canManage ? <th><span className="sr-only">{tx("Actions")}</span></th> : null}</tr></thead><tbody>{filteredMembers.map((member) => <tr key={member.id}><td><div className="nc-admin-person"><span>{initials(member.name || member.email)}</span><div><strong>{member.name ||tx("Unnamed member")}</strong><small>{member.email}</small></div></div></td><td><select value={member.role} disabled={!canChangeMemberRole(member) || busyKey === `role-${member.id}`} onChange={(event) => void updateRole(member, event.target.value)}><option value="owner" disabled>{tx("Owner")}</option><option value="admin">{tx("Admin")}</option><option value="grower">{tx("Grower")}</option><option value="technician">{tx("Technician")}</option><option value="viewer">{tx("Viewer")}</option></select></td><td>{formatDate(member.joinedAt)}</td><td><span className="nc-settings-status" data-tone="success"><i />{tx("Active")}</span></td>{canManage ? <td>{canRemoveMember(member) ? <button className="nc-admin-text-danger" disabled={busyKey === `remove-${member.id}`} onClick={() => void removeMember(member)}>{busyKey === `remove-${member.id}` ? tx("Removing…") : tx("Remove")}</button> : <span className="nc-admin-readonly">{tx("Protected")}</span>}</td> : null}</tr>)}{!filteredMembers.length && !loading ? <tr><td colSpan={canManage ? 5 : 4}><div className="nc-settings-empty">{tx("No matching members.")}</div></td></tr> : null}</tbody></table></div>
     </section>
 
     {canManage && invitations.length ? <section className="nc-organization-pending"><header><p>{tx("Pending access")}</p><h2>{tx("Invitations")}</h2><span>{invitations.length} {tx("people have not joined yet.")}</span></header><div>{invitations.map((invitation) => <article key={invitation.id}><i className="fa-regular fa-envelope" /><div><strong>{invitation.email}</strong><span>{invitation.role} {tx("· expires")} {formatDate(invitation.expiresAt)}</span></div><button disabled={busyKey === `revoke-${invitation.id}`} onClick={() => void revokeInvitation(invitation)}>{tx("Revoke")}</button></article>)}</div></section> : null}

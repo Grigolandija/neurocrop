@@ -262,6 +262,9 @@ export function registerTeamRoutes(app) {
       if (currentRows[0].role === 'owner') {
         return res.status(409).json({ error: { code: 'OWNER_PROTECTED', message: 'The workspace owner role cannot be changed here' } });
       }
+      if (currentRows[0].role === 'admin' && req.user.role !== 'owner') {
+        return res.status(403).json({ error: { code: 'ADMIN_PROTECTED', message: 'Only an owner can change an administrator role' } });
+      }
 
       const { rows } = await query(
         `UPDATE organization_memberships SET role=$1 WHERE organization_id=$2 AND user_id=$3 RETURNING user_id, role`,
@@ -270,6 +273,73 @@ export function registerTeamRoutes(app) {
       res.json({ member: { id: rows[0].user_id, role: rows[0].role } });
     } catch (error) {
       next(error);
+    }
+  });
+
+  app.delete('/team/:userId', requireUserAuth, requireRole('owner', 'admin'), async (req, res, next) => {
+    const userId = String(req.params.userId || '').trim();
+    if (!userId) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Member id is required' } });
+    }
+    if (userId === req.user.id) {
+      return res.status(409).json({ error: { code: 'SELF_REMOVAL', message: 'You cannot remove yourself from the organization' } });
+    }
+
+    let client;
+    try {
+      client = await pool.connect();
+      await client.query('BEGIN');
+
+      const { rows } = await client.query(
+        `SELECT u.id, u.email, u.display_name, m.role
+         FROM organization_memberships m
+         JOIN users u ON u.id=m.user_id
+         WHERE m.organization_id=$1 AND m.user_id=$2
+         FOR UPDATE OF m`,
+        [organizationId(req), userId]
+      );
+      const member = rows[0];
+      if (!member) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workspace member not found' } });
+      }
+      if (member.role === 'owner') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: { code: 'OWNER_PROTECTED', message: 'The workspace owner cannot be removed' } });
+      }
+      if (member.role === 'admin' && req.user.role !== 'owner') {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: { code: 'ADMIN_PROTECTED', message: 'Only an owner can remove an administrator' } });
+      }
+
+      await client.query(
+        `DELETE FROM action_assignments WHERE organization_id=$1 AND assigned_to=$2`,
+        [organizationId(req), userId]
+      );
+      await client.query(
+        `UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at, now())
+         WHERE organization_id=$1 AND user_id=$2 AND revoked_at IS NULL`,
+        [organizationId(req), userId]
+      );
+      await client.query(
+        `DELETE FROM clerk_session_contexts WHERE organization_id=$1 AND user_id=$2`,
+        [organizationId(req), userId]
+      );
+      await client.query(
+        `DELETE FROM organization_memberships WHERE organization_id=$1 AND user_id=$2`,
+        [organizationId(req), userId]
+      );
+      await client.query('COMMIT');
+
+      res.json({
+        removed: true,
+        member: { id: member.id, email: member.email, name: member.display_name, role: member.role }
+      });
+    } catch (error) {
+      await client?.query('ROLLBACK').catch(() => {});
+      next(error);
+    } finally {
+      client?.release();
     }
   });
 

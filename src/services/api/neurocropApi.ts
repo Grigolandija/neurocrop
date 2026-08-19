@@ -29,6 +29,7 @@ export const neurocropApi = {
   switchOrganization: (organizationId: string) => request('/auth/switch-organization', { method: 'POST', body: json({ organizationId }) }),
   getTeam: () => request('/team'),
   updateTeamMemberRole: (id: string, role: string) => request(`/team/${encoded(id)}/role`, { method: 'PATCH', body: json({ role }) }),
+  removeTeamMember: (id: string) => request(`/team/${encoded(id)}`, { method: 'DELETE' }),
   updateCurrentOrganization: (payload: Payload) => request('/organization', { method: 'PATCH', body: json(payload) }),
   getInvitations: () => request('/invitations'),
   inviteMember: (payload: Payload) => request('/invitations', { method: 'POST', body: json(payload) }),
