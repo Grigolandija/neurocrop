@@ -155,13 +155,15 @@ assert(!source.includes('NeuroCropI18n'), 'React source must not depend on the l
 assert(!source.includes('approved-dashboard-runtime'), 'React source must not load the legacy dashboard runtime.')
 assert(soonBadge.includes('>Soon</span>'), 'Unavailable features must use the shared gray Soon badge.')
 assert(
-  settings.includes('{label}<SoonBadge />')
+  settings.includes("{key !== 'emailEnabled' ? <SoonBadge /> : null}")
+    && settings.includes('neurocropApi.getNotificationPreferences()')
+    && settings.includes('await neurocropApi.updateNotificationPreferences({ emailEnabled: draft.emailEnabled })')
     && settings.includes('{tx("Warning persistence")}<SoonBadge />')
     && settings.includes('{tx("Quiet hours start")}<SoonBadge />')
     && settings.includes('{tx("Quiet hours end")}<SoonBadge />')
     && settings.includes('{tx("Critical alerts override quiet hours")}<SoonBadge />')
     && settings.includes('{tx("Session management is being deployed")}<SoonBadge />'),
-  'Notification delivery and escalation controls must remain visibly marked Soon until operational delivery exists.'
+  'Email alerts must use persisted delivery preferences while unfinished notification and escalation controls remain visibly marked Soon.'
 )
 
 const retired = [
