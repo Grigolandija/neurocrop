@@ -291,6 +291,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   const colors = objectColors[object.layerId] ?? objectColors.structure
   const topY = map.dimensions.lengthM - object.yM - object.lengthM
   const sensorSize = Math.max(object.widthM, object.lengthM)
+  const sensorVisualRadius = Math.min(sensorSize * .36, 11 / viewScale)
   const labelFontSize = Math.max(sensorSize * .3, 11 / viewScale)
   const objectLabel = object.name || definition?.label || object.type
   const objectWidthPx = object.widthM * viewScale
@@ -345,15 +346,15 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
     }}
   >
     {isSection ? <>
-      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(0,0,0,.2)' : object.metadata.color ?? colors.fill} opacity={environmentView ? 1 : selected ? .2 : .11} stroke={selected ? '#d89222' : environmentView ? 'rgba(0,0,0,.48)' : object.metadata.color ?? colors.stroke} strokeWidth={selected ? 2 / viewScale : environmentView ? 1 / viewScale : 1.2 / viewScale} dash={environmentView ? [6 / viewScale, 4 / viewScale] : [8 / viewScale, 5 / viewScale]} cornerRadius={4 / viewScale} />
+      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(0,0,0,.2)' : object.metadata.color ?? colors.fill} opacity={environmentView ? 1 : selected ? .2 : .11} stroke={selected ? '#d89222' : environmentView ? 'rgba(0,0,0,.48)' : object.metadata.color ?? colors.stroke} strokeWidth={selected ? 1.15 / viewScale : .75 / viewScale} dash={environmentView ? [6 / viewScale, 4 / viewScale] : [8 / viewScale, 5 / viewScale]} cornerRadius={4 / viewScale} />
       {mapObjectLabel}
     </> : isSensor ? <>
-      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .5} fill="#173e35" stroke={selected ? '#f0bd4f' : '#fff'} strokeWidth={selected ? Math.max(sensorSize * .12, 2 / viewScale) : Math.max(sensorSize * .07, 1.2 / viewScale)} shadowColor="#10251f" shadowBlur={Math.max(sensorSize * .2, 3 / viewScale)} shadowOpacity={.35} />
-      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorSize * .2} fill={statusColors[sensor?.status ?? 'unassigned']} />
-      <Circle x={object.widthM * .8} y={object.lengthM * .18} radius={sensorSize * .14} fill={statusColors[sensor?.status ?? 'unassigned']} stroke="#fff" strokeWidth={Math.max(sensorSize * .035, .8 / viewScale)} />
+      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorVisualRadius} fill="#173e35" stroke={selected ? '#f0bd4f' : '#fff'} strokeWidth={(selected ? 1.25 : .8) / viewScale} hitStrokeWidth={18 / viewScale} shadowColor="#10251f" shadowBlur={2 / viewScale} shadowOpacity={.28} />
+      <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorVisualRadius * .38} fill={statusColors[sensor?.status ?? 'unassigned']} />
+      <Circle x={object.widthM / 2 + sensorVisualRadius * .66} y={object.lengthM / 2 - sensorVisualRadius * .66} radius={sensorVisualRadius * .24} fill={statusColors[sensor?.status ?? 'unassigned']} stroke="#fff" strokeWidth={.7 / viewScale} />
       <Text x={object.widthM + 6 / viewScale} y={-1 / viewScale} width={Math.max(2.8, 150 / viewScale)} text={object.name} fontFamily="IBM Plex Sans" fontSize={labelFontSize} fontStyle="bold" fill="#183a31" />
     </> : <>
-      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(0,0,0,.2)' : object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : environmentView ? 'rgba(0,0,0,.48)' : colors.stroke} strokeWidth={selected ? .08 : environmentView ? 1 / viewScale : .035} dash={environmentView ? [6 / viewScale, 4 / viewScale] : object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
+      <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(0,0,0,.2)' : object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : environmentView ? 'rgba(0,0,0,.48)' : colors.stroke} strokeWidth={(selected ? 1.15 : .75) / viewScale} dash={environmentView ? [6 / viewScale, 4 / viewScale] : object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
       {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} opacity={environmentView ? .68 : 1} /> : null}
       {object.type === 'text-label'
         ? <Text x={.08} y={.08} width={Math.max(.2, object.widthM - .16)} height={Math.max(.2, object.lengthM - .16)} text={object.name} fontFamily="IBM Plex Sans" fontSize={Math.min(.24, object.lengthM * .28)} fill="#1e2c27" opacity={environmentView ? .76 : 1} ellipsis wrap="none" />
@@ -869,7 +870,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
             onUpdate={onUpdate}
           />
         })}
-        <Transformer ref={transformerRef} rotateEnabled={editable && !wallMountedSelection} resizeEnabled={editable} flipEnabled={false} borderStroke="#d89222" anchorStroke="#d89222" anchorFill="#fff" anchorSize={9} borderStrokeWidth={1.5} rotateAnchorOffset={24} />
+        <Transformer ref={transformerRef} rotateEnabled={editable && !wallMountedSelection} resizeEnabled={editable} flipEnabled={false} borderStroke="#d89222" anchorStroke="#d89222" anchorFill="#fff" anchorSize={8} borderStrokeWidth={.8} rotateAnchorOffset={22} />
       </Layer>
       {mode === 'environment' && showContours && contourLabels.length ? <Layer listening={false}>
         {contourLabels.map(({ level, x, y, label }) => {
@@ -979,7 +980,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         </Group>})}
       </Layer> : null}
       <Layer listening={false}>
-        <Rect width={map.dimensions.widthM} height={map.dimensions.lengthM} stroke="#30483f" strokeWidth={Math.max(map.wallThicknessM, 2 / view.scale)} />
+        <Rect width={map.dimensions.widthM} height={map.dimensions.lengthM} stroke="#30483f" strokeWidth={Math.max(map.wallThicknessM * .5, 1.2 / view.scale)} />
         {!readOnly ? <Text x={0} y={map.dimensions.lengthM + 12 / view.scale} text={`0                                        X  ${map.dimensions.widthM} m →`} width={map.dimensions.widthM} align="center" fontSize={11 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
         {!readOnly ? <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
       </Layer>
