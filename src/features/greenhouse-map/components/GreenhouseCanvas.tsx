@@ -9,7 +9,7 @@ import { heatmapColorAt, scaleGradient, type HeatmapColorMode } from '../heatmap
 import { getMetricMeasurementValue, getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
-import { isWallMountedType, snapRectangleBounds, snapRectanglePosition } from '../geometry'
+import { isWallMountedType, snapRectangleBounds, snapRectanglePosition, snapWallMountedObject } from '../geometry'
 import { METRICS, OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type MapMode, type ObjectType } from '../model'
 
 type Props = {
@@ -315,11 +315,19 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
     opacity={layerOpacity}
     onClick={onSelect} onTap={onSelect}
     onDragMove={(event) => {
-      if (!snap || wallMounted) return
       const rawPosition = {
         xM: event.target.x(),
         yM: map.dimensions.lengthM - event.target.y() - object.lengthM,
       }
+      if (wallMounted) {
+        const mounted = snapWallMountedObject({ ...object, ...rawPosition }, map.dimensions)
+        event.target.position({
+          x: mounted.xM,
+          y: map.dimensions.lengthM - mounted.yM - mounted.lengthM,
+        })
+        return
+      }
+      if (!snap) return
       const toleranceM = Math.min(map.gridSizeM * 0.35, 8 / viewScale)
       const position = snapRectanglePosition(rawPosition, object, map.gridSizeM, true, toleranceM)
       event.target.position({
@@ -327,7 +335,22 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
         y: map.dimensions.lengthM - position.yM - object.lengthM,
       })
     }}
-    onDragEnd={(event) => onMove({ id: object.id, xM: event.target.x(), yM: map.dimensions.lengthM - event.target.y() - object.lengthM }, true)}
+    onDragEnd={(event) => {
+      const rawPosition = {
+        xM: event.target.x(),
+        yM: map.dimensions.lengthM - event.target.y() - object.lengthM,
+      }
+      if (!wallMounted) {
+        onMove({ id: object.id, ...rawPosition }, true)
+        return
+      }
+      const mounted = snapWallMountedObject({ ...object, ...rawPosition }, map.dimensions)
+      event.target.position({
+        x: mounted.xM,
+        y: map.dimensions.lengthM - mounted.yM - mounted.lengthM,
+      })
+      onMove({ id: object.id, xM: mounted.xM, yM: mounted.yM }, true)
+    }}
     onTransformEnd={(event) => {
       const node = event.target
       const widthM = Math.max(.05, object.widthM * node.scaleX())
@@ -407,7 +430,17 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     const transformer = transformerRef.current
     const stage = stageRef.current
     if (!transformer || !stage) return
-    const nodes = mode === 'layout' ? selectedIds.map((id) => stage.findOne(`#gh-object-${id}`)).filter((node): node is Konva.Node => Boolean(node)) : []
+    const transformableIds = new Set(
+      map.objects
+        .filter((object) => object.type !== 'sensor-node')
+        .map((object) => object.id),
+    )
+    const nodes = mode === 'layout'
+      ? selectedIds
+        .filter((id) => transformableIds.has(id))
+        .map((id) => stage.findOne(`#gh-object-${id}`))
+        .filter((node): node is Konva.Node => Boolean(node))
+      : []
     transformer.nodes(nodes)
     transformer.getLayer()?.batchDraw()
   }, [selectedIds, mode, map.objects])
