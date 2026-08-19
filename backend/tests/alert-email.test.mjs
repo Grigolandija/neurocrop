@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emailDeliveryConfigured, sendAlertEmail } from '../email.js';
+import { alertEligibleForEmail } from '../alert-email-notifications.js';
+
+test('warning email waits for recipient persistence while critical escalation is immediate', () => {
+  const now = Date.parse('2026-08-19T12:30:00Z');
+  const recentWarning = { tone: 'warning', occurrenceStartedAt: '2026-08-19T12:20:01Z' };
+  const persistedWarning = { tone: 'warning', occurrenceStartedAt: '2026-08-19T12:15:00Z' };
+  const critical = { tone: 'critical', occurrenceStartedAt: '2026-08-19T12:29:59Z' };
+
+  assert.equal(alertEligibleForEmail(recentWarning, { warningAfterMinutes: 15 }, now), false);
+  assert.equal(alertEligibleForEmail(persistedWarning, { warningAfterMinutes: 15 }, now), true);
+  assert.equal(alertEligibleForEmail(critical, { warningAfterMinutes: 30 }, now), true);
+});
 
 test('alert email groups alerts and escapes customer-controlled content', async () => {
   const previousKey = process.env.RESEND_API_KEY;

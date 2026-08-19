@@ -65,12 +65,20 @@ export function buildScoreRules(profileMetrics = {}) {
     const profileMetric = profileMetrics?.[metricId] || {};
     const optimal = normalizeBand(profileMetric.optimal, baseRule.optimal);
     const automaticBands = deriveAutomaticBands(metricId, optimal, baseRule);
+    const savedWarning = normalizeBand(profileMetric.warning, automaticBands.warning);
+    const warning = savedWarning[0] <= optimal[0] && savedWarning[1] >= optimal[1]
+      ? savedWarning
+      : automaticBands.warning;
+    const savedCritical = normalizeBand(profileMetric.critical, automaticBands.critical);
+    const critical = savedCritical[0] <= warning[0] && savedCritical[1] >= warning[1]
+      ? savedCritical
+      : automaticBands.critical;
     const scoreWeight = normalizeTelemetryNumber(profileMetric.scoreWeight);
     rules[metricId] = {
       ...baseRule,
       optimal,
-      warning: automaticBands.warning,
-      critical: automaticBands.critical,
+      warning,
+      critical,
       scoreWeight: scoreWeight !== null
         ? Math.max(0, Math.min(scoreWeight, 3))
         : 1

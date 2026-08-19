@@ -143,6 +143,13 @@ test('web push subscriptions and alert deliveries remain tenant and user scoped'
   assert.match(sql, /PRIMARY KEY \(organization_id, alert_id, subscription_id\)/);
 });
 
+test('email alert escalation keeps per-user warning delay and per-tone delivery identity', async () => {
+  const sql = await fs.readFile(new URL('../migrations/0037_alert_email_escalation.sql', import.meta.url), 'utf8');
+  assert.match(sql, /warning_after_minutes INTEGER NOT NULL DEFAULT 15/);
+  assert.match(sql, /alert_tone TEXT NOT NULL DEFAULT 'warning'/);
+  assert.match(sql, /PRIMARY KEY \([\s\S]*organization_id, alert_id, occurrence_started_at, user_id, alert_tone/);
+});
+
 test('case-insensitive DevEUI operations have functional indexes', async () => {
   const migration = await fs.readFile(new URL('../migrations/0016_deveui_lookup_indexes.sql', import.meta.url), 'utf8');
   assert.match(migration, /idx_nodes_dev_eui_lower[\s\S]*lower\(dev_eui\)/);

@@ -33,7 +33,7 @@ type StoredSettings = {
   notifications?: Partial<Pick<Preferences, 'emailEnabled' | 'browserEnabled' | 'smsEnabled' | 'criticalOverride' | 'quietStart' | 'quietEnd'>>
   alerts?: Partial<Pick<Preferences, 'warningAfterMinutes'>>
 }
-type NotificationPreferencesResponse = { notifications?: { emailEnabled?: boolean; emailConfigured?: boolean } }
+type NotificationPreferencesResponse = { notifications?: { emailEnabled?: boolean; emailConfigured?: boolean; warningAfterMinutes?: number } }
 
 const settingsStorageKey = 'neurocrop-dashboard-settings-v1'
 const auditStorageKey = 'neurocrop-settings-audit-v1'
@@ -145,6 +145,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
           ...readPreferences(),
           organizationName: nextUser.organizationName || readPreferences().organizationName,
           emailEnabled: Boolean(notificationResponse.notifications?.emailEnabled),
+          warningAfterMinutes: Number(notificationResponse.notifications?.warningAfterMinutes ?? defaults.warningAfterMinutes),
         }
         setEmailConfigured(notificationResponse.notifications?.emailConfigured !== false)
         setUser(nextUser)
@@ -194,8 +195,11 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
         await neurocropApi.updateCurrentOrganization({ name: draft.organizationName })
         recordAudit('configuration', 'Changed workspace name', `${saved.organizationName} → ${draft.organizationName}`)
       }
-      if (draft.emailEnabled !== saved.emailEnabled) {
-        await neurocropApi.updateNotificationPreferences({ emailEnabled: draft.emailEnabled })
+      if (draft.emailEnabled !== saved.emailEnabled || draft.warningAfterMinutes !== saved.warningAfterMinutes) {
+        await neurocropApi.updateNotificationPreferences({
+          emailEnabled: draft.emailEnabled,
+          warningAfterMinutes: draft.warningAfterMinutes,
+        })
       }
       const existing = readStoredSettings()
       localStorage.setItem(settingsStorageKey, JSON.stringify({
@@ -348,7 +352,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
 
         {section === 'notifications' ? <div className="nc-settings-flow"><section className="nc-settings-card"><header><div><h3>{tx("Delivery channels")}</h3><p>{tx("Email alerts follow your account across devices. Upcoming channels are shown for planning.")}</p></div><Status tone="info">{tx("Personal")}</Status></header><div className="nc-settings-toggles">{([
           ['emailEnabled', 'fa-envelope', 'Email', emailConfigured ? 'New warning and critical alerts' : 'Email delivery is not configured'], ['browserEnabled', 'fa-window-maximize', 'Browser notifications', 'Immediate notice while NeuroCrop is open'], ['smsEnabled', 'fa-message', 'SMS', 'Reserved for critical escalation'],
-        ] as Array<[keyof Preferences, string, string, string]>).map(([key, icon, label, note]) => <label key={key}><i className={`fa-solid ${icon}`} /><span><strong>{label}{key !== 'emailEnabled' ? <SoonBadge /> : null}</strong><small>{note}</small></span><input type="checkbox" checked={Boolean(draft[key])} disabled={key === 'emailEnabled' && !emailConfigured} onChange={() => setDraft({ ...draft, [key]: !draft[key] })} /><i className="nc-settings-switch" /></label>)}</div></section><section className="nc-settings-card"><header><div><h3>{tx("Escalation behavior")}</h3><p>{tx("Controls notification timing, not crop-profile target limits.")}</p></div></header><div className="nc-settings-fields three"><label><span>{tx("Warning persistence")}<SoonBadge /></span><select value={draft.warningAfterMinutes} onChange={(event) => setDraft({ ...draft, warningAfterMinutes: Number(event.target.value) })}><option value="10">{tx("10 minutes")}</option><option value="15">{tx("15 minutes")}</option><option value="30">{tx("30 minutes")}</option></select></label><label><span>{tx("Quiet hours start")}<SoonBadge /></span><input type="time" value={draft.quietStart} onChange={(event) => setDraft({ ...draft, quietStart: event.target.value })} /></label><label><span>{tx("Quiet hours end")}<SoonBadge /></span><input type="time" value={draft.quietEnd} onChange={(event) => setDraft({ ...draft, quietEnd: event.target.value })} /></label></div><label className="nc-settings-inline-toggle"><span><strong>{tx("Critical alerts override quiet hours")}<SoonBadge /></strong><small>{tx("Critical conditions should be delivered immediately.")}</small></span><input type="checkbox" checked={draft.criticalOverride} onChange={() => setDraft({ ...draft, criticalOverride: !draft.criticalOverride })} /><i className="nc-settings-switch" /></label></section></div> : null}
+        ] as Array<[keyof Preferences, string, string, string]>).map(([key, icon, label, note]) => <label key={key}><i className={`fa-solid ${icon}`} /><span><strong>{label}{key !== 'emailEnabled' ? <SoonBadge /> : null}</strong><small>{note}</small></span><input type="checkbox" checked={Boolean(draft[key])} disabled={key === 'emailEnabled' && !emailConfigured} onChange={() => setDraft({ ...draft, [key]: !draft[key] })} /><i className="nc-settings-switch" /></label>)}</div></section><section className="nc-settings-card"><header><div><h3>{tx("Escalation behavior")}</h3><p>{tx("Controls notification timing, not crop-profile target limits.")}</p></div></header><div className="nc-settings-fields three"><label><span>{tx("Warning persistence")}</span><select value={draft.warningAfterMinutes} onChange={(event) => setDraft({ ...draft, warningAfterMinutes: Number(event.target.value) })}><option value="10">{tx("10 minutes")}</option><option value="15">{tx("15 minutes")}</option><option value="30">{tx("30 minutes")}</option></select></label><label><span>{tx("Quiet hours start")}<SoonBadge /></span><input type="time" value={draft.quietStart} onChange={(event) => setDraft({ ...draft, quietStart: event.target.value })} /></label><label><span>{tx("Quiet hours end")}<SoonBadge /></span><input type="time" value={draft.quietEnd} onChange={(event) => setDraft({ ...draft, quietEnd: event.target.value })} /></label></div><label className="nc-settings-inline-toggle"><span><strong>{tx("Critical alerts override quiet hours")}<SoonBadge /></strong><small>{tx("Critical conditions should be delivered immediately.")}</small></span><input type="checkbox" checked={draft.criticalOverride} onChange={() => setDraft({ ...draft, criticalOverride: !draft.criticalOverride })} /><i className="nc-settings-switch" /></label></section></div> : null}
 
         {section === 'security'
           ? clerkConfigured

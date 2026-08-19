@@ -689,6 +689,14 @@ test('profile metric validation rejects impossible targets for known sensors', (
     validateCropProfileMetrics({ customIndex: { optimal: [-1000, 1000] } }),
     null
   );
+  assert.match(
+    validateCropProfileMetrics({ co2: { optimal: [900, 1100], warning: [950, 1250], critical: [500, 1500] } }),
+    /warning must contain the optimal range/
+  );
+  assert.match(
+    validateCropProfileMetrics({ co2: { optimal: [900, 1100], warning: [750, 1250], critical: [800, 1500] } }),
+    /critical must contain the warning range/
+  );
 });
 
 test('lighting schedules are validated without exposing hardware assumptions', () => {
@@ -698,7 +706,7 @@ test('lighting schedules are validated without exposing hardware assumptions', (
   assert.match(validateCropProfileMetrics({ lux: { optimal: [10000, 30000], lightingSchedule: { darkThresholdLux: -1 } } }), /zero or greater/);
 });
 
-test('score rules use saved optimal ranges and automatic alert bands', () => {
+test('score rules use saved profile bands and safely fall back to automatic bands', () => {
   const rules = buildScoreRules({ airTemp: { optimal: [18, 22] } });
   assert.deepEqual(rules.airTemp.warning, [16, 24]);
   assert.deepEqual(rules.airTemp.critical, [14, 26]);
@@ -707,6 +715,13 @@ test('score rules use saved optimal ranges and automatic alert bands', () => {
   assert.equal(evaluateMetricValue('airTemp', null, rules), null);
   assert.equal(evaluateMetricValue('airTemp', false, rules), null);
   assert.deepEqual(buildScoreRules({ airTemp: { optimal: [null, 22] } }).airTemp.optimal, [22, 26]);
+  const saved = buildScoreRules({ co2: {
+    optimal: [900, 1100], warning: [800, 1200], critical: [600, 1400]
+  } });
+  assert.deepEqual(saved.co2.warning, [800, 1200]);
+  assert.deepEqual(saved.co2.critical, [600, 1400]);
+  assert.equal(evaluateMetricValue('co2', 700, saved).state, 'warning');
+  assert.equal(evaluateMetricValue('co2', 500, saved).state, 'critical');
 });
 
 test('score crosses the optimal boundary smoothly without a warning cliff', () => {

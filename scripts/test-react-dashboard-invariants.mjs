@@ -157,13 +157,13 @@ assert(soonBadge.includes('>Soon</span>'), 'Unavailable features must use the sh
 assert(
   settings.includes("{key !== 'emailEnabled' ? <SoonBadge /> : null}")
     && settings.includes('neurocropApi.getNotificationPreferences()')
-    && settings.includes('await neurocropApi.updateNotificationPreferences({ emailEnabled: draft.emailEnabled })')
-    && settings.includes('{tx("Warning persistence")}<SoonBadge />')
+    && settings.includes('warningAfterMinutes: draft.warningAfterMinutes')
+    && settings.includes('<span>{tx("Warning persistence")}</span>')
     && settings.includes('{tx("Quiet hours start")}<SoonBadge />')
     && settings.includes('{tx("Quiet hours end")}<SoonBadge />')
     && settings.includes('{tx("Critical alerts override quiet hours")}<SoonBadge />')
     && settings.includes('{tx("Session management is being deployed")}<SoonBadge />'),
-  'Email alerts must use persisted delivery preferences while unfinished notification and escalation controls remain visibly marked Soon.'
+  'Email alerts and warning persistence must use persisted delivery preferences while unfinished notification controls remain visibly marked Soon.'
 )
 
 const retired = [

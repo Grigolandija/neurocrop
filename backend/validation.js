@@ -41,6 +41,15 @@ export function validateCropProfileMetrics(metrics, { allowEmpty = true } = {}) 
         return `${metricId}.${bandName} is outside supported physical limits`;
       }
     }
+    const optimal = metric.optimal.map(Number);
+    const warning = (metric.warning || metric.optimal).map(Number);
+    const critical = (metric.critical || warning).map(Number);
+    if (warning[0] > optimal[0] || warning[1] < optimal[1]) {
+      return `${metricId}.warning must contain the optimal range`;
+    }
+    if (critical[0] > warning[0] || critical[1] < warning[1]) {
+      return `${metricId}.critical must contain the warning range`;
+    }
     const scoreWeight = normalizeTelemetryNumber(metric.scoreWeight);
     if (metric.scoreWeight !== undefined
       && (scoreWeight === null || scoreWeight < 0 || scoreWeight > 3)) {
