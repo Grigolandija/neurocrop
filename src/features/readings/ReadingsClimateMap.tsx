@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { getMetricIdByHeatmapKey } from '../../domain/metricRegistry'
 import { useInterfaceLanguage } from '../../i18n'
 import GreenhouseCanvas from '../greenhouse-map/components/GreenhouseCanvas'
+import type { HeatmapColorMode } from '../greenhouse-map/heatmap/heatmapColorScale'
 import { getMetricMeasurementValue } from '../greenhouse-map/heatmap/heatmapMetrics'
 import { METRICS, type MetricKey } from '../greenhouse-map/model'
 import {
@@ -17,6 +18,7 @@ import '../../styles/climate-map.css'
 
 const heatmapMetrics = Object.keys(METRICS) as MetricKey[]
 const soilEcDepthStorageKey = 'neurocrop-soil-ec-depth-cm-v1'
+const colorModeStorageKey = 'neurocrop-climate-map-color-mode-v1'
 type ClimateTimeMode = 'live' | 'history'
 
 type Props = {
@@ -37,6 +39,13 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const [historyIndex, setHistoryIndex] = useState(0)
   const [historyError, setHistoryError] = useState('')
   const [metric, setMetric] = useState<MetricKey>('air-temperature')
+  const [colorMode, setColorMode] = useState<HeatmapColorMode>(() => {
+    try {
+      return window.localStorage.getItem(colorModeStorageKey) === 'contrast' ? 'contrast' : 'condition'
+    } catch {
+      return 'condition'
+    }
+  })
   const [soilEcDepthCm, setSoilEcDepthCm] = useState<number | null>(() => {
     try {
       const saved = Number(window.localStorage.getItem(soilEcDepthStorageKey))
@@ -205,6 +214,14 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       // The selected depth still remains active for this session.
     }
   }
+  const selectColorMode = (next: HeatmapColorMode) => {
+    setColorMode(next)
+    try {
+      window.localStorage.setItem(colorModeStorageKey, next)
+    } catch {
+      // The selected colour mode still remains active for this session.
+    }
+  }
 
   const map = useMemo(() => displayedContext ? prepareReadOnlyClimateMap(displayedContext, selectedMetric) : null, [displayedContext, selectedMetric])
   const validSensorObjects = map?.objects.filter((object) => {
@@ -279,6 +296,13 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
           <button type="button" className={timeMode === 'live' ? 'active' : ''} onClick={() => selectTimeMode('live')}>{lithuanian ? 'Dabar' :tx("Live")}</button>
           <button type="button" className={timeMode === 'history' ? 'active' : ''} disabled={!historyAvailable} title={historyError || undefined} onClick={() => selectTimeMode('history')}>{lithuanian ? 'Istorija' :tx("History")}</button>
         </div>
+        <div className="nc-climate-color-control">
+          <span>{lithuanian ? 'Spalvos' : 'Colours'}</span>
+          <div className="nc-climate-color-mode" role="group" aria-label={lithuanian ? 'Žemėlapio spalvų režimas' : 'Map colour mode'}>
+            <button type="button" className={colorMode === 'condition' ? 'active' : ''} aria-pressed={colorMode === 'condition'} title={lithuanian ? 'Stabilios spalvos pagal absoliučią reikšmę ir augalo būklę' : 'Stable colours based on the absolute value and crop condition'} onClick={() => selectColorMode('condition')}>{lithuanian ? 'Būklė' : 'Condition'}</button>
+            <button type="button" className={colorMode === 'contrast' ? 'active' : ''} aria-pressed={colorMode === 'contrast'} title={lithuanian ? 'Maksimalus skirtumas tarp šio kadro minimumo ir maksimumo' : 'Maximum contrast between this frame minimum and maximum'} onClick={() => selectColorMode('contrast')}>{lithuanian ? 'Kontrastas' : 'Contrast'}</button>
+          </div>
+        </div>
         <label><span>{tx("Metric")}</span><select value={selectedMetric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{heatmapMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>)}</select></label>
         {selectedMetric === 'soil-ec' && availableSoilEcDepths.length ? <label className="nc-climate-depth"><span>{lithuanian ? 'Gylis' : 'Depth'}</span><select value={selectedSoilEcDepthCm} onChange={(event) => selectSoilEcDepth(Number(event.target.value))}>{availableSoilEcDepths.map((depthCm) => <option value={depthCm} key={depthCm}>{depthCm} cm</option>)}</select></label> : null}
         {!overviewPresentation ? <span className="nc-climate-lock"><i className="fa-solid fa-lock" />{tx("Read only")}</span> : null}
@@ -329,6 +353,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         onRenderReady={handleCanvasRenderReady}
         referenceTime={historyFrameEnd}
         target={target}
+        colorMode={colorMode}
       />
     </div>
     <div className="nc-climate-soil-section-slot" ref={setSoilProfileHost} />

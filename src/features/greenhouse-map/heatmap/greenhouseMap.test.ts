@@ -7,7 +7,7 @@ import { COLOR_INTERVALS, CONTOUR_INTERVALS, METRIC_LEVELS, MIN_CONTOUR_SENSOR_C
 import { createMeasurementGrid, gridResolution } from './createMeasurementGrid'
 import { getStableScale, getValidMeasurementPoints } from './heatmapMetrics'
 import { interpolateIdw } from './idwInterpolation'
-import { colorAtStops, scaleGradient, semanticColorAt } from './heatmapColorScale'
+import { colorAtStops, heatmapColorAt, scaleGradient, semanticColorAt } from './heatmapColorScale'
 import { DEFAULT_HEATMAP_SETTINGS, GREENHOUSE_WALL_THICKNESS_M, METRICS, normalizeHeatmapSettings } from '../model'
 
 const point = (xM: number, yM: number, value: number) => ({ xM, yM, value })
@@ -179,6 +179,28 @@ describe('environment colour scale', () => {
     expect(semanticColorAt(16, definition, [28.9, 30.4])).toEqual(colorAtStops(16, definition.colorStops!))
     expect(semanticColorAt(30, definition, [28.9, 30.4])).toEqual(colorAtStops(30, definition.colorStops!))
     expect(semanticColorAt(16, definition, [15.2, 16.7])).not.toEqual(semanticColorAt(30, definition, [28.9, 30.4]))
+  })
+  it('offers explicit full-frame spatial contrast without changing condition colours', () => {
+    const definition = METRICS['air-temperature']
+    const conditionLow = heatmapColorAt(19, definition, [19, 20], 'condition')
+    const conditionHigh = heatmapColorAt(20, definition, [19, 20], 'condition')
+    const contrastLow = heatmapColorAt(19, definition, [19, 20], 'contrast')
+    const contrastHigh = heatmapColorAt(20, definition, [19, 20], 'contrast')
+    expect(conditionLow).toEqual(colorAtStops(19, definition.colorStops!))
+    expect(conditionHigh).toEqual(colorAtStops(20, definition.colorStops!))
+    expect(Math.hypot(...contrastLow.map((channel, index) => channel - contrastHigh[index]))).toBeGreaterThan(200)
+    expect(contrastLow).not.toEqual(conditionLow)
+    expect(contrastHigh).not.toEqual(conditionHigh)
+    const gradient = scaleGradient(19, 20, definition, [19, 20], 'contrast')
+    expect(gradient).toContain(`rgb(${contrastLow.join(' ')}) 0%`)
+    expect(gradient).toContain(`rgb(${contrastHigh.join(' ')}) 100%`)
+  })
+  it('keeps a flat contrast frame neutral and clamps out-of-range values', () => {
+    const definition = METRICS['air-temperature']
+    const midpoint = heatmapColorAt(19, definition, [19, 19], 'contrast')
+    expect(midpoint).toEqual(heatmapColorAt(25, definition, undefined, 'contrast'))
+    expect(heatmapColorAt(18, definition, [19, 20], 'contrast')).toEqual(heatmapColorAt(19, definition, [19, 20], 'contrast'))
+    expect(heatmapColorAt(21, definition, [19, 20], 'contrast')).toEqual(heatmapColorAt(20, definition, [19, 20], 'contrast'))
   })
   it('keeps humidity colours anchored to their absolute semantic stops', () => {
     const definition = METRICS['relative-humidity']

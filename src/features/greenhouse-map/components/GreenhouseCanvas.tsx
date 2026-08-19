@@ -5,7 +5,7 @@ import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Tra
 import '../../../styles/greenhouse-map-test.css'
 import { createContourPaths, getAdaptiveContourInterval, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
 import { createMeasurementGrid, gridResolution } from '../heatmap/createMeasurementGrid'
-import { scaleGradient, semanticColorAt } from '../heatmap/heatmapColorScale'
+import { heatmapColorAt, scaleGradient, type HeatmapColorMode } from '../heatmap/heatmapColorScale'
 import { getMetricMeasurementValue, getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
@@ -21,6 +21,7 @@ type Props = {
   compactLegend?: boolean
   soilEcDepthCm?: number
   target?: [number, number]
+  colorMode?: HeatmapColorMode
   dailyView?: boolean
   language?: 'en' | 'lt'
   actions?: Array<{ id: string; sectionId: string; sectionName: string; title: string; reason: string; priority: string }>
@@ -67,10 +68,11 @@ type SoilEcProfile = {
   readings: SoilEcProfileReading[]
 }
 
-function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx, onClose }: {
+function SoilEcCrossSection({ profile, map, language, colorMode, leftInsetPx, rightInsetPx, onClose }: {
   profile: SoilEcProfile
   map: GreenhouseMap
   language: 'en' | 'lt'
+  colorMode: HeatmapColorMode
   leftInsetPx: number
   rightInsetPx: number
   onClose: () => void
@@ -202,7 +204,7 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
           continue
         }
         const value = sectionGrid.values[index]
-        const [red, green, blue] = semanticColorAt(value, METRICS['soil-ec'], profile.colorRange)
+        const [red, green, blue] = heatmapColorAt(value, METRICS['soil-ec'], profile.colorRange, colorMode)
         const confidence = sectionGrid.confidence[index]
         const gray = Math.round(red * .2126 + green * .7152 + blue * .0722)
         const saturation = .68 + confidence * .32
@@ -215,7 +217,7 @@ function SoilEcCrossSection({ profile, map, language, leftInsetPx, rightInsetPx,
         image.data[offset + 3] = 255
     }
     context.putImageData(image, 0, 0)
-  }, [map.heatmapSettings.opacity, profile.colorRange, profile.readings.length, sectionGrid])
+  }, [colorMode, map.heatmapSettings.opacity, profile.colorRange, profile.readings.length, sectionGrid])
 
   return <section className="gh-soil-section" style={{ marginLeft: leftInsetPx, marginRight: rightInsetPx }}>
     <header>
@@ -360,7 +362,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, soilProfileHost, compactLegend = false, soilEcDepthCm, target, dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, soilProfileHost, compactLegend = false, soilEcDepthCm, target, colorMode = 'condition', dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -455,7 +457,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         )
         if (!grid) setHeatmap(null)
         else {
-          const observedValues = scaleValues
+          const observedValues = points.map((point) => point.value)
           const observedRange: [number, number] = [Math.min(...observedValues), Math.max(...observedValues)]
           const contrastRange: [number, number] = observedRange
           setHeatmap({
@@ -465,6 +467,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
               map.heatmapSettings.opacity,
               map.heatmapSettings.showConfidence,
               contrastRange,
+              colorMode,
             ),
             grid,
             min: grid.min,
@@ -486,7 +489,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       window.cancelAnimationFrame(firstPaintFrame)
       window.cancelAnimationFrame(settledPaintFrame)
     }
-  }, [map, mode, onRenderReady, points, referenceTime, soilEcAllValues, soilEcDepthCm])
+  }, [colorMode, map, mode, onRenderReady, points, referenceTime, soilEcAllValues, soilEcDepthCm])
 
   const pointerWorld = useCallback(() => {
     const stage = stageRef.current
@@ -771,12 +774,12 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
   const editable = mode === 'layout' && !readOnly
   const heatmapLegend = mode === 'environment' ? <div className={`gh-heatmap-legend ${compactLegend ? 'gh-heatmap-legend-compact' : ''}`}>
-    {!compactLegend ? <div className="gh-legend-heading"><small>{readOnly ? tr('CLIMATE RANGE', 'KLIMATO DIAPAZONAS') : tr('ESTIMATED ENVIRONMENT MAP', 'APSKAIČIUOTAS APLINKOS ŽEMĖLAPIS')}</small><strong>{metricLabel(map.heatmapSettings.metric)}</strong></div> : null}
+    {!compactLegend ? <div className="gh-legend-heading"><small>{colorMode === 'contrast' ? tr('SPATIAL CONTRAST', 'ERDVINIS KONTRASTAS') : readOnly ? tr('CONDITION COLOURS', 'BŪKLĖS SPALVOS') : tr('ESTIMATED ENVIRONMENT MAP', 'APSKAIČIUOTAS APLINKOS ŽEMĖLAPIS')}</small><strong>{metricLabel(map.heatmapSettings.metric)}</strong></div> : null}
     {heatmap ? <>
       <div className="gh-legend-scale">
         <button className={`gh-contour-toggle ${showContours ? 'active' : ''}`} type="button" disabled={heatmap.count < MIN_CONTOUR_SENSOR_COUNT} onClick={() => setShowContours((current) => !current)} title={tr('Contour spacing adapts to the measured range and data coverage.', 'Izolinijų žingsnis prisitaiko prie matuojamo diapazono ir duomenų padengimo.')}><i className="fa-solid fa-lines-leaning" />{readOnly ? showContours ? tr('Contours on', 'Izolinijos įjungtos') : tr('Contours off', 'Izolinijos išjungtos') : tr('Contours', 'Izolinijos')} · {heatmap.contourInterval} {METRICS[map.heatmapSettings.metric].unit}</button>
         <div className="gh-color-scale-wrap">
-          <div className="gh-color-scale" style={{ background: scaleGradient(legendMin, legendMax, METRICS[map.heatmapSettings.metric], [legendMin, legendMax]) }} />
+          <div className="gh-color-scale" style={{ background: scaleGradient(legendMin, legendMax, METRICS[map.heatmapSettings.metric], [legendMin, legendMax], colorMode) }} />
           {targetMarker ? <span
             className="gh-target-range-marker"
             style={targetMarker}
@@ -787,6 +790,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         <div className="gh-legend-range"><span>{Number(legendMin.toFixed(METRICS[map.heatmapSettings.metric].decimals))} {METRICS[map.heatmapSettings.metric].unit}</span><span>{Number(legendMax.toFixed(METRICS[map.heatmapSettings.metric].decimals))} {METRICS[map.heatmapSettings.metric].unit}</span></div>
       </div>
       <div className="gh-legend-meta">
+        <em className="gh-color-mode-note" title={colorMode === 'contrast' ? tr('Relative colours: current frame minimum to maximum.', 'Santykinės spalvos: nuo šio kadro minimumo iki maksimumo.') : tr('Stable colours: the same value always keeps the same colour.', 'Stabilios spalvos: ta pati reikšmė visada turi tą pačią spalvą.')}><i className={`fa-solid ${colorMode === 'contrast' ? 'fa-circle-half-stroke' : 'fa-temperature-half'}`} /> {colorMode === 'contrast' ? compactLegend ? tr('Relative min–max', 'Santykinis min–max') : tr('Relative colours: current frame minimum to maximum.', 'Santykinės spalvos: nuo šio kadro minimumo iki maksimumo.') : compactLegend ? tr('Stable absolute scale', 'Stabili absoliuti skalė') : tr('Stable colours: the same value always keeps the same colour.', 'Stabilios spalvos: ta pati reikšmė visada turi tą pačią spalvą.')}</em>
         {target ? <div className={`gh-target-state ${targetState}`}><b>{targetState === 'optimal' ? tr('Inside target', 'Tiksliniame diapazone') : targetState === 'low' ? tr('Below target', 'Žemiau tikslo') : targetState === 'high' ? tr('Above target', 'Virš tikslo') : tr('Target configured', 'Tikslas nustatytas')}</b><span>{target[0]}–{target[1]} {METRICS[map.heatmapSettings.metric].unit}</span></div> : null}
         <p><b>{heatmap.count} {compactLegend ? language === 'lt' ? heatmap.count === 1 ? 'sensorius' : 'sensoriai' : `sensor${heatmap.count === 1 ? '' : 's'}` : tr('sensor sources', 'sensorių šaltiniai')}</b>{!compactLegend ? <><span>{Math.round(heatmap.grid.dataCellCount / Math.max(1, heatmap.grid.width * heatmap.grid.height) * 100)}% {tr('raster coverage', 'rasterio padengimas')} · {heatmap.grid.cellWidthM.toFixed(2)} m</span><span>{tr('Rendered', 'Atvaizduota')} {heatmap.calculatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></> : null}</p>
         {map.heatmapSettings.metric === 'soil-ec' && soilEcDepthCm !== undefined ? <em><i className="fa-solid fa-layer-group" /> {soilEcDepthCm} cm {tr('depth', 'gylis')}</em> : null}
@@ -985,6 +989,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
           profile={soilEcProfile}
           map={map}
           language={language}
+          colorMode={colorMode}
           leftInsetPx={Math.max(0, view.x)}
           rightInsetPx={Math.max(0, size.width - view.x - map.dimensions.widthM * view.scale)}
           onClose={() => setSoilEcProfile(null)}

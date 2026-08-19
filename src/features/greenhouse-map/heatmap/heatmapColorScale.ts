@@ -35,6 +35,9 @@ export function colorAtStops(value: number, stops: ReadonlyArray<{ value: number
 }
 
 type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops'>
+export type HeatmapColorMode = 'condition' | 'contrast'
+
+const SPATIAL_CONTRAST_COLORS = ['#38256f', '#305f99', '#21918c', '#69c765', '#f2df45'] as const
 
 export function semanticColorAt(value: number, definition: SemanticScaleDefinition, _observedRange?: [number, number]): [number, number, number] {
   // A value must keep the same semantic colour in Live and every History frame.
@@ -46,12 +49,26 @@ export function semanticColorAt(value: number, definition: SemanticScaleDefiniti
     : colorAt(value, definition.bounds[0], definition.bounds[1], definition.colors)
 }
 
-export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): string {
+export function spatialContrastColorAt(value: number, observedRange?: [number, number]): [number, number, number] {
+  if (!observedRange || !Number.isFinite(observedRange[0]) || !Number.isFinite(observedRange[1])) {
+    return colorAt(.5, 0, 1, SPATIAL_CONTRAST_COLORS)
+  }
+  if (observedRange[1] - observedRange[0] < 1e-6) return colorAt(.5, 0, 1, SPATIAL_CONTRAST_COLORS)
+  return colorAt(value, observedRange[0], observedRange[1], SPATIAL_CONTRAST_COLORS)
+}
+
+export function heatmapColorAt(value: number, definition: SemanticScaleDefinition, observedRange: [number, number] | undefined, mode: HeatmapColorMode): [number, number, number] {
+  return mode === 'contrast'
+    ? spatialContrastColorAt(value, observedRange)
+    : semanticColorAt(value, definition)
+}
+
+export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number], mode: HeatmapColorMode = 'condition'): string {
   const range = Math.max(displayMax - displayMin, 1e-6)
   const sampleCount = 32
   const stops = Array.from({ length: sampleCount + 1 }, (_, index) => {
     const value = displayMin + range * index / sampleCount
-    const [red, green, blue] = semanticColorAt(value, definition, observedRange)
+    const [red, green, blue] = heatmapColorAt(value, definition, observedRange, mode)
     return `rgb(${red} ${green} ${blue}) ${index / sampleCount * 100}%`
   })
   return `linear-gradient(90deg, ${stops.join(', ')})`

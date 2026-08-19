@@ -1,8 +1,8 @@
-import { semanticColorAt } from './heatmapColorScale'
+import { heatmapColorAt, type HeatmapColorMode } from './heatmapColorScale'
 import type { HeatmapGrid } from './heatmapTypes'
 import { METRICS, type MetricKey } from '../model'
 
-export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, opacity: number, showConfidence: boolean, observedRange?: [number, number]): HTMLCanvasElement {
+export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, opacity: number, showConfidence: boolean, observedRange?: [number, number], colorMode: HeatmapColorMode = 'condition'): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   canvas.width = grid.width
   canvas.height = grid.height
@@ -19,7 +19,7 @@ export function renderHeatmapCanvas(grid: HeatmapGrid, metric: MetricKey, opacit
       continue
     }
     const value = grid.values[index]
-    const [r, g, b] = semanticColorAt(value, METRICS[metric], observedRange)
+    const [r, g, b] = heatmapColorAt(value, METRICS[metric], observedRange, colorMode)
     const confidence = showConfidence ? grid.confidence[index] : 1
     const gray = Math.round(r * 0.2126 + g * 0.7152 + b * 0.0722)
     const saturation = 0.68 + confidence * 0.32
