@@ -34,32 +34,16 @@ export function colorAtStops(value: number, stops: ReadonlyArray<{ value: number
   ) as [number, number, number]
 }
 
-type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops' | 'colorInterval' | 'fullContrastSpan'>
+type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops'>
 
-const MAX_LOCAL_PALETTE_WIDTH = 0.6
-
-export function getLocalPaletteWidth(observedSpan: number, fullContrastSpan: number) {
-  const meaningfulRatio = Math.min(1, Math.max(0, observedSpan) / Math.max(fullContrastSpan, 1e-6))
-  return Math.sqrt(meaningfulRatio) * MAX_LOCAL_PALETTE_WIDTH
-}
-
-export function semanticColorAt(value: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): [number, number, number] {
-  if (!observedRange || observedRange[1] - observedRange[0] < 1e-6) {
-    return definition.colorStops?.length
-      ? colorAtStops(value, definition.colorStops)
-      : colorAt(value, definition.bounds[0], definition.bounds[1], definition.colors)
-  }
-
-  // Environment maps answer a spatial question, while the adjacent target badge
-  // answers the absolute agronomic-status question. Use only a centred portion
-  // of the metric's directional palette. Its width grows from the real sensor
-  // spread relative to a metric-specific meaningful span, so small differences
-  // stay visible without ever turning every frame into full-scale extremes.
-  const observedSpan = observedRange[1] - observedRange[0]
-  const localPosition = Math.max(0, Math.min(1, (value - observedRange[0]) / observedSpan))
-  const paletteWidth = getLocalPaletteWidth(observedSpan, definition.fullContrastSpan)
-  const palettePosition = 0.5 + (localPosition - 0.5) * paletteWidth
-  return colorAt(palettePosition, 0, 1, definition.colors)
+export function semanticColorAt(value: number, definition: SemanticScaleDefinition, _observedRange?: [number, number]): [number, number, number] {
+  // A value must keep the same semantic colour in Live and every History frame.
+  // The observed range controls legend labels and contours, never the meaning
+  // of the palette itself.
+  void _observedRange
+  return definition.colorStops?.length
+    ? colorAtStops(value, definition.colorStops)
+    : colorAt(value, definition.bounds[0], definition.bounds[1], definition.colors)
 }
 
 export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): string {
