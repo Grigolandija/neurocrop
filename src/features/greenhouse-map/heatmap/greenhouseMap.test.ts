@@ -173,17 +173,34 @@ describe('environment colour scale', () => {
     expect(green).toBeGreaterThan(red)
     expect(green).toBeGreaterThan(blue)
   })
-  it('does not recolour temperature when the observed frame range changes', () => {
+  it('keeps absolute temperature colour families across different frame ranges', () => {
     const definition = METRICS['air-temperature']
-    expect(semanticColorAt(16, definition, [15.2, 16.7])).toEqual(colorAtStops(16, definition.colorStops!))
-    expect(semanticColorAt(16, definition, [28.9, 30.4])).toEqual(colorAtStops(16, definition.colorStops!))
-    expect(semanticColorAt(30, definition, [28.9, 30.4])).toEqual(colorAtStops(30, definition.colorStops!))
-    expect(semanticColorAt(16, definition, [15.2, 16.7])).not.toEqual(semanticColorAt(30, definition, [28.9, 30.4]))
+    const cold = semanticColorAt(16, definition, [15.2, 16.7])
+    const target = semanticColorAt(20, definition, [19, 20])
+    const hot = semanticColorAt(30, definition, [28.9, 30.4])
+    expect(cold[2]).toBeGreaterThan(cold[0])
+    expect(target[1]).toBeGreaterThan(target[0])
+    expect(target[1]).toBeGreaterThan(target[2])
+    expect(hot[0]).toBeGreaterThan(hot[1])
+    expect(hot[0]).toBeGreaterThan(hot[2])
+    expect(semanticColorAt(16, definition)).toEqual(colorAtStops(16, definition.colorStops!))
+    expect(semanticColorAt(30, definition)).toEqual(colorAtStops(30, definition.colorStops!))
+  })
+  it('makes a narrow 19–20 °C spatial difference clearly visible without leaving green', () => {
+    const definition = METRICS['air-temperature']
+    const low = semanticColorAt(19, definition, [19, 20])
+    const high = semanticColorAt(20, definition, [19, 20])
+    const distance = Math.hypot(...low.map((channel, index) => channel - high[index]))
+    expect(distance).toBeGreaterThan(70)
+    expect(low[1]).toBeGreaterThan(low[0])
+    expect(low[1]).toBeGreaterThan(low[2])
+    expect(high[1]).toBeGreaterThan(high[0])
+    expect(high[1]).toBeGreaterThan(high[2])
   })
   it('keeps humidity colours anchored to their absolute semantic stops', () => {
     const definition = METRICS['relative-humidity']
-    expect(semanticColorAt(56, definition, [56, 66])).toEqual(colorAtStops(56, definition.colorStops!))
-    expect(semanticColorAt(66, definition, [56, 66])).toEqual(colorAtStops(66, definition.colorStops!))
+    expect(semanticColorAt(56, definition)).toEqual(colorAtStops(56, definition.colorStops!))
+    expect(semanticColorAt(66, definition)).toEqual(colorAtStops(66, definition.colorStops!))
   })
   it('uses registered stops as the absolute semantic base for every metric palette', () => {
     Object.values(METRICS).forEach((definition) => expect(definition.colorStops?.length).toBeGreaterThan(1))
