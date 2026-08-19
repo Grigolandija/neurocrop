@@ -7,17 +7,16 @@
 .nc-climate-refresh { display: inline-flex; align-items: center; gap: var(--space-4); margin-left: var(--space-4); color: var(--color-text-tertiary); font-size: var(--type-micro); font-style: normal; }
 .nc-climate-refresh i { color: var(--color-secondary) !important; font-size: var(--type-micro) !important; }
 .nc-climate-refresh[data-state="warning"], .nc-climate-refresh[data-state="warning"] i { color: var(--color-warning) !important; }
-.nc-climate-map-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-12); }
-.nc-climate-time-mode, .nc-climate-color-mode { display: inline-flex; align-self: end; overflow: hidden; border: 1px solid var(--color-border); border-radius: .55rem; background: var(--color-surface-subtle); }
-.nc-climate-time-mode button, .nc-climate-color-mode button { min-height: var(--control-height-sm); border: 0; padding: 0 var(--space-12); background: transparent; color: var(--color-text-tertiary); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
+.nc-climate-map-filters { display: flex; flex-wrap: wrap; align-items: end; justify-content: flex-end; gap: var(--space-12); }
+.nc-climate-filter-control { display: grid; align-content: end; gap: 6px; }
+.nc-climate-filter-control > span { color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-medium); line-height: 1; }
+.nc-climate-time-mode, .nc-climate-color-mode { display: inline-flex; min-height: var(--control-height-sm); overflow: hidden; border: 1px solid var(--color-border); border-radius: .55rem; background: var(--color-surface-subtle); }
+.nc-climate-time-mode button, .nc-climate-color-mode button { min-width: 4.7rem; min-height: calc(var(--control-height-sm) - 2px); border: 0; padding: 0 var(--space-12); background: transparent; color: var(--color-text-tertiary); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
 .nc-climate-time-mode button + button, .nc-climate-color-mode button + button { border-left: 1px solid var(--color-border); }
 .nc-climate-time-mode button.active, .nc-climate-color-mode button.active { background: var(--color-secondary); color: #fff; }
 .nc-climate-time-mode button:disabled { cursor: not-allowed; opacity: .45; }
-.nc-climate-color-control { display: grid; align-self: stretch; gap: var(--space-4); }
-.nc-climate-color-control > span { color: var(--color-text-tertiary); font-size: var(--type-micro); }
-.nc-climate-map-filters label { display: grid; min-width: 12rem; gap: var(--space-4); }
+.nc-climate-map-filters label { min-width: 12rem; }
 .nc-climate-map-filters label.nc-climate-depth { min-width: 6.5rem; }
-.nc-climate-map-filters label span { color: var(--color-text-tertiary); font-size: var(--type-micro); }
 .nc-climate-map-filters select { min-width: 11rem; min-height: var(--control-height-sm); border: 1px solid var(--color-border); border-radius: .5rem; padding: 0 2rem 0 var(--space-8); background: var(--color-surface); color: var(--color-text); font-size: var(--type-caption); }
 .nc-climate-map-filters .nc-climate-depth select { min-width: 6.5rem; }
 .nc-climate-lock { display: inline-flex; min-height: 1.8rem; align-items: center; gap: 6px; border: 1px solid var(--color-border); border-radius: 99px; padding: 0 var(--space-8); background: color-mix(in srgb,var(--color-surface-subtle) 72%,transparent); color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-medium); white-space: nowrap; }
@@ -114,7 +113,8 @@
 @media (max-width: 760px) {
   .nc-area-tabs { width: 100%; }
   .nc-live-climate-map > header, .nc-climate-map-filters { align-items: stretch; flex-direction: column; }
-  .nc-climate-time-mode, .nc-climate-color-mode { align-self: stretch; }
+  .nc-climate-filter-control { width: 100%; }
+  .nc-climate-time-mode, .nc-climate-color-mode { width: 100%; }
   .nc-climate-time-mode button, .nc-climate-color-mode button { flex: 1; }
   .nc-climate-map-filters select { width: 100%; }
   .nc-climate-lock { align-self: flex-start; }

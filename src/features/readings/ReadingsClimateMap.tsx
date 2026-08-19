@@ -292,19 +292,22 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       </div>
       {overviewPresentation ? <div className="nc-climate-area-navigation">{areaNavigation}</div> : null}
       <div className="nc-climate-map-filters">
-        <div className="nc-climate-time-mode" aria-label={lithuanian ? 'Klimato žemėlapio laikas' : 'Climate map time'}>
-          <button type="button" className={timeMode === 'live' ? 'active' : ''} onClick={() => selectTimeMode('live')}>{lithuanian ? 'Dabar' :tx("Live")}</button>
-          <button type="button" className={timeMode === 'history' ? 'active' : ''} disabled={!historyAvailable} title={historyError || undefined} onClick={() => selectTimeMode('history')}>{lithuanian ? 'Istorija' :tx("History")}</button>
+        <div className="nc-climate-filter-control">
+          <span>{lithuanian ? 'Laikas' : 'Time'}</span>
+          <div className="nc-climate-time-mode" aria-label={lithuanian ? 'Klimato žemėlapio laikas' : 'Climate map time'}>
+            <button type="button" className={timeMode === 'live' ? 'active' : ''} aria-pressed={timeMode === 'live'} onClick={() => selectTimeMode('live')}>{lithuanian ? 'Dabar' :tx("Live")}</button>
+            <button type="button" className={timeMode === 'history' ? 'active' : ''} aria-pressed={timeMode === 'history'} disabled={!historyAvailable} title={historyError || undefined} onClick={() => selectTimeMode('history')}>{lithuanian ? 'Istorija' :tx("History")}</button>
+          </div>
         </div>
-        <div className="nc-climate-color-control">
+        <div className="nc-climate-filter-control nc-climate-color-control">
           <span>{lithuanian ? 'Spalvos' : 'Colours'}</span>
           <div className="nc-climate-color-mode" role="group" aria-label={lithuanian ? 'Žemėlapio spalvų režimas' : 'Map colour mode'}>
             <button type="button" className={colorMode === 'condition' ? 'active' : ''} aria-pressed={colorMode === 'condition'} title={lithuanian ? 'Stabilios spalvos pagal absoliučią reikšmę ir augalo būklę' : 'Stable colours based on the absolute value and crop condition'} onClick={() => selectColorMode('condition')}>{lithuanian ? 'Būklė' : 'Condition'}</button>
             <button type="button" className={colorMode === 'contrast' ? 'active' : ''} aria-pressed={colorMode === 'contrast'} title={lithuanian ? 'Maksimalus skirtumas tarp šio kadro minimumo ir maksimumo' : 'Maximum contrast between this frame minimum and maximum'} onClick={() => selectColorMode('contrast')}>{lithuanian ? 'Kontrastas' : 'Contrast'}</button>
           </div>
         </div>
-        <label><span>{tx("Metric")}</span><select value={selectedMetric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{heatmapMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>)}</select></label>
-        {selectedMetric === 'soil-ec' && availableSoilEcDepths.length ? <label className="nc-climate-depth"><span>{lithuanian ? 'Gylis' : 'Depth'}</span><select value={selectedSoilEcDepthCm} onChange={(event) => selectSoilEcDepth(Number(event.target.value))}>{availableSoilEcDepths.map((depthCm) => <option value={depthCm} key={depthCm}>{depthCm} cm</option>)}</select></label> : null}
+        <label className="nc-climate-filter-control nc-climate-metric-control"><span>{tx("Metric")}</span><select value={selectedMetric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{heatmapMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>)}</select></label>
+        {selectedMetric === 'soil-ec' && availableSoilEcDepths.length ? <label className="nc-climate-filter-control nc-climate-depth"><span>{lithuanian ? 'Gylis' : 'Depth'}</span><select value={selectedSoilEcDepthCm} onChange={(event) => selectSoilEcDepth(Number(event.target.value))}>{availableSoilEcDepths.map((depthCm) => <option value={depthCm} key={depthCm}>{depthCm} cm</option>)}</select></label> : null}
         {!overviewPresentation ? <span className="nc-climate-lock"><i className="fa-solid fa-lock" />{tx("Read only")}</span> : null}
       </div>
     </header>
