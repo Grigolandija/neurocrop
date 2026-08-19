@@ -33,6 +33,7 @@ type StoredSettings = {
   notifications?: Partial<Pick<Preferences, 'emailEnabled' | 'browserEnabled' | 'smsEnabled' | 'criticalOverride' | 'quietStart' | 'quietEnd'>>
   alerts?: Partial<Pick<Preferences, 'warningAfterMinutes'>>
 }
+type NotificationPreferencesResponse = { notifications?: { emailEnabled?: boolean; emailConfigured?: boolean } }
 
 const settingsStorageKey = 'neurocrop-dashboard-settings-v1'
 const auditStorageKey = 'neurocrop-settings-audit-v1'
@@ -109,6 +110,7 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [sessionsAvailable, setSessionsAvailable] = useState(true)
+  const [emailConfigured, setEmailConfigured] = useState(true)
   const [loading, setLoading] = useState(true)
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null)
   const [saved, setSaved] = useState(readPreferences)
@@ -134,12 +136,17 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
     async function load() {
       setLoading(true)
       try {
-        const [userResponse, teamResponse] = await Promise.all([
-          neurocropApi.getCurrentUser(), neurocropApi.getTeam(),
-        ]) as Array<Record<string, unknown>>
+        const [userResponse, teamResponse, notificationResponse] = await Promise.all([
+          neurocropApi.getCurrentUser(), neurocropApi.getTeam(), neurocropApi.getNotificationPreferences(),
+        ]) as [Record<string, unknown>, Record<string, unknown>, NotificationPreferencesResponse]
         if (cancelled) return
         const nextUser = (userResponse.user || {}) as User
-        const nextPreferences = { ...readPreferences(), organizationName: nextUser.organizationName || readPreferences().organizationName }
+        const nextPreferences = {
+          ...readPreferences(),
+          organizationName: nextUser.organizationName || readPreferences().organizationName,
+          emailEnabled: Boolean(notificationResponse.notifications?.emailEnabled),
+        }
+        setEmailConfigured(notificationResponse.notifications?.emailConfigured !== false)
         setUser(nextUser)
         setSaved(nextPreferences)
         setDraft(nextPreferences)
@@ -186,6 +193,9 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
       if (draft.organizationName !== saved.organizationName && canManageTeam) {
         await neurocropApi.updateCurrentOrganization({ name: draft.organizationName })
         recordAudit('configuration', 'Changed workspace name', `${saved.organizationName} → ${draft.organizationName}`)
+      }
+      if (draft.emailEnabled !== saved.emailEnabled) {
+        await neurocropApi.updateNotificationPreferences({ emailEnabled: draft.emailEnabled })
       }
       const existing = readStoredSettings()
       localStorage.setItem(settingsStorageKey, JSON.stringify({
@@ -336,9 +346,9 @@ export default function SettingsWorkspace({ initialSection = 'workspace' }: { in
 
         {section === 'team' ? <div className="nc-settings-flow">{canManageTeam ? <form className="nc-settings-invite" onSubmit={inviteMember}><div><strong>{tx("Invite a team member")}</strong><span>{tx("Access starts after the invitation is accepted.")}</span></div><label><span>{tx("Email")}</span><input type="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="grower@company.com" /></label><label><span>{tx("Role")}</span><select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}><option value="grower">{tx("Grower")}</option><option value="technician">{tx("Technician")}</option><option value="viewer">{tx("Viewer")}</option>{user?.role === 'owner' ? <option value="admin">{tx("Admin")}</option> : null}</select></label><button disabled={busyKey === 'invite'}><i className="fa-solid fa-paper-plane" />{busyKey === 'invite' ?tx("Sending…") :tx("Send invite")}</button></form> : null}<section className="nc-settings-card team"><header><div><h3>{tx("Workspace members")}</h3><p>{members.length} {tx("active ·")} {invitations.length} {tx("pending")}</p></div></header><div className="nc-settings-members">{members.map((member) => <article key={member.id}><span>{initials(member.name || member.email)}</span><div><strong>{member.name || member.email}</strong><small>{member.email}</small></div><Status tone="success">{tx("Active")}</Status><label><span>{tx("Role")}</span><select value={member.role} disabled={!canManageTeam || member.role === 'owner' || member.id === user?.id || busyKey === `role-${member.id}`} onChange={(event) => void updateRole(member, event.target.value)}><option value="owner">{tx("Owner")}</option><option value="admin">{tx("Admin")}</option><option value="grower">{tx("Grower")}</option><option value="technician">{tx("Technician")}</option><option value="viewer">{tx("Viewer")}</option></select></label></article>)}{members.length === 0 && !loading ? <p className="nc-settings-empty">{tx("No workspace members were returned.")}</p> : null}</div></section>{invitations.length ? <section className="nc-settings-card team"><header><div><h3>{tx("Pending invitations")}</h3><p>{tx("Invitations expire automatically.")}</p></div></header><div className="nc-settings-invitations">{invitations.map((invitation) => <article key={invitation.id}><i className="fa-solid fa-envelope" /><div><strong>{invitation.email}</strong><small>{invitation.role} {tx("· expires")} {formatDate(invitation.expiresAt)}</small></div><button disabled={busyKey === `invite-${invitation.id}`} onClick={() => void revokeInvitation(invitation)}>{tx("Revoke")}</button></article>)}</div></section> : null}</div> : null}
 
-        {section === 'notifications' ? <div className="nc-settings-flow"><section className="nc-settings-card"><header><div><h3>{tx("Delivery channels")}</h3><p>{tx("Personal delivery preferences stored in this browser.")}</p></div><Status tone="info">{tx("Personal")}</Status></header><div className="nc-settings-toggles">{([
-          ['emailEnabled', 'fa-envelope', 'Email', 'Operational alerts and daily summaries'], ['browserEnabled', 'fa-window-maximize', 'Browser notifications', 'Immediate notice while NeuroCrop is open'], ['smsEnabled', 'fa-message', 'SMS', 'Reserved for critical escalation'],
-        ] as Array<[keyof Preferences, string, string, string]>).map(([key, icon, label, note]) => <label key={key}><i className={`fa-solid ${icon}`} /><span><strong>{label}<SoonBadge /></strong><small>{note}</small></span><input type="checkbox" checked={Boolean(draft[key])} onChange={() => setDraft({ ...draft, [key]: !draft[key] })} /><i className="nc-settings-switch" /></label>)}</div></section><section className="nc-settings-card"><header><div><h3>{tx("Escalation behavior")}</h3><p>{tx("Controls notification timing, not crop-profile target limits.")}</p></div></header><div className="nc-settings-fields three"><label><span>{tx("Warning persistence")}<SoonBadge /></span><select value={draft.warningAfterMinutes} onChange={(event) => setDraft({ ...draft, warningAfterMinutes: Number(event.target.value) })}><option value="10">{tx("10 minutes")}</option><option value="15">{tx("15 minutes")}</option><option value="30">{tx("30 minutes")}</option></select></label><label><span>{tx("Quiet hours start")}<SoonBadge /></span><input type="time" value={draft.quietStart} onChange={(event) => setDraft({ ...draft, quietStart: event.target.value })} /></label><label><span>{tx("Quiet hours end")}<SoonBadge /></span><input type="time" value={draft.quietEnd} onChange={(event) => setDraft({ ...draft, quietEnd: event.target.value })} /></label></div><label className="nc-settings-inline-toggle"><span><strong>{tx("Critical alerts override quiet hours")}<SoonBadge /></strong><small>{tx("Critical conditions should be delivered immediately.")}</small></span><input type="checkbox" checked={draft.criticalOverride} onChange={() => setDraft({ ...draft, criticalOverride: !draft.criticalOverride })} /><i className="nc-settings-switch" /></label></section></div> : null}
+        {section === 'notifications' ? <div className="nc-settings-flow"><section className="nc-settings-card"><header><div><h3>{tx("Delivery channels")}</h3><p>{tx("Email alerts follow your account across devices. Upcoming channels are shown for planning.")}</p></div><Status tone="info">{tx("Personal")}</Status></header><div className="nc-settings-toggles">{([
+          ['emailEnabled', 'fa-envelope', 'Email', emailConfigured ? 'New warning and critical alerts' : 'Email delivery is not configured'], ['browserEnabled', 'fa-window-maximize', 'Browser notifications', 'Immediate notice while NeuroCrop is open'], ['smsEnabled', 'fa-message', 'SMS', 'Reserved for critical escalation'],
+        ] as Array<[keyof Preferences, string, string, string]>).map(([key, icon, label, note]) => <label key={key}><i className={`fa-solid ${icon}`} /><span><strong>{label}{key !== 'emailEnabled' ? <SoonBadge /> : null}</strong><small>{note}</small></span><input type="checkbox" checked={Boolean(draft[key])} disabled={key === 'emailEnabled' && !emailConfigured} onChange={() => setDraft({ ...draft, [key]: !draft[key] })} /><i className="nc-settings-switch" /></label>)}</div></section><section className="nc-settings-card"><header><div><h3>{tx("Escalation behavior")}</h3><p>{tx("Controls notification timing, not crop-profile target limits.")}</p></div></header><div className="nc-settings-fields three"><label><span>{tx("Warning persistence")}<SoonBadge /></span><select value={draft.warningAfterMinutes} onChange={(event) => setDraft({ ...draft, warningAfterMinutes: Number(event.target.value) })}><option value="10">{tx("10 minutes")}</option><option value="15">{tx("15 minutes")}</option><option value="30">{tx("30 minutes")}</option></select></label><label><span>{tx("Quiet hours start")}<SoonBadge /></span><input type="time" value={draft.quietStart} onChange={(event) => setDraft({ ...draft, quietStart: event.target.value })} /></label><label><span>{tx("Quiet hours end")}<SoonBadge /></span><input type="time" value={draft.quietEnd} onChange={(event) => setDraft({ ...draft, quietEnd: event.target.value })} /></label></div><label className="nc-settings-inline-toggle"><span><strong>{tx("Critical alerts override quiet hours")}<SoonBadge /></strong><small>{tx("Critical conditions should be delivered immediately.")}</small></span><input type="checkbox" checked={draft.criticalOverride} onChange={() => setDraft({ ...draft, criticalOverride: !draft.criticalOverride })} /><i className="nc-settings-switch" /></label></section></div> : null}
 
         {section === 'security'
           ? clerkConfigured

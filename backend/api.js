@@ -39,13 +39,14 @@ import {
 import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
 import { startMeasurementRetention } from './measurement-retention.js';
 import { getMeasurementRollupSeries } from './measurement-rollups.js';
-import { registerWorkflowRoutes } from './workflow-routes.js';
+import { registerWorkflowRoutes, startAlertNotificationMonitor } from './workflow-routes.js';
 import { SIMULATOR_METRICS, simulateAgronomicScenario } from './agronomic-simulator.js';
 import { registerGreenhouseMapRoutes } from './greenhouse-map-routes.js';
 import { registerGatewayFactoryRoutes } from './gateway-factory-routes.js';
 import { registerPasswordResetRoutes } from './password-reset-routes.js';
 import { resolveOptionalClerkAuth } from './clerk-auth.js';
 import { registerPushNotificationRoutes } from './push-notifications.js';
+import { registerAlertEmailNotificationRoutes } from './alert-email-notifications.js';
 import { buildCropRisks } from './crop-risk.js';
 import { createServerTiming } from './server-timing.js';
 
@@ -110,6 +111,7 @@ registerGreenhouseMapRoutes(app);
 registerGatewayFactoryRoutes(app);
 registerPasswordResetRoutes(app);
 registerPushNotificationRoutes(app);
+registerAlertEmailNotificationRoutes(app);
 
 function getOrganizationId(req) {
   if (!req.user?.organizationId) throw new Error('Authenticated organization is missing');
@@ -4099,12 +4101,14 @@ app.use((err, req, res, next) => {
 await runMigrations();
 const server = app.listen(PORT, HOST, () => console.log(`[api] klausomasi :${PORT} (auth aktyvus)`));
 const stopMeasurementRetention = startMeasurementRetention(pool);
+const stopAlertNotificationMonitor = startAlertNotificationMonitor();
 let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[api] ${signal}: shutting down`);
   stopMeasurementRetention();
+  stopAlertNotificationMonitor();
   server.closeIdleConnections?.();
   await new Promise((resolve) => server.close(resolve));
   await pool.end();

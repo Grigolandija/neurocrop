@@ -4,6 +4,7 @@ import { requireRole, requireUserAuth } from './auth-users.js';
 import { buildCurrentMetricEvaluations } from './score.js';
 import { buildCanonicalAlertState, canonicalAlertContext } from './alert-lifecycle.js';
 import { dispatchAlertPushNotifications } from './push-notifications.js';
+import { dispatchAlertEmailNotifications } from './alert-email-notifications.js';
 import { createServerTiming } from './server-timing.js';
 
 const workflowRoles = requireRole('owner', 'admin', 'grower', 'technician');
@@ -291,6 +292,57 @@ async function synchronizeCanonicalAlerts(tenantId, activeAlerts, clearableIds) 
   }
 }
 
+export async function evaluateCanonicalAlerts(tenantId) {
+  const canonicalState = await loadCanonicalAlerts(tenantId);
+  await synchronizeCanonicalAlerts(tenantId, canonicalState.alerts, canonicalState.clearableIds);
+  return canonicalState;
+}
+
+export function startAlertNotificationMonitor({ intervalMs = Number(process.env.ALERT_NOTIFICATION_INTERVAL_MS || 60_000) } = {}) {
+  const cadenceMs = Math.max(15_000, Number(intervalMs) || 60_000);
+  let running = false;
+  let stopped = false;
+
+  const execute = async () => {
+    if (running || stopped) return;
+    running = true;
+    try {
+      const { rows: organizations } = await query(
+        `SELECT organization.id
+         FROM organizations organization
+         WHERE organization.status='active'
+           AND EXISTS (
+             SELECT 1 FROM alert_notification_preferences preference
+             WHERE preference.organization_id=organization.id
+               AND preference.email_alerts_enabled=true
+           )`
+      );
+      for (const organization of organizations) {
+        try {
+          await evaluateCanonicalAlerts(organization.id);
+          await dispatchAlertEmailNotifications(organization.id);
+        } catch (error) {
+          console.warn(`[email] alert evaluation failed for ${organization.id}:`, error?.message || error);
+        }
+      }
+    } catch (error) {
+      console.warn('[email] alert notification monitor failed:', error?.message || error);
+    } finally {
+      running = false;
+    }
+  };
+
+  const initialTimer = setTimeout(() => void execute(), 10_000);
+  const intervalTimer = setInterval(() => void execute(), cadenceMs);
+  initialTimer.unref?.();
+  intervalTimer.unref?.();
+  return () => {
+    stopped = true;
+    clearTimeout(initialTimer);
+    clearInterval(intervalTimer);
+  };
+}
+
 async function resolveAlertScope(alertId, tenantId) {
   const parts = String(alertId || '').split(':');
   if (parts.length !== 4 || !['metric', 'offline'].includes(parts[0])) return null;
@@ -345,6 +397,8 @@ export function registerWorkflowRoutes(app) {
       timing.mark('sync', 'alert lifecycle');
       void dispatchAlertPushNotifications(tenantId, canonicalState.alerts)
         .catch((error) => console.warn('[push] dispatch failed:', error?.message || error));
+      void dispatchAlertEmailNotifications(tenantId)
+        .catch((error) => console.warn('[email] alert dispatch failed:', error?.message || error));
       const parameters = [tenantId];
       const statusClause = status === 'all'
         ? ''

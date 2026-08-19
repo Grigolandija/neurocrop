@@ -68,6 +68,8 @@ export const neurocropApi = {
   snoozeAlert: (id: string, payload: Payload) => request(`/alerts/${encoded(id)}/snooze`, { method: 'POST', body: json(payload) }),
   resolveAlert: (id: string, payload: Payload = {}) => request(`/alerts/${encoded(id)}/resolve`, { method: 'POST', body: json(payload) }),
   getPushConfig: () => request('/push/config', { cache: 'no-store' }),
+  getNotificationPreferences: () => request('/notification-preferences', { cache: 'no-store' }),
+  updateNotificationPreferences: (payload: Payload) => request('/notification-preferences', { method: 'PATCH', body: json(payload) }),
   savePushSubscription: (payload: Payload) => request('/push/subscriptions', { method: 'POST', body: json(payload) }),
   deletePushSubscription: (endpoint: string) => request('/push/subscriptions', { method: 'DELETE', body: json({ endpoint }) }),
   getInterventions: (params: Payload) => request(`/interventions${queryString(params)}`),
@@ -135,7 +137,7 @@ export async function prefetchWorkspaceRouteData(route: string) {
     '/actions': [neurocropApi.getTodayActions, () => neurocropApi.getActionHistory(100)],
     '/crop-profiles': [neurocropApi.getCropProfiles, neurocropApi.getSections],
     '/simulator': [neurocropApi.getCropProfiles],
-    '/settings': [neurocropApi.getCurrentUser, neurocropApi.getTeam, neurocropApi.getInvitations, neurocropApi.getSessions],
+    '/settings': [neurocropApi.getCurrentUser, neurocropApi.getTeam, neurocropApi.getInvitations, neurocropApi.getSessions, neurocropApi.getNotificationPreferences],
     '/organization': [neurocropApi.getOrganizations, neurocropApi.getTeam, neurocropApi.getAreas, neurocropApi.getSections, neurocropApi.getNodes],
   }
   await Promise.allSettled((requestsByRoute[route] || []).map((requestData) => requestData()))
