@@ -34,33 +34,16 @@ export function colorAtStops(value: number, stops: ReadonlyArray<{ value: number
   ) as [number, number, number]
 }
 
-type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops' | 'fullContrastSpan'>
+type SemanticScaleDefinition = Pick<HeatmapMetricDefinition, 'bounds' | 'colors' | 'colorStops'>
 
-function addLocalLightnessContrast(
-  color: [number, number, number],
-  value: number,
-  observedRange: [number, number] | undefined,
-  fullContrastSpan: number,
-): [number, number, number] {
-  if (!observedRange) return color
-  const observedSpan = observedRange[1] - observedRange[0]
-  if (!Number.isFinite(observedSpan) || observedSpan < 1e-6) return color
-  const localPosition = Math.max(0, Math.min(1, (value - observedRange[0]) / observedSpan))
-  const narrowness = 1 - Math.min(1, observedSpan / Math.max(fullContrastSpan, 1e-6))
-  const amount = Math.abs(localPosition - .5) * 2 * .3 * narrowness
-  if (amount < 1e-6) return color
-  const target = localPosition < .5 ? 0 : 255
-  return color.map((channel) => Math.round(channel + (target - channel) * amount)) as [number, number, number]
-}
-
-export function semanticColorAt(value: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): [number, number, number] {
+export function semanticColorAt(value: number, definition: SemanticScaleDefinition, _observedRange?: [number, number]): [number, number, number] {
   // A value must keep the same semantic colour in Live and every History frame.
-  // A narrow observed range may only strengthen lightness contrast inside that
-  // colour family; it must never remap cold blue, target green or hot red.
-  const semanticColor = definition.colorStops?.length
+  // The observed range controls legend labels and contours, never the meaning
+  // of the palette itself.
+  void _observedRange
+  return definition.colorStops?.length
     ? colorAtStops(value, definition.colorStops)
     : colorAt(value, definition.bounds[0], definition.bounds[1], definition.colors)
-  return addLocalLightnessContrast(semanticColor, value, observedRange, definition.fullContrastSpan)
 }
 
 export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number]): string {
