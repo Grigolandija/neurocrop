@@ -1351,6 +1351,21 @@ function publicActionAssignment(row) {
   };
 }
 
+function medianMeasurementWindow(measurements = []) {
+  if (!measurements.length) return null;
+  const result = {
+    time: measurements.map((measurement) => measurement?.time).filter(Boolean)
+      .sort((left, right) => new Date(right) - new Date(left))[0] || null
+  };
+  for (const column of new Set(Object.values(METRIC_TO_COLUMN))) {
+    const values = measurements.map((measurement) => normalizeTelemetryNumber(measurement?.[column]))
+      .filter((value) => value !== null);
+    const value = medianValue(values);
+    result[column] = value;
+  }
+  return result;
+}
+
 function metricSeriesSnapshot(measurements, metricId) {
   const buckets = new Map();
   for (const measurement of measurements) {
@@ -1411,6 +1426,21 @@ async function synchronizeCropRiskEpisodes(organizationId, risks, sectionIds) {
     client = await pool.connect();
     await client.query('BEGIN');
     for (const risk of risks) {
+      if (risk.riskKind === 'uniformity' && risk.triggered === false) {
+        await client.query(
+          `UPDATE crop_risk_episodes
+           SET last_detected_at=now(),
+               previous_deviation=current_deviation,
+               current_deviation=$3
+           WHERE organization_id=$1 AND risk_id=$2 AND active=true`,
+          [
+            organizationId,
+            String(risk.id),
+            Number.isFinite(Number(risk.deviation)) ? Number(risk.deviation) : null
+          ]
+        );
+        continue;
+      }
       await client.query(
         `INSERT INTO crop_risk_episodes AS current (
            organization_id, risk_id, section_id, metric_id, risk_kind,
@@ -1472,7 +1502,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const organizationId = getOrganizationId(req);
     const requestedSectionId = String(req.query.sectionId || '').trim();
-    const [sectionsResult, nodesResult, profilesResult, measurementsResult, sensorConfigsResult] = await Promise.all([
+    const [sectionsResult, nodesResult, profilesResult, measurementsResult, recentMeasurementsResult, sensorConfigsResult] = await Promise.all([
       query(
         `SELECT s.id, s.area_id, s.name, s.crop_profile, a.name AS area_name
          FROM sections s
@@ -1498,6 +1528,20 @@ app.get('/actions/today', requireAuth, async (req, res) => {
          ) latest ON TRUE
          WHERE n.organization_id=$1 AND n.archived_at IS NULL
          ORDER BY n.created_at ASC`,
+        [organizationId]
+      ),
+      query(
+        `SELECT recent.*
+         FROM nodes n
+         JOIN LATERAL (
+           SELECT m.* FROM measurements m
+           WHERE m.dev_eui=n.dev_eui
+             AND m.time >= now() - interval '20 minutes'
+           ORDER BY m.time DESC
+           LIMIT 30
+         ) recent ON TRUE
+         WHERE n.organization_id=$1 AND n.archived_at IS NULL
+         ORDER BY n.created_at ASC, recent.time ASC`,
         [organizationId]
       ),
       query(
@@ -1527,12 +1571,24 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       measurementsResult.rows.map((row) => [normalizeDevEui(row.dev_eui), row])
     );
     const sensorConfigs = sensorConfigsByNode(sensorConfigsResult.rows);
+    const recentMeasurementsByDevEui = new Map();
+    for (const measurement of recentMeasurementsResult.rows) {
+      const devEui = normalizeDevEui(measurement.dev_eui);
+      if (!recentMeasurementsByDevEui.has(devEui)) recentMeasurementsByDevEui.set(devEui, []);
+      recentMeasurementsByDevEui.get(devEui).push(
+        measurementForSectionEvaluation(measurement, sensorConfigs.get(devEui))
+      );
+    }
 
     const snapshots = sections.map((section) => {
       const nodeRows = nodesBySection.get(section.id) || [];
       const measurements = nodeRows.map((node) => {
         const devEui = normalizeDevEui(node.dev_eui);
         return measurementForSectionEvaluation(latestByDevEui.get(devEui) || null, sensorConfigs.get(devEui));
+      });
+      const uniformityMeasurements = nodeRows.map((node, index) => {
+        const recent = recentMeasurementsByDevEui.get(normalizeDevEui(node.dev_eui)) || [];
+        return medianMeasurementWindow(recent) || measurements[index];
       });
       const profileMetrics = profileMetricsById.get(section.crop_profile) || {};
       const current = buildCurrentMetricEvaluations(nodeRows, measurements, profileMetrics);
@@ -1549,6 +1605,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
         section,
         nodes: nodeRows,
         measurements,
+        uniformityMeasurements,
         nodeStatuses: current.statuses,
         profileMetrics,
         scoreRules: current.scoreRules,

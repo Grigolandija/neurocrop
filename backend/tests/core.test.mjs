@@ -42,7 +42,13 @@ import { hashPasswordResetToken, passwordResetUrl } from '../password-reset-rout
 import { simulateAgronomicScenario } from '../agronomic-simulator.js';
 import { buildCanonicalAlerts, buildCanonicalAlertState, canonicalAlertContext } from '../alert-lifecycle.js';
 import { DEFAULT_CROP_PROFILE_METRICS } from '../crop-profile-defaults.js';
-import { buildCropRisks, buildUniformityRisks } from '../crop-risk.js';
+import {
+  buildCropRisks,
+  buildUniformityRisks,
+  uniformityLimits,
+  UNIFORMITY_CRITICAL_PERSISTENCE_MINUTES,
+  UNIFORMITY_WARNING_PERSISTENCE_MINUTES
+} from '../crop-risk.js';
 
 test('production CORS defaults never trust localhost', () => {
   assert.deepEqual(getAllowedOrigins({}), ['https://neurocrop.lt', 'https://www.neurocrop.lt']);
@@ -1218,6 +1224,59 @@ test('crop risk detector finds an uneven zone even when its average can look acc
   assert.equal(risks[0].value, 4);
   assert.equal(risks[0].reportingNodes, 3);
   assert.match(risks[0].likelyCause, /heating|ventilation/i);
+});
+
+test('uniformity uses practical per-metric warning and critical limits', () => {
+  assert.deepEqual(uniformityLimits('airTemp', [18, 23]), { warning: 2, critical: 3, recovery: 1.6 });
+  assert.deepEqual(uniformityLimits('humidity', [65, 78]), { warning: 8, critical: 12, recovery: 6.4 });
+  assert.deepEqual(uniformityLimits('vpd', [0.6, 1]), { warning: 0.3, critical: 0.5, recovery: 0.24 });
+  assert.deepEqual(uniformityLimits('co2', [650, 950]), { warning: 200, critical: 350, recovery: 160 });
+});
+
+test('uniformity ignores short warnings and keeps an active episode through its recovery band', () => {
+  const snapshot = (temperatures) => ({
+    section: { id: 'section-1', area_id: 'area-1', name: 'North bed', area_name: 'Greenhouse' },
+    nodes: [{ name: 'N1' }, { name: 'N2' }, { name: 'N3' }],
+    measurements: temperatures.map((temperature) => ({ temperature })),
+    nodeStatuses: ['live', 'live', 'live'],
+    profileMetrics: { airTemp: { label: 'Air temperature', unit: '°C' } },
+    scoreRules: { airTemp: { optimal: [18, 23], growth: true } },
+    observedAtByMetric: { airTemp: '2026-08-20T08:00:00Z' },
+    registeredNodes: 3
+  });
+  const now = new Date('2026-08-20T08:20:00Z');
+  const warningRisk = buildUniformityRisks([snapshot([20, 21, 22.5])])[0];
+  assert.equal(warningRisk.triggered, true);
+
+  const recentEpisode = new Map([[warningRisk.id, {
+    first_detected_at: '2026-08-20T08:10:00Z',
+    previous_deviation: 2.4,
+    current_deviation: 2.5
+  }]]);
+  assert.equal(buildCropRisks([], [snapshot([20, 21, 22.5])], recentEpisode, now).length, 0);
+
+  const matureEpisode = new Map([[warningRisk.id, {
+    first_detected_at: '2026-08-20T08:04:00Z',
+    previous_deviation: 2.4,
+    current_deviation: 2.5
+  }]]);
+  assert.equal(buildCropRisks([], [snapshot([20, 21, 22.5])], matureEpisode, now).length, 1);
+
+  const recoveryCandidate = buildUniformityRisks([snapshot([20, 20.8, 21.8])])[0];
+  assert.equal(recoveryCandidate.triggered, false);
+  assert.equal(buildCropRisks([], [snapshot([20, 20.8, 21.8])], matureEpisode, now).length, 1);
+  assert.equal(buildUniformityRisks([snapshot([20, 20.5, 21.5])]).length, 0);
+  assert.equal(UNIFORMITY_WARNING_PERSISTENCE_MINUTES, 15);
+  assert.equal(UNIFORMITY_CRITICAL_PERSISTENCE_MINUTES, 5);
+});
+
+test('uniformity detection uses a bounded recent per-node median and lifecycle hysteresis', () => {
+  const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  assert.match(source, /m\.time >= now\(\) - interval '20 minutes'/);
+  assert.match(source, /ORDER BY m\.time DESC\s+LIMIT 30/);
+  assert.match(source, /medianMeasurementWindow\(recent\)/);
+  assert.match(source, /risk\.riskKind === 'uniformity' && risk\.triggered === false/);
+  assert.match(source, /WHERE organization_id=\$1 AND risk_id=\$2 AND active=true/);
 });
 
 test('crop risks prioritize worsening, persistent and broad conditions', () => {

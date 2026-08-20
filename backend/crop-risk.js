@@ -18,6 +18,24 @@ const CAUSE_HINTS = {
   waterTemp: 'Uneven tank or irrigation-loop temperature'
 };
 
+const UNIFORMITY_LIMITS = Object.freeze({
+  airTemp: { warning: 2, critical: 3 },
+  humidity: { warning: 8, critical: 12 },
+  vpd: { warning: 0.3, critical: 0.5 },
+  co2: { warning: 200, critical: 350 },
+  lux: { warning: 5000, critical: 8000 },
+  soilTemp: { warning: 2, critical: 3 },
+  soilMoisture: { warning: 10, critical: 18 },
+  ec: { warning: 0.5, critical: 1 },
+  ph: { warning: 0.4, critical: 0.8 },
+  soilEc: { warning: 0.5, critical: 1 },
+  leafTemp: { warning: 2, critical: 3 },
+  waterTemp: { warning: 2, critical: 3 }
+});
+
+export const UNIFORMITY_WARNING_PERSISTENCE_MINUTES = 15;
+export const UNIFORMITY_CRITICAL_PERSISTENCE_MINUTES = 5;
+
 function median(values) {
   const sorted = values.map(Number).filter(Number.isFinite).sort((left, right) => left - right);
   if (!sorted.length) return null;
@@ -43,7 +61,8 @@ function distanceFromTarget(value, target) {
 }
 
 function nodeValues(snapshot, metricId) {
-  return (snapshot.measurements || []).map((measurement, index) => ({
+  const measurements = snapshot.uniformityMeasurements || snapshot.measurements || [];
+  return measurements.map((measurement, index) => ({
     value: metricValue(measurement, metricId),
     node: snapshot.nodes?.[index] || null,
     status: snapshot.nodeStatuses?.[index] || snapshot.statuses?.[index] || 'unknown'
@@ -68,12 +87,16 @@ function distributionForAction(action, snapshot) {
   };
 }
 
-function uniformityThreshold(metricId, target) {
+export function uniformityLimits(metricId, target) {
+  const configured = UNIFORMITY_LIMITS[metricId];
+  if (configured) return { ...configured, recovery: configured.warning * 0.8 };
   const noiseFloor = getActionVerificationPolicy(metricId).noiseFloor;
   const targetSpan = Array.isArray(target) && target.length === 2
     ? Math.abs(Number(target[1]) - Number(target[0]))
     : 0;
-  return Math.max(noiseFloor * 4, Number.isFinite(targetSpan) ? targetSpan * 0.2 : 0);
+  const warning = Math.max(noiseFloor * 6, Number.isFinite(targetSpan) ? targetSpan * 0.35 : 0);
+  const critical = Math.max(warning * 1.75, noiseFloor * 10);
+  return { warning, critical, recovery: warning * 0.8 };
 }
 
 export function buildUniformityRisks(sectionSnapshots = []) {
@@ -89,12 +112,13 @@ export function buildUniformityRisks(sectionSnapshots = []) {
       const high = Math.max(...values);
       const spread = high - low;
       const target = snapshot.scoreRules?.[metricId]?.optimal;
-      const threshold = uniformityThreshold(metricId, target);
-      if (!(threshold > 0) || spread <= threshold) return null;
+      const limits = uniformityLimits(metricId, target);
+      if (!(limits.warning > 0) || spread <= limits.recovery) return null;
       const center = median(values);
-      const affected = samples.filter((sample) => Math.abs(sample.value - center) > threshold / 2);
+      const affected = samples.filter((sample) => Math.abs(sample.value - center) > limits.warning / 2);
       const metric = snapshot.profileMetrics?.[metricId] || {};
-      const state = spread >= threshold * 2 ? 'critical' : 'warning';
+      const state = spread >= limits.critical ? 'critical' : 'warning';
+      const triggered = spread > limits.warning;
       const unit = metric.unit || '';
       const label = metric.label || metricId;
       return {
@@ -109,12 +133,13 @@ export function buildUniformityRisks(sectionSnapshots = []) {
         metricId,
         metricLabel: label,
         state,
+        triggered,
         direction: 'high',
         priority: state === 'critical' ? 'now' : 'today',
-        severity: Math.min(1, spread / threshold - 1),
+        severity: Math.max(0, Math.min(1, (spread - limits.warning) / Math.max(limits.critical - limits.warning, limits.warning))),
         value: Number(spread.toFixed(4)),
         unit,
-        target: [0, Number(threshold.toFixed(4))],
+        target: [0, Number(limits.warning.toFixed(4))],
         title: `Investigate uneven ${label.toLowerCase()}`,
         reason: `${label} differs by ${Number(spread.toFixed(2))}${unit ? ` ${unit}` : ''} between reporting nodes.`,
         recommendedAction: `Inspect distribution, equipment delivery, and sensor placement in ${snapshot.section.name}.`,
@@ -127,7 +152,15 @@ export function buildUniformityRisks(sectionSnapshots = []) {
         affectedNodes: affected.length || 1,
         affectedNodeNames: affected.map((sample) => String(sample.node?.name || sample.node?.dev_eui || '')).filter(Boolean),
         affectedFraction: (affected.length || 1) / samples.length,
-        distribution: { minimum: low, maximum: high, median: center, spread, threshold }
+        distribution: {
+          minimum: low,
+          maximum: high,
+          median: center,
+          spread,
+          threshold: limits.warning,
+          criticalThreshold: limits.critical,
+          recoveryThreshold: limits.recovery
+        }
       };
     }).filter(Boolean);
   });
@@ -152,7 +185,7 @@ function priorityScore(risk, durationMinutes, trend) {
   return Math.round((criticalWeight * 34 + severity * 28 + durationWeight * 18 + coverageWeight * 12 + trendWeight * 8) * 10) / 10;
 }
 
-export function buildCropRisks(actions = [], sectionSnapshots = [], episodes = new Map(), now = new Date()) {
+export function buildCropRisks(actions = [], sectionSnapshots = [], episodes = null, now = new Date()) {
   const snapshotsBySection = new Map(sectionSnapshots.map((snapshot) => [String(snapshot.section.id), snapshot]));
   const normalRisks = actions.map((action) => {
     const snapshot = snapshotsBySection.get(String(action.sectionId));
@@ -173,11 +206,19 @@ export function buildCropRisks(actions = [], sectionSnapshots = [], episodes = n
   }));
   const byId = new Map([...normalRisks, ...uniformityRisks].map((risk) => [String(risk.id), risk]));
 
+  const lifecycleAvailable = episodes instanceof Map;
   return [...byId.values()].map((risk) => {
-    const episode = episodes.get(String(risk.id));
+    const episode = lifecycleAvailable ? episodes.get(String(risk.id)) : null;
     const firstDetectedAt = episode?.first_detected_at || risk.observedAt || now.toISOString();
     const durationMinutes = Math.max(0, Math.floor((now.getTime() - new Date(firstDetectedAt).getTime()) / 60_000));
     const trend = trendFromEpisode(risk, episode);
+    if (risk.riskKind === 'uniformity' && lifecycleAvailable) {
+      if (!episode) return null;
+      const persistenceMinutes = risk.state === 'critical'
+        ? UNIFORMITY_CRITICAL_PERSISTENCE_MINUTES
+        : UNIFORMITY_WARNING_PERSISTENCE_MINUTES;
+      if (durationMinutes < persistenceMinutes) return null;
+    }
     return {
       ...risk,
       firstDetectedAt,
@@ -185,7 +226,7 @@ export function buildCropRisks(actions = [], sectionSnapshots = [], episodes = n
       trend,
       priorityScore: priorityScore(risk, durationMinutes, trend)
     };
-  }).sort((left, right) =>
+  }).filter(Boolean).sort((left, right) =>
     right.priorityScore - left.priorityScore
     || new Date(right.observedAt || 0) - new Date(left.observedAt || 0)
   );

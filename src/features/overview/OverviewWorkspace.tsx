@@ -154,7 +154,9 @@ function normalizeUnit(value: unknown) {
 }
 
 function formatNumber(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+  if (Number.isInteger(value)) return String(value)
+  const precision = Math.abs(value) < 1 ? 2 : 1
+  return value.toFixed(precision).replace(/0+$/, '').replace(/\.$/, '')
 }
 
 function scoreColor(value: number | null) {
