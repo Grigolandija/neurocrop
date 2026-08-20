@@ -22,9 +22,7 @@ type Props = {
   soilEcDepthCm?: number
   target?: [number, number]
   colorMode?: HeatmapColorMode
-  dailyView?: boolean
   language?: 'en' | 'lt'
-  actions?: Array<{ id: string; sectionId: string; sectionName: string; title: string; reason: string; priority: string }>
   selectedIds: string[]
   snap: boolean
   onSelect: (ids: string[]) => void
@@ -277,8 +275,8 @@ function SoilEcCrossSection({ profile, map, language, colorMode, leftInsetPx, ri
   </section>
 }
 
-function ObjectShape({ object, map, selected, editable, environmentView, layerOpacity, viewScale, snap, onSelect, onMove, onUpdate }: {
-  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; environmentView: boolean; layerOpacity: number; viewScale: number; snap: boolean
+function ObjectShape({ object, map, selected, editable, environmentView, viewScale, snap, onSelect, onMove, onUpdate }: {
+  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; environmentView: boolean; viewScale: number; snap: boolean
   onSelect: (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void
   onMove: (position: { id: string; xM: number; yM: number }, record?: boolean) => void
   onUpdate: Props['onUpdate']
@@ -312,7 +310,6 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   return <Group
     id={`gh-object-${object.id}`} name="map-object" x={object.xM} y={topY} rotation={object.rotationDeg}
     draggable={editable && !object.locked}
-    opacity={layerOpacity}
     onClick={onSelect} onTap={onSelect}
     onDragMove={(event) => {
       const rawPosition = {
@@ -386,7 +383,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, layerOp
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, soilProfileHost, compactLegend = false, soilEcDepthCm, target, colorMode = 'condition', dailyView = false, language = 'en', actions = [], selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, soilProfileHost, compactLegend = false, soilEcDepthCm, target, colorMode = 'condition', language = 'en', selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -432,10 +429,10 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     if (!transformer || !stage) return
     const transformableIds = new Set(
       map.objects
-        .filter((object) => object.type !== 'sensor-node')
+        .filter((object) => object.type !== 'sensor-node' && !object.locked && !map.layers.find((layer) => layer.id === object.layerId)?.locked)
         .map((object) => object.id),
     )
-    const nodes = mode === 'layout'
+    const nodes = mode === 'layout' && !readOnly
       ? selectedIds
         .filter((id) => transformableIds.has(id))
         .map((id) => stage.findOne(`#gh-object-${id}`))
@@ -443,7 +440,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       : []
     transformer.nodes(nodes)
     transformer.getLayer()?.batchDraw()
-  }, [selectedIds, mode, map.objects])
+  }, [selectedIds, mode, map.objects, map.layers, readOnly])
 
   const points = useMemo(() => getValidMeasurementPoints(map, map.heatmapSettings.metric, undefined, soilEcDepthCm), [map, soilEcDepthCm])
   const soilEcDepths = useMemo(() => [...new Set(map.objects.flatMap((object) =>
@@ -805,7 +802,6 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         return { left: `${left * 100}%`, width: `${Math.max((right - left) * 100, 0.8)}%` }
       })()
     : null
-  const sensorIssues = map.objects.filter((object) => object.metadata.sensor && object.metadata.sensor.status !== 'online')
   const editable = mode === 'layout' && !readOnly
   const heatmapLegend = mode === 'environment' ? <div className={`gh-heatmap-legend ${compactLegend ? 'gh-heatmap-legend-compact' : ''}`}>
     {!compactLegend ? <div className="gh-legend-heading"><small>{colorMode === 'contrast' ? tr('SPATIAL CONTRAST', 'ERDVINIS KONTRASTAS') : readOnly ? tr('CONDITION COLOURS', 'BŪKLĖS SPALVOS') : tr('ESTIMATED ENVIRONMENT MAP', 'APSKAIČIUOTAS APLINKOS ŽEMĖLAPIS')}</small><strong>{metricLabel(map.heatmapSettings.metric)}</strong></div> : null}
@@ -883,17 +879,13 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
             <Line points={path.points} stroke="#244f43" strokeWidth={1.3 / view.scale} opacity={path.confidence < .35 ? .28 : .52} lineCap="round" lineJoin="round" tension={.08} dash={path.confidence < .35 ? [6 / view.scale, 5 / view.scale] : undefined} perfectDrawEnabled={false} />
           </Group>)}
         </Group> : null}
-        {mode === 'signal' && visibleLayers.get('signal')?.visible ? map.objects.filter((object) => object.metadata.sensor).map((object) => {
-          const quality = Math.max(.15, Math.min(1, ((object.metadata.sensor?.rssi ?? -120) + 120) / 55))
-          return <Circle key={object.id} x={object.xM + object.widthM / 2} y={map.dimensions.lengthM - object.yM - object.lengthM / 2} radius={2.5 + quality * 2.2} fill={quality > .65 ? '#3b8364' : quality > .38 ? '#b58a3d' : '#a45849'} opacity={.08 + quality * .12} />
-        }) : null}
         {mode === 'coverage' && visibleLayers.get('coverage')?.visible ? map.objects.filter((object) => object.metadata.sensor).map((object) => <Circle key={object.id} x={object.xM + object.widthM / 2} y={map.dimensions.lengthM - object.yM - object.lengthM / 2} radius={object.metadata.sensor?.coverageRadiusM ?? 3} fill="#4d8d78" stroke="#2f715d" strokeWidth={.04} dash={[.16, .12]} opacity={(visibleLayers.get('coverage')?.opacity ?? 1) * .18} />) : null}
       </Layer>
       <Layer>
         {orderedObjects.map((object) => {
           const layer = visibleLayers.get(object.layerId)
           if (!object.visible || !layer?.visible) return null
-          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} environmentView={mode === 'environment'} layerOpacity={layer.opacity} viewScale={view.scale} snap={snap}
+          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} environmentView={mode === 'environment'} viewScale={view.scale} snap={snap}
             onSelect={(event) => {
               event.cancelBubble = true
               const shift = event.evt.shiftKey
@@ -1063,19 +1055,11 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
     </div> : null}
     {heatmapLegend ? legendHost ? createPortal(heatmapLegend, legendHost) : heatmapLegend : null}
     {mode === 'coverage' ? <div className="gh-mode-note"><i className="fa-solid fa-circle-info" /> {tr('Approximate planned sensor coverage, not a physical propagation model.', 'Apytikslė planuojama sensorių aprėptis, o ne fizinis signalo sklidimo modelis.')}</div> : null}
-    {mode === 'signal' ? <div className="gh-mode-note"><i className="fa-solid fa-tower-broadcast" /> {tr('Latest LoRa quality based on RSSI, SNR and node status. It is not a propagation map.', 'Naujausia LoRa ryšio kokybė pagal RSSI, SNR ir mazgo būseną. Tai nėra signalo sklidimo žemėlapis.')}</div> : null}
     {insufficientHeatmapSources ? <div className="gh-insufficient-heatmap" role="status">
       <i className="fa-solid fa-chart-area" />
       <strong>{tr('Not enough measurements', 'Nepakanka matavimų')}</strong>
       <span>{tr(`At least ${MIN_HEATMAP_SENSOR_COUNT} valid sensor measurements are required to build this map. ${points.length} available.`, `Šiam žemėlapiui sudaryti reikia bent ${MIN_HEATMAP_SENSOR_COUNT} tinkamų sensorių matavimų. Dabar yra ${points.length}.`)}</span>
     </div> : null}
-    {dailyView ? <aside className="gh-daily-summary">
-      <small>{tr('TODAY', 'ŠIANDIEN')}</small><h2>{actions.length || sensorIssues.length || (targetState !== 'optimal' && targetState !== 'unknown') ? tr('Items need attention', 'Reikia dėmesio') : tr('Area is stable', 'Erdvė stabili')}</h2>
-      {actions.slice(0, 3).map((action) => <p data-tone={action.priority === 'now' ? 'critical' : 'warning'} key={action.id}><i className="fa-solid fa-list-check" /><span><b>{action.title}</b>{action.sectionName} · {action.reason}</span></p>)}
-      {targetState !== 'optimal' && targetState !== 'unknown' ? <p data-tone="warning"><i className="fa-solid fa-temperature-half" /><span><b>{metricLabel(map.heatmapSettings.metric)}</b>{targetState === 'low' ? tr('Below crop target', 'Žemiau augalo tikslo') : tr('Above crop target', 'Virš augalo tikslo')}</span></p> : null}
-      {sensorIssues.slice(0, Math.max(0, 3 - actions.length)).map((object) => <p data-tone={object.metadata.sensor?.status === 'offline' ? 'critical' : 'warning'} key={object.id}><i className="fa-solid fa-microchip" /><span><b>{object.name}</b>{object.metadata.sensor?.status}</span></p>)}
-      {!actions.length && !sensorIssues.length && targetState === 'optimal' ? <p data-tone="good"><i className="fa-solid fa-circle-check" /><span><b>{tr('No priority actions', 'Nėra prioritetinių veiksmų')}</b>{tr('Current readings are inside target.', 'Dabartiniai rodmenys tiksliniame diapazone.')}</span></p> : null}
-    </aside> : null}
     {!readOnly ? <footer className="gh-statusbar"><span><i className="fa-solid fa-crosshairs" /> <span ref={coordinateStatusRef}>{tr('Outside plan', 'Už plano ribų')}</span></span><span>{tr('Grid', 'Tinklelis')} {map.gridSizeM} m</span><span>{tr('Zoom', 'Mastelis')} {Math.round(view.scale / 40 * 100)}%</span><span>{selectedIds.length ? `${selectedIds.length} ${tr('selected', 'pasirinkta')}` : snap ? tr('Snap enabled', 'Lygiavimas įjungtas') : tr('Free placement', 'Laisvas išdėstymas')}</span></footer> : null}
   </main>
 }

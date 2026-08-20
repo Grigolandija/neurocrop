@@ -43,7 +43,12 @@ describe('Area Map API context integration', () => {
     const { mergeAreaMapContext } = await import('../services/areaMapRepository')
     const map = createDemoMap()
     map.areaId = 'area-1'
-    map.layers = [{ id: 'sections', name: 'Growing Sections', visible: true, locked: false, opacity: 1 }, ...map.layers]
+    map.layers = [
+      { id: 'sections', name: 'Growing Sections', visible: true, locked: false, opacity: 1 },
+      { id: 'signal', name: 'Legacy signal', visible: true, locked: false, opacity: 1 },
+      { id: 'confidence', name: 'Legacy confidence', visible: true, locked: false, opacity: 1 },
+      ...map.layers,
+    ]
     map.objects = [
       {
         id: 'legacy-section-north', type: 'section-zone', name: 'North tomatoes', xM: 0, yM: 0,
@@ -53,24 +58,34 @@ describe('Area Map API context integration', () => {
       {
         id: 'placed-real', type: 'sensor-node', name: 'Old name', xM: 3, yM: 2,
         widthM: .65, lengthM: .65, rotationDeg: 0, layerId: 'sensors', locked: false, visible: true,
-        metadata: { sensor: { devEui: '70b3d57ed0060001', sensors: [], status: 'warning', coverageRadiusM: 4.5 } },
+        metadata: { sensor: { devEui: '70b3d57ed0060001', sensors: [], status: 'warning', coverageRadiusM: 4.5, installationHeightM: 1.8, installationConfirmedAt: '2026-07-24T10:00:00Z' } },
       },
       {
         id: 'moved-away', type: 'sensor-node', name: 'Moved', xM: 5, yM: 2,
         widthM: .65, lengthM: .65, rotationDeg: 0, layerId: 'sensors', locked: false, visible: true,
         metadata: { sensor: { devEui: '70b3d57ed0069999', sensors: [], status: 'offline' } },
       },
+      {
+        id: 'draft-node', type: 'sensor-node', name: 'Draft', xM: 7, yM: 2,
+        widthM: .65, lengthM: .65, rotationDeg: 0, layerId: 'sensors', locked: false, visible: true,
+        metadata: { sensor: { nodeId: 'DRAFT-1', sensors: [], status: 'unassigned' } },
+      },
     ]
     const merged = mergeAreaMapContext(map, { id: 'area-1', name: 'Production greenhouse' }, nodes)
     expect(merged.objects).toHaveLength(2)
     expect(merged.objects.some((object) => object.type === 'section-zone')).toBe(false)
     expect(merged.layers.some((layer) => layer.id === 'sections')).toBe(false)
+    expect(merged.layers.some((layer) => layer.id === 'signal' || layer.id === 'confidence')).toBe(false)
+    expect(merged.id).toBe('area-map-area-1')
+    expect(merged.name).toBe('Production greenhouse')
     expect(merged.objects.find((object) => object.id === 'moved-away')).toBeUndefined()
     const placed = merged.objects.find((object) => object.id === 'placed-real')
     expect(placed?.xM).toBe(3)
     expect(placed?.metadata.sensor?.displayName).toBe('North node')
     expect(placed?.metadata.sensor?.measurements?.airTemperatureC).toBe(24.5)
     expect(placed?.metadata.sensor?.coverageRadiusM).toBe(4.5)
+    expect(placed?.metadata.sensor?.installationHeightM).toBe(1.8)
+    expect(placed?.metadata.sensor?.installationConfirmedAt).toBe('2026-07-24T10:00:00Z')
     expect(merged.objects.some((object) => object.metadata.sensor?.devEui === '70b3d57ed0060002')).toBe(true)
   })
 
@@ -85,11 +100,28 @@ describe('Area Map API context integration', () => {
 
   it('scales node markers up with greenhouse dimensions', async () => {
     const { sensorMarkerSizeM } = await import('../services/areaMapRepository')
+    const tiny = sensorMarkerSizeM({ widthM: .1, lengthM: .1 })
     const small = sensorMarkerSizeM({ widthM: 4, lengthM: 2 })
     const medium = sensorMarkerSizeM({ widthM: 20, lengthM: 8 })
     const large = sensorMarkerSizeM({ widthM: 100, lengthM: 40 })
+    expect(tiny).toBe(.1)
     expect(small).toBeLessThan(medium)
     expect(medium).toBeLessThan(large)
+  })
+
+  it('keeps every object inside the plan after dimensions are reduced', async () => {
+    const { normalizeMapGeometry } = await import('../useMapEditor')
+    const { validateMap } = await import('../services/mapRepository')
+    const map = createDemoMap()
+    map.dimensions = { ...map.dimensions, widthM: 4, lengthM: 2 }
+    const normalized = normalizeMapGeometry(map)
+    expect(normalized.objects.every((object) =>
+      object.xM >= 0
+      && object.yM >= 0
+      && object.xM + object.widthM <= normalized.dimensions.widthM
+      && object.yM + object.lengthM <= normalized.dimensions.lengthM,
+    )).toBe(true)
+    expect(validateMap(normalized).ok).toBe(true)
   })
 
   it('keeps interpolation settings but always adapts the read-only colour scale', async () => {

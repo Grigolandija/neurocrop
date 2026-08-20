@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type ObjectType } from './model'
 import { clampObjectPosition, isWallMountedType, sensorMarkerSizeM, snapRectanglePosition, snapSectionToWalls, snapWallMountedObject } from './geometry'
 import { mapRepository } from './services/mapRepository'
+import { createDemoMap } from './demo'
 
 type History = { past: GreenhouseMap[]; present: GreenhouseMap; future: GreenhouseMap[] }
 const clone = (map: GreenhouseMap): GreenhouseMap => structuredClone(map)
@@ -52,8 +53,35 @@ function createObject(type: ObjectType, map: GreenhouseMap, xM?: number, yM?: nu
   return isWallMountedType(type) ? snapWallMountedObject(object, map.dimensions) : object
 }
 
-export function useMapEditor() {
-  const [history, setHistory] = useState<History>(() => ({ past: [], present: mapRepository.load(), future: [] }))
+export function normalizeMapGeometry(map: GreenhouseMap): GreenhouseMap {
+  const markerSize = sensorMarkerSizeM(map.dimensions)
+  return {
+    ...map,
+    objects: map.objects.map((source) => {
+      const object = { ...source, visible: true }
+      if (object.type === 'sensor-node') {
+        const position = clampObjectPosition(object.xM, object.yM, markerSize, markerSize, map.dimensions.widthM, map.dimensions.lengthM)
+        return { ...object, ...position, widthM: markerSize, lengthM: markerSize }
+      }
+      if (isWallMountedType(object.type)) return snapWallMountedObject(object, map.dimensions, object.metadata.wallMount?.wall)
+      const widthM = Math.min(map.dimensions.widthM, Math.max(.05, object.widthM))
+      const lengthM = Math.min(map.dimensions.lengthM, Math.max(.05, object.lengthM))
+      const clamped = clampObjectPosition(object.xM, object.yM, widthM, lengthM, map.dimensions.widthM, map.dimensions.lengthM)
+      const resized = { ...object, ...clamped, widthM, lengthM }
+      return object.type === 'section-zone'
+        ? snapSectionToWalls(resized, map.dimensions, map.gridSizeM)
+        : resized
+    }),
+  }
+}
+
+type MapEditorOptions = {
+  persistLocal?: boolean
+  protectSensorNodes?: boolean
+}
+
+export function useMapEditor({ persistLocal = true, protectSensorNodes = false }: MapEditorOptions = {}) {
+  const [history, setHistory] = useState<History>(() => ({ past: [], present: normalizeMapGeometry(persistLocal ? mapRepository.load() : createDemoMap()), future: [] }))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [copiedObjects, setCopiedObjects] = useState<GreenhouseObject[]>([])
   const [snap, setSnap] = useState(true)
@@ -63,17 +91,9 @@ export function useMapEditor() {
   const commit = useCallback((producer: (current: GreenhouseMap) => GreenhouseMap, record = true) => {
     setHistory((current) => {
       const produced = producer(clone(current.present))
-      const markerSize = sensorMarkerSizeM(produced.dimensions)
+      const normalized = normalizeMapGeometry(produced)
       const next = {
-        ...produced,
-        objects: produced.objects.map((object) => {
-          if (object.type === 'sensor-node') {
-            const position = clampObjectPosition(object.xM, object.yM, markerSize, markerSize, produced.dimensions.widthM, produced.dimensions.lengthM)
-            return { ...object, ...position, widthM: markerSize, lengthM: markerSize }
-          }
-          if (isWallMountedType(object.type)) return snapWallMountedObject(object, produced.dimensions, object.metadata.wallMount?.wall)
-          return object
-        }),
+        ...normalized,
         updatedAt: new Date().toISOString(),
       }
       if (JSON.stringify(next) === JSON.stringify(current.present)) return current
@@ -84,14 +104,18 @@ export function useMapEditor() {
   }, [])
 
   useEffect(() => {
+    if (!persistLocal) return
     window.clearTimeout(saveTimer.current)
     saveTimer.current = window.setTimeout(() => mapRepository.save(map), 450)
     return () => window.clearTimeout(saveTimer.current)
-  }, [map])
+  }, [map, persistLocal])
 
   const updateObject = useCallback((id: string, patch: Partial<GreenhouseObject>, record = true) => {
     commit((current) => ({ ...current, objects: current.objects.map((object) => {
       if (object.id !== id) return object
+      const layerLocked = current.layers.find((layer) => layer.id === object.layerId)?.locked === true
+      if (layerLocked) return object
+      if (object.locked && patch.locked !== false) return object
       const updated = { ...object, ...patch }
       if (!isWallMountedType(updated.type)) return updated
       const positionChanged = patch.xM !== undefined || patch.yM !== undefined || patch.type !== undefined
@@ -100,16 +124,24 @@ export function useMapEditor() {
   }, [commit])
 
   const addObject = useCallback((type: ObjectType, xM?: number, yM?: number) => {
+    if (protectSensorNodes && type === 'sensor-node') return
+    const definition = OBJECT_LIBRARY.find((entry) => entry.type === type)
+    if (definition && map.layers.find((layer) => layer.id === definition.layerId)?.locked) return
     const object = createObject(type, map, xM, yM)
     commit((current) => ({ ...current, objects: [...current.objects, object] }))
     setSelectedIds([object.id])
-  }, [commit, map])
+  }, [commit, map, protectSensorNodes])
 
   const deleteSelected = useCallback(() => {
     if (!selectedIds.length) return
-    commit((current) => ({ ...current, objects: current.objects.filter((object) => !selectedIds.includes(object.id) || object.locked || object.type === 'section-zone') }))
+    commit((current) => ({ ...current, objects: current.objects.filter((object) => {
+      const selected = selectedIds.includes(object.id)
+      const layerLocked = current.layers.find((layer) => layer.id === object.layerId)?.locked === true
+      const protectedObject = object.locked || layerLocked || object.type === 'section-zone' || (protectSensorNodes && object.type === 'sensor-node')
+      return !selected || protectedObject
+    }) }))
     setSelectedIds([])
-  }, [commit, selectedIds])
+  }, [commit, protectSensorNodes, selectedIds])
 
   const copySelected = useCallback(() => {
     const copied = map.objects.filter((object) => selectedIds.includes(object.id) && canDuplicateObject(object))
@@ -120,6 +152,7 @@ export function useMapEditor() {
   const pasteCopied = useCallback(() => {
     const copies: GreenhouseObject[] = []
     copiedObjects.forEach((object) => {
+      if (map.layers.find((layer) => layer.id === object.layerId)?.locked) return
       const id = `${object.type}-${crypto.randomUUID().slice(0, 8)}`
       const position = duplicatePosition(object, map)
       copies.push({
@@ -141,7 +174,8 @@ export function useMapEditor() {
       ...current,
       objects: current.objects.map((object) => {
         const position = positions.find((item) => item.id === object.id)
-        if (!position || object.locked) return object
+        const layerLocked = current.layers.find((layer) => layer.id === object.layerId)?.locked === true
+        if (!position || object.locked || layerLocked) return object
         const snappedPosition = snapRectanglePosition(position, object, current.gridSizeM, snap)
         const snapped = { ...object, ...snappedPosition }
         if (isWallMountedType(object.type)) return snapWallMountedObject(snapped, current.dimensions)
@@ -161,19 +195,21 @@ export function useMapEditor() {
   } : current), [])
 
   const reset = useCallback(() => {
-    const next = mapRepository.reset()
+    const next = persistLocal ? mapRepository.reset() : createDemoMap()
     setHistory({ past: [], present: next, future: [] })
     setSelectedIds([])
-  }, [])
+  }, [persistLocal])
   const hydrate = useCallback((next: GreenhouseMap) => {
-    setHistory({ past: [], present: next, future: [] })
+    setHistory({ past: [], present: normalizeMapGeometry(next), future: [] })
     setSelectedIds([])
   }, [])
   const replace = useCallback((next: GreenhouseMap) => {
-    setHistory((current) => ({ past: [...current.past.slice(-49), current.present], present: next, future: [] }))
+    setHistory((current) => ({ past: [...current.past.slice(-49), current.present], present: normalizeMapGeometry(next), future: [] }))
     setSelectedIds([])
   }, [])
-  const save = useCallback(() => mapRepository.save(map), [map])
+  const save = useCallback(() => {
+    if (persistLocal) mapRepository.save(map)
+  }, [map, persistLocal])
 
   const selected = useMemo(() => map.objects.filter((object) => selectedIds.includes(object.id)), [map.objects, selectedIds])
   const duplicableSelectedCount = useMemo(() => selected.filter(canDuplicateObject).length, [selected])

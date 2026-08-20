@@ -3,8 +3,7 @@ import { DEFAULT_HEATMAP_SETTINGS, GREENHOUSE_WALL_THICKNESS_M, type GreenhouseM
 export const DEFAULT_LAYERS: MapLayer[] = [
   ['structure', 'Greenhouse structure'], ['cultivation', 'Cultivation infrastructure'], ['irrigation', 'Irrigation'],
   ['climate', 'Climate equipment'], ['lighting', 'Lighting'], ['sensors', 'Sensor nodes'], ['labels', 'Labels'],
-  ['coverage', 'Sensor coverage'], ['environment', 'Estimated environment map'], ['signal', 'LoRa signal'],
-  ['confidence', 'Uncertainty / confidence'],
+  ['coverage', 'Sensor coverage'], ['environment', 'Estimated environment map'],
 ].map(([id, name]) => ({ id, name, visible: true, locked: false, opacity: 1 }))
 
 const now = new Date()

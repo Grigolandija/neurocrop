@@ -1,6 +1,6 @@
 import { createHeatmapMetricDefinitions } from '../../domain/metricRegistry'
 
-export type MapMode = 'layout' | 'coverage' | 'environment' | 'signal'
+export type MapMode = 'layout' | 'coverage' | 'environment'
 export type MetricKey =
   | 'air-temperature'
   | 'relative-humidity'

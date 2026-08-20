@@ -17,15 +17,6 @@ export type AreaMapProfile = {
   stage?: string
   metrics: Record<string, { optimal?: [number, number]; warning?: [number, number]; critical?: [number, number] }>
 }
-export type AreaMapAction = {
-  id: string
-  areaId: string
-  sectionId: string
-  sectionName: string
-  title: string
-  reason: string
-  priority: string
-}
 export type AreaMapNode = SensorNodeMetadata & { sectionId?: string; sectionName?: string }
 export type AreaMapContext = {
   area: AreaSummary
@@ -36,7 +27,6 @@ export type AreaMapContext = {
   nodes: AreaMapNode[]
   sections: AreaMapSection[]
   profiles: AreaMapProfile[]
-  actions: AreaMapAction[]
   permissions: { canEdit: boolean }
 }
 export type AreaMapHistoryNode = {
@@ -173,13 +163,16 @@ export function createAreaMap(area: AreaSummary, nodes: AreaMapNode[], sections:
 
 export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes: AreaMapNode[], sections: AreaMapSection[] = []): GreenhouseMap {
   void sections
-  const layers = map.layers.filter((layer) => layer.id !== 'sections')
+  const layers = map.layers.filter((layer) => !['sections', 'signal', 'confidence'].includes(layer.id))
+  const layerIds = new Set(layers.map((layer) => layer.id))
+  DEFAULT_LAYERS.filter((layer) => layer.id !== 'sections' && !layerIds.has(layer.id)).forEach((layer) => layers.push({ ...layer }))
   const normalizedNodes = nodes.map(normalizeNode)
   const byDevEui = new Map(normalizedNodes.filter((node) => node.devEui).map((node) => [node.devEui!.toLowerCase(), node]))
   const placed = new Set<string>()
   const objects = map.objects.flatMap<GreenhouseObject>((object) => {
     if (object.type === 'section-zone') return []
-    if (object.type !== 'sensor-node' || !object.metadata.sensor?.devEui) return [{ ...object }]
+    if (object.type !== 'sensor-node') return [{ ...object }]
+    if (!object.metadata.sensor?.devEui) return []
     const devEui = object.metadata.sensor.devEui.toLowerCase()
     const live = byDevEui.get(devEui)
     if (!live) return []
@@ -198,12 +191,13 @@ export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes
           ...object.metadata.sensor,
           ...live,
           coverageRadiusM: object.metadata.sensor.coverageRadiusM ?? live.coverageRadiusM ?? 3,
-          installationHeightM: object.metadata.sensor.installationHeightM,
+          installationHeightM: object.metadata.sensor.installationHeightM ?? live.installationHeightM,
+          installationConfirmedAt: object.metadata.sensor.installationConfirmedAt ?? live.installationConfirmedAt,
         },
       },
     }]
   })
-  const next: GreenhouseMap = { ...map, areaId: area.id, wallThicknessM: GREENHOUSE_WALL_THICKNESS_M, heatmapSettings: normalizeHeatmapSettings(map.heatmapSettings), layers, objects }
+  const next: GreenhouseMap = { ...map, id: `area-map-${area.id}`, areaId: area.id, name: area.name, wallThicknessM: GREENHOUSE_WALL_THICKNESS_M, heatmapSettings: normalizeHeatmapSettings(map.heatmapSettings), layers, objects }
   normalizedNodes.filter((node) => node.devEui && !placed.has(node.devEui.toLowerCase())).forEach((node, index) => {
     next.objects.push(sensorObject(node, index, next))
   })
@@ -222,11 +216,10 @@ export const areaMapRepository = {
     })).filter((area) => area.id)
   },
   async load(areaId: string): Promise<AreaMapContext> {
-    const [payload, sectionsPayload, profilesPayload, actionsPayload] = await Promise.all([
+    const [payload, sectionsPayload, profilesPayload] = await Promise.all([
       neurocropApi.getGreenhouseMap(areaId) as Promise<AreaMapContext>,
       neurocropApi.getSections(areaId) as Promise<{ sections?: Array<Record<string, unknown>> }>,
       neurocropApi.getCropProfiles() as Promise<{ profiles?: Array<Record<string, unknown>> }>,
-      neurocropApi.getTodayActions() as Promise<{ actions?: Array<Record<string, unknown>> }>,
     ])
     const sections = (sectionsPayload.sections ?? []).map((section) => ({
       id: String(section.id || ''),
@@ -242,16 +235,7 @@ export const areaMapRepository = {
       metrics: profile.metrics && typeof profile.metrics === 'object' && !Array.isArray(profile.metrics)
         ? profile.metrics as AreaMapProfile['metrics'] : {},
     })).filter((profile) => profile.id)
-    const actions = (actionsPayload.actions ?? []).filter((action) => String(action.areaId || '') === areaId).map((action) => ({
-      id: String(action.id || ''),
-      areaId,
-      sectionId: String(action.sectionId || ''),
-      sectionName: String(action.sectionName || ''),
-      title: String(action.title || 'Condition needs attention'),
-      reason: String(action.reason || ''),
-      priority: String(action.priority || 'today'),
-    })).filter((action) => action.id)
-    return { ...payload, mapEnabled: payload.mapEnabled === true, nodes: Array.isArray(payload.nodes) ? payload.nodes : [], sections, profiles, actions }
+    return { ...payload, mapEnabled: payload.mapEnabled === true, nodes: Array.isArray(payload.nodes) ? payload.nodes : [], sections, profiles }
   },
   async loadHistory(areaId: string): Promise<AreaMapHistory> {
     const to = new Date()

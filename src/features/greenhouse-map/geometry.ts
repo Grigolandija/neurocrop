@@ -76,7 +76,8 @@ export function clampObjectPosition(xM: number, yM: number, widthM: number, leng
 }
 
 export function sensorMarkerSizeM(dimensions: { widthM: number; lengthM: number }) {
-  return Math.max(.16, Math.min(1.5, Math.min(dimensions.widthM, dimensions.lengthM) * .06))
+  const minimumDimension = Math.max(.01, Math.min(dimensions.widthM, dimensions.lengthM))
+  return Math.min(minimumDimension, Math.max(.16, Math.min(1.5, minimumDimension * .06)))
 }
 
 const clamp = (value: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(maximum, value))
