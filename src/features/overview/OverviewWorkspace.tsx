@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { openTrend, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { metricDefinitions } from '../../domain/metricRegistry'
+import { buildActionMetricPresentation, type ActionMetricPresentation } from './actionPresentation'
 import '../../styles/overview-workspace.css'
 
 const loadReadingsClimateMap = () => import('../readings/ReadingsClimateMap')
@@ -228,6 +229,15 @@ function rowCorrectionSummary(row: OverviewRow) {
     : `Reduce difference by ${formatDifference(row.deviation, row.unit)}`
   if (getInterfaceLanguage() === 'lt') return `${row.direction === 'above' ? 'Sumažinti' : 'Padidinti'} ${formatDifference(row.deviation, row.unit)}`
   return `${row.direction === 'above' ? 'Decrease' : 'Increase'} by ${formatDifference(row.deviation, row.unit)}`
+}
+
+function actionDeviationSummary(metric: ActionMetricPresentation) {
+  if (metric.deviation === null || metric.direction === 'unknown') return '—'
+  if (metric.direction === 'inside') return metric.riskKind === 'uniformity' ? tx('Inside allowed spread') : tx('Inside target')
+  if (metric.riskKind === 'uniformity') {
+    return `Reduce difference by ${formatDifference(metric.deviation, metric.unit)}`
+  }
+  return formatDeviation(metric.deviation, metric.direction, metric.unit)
 }
 
 function AgronomicDiagnosis({ action }: { action: JsonRecord }) {
@@ -688,7 +698,7 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
   return <div className="nc-overview-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <aside className="nc-overview-drawer nc-action-drawer nc-action-list-drawer" role="dialog" aria-modal="true" aria-labelledby="overview-action-title">
       <header>
-        <div><span>{tx("Recommended checks")}</span><h2 id="overview-action-title">{tx("Review")} {actions.length} {tx("affected Section")}{actions.length === 1 ? '' : 's'}</h2><p>{areaName}</p></div>
+        <div><span>{tx("Recommended checks")}</span><h2 id="overview-action-title">{tx("Recommended checks")} ({actions.length})</h2><p>{areaName}</p></div>
         <button type="button" onClick={onClose} aria-label={tx("Close action")}><i className="fa-solid fa-xmark" /></button>
       </header>
       <section className="nc-action-guidance">
@@ -700,24 +710,28 @@ function ActionWorkflow({ actions, rows, areaName, onClose }: {
           const actionId = String(action.id)
           const item = items[actionId] || { status: 'open', note: '', executionType: '', adjustment: '', duration: '', error: '' }
           const row = rowsById.get(String(action.sectionId))
-          const actionValue = Number(action.value)
-          const currentValue = row?.currentValue ?? (Number.isFinite(actionValue) ? actionValue : null)
-          const unit = row?.unit || normalizeUnit(action.unit)
+          const metric = buildActionMetricPresentation(action, row ? {
+            metricKey: row.metricKey,
+            riskKind: row.riskKind,
+            currentValue: row.currentValue,
+            target: row.target,
+            unit: row.unit,
+          } : undefined)
           return <article className="nc-action-item" data-status={item.status} key={actionId}>
             <header>
               <div><span>{action.metricLabel ||tx("Condition check")}</span><h3>{action.sectionName || row?.name ||tx("Unnamed Section")}</h3></div>
               <span className={`nc-workflow-status ${item.status}`}><i />{item.status === 'submitted' ?tx("Awaiting verification") : item.status === 'open' ?tx("Not started") :tx("In progress")}</span>
             </header>
             <div className="nc-action-values">
-              <div><span>{row?.riskKind === 'uniformity' ? tx("Measured spread") : tx("Current")}</span><strong>{formatMeasurement(currentValue, unit)}</strong></div>
-              <div><span>{row?.riskKind === 'uniformity' ? tx("Allowed spread") : tx("Target")}</span><strong>{row?.riskKind === 'uniformity' && row.target ? `≤${formatMeasurement(row.target[1], row.unit)}` : row?.target ? `${formatNumber(row.target[0])}–${formatNumber(row.target[1])}${unitSuffix(row.unit)}` : formatTarget(targetRange(action.target), unit).replace(/^Target /, '')}</strong></div>
-              <div><span>{tx("Deviation")}</span><strong>{row ? row.riskKind === 'uniformity' ? rowCorrectionSummary(row) : formatDeviation(row.deviation, row.direction, row.unit) : action.reason}</strong></div>
-              <div><span>{tx("Latest reading")}</span><strong>{row?.updated ||tx("Unavailable")}</strong></div>
+              <div><span>{metric.riskKind === 'uniformity' ? tx("Measured spread") : tx("Current")}</span><strong>{formatMeasurement(metric.currentValue, metric.unit)}</strong></div>
+              <div><span>{metric.riskKind === 'uniformity' ? tx("Allowed spread") : tx("Target")}</span><strong>{metric.target ? metric.riskKind === 'uniformity' ? `≤${formatMeasurement(metric.target[1], metric.unit)}` : `${formatNumber(metric.target[0])}–${formatNumber(metric.target[1])}${unitSuffix(metric.unit)}` : tx("Not set")}</strong></div>
+              <div><span>{tx("Deviation")}</span><strong>{actionDeviationSummary(metric)}</strong></div>
+              <div><span>{tx("Latest reading")}</span><strong>{metric.observedAt ? relativeTime(metric.observedAt) : tx("Unavailable")}</strong></div>
             </div>
             {action.ruleType === 'interaction'
               ? <div className="nc-action-diagnosis"><span>{tx("Why NeuroCrop recommends this")}</span><strong>{action.title}</strong><p>{action.reason}</p></div>
               : null}
-            {action.likelyCause && action.ruleType !== 'interaction'
+            {action.likelyCause && !action.diagnosis && action.ruleType !== 'interaction'
               ? <div className="nc-action-diagnosis"><span>{isLt ? 'Tikėtina priežastis' : 'Likely cause'}</span><strong>{action.likelyCause}</strong><p>{action.reason}</p></div>
               : null}
             <AgronomicDiagnosis action={action} />
