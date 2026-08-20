@@ -31,6 +31,7 @@ export default function GreenhouseMapTestPage() {
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [areas, setAreas] = useState<AreaSummary[]>([])
   const [activeAreaId, setActiveAreaId] = useState('')
+  const [areaMenuOpen, setAreaMenuOpen] = useState(false)
   const [syncState, setSyncState] = useState<'local' | 'initializing' | 'loading' | 'saved' | 'saving' | 'error' | 'conflict' | 'readonly'>(integrated ? 'initializing' : 'local')
   const [syncMessage, setSyncMessage] = useState('')
   const [canEdit, setCanEdit] = useState(!integrated)
@@ -38,6 +39,7 @@ export default function GreenhouseMapTestPage() {
   const [loadVersion, setLoadVersion] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const moreMenuRef = useRef<HTMLDetailsElement>(null)
+  const areaMenuRef = useRef<HTMLDivElement>(null)
   const areaContextRef = useRef<AreaMapContext | null>(null)
   const revisionRef = useRef(0)
   const lastSyncedRef = useRef('')
@@ -76,6 +78,8 @@ export default function GreenhouseMapTestPage() {
     const closeMenu = (event: PointerEvent) => {
       const menu = moreMenuRef.current
       if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) menu.removeAttribute('open')
+      const areaMenu = areaMenuRef.current
+      if (areaMenu && event.target instanceof Node && !areaMenu.contains(event.target)) setAreaMenuOpen(false)
     }
     document.addEventListener('pointerdown', closeMenu)
     return () => document.removeEventListener('pointerdown', closeMenu)
@@ -265,6 +269,7 @@ export default function GreenhouseMapTestPage() {
       if (inputFocused) return
       if (event.key === 'Escape') {
         moreMenuRef.current?.removeAttribute('open')
+        setAreaMenuOpen(false)
         editor.setSelectedIds([])
         setMobilePanel('none')
         return
@@ -422,6 +427,7 @@ export default function GreenhouseMapTestPage() {
   const canvasViewReadOnly = permissionReadOnly || !editing
   const showLeftPanel = layoutEditable
   const showRightPanel = editor.selected.length > 0
+  const activeArea = areas.find((area) => area.id === activeAreaId)
   const deletableSelectedCount = editor.selected.filter((object) => object.type !== 'sensor-node' && object.type !== 'section-zone' && !object.locked && !editor.map.layers.find((layer) => layer.id === object.layerId)?.locked).length
   return <div className={`gh-app ${integrated ? 'gh-integrated' : ''} ${inspectorReadOnly ? 'gh-readonly' : ''} ${showLeftPanel ? '' : 'gh-without-left-panel'} ${showRightPanel ? '' : 'gh-without-right-panel'} gh-mobile-${mobilePanel}`}>
     <GreenhouseMapToolbar mode={mode} metric={editor.map.heatmapSettings.metric} snap={editor.snap} editing={layoutEditable} language={language} canUndo={layoutEditable && editor.canUndo} canRedo={layoutEditable && editor.canRedo} selectedCount={layoutEditable ? deletableSelectedCount : 0} duplicableSelectedCount={layoutEditable ? editor.duplicableSelectedCount : 0} canPaste={layoutEditable && editor.canPaste}
@@ -430,7 +436,10 @@ export default function GreenhouseMapTestPage() {
     <div className="gh-action-strip">
       <button onClick={() => void leaveMap()}><i className="fa-solid fa-arrow-left" /> {integrated ? tr('Back to Areas', 'Grįžti į erdves') : tr('Exit test lab', 'Uždaryti testą')}</button>
       <span />
-      {integrated ? <label className="gh-area-selector"><span>{tr('Area', 'Erdvė')}</span><select disabled={syncState === 'saving' || syncState === 'loading'} value={activeAreaId} onChange={(event) => void switchArea(event.target.value)}>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label> : null}
+      {integrated ? <div ref={areaMenuRef} className="gh-area-selector"><span>{tr('Area', 'Erdvė')}</span><div className="gh-area-picker">
+        <button type="button" className="gh-area-trigger" disabled={syncState === 'saving' || syncState === 'loading'} aria-haspopup="listbox" aria-expanded={areaMenuOpen} onClick={() => { moreMenuRef.current?.removeAttribute('open'); setAreaMenuOpen((current) => !current) }}><strong>{activeArea?.name || tr('Select Area', 'Pasirinkite erdvę')}</strong><i className={`fa-solid fa-chevron-${areaMenuOpen ? 'up' : 'down'}`} /></button>
+        {areaMenuOpen ? <div className="gh-area-menu" role="listbox" aria-label={tr('Area', 'Erdvė')}>{areas.map((area) => <button type="button" role="option" aria-selected={area.id === activeAreaId} className={area.id === activeAreaId ? 'active' : ''} key={area.id} onClick={() => { setAreaMenuOpen(false); void switchArea(area.id) }}><i className={`fa-solid ${area.id === activeAreaId ? 'fa-check' : 'fa-location-dot'}`} /><span>{area.name}</span></button>)}</div> : null}
+      </div></div> : null}
       <small className={`gh-sync-state ${syncState}`}><i className={`fa-solid ${integrated ? syncState === 'saving' ? 'fa-arrows-rotate fa-spin' : syncState === 'conflict' || syncState === 'error' ? 'fa-triangle-exclamation' : permissionReadOnly ? 'fa-eye' : 'fa-cloud' : 'fa-flask'}`} /> {integrated ? syncState === 'error' || syncState === 'conflict' ? syncMessage : permissionReadOnly ? tr('Read only · live data', 'Tik skaitymui · dabartiniai duomenys') : syncMessage || tr('Changes save automatically', 'Pakeitimai išsaugomi automatiškai') : tr('Local prototype', 'Vietinis prototipas')}</small>
       {syncState === 'conflict' ? <button onClick={reloadLatest}><i className="fa-solid fa-rotate" /> {tr('Reload latest', 'Įkelti naujausią')}</button> : null}
       {syncState === 'error' ? <button onClick={retrySync}><i className="fa-solid fa-rotate" /> {tr('Retry', 'Bandyti dar kartą')}</button> : null}
@@ -439,7 +448,7 @@ export default function GreenhouseMapTestPage() {
       {showRightPanel ? <button className="gh-mobile-only" onClick={() => setMobilePanel((current) => current === 'right' ? 'none' : 'right')}><i className="fa-solid fa-circle-info" /></button> : null}
       <button onClick={toggleLanguage}>{language.toUpperCase()}</button>
       {!integrated ? <button onClick={() => { editor.save(); setNotice({ tone: 'success', text: tr('Plan saved in this browser.', 'Planas išsaugotas šioje naršyklėje.') }) }}><i className="fa-regular fa-floppy-disk" /> {tr('Save', 'Išsaugoti')}</button> : null}
-      <details ref={moreMenuRef} className="gh-map-more"><summary><i className="fa-solid fa-ellipsis" /> {tr('More', 'Daugiau')}</summary><div>
+      <details ref={moreMenuRef} className="gh-map-more" onToggle={(event) => { if (event.currentTarget.open) setAreaMenuOpen(false) }}><summary><i className="fa-solid fa-ellipsis" /> {tr('More', 'Daugiau')}</summary><div>
         <button onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); exportMap() }}><i className="fa-solid fa-arrow-up-from-bracket" /> {tr('Export plan', 'Eksportuoti planą')}</button>
         {layoutEditable ? <button onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); inputRef.current?.click() }}><i className="fa-solid fa-arrow-down-to-bracket" /> {tr('Import plan', 'Importuoti planą')}</button> : null}
         {layoutEditable ? <button className="danger" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); resetMap() }}><i className="fa-solid fa-arrow-rotate-left" /> {tr('Clear layout', 'Išvalyti išdėstymą')}</button> : null}

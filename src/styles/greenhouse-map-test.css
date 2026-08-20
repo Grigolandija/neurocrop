@@ -71,8 +71,27 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   border: 1px solid #cbd4cd; padding: 5px; background: #fff; box-shadow: 0 10px 28px rgba(18,43,34,.18);
 }
 .gh-action-strip .gh-map-more > div button { justify-content: flex-start; width: 100%; }
-.gh-area-selector { display: flex; align-items: center; gap: 7px; min-width: 220px; color: #68766f; font-size: 9px; font-weight: 700; text-transform: uppercase; }
-.gh-area-selector select { min-width: 150px; height: 28px; border: 1px solid #cbd4cd; padding: 0 25px 0 8px; color: #29453a; background: #f8faf7; font-size: 11px; font-weight: 600; text-transform: none; }
+.gh-area-selector { display: flex; align-items: center; gap: 10px; min-width: 250px; color: #68766f; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.gh-area-picker { position: relative; text-transform: none; }
+.gh-action-strip .gh-area-trigger {
+  justify-content: space-between; width: clamp(180px,22vw,260px); height: 32px; border: 1px solid #c7d1ca; border-radius: 4px;
+  padding: 0 10px 0 12px; color: #233b32; background: #f9fbf8; font-size: 12px; font-weight: 600;
+}
+.gh-area-trigger strong { overflow: hidden; font: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.gh-area-trigger i { color: #718079; font-size: 9px; }
+.gh-action-strip .gh-area-trigger:hover:not(:disabled) { border-color: #78978a; background: #f3f7f3; }
+.gh-action-strip .gh-area-trigger:focus-visible,
+.gh-action-strip .gh-area-trigger[aria-expanded="true"] { outline: none; border-color: #497b68; box-shadow: 0 0 0 2px rgba(45,107,84,.13); }
+.gh-area-menu {
+  position: absolute; z-index: 70; top: calc(100% + 5px); left: 0; display: grid; width: 100%; max-height: 260px; overflow-y: auto;
+  border: 1px solid #becbc3; border-radius: 5px; padding: 4px; background: #fff; box-shadow: 0 12px 30px rgba(18,43,34,.2);
+}
+.gh-action-strip .gh-area-menu button { justify-content: flex-start; width: 100%; min-height: 34px; height: auto; border-radius: 3px; padding: 7px 9px; color: #3d5149; text-align: left; }
+.gh-action-strip .gh-area-menu button i { width: 14px; color: #819089; font-size: 9px; text-align: center; }
+.gh-action-strip .gh-area-menu button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gh-action-strip .gh-area-menu button:hover { background: #edf3ee; }
+.gh-action-strip .gh-area-menu button.active { color: #245b48; background: #e3efe7; }
+.gh-action-strip .gh-area-menu button.active i { color: #2d7659; }
 .gh-action-strip .gh-sync-state { display: flex; align-items: center; gap: 6px; }
 .gh-action-strip .gh-sync-state.saved { color: #39745a; }
 .gh-action-strip .gh-sync-state.saving { color: #496d60; }
@@ -328,6 +347,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   .gh-toolbar-actions button { min-width: 36px; font-size: 0; }
   .gh-toolbar-actions button i { font-size: 12px; }
   .gh-action-strip { overflow-x: auto; }
+  .gh-area-menu { position: fixed; top: 104px; left: 8px; width: min(300px, calc(100vw - 16px)); }
   .gh-map-more > div { position: fixed; top: 104px; right: 8px; }
   .gh-action-strip button { flex: 0 0 auto; min-height: 36px; }
   .gh-mobile-only { display: flex !important; }
