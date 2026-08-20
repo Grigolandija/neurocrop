@@ -323,6 +323,27 @@ export default function DashboardPage({ user, onSignedOut }: DashboardPageProps)
   }, [])
 
   useEffect(() => {
+    let stopped = false
+    const updatePresence = () => {
+      if (stopped || document.visibilityState !== 'visible') return
+      void neurocropApi.updatePresence().catch(() => {
+        // Presence is informative and must not interrupt the active workspace.
+      })
+    }
+    const handleVisibility = () => updatePresence()
+    updatePresence()
+    const interval = window.setInterval(updatePresence, 60_000)
+    window.addEventListener('focus', updatePresence)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      stopped = true
+      window.clearInterval(interval)
+      window.removeEventListener('focus', updatePresence)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [])
+
+  useEffect(() => {
     if (dashboardState.unauthorizedVersion > unauthorizedVersionAtMount.current) queueMicrotask(onSignedOut)
   }, [dashboardState.unauthorizedVersion, onSignedOut])
 

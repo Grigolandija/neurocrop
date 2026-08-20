@@ -5,6 +5,7 @@ import {
   createUserSession,
   findUserForLogin,
   getMemberships,
+  hashSessionToken,
   hashUserPassword,
   normalizeEmail,
   requireRole,
@@ -42,7 +43,9 @@ function publicMembership(row) {
     email: row.email,
     name: row.display_name,
     role: row.role,
-    joinedAt: row.created_at
+    joinedAt: row.created_at,
+    online: Boolean(row.online),
+    lastActiveAt: row.last_active_at || null
   };
 }
 
@@ -224,15 +227,61 @@ export function registerTeamRoutes(app) {
   app.get('/team', requireUserAuth, async (req, res, next) => {
     try {
       const { rows } = await query(
-        `SELECT u.id, u.email, u.display_name, m.role, m.created_at
+        `SELECT u.id, u.email, u.display_name, m.role, m.created_at,
+                presence.last_active_at,
+                COALESCE(presence.last_active_at >= now() - interval '2 minutes', false) AS online
          FROM organization_memberships m
          JOIN users u ON u.id=m.user_id
+         LEFT JOIN LATERAL (
+           SELECT MAX(active_session.last_seen_at) AS last_active_at
+           FROM (
+             SELECT auth_session.last_seen_at
+             FROM auth_sessions auth_session
+             WHERE auth_session.user_id=u.id
+               AND auth_session.organization_id=m.organization_id
+               AND auth_session.revoked_at IS NULL
+               AND auth_session.expires_at > now()
+             UNION ALL
+             SELECT context.last_seen_at
+             FROM clerk_session_contexts context
+             WHERE context.user_id=u.id
+               AND context.organization_id=m.organization_id
+           ) active_session
+         ) presence ON true
          WHERE m.organization_id=$1
          ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
                   u.display_name ASC, u.email ASC`,
         [organizationId(req)]
       );
       res.json({ members: rows.map(publicMembership) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/presence', requireUserAuth, async (req, res, next) => {
+    try {
+      if (req.authProvider === 'clerk') {
+        await query(
+          `UPDATE clerk_session_contexts
+           SET last_seen_at=now()
+           WHERE session_id=$1 AND user_id=$2 AND organization_id=$3`,
+          [req.clerkSessionId, req.user.id, organizationId(req)]
+        );
+      } else {
+        const token = String(req.cookies?.neurocrop_session || '');
+        if (!token) {
+          return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Login required' } });
+        }
+        await query(
+          `UPDATE auth_sessions
+           SET last_seen_at=now()
+           WHERE token_hash=$1 AND user_id=$2 AND organization_id=$3
+             AND revoked_at IS NULL AND expires_at > now()`,
+          [hashSessionToken(token), req.user.id, organizationId(req)]
+        );
+      }
+      res.sendStatus(204);
     } catch (error) {
       next(error);
     }

@@ -1,4 +1,4 @@
-import { translateInterfaceText as tx } from '../../i18n'
+import { getInterfaceLanguage, translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
@@ -6,7 +6,7 @@ import '../../styles/settings-workspace.css'
 
 type User = { id: string; email: string; name: string; role: string; organizationId: string; organizationName: string }
 type Membership = { id: string; name: string; role: string }
-type Member = { id: string; email: string; name: string; role: string; joinedAt?: string }
+type Member = { id: string; email: string; name: string; role: string; joinedAt?: string; online?: boolean; lastActiveAt?: string | null }
 type Invitation = { id: string; email: string; role: string; expiresAt?: string; createdAt?: string; inviteUrl?: string }
 type Area = { id: string; name: string; sections?: number; nodes?: number }
 type Section = { id: string; name: string; area_id?: string; area_name?: string; nodes?: number }
@@ -20,6 +20,18 @@ function formatDate(value?: string) {
   if (!value) return 'Unknown'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+function formatLastActivity(value?: string | null) {
+  if (!value) return tx('No recent activity')
+  const timestamp = new Date(value).getTime()
+  if (!Number.isFinite(timestamp)) return tx('No recent activity')
+  const elapsedSeconds = Math.max(0, Math.round((Date.now() - timestamp) / 1_000))
+  const relative = new Intl.RelativeTimeFormat(getInterfaceLanguage() === 'lt' ? 'lt-LT' : 'en-GB', { numeric: 'auto' })
+  if (elapsedSeconds < 60) return `${tx('Last activity')} ${relative.format(-elapsedSeconds, 'second')}`
+  if (elapsedSeconds < 3_600) return `${tx('Last activity')} ${relative.format(-Math.round(elapsedSeconds / 60), 'minute')}`
+  if (elapsedSeconds < 86_400) return `${tx('Last activity')} ${relative.format(-Math.round(elapsedSeconds / 3_600), 'hour')}`
+  return `${tx('Last activity')} ${relative.format(-Math.round(elapsedSeconds / 86_400), 'day')}`
 }
 
 function errorMessage(reason: unknown) {
@@ -89,6 +101,26 @@ export default function OrganizationWorkspace() {
   useEffect(() => {
     const timer = window.setTimeout(() => { void load() }, 0)
     return () => window.clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    const refreshPresence = () => {
+      if (document.visibilityState !== 'visible') return
+      void neurocropApi.getTeam()
+        .then((response) => {
+          const teamResponse = response as { members?: Member[] }
+          setMembers(Array.isArray(teamResponse.members) ? teamResponse.members : [])
+        })
+        .catch(() => {
+          // The main load state already reports API failures; presence polling is best-effort.
+        })
+    }
+    const interval = window.setInterval(refreshPresence, 60_000)
+    document.addEventListener('visibilitychange', refreshPresence)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', refreshPresence)
+    }
   }, [])
 
   async function refreshTeam() {
@@ -225,7 +257,7 @@ export default function OrganizationWorkspace() {
     <section className="nc-organization-team">
       <header><div><p>{tx("Organization access")}</p><h2>{tx("Members and roles")}</h2><span>{tx("People listed here can only access organizations where they hold a membership.")}</span></div><label><i className="fa-solid fa-magnifying-glass" /><input type="search" value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} placeholder={tx("Search members")} /></label></header>
       {canManage ? <form className="nc-organization-invite" onSubmit={inviteMember}><div><strong>{tx("Invite a member")}</strong><span>{tx("Access begins after the invitation is accepted.")}</span></div><label><span>{tx("Email address")}</span><input type="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="grower@company.com" /></label><label><span>{tx("Role")}</span><select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}><option value="grower">{tx("Grower")}</option><option value="technician">{tx("Technician")}</option><option value="viewer">{tx("Viewer")}</option>{user?.role === 'owner' ? <option value="admin">{tx("Admin")}</option> : null}</select></label><button disabled={busyKey === 'invite'}><i className="fa-solid fa-paper-plane" />{busyKey === 'invite' ?tx("Sending…") :tx("Send invite")}</button></form> : null}
-      <div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("Member")}</th><th>{tx("Role")}</th><th>{tx("Joined")}</th><th>{tx("Access")}</th>{canManage ? <th><span className="sr-only">{tx("Actions")}</span></th> : null}</tr></thead><tbody>{filteredMembers.map((member) => <tr key={member.id}><td><div className="nc-admin-person"><span>{initials(member.name || member.email)}</span><div><strong>{member.name ||tx("Unnamed member")}</strong><small>{member.email}</small></div></div></td><td><select value={member.role} disabled={!canChangeMemberRole(member) || busyKey === `role-${member.id}`} onChange={(event) => void updateRole(member, event.target.value)}><option value="owner" disabled>{tx("Owner")}</option><option value="admin">{tx("Admin")}</option><option value="grower">{tx("Grower")}</option><option value="technician">{tx("Technician")}</option><option value="viewer">{tx("Viewer")}</option></select></td><td>{formatDate(member.joinedAt)}</td><td><span className="nc-settings-status" data-tone="success"><i />{tx("Active")}</span></td>{canManage ? <td>{canRemoveMember(member) ? <button className="nc-admin-text-danger" disabled={busyKey === `remove-${member.id}`} onClick={() => void removeMember(member)}>{busyKey === `remove-${member.id}` ? tx("Removing…") : tx("Remove")}</button> : <span className="nc-admin-readonly">{tx("Protected")}</span>}</td> : null}</tr>)}{!filteredMembers.length && !loading ? <tr><td colSpan={canManage ? 5 : 4}><div className="nc-settings-empty">{tx("No matching members.")}</div></td></tr> : null}</tbody></table></div>
+      <div className="nc-admin-table-wrap"><table><thead><tr><th>{tx("Member")}</th><th>{tx("Role")}</th><th>{tx("Joined")}</th><th>{tx("Activity")}</th>{canManage ? <th><span className="sr-only">{tx("Actions")}</span></th> : null}</tr></thead><tbody>{filteredMembers.map((member) => <tr key={member.id}><td><div className="nc-admin-person"><span>{initials(member.name || member.email)}</span><div><strong className="nc-member-name">{member.name ||tx("Unnamed member")}<i className="nc-member-presence-dot" data-online={member.online || undefined} role="img" aria-label={member.online ? tx('Online now') : tx('Offline')} title={member.online ? tx('Online now') : formatLastActivity(member.lastActiveAt)} /></strong><small>{member.email}</small></div></div></td><td><select value={member.role} disabled={!canChangeMemberRole(member) || busyKey === `role-${member.id}`} onChange={(event) => void updateRole(member, event.target.value)}><option value="owner" disabled>{tx("Owner")}</option><option value="admin">{tx("Admin")}</option><option value="grower">{tx("Grower")}</option><option value="technician">{tx("Technician")}</option><option value="viewer">{tx("Viewer")}</option></select></td><td>{formatDate(member.joinedAt)}</td><td><div className="nc-member-activity"><span className="nc-settings-status" data-tone={member.online ? 'success' : undefined}><i />{member.online ? tx('Online now') : tx('Offline')}</span>{member.online ? null : <small>{formatLastActivity(member.lastActiveAt)}</small>}</div></td>{canManage ? <td>{canRemoveMember(member) ? <button className="nc-admin-text-danger" disabled={busyKey === `remove-${member.id}`} onClick={() => void removeMember(member)}>{busyKey === `remove-${member.id}` ? tx("Removing…") : tx("Remove")}</button> : <span className="nc-admin-readonly">{tx("Protected")}</span>}</td> : null}</tr>)}{!filteredMembers.length && !loading ? <tr><td colSpan={canManage ? 5 : 4}><div className="nc-settings-empty">{tx("No matching members.")}</div></td></tr> : null}</tbody></table></div>
     </section>
 
     {canManage && invitations.length ? <section className="nc-organization-pending"><header><p>{tx("Pending access")}</p><h2>{tx("Invitations")}</h2><span>{invitations.length} {tx("people have not joined yet.")}</span></header><div>{invitations.map((invitation) => <article key={invitation.id}><i className="fa-regular fa-envelope" /><div><strong>{invitation.email}</strong><span>{invitation.role} {tx("· expires")} {formatDate(invitation.expiresAt)}</span></div><button disabled={busyKey === `revoke-${invitation.id}`} onClick={() => void revokeInvitation(invitation)}>{tx("Revoke")}</button></article>)}</div></section> : null}
