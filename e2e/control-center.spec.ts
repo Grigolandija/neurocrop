@@ -176,9 +176,12 @@ test('Overview turns crop risk into a prioritized, verifiable task', async ({ pa
   await expect(page.locator('.nc-risk-facts')).toContainText('3 / 5 nodes')
   await expect(page.locator('.nc-result-loop')).toContainText('2 improved')
   await page.getByRole('button', { name: 'Start highest-priority task' }).click()
-  await expect(page.getByRole('dialog', { name: /Review 1 affected Section/ })).toBeVisible()
-  await page.getByRole('button', { name: 'Start check' }).click()
-  await expect(page.locator('.nc-action-item')).toHaveAttribute('data-status', 'in-progress')
+  const actionDialog = page.getByRole('dialog', { name: /Recommended checks/ })
+  const priorityAction = actionDialog.locator('.nc-action-item').filter({ hasText: 'CI Section A' })
+  await expect(actionDialog).toBeVisible()
+  await expect(priorityAction).toHaveCount(1)
+  await priorityAction.getByRole('button', { name: 'Start check' }).click()
+  await expect(priorityAction).toHaveAttribute('data-status', 'in-progress')
 })
 
 test('account menus open beside the button that was clicked', async ({ page }) => {
