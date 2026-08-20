@@ -150,7 +150,7 @@ export default function GreenhouseMapTestPage() {
         lastSyncedRef.current = JSON.stringify(next)
         setCanEdit(context.permissions.canEdit)
         setSyncState(context.permissions.canEdit ? 'saved' : 'readonly')
-        setSyncMessage(context.map ? `${tr('Revision', 'Versija')} ${context.revision}` : tr('New Area map · not saved yet', 'Naujas erdvės žemėlapis · dar neišsaugotas'))
+        setSyncMessage(context.map ? tr('Saved', 'Išsaugota') : tr('New Area map · not saved yet', 'Naujas erdvės žemėlapis · dar neišsaugotas'))
       })
       .catch((error) => {
         if (cancelled) return
@@ -184,7 +184,7 @@ export default function GreenhouseMapTestPage() {
       revisionRef.current = result.revision
       lastSyncedRef.current = serialized
       setSyncState('saved')
-      setSyncMessage(`${tr('Revision', 'Versija')} ${result.revision} · ${tr('saved', 'išsaugota')}`)
+      setSyncMessage(tr('Saved', 'Išsaugota'))
       return true
     } catch (error) {
       const message = error instanceof Error ? error.message : tr('Area map could not be saved.', 'Erdvės žemėlapio išsaugoti nepavyko.')
