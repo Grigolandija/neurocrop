@@ -228,9 +228,6 @@ input:checked + .nc-settings-switch::after { transform: translateX(1rem); }
 .nc-admin-person > span { display: grid; width: 2rem; height: 2rem; flex: 0 0 auto; place-items: center; border-radius: .5rem; background: var(--color-info-soft); color: var(--color-info); font-size: var(--type-caption); font-weight: var(--weight-bold); }
 .nc-admin-person strong, .nc-admin-person small { display: block; }
 .nc-admin-person small { margin-top: .1rem; color: var(--color-text-tertiary); font-size: var(--type-caption); }
-.nc-admin-person .nc-member-name { display: flex; align-items: center; gap: var(--space-8); }
-.nc-member-presence-dot { display: block; width: .5rem; height: .5rem; flex: 0 0 auto; border: 2px solid var(--color-surface); border-radius: 50%; background: var(--color-offline); box-shadow: 0 0 0 1px color-mix(in srgb,var(--color-offline) 32%,transparent); }
-.nc-member-presence-dot[data-online="true"] { background: var(--color-success); box-shadow: 0 0 0 2px color-mix(in srgb,var(--color-success) 18%,transparent); }
 .nc-member-activity { display: grid; justify-items: start; gap: var(--space-4); min-width: 10rem; }
 .nc-member-activity > small { color: var(--color-text-tertiary); font-size: var(--type-micro); white-space: nowrap; }
 .nc-admin-user-organizations { display: flex; min-width: 10rem; flex-wrap: wrap; gap: var(--space-4); }
