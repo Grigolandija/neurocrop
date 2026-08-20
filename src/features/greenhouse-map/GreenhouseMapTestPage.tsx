@@ -34,6 +34,7 @@ export default function GreenhouseMapTestPage() {
   const [areaMenuOpen, setAreaMenuOpen] = useState(false)
   const [syncState, setSyncState] = useState<'local' | 'initializing' | 'loading' | 'saved' | 'saving' | 'error' | 'conflict' | 'readonly'>(integrated ? 'initializing' : 'local')
   const [syncMessage, setSyncMessage] = useState('')
+  const [lastSyncedSnapshot, setLastSyncedSnapshot] = useState('')
   const [canEdit, setCanEdit] = useState(!integrated)
   const [areaContext, setAreaContext] = useState<AreaMapContext | null>(null)
   const [loadVersion, setLoadVersion] = useState(0)
@@ -148,6 +149,7 @@ export default function GreenhouseMapTestPage() {
         setEditing(context.permissions.canEdit && !context.map)
         setShowSetupGuide(context.permissions.canEdit && !context.map)
         lastSyncedRef.current = JSON.stringify(next)
+        setLastSyncedSnapshot(lastSyncedRef.current)
         setCanEdit(context.permissions.canEdit)
         setSyncState(context.permissions.canEdit ? 'saved' : 'readonly')
         setSyncMessage(context.map ? tr('Saved', 'Išsaugota') : tr('New Area map · not saved yet', 'Naujas erdvės žemėlapis · dar neišsaugotas'))
@@ -183,6 +185,7 @@ export default function GreenhouseMapTestPage() {
       if (activeAreaIdRef.current !== areaId) return true
       revisionRef.current = result.revision
       lastSyncedRef.current = serialized
+      setLastSyncedSnapshot(serialized)
       setSyncState('saved')
       setSyncMessage(tr('Saved', 'Išsaugota'))
       return true
@@ -428,6 +431,9 @@ export default function GreenhouseMapTestPage() {
   const showLeftPanel = layoutEditable
   const showRightPanel = editor.selected.length > 0
   const activeArea = areas.find((area) => area.id === activeAreaId)
+  const hasUnsavedChanges = integrated && canEdit && Boolean(lastSyncedSnapshot) && JSON.stringify(editor.map) !== lastSyncedSnapshot
+  const displayedSyncState = syncState === 'saved' && hasUnsavedChanges ? 'dirty' : syncState
+  const displayedSyncMessage = displayedSyncState === 'dirty' ? tr('Unsaved changes', 'Neišsaugoti pakeitimai') : syncMessage
   const deletableSelectedCount = editor.selected.filter((object) => object.type !== 'sensor-node' && object.type !== 'section-zone' && !object.locked && !editor.map.layers.find((layer) => layer.id === object.layerId)?.locked).length
   return <div className={`gh-app ${integrated ? 'gh-integrated' : ''} ${inspectorReadOnly ? 'gh-readonly' : ''} ${showLeftPanel ? '' : 'gh-without-left-panel'} ${showRightPanel ? '' : 'gh-without-right-panel'} gh-mobile-${mobilePanel}`}>
     <GreenhouseMapToolbar mode={mode} metric={editor.map.heatmapSettings.metric} snap={editor.snap} editing={layoutEditable} language={language} canUndo={layoutEditable && editor.canUndo} canRedo={layoutEditable && editor.canRedo} selectedCount={layoutEditable ? deletableSelectedCount : 0} duplicableSelectedCount={layoutEditable ? editor.duplicableSelectedCount : 0} canPaste={layoutEditable && editor.canPaste}
@@ -440,7 +446,7 @@ export default function GreenhouseMapTestPage() {
         <button type="button" className="gh-area-trigger" disabled={syncState === 'saving' || syncState === 'loading'} aria-haspopup="listbox" aria-expanded={areaMenuOpen} onClick={() => { moreMenuRef.current?.removeAttribute('open'); setAreaMenuOpen((current) => !current) }}><strong>{activeArea?.name || tr('Select Area', 'Pasirinkite erdvę')}</strong><i className={`fa-solid fa-chevron-${areaMenuOpen ? 'up' : 'down'}`} /></button>
         {areaMenuOpen ? <div className="gh-area-menu" role="listbox" aria-label={tr('Area', 'Erdvė')}>{areas.map((area) => <button type="button" role="option" aria-selected={area.id === activeAreaId} className={area.id === activeAreaId ? 'active' : ''} key={area.id} onClick={() => { setAreaMenuOpen(false); void switchArea(area.id) }}><i className={`fa-solid ${area.id === activeAreaId ? 'fa-check' : 'fa-location-dot'}`} /><span>{area.name}</span></button>)}</div> : null}
       </div></div> : null}
-      <small className={`gh-sync-state ${syncState}`}><i className={`fa-solid ${integrated ? syncState === 'saving' ? 'fa-arrows-rotate fa-spin' : syncState === 'conflict' || syncState === 'error' ? 'fa-triangle-exclamation' : permissionReadOnly ? 'fa-eye' : 'fa-cloud' : 'fa-flask'}`} /> {integrated ? syncState === 'error' || syncState === 'conflict' ? syncMessage : permissionReadOnly ? tr('Read only · live data', 'Tik skaitymui · dabartiniai duomenys') : syncMessage || tr('Changes save automatically', 'Pakeitimai išsaugomi automatiškai') : tr('Local prototype', 'Vietinis prototipas')}</small>
+      <small className={`gh-sync-state ${displayedSyncState}`}><i className={`fa-solid ${integrated ? displayedSyncState === 'saving' ? 'fa-arrows-rotate fa-spin' : displayedSyncState === 'conflict' || displayedSyncState === 'error' ? 'fa-triangle-exclamation' : displayedSyncState === 'dirty' ? 'fa-cloud-arrow-up' : permissionReadOnly ? 'fa-eye' : 'fa-cloud' : 'fa-flask'}`} /> {integrated ? displayedSyncState === 'error' || displayedSyncState === 'conflict' ? displayedSyncMessage : permissionReadOnly ? tr('Read only · live data', 'Tik skaitymui · dabartiniai duomenys') : displayedSyncMessage || tr('Changes save automatically', 'Pakeitimai išsaugomi automatiškai') : tr('Local prototype', 'Vietinis prototipas')}</small>
       {syncState === 'conflict' ? <button onClick={reloadLatest}><i className="fa-solid fa-rotate" /> {tr('Reload latest', 'Įkelti naujausią')}</button> : null}
       {syncState === 'error' ? <button onClick={retrySync}><i className="fa-solid fa-rotate" /> {tr('Retry', 'Bandyti dar kartą')}</button> : null}
       {integrated && !permissionReadOnly ? <button className={editing ? 'gh-edit-active' : ''} onClick={() => void toggleEditing()}><i className={`fa-solid ${editing ? 'fa-eye' : 'fa-pen-ruler'}`} /> {editing ? tr('Finish editing', 'Baigti redagavimą') : tr('Edit map', 'Redaguoti žemėlapį')}</button> : null}

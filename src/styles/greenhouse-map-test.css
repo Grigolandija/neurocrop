@@ -95,6 +95,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-action-strip .gh-sync-state { display: flex; align-items: center; gap: 6px; }
 .gh-action-strip .gh-sync-state.saved { color: #39745a; }
 .gh-action-strip .gh-sync-state.saving { color: #496d60; }
+.gh-action-strip .gh-sync-state.dirty { color: #8a6730; }
 .gh-action-strip .gh-sync-state.error,
 .gh-action-strip .gh-sync-state.conflict { color: #a55343; }
 .gh-action-strip .gh-sync-state.readonly { color: #61758a; }
