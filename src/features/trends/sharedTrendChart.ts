@@ -1,4 +1,5 @@
 import { installEChartsEngine } from '../../vendor/echartsEngine'
+import { numericTrendValue } from './trendData'
 
 export type TrendRangeKey = '24h' | '7d' | '30d'
 
@@ -122,12 +123,11 @@ function seriesColor(series: TrendSeries, metric: TrendMetric, index: number, co
 }
 
 function normalizedPoints(points: TrendPoint[]) {
-  return points
-    .map((point) => ({
-      timestamp: new Date(point.observedAt || point.receivedAt || '').getTime(),
-      value: Number(point.value),
-    }))
-    .filter((point) => Number.isFinite(point.timestamp) && Number.isFinite(point.value))
+  return points.flatMap((point) => {
+    const timestamp = new Date(point.observedAt || point.receivedAt || '').getTime()
+    const value = numericTrendValue(point.value)
+    return Number.isFinite(timestamp) && value !== null ? [{ timestamp, value }] : []
+  })
     .sort((left, right) => left.timestamp - right.timestamp)
 }
 
@@ -378,8 +378,7 @@ export function buildTrendChartOption(input: TrendChartInput) {
         showSymbol: false,
         symbol: 'circle',
         symbolSize: 7,
-        smooth: rangeKey === '24h' ? .32 : false,
-        smoothMonotone: rangeKey === '24h' ? 'x' : undefined,
+        smooth: false,
         connectNulls: false,
         animation: false,
         lineStyle: { width: 2, cap: 'round', join: 'round' },

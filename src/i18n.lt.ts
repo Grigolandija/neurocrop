@@ -912,7 +912,7 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "recorded layout": "istorinis planas",
   "registered nodes": "užregistruoti mazgai",
   "registered sensor nodes": "užregistruoti sensorių mazgai",
-  "section median": "sekcijos mediana",
+  "section average": "sekcijos vidurkis",
   "sections": "sekcijos",
   "selected sections.": "pasirinktos sekcijos.",
   "sensor readings, Areas, Sections, Nodes, crop profiles, and alerts.": "sensorių rodmenys, erdvės, sekcijos, mazgai, kultūrų profiliai ir perspėjimai.",

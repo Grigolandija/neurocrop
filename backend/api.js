@@ -2564,6 +2564,28 @@ function historyPresenceCondition(metric) {
     : 'TRUE';
 }
 
+async function getSectionHistoryScope(sectionId, organizationId, { includeArchived = true } = {}) {
+  const allDevEuis = await getSectionDevEuis(sectionId, organizationId, { includeArchived });
+  if (!allDevEuis.length) return { allDevEuis, contexts: new Map() };
+  const { rows } = await query(
+    `SELECT node_dev_eui, port, medium, target_type, target_name, spatial_scope,
+            depth_cm, height_cm, use_for_section_score, allow_spatial_interpolation
+     FROM node_sensor_configs
+     WHERE organization_id=$1 AND node_dev_eui=ANY($2::text[])`,
+    [organizationId, allDevEuis]
+  );
+  return { allDevEuis, contexts: sensorConfigsByNode(rows) };
+}
+
+function aggregateHistoryDevEuis(scope, metric) {
+  const representativeOnly = metric === 'airTemp' || metric === 'humidity' || metric === 'vpd';
+  if (!representativeOnly) return scope.allDevEuis;
+  return scope.allDevEuis.filter((devEui) => {
+    const context = publicMeasurementContextForMetric(scope.contexts.get(devEui), metric);
+    return context.spatialScope === 'representative' || context.useForSectionScore === true;
+  });
+}
+
 const VPD_SQL_EXPRESSION = `ROUND((
   0.6108::double precision
   * exp((17.27 * temperature::double precision) / (temperature::double precision + 237.3))
@@ -2597,7 +2619,8 @@ app.get('/history', requireAuth, async (req, res) => {
     const stepMinutes = allowedStepMinutes.has(requestedStepMinutes) ? requestedStepMinutes : 5;
     const bucketSeconds = stepMinutes * 60;
 
-    const sectionDevEuis = await getSectionDevEuis(section.id, getOrganizationId(req), { includeArchived: true });
+    const historyScope = await getSectionHistoryScope(section.id, getOrganizationId(req), { includeArchived: true });
+    const sectionDevEuis = historyScope.allDevEuis;
     if (!sectionDevEuis.length) {
       return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
     }
@@ -2608,30 +2631,17 @@ app.get('/history', requireAuth, async (req, res) => {
     if (requestedDevEui && !sectionDevEuis.includes(requestedDevEui)) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node is not assigned to this section' } });
     }
-    const { rows: historyContextRows } = await query(
-      `SELECT node_dev_eui, port, medium, target_type, target_name, spatial_scope,
-              depth_cm, height_cm, use_for_section_score, allow_spatial_interpolation
-       FROM node_sensor_configs
-       WHERE organization_id=$1 AND node_dev_eui=ANY($2::text[])`,
-      [getOrganizationId(req), sectionDevEuis]
-    );
-    const historyContexts = sensorConfigsByNode(historyContextRows);
+    const historyContexts = historyScope.contexts;
     const contextForNode = (devEui) => publicMeasurementContextForMetric(historyContexts.get(devEui), metric);
     const requestedMeasurementContext = requestedDevEui ? contextForNode(requestedDevEui) : null;
-    const isIntegratedAirMetric = metric === 'airTemp' || metric === 'humidity' || metric === 'vpd';
     const devEuis = requestedDevEui
       ? [requestedDevEui]
-      : isIntegratedAirMetric
-        ? sectionDevEuis.filter((devEui) => {
-          const context = contextForNode(devEui);
-          return context.spatialScope === 'representative' || context.useForSectionScore === true;
-        })
-        : sectionDevEuis;
+      : aggregateHistoryDevEuis(historyScope, metric);
 
     if (!devEuis.length) {
       return res.json({
         sectionId, devEui: null, metric, unit: METRIC_UNITS[metric] || '',
-        aggregation: `section_${metric === 'lux' ? 'peak' : 'median'}_${stepMinutes}m`,
+        aggregation: `section_${metric === 'lux' ? 'peak' : 'average'}_${stepMinutes}m`,
         stepMinutes, points: [], revision: `history-${Date.now()}`
       });
     }
@@ -2648,20 +2658,36 @@ app.get('/history', requireAuth, async (req, res) => {
         detectedLate: false
       }));
     } else if (metric === 'vpd') {
-      const { rows } = await query(
-        `SELECT ${bucketExpression} AS observed_at,
-                percentile_cont(0.5) WITHIN GROUP (ORDER BY ${VPD_SQL_EXPRESSION}) AS value
-         FROM measurements
-         WHERE dev_eui = ANY($1)
-           AND time BETWEEN $2 AND $3
-           AND temperature IS NOT NULL
-           AND humidity IS NOT NULL
-           AND ${historicalSensorPresenceCondition('sht45')}
-           AND ${validVpdSqlCondition()}
-         GROUP BY observed_at
-         ORDER BY observed_at ASC`,
-        [devEuis, from, to]
-      );
+      const { rows } = await query(requestedDevEui
+        ? `SELECT ${bucketExpression} AS observed_at,
+                  percentile_cont(0.5) WITHIN GROUP (ORDER BY ${VPD_SQL_EXPRESSION}) AS value
+           FROM measurements
+           WHERE dev_eui = ANY($1)
+             AND time BETWEEN $2 AND $3
+             AND temperature IS NOT NULL
+             AND humidity IS NOT NULL
+             AND ${historicalSensorPresenceCondition('sht45')}
+             AND ${validVpdSqlCondition()}
+           GROUP BY observed_at
+           ORDER BY observed_at ASC`
+        : `WITH node_values AS (
+             SELECT ${bucketExpression} AS observed_at,
+                    dev_eui,
+                    AVG(${VPD_SQL_EXPRESSION}) AS value
+             FROM measurements
+             WHERE dev_eui = ANY($1)
+               AND time BETWEEN $2 AND $3
+               AND temperature IS NOT NULL
+               AND humidity IS NOT NULL
+               AND ${historicalSensorPresenceCondition('sht45')}
+               AND ${validVpdSqlCondition()}
+             GROUP BY observed_at, dev_eui
+           )
+           SELECT observed_at, AVG(value) AS value
+           FROM node_values
+           GROUP BY observed_at
+           ORDER BY observed_at ASC`,
+        [devEuis, from, to]);
       points = rows.map((row) => ({
         observedAt: row.observed_at,
         receivedAt: row.observed_at,
@@ -2670,23 +2696,37 @@ app.get('/history', requireAuth, async (req, res) => {
       }));
     } else {
       const presence = historyPresenceCondition(metric);
-      // A median is correct for climate signals, but it hides the short light
-      // peaks that growers need to assess a photoperiod and lamp output.
+      // Section history gives every reporting Node equal weight. Light remains
+      // a peak signal because averaging would hide short photoperiod events.
       const aggregation = metric === 'lux'
         ? `MAX(${column})`
         : `percentile_cont(0.5) WITHIN GROUP (ORDER BY ${column})`;
-      const { rows } = await query(
-        `SELECT ${bucketExpression} AS observed_at,
-                ${aggregation} AS value
-         FROM measurements
-         WHERE dev_eui = ANY($1)
-           AND time BETWEEN $2 AND $3
-           AND ${column} IS NOT NULL
-           AND ${presence}
-         GROUP BY observed_at
-         ORDER BY observed_at ASC`,
-        [devEuis, from, to]
-      );
+      const { rows } = await query(!requestedDevEui && metric !== 'lux'
+        ? `WITH node_values AS (
+             SELECT ${bucketExpression} AS observed_at,
+                    dev_eui,
+                    AVG(${column}) AS value
+             FROM measurements
+             WHERE dev_eui = ANY($1)
+               AND time BETWEEN $2 AND $3
+               AND ${column} IS NOT NULL
+               AND ${presence}
+             GROUP BY observed_at, dev_eui
+           )
+           SELECT observed_at, AVG(value) AS value
+           FROM node_values
+           GROUP BY observed_at
+           ORDER BY observed_at ASC`
+        : `SELECT ${bucketExpression} AS observed_at,
+                  ${aggregation} AS value
+           FROM measurements
+           WHERE dev_eui = ANY($1)
+             AND time BETWEEN $2 AND $3
+             AND ${column} IS NOT NULL
+             AND ${presence}
+           GROUP BY observed_at
+           ORDER BY observed_at ASC`,
+        [devEuis, from, to]);
       points = rows.map((row) => ({
         observedAt: row.observed_at,
         receivedAt: row.observed_at,
@@ -2701,7 +2741,7 @@ app.get('/history', requireAuth, async (req, res) => {
       measurementContext: requestedMeasurementContext,
       metric,
       unit: METRIC_UNITS[metric] || '',
-      aggregation: `${requestedDevEui ? 'node' : metric === 'lux' ? 'section_peak' : 'section_median'}_${stepMinutes}m`,
+      aggregation: `${requestedDevEui ? 'node' : metric === 'lux' ? 'section_peak' : 'section_average'}_${stepMinutes}m`,
       stepMinutes,
       points,
       revision: `history-${Date.now()}`
@@ -2763,14 +2803,20 @@ async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes, o
 
   if (metric === 'vpd') {
     const { rows } = await query(
-      `SELECT ${bucketExpression} AS observed_at,
-              percentile_cont(0.5) WITHIN GROUP (ORDER BY ${VPD_SQL_EXPRESSION}) AS value
-       FROM measurements
-       WHERE dev_eui = ANY($1)
-         AND time BETWEEN $2 AND $3
-         AND temperature IS NOT NULL AND humidity IS NOT NULL
-         AND ${historicalSensorPresenceCondition('sht45')}
-         AND ${validVpdSqlCondition()}
+      `WITH node_values AS (
+         SELECT ${bucketExpression} AS observed_at,
+                dev_eui,
+                AVG(${VPD_SQL_EXPRESSION}) AS value
+         FROM measurements
+         WHERE dev_eui = ANY($1)
+           AND time BETWEEN $2 AND $3
+           AND temperature IS NOT NULL AND humidity IS NOT NULL
+           AND ${historicalSensorPresenceCondition('sht45')}
+           AND ${validVpdSqlCondition()}
+         GROUP BY observed_at, dev_eui
+       )
+       SELECT observed_at, AVG(value) AS value
+       FROM node_values
        GROUP BY observed_at
        ORDER BY observed_at ASC`,
       [devEuis, from, to]
@@ -2779,20 +2825,32 @@ async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes, o
   }
 
   const presence = historyPresenceCondition(metric);
-  const aggregation = metric === 'lux' && options.luxAggregation !== 'median'
-    ? `MAX(${column})`
-    : `percentile_cont(0.5) WITHIN GROUP (ORDER BY ${column})`;
-  const { rows } = await query(
-    `SELECT ${bucketExpression} AS observed_at, ${aggregation} AS value
-     FROM measurements
-     WHERE dev_eui = ANY($1)
-       AND time BETWEEN $2 AND $3
-       AND ${column} IS NOT NULL
-       AND ${presence}
-     GROUP BY observed_at
-     ORDER BY observed_at ASC`,
-    [devEuis, from, to]
-  );
+  const useLuxPeak = metric === 'lux' && options.luxAggregation !== 'average';
+  const { rows } = await query(useLuxPeak
+    ? `SELECT ${bucketExpression} AS observed_at, MAX(${column}) AS value
+       FROM measurements
+       WHERE dev_eui = ANY($1)
+         AND time BETWEEN $2 AND $3
+         AND ${column} IS NOT NULL
+         AND ${presence}
+       GROUP BY observed_at
+       ORDER BY observed_at ASC`
+    : `WITH node_values AS (
+         SELECT ${bucketExpression} AS observed_at,
+                dev_eui,
+                AVG(${column}) AS value
+         FROM measurements
+         WHERE dev_eui = ANY($1)
+           AND time BETWEEN $2 AND $3
+           AND ${column} IS NOT NULL
+           AND ${presence}
+         GROUP BY observed_at, dev_eui
+       )
+       SELECT observed_at, AVG(value) AS value
+       FROM node_values
+       GROUP BY observed_at
+       ORDER BY observed_at ASC`,
+    [devEuis, from, to]);
   return rows.map((row) => ({ observedAt: row.observed_at, value: Number(row.value) }));
 }
 
@@ -2881,8 +2939,9 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
     );
     const rule = metricAnalyticsRule(metric, profileRows[0]?.metrics || {});
     if (!rule) return res.status(400).json({ error: { code: 'UNCONFIGURED_METRIC', message: 'This metric has no profile ranges' } });
-    const devEuis = await getSectionDevEuis(section.id, organizationId, { includeArchived: true });
-    if (!devEuis.length) return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
+    const historyScope = await getSectionHistoryScope(section.id, organizationId, { includeArchived: true });
+    if (!historyScope.allDevEuis.length) return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
+    const devEuis = aggregateHistoryDevEuis(historyScope, metric);
     timing.mark('setup', 'section and profile');
 
     const pointsPromise = measureAnalyticsSource(
@@ -2891,7 +2950,7 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
     const heatmapPointsPromise = stepMinutes === 60
       ? pointsPromise
       : measureAnalyticsSource(() => getMetricHistoryBuckets(devEuis, metric, from, to, 60));
-    const eventsPromise = measureAnalyticsSource(() => getTelemetryEvents(devEuis, from, to));
+    const eventsPromise = measureAnalyticsSource(() => getTelemetryEvents(historyScope.allDevEuis, from, to));
     const [pointsResult, heatmapResult, eventsResult] = await Promise.all([
       pointsPromise,
       heatmapPointsPromise,
@@ -2911,9 +2970,14 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
     const minutesByState = { optimal: 0, warning: 0, critical: 0 };
     points.forEach((point) => {
       const state = analyticsStateForValue(point.value, rule);
-      if (state in minutesByState) minutesByState[state] += stepMinutes;
+      const bucketStart = new Date(point.observedAt).getTime();
+      const bucketEnd = bucketStart + stepMinutes * 60_000;
+      const coveredStart = Math.max(from.getTime(), bucketStart);
+      const coveredEnd = Math.min(to.getTime(), bucketEnd);
+      const coveredBucketMinutes = Math.max(0, (coveredEnd - coveredStart) / 60_000);
+      if (state in minutesByState) minutesByState[state] += coveredBucketMinutes;
     });
-    const expectedMinutes = Math.ceil((to.getTime() - from.getTime()) / 60000 / stepMinutes) * stepMinutes;
+    const expectedMinutes = (to.getTime() - from.getTime()) / 60_000;
     const coveredMinutes = Object.values(minutesByState).reduce((total, value) => total + value, 0);
     timing.mark('compute', 'analytics model');
 
@@ -2996,14 +3060,21 @@ app.get('/analytics/dynamics', requireAuth, async (req, res) => {
       [organizationId, section.crop_profile]
     );
     const profileMetrics = profileRows[0]?.metrics || {};
-    const devEuis = await getSectionDevEuis(section.id, organizationId);
-    if (!devEuis.length) return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
+    const historyScope = await getSectionHistoryScope(section.id, organizationId, { includeArchived: false });
+    if (!historyScope.allDevEuis.length) return res.status(404).json({ error: { code: 'NO_NODES', message: 'No nodes registered in this section' } });
 
     const metricIds = Object.keys(profileMetrics)
       .filter((metricId) => metricId !== 'batteryLevel' && (METRIC_TO_COLUMN[metricId] || metricId === 'vpd'));
     const histories = Object.fromEntries(await Promise.all(metricIds.map(async (metricId) => [
       metricId,
-      await getMetricHistoryBuckets(devEuis, metricId, from, to, stepMinutes, { luxAggregation: 'median' })
+      await getMetricHistoryBuckets(
+        aggregateHistoryDevEuis(historyScope, metricId),
+        metricId,
+        from,
+        to,
+        stepMinutes,
+        { luxAggregation: 'average' }
+      )
     ])));
     const metrics = Object.fromEntries(metricIds.map((metricId) => [
       metricId,
@@ -3116,10 +3187,10 @@ app.get('/analytics/site-comparison', requireAuth, async (req, res) => {
       [organizationId, areaId, requestedSectionIds]
     );
     if (!sectionRows.length) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No matching zones found' } });
-    const devEuisBySection = await Promise.all(sectionRows.map(async (section) => ({
-      section,
-      devEuis: await getSectionDevEuis(section.id, organizationId, { includeArchived: true })
-    })));
+    const devEuisBySection = await Promise.all(sectionRows.map(async (section) => {
+      const historyScope = await getSectionHistoryScope(section.id, organizationId, { includeArchived: true });
+      return { section, devEuis: aggregateHistoryDevEuis(historyScope, metric) };
+    }));
     const series = await Promise.all(devEuisBySection.filter((item) => item.devEuis.length).map(async ({ section, devEuis }) => ({
       sectionId: section.id,
       sectionName: section.name,

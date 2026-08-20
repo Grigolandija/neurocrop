@@ -41,12 +41,12 @@ export async function getMeasurementRollupSeries(
   )`;
   const alignedFrom = new Date(Math.floor(from.getTime() / (sourceSeconds * 1000)) * sourceSeconds * 1000);
   const valueExpression = `SUM(rollup.${columns[0]}) / NULLIF(SUM(rollup.${columns[1]}), 0)`;
-  const nodeValue = metric === 'lux' && options.luxAggregation !== 'median'
+  const nodeValue = metric === 'lux' && options.luxAggregation !== 'average'
     ? 'peak_value'
     : 'average_value';
-  const sectionAggregation = metric === 'lux' && options.luxAggregation !== 'median'
+  const sectionAggregation = metric === 'lux' && options.luxAggregation !== 'average'
     ? `MAX(${nodeValue})`
-    : `percentile_cont(0.5) WITHIN GROUP (ORDER BY ${nodeValue})`;
+    : `AVG(${nodeValue})`;
 
   const { rows } = await query(
     `WITH node_values AS (

@@ -62,10 +62,11 @@ describe('shared trend chart', () => {
         points: [
           point(10, 20),
           { observedAt: 'invalid', value: 999 },
+          { observedAt: '2026-07-26T10:30:00.000Z', value: null as unknown as number },
           point(11, 21),
         ],
       }],
-    }) as unknown as { series: Array<{ data: Array<[number, number, number]> }> }
+    }) as unknown as { series: Array<{ data: Array<[number, number, number]>; smooth: boolean }> }
 
     expect(option.series[0].data.map((entry) => entry[2])).toEqual([20, 21])
   })
@@ -76,10 +77,11 @@ describe('shared trend chart', () => {
       rangeKey: '24h',
       target: [18, 22],
       series: [{ name: 'Section', points: [point(10, 16.1), point(11, 15.6), point(12, 15.2)] }],
-    }) as unknown as { series: Array<{ data: Array<[number, number, number]> }> }
+    }) as unknown as { series: Array<{ data: Array<[number, number, number]>; smooth: boolean }> }
 
     expect(option.series[0].data.map((entry) => entry[1])).toEqual([16.1, 15.6, 15.2])
     expect(option.series[0].data.map((entry) => entry[2])).toEqual([16.1, 15.6, 15.2])
+    expect(option.series[0].smooth).toBe(false)
   })
 
   it('builds separate grey night intervals around the configured daytime', () => {

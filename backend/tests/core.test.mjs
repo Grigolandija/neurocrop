@@ -260,6 +260,19 @@ test('measurement rollups select the smallest supported stored resolution', () =
   assert.equal(measurementRollupAverageSql('unknown'), null);
 });
 
+test('Trends Section history uses an equally weighted Node average', () => {
+  const apiSource = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const rollupSource = fs.readFileSync(new URL('../measurement-rollups.js', import.meta.url), 'utf8');
+  assert.match(apiSource, /WITH node_values AS \([\s\S]*GROUP BY observed_at, dev_eui[\s\S]*SELECT observed_at, AVG\(value\) AS value/);
+  assert.match(apiSource, /section_average/);
+  assert.doesNotMatch(apiSource, /section_median/);
+  assert.match(apiSource, /aggregateHistoryDevEuis\(historyScope, metric\)/);
+  assert.match(apiSource, /getTelemetryEvents\(historyScope\.allDevEuis/);
+  assert.match(rollupSource, /sectionAggregation[\s\S]*AVG\(\$\{nodeValue\}\)/);
+  assert.match(apiSource, /coveredBucketMinutes = Math\.max\(0,/);
+  assert.match(apiSource, /expectedMinutes = \(to\.getTime\(\) - from\.getTime\(\)\) \/ 60_000/);
+});
+
 test('measurement presence remains compatible with older firmware without converting null to zero', () => {
   const source = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   assert.match(source, /normalizeTelemetryBoolean\(measurement\?\.raw_object\?\.sensors/);
@@ -652,7 +665,7 @@ test('sensor measurement contexts control Section evaluation without deleting ra
   assert.match(api, /pointSensors/);
   assert.match(api, /source\.measurementContext\.useForSectionScore === true/);
   assert.match(api, /isIntegratedAirMetric/);
-  assert.match(api, /: sectionDevEuis;/);
+  assert.match(api, /aggregateHistoryDevEuis\(historyScope, metric\)/);
   assert.match(api, /measurementContext: requestedMeasurementContext/);
   assert.match(api, /measurementForSectionEvaluation\(latestByDevEui\.get\(devEui\)/);
   assert.match(api, /config\.use_for_section_score !== false/);
@@ -1229,7 +1242,7 @@ test('crop risk detector finds an uneven zone even when its average can look acc
 test('uniformity uses practical per-metric warning and critical limits', () => {
   assert.deepEqual(uniformityLimits('airTemp', [18, 23]), { warning: 2, critical: 3, recovery: 1.6 });
   assert.deepEqual(uniformityLimits('humidity', [65, 78]), { warning: 8, critical: 12, recovery: 6.4 });
-  assert.deepEqual(uniformityLimits('vpd', [0.6, 1]), { warning: 0.3, critical: 0.5, recovery: 0.24 });
+  assert.deepEqual(uniformityLimits('vpd', [0.6, 1]), { warning: 0.4, critical: 0.6, recovery: 0.32 });
   assert.deepEqual(uniformityLimits('co2', [650, 950]), { warning: 200, critical: 350, recovery: 160 });
 });
 

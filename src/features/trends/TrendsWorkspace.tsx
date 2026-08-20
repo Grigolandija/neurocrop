@@ -7,6 +7,7 @@ import { ModalPortal } from '../../components/ModalPortal'
 import { getMetricDefinition } from '../../domain/metricRegistry'
 import { consumeTrendIntent, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { resolveTrendContext } from './resolveTrendContext'
+import { normalizeTrendPoints, numericTrendValue } from './trendData'
 import { installEChartsEngine } from '../../vendor/echartsEngine'
 import {
   buildNightIntervals,
@@ -184,8 +185,31 @@ const exportMeasurementFields: Record<string, string> = {
   waterTemperatureC: 'waterTemp',
 }
 
+const sensorMetricKeys: Record<string, string[]> = {
+  sht45: ['airTemp', 'humidity', 'vpd'],
+  sht4x: ['airTemp', 'humidity', 'vpd'],
+  internal: ['airTemp', 'humidity', 'vpd'],
+  scd4x: ['co2'],
+  scd41: ['co2'],
+  i2c: ['co2'],
+  bh1750: ['lux'],
+  ds18b20: ['soilTemp'],
+  onewire: ['soilTemp'],
+  leaf_temperature_probe: ['leafTemp'],
+  soil_moisture_probe: ['soilMoisture'],
+  soil_ec_probe: ['soilEc'],
+  ec_probe: ['ec'],
+  ph_probe: ['ph'],
+  water_temperature_probe: ['waterTemp'],
+}
+
 function exportNodeMetrics(node: JsonRecord) {
   const available = new Set<string>()
+  const detectedSensors = Array.isArray(node.sensors) ? node.sensors.map(String) : []
+  detectedSensors.forEach((sensor) => sensorMetricKeys[sensor]?.forEach((metric) => available.add(metric)))
+  Object.keys(node.measurementContexts || node.measurement_contexts || {}).forEach((sensor) =>
+    sensorMetricKeys[sensor]?.forEach((metric) => available.add(metric)),
+  )
   const measurements = node.measurements && typeof node.measurements === 'object' ? node.measurements as JsonRecord : {}
   Object.entries(exportMeasurementFields).forEach(([field, key]) => {
     if (number(measurements[field]) !== null) available.add(key)
@@ -251,8 +275,7 @@ function normalizeExportMap(payload: JsonRecord): Omit<ExportMapState, 'status' 
 }
 
 function number(value: unknown) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
+  return numericTrendValue(value)
 }
 
 function format(value: number | null, metric: Metric) {
@@ -320,15 +343,11 @@ function sectionList(dashboard: JsonRecord, areaPayload: JsonRecord, sectionPayl
 }
 
 function historyPoints(payload: JsonRecord): Point[] {
-  return arrays(payload, ['points', 'items', 'history']).map((point) => ({
-    observedAt: String(point.observedAt || point.receivedAt || point.time || ''),
-    value: Number(point.value),
-  })).filter((point) => point.observedAt && Number.isFinite(point.value))
-    .sort((left, right) => new Date(left.observedAt).getTime() - new Date(right.observedAt).getTime())
+  return normalizeTrendPoints(arrays(payload, ['points', 'items', 'history']))
 }
 
 function sectionAggregationLabel(aggregation: string | undefined) {
-  return String(aggregation || '').startsWith('section_peak_') ? 'section peak' : 'section median'
+  return String(aggregation || '').startsWith('section_peak_') ? 'section peak' : 'section average'
 }
 
 function profileRange(profiles: JsonRecord[], profileId: string, metricKey: string): [number, number] | null {
@@ -339,14 +358,18 @@ function profileRange(profiles: JsonRecord[], profileId: string, metricKey: stri
   return minimum === null || maximum === null ? null : [minimum, maximum]
 }
 
-function profileDayNightSchedule(profiles: JsonRecord[], profileId: string): TrendDayNightSchedule {
+function profileDayNightSchedule(profiles: JsonRecord[], profileId: string): TrendDayNightSchedule | undefined {
   const profile = profiles.find((item) => String(item.id || item.profileId) === profileId)
   const schedule = profile?.metrics?.lux?.lightingSchedule
-  const validClock = (value: unknown, fallback: string) =>
-    typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : fallback
+  if (schedule?.enabled !== true) return undefined
+  const validClock = (value: unknown) =>
+    typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : null
+  const dayStartsAt = validClock(schedule.start)
+  const dayEndsAt = validClock(schedule.end)
+  if (!dayStartsAt || !dayEndsAt || dayStartsAt === dayEndsAt) return undefined
   return {
-    dayStartsAt: validClock(schedule?.start, '06:00'),
-    dayEndsAt: validClock(schedule?.end, '22:00'),
+    dayStartsAt,
+    dayEndsAt,
     timeZone: typeof schedule?.timeZone === 'string' && schedule.timeZone
       ? schedule.timeZone
       : 'Europe/Vilnius',
@@ -376,7 +399,7 @@ function trendSummary(points: Point[], target: [number, number] | null, metric: 
   const distance = above ? current - target[1] : target[0] - current
   return {
     tone: recovering ? 'watch' : 'critical',
-    title: recovering ? 'Outside target, but moving toward recovery' : `Persistent ${above ? 'high' : 'low'} condition`,
+    title: recovering ? 'Outside target, but moving toward recovery' : `Currently ${above ? 'above' : 'below'} target`,
     body: `${metric.label} is ${format(distance, metric)} ${metric.unit} ${above ? 'above' : 'below'} target and is ${movement} across this period.`,
   }
 }
@@ -413,7 +436,7 @@ class TrendChartErrorBoundary extends Component<{ children: ReactNode }, { faile
   }
 }
 
-function TrendChart({ series, metric, target, range, dayNightSchedule }: { series: ChartInput[]; metric: Metric; target: [number, number] | null; range: RangeKey; dayNightSchedule: TrendDayNightSchedule }) {
+function TrendChart({ series, metric, target, range, dayNightSchedule }: { series: ChartInput[]; metric: Metric; target: [number, number] | null; range: RangeKey; dayNightSchedule?: TrendDayNightSchedule }) {
   const ref = useRef<HTMLDivElement>(null)
   const { language } = useInterfaceLanguage()
   useEffect(() => {
@@ -434,7 +457,7 @@ function TrendChart({ series, metric, target, range, dayNightSchedule }: { serie
   return <div className="nc-trends-chart" ref={ref} role="img" aria-label={`${metric.label}, ${range} trend`} />
 }
 
-function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricChartInput[]; range: RangeKey; dayNightSchedule: TrendDayNightSchedule }) {
+function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricChartInput[]; range: RangeKey; dayNightSchedule?: TrendDayNightSchedule }) {
   const ref = useRef<HTMLDivElement>(null)
   const [renderFailed, setRenderFailed] = useState(false)
   const { language } = useInterfaceLanguage()
@@ -472,7 +495,7 @@ function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricCha
       item.points.map((point) => new Date(point.observedAt).getTime()).filter(Number.isFinite),
     )
     const timestampExtent = finiteExtent(timestamps)
-    const nightAreas = timestampExtent
+    const nightAreas = dayNightSchedule && timestampExtent
       ? nightMarkAreaData(buildNightIntervals(
           timestampExtent[0],
           timestampExtent[1],
@@ -563,8 +586,7 @@ function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricCha
           xAxisIndex: stacked ? index : 0,
           yAxisIndex: index,
           showSymbol: false,
-          smooth: range === '24h' ? .32 : false,
-          smoothMonotone: range === '24h' ? 'x' : undefined,
+          smooth: false,
           connectNulls: false,
           animation: false,
           lineStyle: { width: 2, cap: 'round', join: 'round' },
@@ -639,6 +661,8 @@ export default function TrendsWorkspace() {
   const [metricHistories, setMetricHistories] = useState<Record<string, Point[]>>({})
   const [metricAggregations, setMetricAggregations] = useState<Record<string, string>>({})
   const [comparison, setComparison] = useState<ChartInput[]>([])
+  const [comparisonStatus, setComparisonStatus] = useState<LoadState>('empty')
+  const [comparisonError, setComparisonError] = useState('')
   const [analytics, setAnalytics] = useState<JsonRecord | null>(null)
   const [status, setStatus] = useState<LoadState>('loading')
   const [error, setError] = useState('')
@@ -692,6 +716,26 @@ export default function TrendsWorkspace() {
     () => profileDayNightSchedule(profiles, selectedSection?.profileId || ''),
     [profiles, selectedSection?.profileId],
   )
+  const comparisonTarget = useMemo(() => {
+    if (!compare || comparisonIds.length < 2) return null
+    const ranges = comparisonIds.map((id) => {
+      const section = sections.find((item) => item.id === id)
+      return profileRange(profiles, section?.profileId || '', metricKey)
+    })
+    const first = ranges[0]
+    return first && ranges.every((range) => range?.[0] === first[0] && range?.[1] === first[1]) ? first : null
+  }, [compare, comparisonIds, metricKey, profiles, sections])
+  const comparisonDayNightSchedule = useMemo(() => {
+    if (!compare || comparisonIds.length < 2) return undefined
+    const schedules = comparisonIds.map((id) => {
+      const section = sections.find((item) => item.id === id)
+      return profileDayNightSchedule(profiles, section?.profileId || '')
+    })
+    const first = schedules[0]
+    return first && schedules.every((schedule) => JSON.stringify(schedule) === JSON.stringify(first)) ? first : undefined
+  }, [compare, comparisonIds, profiles, sections])
+  const chartTarget = compare ? comparisonTarget : target
+  const chartDayNightSchedule = compare ? comparisonDayNightSchedule : dayNightSchedule
 
   useEffect(() => {
     function closeNodeMenuOnOutsidePointerDown(event: PointerEvent) {
@@ -884,7 +928,7 @@ export default function TrendsWorkspace() {
       setMetricAggregations(nextAggregations)
       setPoints(nextPoints)
       setAnalytics(analyticsPayload as JsonRecord)
-      setStatus(nextPoints.length > 1 ? 'ready' : 'empty')
+      setStatus(requestedMetricKeys.some((key) => (nextHistories[key]?.length || 0) > 1) ? 'ready' : 'empty')
       setUpdatedAt(new Date())
     }).catch((reason) => {
       if (!active) return
@@ -917,13 +961,23 @@ export default function TrendsWorkspace() {
 
   useEffect(() => {
     if (!compare || !selectedSection || comparisonIds.length < 2) {
-      queueMicrotask(() => setComparison([]))
+      queueMicrotask(() => {
+        setComparison([])
+        setComparisonStatus('empty')
+        setComparisonError('')
+      })
       return
     }
     const config = rangeConfig[range]
     const to = new Date()
     const from = new Date(to.getTime() - config.hours * 60 * 60 * 1000)
     let active = true
+    queueMicrotask(() => {
+      if (!active) return
+      setComparison([])
+      setComparisonStatus('loading')
+      setComparisonError('')
+    })
     neurocropApi.getSiteComparison({
       areaId: selectedSection.areaId,
       metric: metricKey,
@@ -939,7 +993,14 @@ export default function TrendsWorkspace() {
         color: chartColors[index % chartColors.length],
       }))
       setComparison(series)
-    }).catch(() => { if (active) setComparison([]) })
+      setComparisonStatus(series.filter((item) => item.points.length > 1).length >= 2 ? 'ready' : 'empty')
+      setUpdatedAt(new Date())
+    }).catch((reason) => {
+      if (!active) return
+      setComparison([])
+      setComparisonStatus('error')
+      setComparisonError(reason instanceof Error ? reason.message : 'Section comparison could not be loaded.')
+    })
     return () => { active = false }
   }, [compare, comparisonIds, metricKey, range, selectedSection])
 
@@ -1072,16 +1133,45 @@ export default function TrendsWorkspace() {
     ? Math.min(100, Math.max(0, Math.round(optimalMinutes / expectedMinutes * 100)))
     : null
   const coveragePct = expectedMinutes ? Math.min(100, Math.round(coveredMinutes / expectedMinutes * 100)) : null
-  const showMeasuredConclusion = scope === 'section' && !compare && activeMetricKeys.length === 1 && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
+  const showSingleSectionAnalysis = scope === 'section' && !compare && activeMetricKeys.length === 1
+  const showMeasuredConclusion = showSingleSectionAnalysis && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
   const events = Array.isArray(analytics?.events) ? analytics.events.slice(-6).reverse() : []
   const eventNodeNames = new Map(sectionNodes.map((node) => [node.devEui.toLowerCase(), node.name]))
-  const selectedAggregationLabel = sectionAggregationLabel(metricAggregations[metricKey])
+  const selectedAggregationKey = sectionAggregationLabel(metricAggregations[metricKey])
+  const selectedAggregationLabel = tx(selectedAggregationKey)
   const sectionSeries = { name: `${selectedSection?.name || 'Selected section'} · ${selectedAggregationLabel}`, points, color: chartColors[0] }
   const chartSeries = scope === 'nodes'
     ? showSectionAggregate ? [sectionSeries, ...nodeSeries] : nodeSeries
     : compare && comparison.length > 1
       ? comparison
       : [sectionSeries]
+  const chartHasData = chartSeries.some((series) => series.points.length > 1)
+  const chartStatus: LoadState = scope === 'nodes'
+    ? status === 'loading' || nodeHistoryLoading
+      ? 'loading'
+      : chartHasData
+        ? 'ready'
+        : nodeHistoryError ? 'error' : 'empty'
+    : compare ? comparisonStatus : status
+  const chartError = compare ? comparisonError : scope === 'nodes' ? nodeHistoryError : error
+  const chartEmptyTitle = !selectedSection
+    ? tx("Select an Area and Section")
+    : chartStatus === 'loading'
+      ? tx("Loading measured history")
+      : chartStatus === 'error'
+        ? tx("History could not be loaded")
+        : compare
+          ? tx("Select at least two Sections with measured history")
+          : scope === 'nodes'
+            ? tx("No measurements for the selected Nodes and parameter")
+            : tx("Not enough measurements yet")
+  const chartEmptyDetail = !selectedSection
+    ? tx("Trend data is shown only for an explicitly selected Section.")
+    : chartError || (compare
+      ? tx("At least two Sections need measured points in this period.")
+      : scope === 'nodes'
+        ? tx("Choose different Nodes, parameter, or period.")
+        : tx("At least two measured points are required to draw a trend."))
   const metricChartItems = useMemo(() => activeMetricKeys.map((key, index) => {
     const metric = metrics.find((item) => item.key === key) || metrics[0]
     return {
@@ -1106,6 +1196,8 @@ export default function TrendsWorkspace() {
     setScope('section')
     setCompare(false)
     setComparison([])
+    setComparisonStatus('empty')
+    setComparisonError('')
     setComparisonIds([])
     setNodeSeries([])
     setPoints([])
@@ -1237,7 +1329,7 @@ export default function TrendsWorkspace() {
     }
   }
 
-  return <main className="nc-trends-page" aria-busy={status === 'loading' || nodeHistoryLoading}>
+  return <main className="nc-trends-page" aria-busy={chartStatus === 'loading'}>
     <header className="nc-trends-head">
       <div><p>{tx("Historical intelligence")}</p><h1>{tx("Trends")}</h1><span>{tx("See what changed, how long conditions stayed outside target, and whether intervention is working.")}</span></div>
       <div className="nc-trends-head-actions">
@@ -1341,35 +1433,35 @@ export default function TrendsWorkspace() {
     </section>
 
     {compare ? <section className="nc-trends-comparison-picker"><div><strong>{tx("Compare Sections")}</strong><span>{tx("Select 2–6 Sections in")} {selectedSection?.areaName}.</span></div><div>{sections.filter((section) => section.areaId === selectedSection?.areaId && section.available.has(metricKey)).map((section) => <label key={section.id}><input type="checkbox" checked={comparisonIds.includes(section.id)} onChange={() => toggleComparison(section.id)} /><span>{section.name}</span></label>)}</div></section> : null}
-    <section className="nc-trends-kpis">
+    {showSingleSectionAnalysis ? <section className="nc-trends-kpis">
       <article><small>{tx("Current")}</small><strong>{format(current, selectedMetric)} <em>{selectedMetric.unit}</em></strong><span>{target ? `Target ${format(target[0], selectedMetric)}–${format(target[1], selectedMetric)} ${selectedMetric.unit}` :tx("Target not configured")}</span></article>
       <article data-tone={delta === null ? 'neutral' : 'info'}><small>{tx("Period change")}</small><strong>{delta === null ? '—' : `${delta > 0 ? '+' : ''}${format(delta, selectedMetric)}`} <em>{delta === null ? '' : selectedMetric.unit}</em></strong><span>{rangeConfig[range].label}</span></article>
       <article><small>{tx("Observed range")}</small><strong>{format(minimum, selectedMetric)}–{format(maximum, selectedMetric)} <em>{selectedMetric.unit}</em></strong><span>{tx("Minimum to maximum")}</span></article>
-      <article data-tone={targetPct !== null && targetPct >= 80 ? 'good' : targetPct !== null && targetPct >= 50 ? 'watch' : 'critical'}><small>{tx("Time in target")}</small><strong>{targetPct === null ? '—' : `${targetPct}%`}</strong><span>{coveragePct === null ?tx("No coverage result") : `${coveragePct}% sensor coverage`}</span></article>
-    </section>
+      <article data-tone={targetPct === null ? 'neutral' : targetPct >= 80 ? 'good' : targetPct >= 50 ? 'watch' : 'critical'}><small>{tx("Time in target")}</small><strong>{targetPct === null ? '—' : `${targetPct}%`}</strong><span>{coveragePct === null ?tx("No coverage result") : `${coveragePct}% ${tx("data coverage")}`}</span></article>
+    </section> : null}
 
     <section className="nc-trends-main">
       <article className="nc-trends-chart-card">
-        <header><div><p>{scope === 'nodes' ?tx("Node comparison") : compare ?tx("Section comparison") : activeMetricKeys.length > 1 ?tx("Combined measured history") :tx("Measured history")}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? showSectionAggregate ? `${selectedSection?.name} · ${selectedAggregationLabel === 'section peak' ? 'Section peak' : 'Section median'} + ${selectedNodeIds.length} Nodes` : `${selectedNodeIds.length} Nodes` : compare ? `${comparisonIds.length} Sections · one parameter` : selectedSection?.name}</span></div><span className="nc-trends-updated">{status === 'loading' || nodeHistoryLoading ?tx("Loading…") : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` :tx("Not updated")}</span></header>
+        <header><div><p>{scope === 'nodes' ?tx("Node comparison") : compare ?tx("Section comparison") : activeMetricKeys.length > 1 ?tx("Combined measured history") :tx("Measured history")}</p><h2>{scope === 'nodes' || compare || activeMetricKeys.length === 1 ? selectedMetric.label : activeMetricKeys.map((key) => metrics.find((metric) => metric.key === key)?.short).filter(Boolean).join(' · ')}</h2><span>{selectedSection?.areaName} · {scope === 'nodes' ? showSectionAggregate ? `${selectedSection?.name} · ${selectedAggregationKey === 'section peak' ? tx('Section peak') : tx('Section average')} + ${selectedNodeIds.length} ${tx('Nodes')}` : `${selectedNodeIds.length} ${tx('Nodes')}` : compare ? `${comparisonIds.length} ${tx('Sections')} · ${tx('one parameter')}` : selectedSection?.name}</span></div><span className="nc-trends-updated">{chartStatus === 'loading' ?tx("Loading…") : updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` :tx("Not updated")}</span></header>
         {showMeasuredConclusion ? <div className="nc-trends-chart-conclusion" data-tone={summary.tone}>
           <span>{tx("Measured conclusion")}</span>
           <strong>{summary.title}</strong>
           <p>{summary.body}</p>
         </div> : null}
-        {selectedSection && (status === 'ready' || comparison.length > 1)
+        {selectedSection && chartStatus === 'ready'
           ? scope === 'nodes'
-            ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-nodes`}><TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
+            ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-nodes`}><TrendChart series={chartSeries} metric={selectedMetric} target={chartTarget} range={range} dayNightSchedule={chartDayNightSchedule} /></TrendChartErrorBoundary>
             : compare
-            ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-compare`}><TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
+            ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-compare`}><TrendChart series={chartSeries} metric={selectedMetric} target={chartTarget} range={range} dayNightSchedule={chartDayNightSchedule} /></TrendChartErrorBoundary>
             : activeMetricKeys.length > 1
               ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}`}><MultiMetricChart items={metricChartItems} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
-              : <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-single`}><TrendChart series={chartSeries} metric={selectedMetric} target={target} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
-          : <div className="nc-trends-empty" data-state={status}><i className={`fa-solid ${status === 'loading' ? 'fa-spinner fa-spin' : status === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{!selectedSection ?tx("Select an Area and Section") : status === 'loading' ?tx("Loading measured history") : status === 'error' ?tx("History could not be loaded") :tx("Not enough measurements yet")}</strong><span>{!selectedSection ?tx("Trend data is shown only for an explicitly selected Section.") : error ||tx("At least two measured points are required to draw a trend.")}</span></div>}
+              : <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-single`}><TrendChart series={chartSeries} metric={selectedMetric} target={chartTarget} range={range} dayNightSchedule={chartDayNightSchedule} /></TrendChartErrorBoundary>
+          : <div className="nc-trends-empty" data-state={chartStatus}><i className={`fa-solid ${chartStatus === 'loading' ? 'fa-spinner fa-spin' : chartStatus === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{chartEmptyTitle}</strong><span>{chartEmptyDetail}</span></div>}
       </article>
     </section>
 
-    <section className="nc-trends-lower">
-      <article className="nc-trends-target-card">
+    <section className="nc-trends-lower" data-single={!showSingleSectionAnalysis || undefined}>
+      {showSingleSectionAnalysis ? <article className="nc-trends-target-card">
         <header><div><p>{tx("Condition distribution")}</p><h2>{tx("Where the selected period went")}</h2></div><span>{rangeConfig[range].label}</span></header>
         <div className="nc-trends-distribution">
           {(['optimal', 'warning', 'critical', 'unavailable'] as const).map((key) => {
@@ -1378,7 +1470,7 @@ export default function TrendsWorkspace() {
             return <div data-state={key} key={key}><span><i />{key === 'optimal' ?tx("In target") : key === 'unavailable' ?tx("No data") : key[0].toUpperCase() + key.slice(1)}</span><strong>{percentage}%</strong><small>{Math.round(minutes / 60)} h</small><em style={{ width: `${percentage}%` }} /></div>
           })}
         </div>
-      </article>
+      </article> : null}
       <article className="nc-trends-events">
         <header><div><p>{tx("Sensor timeline")}</p><h2>{tx("Events in this period")}</h2></div><span>{events.length} {tx("detected")}</span></header>
         <div>{events.length ? events.map((event: JsonRecord, index: number) => {

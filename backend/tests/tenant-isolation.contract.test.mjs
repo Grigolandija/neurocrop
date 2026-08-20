@@ -180,7 +180,7 @@ test('measurement export is bounded to protect API memory', () => {
 
 test('active node surfaces exclude archived inventory while history can retain it', () => {
   assert.match(apiSource, /FROM nodes WHERE organization_id=\$1 AND archived_at IS NULL ORDER BY created_at ASC/);
-  assert.match(apiSource, /getSectionDevEuis\(section\.id, getOrganizationId\(req\), \{ includeArchived: true \}\)/);
+  assert.match(apiSource, /getSectionHistoryScope\(section\.id, getOrganizationId\(req\), \{ includeArchived: true \}\)/);
 });
 
 test('team and invitation queries are scoped to the active session organization', () => {

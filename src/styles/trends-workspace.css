@@ -380,6 +380,7 @@ body.designer-app .nc-trends-section-search input {
 .designer-app .nc-trends-chart-conclusion > p { margin: 0; color: var(--trends-muted); font-size: 12px; line-height: 1.45; }
 
 .designer-app .nc-trends-lower { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.designer-app .nc-trends-lower[data-single] { grid-template-columns: 1fr; }
 .designer-app .nc-trends-distribution { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 20px; }
 .designer-app .nc-trends-distribution > div { position: relative; display: grid; gap: 5px; overflow: hidden; border-radius: 9px; padding: 13px 13px 16px; background: #f4f6f3; }
 .designer-app .nc-trends-distribution span { color: var(--trends-muted); font-size: 11px; font-weight: 650; }

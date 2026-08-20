@@ -20,7 +20,7 @@
     "test:crop-profiles": "vitest run src/features/settings/cropProfileDefaults.test.ts",
     "test:greenhouse-map": "vitest run src/features/greenhouse-map",
     "test:overview": "vitest run src/features/overview/actionPresentation.test.ts",
-    "test:trend-chart": "vitest run src/features/trends/sharedTrendChart.test.ts",
+    "test:trend-chart": "vitest run src/features/trends",
     "test:bundle": "node ./scripts/check-bundle-budget.mjs",
     "preview": "vite preview"
   },

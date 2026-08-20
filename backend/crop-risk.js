@@ -21,7 +21,7 @@ const CAUSE_HINTS = {
 const UNIFORMITY_LIMITS = Object.freeze({
   airTemp: { warning: 2, critical: 3 },
   humidity: { warning: 8, critical: 12 },
-  vpd: { warning: 0.3, critical: 0.5 },
+  vpd: { warning: 0.4, critical: 0.6 },
   co2: { warning: 200, critical: 350 },
   lux: { warning: 5000, critical: 8000 },
   soilTemp: { warning: 2, critical: 3 },
@@ -89,7 +89,7 @@ function distributionForAction(action, snapshot) {
 
 export function uniformityLimits(metricId, target) {
   const configured = UNIFORMITY_LIMITS[metricId];
-  if (configured) return { ...configured, recovery: configured.warning * 0.8 };
+  if (configured) return { ...configured, recovery: Number((configured.warning * 0.8).toFixed(6)) };
   const noiseFloor = getActionVerificationPolicy(metricId).noiseFloor;
   const targetSpan = Array.isArray(target) && target.length === 2
     ? Math.abs(Number(target[1]) - Number(target[0]))

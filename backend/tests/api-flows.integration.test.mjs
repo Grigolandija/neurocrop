@@ -115,7 +115,7 @@ test('authenticated CRUD, scoring, Trends and CSV flow', { skip: !configured }, 
     assert.ok(history.points.length > 0);
     const rollupHistory = await json(cookie, '/history?sectionId=section-ci-a&metric=airTemp&stepMinutes=10');
     assert.ok(rollupHistory.points.length > 0);
-    assert.equal(rollupHistory.aggregation, 'section_median_10m');
+    assert.equal(rollupHistory.aggregation, 'section_average_10m');
     const csv = await request(cookie, `/exports/measurements.csv?sectionId=section-ci-a&devEuis=${fixtureDevEui}`);
     assert.equal(csv.status, 200);
     assert.match(csv.headers.get('content-type') || '', /text\/csv/);
