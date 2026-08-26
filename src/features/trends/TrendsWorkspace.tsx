@@ -26,6 +26,7 @@ type ExportResolution = 'raw' | '5' | '10' | '60'
 type Point = { observedAt: string; value: number }
 type Section = { id: string; name: string; areaId: string; areaName: string; profileId: string; available: Set<string>; measured: Set<string> }
 type NodeOption = { devEui: string; name: string; sectionId: string; transportStatus: string }
+type ReportingModeRecord = { occurredAt: string; devEui: string; mode: string; from: string; initial: boolean }
 type Metric = { key: string; label: string; short: string; unit: string; decimals: number; icon: string }
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 type ExportMapNode = { devEui: string; name: string; sectionId: string; sectionName: string; status: string; left: number; top: number; positioned: boolean; metrics: Set<string> }
@@ -148,6 +149,33 @@ function nodeList(payload: JsonRecord): NodeOption[] {
       transportStatus: text(node.transportStatus || node.transport_status, 'unknown'),
     }
   }).filter((node): node is NodeOption => Boolean(node))
+}
+
+function reportingModeRecords(payload: JsonRecord | null): ReportingModeRecord[] {
+  const records = Array.isArray(payload?.reportingModes)
+    ? payload.reportingModes
+    : Array.isArray(payload?.reporting_modes) ? payload.reporting_modes : []
+  return records.flatMap((record: JsonRecord): ReportingModeRecord[] => {
+    const occurredAt = text(record.occurredAt || record.occurred_at)
+    const devEui = text(record.devEui || record.dev_eui).trim().toLowerCase()
+    const mode = text(record.mode || record.profile).trim().toLowerCase()
+    if (!occurredAt || !devEui || !mode || !Number.isFinite(new Date(occurredAt).getTime())) return []
+    return [{
+      occurredAt,
+      devEui,
+      mode,
+      from: text(record.from || record.previousMode || record.previous_mode).trim().toLowerCase(),
+      initial: record.initial === true,
+    }]
+  }).sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime())
+}
+
+function reportingModeLabel(mode: string, lithuanian: boolean) {
+  const normalized = mode.trim().toLowerCase().replaceAll('-', '_')
+  if (normalized === 'normal') return lithuanian ? 'Normalus' : 'Normal'
+  if (normalized === 'intensive') return lithuanian ? 'Intensyvus' : 'Intensive'
+  if (!normalized || normalized === 'unknown') return lithuanian ? 'Nežinomas' : 'Unknown'
+  return normalized.replaceAll('_', ' ').replace(/^./, (character) => character.toUpperCase())
 }
 
 function metricSet(section: JsonRecord) {
@@ -436,9 +464,103 @@ class TrendChartErrorBoundary extends Component<{ children: ReactNode }, { faile
   }
 }
 
-function TrendChart({ series, metric, target, range, dayNightSchedule }: { series: ChartInput[]; metric: Metric; target: [number, number] | null; range: RangeKey; dayNightSchedule?: TrendDayNightSchedule }) {
+function ModeTransitionMarkers({ records, nodes, from, to, lithuanian, locale }: {
+  records: ReportingModeRecord[]
+  nodes: NodeOption[]
+  from: number
+  to: number
+  lithuanian: boolean
+  locale: string
+}) {
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null
+  const nodeIndex = new Map(nodes.map((node, index) => [node.devEui, index]))
+  const markers = records.filter((record) => !record.initial && nodeIndex.has(record.devEui)).flatMap((record) => {
+    const timestamp = new Date(record.occurredAt).getTime()
+    if (!Number.isFinite(timestamp) || timestamp < from || timestamp > to) return []
+    return [{ record, timestamp, index: nodeIndex.get(record.devEui) || 0 }]
+  })
+  if (!markers.length) return null
+  return <div className="nc-reporting-mode-markers" aria-hidden="true">
+    {markers.map(({ record, timestamp, index }, markerIndex) => {
+      const node = nodes[index]
+      const previous = reportingModeLabel(record.from, lithuanian)
+      const next = reportingModeLabel(record.mode, lithuanian)
+      const time = new Date(timestamp).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })
+      return <span
+        className="nc-reporting-mode-marker"
+        style={{ left: `${(timestamp - from) / (to - from) * 100}%`, color: chartColors[(index + 1) % chartColors.length] }}
+        key={`${record.devEui}-${record.occurredAt}-${markerIndex}`}
+      >
+        <i style={{ top: `${index * 8}px` }} />
+        <b><strong>{node?.name || record.devEui.toUpperCase()}</strong><em>{previous} → {next}</em><small>{time}</small></b>
+      </span>
+    })}
+  </div>
+}
+
+function ReportingModeTimeline({ records, nodes, from, to, lithuanian, locale }: {
+  records: ReportingModeRecord[]
+  nodes: NodeOption[]
+  from: string
+  to: string
+  lithuanian: boolean
+  locale: string
+}) {
+  const rangeStart = new Date(from).getTime()
+  const rangeEnd = new Date(to).getTime()
+  if (!nodes.length || !Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || rangeEnd <= rangeStart) return null
+  const lanes = nodes.map((node) => {
+    const nodeRecords = records.filter((record) => record.devEui === node.devEui)
+    const segments: Array<{ start: number; end: number; mode: string }> = []
+    let cursor = rangeStart
+    let mode = 'unknown'
+    nodeRecords.forEach((record) => {
+      const timestamp = Math.max(rangeStart, Math.min(rangeEnd, new Date(record.occurredAt).getTime()))
+      if (!Number.isFinite(timestamp)) return
+      if (timestamp > cursor) segments.push({ start: cursor, end: timestamp, mode })
+      mode = record.mode
+      cursor = Math.max(cursor, timestamp)
+    })
+    if (cursor < rangeEnd) segments.push({ start: cursor, end: rangeEnd, mode })
+    return { node, segments, available: nodeRecords.length > 0 }
+  })
+  const hasKnownMode = lanes.some((lane) => lane.available)
+  return <section className="nc-reporting-mode-timeline" aria-label={tx("Reporting mode timeline")}>
+    <header>
+      <span><strong>{tx("Reporting mode")}</strong><small>{tx("Confirmed by Node telemetry")}</small></span>
+      <span className="nc-reporting-mode-legend"><i data-mode="normal" />{tx("Normal")}<i data-mode="intensive" />{tx("Intensive")}</span>
+    </header>
+    {hasKnownMode ? <div className="nc-reporting-mode-lanes">{lanes.map(({ node, segments }) => <div className="nc-reporting-mode-lane" key={node.devEui}>
+      <strong>{node.name}</strong>
+      <div>{segments.map((segment, index) => {
+        const width = (segment.end - segment.start) / (rangeEnd - rangeStart) * 100
+        const left = (segment.start - rangeStart) / (rangeEnd - rangeStart) * 100
+        const modeLabel = reportingModeLabel(segment.mode, lithuanian)
+        return <span
+          data-mode={segment.mode}
+          style={{ left: `${left}%`, width: `${width}%` }}
+          title={`${modeLabel} · ${new Date(segment.start).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })}–${new Date(segment.end).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })}`}
+          key={`${segment.start}-${segment.end}-${index}`}
+        >{width >= 9 ? modeLabel : ''}</span>
+      })}</div>
+    </div>)}</div> : <p>{tx("Reporting mode history is unavailable for the selected Nodes.")}</p>}
+  </section>
+}
+
+function TrendChart({ series, metric, target, range, dayNightSchedule, modeRecords = [], modeNodes = [], lithuanian = false, locale = 'en-GB' }: {
+  series: ChartInput[]
+  metric: Metric
+  target: [number, number] | null
+  range: RangeKey
+  dayNightSchedule?: TrendDayNightSchedule
+  modeRecords?: ReportingModeRecord[]
+  modeNodes?: NodeOption[]
+  lithuanian?: boolean
+  locale?: string
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const { language } = useInterfaceLanguage()
+  const chartTimeExtent = finiteExtent(series.flatMap((item) => item.points.map((point) => new Date(point.observedAt).getTime())))
   useEffect(() => {
     const element = ref.current
     if (!element) return
@@ -454,7 +576,10 @@ function TrendChart({ series, metric, target, range, dayNightSchedule }: { serie
     observer.observe(element)
     return () => { observer.disconnect(); chart.dispose() }
   }, [dayNightSchedule, language, metric, range, series, target])
-  return <div className="nc-trends-chart" ref={ref} role="img" aria-label={`${metric.label}, ${range} trend`} />
+  return <div className="nc-trends-chart-shell">
+    <div className="nc-trends-chart" ref={ref} role="img" aria-label={`${metric.label}, ${range} trend`} />
+    {chartTimeExtent && modeNodes.length ? <ModeTransitionMarkers records={modeRecords} nodes={modeNodes} from={chartTimeExtent[0]} to={chartTimeExtent[1]} lithuanian={lithuanian} locale={locale} /> : null}
+  </div>
 }
 
 function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricChartInput[]; range: RangeKey; dayNightSchedule?: TrendDayNightSchedule }) {
@@ -1136,6 +1261,10 @@ export default function TrendsWorkspace() {
   const showSingleSectionAnalysis = scope === 'section' && !compare && activeMetricKeys.length === 1
   const showMeasuredConclusion = showSingleSectionAnalysis && Boolean(target) && points.length >= 6 && coveragePct !== null && coveragePct >= 50
   const events = Array.isArray(analytics?.events) ? analytics.events.slice(-6).reverse() : []
+  const reportingModes = reportingModeRecords(analytics)
+  const selectedModeNodes = sectionNodes.filter((node) => selectedNodeIds.includes(node.devEui)).slice(0, 5)
+  const reportingModeFrom = text(analytics?.from)
+  const reportingModeTo = text(analytics?.to)
   const eventNodeNames = new Map(sectionNodes.map((node) => [node.devEui.toLowerCase(), node.name]))
   const selectedAggregationKey = sectionAggregationLabel(metricAggregations[metricKey])
   const selectedAggregationLabel = tx(selectedAggregationKey)
@@ -1450,13 +1579,16 @@ export default function TrendsWorkspace() {
         </div> : null}
         {selectedSection && chartStatus === 'ready'
           ? scope === 'nodes'
-            ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-nodes`}><TrendChart series={chartSeries} metric={selectedMetric} target={chartTarget} range={range} dayNightSchedule={chartDayNightSchedule} /></TrendChartErrorBoundary>
+            ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-nodes`}><TrendChart series={chartSeries} metric={selectedMetric} target={chartTarget} range={range} dayNightSchedule={chartDayNightSchedule} modeRecords={reportingModes} modeNodes={selectedModeNodes} lithuanian={lithuanian} locale={locale} /></TrendChartErrorBoundary>
             : compare
             ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-compare`}><TrendChart series={chartSeries} metric={selectedMetric} target={chartTarget} range={range} dayNightSchedule={chartDayNightSchedule} /></TrendChartErrorBoundary>
             : activeMetricKeys.length > 1
               ? <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}`}><MultiMetricChart items={metricChartItems} range={range} dayNightSchedule={dayNightSchedule} /></TrendChartErrorBoundary>
               : <TrendChartErrorBoundary key={`${selectedSection.id}-${metricSelectionKey}-${range}-${refreshToken}-single`}><TrendChart series={chartSeries} metric={selectedMetric} target={chartTarget} range={range} dayNightSchedule={chartDayNightSchedule} /></TrendChartErrorBoundary>
           : <div className="nc-trends-empty" data-state={chartStatus}><i className={`fa-solid ${chartStatus === 'loading' ? 'fa-spinner fa-spin' : chartStatus === 'error' ? 'fa-triangle-exclamation' : 'fa-chart-line'}`} /><strong>{chartEmptyTitle}</strong><span>{chartEmptyDetail}</span></div>}
+        {scope === 'nodes' && chartStatus === 'ready' && reportingModeFrom && reportingModeTo
+          ? <ReportingModeTimeline records={reportingModes} nodes={selectedModeNodes} from={reportingModeFrom} to={reportingModeTo} lithuanian={lithuanian} locale={locale} />
+          : null}
       </article>
     </section>
 

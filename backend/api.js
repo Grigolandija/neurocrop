@@ -2915,6 +2915,54 @@ async function getTelemetryEvents(devEuis, from, to) {
   }));
 }
 
+async function getReportingModeTimeline(devEuis, from, to) {
+  const { rows } = await query(
+    `WITH seed_samples AS (
+       SELECT DISTINCT ON (m.dev_eui) m.time, m.dev_eui, m.profile
+       FROM measurements m
+       WHERE m.dev_eui = ANY($1)
+         AND m.time < $2
+         AND NULLIF(btrim(m.profile), '') IS NOT NULL
+       ORDER BY m.dev_eui, m.time DESC
+     ), window_samples AS (
+       SELECT m.time, m.dev_eui, m.profile
+       FROM measurements m
+       WHERE m.dev_eui = ANY($1)
+         AND m.time BETWEEN $2 AND $3
+         AND NULLIF(btrim(m.profile), '') IS NOT NULL
+     ), raw_samples AS (
+       SELECT * FROM seed_samples
+       UNION ALL
+       SELECT * FROM window_samples
+     ), samples AS (
+       SELECT time,
+              dev_eui,
+              profile,
+              LAG(profile) OVER node_window AS previous_profile,
+              ROW_NUMBER() OVER node_window AS sample_order
+       FROM raw_samples
+       WINDOW node_window AS (PARTITION BY dev_eui ORDER BY time ASC)
+     )
+     SELECT CASE WHEN sample_order=1 THEN GREATEST(time, $2) ELSE time END AS occurred_at,
+            dev_eui,
+            previous_profile,
+            profile,
+            sample_order=1 AS initial
+     FROM samples
+     WHERE sample_order=1 OR previous_profile IS DISTINCT FROM profile
+     ORDER BY dev_eui ASC, occurred_at ASC
+     LIMIT 1000`,
+    [devEuis, from, to]
+  );
+  return rows.map((row) => ({
+    occurredAt: row.occurred_at,
+    devEui: normalizeDevEui(row.dev_eui),
+    mode: row.profile,
+    initial: row.initial === true,
+    ...(row.previous_profile ? { from: row.previous_profile } : {})
+  }));
+}
+
 async function measureAnalyticsSource(work) {
   const startedAt = performance.now();
   const value = await work();
@@ -2951,10 +2999,14 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
       ? pointsPromise
       : measureAnalyticsSource(() => getMetricHistoryBuckets(devEuis, metric, from, to, 60));
     const eventsPromise = measureAnalyticsSource(() => getTelemetryEvents(historyScope.allDevEuis, from, to));
-    const [pointsResult, heatmapResult, eventsResult] = await Promise.all([
+    const reportingModesPromise = measureAnalyticsSource(
+      () => getReportingModeTimeline(historyScope.allDevEuis, from, to)
+    );
+    const [pointsResult, heatmapResult, eventsResult, reportingModesResult] = await Promise.all([
       pointsPromise,
       heatmapPointsPromise,
-      eventsPromise
+      eventsPromise,
+      reportingModesPromise
     ]);
     timing.mark('history', 'history and events');
     timing.add('series', pointsResult.durationMs, 'trend buckets');
@@ -2964,9 +3016,11 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
       stepMinutes === 60 ? 'reused' : 'hour buckets'
     );
     timing.add('events', eventsResult.durationMs, 'filtered in database');
+    timing.add('modes', reportingModesResult.durationMs, 'reporting mode timeline');
     const points = pointsResult.value;
     const heatmapPoints = heatmapResult.value;
     const events = eventsResult.value;
+    const reportingModes = reportingModesResult.value;
     const minutesByState = { optimal: 0, warning: 0, critical: 0 };
     points.forEach((point) => {
       const state = analyticsStateForValue(point.value, rule);
@@ -2997,7 +3051,8 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
         expectedMinutes
       },
       heatmap: heatmapPoints.map((point) => ({ ...point, state: analyticsStateForValue(point.value, rule) })),
-      events
+      events,
+      reportingModes
     });
   } catch (e) {
     console.error('[api] /analytics/section:', e.message);

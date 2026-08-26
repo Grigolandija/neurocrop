@@ -88,4 +88,10 @@ export const additionalLtTranslations: Readonly<Record<string, string>> = Object
   'Used by': 'Naudoja',
   'ready': 'paruošta',
   'nodes ·': 'mazgai ·',
+  'Reporting mode timeline': 'Duomenų siuntimo režimų laiko juosta',
+  'Reporting mode': 'Duomenų siuntimo režimas',
+  'Confirmed by Node telemetry': 'Patvirtinta mazgo telemetrijoje',
+  'Normal': 'Normalus',
+  'Intensive': 'Intensyvus',
+  'Reporting mode history is unavailable for the selected Nodes.': 'Pasirinktų mazgų siuntimo režimų istorija nepasiekiama.',
 })
