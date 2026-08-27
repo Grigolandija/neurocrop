@@ -2999,9 +2999,10 @@ app.get('/analytics/section', requireAuth, async (req, res) => {
       ? pointsPromise
       : measureAnalyticsSource(() => getMetricHistoryBuckets(devEuis, metric, from, to, 60));
     const eventsPromise = measureAnalyticsSource(() => getTelemetryEvents(historyScope.allDevEuis, from, to));
-    const reportingModesPromise = measureAnalyticsSource(
-      () => getReportingModeTimeline(historyScope.allDevEuis, from, to)
-    );
+    const includeReportingModes = String(req.query.includeReportingModes || '').trim().toLowerCase() === 'true';
+    const reportingModesPromise = includeReportingModes
+      ? measureAnalyticsSource(() => getReportingModeTimeline(historyScope.allDevEuis, from, to))
+      : Promise.resolve({ value: [], durationMs: 0 });
     const [pointsResult, heatmapResult, eventsResult, reportingModesResult] = await Promise.all([
       pointsPromise,
       heatmapPointsPromise,

@@ -154,6 +154,7 @@ const coreWorkspaceModuleLoaders = [
   sectionsWorkspace.preload,
   nodesWorkspace.preload,
   readingsWorkspace.preload,
+  trendsWorkspace.preload,
   alertsWorkspace.preload,
 ]
 

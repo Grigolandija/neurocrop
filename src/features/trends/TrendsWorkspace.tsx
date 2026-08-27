@@ -1027,9 +1027,10 @@ export default function TrendsWorkspace() {
       setStatus('loading')
       setError('')
       setComparison([])
+      setAnalytics(null)
     })
-    Promise.all([
-      Promise.all(requestedMetricKeys.map((key) => neurocropApi.getHistory({
+    const historiesPromise = Promise.all(
+      requestedMetricKeys.map((key) => neurocropApi.getHistory({
         sectionId: selectedSection.id,
         metric: key,
         from: from.toISOString(),
@@ -1041,10 +1042,9 @@ export default function TrendsWorkspace() {
           points: historyPoints(response),
           aggregation: text(response.aggregation),
         }] as const
-      }))),
-      neurocropApi.getSectionAnalytics({ sectionId: selectedSection.id, metric: metricKey, from: from.toISOString(), to: to.toISOString(), stepMinutes: config.stepMinutes })
-        .catch(() => null),
-    ]).then(([histories, analyticsPayload]) => {
+      })),
+    )
+    historiesPromise.then((histories) => {
       if (!active) return
       const nextHistories = Object.fromEntries(histories.map(([key, history]) => [key, history.points]))
       const nextAggregations = Object.fromEntries(histories.map(([key, history]) => [key, history.aggregation]))
@@ -1052,7 +1052,6 @@ export default function TrendsWorkspace() {
       setMetricHistories(nextHistories)
       setMetricAggregations(nextAggregations)
       setPoints(nextPoints)
-      setAnalytics(analyticsPayload as JsonRecord)
       setStatus(requestedMetricKeys.some((key) => (nextHistories[key]?.length || 0) > 1) ? 'ready' : 'empty')
       setUpdatedAt(new Date())
     }).catch((reason) => {
@@ -1063,6 +1062,18 @@ export default function TrendsWorkspace() {
       setAnalytics(null)
       setError(reason instanceof Error ? reason.message : 'Trend data could not be loaded.')
       setStatus('error')
+    })
+    neurocropApi.getSectionAnalytics({
+      sectionId: selectedSection.id,
+      metric: metricKey,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      stepMinutes: config.stepMinutes,
+      includeReportingModes: scope === 'nodes' && selectedNodeIds.length > 0 ? 'true' : undefined,
+    }).then((analyticsPayload) => {
+      if (active) setAnalytics(analyticsPayload as JsonRecord)
+    }).catch(() => {
+      if (active) setAnalytics(null)
     })
     return () => { active = false }
   // metricSelectionKey intentionally represents the complete ordered metric selection.
