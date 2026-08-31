@@ -9,7 +9,8 @@ MONITOR_EMAIL_FROM="${MONITOR_EMAIL_FROM:-NeuroCrop Monitoring <noreply@neurocro
 RESEND_API_KEY_FILE="${RESEND_API_KEY_FILE:-/opt/neurocrop-backend/.resend_api_key}"
 MONITOR_STATE_DIR="${MONITOR_STATE_DIR:-/var/lib/neurocrop-monitor}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/neurocrop}"
-DISK_WARNING_PERCENT="${DISK_WARNING_PERCENT:-85}"
+DISK_WARNING_PERCENT="${DISK_WARNING_PERCENT:-80}"
+RELEASE_IMAGE_WARNING_COUNT="${RELEASE_IMAGE_WARNING_COUNT:-40}"
 MEASUREMENT_STALE_MINUTES="${MEASUREMENT_STALE_MINUTES:-20}"
 BACKUP_STALE_HOURS="${BACKUP_STALE_HOURS:-30}"
 RESTORE_TEST_STALE_HOURS="${RESTORE_TEST_STALE_HOURS:-192}"
@@ -61,6 +62,13 @@ fi
 disk_used="$(df -P / | awk 'NR==2 {gsub(/%/, "", $5); print $5}')"
 if [[ "$disk_used" =~ ^[0-9]+$ ]] && (( disk_used >= DISK_WARNING_PERCENT )); then
   add_issue "Disk" "Root filesystem usage is ${disk_used}%"
+fi
+
+release_image_count="$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null \
+  | grep -Ec '^(ghcr\.io/grigolandija/neurocrop-(backend|frontend):|neurocrop-(backend|frontend):staging-)' \
+  || true)"
+if [[ "$release_image_count" =~ ^[0-9]+$ ]] && (( release_image_count >= RELEASE_IMAGE_WARNING_COUNT )); then
+  add_issue "Docker" "${release_image_count} NeuroCrop release images are stored locally"
 fi
 
 measurement_age="$(docker exec "$PG_CONTAINER" psql -U "$PGUSER" -d neurocrop -Atqc \
