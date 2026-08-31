@@ -11,10 +11,32 @@ on:
 
 permissions:
   contents: read
+  actions: read
   packages: write
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require successful CI for this revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          successful_runs="$(gh api \
+            --method GET \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs" \
+            -f head_sha="${GITHUB_SHA}" \
+            -f status=success \
+            -f per_page=1 \
+            --jq '.total_count')"
+          if test "$successful_runs" -lt 1; then
+            echo "::error::Revision ${GITHUB_SHA} has no successful full CI run."
+            exit 1
+          fi
+
   image:
+    needs: verify
     runs-on: ubuntu-latest
     outputs:
       backend_image: ${{ steps.image.outputs.backend }}
