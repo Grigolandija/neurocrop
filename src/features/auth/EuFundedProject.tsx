@@ -17,9 +17,8 @@ export function EuFundingBanner() {
       />
       <span className="eu-funding-banner-copy">
         <strong>{isLithuanian ? 'ES finansuojamas projektas' : 'EU-funded project'}</strong>
-        <span>{isLithuanian ? 'Sužinokite, kaip ES fondų lėšomis vystoma „NeuroCrop“.' : 'Learn how EU funding supports the development of NeuroCrop.'}</span>
       </span>
-      <span className="eu-funding-banner-link">{isLithuanian ? 'Plačiau' : 'Learn more'} <i className="fa-solid fa-arrow-right" aria-hidden="true" /></span>
+      <span className="eu-funding-banner-link">{isLithuanian ? 'Apie projektą' : 'About the project'} <i className="fa-solid fa-arrow-right" aria-hidden="true" /></span>
     </Link>
   )
 }

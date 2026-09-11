@@ -1,21 +1,26 @@
 .login-screen-with-funding {
+  align-content: center;
+  grid-template-rows: max-content max-content;
+  gap: 24px;
   overflow-y: auto !important;
 }
 
 .login-screen-with-funding .login-layout {
-  margin-block: auto;
+  margin-block: 0;
 }
 
 .eu-funding-banner {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr) auto;
+  grid-template-columns: 220px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
-  margin: 14px 0 22px;
-  padding: 14px 16px;
+  gap: 32px;
+  width: min(100%, 1080px);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 24px 32px;
   color: #193b32;
   text-decoration: none;
-  background: #f4f8f5;
+  background: #fff;
   border: 1px solid rgba(31, 107, 84, 0.2);
   border-radius: 16px;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
@@ -36,7 +41,7 @@
 
 .eu-funding-banner-logo {
   display: block;
-  width: 108px;
+  width: 220px;
   height: auto;
 }
 
@@ -48,7 +53,7 @@
 
 .eu-funding-banner-copy strong {
   color: #18342c;
-  font-size: 0.84rem;
+  font-size: 1rem;
   line-height: 1.25;
 }
 
@@ -60,7 +65,7 @@
 
 .eu-funding-banner-link {
   color: #1f6b54;
-  font-size: 0.74rem;
+  font-size: 0.9rem;
   font-weight: 750;
   white-space: nowrap;
 }
@@ -202,23 +207,22 @@
 }
 
 @media (max-width: 620px) {
-  .login-screen-with-funding .login-form-panel {
-    padding-top: 22px !important;
+  .login-screen-with-funding {
+    gap: 16px;
   }
 
   .eu-funding-banner {
-    grid-template-columns: 82px minmax(0, 1fr);
-    gap: 12px;
-    margin-top: 12px;
-    padding: 12px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 24px;
   }
 
   .eu-funding-banner-logo {
-    width: 82px;
+    width: min(220px, 100%);
   }
 
   .eu-funding-banner-link {
-    display: none;
+    display: inline;
   }
 
   .eu-project-page {

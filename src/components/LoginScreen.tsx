@@ -49,7 +49,6 @@ export default function LoginScreen({ onAuthenticated }: LoginScreenProps) {
             <button type="button" data-language-option="lt" data-active={language === 'lt'} aria-pressed={language === 'lt'} onClick={() => setLanguage('lt')}>LT</button>
             <button type="button" data-language-option="en" data-active={language === 'en'} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
           </div>
-          <EuFundingBanner />
           <p className="text-xs font-bold uppercase tracking-[0.26em] text-pine/52">{t('Workspace access')}</p>
           <h2 id="loginTitle" className="mt-3 font-display text-3xl font-bold text-ink">{t('Sign in to NeuroCrop')}</h2>
           <p className="mt-3 max-w-md text-sm leading-6 text-ink/60">{t('Use the email address assigned to your farm workspace.')}</p>
@@ -68,6 +67,7 @@ export default function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           <p className="mt-7 text-xs leading-5 text-ink/46">{t('Need access?')} <a className="font-bold text-pine underline underline-offset-4" href="/register">{t('Create account and request workspace')}</a>.</p>
         </section>
       </div>
+      <EuFundingBanner />
     </main>
   )
 }

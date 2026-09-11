@@ -371,7 +371,6 @@ export default function ClerkLoginScreen({
             <button type="button" data-language-option="lt" data-active={language === 'lt'} aria-pressed={language === 'lt'} onClick={() => setLanguage('lt')}>LT</button>
             <button type="button" data-language-option="en" data-active={language === 'en'} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
           </div>
-          <EuFundingBanner />
           {isSignUp
             ? <SignUp
                 routing="hash"
@@ -386,6 +385,7 @@ export default function ClerkLoginScreen({
               : <PasswordSignInForm redirectUrl={redirectUrl} signUpUrl={signUpUrl} initialEmail={initialEmail} />}
         </section>
       </div>
+      <EuFundingBanner />
     </main>
   )
 }
