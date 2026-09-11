@@ -44,13 +44,19 @@ export default function EuFundedProjectPage() {
         <section className="eu-project-hero">
           <div className="eu-project-intro">
             <p className="eu-project-eyebrow">{isLithuanian ? 'ES finansuojamas projektas' : 'EU-funded project'}</p>
-            <h1>{isLithuanian ? '„NeuroCrop“ – duomenimis grįstas augalų auginimo sprendimas' : 'NeuroCrop – a data-driven crop production solution'}</h1>
+            <h1>InnoPredict</h1>
+            <p className="eu-project-title">{isLithuanian
+              ? 'Dirbtinio intelekto mokymui skirtos duomenų surinkimo ir perdavimo sistemos optimizavimas'
+              : 'Optimising a data collection and transmission system for artificial intelligence training'}</p>
             <p>{isLithuanian
-              ? 'Projekto metu vystoma „NeuroCrop“ – augalų auginimo sąlygų stebėsenos ir sprendimų paramos sistema. Belaidžiai sensorių mazgai ir skaitmeninė platforma padeda realiuoju laiku vertinti mikroklimatą, stebėti sąlygų pokyčius ir laiku priimti duomenimis pagrįstus sprendimus.'
-              : 'The project develops NeuroCrop, a crop-condition monitoring and decision-support system. Wireless sensor nodes and a digital platform help evaluate microclimate conditions in real time, track changes and support timely, data-informed decisions.'}</p>
+              ? 'MB Neurocrop įgyvendina projektą „InnoPredict“, kurio tikslas – patobulinti ir parengti komerciniam naudojimui modulinę duomenų surinkimo ir perdavimo sistemą, skirtą hidroponiniams ūkiams. Sistema kuriama automatiniam mikroklimato ir auginimo procesų duomenų rinkimui bei perdavimui į nuotolinę debesijos saugyklą.'
+              : 'MB Neurocrop is implementing InnoPredict, a project to improve a modular data collection and transmission system for hydroponic farms and prepare it for commercial use. The system is being developed to automatically collect microclimate and growing-process data and transmit it to a remote cloud repository.'}</p>
             <p>{isLithuanian
-              ? 'Projekto tikslas – sukurti ir praktiškai išbandyti technologinį sprendimą, kuris padėtų augintojams efektyviau valdyti auginimo procesus, anksčiau pastebėti rizikas ir tikslingiau naudoti išteklius.'
-              : 'The project aims to develop and validate a practical technology that helps growers manage production more efficiently, identify risks earlier and use resources more purposefully.'}</p>
+              ? 'Projekto metu numatoma didinti jutiklių matavimo tikslumą, mažinti sistemos energijos sąnaudas, gerinti duomenų perdavimo stabilumą ir saugumą bei tobulinti sąsają su duomenų analizės aplinkomis. Sistema bus išbandoma realiomis hidroponinio ūkio sąlygomis ir koreguojama pagal bandymų rezultatus.'
+              : 'Planned work includes improving sensor accuracy, reducing system energy consumption, strengthening transmission reliability and security, and improving integration with data analysis environments. The system will be tested under real hydroponic farm conditions and refined based on the results.'}</p>
+            <p>{isLithuanian
+              ? 'Numatomas rezultatas – praktiškai patikrinta, rinkai parengta sistema ir nuoseklūs, struktūruoti duomenys, tinkami dirbtinio intelekto modeliams mokyti bei vertinti. Taip siekiama sudaryti pagrindą sprendimams, kurie ateityje padėtų prognozuoti auginimo sąlygas ir efektyviau naudoti ūkio išteklius.'
+              : 'The expected outcome is a validated, market-ready system and consistent, structured data suitable for training and evaluating artificial intelligence models. This is intended to provide a foundation for future solutions that predict growing conditions and support more efficient use of farm resources.'}</p>
           </div>
 
           <aside className="eu-project-funding" aria-label={isLithuanian ? 'Projekto finansavimas' : 'Project funding'}>
