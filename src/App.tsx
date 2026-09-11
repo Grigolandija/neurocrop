@@ -10,6 +10,7 @@ import { neurocropApi } from './services/api/neurocropApi'
 import { canAccessWorkspaceRoute, useWorkspaceAccess, WorkspaceAccessProvider, workspaceStageRedirect } from './state/workspaceAccess'
 import { useInterfaceLanguage } from './i18n'
 import { FieldComingSoonScreen, ProductEntryScreen } from './features/auth/ProductEntryScreen'
+import EuFundedProjectPage from './features/auth/EuFundedProject'
 import { useProductChoice } from './features/auth/productChoice'
 import './App.css'
 import './styles/approved-dashboard.css'
@@ -145,6 +146,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/es-finansuojamas-projektas" element={<EuFundedProjectPage />} />
         <Route path="/sign-up" element={<RegistrationRoute />} />
         <Route path="/register" element={<RegistrationRoute />} />
         <Route path="/accept-invite" element={<Suspense fallback={null}><AcceptInvitePage clerkEnabled={clerkConfigured} /></Suspense>} />

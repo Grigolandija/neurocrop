@@ -3,6 +3,7 @@ import { useInterfaceLanguage } from '../i18n'
 import { invalidateRequestCache } from '../services/api/client'
 import { neurocropApi } from '../services/api/neurocropApi'
 import type { DashboardUser } from './DashboardShell'
+import { EuFundingBanner } from '../features/auth/EuFundedProject'
 
 type LoginScreenProps = {
   onAuthenticated: (user: DashboardUser) => void
@@ -34,7 +35,7 @@ export default function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   }
 
   return (
-    <main className="login-screen">
+    <main className="login-screen login-screen-with-funding">
       <div className="login-layout">
         <aside className="login-aside">
           <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white/12 text-xl text-[#f5c26b] ring-1 ring-white/16"><i className="fa-solid fa-seedling" /></div>
@@ -48,6 +49,7 @@ export default function LoginScreen({ onAuthenticated }: LoginScreenProps) {
             <button type="button" data-language-option="lt" data-active={language === 'lt'} aria-pressed={language === 'lt'} onClick={() => setLanguage('lt')}>LT</button>
             <button type="button" data-language-option="en" data-active={language === 'en'} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
           </div>
+          <EuFundingBanner />
           <p className="text-xs font-bold uppercase tracking-[0.26em] text-pine/52">{t('Workspace access')}</p>
           <h2 id="loginTitle" className="mt-3 font-display text-3xl font-bold text-ink">{t('Sign in to NeuroCrop')}</h2>
           <p className="mt-3 max-w-md text-sm leading-6 text-ink/60">{t('Use the email address assigned to your farm workspace.')}</p>

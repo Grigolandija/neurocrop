@@ -1,0 +1,249 @@
+.login-screen-with-funding {
+  overflow-y: auto !important;
+}
+
+.login-screen-with-funding .login-layout {
+  margin-block: auto;
+}
+
+.eu-funding-banner {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  margin: 14px 0 22px;
+  padding: 14px 16px;
+  color: #193b32;
+  text-decoration: none;
+  background: #f4f8f5;
+  border: 1px solid rgba(31, 107, 84, 0.2);
+  border-radius: 16px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.eu-funding-banner:hover {
+  border-color: rgba(31, 107, 84, 0.46);
+  box-shadow: 0 10px 24px rgba(23, 67, 54, 0.09);
+  transform: translateY(-1px);
+}
+
+.eu-funding-banner:focus-visible,
+.eu-project-back:focus-visible,
+.eu-project-brand:focus-visible {
+  outline: 3px solid rgba(43, 104, 149, 0.32);
+  outline-offset: 3px;
+}
+
+.eu-funding-banner-logo {
+  display: block;
+  width: 108px;
+  height: auto;
+}
+
+.eu-funding-banner-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.eu-funding-banner-copy strong {
+  color: #18342c;
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.eu-funding-banner-copy > span {
+  color: rgba(24, 52, 44, 0.65);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.eu-funding-banner-link {
+  color: #1f6b54;
+  font-size: 0.74rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.eu-project-page {
+  min-height: 100vh;
+  padding: clamp(18px, 4vw, 56px);
+  color: #19312a;
+  background: #eef3ee;
+}
+
+.eu-project-shell {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(25, 49, 42, 0.12);
+  border-radius: 28px;
+  box-shadow: 0 28px 70px rgba(20, 55, 44, 0.12);
+}
+
+.eu-project-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px clamp(24px, 5vw, 64px);
+  border-bottom: 1px solid rgba(25, 49, 42, 0.1);
+}
+
+.eu-project-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #19312a;
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.eu-project-brand-mark {
+  display: inline-grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  color: #1f6b54;
+  background: #e7f2ec;
+  border-radius: 14px;
+}
+
+.eu-project-language {
+  position: static;
+}
+
+.eu-project-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
+  gap: clamp(36px, 6vw, 84px);
+  padding: clamp(48px, 8vw, 96px) clamp(24px, 7vw, 84px);
+}
+
+.eu-project-eyebrow,
+.eu-project-statement-label {
+  margin: 0;
+  color: #2b6895;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.eu-project-intro h1 {
+  max-width: 760px;
+  margin: 18px 0 26px;
+  color: #16332b;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(2.15rem, 4.6vw, 4.5rem);
+  line-height: 1.03;
+  letter-spacing: -0.045em;
+}
+
+.eu-project-intro > p:not(.eu-project-eyebrow) {
+  max-width: 720px;
+  margin: 0 0 18px;
+  color: rgba(25, 49, 42, 0.7);
+  font-size: clamp(1rem, 1.35vw, 1.16rem);
+  line-height: 1.75;
+}
+
+.eu-project-funding {
+  align-self: start;
+  padding: clamp(24px, 4vw, 40px);
+  background: #f5f8fb;
+  border: 1px solid rgba(43, 104, 149, 0.18);
+  border-top: 5px solid #2b6895;
+  border-radius: 20px;
+}
+
+.eu-project-funding > img {
+  display: block;
+  width: min(100%, 310px);
+  height: auto;
+  margin: 0 auto 32px;
+}
+
+.eu-project-official-statement {
+  padding-top: 24px;
+  border-top: 1px solid rgba(43, 104, 149, 0.18);
+}
+
+.eu-project-official-statement > p:last-child {
+  margin: 12px 0 0;
+  color: #233d4f;
+  font-size: 0.94rem;
+  font-weight: 650;
+  line-height: 1.65;
+}
+
+.eu-project-footer {
+  display: flex;
+  padding: 24px clamp(24px, 5vw, 64px);
+  background: #193f34;
+}
+
+.eu-project-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+@media (max-width: 860px) {
+  .eu-project-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .login-screen-with-funding .login-form-panel {
+    padding-top: 22px !important;
+  }
+
+  .eu-funding-banner {
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+    padding: 12px;
+  }
+
+  .eu-funding-banner-logo {
+    width: 82px;
+  }
+
+  .eu-funding-banner-link {
+    display: none;
+  }
+
+  .eu-project-page {
+    padding: 0;
+  }
+
+  .eu-project-shell {
+    min-height: 100vh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .eu-project-header {
+    padding: 18px 20px;
+  }
+
+  .eu-project-hero {
+    padding: 44px 20px 56px;
+  }
+
+  .eu-project-intro h1 {
+    font-size: clamp(2.05rem, 10vw, 3rem);
+  }
+
+  .eu-project-footer {
+    padding: 22px 20px;
+  }
+}

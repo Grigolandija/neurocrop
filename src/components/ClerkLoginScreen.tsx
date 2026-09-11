@@ -1,6 +1,7 @@
 import { SignUp, useSignIn } from '@clerk/react'
 import { useState, type FormEvent } from 'react'
 import { useInterfaceLanguage } from '../i18n'
+import { EuFundingBanner } from '../features/auth/EuFundedProject'
 
 type ClerkLoginScreenProps = {
   mode?: 'sign-in' | 'sign-up' | 'recovery'
@@ -356,7 +357,7 @@ export default function ClerkLoginScreen({
   }
 
   return (
-    <main className="login-screen">
+    <main className="login-screen login-screen-with-funding">
       <div className="login-layout">
         <aside className="login-aside">
           <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white/12 text-xl text-[#f5c26b] ring-1 ring-white/16"><i className="fa-solid fa-seedling" /></div>
@@ -370,6 +371,7 @@ export default function ClerkLoginScreen({
             <button type="button" data-language-option="lt" data-active={language === 'lt'} aria-pressed={language === 'lt'} onClick={() => setLanguage('lt')}>LT</button>
             <button type="button" data-language-option="en" data-active={language === 'en'} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
           </div>
+          <EuFundingBanner />
           {isSignUp
             ? <SignUp
                 routing="hash"
