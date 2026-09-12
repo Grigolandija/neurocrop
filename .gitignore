@@ -15,6 +15,7 @@ public/vendor/
 
 # Generated test output and deployment bundles
 test-results/
+backend/ingest-inbox/
 *.zip
 .release/
 

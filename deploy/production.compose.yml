@@ -59,12 +59,20 @@ services:
       PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD}
       PGDATABASE: ${PGDATABASE:-neurocrop}
       MQTT_URL: ${MQTT_URL:-mqtt://mosquitto:1883}
+      MQTT_CLIENT_ID: neurocrop-ingest-production
+      INGEST_INBOX_DIR: /var/lib/neurocrop-ingest
+    volumes:
+      - ingest-inbox:/var/lib/neurocrop-ingest
     healthcheck:
       test: ["CMD", "node", "ingest-healthcheck.js"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 30s
+
+volumes:
+  ingest-inbox:
+    name: neurocrop-ingest-inbox
 
 networks:
   chirpstack:

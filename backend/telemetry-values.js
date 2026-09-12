@@ -37,9 +37,27 @@ export function normalizeRegisteredTelemetry(value) {
       .filter((definition) => definition.telemetryKey)
       .map((definition) => [
         definition.telemetryKey,
-        normalizeTelemetryValue(definition.telemetryKey, telemetry[definition.telemetryKey])
+        sensorHasNewMeasurement(telemetry.sensors?.[definition.sensorKey])
+          ? normalizeTelemetryValue(definition.telemetryKey, telemetry[definition.telemetryKey])
+          : null
       ])
   );
+}
+
+// Legacy packets without quality metadata remain readable. Explicit cache or
+// failed-read metadata must never advance the measurement's observation time.
+export function sensorHasNewMeasurement(state) {
+  return normalizeTelemetryBoolean(state?.present) !== false
+    && normalizeTelemetryBoolean(state?.fresh) !== false
+    && !['cached_not_due', 'cached_read_failed', 'read_failed_no_cache', 'not_present', 'no_data'].includes(state?.state);
+}
+
+export function sensorMeasurementIntervalSec(metric, profile, uplinkInterval) {
+  const uplink = Number(uplinkInterval) || 600;
+  if (METRIC_DEFINITIONS[metric]?.sensorKey === 'scd41') {
+    return Math.max(uplink, { normal: 1800, intensive: 300, power_save: 3600 }[profile] || 1800);
+  }
+  return metric === 'batteryLevel' ? Math.max(uplink, METRIC_DEFINITIONS[metric]?.intervalSec || 0) : uplink;
 }
 
 export function redactConnectionUrl(value) {
@@ -66,10 +84,10 @@ export function normalizeTelemetryBoolean(value) {
 }
 
 export function normalizeTelemetryTimestamp(value, now = new Date()) {
-  const fallback = new Date(now);
-  const candidate = value ? new Date(value) : fallback;
-  if (!Number.isFinite(candidate.getTime()) || candidate.getTime() > fallback.getTime() + MAX_FUTURE_SKEW_MS) {
-    return fallback;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return null;
+  const candidate = new Date(value);
+  if (!Number.isFinite(candidate.getTime()) || candidate.getTime() > new Date(now).getTime() + MAX_FUTURE_SKEW_MS) {
+    return null;
   }
   return candidate;
 }
@@ -108,8 +126,15 @@ export function compactTelemetryMetadata(value, normalizedErrorFlags = {}) {
   const sensors = {};
 
   for (const [sensor, state] of Object.entries(telemetry.sensors || {})) {
-    const present = normalizeTelemetryBoolean(state?.present);
-    if (present !== null) sensors[sensor] = { present };
+    const quality = {};
+    for (const key of ['present', 'fresh', 'due']) {
+      const flag = normalizeTelemetryBoolean(state?.[key]);
+      if (flag !== null) quality[key] = flag;
+    }
+    if (['fresh', 'cached_not_due', 'cached_read_failed', 'read_failed_no_cache', 'not_present', 'no_data'].includes(state?.state)) {
+      quality.state = state.state;
+    }
+    if (Object.keys(quality).length) sensors[sensor] = quality;
   }
 
   const metadata = {};
@@ -119,10 +144,13 @@ export function compactTelemetryMetadata(value, normalizedErrorFlags = {}) {
     metadata.firmware_version = String(telemetry.firmware_version).slice(0, 64);
   }
   if (Object.keys(sensors).length) metadata.sensors = sensors;
-  const soilEcDepths = normalizeSoilEcDepths(telemetry);
+  const soilEcDepths = sensorHasNewMeasurement(telemetry.sensors?.[METRIC_DEFINITIONS.soilEc.sensorKey])
+    ? normalizeSoilEcDepths(telemetry) : [];
   if (soilEcDepths.length) metadata[METRIC_DEFINITIONS.soilEc.depth.metadataKey] = soilEcDepths;
   const lastTxFailed = normalizeTelemetryBoolean(normalizedErrorFlags?.last_tx_failed);
   if (lastTxFailed !== null) metadata.error_flags = { last_tx_failed: lastTxFailed };
+  const sensorStale = normalizeTelemetryBoolean(normalizedErrorFlags?.sensor_stale);
+  if (sensorStale !== null) metadata.error_flags = { ...metadata.error_flags, sensor_stale: sensorStale };
 
   return metadata;
 }

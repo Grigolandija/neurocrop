@@ -606,7 +606,7 @@ function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }:
   const width = 320
   const height = 72
   const padding = 4
-  const values = points.map((point) => point.value)
+  const values = points.map((point) => point.value).filter(Number.isFinite)
   const domainValues = target ? [...values, ...target] : values
   const rawMin = Math.min(...domainValues)
   const rawMax = Math.max(...domainValues)
@@ -617,8 +617,12 @@ function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }:
   const domainSpan = Math.max(0.001, domainMax - domainMin)
   const x = (index: number) => padding + (index / Math.max(1, points.length - 1)) * (width - padding * 2)
   const y = (value: number) => padding + ((domainMax - value) / domainSpan) * (height - padding * 2)
-  const line = points.map((point, index) => `${x(index)},${y(point.value)}`).join(' ')
-  const area = `${padding},${height - padding} ${line} ${width - padding},${height - padding}`
+  const segments: Array<Array<{ index: number; value: number }>> = []
+  points.forEach((point, index) => {
+    if (!Number.isFinite(point.value)) return
+    if (index === 0 || !Number.isFinite(points[index - 1].value)) segments.push([])
+    segments.at(-1)!.push({ index, value: point.value })
+  })
   const targetTop = target ? Math.min(y(target[0]), y(target[1])) : 0
   const targetHeight = target ? Math.max(2, Math.abs(y(target[0]) - y(target[1]))) : 0
   const lastPoint = points.at(-1)
@@ -636,9 +640,12 @@ function PinnedSparkline({ points, target, metric, label, periodLabel = '24h' }:
       <line className="nc-pinned-chart-grid" x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} />
       <line className="nc-pinned-chart-grid" x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
       {target ? <rect className="nc-pinned-chart-target" x={padding} y={targetTop} width={width - padding * 2} height={targetHeight} rx="2" /> : null}
-      <polygon className="nc-pinned-chart-area" points={area} />
-      <polyline className="nc-pinned-chart-line" points={line} />
-      {lastPoint ? <circle className="nc-pinned-chart-point" cx={x(points.length - 1)} cy={y(lastPoint.value)} r="3.5" /> : null}
+      {segments.map((segment) => {
+        const line = segment.map((point) => `${x(point.index)},${y(point.value)}`).join(' ')
+        const area = `${x(segment[0].index)},${height - padding} ${line} ${x(segment.at(-1)!.index)},${height - padding}`
+        return <g key={segment[0].index}><polygon className="nc-pinned-chart-area" points={area} /><polyline className="nc-pinned-chart-line" points={line} /></g>
+      })}
+      {lastPoint && Number.isFinite(lastPoint.value) ? <circle className="nc-pinned-chart-point" cx={x(points.length - 1)} cy={y(lastPoint.value)} r="3.5" /> : null}
     </svg>
     <div className="nc-pinned-x-axis"><span>{formatTime(points[0])}</span><strong>{tx("Time (")}{periodLabel})</strong><span>{formatTime(middlePoint)}</span><span>{formatTime(lastPoint)}</span></div>
   </figure>
@@ -862,8 +869,8 @@ export default function ReadingsWorkspace() {
         if (cancelled) return
         const points = asArray(payload?.points).map((point) => ({
           observedAt: String(point.observedAt || point.receivedAt || ''),
-          value: numeric(point.value),
-        })).filter((point): point is HistoryPoint => Boolean(point.observedAt) && point.value !== null)
+          value: numeric(point.value) ?? NaN,
+        })).filter((point): point is HistoryPoint => Boolean(point.observedAt))
         setPinnedHistory((current) => ({ ...current, [key]: { status: points.length >= 2 ? 'ready' : 'empty', points } }))
       } catch {
         if (cancelled) return
@@ -892,8 +899,8 @@ export default function ReadingsWorkspace() {
       const response = payload as JsonRecord
       const points = asArray(response?.points).map((point) => ({
         observedAt: String(point.observedAt || point.receivedAt || ''),
-        value: numeric(point.value),
-      })).filter((point): point is HistoryPoint => Boolean(point.observedAt) && point.value !== null)
+        value: numeric(point.value) ?? NaN,
+      })).filter((point): point is HistoryPoint => Boolean(point.observedAt))
       setTrendPreviewHistory({ status: points.length >= 2 ? 'ready' : 'empty', points })
     }).catch(() => {
       if (!cancelled) setTrendPreviewHistory({ status: 'error', points: [] })

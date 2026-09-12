@@ -5,6 +5,7 @@ import { runMigrations } from './migrate.js';
 import { normalizeErrorCounters, normalizeErrorFlags } from './node-health.js';
 import { startSimulatedNodeGenerator } from './simulated-nodes.js';
 import { REGISTERED_TELEMETRY_DEFINITIONS } from './metric-registry.js';
+import { IngestInbox, durableMessageHandler } from './ingest-inbox.js';
 import {
   compactTelemetryMetadata,
   normalizeRegisteredTelemetry,
@@ -17,6 +18,9 @@ import {
 const MQTT_URL = process.env.MQTT_URL || 'mqtt://mosquitto:1883';
 const MQTT_TOPIC = process.env.MQTT_TOPIC || 'application/+/device/+/event/up';
 const READY_FILE = process.env.INGEST_READY_FILE || '/tmp/neurocrop-ingest-ready';
+const inbox = new IngestInbox(process.env.INGEST_INBOX_DIR || './ingest-inbox');
+let databaseHealthy = true;
+let storageHealthy = true;
 const registeredColumns = REGISTERED_TELEMETRY_DEFINITIONS.map(({ column }) => column);
 const registeredPlaceholders = REGISTERED_TELEMETRY_DEFINITIONS.map((_, index) => `$${index + 3}`);
 const registeredValueCount = REGISTERED_TELEMETRY_DEFINITIONS.length;
@@ -34,13 +38,20 @@ function clearReady() {
 await runMigrations();
 clearReady();
 const stopSimulatedNodeGenerator = startSimulatedNodeGenerator(pool);
-const client = mqtt.connect(MQTT_URL);
+const client = mqtt.connect(MQTT_URL, {
+  clientId: process.env.MQTT_CLIENT_ID || 'neurocrop-ingest',
+  clean: false,
+});
 
 client.on('connect', () => {
   markReady();
   console.log(`[ingest] prisijungta prie MQTT: ${redactConnectionUrl(MQTT_URL)}`);
-  client.subscribe(MQTT_TOPIC, (err) => {
+  client.subscribe(MQTT_TOPIC, { qos: 1 }, (err, grants) => {
     if (err) { console.error('[ingest] subscribe klaida:', err.message); process.exit(1); }
+    if (grants?.some((grant) => grant.qos !== 1)) {
+      console.error('[ingest] broker did not grant QoS 1');
+      process.exit(1);
+    }
     console.log(`[ingest] klausomasi: ${MQTT_TOPIC}`);
   });
 });
@@ -49,20 +60,38 @@ client.on('offline', clearReady);
 client.on('close', clearReady);
 
 const readinessHeartbeat = setInterval(() => {
-  if (client.connected) markReady();
+  if (client.connected && databaseHealthy && storageHealthy) markReady();
   else clearReady();
 }, 30_000);
 readinessHeartbeat.unref?.();
 
-client.on('message', async (topic, payload) => {
-  let msg;
-  try { msg = JSON.parse(payload.toString()); }
-  catch (e) { console.error('[ingest] JSON klaida:', e.message); return; }
-  try { await handleUplink(msg); }
-  catch (e) { console.error('[ingest] irasymo klaida:', e.message); }
+// Do not use an async 'message' listener: EventEmitter does not wait for it
+// before PUBACK. This hook waits for durable local storage, not a live DB.
+const storeMessage = durableMessageHandler(inbox, {
+  onStored: () => { storageHealthy = true; void flushInbox(); },
+  onError: (error) => { storageHealthy = false; console.error('[ingest] inbox:', error.message); clearReady(); },
+});
+client.handleMessage = (packet, callback) => storeMessage(packet, (error) => {
+  if (error) client.stream?.destroy(); // Force reconnect/redelivery, without PUBACK.
+  callback(error);
 });
 
+async function flushInbox() {
+  try {
+    await inbox.flush(handleUplink);
+    databaseHealthy = true;
+  } catch (error) {
+    databaseHealthy = false;
+    clearReady();
+    console.error('[ingest] DB write pending; durable retry:', error.message);
+  }
+}
+const retryTimer = setInterval(() => { void flushInbox(); }, 5000);
+retryTimer.unref?.();
+void flushInbox();
+
 async function handleUplink(msg) {
+  if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return;
   const dev = msg.deviceInfo || {};
   const devEui = String(dev.devEui || '').trim().toLowerCase();
   if (!/^[0-9a-f]{16}$/.test(devEui)) {
@@ -72,6 +101,10 @@ async function handleUplink(msg) {
   const obj = msg.object && typeof msg.object === 'object' && !Array.isArray(msg.object) ? msg.object : {};
   // LoRa node does not send an independent observation timestamp, so receive time is canonical.
   const receivedAt = normalizeTelemetryTimestamp(msg.time);
+  if (!receivedAt) {
+    console.warn(`[ingest] rejected invalid event time for ${devEui}`);
+    return;
+  }
   const time = receivedAt;
   const rx = Array.isArray(msg.rxInfo) && msg.rxInfo.length ? msg.rxInfo[0] : {};
   const gatewayIds = [...new Set(
@@ -93,6 +126,7 @@ async function handleUplink(msg) {
   let inserted = false;
   try {
     await dbClient.query('BEGIN');
+    await dbClient.query("SET LOCAL statement_timeout = '15s'");
     // Serializing a device stream makes duplicate-delivery checks race-safe.
     await dbClient.query('SELECT pg_advisory_xact_lock(hashtext($1))', [devEui]);
 
@@ -177,9 +211,11 @@ async function shutdown(signal) {
   shuttingDown = true;
   console.log(`[ingest] ${signal}: shutting down`);
   clearInterval(readinessHeartbeat);
+  clearInterval(retryTimer);
   stopSimulatedNodeGenerator();
   clearReady();
   await new Promise((resolve) => client.end(false, {}, resolve));
+  await inbox.flushing?.catch(() => {});
   await pool.end();
 }
 process.on('SIGINT', () => { void shutdown('SIGINT'); });

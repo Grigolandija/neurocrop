@@ -136,8 +136,8 @@ test('telemetry values reject malformed numbers and poisoned timestamps', () => 
 
   const now = new Date('2026-07-22T12:00:00Z');
   assert.equal(normalizeTelemetryTimestamp('2026-07-22T11:59:00Z', now).toISOString(), '2026-07-22T11:59:00.000Z');
-  assert.equal(normalizeTelemetryTimestamp('invalid', now).toISOString(), now.toISOString());
-  assert.equal(normalizeTelemetryTimestamp('2099-01-01T00:00:00Z', now).toISOString(), now.toISOString());
+  assert.equal(normalizeTelemetryTimestamp('invalid', now), null);
+  assert.equal(normalizeTelemetryTimestamp('2099-01-01T00:00:00Z', now), null);
 });
 
 test('telemetry values reject physically impossible sensor and radio values', () => {
@@ -194,8 +194,8 @@ test('historical telemetry stores only metadata required by product queries', ()
       firmware_version: '2.1.5',
       expected_uplink_interval_s: 600,
       sensors: {
-        sht45: { present: true },
-        scd41: { present: false }
+        sht45: { present: true, fresh: true },
+        scd41: { present: false, fresh: false }
       },
       error_flags: { last_tx_failed: false }
     }
@@ -520,7 +520,7 @@ test('ingestion normalizes device identity, deduplicates MQTT deliveries and com
   assert.match(source, /String\(dev\.devEui \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);
   assert.match(source, /pg_advisory_xact_lock\(hashtext\(\$1\)\)/);
   assert.match(source, /ON CONFLICT \(dev_eui, time\) DO NOTHING/);
-  assert.ok(source.indexOf('await runMigrations()') < source.indexOf('mqtt.connect(MQTT_URL)'));
+  assert.ok(source.indexOf('await runMigrations()') < source.indexOf('mqtt.connect(MQTT_URL,'));
   assert.ok(source.indexOf("dbClient.query('BEGIN')") < source.indexOf('UPDATE nodes SET'));
   assert.ok(source.indexOf('INSERT INTO measurements') < source.indexOf("dbClient.query('COMMIT')"));
 });

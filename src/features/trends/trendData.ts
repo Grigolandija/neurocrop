@@ -12,6 +12,7 @@ export function normalizeTrendPoints(items: Array<Record<string, unknown>>): Nor
     const observedAt = String(point.observedAt || point.receivedAt || point.time || '')
     const timestamp = new Date(observedAt).getTime()
     const value = numericTrendValue(point.value)
-    return observedAt && Number.isFinite(timestamp) && value !== null ? [{ observedAt, value }] : []
+    // NaN is an internal missing-value sentinel; renderers emit JSON null for it.
+    return observedAt && Number.isFinite(timestamp) ? [{ observedAt, value: value ?? NaN }] : []
   }).sort((left, right) => new Date(left.observedAt).getTime() - new Date(right.observedAt).getTime())
 }

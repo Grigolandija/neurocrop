@@ -5,6 +5,7 @@ import { neurocropApi } from '../../services/api/neurocropApi'
 import { openTrend, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { metricDefinitions } from '../../domain/metricRegistry'
 import { buildActionMetricPresentation, type ActionMetricPresentation } from './actionPresentation'
+import { normalizeTrendPoints } from '../trends/trendData'
 import '../../styles/overview-workspace.css'
 
 const loadReadingsClimateMap = () => import('../readings/ReadingsClimateMap')
@@ -452,19 +453,23 @@ function MiniTrend({ points, target, unit }: {
   target: [number, number] | null
   unit: string
 }) {
-  if (points.length < 2) return <div className="nc-evidence-trend-empty">{tx("24-hour history is not available for this metric.")}</div>
+  if (points.filter((point) => Number.isFinite(point.value)).length < 2) return <div className="nc-evidence-trend-empty">{tx("24-hour history is not available for this metric.")}</div>
   const width = 360
   const height = 112
   const padding = 10
-  const values = points.map((point) => point.value)
+  const values = points.map((point) => point.value).filter(Number.isFinite)
   if (target) values.push(...target)
   const minimum = Math.min(...values)
   const maximum = Math.max(...values)
   const range = Math.max(maximum - minimum, 1)
   const x = (index: number) => padding + index * (width - padding * 2) / (points.length - 1)
   const y = (value: number) => padding + (maximum - value) / range * (height - padding * 2)
-  const line = points.map((point, index) => `${x(index)},${y(point.value)}`).join(' ')
-  const area = `${padding},${height - padding} ${line} ${width - padding},${height - padding}`
+  const segments: Array<Array<{ index: number; value: number }>> = []
+  points.forEach((point, index) => {
+    if (!Number.isFinite(point.value)) return
+    if (index === 0 || !Number.isFinite(points[index - 1].value)) segments.push([])
+    segments.at(-1)!.push({ index, value: point.value })
+  })
   const targetTop = target ? y(target[1]) : 0
   const targetHeight = target ? Math.max(2, y(target[0]) - targetTop) : 0
   const latest = points[points.length - 1]
@@ -473,9 +478,12 @@ function MiniTrend({ points, target, unit }: {
     <div><span>{tx("24-hour trend")}</span><strong>{formatMeasurement(latest.value, unit)}</strong></div>
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`24-hour trend ending at ${formatMeasurement(latest.value, unit)}`}>
       {target ? <rect x={padding} y={targetTop} width={width - padding * 2} height={targetHeight} rx="4" /> : null}
-      <polygon points={area} />
-      <polyline points={line} />
-      <circle cx={x(points.length - 1)} cy={y(latest.value)} r="4" />
+      {segments.map((segment) => {
+        const line = segment.map((point) => `${x(point.index)},${y(point.value)}`).join(' ')
+        const area = `${x(segment[0].index)},${height - padding} ${line} ${x(segment.at(-1)!.index)},${height - padding}`
+        return <g key={segment[0].index}><polygon points={area} /><polyline points={line} /></g>
+      })}
+      {Number.isFinite(latest.value) ? <circle cx={x(points.length - 1)} cy={y(latest.value)} r="4" /> : null}
     </svg>
     <footer><span>{tx("24h ago")}</span><span>{tx("Now")}</span></footer>
   </div>
@@ -529,12 +537,7 @@ function EvidenceDrawer({ model, row, onClose }: {
         })
     request.then((payload) => {
       if (!active) return
-      const points = asArray((payload as JsonRecord)?.points)
-        .map((point) => ({
-          observedAt: String(point.observedAt || point.receivedAt || ''),
-          value: Number(point.value),
-        }))
-        .filter((point) => point.observedAt && Number.isFinite(point.value))
+      const points = normalizeTrendPoints(asArray((payload as JsonRecord)?.points))
       setTrendPoints(points)
       setTrendState(points.length >= 2 ? 'ready' : 'empty')
     }).catch(() => {

@@ -36,9 +36,10 @@ import {
   getActionVerificationPolicy,
   isActionFeedbackTransitionAllowed
 } from './today-actions.js';
-import { normalizeTelemetryBoolean, normalizeTelemetryNumber } from './telemetry-values.js';
+import { normalizeTelemetryBoolean, normalizeTelemetryNumber, sensorHasNewMeasurement, sensorMeasurementIntervalSec } from './telemetry-values.js';
 import { startMeasurementRetention } from './measurement-retention.js';
 import { getMeasurementRollupSeries } from './measurement-rollups.js';
+import { withHistoryGaps } from './history-gaps.js';
 import { registerWorkflowRoutes, startAlertNotificationMonitor } from './workflow-routes.js';
 import { SIMULATOR_METRICS, simulateAgronomicScenario } from './agronomic-simulator.js';
 import { registerGreenhouseMapRoutes } from './greenhouse-map-routes.js';
@@ -1315,6 +1316,7 @@ function measurementReportsMetric(measurement, metric) {
   if (metric === 'batteryLevel') return true;
   const sensorKey = METRIC_SENSOR_KEYS[metric];
   if (!sensorKey) return false;
+  if (!sensorHasNewMeasurement(measurement?.raw_object?.sensors?.[sensorKey])) return false;
 
   const presence = normalizeTelemetryBoolean(measurement?.raw_object?.sensors?.[sensorKey]?.present);
   if (presence !== null) return presence;
@@ -2343,9 +2345,7 @@ async function buildLatestReadings(requestedSectionId, organizationId, timing = 
         collected[metric].push({
           value: numericValue,
           observedAt: sample.measurement.time,
-          expectedIntervalSec: metric === 'batteryLevel'
-            ? Math.max(METRIC_INTERVAL_SEC[metric] || 600, expectedIntervalForSample(sample))
-            : expectedIntervalForSample(sample),
+          expectedIntervalSec: sensorMeasurementIntervalSec(metric, sample.measurement.profile || sample.node.last_profile, expectedIntervalForSample(sample)),
           devEui: normalizeDevEui(sample.node.dev_eui),
           nodeName: sample.node.name || sample.node.dev_eui,
           measurementContext: publicMeasurementContextForMetric(
@@ -2399,9 +2399,7 @@ async function buildLatestReadings(requestedSectionId, organizationId, timing = 
         collected[sample.metric].push({
           value: normalizeTelemetryNumber(sample.value),
           observedAt: sample.measurement.time,
-          expectedIntervalSec: sample.metric === 'batteryLevel'
-            ? Math.max(METRIC_INTERVAL_SEC[sample.metric] || 600, expectedIntervalForSample(sample))
-            : expectedIntervalForSample(sample),
+          expectedIntervalSec: sensorMeasurementIntervalSec(sample.metric, sample.measurement.profile || sample.node.last_profile, expectedIntervalForSample(sample)),
           devEui: normalizeDevEui(sample.node.dev_eui),
           nodeName: sample.node.name || sample.node.dev_eui,
           measurementContext: publicMeasurementContextForMetric(
@@ -2743,7 +2741,7 @@ app.get('/history', requireAuth, async (req, res) => {
       unit: METRIC_UNITS[metric] || '',
       aggregation: `${requestedDevEui ? 'node' : metric === 'lux' ? 'section_peak' : 'section_average'}_${stepMinutes}m`,
       stepMinutes,
-      points,
+      points: withHistoryGaps(points, metric, stepMinutes),
       revision: `history-${Date.now()}`
     });
   } catch (e) {
@@ -3250,7 +3248,7 @@ app.get('/analytics/site-comparison', requireAuth, async (req, res) => {
     const series = await Promise.all(devEuisBySection.filter((item) => item.devEuis.length).map(async ({ section, devEuis }) => ({
       sectionId: section.id,
       sectionName: section.name,
-      points: await getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes)
+      points: withHistoryGaps(await getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes), metric, stepMinutes)
     })));
     res.json({ areaId, metric, unit: METRIC_UNITS[metric] || '', from: from.toISOString(), to: to.toISOString(), stepMinutes, series });
   } catch (e) {

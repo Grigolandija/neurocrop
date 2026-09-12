@@ -405,6 +405,7 @@ function profileDayNightSchedule(profiles: JsonRecord[], profileId: string): Tre
 }
 
 function trendSummary(points: Point[], target: [number, number] | null, metric: Metric) {
+  points = points.filter((point) => Number.isFinite(point.value));
   if (!points.length) return { tone: 'neutral', title: 'Waiting for measured history', body: 'No trend can be interpreted until sensor history is available.' }
   const first = points[0].value
   const current = points.at(-1)!.value
@@ -717,7 +718,7 @@ function MultiMetricChart({ items, range, dayNightSchedule }: { items: MetricCha
           lineStyle: { width: 2, cap: 'round', join: 'round' },
           emphasis: { focus: 'series' },
           tooltip: { valueFormatter: (value: unknown) => `${format(Number(value), item.metric)} ${item.metric.unit}` },
-          data: item.points.map((point) => [new Date(point.observedAt).getTime(), point.value]),
+          data: item.points.map((point) => [new Date(point.observedAt).getTime(), Number.isFinite(point.value) ? point.value : null]),
           markArea: areas.length ? { silent: true, data: areas } : undefined,
           markLine: item.target ? {
             silent: true,
@@ -1253,7 +1254,7 @@ export default function TrendsWorkspace() {
     return () => { active = false }
   }, [metricKey, range, refreshToken, scope, sectionNodes, selectedNodeIds, selectedSection])
 
-  const values = points.map((point) => point.value)
+  const values = points.map((point) => point.value).filter(Number.isFinite)
   const current = values.at(-1) ?? null
   const first = values[0] ?? null
   const delta = current !== null && first !== null ? current - first : null

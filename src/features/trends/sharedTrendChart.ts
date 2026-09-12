@@ -126,7 +126,7 @@ function normalizedPoints(points: TrendPoint[]) {
   return points.flatMap((point) => {
     const timestamp = new Date(point.observedAt || point.receivedAt || '').getTime()
     const value = numericTrendValue(point.value)
-    return Number.isFinite(timestamp) && value !== null ? [{ timestamp, value }] : []
+    return Number.isFinite(timestamp) ? [{ timestamp, value: value ?? NaN }] : []
   })
     .sort((left, right) => left.timestamp - right.timestamp)
 }
@@ -234,7 +234,7 @@ export function getTrendAxisDomain(values: number[], metric: TrendMetric, target
 export function buildTrendChartOption(input: TrendChartInput) {
   const prepared = input.series
     .map((series) => ({ ...series, normalized: normalizedPoints(series.points) }))
-    .filter((series) => series.normalized.length > 1)
+    .filter((series) => series.normalized.filter((point) => Number.isFinite(point.value)).length > 1)
   if (!prepared.length) return null
 
   const { metric, target, rangeKey } = input
@@ -317,8 +317,8 @@ export function buildTrendChartOption(input: TrendChartInput) {
         if (!first?.value) return ''
         const timestamp = dateFormatter.format(new Date(Number(first.value[0])))
         const rows = params.filter((param) => Array.isArray(param.value)).map((param) => {
-          const displayedValue = Number(param.value?.[1])
-          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:6px;"><span style="display:flex;align-items:center;gap:7px;"><i style="width:8px;height:8px;border-radius:50%;background:${escapeHtml(param.color || '#287f70')}"></i>${escapeHtml(param.seriesName || metric.label)}</span><strong>${escapeHtml(valueLabel(displayedValue))}</strong></div>`
+          const displayedValue = numericTrendValue(param.value?.[1])
+          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:6px;"><span style="display:flex;align-items:center;gap:7px;"><i style="width:8px;height:8px;border-radius:50%;background:${escapeHtml(param.color || '#287f70')}"></i>${escapeHtml(param.seriesName || metric.label)}</span><strong>${escapeHtml(displayedValue === null ? '—' : valueLabel(displayedValue))}</strong></div>`
         }).join('')
         return `<div style="font-weight:500;color:rgba(255,255,255,.72)">${escapeHtml(timestamp)}</div>${rows}`
       },
@@ -383,7 +383,7 @@ export function buildTrendChartOption(input: TrendChartInput) {
         animation: false,
         lineStyle: { width: 2, cap: 'round', join: 'round' },
         emphasis: { focus: prepared.length > 1 ? 'series' : 'none' },
-        data: item.normalized.map((point, pointIndex) => [point.timestamp, values[pointIndex], rawValues[pointIndex]]),
+        data: item.normalized.map((point, pointIndex) => [point.timestamp, Number.isFinite(values[pointIndex]) ? values[pointIndex] : null, Number.isFinite(rawValues[pointIndex]) ? rawValues[pointIndex] : null]),
         markArea: firstSeries && (nightAreas.length || hasVisibleTargetBand) ? {
           silent: true,
           data: [

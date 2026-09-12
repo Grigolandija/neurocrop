@@ -7,6 +7,7 @@ COPY --chown=node:node package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --chown=node:node . .
+RUN mkdir -p /var/lib/neurocrop-ingest && chown node:node /var/lib/neurocrop-ingest
 
 USER node
 EXPOSE 3000

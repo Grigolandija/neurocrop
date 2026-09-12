@@ -20,6 +20,19 @@ const point = (hour: number, value: number) => ({
 })
 
 describe('shared trend chart', () => {
+  it('preserves an outage marker and never formats it as a zero reading', () => {
+    const option = buildTrendChartOption({
+      metric: temperature, rangeKey: '24h', target: null,
+      series: [{ name: 'Node', points: [point(10, 20), point(11, NaN), point(12, 22)] }],
+    }) as unknown as {
+      series: Array<{ connectNulls: boolean; data: unknown[][] }>
+      tooltip: { formatter: (items: unknown) => string }
+    }
+    expect(option.series[0].connectNulls).toBe(false)
+    expect(option.series[0].data[1]).toEqual([Date.parse(point(11, 0).observedAt), null, null])
+    expect(option.tooltip.formatter([{ value: option.series[0].data[1], seriesName: 'Node' }])).toContain('—')
+    expect(option.tooltip.formatter([{ value: option.series[0].data[1], seriesName: 'Node' }])).not.toContain('0.0 °C')
+  })
   it('keeps each Node series independent', () => {
     const option = buildTrendChartOption({
       metric: temperature,
@@ -68,7 +81,7 @@ describe('shared trend chart', () => {
       }],
     }) as unknown as { series: Array<{ data: Array<[number, number, number]>; smooth: boolean }> }
 
-    expect(option.series[0].data.map((entry) => entry[2])).toEqual([20, 21])
+    expect(option.series[0].data.map((entry) => entry[2])).toEqual([20, null, 21])
   })
 
   it('plots the measured value instead of a different smoothed value', () => {
