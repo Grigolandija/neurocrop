@@ -389,7 +389,8 @@ function profileRange(profiles: JsonRecord[], profileId: string, metricKey: stri
 function profileDayNightSchedule(profiles: JsonRecord[], profileId: string): TrendDayNightSchedule | undefined {
   const profile = profiles.find((item) => String(item.id || item.profileId) === profileId)
   const schedule = profile?.metrics?.lux?.lightingSchedule
-  if (schedule?.enabled !== true) return undefined
+  // The enabled flag controls lighting alerts, not the day/night chart shading.
+  if (!schedule) return undefined
   const validClock = (value: unknown) =>
     typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : null
   const dayStartsAt = validClock(schedule.start)
