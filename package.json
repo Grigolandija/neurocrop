@@ -13,7 +13,7 @@
     "test:architecture": "node ./scripts/test-react-dashboard-invariants.mjs",
     "test:e2e": "node ./scripts/run-e2e.mjs",
     "test:e2e:playwright": "playwright test",
-    "test": "pnpm test:architecture && pnpm test:css && pnpm test:workspace-access && pnpm test:metric-registry && pnpm test:crop-profiles && pnpm test:greenhouse-map && pnpm test:overview && pnpm test:trend-chart",
+    "test": "pnpm test:architecture && pnpm test:css && pnpm test:workspace-access && pnpm test:metric-registry && pnpm test:crop-profiles && pnpm test:greenhouse-map && pnpm test:overview && pnpm test:trend-chart && pnpm test:diagnostics",
     "test:css": "node ./scripts/prune-unused-dashboard-css.mjs --check --all",
     "test:workspace-access": "vitest run src/state/workspaceAccess.test.ts",
     "test:metric-registry": "vitest run src/domain/metricRegistry.test.ts",
@@ -22,7 +22,8 @@
     "test:overview": "vitest run src/features/overview/actionPresentation.test.ts",
     "test:trend-chart": "vitest run src/features/trends",
     "test:bundle": "node ./scripts/check-bundle-budget.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:diagnostics": "vitest run src/features/diagnostics"
   },
   "dependencies": {
     "@clerk/react": "^6.12.8",

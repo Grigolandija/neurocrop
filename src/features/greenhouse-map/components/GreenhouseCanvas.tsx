@@ -407,17 +407,17 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
   const fit = useCallback(() => {
     const paddingX = readOnly ? 16 : 85
     const paddingY = readOnly ? 16 : 90
-    const scale = Math.max(2, Math.min((size.width - paddingX * 2) / map.dimensions.widthM, (size.height - paddingY * 2) / map.dimensions.lengthM))
+    const scale = Math.max(readOnly ? .01 : 2, Math.min((size.width - paddingX * 2) / map.dimensions.widthM, (size.height - paddingY * 2) / map.dimensions.lengthM))
     setView({ scale, x: (size.width - map.dimensions.widthM * scale) / 2, y: (size.height - map.dimensions.lengthM * scale) / 2 })
   }, [map.dimensions.lengthM, map.dimensions.widthM, readOnly, size])
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
-    const observer = new ResizeObserver(([entry]) => setSize({ width: Math.max(500, entry.contentRect.width), height: Math.max(420, entry.contentRect.height) }))
+    const observer = new ResizeObserver(([entry]) => setSize({ width: Math.max(readOnly ? 1 : 500, entry.contentRect.width), height: Math.max(readOnly ? 1 : 420, entry.contentRect.height) }))
     observer.observe(host)
     return () => observer.disconnect()
-  }, [])
+  }, [readOnly])
   useEffect(() => {
     const frame = window.requestAnimationFrame(fit)
     return () => window.cancelAnimationFrame(frame)

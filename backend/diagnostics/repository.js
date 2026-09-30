@@ -1,3 +1,4 @@
+import { buildDiagnosticTraces } from './evidence.js';
 import { controllerResponses } from './controller-response.js';
 import { randomUUID } from 'node:crypto';
 import { pool } from '../db.js';
@@ -37,7 +38,12 @@ export async function buildAreaDiagnostic(db, organizationId, areaId, {days=7,to
     db.query(`SELECT c.* FROM diagnostic_calibrations c JOIN nodes n ON n.organization_id=c.organization_id AND n.dev_eui=c.node_id WHERE c.organization_id=$1 AND n.area_id=$2 ORDER BY c.calibrated_at DESC LIMIT 200`,[organizationId,areaId]),
     db.query(`SELECT c.* FROM diagnostic_cycles c JOIN sections s ON s.organization_id=c.organization_id AND s.id=c.section_id WHERE c.organization_id=$1 AND s.area_id=$2 ORDER BY c.starts_at DESC LIMIT 200`,[organizationId,areaId])
   ]);
-  return {...report,area:area.rows[0],days:Number(days),episodes:episodes.rows.slice(0,2000).map(e=>{
+  const {rows:layouts}=await db.query(`SELECT map_data,valid_from,source FROM greenhouse_map_layout_history
+    WHERE organization_id=$1 AND area_id=$2 AND valid_from<=$3 AND (valid_to IS NULL OR valid_to>$3)
+    ORDER BY valid_from DESC LIMIT 1`,[organizationId,areaId,until]);
+  const layout=layouts[0];
+  const diagnosticMap=layout?{...layout.map_data,objects:(layout.map_data.objects||[]).map(o=>({...o,metadata:{...o.metadata,sensor:o.metadata?.sensor?{...o.metadata.sensor,measurements:undefined,status:'unassigned',batteryPercent:undefined,lastSeenAt:undefined}:undefined}})),heatmapSettings:{...layout.map_data.heatmapSettings,enabled:false}}:null;
+  return {...report,...buildDiagnosticTraces(rows,report),diagnosticMap,mapValidFrom:layout?.valid_from||null,mapSource:layout?.source||null,area:area.rows[0],days:Number(days),episodes:episodes.rows.slice(0,2000).map(e=>{
       const evidence={...e.evidence};if(evidence.latest&&+new Date(evidence.latest.observedAt)>+until)delete evidence.latest;
       const extendsPastEnd=e.ended_at&&+new Date(e.ended_at)>+until;
       return {...e,evidence,last_observed_at:new Date(Math.min(+new Date(e.last_observed_at),+until)),ended_at:extendsPastEnd?null:e.ended_at,resolution_reason:extendsPastEnd?null:e.resolution_reason};

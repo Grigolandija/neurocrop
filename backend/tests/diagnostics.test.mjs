@@ -77,3 +77,13 @@ test('moving a node closes the previous context episode immediately',()=>{
  assert.ok(changes.some(c=>c.type==='close'&&c.reason==='context_changed'&&c.at===base+5*60000));
  assert.ok(changes.some(c=>c.type==='open'&&c.ctx.sectionId==='s2'));
 });
+
+test('chart evidence preserves extremes, breaks missing hours and never fabricates changing targets',async()=>{
+ const {buildDiagnosticTraces}=await import('../diagnostics/evidence.js');
+ const changed=row(20,23);changed.context={...changed.context,metrics:{airTemp:{optimal:[18,24]}}};
+ const report={from:new Date(base).toISOString(),to:new Date(base+4*3600000).toISOString(),insights:[{metric:'airTemp',kind:'outside-target'}]};
+ const result=buildDiagnosticTraces([row(0,20),row(10,35),changed,row(180,22)],report);
+ assert.equal(result.traces[0].points.length,2);assert.equal(result.traces[0].points[0].max,35);assert.equal(result.traces[0].points[0].target,null);
+ assert.equal(result.traces[0].points[1].at,new Date(base+3*3600000).toISOString());
+ assert.equal(buildDiagnosticTraces([row(0,20),row(180,22)],report,1).tracesTruncated,true);
+});

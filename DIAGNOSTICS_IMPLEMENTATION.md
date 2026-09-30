@@ -65,3 +65,13 @@ Visi endpointai naudoja esamą naudotojo autentifikaciją ir organizacijos aprib
 - `pnpm build`, `pnpm lint`; `cd backend && npm test`.
 - Papildomas tikros PostgreSQL semantikos testas PGlite: `DIAGNOSTIC_PGLITE_MODULE=<file URL į PGlite dist/index.js> node --test backend/tests/diagnostics-db.test.mjs`. Pritaiko visas migracijas, tikrina originalų kontekstą, organizacijų izoliaciją, epizodų idempotenciją ir momentinės ataskaitos nekintamumą. PGlite nėra pridėtas kaip produkto dependency.
 - `e2e/diagnostics.spec.ts`: aiškiai sintetinė API fixture; navigacija, įrodymai, saugojimas ir atvėrimas, mobilus išdėstymas, JS klaidos. Reikia vietinio Vite su tuščiu `VITE_CLERK_PUBLISHABLE_KEY`; tai nėra produkcinio autentifikavimo ar realaus valdiklio integracijos testas.
+
+## Diagnostikos peržiūros pertvarkymas (2026-09-30)
+
+Pagrindinėje peržiūroje pasirenkamas tik šiltnamis ir periodas. Visų rodiklių pastebėjimai surikiuoti kartu. Drėgmė ir VPD toje pačioje zonoje sugrupuoti, išsaugant atskirus faktus; palyginimo ir ribų pažeidimo išvados neprarandamos. Prioritetas yra aiški euristika (severity, stebėto laiko dalis, pasikartojimas, normalizuotas nuokrypis, aprėptis ir istorinio konteksto tikrumas), ne derliaus nuostolių prognozė.
+
+Pasirinkus pastebėjimą rodomas istorinio plano variantas periodo pabaigoje ir konkretaus jutiklio grafikas. Planas bei grafiko duomenys įrašomi į ataskaitos snapshot. Plano pakeitimai periodo viduryje ir backfill kilmė pažymimi. Nepridedama gyvų matavimų prie istorinės ataskaitos. Artimiausias durų/lango/įrangos objektas nurodomas tik patvirtintai jutiklio vietai; geometrinis atstumas iki objektų centrų nėra priežasties įrodymas.
+
+Grafikas: valandos pirminių mėginių vidurkis ir min/max, tame lange nekintančios užfiksuotos profilio ribos. Kai valandoje ribos keičiasi ar jų nėra, tikslų juosta nerodoma. Tuščios valandos nejungiamos. Kitų zonų palyginimas yra jų valandinių medianų mediana; jis nepakeičia 5 min diagnostinio peer skaičiavimo. Trukmės skaičiuojamos ankstesniu riboto reikšmės tęstinumo metodu ir rodomos tik vienam jutikliui. Grafiko limitas 60 000 valandinių taškų visai ataskaitai, viršijimas pažymimas. Senos ataskaitos neturi naujų grafiko ir plano laukų ir lieka nekintančios.
+
+Šiam pertvarkymui reikia atnaujinti ir backend, ir frontend. Papildomų DB migracijų po 0039 nereikia. Pakeitimai vietiniai, diegimas šio darbo metu nevykdytas.

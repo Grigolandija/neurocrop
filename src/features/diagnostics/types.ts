@@ -1,3 +1,4 @@
+import type { GreenhouseMap } from '../greenhouse-map/model'
 export type DiagnosticMetric = {
   sectionId: string; name: string; metric: string; unit: string; minimum: number|null; maximum: number|null; mean: number|null;
   observedMinutes: number; expectedMinutes: number; belowMinutes: number; aboveMinutes: number; unknownMinutes: number;
@@ -7,7 +8,9 @@ export type DiagnosticMetric = {
   nodeId?: string; nodeName?: string; hourly: {hour: number; observedMinutes:number;outsideMinutes:number;recurringDays:number}[];
 }
 export type Episode = {id:string;section_id:string;node_id:string;metric:string;kind:string;severity:string;started_at:string;ended_at:string|null;last_observed_at:string;resolution_reason:string|null;evidence:Record<string,unknown>}
+export type DiagnosticTrace = {nodeId:string;nodeName:string;sectionId:string;metric:string;points:{at:string;min:number;max:number;mean:number;target:[number,number]|null;count:number}[]}
 export type DiagnosticReport = {
+  traces?:DiagnosticTrace[];tracesTruncated?:boolean;diagnosticMap?:GreenhouseMap|null;mapValidFrom?:string|null;mapSource?:string|null;
   area:{id:string;name:string};from:string;to:string;days:number;generatedAt:string;methodVersion:string;timeZone:string;
   daily:{nodeId:string;nodeName:string;sectionId:string;metric:string;day:string;mean:number;minimum:number;maximum:number;completeCalendarDay:boolean;coveragePct:number;dliObserved:number|null}[];
   metrics:DiagnosticMetric[];nodes:DiagnosticMetric[];ranking:DiagnosticMetric[];

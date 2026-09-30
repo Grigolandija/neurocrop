@@ -1,61 +1,32 @@
-import type { DiagnosticMetric, DiagnosticReport } from './types'
+import { useState } from 'react'
+import { metricDefinitions } from '../../domain/metricRegistry'
+import type { DiagnosticReport } from './types'
+import { prioritizeFindings, type Finding } from './findings'
+import { DiagnosticEvidence } from './DiagnosticEvidence'
 
-type Finding = DiagnosticReport['insights'][number]
-type Props = { report: DiagnosticReport; lt: boolean; onInspect: (metric: string) => void; onCheckSensors: () => void }
-
-export default function DiagnosticSummary({ report, lt, onInspect, onCheckSensors }: Props) {
-  const t = (a: string, b: string) => lt ? a : b
-  const n = (value: number | null) => value == null ? '—' : value.toLocaleString(lt ? 'lt-LT' : 'en-GB', { maximumFractionDigits: 1 })
-  const labels: Record<string, string> = {
-    airTemp: t('Temperatūra', 'Temperature'), humidity: t('Oro drėgmė', 'Humidity'),
-    vpd: t('Oro sausumas (VPD)', 'Air dryness (VPD)'), co2: 'CO₂', lux: t('Apšvietimas', 'Light'),
-    ppfd: t('Augalams naudinga šviesa', 'Plant-available light'), soilTemp: t('Dirvos temperatūra', 'Soil temperature'),
-    soilMoisture: t('Dirvos drėgmė', 'Soil moisture'), ec: t('Tirpalo laidumas', 'Solution conductivity'),
-    ph: 'pH', soilEc: t('Dirvos laidumas', 'Soil conductivity'), leafTemp: t('Lapų temperatūra', 'Leaf temperature'), waterTemp: t('Vandens temperatūra', 'Water temperature'),
+type Props={report:DiagnosticReport;lt:boolean;onCheckSensors:()=>void}
+export default function DiagnosticSummary({report,lt,onCheckSensors}:Props){
+  const t=(a:string,b:string)=>lt?a:b
+  const n=(v:number|null)=>v==null?'—':v.toLocaleString(lt?'lt-LT':'en-GB',{maximumFractionDigits:1})
+  const groups=prioritizeFindings(report)
+  const [selectedId,setSelected]=useState('')
+  const selected=groups.find(g=>g.id===selectedId)||groups[0]
+  const unknown=report.insights.filter(i=>i.kind==='insufficient-data')
+  const hasReadings=report.metrics.some(m=>m.observedMinutes>0)
+  const label=(metric:string)=>{const d=metricDefinitions[metric as keyof typeof metricDefinitions];return d?(lt?d.labelLt:d.label):metric}
+  function headline(m:Finding){
+    if(m.kind==='systematic-peer'&&m.metric==='airTemp'&&m.peerDelta) return m.peerDelta>0?t('Šilčiau nei kitose zonose','Warmer than other zones'):t('Vėsiau nei kitose zonose','Cooler than other zones')
+    if(m.kind==='outside-target'&&m.metric==='airTemp')return m.belowMinutes&&m.aboveMinutes?t('Pasitaiko ir per žema, ir per aukšta temperatūra','Both low and high temperature excursions'):m.belowMinutes?t('Temperatūra per žema pagal nustatytą ribą','Temperature below the configured target'):t('Temperatūra per aukšta pagal nustatytą ribą','Temperature above the configured target')
+    return label(m.metric)
   }
-  // One card per zone and metric; recurring peer differences take precedence.
-  const findings = Array.from(new Map([...report.insights.filter(i => i.kind === 'outside-target'), ...report.insights.filter(i => i.kind === 'systematic-peer')].map(i => [`${i.sectionId}:${i.metric}`, i])).values())
-    .sort((a, b) => Number(b.severity === 'high') - Number(a.severity === 'high') || b.recurringDays - a.recurringDays)
-  const unknown = report.insights.filter(i => i.kind === 'insufficient-data')
-  const zones = new Set(findings.map(i => i.sectionId)).size
-  const hasReadings = report.metrics.some(m => m.observedMinutes > 0)
-  const limited = unknown.length > 0 || !hasReadings
-  function title(m: Finding) {
-    const label = labels[m.metric] || m.metric
-    if (m.kind === 'systematic-peer' && m.peerDelta != null && m.peerDelta !== 0) {
-      if (m.metric === 'airTemp') return m.peerDelta > 0 ? t('Čia šilčiau nei kitose zonose', 'Warmer here than in other zones') : t('Čia vėsiau nei kitose zonose', 'Cooler here than in other zones')
-      if (m.metric === 'humidity') return m.peerDelta > 0 ? t('Čia oras drėgnesnis nei kitose zonose', 'More humid here than in other zones') : t('Čia oras sausesnis nei kitose zonose', 'Drier here than in other zones')
-    }
-    if (m.kind === 'systematic-peer') return `${label} ${t('skiriasi nuo kitų zonų', 'differs from other zones')}`
-    return `${label} ${m.aboveMinutes > 0 && m.belowMinutes > 0 ? t('svyruoja už nustatytų ribų', 'fluctuates outside your targets') : m.aboveMinutes > 0 ? t('viršija nustatytą ribą', 'exceeds your upper target') : t('nesiekia nustatytos ribos', 'falls below your lower target')}`
-  }
-  function evidence(m: Finding) {
-    if (m.kind === 'systematic-peer') return t(
-      `Lyginant tuo pačiu metu, skirtumas nuo kitų zonų: ${n(m.peerDelta)} ${m.unit}. Didesnis skirtumas kartojosi ${m.recurringDays} d.`,
-      `Compared at the same time, the difference from other zones was ${n(m.peerDelta)} ${m.unit}. A larger difference recurred on ${m.recurringDays} days.`)
-    return t(`Už jūsų nustatytų ribų buvo ${n(m.outsideObservedPct)} % užfiksuoto jutiklių stebėjimo laiko.`, `Outside your configured targets for ${n(m.outsideObservedPct)}% of recorded sensor observation time.`)
-  }
-  function check(m: DiagnosticMetric) {
-    if (m.metric === 'airTemp' || m.metric === 'humidity' || m.metric === 'vpd') return t('Patikrinkite, ar šioje zonoje neužstotas oro judėjimas ir ar jutiklis nekabo prie šildytuvo ar atviros angos.', 'Check for obstructed airflow and whether the sensor is beside a heater or an open vent.')
-    if (m.metric === 'co2') return t('Palyginkite CO₂ dozavimo laiką su nukrypimais ir patikrinkite dujų paskirstymą šioje zonoje.', 'Compare CO₂ dosing times with the deviations and inspect gas distribution in this zone.')
-    if (m.metric === 'lux' || m.metric === 'ppfd') return t('Patikrinkite šešėliavimą, šviestuvus ir ar jutiklio neuždengia lapai.', 'Check shading, lamps and whether leaves cover the sensor.')
-    return t('Patikrinkite jutiklio vietą bei kalibravimą ir ar nustatytos ribos tinka auginamai kultūrai.', 'Check sensor placement, calibration and whether the targets suit the crop.')
-  }
-  function card(m: Finding, index: number) {
-    return <article className="diag-finding" key={`${m.sectionId}:${m.metric}`}>
-      <div className="diag-finding-location"><span>{String(index + 1).padStart(2, '0')}</span><strong>{m.name}</strong><small>{m.kind === 'systematic-peer' ? t('Kartojasi', 'Recurring') : t('Verta patikrinti', 'Worth checking')}</small></div>
-      <h3>{title(m)}</h3><p>{evidence(m)}</p>
-      <div className="diag-next-step"><strong>{t('Ką patikrinti pirmiausia', 'What to check first')}</strong><p>{check(m)}</p></div>
-      <div className="diag-finding-footer"><small>{t('Turime', 'Available')}: {n(m.coveragePct)} % {t('tikėto stebėjimo laiko', 'of expected observation time')}{m.estimatedContextPct > 0 ? t(' · Ankstesnės ribos nėra patvirtintos', ' · Historical targets are not verified') : ''}</small><button className="no-print" onClick={() => onInspect(m.metric)}>{t('Peržiūrėti matavimus', 'View measurements')} →</button></div>
-    </article>
+  function explanation(m:Finding){
+    if(m.kind==='systematic-peer')return t(`Skiriasi nuo kitų zonų: ${n(m.peerDelta)} ${m.unit}. Nukrypimas kartojosi ${m.recurringDays} dienas.`,`Differs from other zones: ${n(m.peerDelta)} ${m.unit}. Recurred on ${m.recurringDays} days.`)
+    const below=m.observedMinutes?100*m.belowMinutes/m.observedMinutes:0,above=m.observedMinutes?100*m.aboveMinutes/m.observedMinutes:0
+    return [below>0?t(`Žemiau ribos: ${n(below)} %`,`Below target: ${n(below)}%`):'',above>0?t(`Aukščiau ribos: ${n(above)} %`,`Above target: ${n(above)}%`):''].filter(Boolean).join(' · ')
   }
   return <div className="diag-summary">
-    <section className="diag-verdict" data-state={findings.length ? 'attention' : 'neutral'}>
-      <h2>{findings.length ? t(`Patikrinkite: ${zones === 1 ? findings[0].name : `${zones} zonas`}`, `Check: ${zones === 1 ? findings[0].name : `${zones} zones`}`) : limited ? t('Patikimai išvadai dar trūksta matavimų', 'More readings are needed for a reliable conclusion') : t('Pasikartojančių problemų pagal šias taisykles neradome', 'No recurring problems found by these checks')}</h2>
-      {!findings.length ? <span>{limited ? t('Patikrinkite jutiklių ryšį ir leiskite sistemai sukaupti daugiau duomenų. Trūkstami matavimai nėra gerų sąlygų patvirtinimas.', 'Check sensor connectivity and allow more data to accumulate. Missing readings do not confirm good conditions.') : t('Tai apima tik turimus matavimus ir jūsų nustatytas ribas. Visų augimo sąlygų ši išvada nepatvirtina.', 'This covers available readings and your configured targets. It does not confirm every growing condition.')}</span> : null}
-    </section>
-    <div className="diag-insights">{findings.slice(0, 3).map(card)}</div>
-    {findings.length > 3 ? <details className="diag-more"><summary>{t(`Kiti pastebėjimai (${findings.length - 3})`, `More findings (${findings.length - 3})`)}</summary>{findings.slice(3).map((m, i) => card(m, i + 3))}</details> : null}
-    {limited ? <aside className="diag-data-gap"><strong>{t('Kur dar negalime įvertinti sąlygų', 'Where conditions cannot yet be assessed')}</strong><p>{unknown.length ? Array.from(new Set(unknown.map(m => m.name))).join(', ') : t('Dar nėra tinkamų matavimų.', 'No usable readings yet.')}</p><p>{t('Šiose vietose daliai rodiklių turime mažiau nei pusę tikėto stebėjimo laiko.', 'For some measurements in these locations, less than half of the expected observation time is available.')}</p><button className="no-print" onClick={onCheckSensors}>{t('Patikrinti jutiklių ryšį', 'Check sensor connectivity')}</button></aside> : null}
+    <div className="diag-verdict"><h2>{groups.length?t('Kas šiame šiltnamyje verta dėmesio','What needs attention in this greenhouse'):!hasReadings||unknown.length?t('Išvadai dar trūksta matavimų','More readings are needed'):t('Šios patikros reikšmingų nukrypimų neparodė','These checks found no significant deviations')}</h2><p>{t('Visi turimi rodikliai įvertinti kartu. Pirmiau rodomi stipresni, ilgesni ir pasikartojantys nukrypimai, atsižvelgiant į duomenų patikimumą.','All available metrics are checked together. Priority reflects severity, time outside targets, recurrence and evidence reliability.')}</p></div>
+    {groups.length?<div className="diag-review-layout"><div className="diag-insights"><p className="diag-list-help">{t('Pasirinkite pastebėjimą — jo vieta ir grafikas rodomi šalia.','Select a finding to see its location and chart.')} {t('Procentai – stebėto jutiklių laiko dalis.','Percentages describe observed sensor time.')}</p>{groups.map((g,index)=><article key={g.id} className="diag-finding" data-selected={selected?.id===g.id}><div className="diag-finding-location"><span>{String(index+1).padStart(2,'0')}</span><strong>{g.name}</strong></div>{g.items.map(m=><div className="diag-finding-fact" key={`${m.metric}:${m.kind}`}><h3>{headline(m)}</h3><p>{explanation(m)}</p></div>)}<button aria-pressed={selected?.id===g.id} onClick={()=>{setSelected(g.id);if(window.innerWidth<1000)requestAnimationFrame(()=>document.querySelector('.diag-evidence')?.scrollIntoView({behavior:'smooth',block:'start'}))}}>{t('Vieta ir grafikas','Location & chart')} →</button>{g.items.some(m=>m.estimatedContextPct>0)?<small className="diag-caution">{t('Dalis ankstesnių ribų nepatvirtinta.','Some historical targets are unverified.')}</small>:null}</article>)}</div>{selected?<DiagnosticEvidence key={`${selected.id}:${report.from}:${report.to}`} report={report} group={selected} lt={lt}/>:null}</div>:<p>{t('Tai nėra patvirtinimas, kad visos sąlygos tinkamos. Vertinami tik turimi duomenys ir nustatytos ribos.','This does not confirm that every condition is suitable. Checks use available readings and configured targets.')}</p>}
+    {unknown.length||!hasReadings?<aside className="diag-data-gap"><strong>{t('Kur dar trūksta duomenų','Where evidence is still missing')}</strong><p>{Array.from(new Set(unknown.map(m=>`${m.name} · ${label(m.metric)}`))).join('; ')||t('Nėra tinkamų matavimų.','No usable readings.')}</p><button onClick={onCheckSensors}>{t('Patikrinti jutiklių ryšį','Check sensor connectivity')}</button></aside>:null}
   </div>
 }

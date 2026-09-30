@@ -31,7 +31,9 @@ test('diagnostic migration, immutable observation context, tenant isolation and 
   assert.equal((await db.query("SELECT * FROM diagnostic_episodes WHERE organization_id='diag-a' AND kind='threshold' AND metric='airTemp'")).rows.length,count);
   const report=await buildAreaDiagnostic(db,'diag-a','diag-area',{days:7});assert.ok(report.metrics.some(m=>m.sectionId==='diag-s'&&m.maximum===35));
   await assert.rejects(buildAreaDiagnostic(db,'diag-b','diag-area',{days:7}),e=>e.status===404);
-  const saved=await saveReport(db,'diag-a','diag-area',{days:7});assert.ok(saved.id);
+  await db.query(`INSERT INTO greenhouse_map_layout_history(organization_id,area_id,revision,map_data,valid_from) VALUES('diag-a','diag-area',1,$1,$2)`,[{objects:[{id:'door',type:'door',name:'Door',metadata:{}},{id:'sensor',type:'sensor-node',metadata:{sensor:{devEui:'0000000000000001',measurements:{airTemperatureC:99}}}}],heatmapSettings:{enabled:true}},new Date(from)]);
+  const saved=await saveReport(db,'diag-a','diag-area',{days:7});assert.ok(saved.id);assert.equal(saved.snapshot.diagnosticMap.heatmapSettings.enabled,false);assert.equal(saved.snapshot.diagnosticMap.objects[1].metadata.sensor.measurements,undefined);assert.ok(saved.snapshot.traces);
+  await db.exec("UPDATE greenhouse_map_layout_history SET map_data='{}'::jsonb WHERE organization_id='diag-a'");
   await db.exec("UPDATE crop_profiles SET metrics=jsonb_set(metrics,'{airTemp,optimal}','[0,100]') WHERE organization_id='diag-a' AND id='default'");
   const {rows:[snapshot]}=await db.query('SELECT snapshot FROM diagnostic_reports WHERE id=$1',[saved.id]);assert.deepEqual(snapshot.snapshot,JSON.parse(JSON.stringify(saved.snapshot)));
   const {rows:history}=await db.query("SELECT * FROM diagnostic_metadata_history WHERE entity='nodes'");assert.ok(history.length>=2);
