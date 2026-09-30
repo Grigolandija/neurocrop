@@ -87,6 +87,8 @@ const authTranslations: Record<string, string> = {
   'Admin': 'Administravimas',
   'Online': 'Prisijungta',
   'Offline': 'Neprisijungta',
+  'API connected': 'Ryšys su API veikia',
+  'Diagnostics': 'Diagnostika',
   'Systems online': 'Sistemos veikia',
   'System attention': 'Reikia sistemos dėmesio',
   'Workspace member': 'Darbo aplinkos narys',

@@ -1088,6 +1088,7 @@ export default function OverviewWorkspace() {
         <span><i />{model.reporting}</span>
         <span>{model.updated}</span>
         <span>{actionRows.length} {tx("actions ·")} {watchRows.length} {tx("watch conditions")}</span>
+        <button type="button" onClick={() => navigate('/diagnostics')}>{isLt ? 'Diagnostika ir ataskaitos' : 'Diagnostics & reports'}</button>
         <button type="button" onClick={openAreaEvidence}>{tx("Open Area analysis")} <i className="fa-solid fa-arrow-right" /></button>
       </footer>
     </section>

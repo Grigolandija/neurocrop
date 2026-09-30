@@ -26,6 +26,7 @@ type NodeSummary = { id: string; name: string; batteryPercent: number | null }
 
 const navigation = [
   { route: '/', action: 'overview', label: 'Overview', icon: 'fa-chart-pie' },
+  { route: '/diagnostics', action: 'diagnostics', label: 'Diagnostics', icon: 'fa-stethoscope' },
   { route: '/areas', action: 'sites', label: 'Areas', icon: 'fa-map' },
   { route: '/sections', action: 'zones', label: 'Sections', icon: 'fa-border-all' },
   { route: '/nodes', action: 'nodes', label: 'Nodes', icon: 'fa-microchip' },
@@ -52,6 +53,7 @@ function arrayFrom(value: unknown, keys: string[]) {
 
 function numberValue(record: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
+    if (record[key] === null || record[key] === undefined || record[key] === '') continue
     const value = Number(record[key])
     if (Number.isFinite(value)) return value
   }
@@ -182,7 +184,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
     return (
       <button key={item.route} type="button" className="rail-link nav-link nav-link-button" data-sidebar-action={item.action} data-active={active} data-disabled={locked} aria-current={active ? 'page' : undefined} aria-disabled={locked || undefined} disabled={locked} title={locked ? t(lockReason) : undefined} onPointerEnter={() => void onPrefetchRoute?.(item.route)} onPointerDown={() => void onPrefetchRoute?.(item.route)} onFocus={() => void onPrefetchRoute?.(item.route)} onClick={() => void go(item.route)}>
         <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
-        <span>{t(item.label)}</span>
+        <span>{item.label === 'Diagnostics' && language === 'lt' ? 'Diagnostika' : t(item.label)}</span>
         {item.route === '/alerts' && alertCount > 0 ? <b className="nav-count" title={`${alertCount} ${t('open alerts')}`} aria-label={`${alertCount} ${t('open alerts')}`}>{alertCount}</b> : null}
         {item.beta ? <small className="nav-beta-badge">{tx("Beta")}</small> : null}
       </button>
@@ -241,7 +243,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
             {user.isPlatformAdmin ? navButton({ route: '/admin', action: 'admin', label: 'Admin', icon: 'fa-user-shield' }) : null}
           </nav>
           <div className="rail-foot">
-            <div className="workspace-health" data-state={dashboardState.connected ? (alertCount ? 'attention' : 'optimal') : 'unknown'}><span className="pulse-dot" /><div><strong>{t(alertCount ? 'System attention' : 'Systems online')}</strong><small>{reportingCount} {t('Nodes').toLowerCase()}</small></div></div>
+            <div className="workspace-health" data-state={dashboardState.connected ? (alertCount ? 'attention' : 'optimal') : 'unknown'}><span className="pulse-dot" /><div><strong>{t(!dashboardState.connected ? 'Offline' : alertCount ? 'System attention' : 'API connected')}</strong><small>{reportingCount} {t('Nodes').toLowerCase()}</small></div></div>
             <div className="sidebar-user-wrap">
               <button className="user-tile" type="button" aria-controls="sidebarAccountMenu" aria-expanded={accountMenu === 'sidebar'} onClick={() => setAccountMenu((open) => open === 'sidebar' ? null : 'sidebar')}><span>{initials(displayName)}</span><div><strong>{displayName}</strong><small>{user.role || t('Workspace member')}</small></div><i className="fa-solid fa-ellipsis" /></button>
               <div id="sidebarAccountMenu" className="sidebar-account-menu" hidden={accountMenu !== 'sidebar'}><button type="button" disabled={signingOut} onClick={() => void signOut()}><i className="fa-solid fa-arrow-right-from-bracket" />{t('Sign out')}</button></div>
@@ -266,7 +268,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
           { route: '/alerts', label: 'Alerts', icon: 'fa-bell' },
         ].map((item) => {
           const locked = !canAccessWorkspaceRoute(workspaceAccess.stage, item.route)
-          return <button key={item.route} type="button" className="mobile-dock-button" data-active={pathIsActive(item.route)} data-disabled={locked} aria-disabled={locked || undefined} disabled={locked} onPointerDown={() => void onPrefetchRoute?.(item.route)} onFocus={() => void onPrefetchRoute?.(item.route)} onClick={() => void go(item.route)}><i className={`fa-solid ${item.icon}`} /><span>{t(item.label)}</span></button>
+          return <button key={item.route} type="button" className="mobile-dock-button" data-active={pathIsActive(item.route)} data-disabled={locked} aria-disabled={locked || undefined} disabled={locked} onPointerDown={() => void onPrefetchRoute?.(item.route)} onFocus={() => void onPrefetchRoute?.(item.route)} onClick={() => void go(item.route)}><i className={`fa-solid ${item.icon}`} /><span>{item.label === 'Diagnostics' && language === 'lt' ? 'Diagnostika' : t(item.label)}</span></button>
         })}
         <button type="button" className="mobile-dock-button mobile-dock-command" onClick={() => setMobileOpen(true)}><i className="fa-solid fa-bars" /><span>{t('Manage')}</span></button>
       </nav>

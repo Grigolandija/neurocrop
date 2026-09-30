@@ -41,11 +41,8 @@ test('canonical metric registry has unique transport, storage and heatmap contra
 });
 
 test('every registered storage and history column exists in database migrations', async () => {
-  const measurementSchema = [
-    await fs.readFile(new URL('../migrations/0001_baseline.sql', import.meta.url), 'utf8'),
-    await fs.readFile(new URL('../migrations/0002_extended_growth_metrics.sql', import.meta.url), 'utf8')
-  ].join('\n');
-  const rollupSchema = await fs.readFile(new URL('../migrations/0021_measurement_rollups.sql', import.meta.url), 'utf8');
+  const measurementSchema = (await loadMigrations()).map(m => m.sql).join('\n');
+  const rollupSchema = measurementSchema;
   for (const { metricId, column } of REGISTERED_TELEMETRY_DEFINITIONS) {
     assert.match(measurementSchema, new RegExp(`\\b${column}\\b`), `${metricId} DB column is missing`);
     const [sum, count] = ROLLUP_METRICS[metricId];

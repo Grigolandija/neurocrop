@@ -19,6 +19,7 @@ function saturationVaporPressure(t) {
   return 0.6108 * Math.exp((17.27 * t) / (t + 237.3));
 }
 function validClimateInput(t, rh) {
+  if (t === null || t === undefined || t === '' || rh === null || rh === undefined || rh === '') return false;
   const temperature = Number(t);
   const humidity = Number(rh);
   return Number.isFinite(temperature)

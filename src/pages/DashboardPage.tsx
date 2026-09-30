@@ -76,6 +76,9 @@ function createPreloadableWorkspace(loader: () => Promise<WorkspaceModule>) {
   return { Component: PreloadedWorkspace, preload }
 }
 
+const diagnosticsWorkspace = createPreloadableWorkspace(recoverWorkspaceImport('diagnostics', () => import('../features/diagnostics/DiagnosticsWorkspace')))
+const DiagnosticsWorkspace = diagnosticsWorkspace.Component
+
 const loadAreasWorkspace = recoverWorkspaceImport('areas', () => import('../features/areas/AreasWorkspace'))
 const loadReadingsWorkspace = recoverWorkspaceImport('readings', () => import('../features/readings/ReadingsWorkspace'))
 const loadSectionsWorkspace = recoverWorkspaceImport('sections', () => import('../features/sections/SectionsWorkspace'))
@@ -123,6 +126,7 @@ const CropProfilesWorkspace = cropProfilesWorkspace.Component
 
 const workspaceModuleLoadersByRoute: Record<string, () => Promise<WorkspaceModule>> = {
   '/': overviewWorkspace.preload,
+  '/diagnostics': diagnosticsWorkspace.preload,
   '/areas': areasWorkspace.preload,
   '/sections': sectionsWorkspace.preload,
   '/nodes': nodesWorkspace.preload,
@@ -207,7 +211,7 @@ function warmWorkspaceModules(loaders: Array<() => Promise<WorkspaceModule>>) {
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
   '/history', '/settings', '/organization', '/crop-profiles', '/admin',
-  '/admin/integrations', '/simulator',
+  '/admin/integrations', '/simulator', '/diagnostics',
 ])
 
 const workspaceHostIds: Partial<Record<string, string>> = {
@@ -247,6 +251,7 @@ function Workspaces({ pathname, includeAdmin, routePending }: { pathname: string
   const activeRoute = pathname.startsWith('/nodes/') ? '/nodes' : pathname
   const workspaces = [
     { route: '/', content: <OverviewWorkspace /> },
+    { route: '/diagnostics', content: <DiagnosticsWorkspace /> },
     { route: '/areas', content: <AreasWorkspace /> },
     { route: '/sections', content: <SectionsWorkspace /> },
     { route: '/nodes', content: <NodesWorkspace /> },

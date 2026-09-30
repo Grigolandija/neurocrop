@@ -99,13 +99,19 @@ async function handleUplink(msg) {
     return;
   }
   const obj = msg.object && typeof msg.object === 'object' && !Array.isArray(msg.object) ? msg.object : {};
-  // LoRa node does not send an independent observation timestamp, so receive time is canonical.
+  // Legacy firmware omits observation time; preserve reception as its explicit fallback.
   const receivedAt = normalizeTelemetryTimestamp(msg.time);
   if (!receivedAt) {
     console.warn(`[ingest] rejected invalid event time for ${devEui}`);
     return;
   }
-  const time = receivedAt;
+  const suppliedMeasuredAt = obj.measured_at ?? msg.deviceMeasuredAt;
+  const deviceMeasuredAt = suppliedMeasuredAt == null ? null : normalizeTelemetryTimestamp(suppliedMeasuredAt);
+  if (suppliedMeasuredAt != null && !deviceMeasuredAt) {
+    console.warn('[ingest] rejected invalid device measurement timestamp');
+    return;
+  }
+  const time = deviceMeasuredAt || receivedAt;
   const rx = Array.isArray(msg.rxInfo) && msg.rxInfo.length ? msg.rxInfo[0] : {};
   const gatewayIds = [...new Set(
     (Array.isArray(msg.rxInfo) ? msg.rxInfo : [])
@@ -193,6 +199,7 @@ async function handleUplink(msg) {
        normalizeTelemetryBoolean(adaptive.vpd_out_of_range), normalizeTelemetryValue('error_counter', ec.read_fail), normalizeTelemetryValue('error_counter', ec.reinit), normalizeTelemetryValue('error_counter', ec.tx_fail),
        normalizeTelemetryValue('rssi', rx.rssi), normalizeTelemetryValue('snr', rx.snr), normalizeTelemetryValue('spreading_factor', sf), JSON.stringify(historicalMetadata), receivedAt]
     );
+    if (deviceMeasuredAt && insertedRows.length) await dbClient.query('UPDATE measurements SET device_measured_at=$3 WHERE dev_eui=$1 AND time=$2', [devEui, time, deviceMeasuredAt]);
     inserted = Boolean(insertedRows[0]);
     await dbClient.query('COMMIT');
   } catch (error) {

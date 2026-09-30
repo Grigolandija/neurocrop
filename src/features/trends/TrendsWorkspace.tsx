@@ -20,7 +20,7 @@ import '../../styles/trends-workspace.css'
 // API records remain open because telemetry payloads can gain metrics independently.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonRecord = Record<string, any>
-type RangeKey = '24h' | '7d' | '30d'
+type RangeKey = '24h' | '7d' | '14d' | '30d'
 type TrendScope = 'section' | 'nodes'
 type ExportResolution = 'raw' | '5' | '10' | '60'
 type Point = { observedAt: string; value: number }
@@ -57,6 +57,7 @@ const metrics: Metric[] = ([
 const rangeConfig: Record<RangeKey, { hours: number; stepMinutes: number; label: string }> = {
   '24h': { hours: 24, stepMinutes: 10, label: 'Last 24 hours' },
   '7d': { hours: 168, stepMinutes: 60, label: 'Last 7 days' },
+  '14d': { hours: 336, stepMinutes: 60, label: 'Last 14 days' },
   '30d': { hours: 720, stepMinutes: 240, label: 'Last 30 days' },
 }
 const exportResolutions: Array<{ key: ExportResolution; label: string; labelLt: string; detail: string; detailLt: string }> = [
@@ -768,7 +769,7 @@ export default function TrendsWorkspace() {
   const [secondaryMetricKeys, setSecondaryMetricKeys] = useState<string[]>(
     Array.isArray(stored.secondaryMetricKeys) ? stored.secondaryMetricKeys.map(String).slice(0, 2) : [],
   )
-  const [range, setRange] = useState<RangeKey>(['24h', '7d', '30d'].includes(stored.range) ? stored.range : '24h')
+  const [range, setRange] = useState<RangeKey>(['24h', '7d', '14d', '30d'].includes(stored.range) ? stored.range : '24h')
   const [scope, setScope] = useState<TrendScope>(stored.scope === 'nodes' ? 'nodes' : 'section')
   const [recentSectionIds, setRecentSectionIds] = useState<string[]>(Array.isArray(stored.recentSectionIds) ? stored.recentSectionIds.map(String).slice(0, 5) : [])
   const [compare, setCompare] = useState(false)

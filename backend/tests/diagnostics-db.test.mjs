@@ -1,0 +1,39 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+import {buildAreaDiagnostic,saveReport,processDiagnosticTenant} from '../diagnostics/repository.js';
+const modulePath=process.env.DIAGNOSTIC_PGLITE_MODULE;
+test('diagnostic migration, immutable observation context, tenant isolation and report snapshots', {skip:!modulePath},async()=>{
+ const {PGlite}=await import(modulePath);const db=new PGlite();
+ try{
+  const directory=new URL('../migrations/',import.meta.url);
+  for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql')).sort())await db.exec(await readFile(new URL(file,directory),'utf8'));
+  await db.exec(`INSERT INTO organizations(id,name) VALUES('diag-a','A'),('diag-b','B');
+   INSERT INTO areas(id,organization_id,name) VALUES('diag-area','diag-a','Greenhouse A'),('diag-area-b','diag-b','B');
+   INSERT INTO sections(id,organization_id,area_id,name,crop_profile) VALUES('diag-s','diag-a','diag-area','North','default'),('diag-s2','diag-a','diag-area','South','default');`);
+  await db.exec(`INSERT INTO nodes(dev_eui,organization_id,area_id,section_id,name) VALUES('0000000000000001','diag-a','diag-area','diag-s','Node 1');`);
+  const from=Date.now()-3600000;
+  for(let i=0;i<6;i++)await db.query('INSERT INTO measurements(time,received_at,dev_eui,temperature,humidity) VALUES($1,$1,$2,$3,60)',[new Date(from+i*300000),'0000000000000001',i===2?35:23]);
+  const {rows:[before]}=await db.query('SELECT m.diagnostic_context_id,c.snapshot FROM measurements m JOIN diagnostic_contexts c ON c.id=m.diagnostic_context_id ORDER BY time LIMIT 1');
+  assert.equal(before.snapshot.sectionId,'diag-s');assert.ok(before.diagnostic_context_id);
+  await db.exec("UPDATE nodes SET section_id='diag-s2' WHERE dev_eui='0000000000000001'");
+  await db.query('INSERT INTO measurements(time,received_at,dev_eui,temperature,humidity) VALUES($1,$1,$2,24,60)',[new Date(from+1800000),'0000000000000001']);
+  const {rows:contexts}=await db.query('SELECT snapshot FROM diagnostic_contexts');assert.equal(contexts.length,2);assert.equal(contexts[0].snapshot.sectionId,'diag-s');
+  await processDiagnosticTenant('diag-a',{connect:async()=>({query:db.query.bind(db),release(){}})});
+  const {rows:episodes}=await db.query("SELECT * FROM diagnostic_episodes WHERE organization_id='diag-a' AND kind='threshold' AND metric='airTemp' ORDER BY started_at");
+  assert.ok(episodes.length>=1);assert.equal(episodes[0].ended_at!==null,true);
+  const count=episodes.length;
+  assert.equal((await db.query("SELECT * FROM diagnostic_observation_queue WHERE organization_id='diag-a'")).rows.length,0);
+  await db.query('INSERT INTO measurements(time,received_at,dev_eui,temperature,humidity,ppfd) VALUES($1,$1,$2,24,60,500)',[new Date(from+2100000),'0000000000000001']);
+  const rollups=await db.query('SELECT ppfd_sum,ppfd_count FROM measurement_rollups WHERE ppfd_count>0');
+  assert.ok(rollups.rows.length>0);assert.ok(rollups.rows.every(r=>Number(r.ppfd_sum)===500&&r.ppfd_count===1));
+  await processDiagnosticTenant('diag-a',{connect:async()=>({query:db.query.bind(db),release(){}})});
+  assert.equal((await db.query("SELECT * FROM diagnostic_episodes WHERE organization_id='diag-a' AND kind='threshold' AND metric='airTemp'")).rows.length,count);
+  const report=await buildAreaDiagnostic(db,'diag-a','diag-area',{days:7});assert.ok(report.metrics.some(m=>m.sectionId==='diag-s'&&m.maximum===35));
+  await assert.rejects(buildAreaDiagnostic(db,'diag-b','diag-area',{days:7}),e=>e.status===404);
+  const saved=await saveReport(db,'diag-a','diag-area',{days:7});assert.ok(saved.id);
+  await db.exec("UPDATE crop_profiles SET metrics=jsonb_set(metrics,'{airTemp,optimal}','[0,100]') WHERE organization_id='diag-a' AND id='default'");
+  const {rows:[snapshot]}=await db.query('SELECT snapshot FROM diagnostic_reports WHERE id=$1',[saved.id]);assert.deepEqual(snapshot.snapshot,JSON.parse(JSON.stringify(saved.snapshot)));
+  const {rows:history}=await db.query("SELECT * FROM diagnostic_metadata_history WHERE entity='nodes'");assert.ok(history.length>=2);
+ }finally{await db.close();}
+});

@@ -443,6 +443,45 @@
         "warningPadding": [20, 0],
         "criticalPadding": [55, 0]
       }
+    },
+    "ppfd": {
+      "label": "Photosynthetic photon flux density",
+      "labelLt": "Fotosintetinių fotonų srauto tankis",
+      "unit": "µmol/m²/s",
+      "decimals": 1,
+      "telemetryKey": "ppfd",
+      "column": "ppfd",
+      "sensorKey": "par_probe",
+      "intervalSec": 300,
+      "physicalRange": [
+        0,
+        5000
+      ],
+      "profile": {
+        "enabled": false,
+        "section": "light",
+        "optimal": [
+          0,
+          5000
+        ],
+        "warning": [
+          0,
+          5000
+        ],
+        "critical": [
+          0,
+          5000
+        ],
+        "growth": false,
+        "warningPadding": [
+          0,
+          0
+        ],
+        "criticalPadding": [
+          0,
+          0
+        ]
+      }
     }
   },
   "palettes": {

@@ -50,6 +50,8 @@ import { registerPushNotificationRoutes } from './push-notifications.js';
 import { registerAlertEmailNotificationRoutes } from './alert-email-notifications.js';
 import { buildCropRisks } from './crop-risk.js';
 import { createServerTiming } from './server-timing.js';
+import { registerDiagnosticRoutes } from './diagnostics/routes.js';
+import { startDiagnosticMonitor } from './diagnostics/repository.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -105,6 +107,7 @@ app.use((req, res, next) => {
 
 app.use(resolveOptionalClerkAuth);
 
+registerDiagnosticRoutes(app);
 registerTeamRoutes(app);
 registerPlatformOrganizationRoutes(app);
 registerWorkflowRoutes(app);
@@ -1490,20 +1493,14 @@ async function synchronizeCropRiskEpisodes(organizationId, risks, sectionIds) {
     await client.query('COMMIT');
     return new Map(rows.map((row) => [row.risk_id, row]));
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => {});
+    await client?.query('ROLLBACK').catch(() => {});
     throw error;
   } finally {
     client?.release();
   }
 }
 
-app.get('/actions/today', requireAuth, async (req, res) => {
-  const timing = createServerTiming();
-  timing.add('auth', req.authDurationMs, 'session');
-  try {
-    res.set('Cache-Control', 'no-store');
-    const organizationId = getOrganizationId(req);
-    const requestedSectionId = String(req.query.sectionId || '').trim();
+async function evaluateCurrentCropRisks(organizationId, requestedSectionId = '', synchronize = false, timing = { mark() {} }) {
     const [sectionsResult, nodesResult, profilesResult, measurementsResult, recentMeasurementsResult, sensorConfigsResult] = await Promise.all([
       query(
         `SELECT s.id, s.area_id, s.name, s.crop_profile, a.name AS area_name
@@ -1559,7 +1556,7 @@ app.get('/actions/today', requireAuth, async (req, res) => {
       ? sectionsResult.rows.filter((section) => section.id === requestedSectionId)
       : sectionsResult.rows;
     if (requestedSectionId && sections.length === 0) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+      throw Object.assign(new Error('Unknown sectionId'), { status: 404 });
     }
 
     const nodesBySection = new Map();
@@ -1628,13 +1625,22 @@ app.get('/actions/today', requireAuth, async (req, res) => {
     });
     const provisionalRisks = buildCropRisks(recommendedActions, snapshots);
     timing.mark('compute', 'action evaluation');
-    const episodes = await synchronizeCropRiskEpisodes(
-      organizationId,
-      provisionalRisks,
-      sections.map((section) => String(section.id))
-    );
+    const episodes = synchronize
+      ? await synchronizeCropRiskEpisodes(organizationId, provisionalRisks, sections.map(section => String(section.id)))
+      : new Map((await query('SELECT risk_id, first_detected_at, previous_deviation, current_deviation FROM crop_risk_episodes WHERE organization_id=$1 AND active=true', [organizationId])).rows.map(row => [row.risk_id, row]));
     timing.mark('sync', 'risk lifecycle');
     const actions = buildCropRisks(recommendedActions, snapshots, episodes);
+    return actions;
+}
+
+app.get('/actions/today', requireAuth, async (req, res) => {
+  const timing = createServerTiming();
+  timing.add('auth', req.authDurationMs, 'session');
+  try {
+    res.set('Cache-Control', 'no-store');
+    const organizationId = getOrganizationId(req);
+    const requestedSectionId = String(req.query.sectionId || '').trim();
+    const actions = await evaluateCurrentCropRisks(organizationId, requestedSectionId, false, timing);
     const actionIds = actions.map((action) => action.id);
     let feedbackByActionId = new Map();
     let assignmentByActionId = new Map();
@@ -4284,6 +4290,7 @@ await runMigrations();
 const server = app.listen(PORT, HOST, () => console.log(`[api] klausomasi :${PORT} (auth aktyvus)`));
 const stopMeasurementRetention = startMeasurementRetention(pool);
 const stopAlertNotificationMonitor = startAlertNotificationMonitor();
+const stopDiagnosticMonitor = startDiagnosticMonitor({ evaluateRisks: organizationId => evaluateCurrentCropRisks(organizationId, '', true) });
 let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
@@ -4291,6 +4298,7 @@ async function shutdown(signal) {
   console.log(`[api] ${signal}: shutting down`);
   stopMeasurementRetention();
   stopAlertNotificationMonitor();
+  await stopDiagnosticMonitor();
   server.closeIdleConnections?.();
   await new Promise((resolve) => server.close(resolve));
   await pool.end();

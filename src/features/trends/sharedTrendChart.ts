@@ -1,7 +1,7 @@
 import { installEChartsEngine } from '../../vendor/echartsEngine'
 import { numericTrendValue } from './trendData'
 
-export type TrendRangeKey = '24h' | '7d' | '30d'
+export type TrendRangeKey = '24h' | '7d' | '14d' | '30d'
 
 export type TrendPoint = {
   observedAt: string

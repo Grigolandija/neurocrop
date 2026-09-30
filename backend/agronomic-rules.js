@@ -286,8 +286,8 @@ function buildInteractionCandidate(snapshot, definition, context) {
       codes: [...definition.evidenceCodes]
     },
     diagnosis: {
-      status: 'confirmed',
-      label: 'Confirmed',
+      status: 'observed_condition',
+      label: 'Observed conditions',
       title: definition.title,
       summary: definition.reason,
       mechanism: definition.reason,

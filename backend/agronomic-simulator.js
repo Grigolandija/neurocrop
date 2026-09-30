@@ -9,7 +9,7 @@ export const SIMULATOR_METRICS = Object.freeze(Object.entries(METRIC_DEFINITIONS
 
 function temporalDiagnosis(diagnosis, durationMinutes) {
   if (!diagnosis) return null;
-  if (diagnosis.status === 'confirmed') {
+  if (['confirmed', 'observed_condition'].includes(diagnosis.status)) {
     return {
       ...diagnosis,
       temporalStatus: durationMinutes >= 10 ? 'persistent' : 'snapshot',

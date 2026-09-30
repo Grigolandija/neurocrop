@@ -961,7 +961,7 @@ test('combined high VPD and dry root zone creates one explainable interaction ac
   assert.deepEqual(actions[0].relatedMetrics, ['vpd', 'soilMoisture']);
   assert.equal(actions[0].relatedReadings.length, 2);
   assert.equal(actions[0].confidence, 'high');
-  assert.equal(actions[0].diagnosis.status, 'confirmed');
+  assert.equal(actions[0].diagnosis.status, 'observed_condition');
 });
 
 test('wet roots with hot canopy recommend uptake checks instead of more irrigation', () => {
@@ -1141,7 +1141,7 @@ test('scenario simulator confirms a multi-parameter water stress rule', () => {
     values: { airTemp: 30, humidity: 40, soilMoisture: 30 },
     durationMinutes: 10
   });
-  assert.equal(result.diagnosis.status, 'confirmed');
+  assert.equal(result.diagnosis.status, 'observed_condition');
   assert.equal(result.action.ruleId, 'ATM_ROOT_DROUGHT');
   assert.equal(result.diagnosis.temporalStatus, 'persistent');
   assert.match(result.diagnosis.mechanism, /water loss/i);

@@ -311,11 +311,7 @@ export function startAlertNotificationMonitor({ intervalMs = Number(process.env.
         `SELECT organization.id
          FROM organizations organization
          WHERE organization.status='active'
-           AND EXISTS (
-             SELECT 1 FROM alert_notification_preferences preference
-             WHERE preference.organization_id=organization.id
-               AND preference.email_alerts_enabled=true
-           )`
+`
       );
       for (const organization of organizations) {
         try {

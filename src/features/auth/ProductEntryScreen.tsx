@@ -68,7 +68,7 @@ export function ProductEntryScreen({ onSelect, onSignOut }: ProductEntryScreenPr
               </span>
               <span className="product-choice-status available"><i className="fa-solid fa-circle-check" /> {lt ? 'Paruošta' : 'Ready'}</span>
             </span>
-            <span className="product-choice-description">{lt ? 'Mikroklimatui, energijai, laistymui ir įrangos būklei.' : 'For microclimate, energy, irrigation, and equipment health.'}</span>
+            <span className="product-choice-description">{lt ? 'Belaidė šiltnamio diagnostika: probleminės zonos, pasikartojantys nuokrypiai ir rekomenduojamos patikros.' : 'Wireless greenhouse diagnostics: problem zones, recurring deviations and recommended checks.'}</span>
             <span className="product-choice-action">{lt ? 'Atidaryti darbo aplinką' : 'Open workspace'} <i className="fa-solid fa-arrow-right" /></span>
           </button>
         </div>
