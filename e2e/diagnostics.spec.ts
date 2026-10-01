@@ -69,3 +69,39 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
  await expect(page.locator('.diag-report-row')).not.toBeVisible()
  expect(errors).toEqual([])
 })
+
+test('30-day analysis survives the former 15s deadline and can retry a timeout',async({page})=>{
+ test.setTimeout(50_000)
+ let failNext=false
+ await page.route('**/runtime-config.js*',r=>r.fulfill({contentType:'application/javascript',body:`window.NEUROCROP_CONFIG={apiBaseUrl:'${api}'};`}))
+ await page.route(`${api}/**`,async route=>{
+  const url=new URL(route.request().url()),path=url.pathname
+  let data:unknown={}
+  if(path==='/auth/me')data={user:{id:'test-user',email:'test@example.test',role:'owner',organizationId:'test',name:'Test'}}
+  if(path==='/areas')data={areas:[report.area]}
+  if(path==='/sections')data={sections:[{id:'north',name:'Šiaurės zona',areaId:'area'}]}
+  if(path==='/nodes')data={nodes:[]}
+  if(path==='/alerts')data={alerts:[]}
+  if(path==='/actions/today')data={actions:[]}
+  if(path==='/diagnostics/areas/area'){
+   if(failNext){failNext=false;await route.fulfill({status:504,json:{message:'Gateway Time-out'}});return}
+   if(url.searchParams.get('days')==='30')await new Promise(resolve=>setTimeout(resolve,16_000))
+   data={...report,days:Number(url.searchParams.get('days')),from:url.searchParams.get('days')==='30'?'2026-08-09T00:00:00Z':report.from}
+  }
+  await route.fulfill({json:data})
+ })
+ await page.goto('/diagnostics')
+ await page.locator('[data-product-choice="greenhouse"]').click()
+ await expect(page.locator('.diag-finding')).toHaveCount(3)
+ await page.locator('.diag-filters select').nth(1).selectOption('30')
+ await expect(page.getByRole('status').filter({hasText:/Analyzing|Analizuojami/})).toBeVisible()
+ await expect(page.locator('.diag-finding')).toHaveCount(3,{timeout:22_000})
+ await expect(page.locator('.diag-error')).toHaveCount(0)
+ failNext=true
+ await page.locator('.diag-filters button').click()
+ await expect(page.getByRole('alert')).toContainText(/Try again or choose a shorter period|Bandykite dar kartą/)
+ await expect(page.getByRole('alert')).not.toContainText('Gateway Time-out')
+ await page.locator('.diag-filters select').nth(1).selectOption('7')
+ await expect(page.locator('.diag-finding')).toHaveCount(3)
+ await expect(page.locator('.diag-error')).toHaveCount(0)
+})

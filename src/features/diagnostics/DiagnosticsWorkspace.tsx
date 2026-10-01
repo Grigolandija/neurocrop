@@ -4,6 +4,7 @@ import { useInterfaceLanguage } from '../../i18n'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { useDashboardState } from '../../state/dashboardStore'
 import { metricDefinitions } from '../../domain/metricRegistry'
+import { diagnosticErrorMessage } from './requestErrors'
 import DiagnosticSummary from './DiagnosticSummary'
 import type { DiagnosticReport, ReportListItem } from './types'
 import '../../styles/diagnostics-workspace.css'
@@ -22,7 +23,7 @@ export default function DiagnosticsWorkspace(){
   const [error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true)
   const [refresh,setRefresh]=useState(0),[message,setMessage]=useState(''),[schedule,setSchedule]=useState(false),[canWrite,setCanWrite]=useState(false),[canConfigure,setCanConfigure]=useState(false)
   const [farms,setFarms]=useState<Area[]>([])
-  const generation=useRef(0)
+  const generation=useRef(0),analysisRequest=useRef<AbortController|null>(null)
   const metricLabel=(key:string)=>{const d=metricDefinitions[key as keyof typeof metricDefinitions];return d?(lt?d.labelLt:d.label):key}
   const date=(value:string)=>new Date(value).toLocaleString(lt?'lt-LT':'en-GB')
   useEffect(()=>{
@@ -37,28 +38,32 @@ export default function DiagnosticsWorkspace(){
   },[])
   useEffect(()=>{
     if(!areaId)return
-    const version=++generation.current
-    queueMicrotask(()=>{if(version===generation.current){setLoading(true);setError('');setReport(null);setSavedId(null)}})
-    Promise.allSettled([neurocropApi.getAreaDiagnostics(areaId,{days}),neurocropApi.getDiagnosticReports(),neurocropApi.getTodayActions(),neurocropApi.getDiagnosticSchedule(areaId)]).then(results=>{
-      if(results[0].status==='rejected')throw results[0].reason
-      const [r,list,a,s]=results.map(result=>result.status==='fulfilled'?result.value:{})
-      if(results.some(result=>result.status==='rejected'))setError('Some supplementary data could not be loaded. Refresh to retry.')
+    const version=++generation.current,controller=new AbortController()
+    analysisRequest.current=controller
+    queueMicrotask(()=>{if(version===generation.current){setLoading(true);setError('');setMessage('');setReport(null);setSavedId(null);setActions([]);setSchedule(false)}})
+    // Show findings as soon as analysis finishes; auxiliary sections load independently.
+    void neurocropApi.getAreaDiagnostics(areaId,{days},controller.signal).then(r=>{
+      if(version===generation.current)setReport(r as DiagnosticReport)
+    }).catch(e=>{if(version===generation.current)setError(diagnosticErrorMessage(e))}).finally(()=>{if(version===generation.current)setLoading(false)})
+    void Promise.allSettled([neurocropApi.getDiagnosticReports(),neurocropApi.getTodayActions(),neurocropApi.getDiagnosticSchedule(areaId)]).then(results=>{
       if(version!==generation.current)return
-      setReport(r as DiagnosticReport);setReports(asList<ReportListItem>(list,'reports'));setActions(asList<Action>(a,'actions'));setSchedule(Boolean((s as {enabled:boolean}).enabled))
-      void neurocropApi.getDiagnosticFarms().then(f=>{if(version===generation.current)setFarms(asList<Area>(f,'farms'))}).catch(()=>{})
-    }).catch(e=>{if(version===generation.current)setError(e.message)}).finally(()=>{if(version===generation.current)setLoading(false)})
-    return()=>{if(generation.current===version)generation.current=version+1}
+      const [list,a,s]=results.map(result=>result.status==='fulfilled'?result.value:{})
+      setReports(asList<ReportListItem>(list,'reports'));setActions(asList<Action>(a,'actions'));setSchedule(Boolean((s as {enabled:boolean}).enabled))
+      if(results.some(result=>result.status==='rejected'))setMessage('diagnostic-supplementary-error')
+    })
+    void neurocropApi.getDiagnosticFarms().then(f=>{if(version===generation.current)setFarms(asList<Area>(f,'farms'))}).catch(()=>{})
+    return()=>{controller.abort();if(generation.current===version)generation.current=version+1}
   },[areaId,days,refresh])
-  async function run(task:()=>Promise<void>){setBusy(true);setError('');setMessage('');try{await task()}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
+  async function run(task:()=>Promise<void>){setBusy(true);setError('');setMessage('');try{await task()}catch(e){setError(diagnosticErrorMessage(e))}finally{setBusy(false)}}
   async function save(){await run(async()=>{const result=await neurocropApi.createDiagnosticReport({areaId,days,to:report?.to,timeZone:report?.timeZone}) as {id:string;snapshot:DiagnosticReport};setSavedId(result.id);setReport(result.snapshot);setReports(asList<ReportListItem>(await neurocropApi.getDiagnosticReports(),'reports'));setMessage(t('Ataskaita išsaugota. Vėlesni profilio pakeitimai jos nekeis.','Report saved. Later profile changes will not change this snapshot.'))})}
-  async function openReport(id:string){generation.current++;await run(async()=>{const r=await neurocropApi.getDiagnosticReport(id) as {id:string;snapshot:DiagnosticReport};setReport(r.snapshot);setSavedId(r.id);setLoading(false);setTab('insights')})}
+  async function openReport(id:string){analysisRequest.current?.abort();generation.current++;await run(async()=>{const r=await neurocropApi.getDiagnosticReport(id) as {id:string;snapshot:DiagnosticReport};setReport(r.snapshot);setSavedId(r.id);setLoading(false);setTab('insights')})}
   const areaActions=actions.filter(a=>a.areaId===areaId)
   const tabs=[['insights',t('Pastebėjimai','Findings')],['episodes',t('Įvykių istorija','Event history')],['reports',t('Ataskaitos','Reports')]]
   return <div className="nc-diagnostics" data-nc-react-workspace="diagnostics">
     <header className="diag-heading"><div><h1>{t('Šiltnamio diagnostika','Greenhouse diagnostics')}</h1></div><div className="diag-toolbar no-print"><button disabled={!report||busy||loading} onClick={()=>window.print()}>{t('Spausdinti / PDF','Print / PDF')}</button><button className="primary" disabled={!report||busy||loading||!canWrite||Boolean(savedId)} onClick={()=>void save()}>{t('Išsaugoti ataskaitą','Save report')}</button></div></header>
     <section className="diag-filters no-print"><label>{t('Šiltnamis','Greenhouse')}<select value={areaId} disabled={busy} onChange={e=>{setAreaId(e.target.value);setMessage('')}}>{areas.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label>{t('Laikotarpis','Period')}<select value={days} disabled={busy} onChange={e=>setDays(Number(e.target.value))}>{[7,14,30].map(d=><option key={d} value={d}>{d} {t('dienų','days')}</option>)}</select></label><button disabled={busy||loading} onClick={()=>setRefresh(v=>v+1)}>{t('Atnaujinti','Refresh')}</button></section>
-    {error?<p className="diag-error" role="alert">{error}</p>:null}{message?<p role="status" className="diag-notice">{message}</p>:null}
-    {loading?<p role="status">{t('Analizuojami matavimai…','Analyzing observations…')}</p>:!areas.length?<p>{t('Pirmiausia sukurkite šiltnamį ir priskirkite mazgus.','Create a greenhouse and assign nodes first.')}</p>:null}
+    {error?<p className="diag-error" role="alert">{error==='diagnostic-timeout'?t('Analizė užtruko ilgiau nei tikėtasi. Bandykite dar kartą arba pasirinkite trumpesnį laikotarpį.','The analysis took longer than expected. Try again or choose a shorter period.'):error}</p>:null}{message?<p role="status" className="diag-notice">{message==='diagnostic-supplementary-error'?t('Nepavyko įkelti papildomų duomenų. Spauskite „Atnaujinti“, kad bandytumėte dar kartą.','Some additional data could not be loaded. Select Refresh to retry.'):message}</p>:null}
+    {loading?<p role="status">{t('Analizuojami matavimai. 30 dienų analizė gali užtrukti iki pusantros minutės…','Analyzing readings. A 30-day analysis may take up to a minute and a half…')}</p>:!areas.length?<p>{t('Pirmiausia sukurkite šiltnamį ir priskirkite mazgus.','Create a greenhouse and assign nodes first.')}</p>:null}
     {report?<><div className="diag-period"><strong>{report.area.name}</strong><span title={`${date(report.from)} — ${date(report.to)} · ${report.timeZone}`}>{new Date(report.from).toLocaleDateString(lt?'lt-LT':'en-GB')} — {new Date(report.to).toLocaleDateString(lt?'lt-LT':'en-GB')}</span><b>{savedId?t('Išsaugota ataskaita','Saved snapshot'):t('Dabartinė analizė','Current analysis')}</b></div>
       {report.warnings.includes('legacy-context-estimated')?<details className="diag-history-note"><summary>{t('Senesnių matavimų vertinimas gali būti netikslus','Older readings may be assessed less accurately')}</summary><p>{t('Dalį senesnių matavimų vertiname pagal šiandien nustatytas ribas. Jei keitėte ribas ar perkėlėte jutiklius, šio laikotarpio išvadas vertinkite atsargiai.','Older readings are compared with today’s targets. If you changed targets or moved sensors, interpret these findings with care.')}</p></details>:null}
       <nav className="diag-tabs no-print" aria-label={t('Diagnostikos skiltys','Diagnostic sections')}>{tabs.map(([id,label])=><button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}>{label}</button>)}<button className="diag-setup-link" aria-current={tab==='inputs'?'page':undefined} onClick={()=>setTab('inputs')}>{t('Papildomai','More')}</button></nav>

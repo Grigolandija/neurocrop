@@ -3,6 +3,8 @@ import { downloadFile, invalidateRequestCache, isApiConnected, queryString, requ
 type Payload = Record<string, unknown>
 
 const json = (payload: Payload) => JSON.stringify(payload)
+// Analysis scans up to 30 days of readings; keep ordinary API calls at 15 seconds.
+const diagnosticTimeoutMs = 90_000
 const encoded = (value: string) => encodeURIComponent(value)
 const structuralMutation = async (path: string, options: RequestInit) => {
   const result = await request(path, options)
@@ -57,14 +59,14 @@ export const neurocropApi = {
   setPlatformUserActive: (id: string, active: boolean) => request(`/platform/users/${encoded(id)}/status`, { method: 'PATCH', body: json({ active }) }),
   movePlatformUser: (id: string, payload: Payload) => request(`/platform/users/${encoded(id)}/organization`, { method: 'PATCH', body: json(payload) }),
   deletePlatformUser: (id: string) => request(`/platform/users/${encoded(id)}?confirm=delete`, { method: 'DELETE' }),
-  getDiagnosticComparison: (params: Payload) => request(`/diagnostics/comparison${queryString(params)}`, { cache: 'no-store' }),
+  getDiagnosticComparison: (params: Payload) => request(`/diagnostics/comparison${queryString(params)}`, { cache: 'no-store', timeoutMs: diagnosticTimeoutMs }),
   getDiagnosticFarms: () => request('/diagnostics/farms', { cache: 'no-store' }),
   createDiagnosticFarm: (payload: Payload) => request('/diagnostics/farms', { method: 'POST', body: json(payload) }),
   assignDiagnosticFarm: (areaId: string, farmId: string) => request(`/diagnostics/areas/${encoded(areaId)}/farm`, { method: 'POST', body: json({ farmId }) }),
-  getAreaDiagnostics: (areaId: string, params: Payload) => request(`/diagnostics/areas/${encoded(areaId)}${queryString(params)}`, { cache: 'no-store' }),
+  getAreaDiagnostics: (areaId: string, params: Payload, signal?: AbortSignal) => request(`/diagnostics/areas/${encoded(areaId)}${queryString(params)}`, { cache: 'no-store', signal, timeoutMs: diagnosticTimeoutMs }),
   getDiagnosticReports: () => request('/diagnostic-reports', { cache: 'no-store' }),
   getDiagnosticReport: (id: string) => request(`/diagnostic-reports/${encoded(id)}`, { cache: 'no-store' }),
-  createDiagnosticReport: (payload: Payload) => request('/diagnostic-reports', { method: 'POST', body: json(payload) }),
+  createDiagnosticReport: (payload: Payload) => request('/diagnostic-reports', { method: 'POST', body: json(payload), timeoutMs: diagnosticTimeoutMs }),
   downloadDiagnosticCsv: (id: string) => downloadFile(`/diagnostic-reports/${encoded(id)}/export.csv`, 'neurocrop-diagnostic.csv'),
   getDiagnosticSchedule: (areaId: string) => request(`/diagnostics/areas/${encoded(areaId)}/schedule`, { cache: 'no-store' }),
   saveDiagnosticSchedule: (areaId: string, payload: Payload) => request(`/diagnostics/areas/${encoded(areaId)}/schedule`, { method: 'POST', body: json(payload) }),

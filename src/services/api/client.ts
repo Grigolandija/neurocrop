@@ -1,7 +1,8 @@
 import { measurePerformance, recordServerTiming } from '../performanceDiagnostics'
 import { getDashboardState, notifyUnauthorized, setApiConnected, subscribeDashboardState } from '../../state/dashboardStore'
 
-export type ApiRequest = <T = unknown>(path: string, options?: RequestInit) => Promise<T>
+export type ApiRequestOptions = RequestInit & { timeoutMs?: number }
+export type ApiRequest = <T = unknown>(path: string, options?: ApiRequestOptions) => Promise<T>
 
 const GET_CACHE_TTL_MS = 60_000
 const MAX_GET_CACHE_ENTRIES = 200
@@ -77,7 +78,7 @@ async function fetchWithConnectionStatus(input: RequestInfo | URL, init: Request
     return response
   } catch (error) {
     // Cancelling an obsolete UI request does not mean the API went offline.
-    if (!(error instanceof DOMException && error.name === 'AbortError')) setApiConnected(false)
+    if (!init.signal?.aborted) setApiConnected(false)
     throw error
   }
 }
@@ -132,7 +133,7 @@ async function sessionHasEnded() {
   return await sessionCheckInFlight
 }
 
-export const request: ApiRequest = async <T>(path: string, options: RequestInit = {}) => {
+export const request: ApiRequest = async <T>(path: string, { timeoutMs = 15_000, ...options }: ApiRequestOptions = {}) => {
   const method = String(options.method || 'GET').toUpperCase()
   const cacheable = method === 'GET' && !options.signal && options.cache !== 'no-store' && options.cache !== 'reload'
   const cacheKey = `${apiBaseUrl()}${path}`
@@ -151,7 +152,7 @@ export const request: ApiRequest = async <T>(path: string, options: RequestInit 
     const response = await fetchWithConnectionStatus(cacheKey, {
       ...options,
       credentials: 'include',
-      signal: requestSignal(options.signal, 15_000),
+      signal: requestSignal(options.signal, timeoutMs),
       headers: await requestHeaders(options),
     })
     recordServerTiming(`${method} ${path}`, response.headers.get('Server-Timing'))
