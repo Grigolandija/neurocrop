@@ -2,9 +2,9 @@ import {test,expect} from '@playwright/test'
 const api='http://diagnostics.test'
 const metric={sectionId:'north',name:'Šiaurės zona',metric:'airTemp',unit:'°C',minimum:20,maximum:31,mean:25.8,observedMinutes:1000,expectedMinutes:1100,belowMinutes:0,aboveMinutes:280,unknownMinutes:100,coveragePct:90.9,outsideObservedPct:28,estimatedContextPct:0,peerDelta:2.1,peerMinutes:900,peerOutsidePct:70,recurringDays:5,medianSpread:2.8,maxSpread:4.2,dayMean:26,nightMean:22,daylightExposurePpmHours:null,lightAccumulationLuxHours:null,hourly:Array.from({length:24},(_,hour)=>({hour,observedMinutes:60,outsideMinutes:hour<6?30:0,recurringDays:hour<6?5:0}))}
 const map={schemaVersion:1,id:'test-map',name:'Test map',shape:{type:'rectangle'},dimensions:{widthM:20,lengthM:8,heightM:4},wallThicknessM:.01,gridSizeM:.5,orientationDeg:0,createdAt:'2026-09-01',updatedAt:'2026-09-01',layers:['structure','sensors'].map(id=>({id,name:id,visible:true,locked:true,opacity:1})),heatmapSettings:{enabled:false,metric:'air-temperature',interpolationMethod:'idw',idwPower:2,cellSizeM:.25,nearestSensorCount:5,minimumSensorCount:2,maxInfluenceDistanceM:15,maxReadingAgeMinutes:30,opacity:.88,scaleMode:'auto',showConfidence:true},objects:[{id:'door',type:'door',name:'Durys',xM:9,yM:0,widthM:1.2,lengthM:.25,rotationDeg:0,layerId:'structure',visible:true,locked:true,metadata:{}},{id:'sensor',type:'sensor-node',name:'NeuroSense 1',xM:10,yM:2,widthM:.65,lengthM:.65,rotationDeg:0,layerId:'sensors',visible:true,locked:true,metadata:{sensor:{devEui:'node-1',installationConfirmedAt:'2026-09-01',sensors:[],status:'unassigned'}}}]}
-const report={explanations:[{nodeId:'node-1',nodeName:'NeuroSense 1',sectionId:'north',metric:'airTemp',observedMinutes:1000,estimatedPct:0,directions:{above:{minutes:280,eventCount:5,longestMinutes:90,days:5,peak:{at:'2026-09-05T13:00:00Z',value:31,limit:25,departure:6},peakHours:[{hour:16,minutes:180},{hour:17,minutes:100}],longestEvents:[{from:'2026-09-05T13:00:00Z',to:'2026-09-05T14:30:00Z',minutes:90}],scope:'local',peersAtPeak:{count:3,configuredCount:3,sameDirectionCount:0,median:24}}},halves:[{coveragePct:90,outsidePct:30},{coveragePct:91,outsidePct:26}],trend:'comparable',related:[{metric:'humidity',during:60,otherwise:70,duringMinutes:280,otherwiseMinutes:720}]}],diagnosticMap:map,traces:[{nodeId:'node-1',nodeName:'NeuroSense 1',sectionId:'north',metric:'airTemp',points:Array.from({length:168},(_,i)=>({at:new Date(Date.parse('2026-09-01T00:00:00Z')+i*3600000).toISOString(),min:20+Math.sin(i/4)*3,max:26+Math.sin(i/4)*3,mean:23+Math.sin(i/4)*3,target:[20,25],count:6}))}],area:{id:'area',name:'Bandomasis šiltnamis'},from:'2026-09-01T00:00:00Z',to:'2026-09-08T00:00:00Z',days:7,generatedAt:'2026-09-08T00:00:00Z',methodVersion:'diagnostics-1.0',timeZone:'Europe/Vilnius',daily:[],metrics:[metric],nodes:[{...metric,nodeId:'node-1',nodeName:'NeuroSense 1'}],ranking:[metric],insights:[{...metric,kind:'systematic-peer',severity:'high'}],episodes:[],episodesTruncated:false,warnings:['legacy-context-estimated'],inputs:{controller:false,calibration:false,cycle:false,ppfd:false,energy:false,yield:false},controllerEvents:[],interventions:[],calibrations:[],cycles:[]}
+const report={explanations:[{nodeId:'node-1',nodeName:'NeuroSense 1',sectionId:'north',metric:'airTemp',observedMinutes:1000,estimatedPct:0,directions:{above:{minutes:280,meanDeparture:3.2,matchedRelated:[{metric:"humidity",during:60,baseline:70,matchedMinutes:120,hourContextGroups:2}],eventCount:5,longestMinutes:90,days:5,peak:{at:'2026-09-05T13:00:00Z',value:31,limit:25,departure:6},peakHours:[{hour:16,minutes:180},{hour:17,minutes:100}],longestEvents:[{from:'2026-09-05T13:00:00Z',to:'2026-09-05T14:30:00Z',minutes:90}],scope:'local',peersAtPeak:{count:3,configuredCount:3,sameDirectionCount:0,median:24}}},halves:[{coveragePct:90,outsidePct:30},{coveragePct:91,outsidePct:26}],trend:'comparable',related:[{metric:'humidity',during:60,otherwise:70,duringMinutes:280,otherwiseMinutes:720}]}],diagnosticMap:map,traces:[{nodeId:'node-1',nodeName:'NeuroSense 1',sectionId:'north',metric:'airTemp',points:Array.from({length:168},(_,i)=>({at:new Date(Date.parse('2026-09-01T00:00:00Z')+i*3600000).toISOString(),min:20+Math.sin(i/4)*3,max:26+Math.sin(i/4)*3,mean:23+Math.sin(i/4)*3,target:[20,25],count:6}))}],area:{id:'area',name:'Bandomasis šiltnamis'},from:'2026-09-01T00:00:00Z',to:'2026-09-08T00:00:00Z',days:7,generatedAt:'2026-09-08T00:00:00Z',methodVersion:'diagnostics-1.0',timeZone:'Europe/Vilnius',daily:[],metrics:[metric],nodes:[{...metric,nodeId:'node-1',nodeName:'NeuroSense 1'}],ranking:[metric],insights:[{...metric,kind:'systematic-peer',severity:'high'}],episodes:[],episodesTruncated:false,warnings:['legacy-context-estimated'],inputs:{controller:false,calibration:false,cycle:false,ppfd:false,energy:false,yield:false},controllerEvents:[],interventions:[],calibrations:[],cycles:[]}
 for(const [key,unit,mean,low,high] of [['humidity','%',85,65,80],['vpd','kPa',.4,.6,1.2],['co2','ppm',450,600,1000]] as const){
- const m={...metric,metric:key,unit,mean,minimum:mean*.9,maximum:mean*1.1,belowMinutes:mean<low?280:0,aboveMinutes:mean>high?280:0,peerDelta:0,recurringDays:2}
+ const m={...metric,metric:key,unit,mean,dayMean:mean,nightMean:mean,minimum:mean*.9,maximum:mean*1.1,belowMinutes:mean<low?280:0,aboveMinutes:mean>high?280:0,peerDelta:0,recurringDays:2}
  report.metrics.push(m);report.nodes.push({...m,nodeId:'node-1',nodeName:'NeuroSense 1'})
  report.insights.push({...m,kind:'outside-target',severity:'medium'})
  report.traces.push({...report.traces[0],metric:key,points:report.traces[0].points.map(p=>({...p,min:mean*.9,max:mean*1.1,mean,target:[low,high]}))})
@@ -37,6 +37,9 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
  await expect(page.locator('.diag-finding')).toHaveCount(3)
  await expect(page.locator('.diag-evidence')).toHaveCount(0)
  await expect(page.locator('.diag-explanation')).toHaveCount(0)
+ await expect(page.locator('.diag-insights')).toContainText('matching hours')
+ await expect(page.locator('.diag-insights')).toContainText('The longest lasted')
+ await expect(page.locator('.diag-insights')).toContainText('not independent confirmation')
  await page.locator('.diag-finding > button').first().click()
  await expect(page.locator('.diag-explanation')).toContainText('Largest excursion')
  await expect(page.locator('.diag-explanation')).toContainText('0 of 3')
@@ -49,6 +52,11 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
  await expect(page.locator('.diag-report-row')).toHaveCount(1)
  await page.locator('.diag-report-row button').first().click()
  await expect(page.locator('.diag-insights')).toBeVisible()
+ await page.getByRole('button',{name:'Areas',exact:true}).click()
+ await expect(page.locator('.nc-diagnostics')).toHaveCount(0)
+ await page.getByRole('button',{name:'Diagnostics',exact:true}).click()
+ await expect(page.locator('.diag-period b')).toContainText(/snapshot|ataskaita/i)
+ await expect(page.locator('.diag-toolbar .primary')).toBeDisabled()
  await page.getByRole('button',{name:'LT',exact:true}).click()
  await expect(page.locator('.diag-simple > h2')).toContainText('Kur reikia dėmesio')
  await page.evaluate(()=>{(document.activeElement as HTMLElement)?.blur();window.scrollTo(0,0)})
@@ -72,7 +80,7 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
 
 test('30-day analysis survives the former 15s deadline and can retry a timeout',async({page})=>{
  test.setTimeout(50_000)
- let failNext=false
+ let failNext=false,analysisCalls=0
  await page.route('**/runtime-config.js*',r=>r.fulfill({contentType:'application/javascript',body:`window.NEUROCROP_CONFIG={apiBaseUrl:'${api}'};`}))
  await page.route(`${api}/**`,async route=>{
   const url=new URL(route.request().url()),path=url.pathname
@@ -84,6 +92,7 @@ test('30-day analysis survives the former 15s deadline and can retry a timeout',
   if(path==='/alerts')data={alerts:[]}
   if(path==='/actions/today')data={actions:[]}
   if(path==='/diagnostics/areas/area'){
+   analysisCalls++
    if(failNext){failNext=false;await route.fulfill({status:504,json:{message:'Gateway Time-out'}});return}
    if(url.searchParams.get('days')==='30')await new Promise(resolve=>setTimeout(resolve,16_000))
    data={...report,days:Number(url.searchParams.get('days')),from:url.searchParams.get('days')==='30'?'2026-08-09T00:00:00Z':report.from}
@@ -97,6 +106,13 @@ test('30-day analysis survives the former 15s deadline and can retry a timeout',
  await expect(page.getByRole('status').filter({hasText:/Analyzing|Analizuojami/})).toBeVisible()
  await expect(page.locator('.diag-finding')).toHaveCount(3,{timeout:22_000})
  await expect(page.locator('.diag-error')).toHaveCount(0)
+ const callsBeforeReturn=analysisCalls
+ await page.getByRole('button',{name:'Areas',exact:true}).click()
+ await expect(page.locator('.nc-diagnostics')).toHaveCount(0)
+ await page.getByRole('button',{name:'Diagnostics',exact:true}).click()
+ await expect(page.locator('.diag-finding')).toHaveCount(3)
+ await expect(page.locator('.diag-filters select').nth(1)).toHaveValue('30')
+ expect(analysisCalls).toBe(callsBeforeReturn)
  failNext=true
  await page.locator('.diag-filters button').click()
  await expect(page.getByRole('alert')).toContainText(/Try again or choose a shorter period|Bandykite dar kartą/)

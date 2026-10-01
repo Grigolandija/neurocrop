@@ -29,3 +29,25 @@ test('co-occurrence is reported only with sufficient fresh evidence in both grou
  const [e]=explainDiagnostics(readings,{...report,to:new Date(start+120*60000).toISOString()});
  const rh=e.related.find(r=>r.metric==='humidity');assert.equal(rh.during,90);assert.equal(rh.otherwise,60);assert.equal(e.trend,'comparable');
 });
+
+test('related readings are matched by hour and direction instead of mixing hot and cold episodes',()=>{
+ const readings=[];
+ for(let day=0;day<6;day++)for(let minute=0;minute<60;minute+=5){const r=row(day*1440+minute,day<2?30:day<4?15:22);r.humidity=day<2?80:day<4?40:60;readings.push(r);}
+ const [e]=explainDiagnostics(readings,{...report,to:new Date(start+6*86400000).toISOString()});
+ const high=e.directions.above.matchedRelated.find(r=>r.metric==='humidity');
+ const low=e.directions.below.matchedRelated.find(r=>r.metric==='humidity');
+ assert.equal(high.during,80);assert.equal(high.baseline,60);assert.equal(low.during,40);assert.equal(low.baseline,60);
+ assert.ok(high.matchedMinutes>=60);assert.equal(e.directions.above.meanDeparture,5);
+});
+test('different times of day cannot produce an hour-matched association',()=>{
+ const readings=[];
+ for(let day=0;day<4;day++)for(let minute=0;minute<60;minute+=5){const r=row(day*1440+(day<2?720:0)+minute,day<2?30:22);r.humidity=day<2?80:60;readings.push(r);}
+ const [e]=explainDiagnostics(readings,{...report,to:new Date(start+4*86400000).toISOString()});
+ assert.deepEqual(e.directions.above.matchedRelated,[]);
+});
+test('hour-matched comparisons do not cross historical configuration changes',()=>{
+ const readings=[];
+ for(let day=0;day<4;day++)for(let minute=0;minute<60;minute+=5){const r=row(day*1440+minute,day<2?30:22);if(day>=2)r.diagnostic_context_id='new-context';readings.push(r);}
+ const [e]=explainDiagnostics(readings,{...report,to:new Date(start+4*86400000).toISOString()});
+ assert.deepEqual(e.directions.above.matchedRelated,[]);
+});

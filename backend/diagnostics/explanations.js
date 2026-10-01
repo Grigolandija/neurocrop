@@ -22,16 +22,26 @@ export function explainDiagnostics(rows, report) {
         if(!wanted.has(`${sectionId}:${metric}`)||!ctx.representative||!validRange(ctx.target))continue;
         const lo=Math.max(from,+new Date(row.time)),hi=Math.min(to,+new Date(row.time)+maxHoldMs(row,metric),contextEnd.get(row),valid[i+1]?+new Date(valid[i+1].time):to);
         if(hi<=lo)continue;
-        if(!sections.has(sectionId))sections.set(sectionId,{nodeId,nodeName:row.context.nodeName||nodeId,sectionId,metric,observedMinutes:0,estimatedMinutes:0,targets:new Set(),halves:[{observed:0,outside:0},{observed:0,outside:0}],directions:{below:{events:[],hours:Array(24).fill(0),days:new Set(),minutes:0,peak:null},above:{events:[],hours:Array(24).fill(0),days:new Set(),minutes:0,peak:null}},related:{}});
+        if(!sections.has(sectionId))sections.set(sectionId,{nodeId,nodeName:row.context.nodeName||nodeId,sectionId,metric,observedMinutes:0,estimatedMinutes:0,targets:new Set(),halves:[{observed:0,outside:0},{observed:0,outside:0}],directions:{below:{events:[],hours:Array(24).fill(0),days:new Set(),minutes:0,departureSum:0,peak:null},above:{events:[],hours:Array(24).fill(0),days:new Set(),minutes:0,departureSum:0,peak:null}},related:{},matched:new Map()});
         const s=sections.get(sectionId),duration=(hi-lo)/60000,direction=value<ctx.target[0]?'below':value>ctx.target[1]?'above':null;
         s.targets.add(JSON.stringify(ctx.target));s.observedMinutes+=duration;if(ctx.estimated)s.estimatedMinutes+=duration;
         [[from,middle],[middle,to]].forEach(([a,b],idx)=>{const minutes=Math.max(0,Math.min(hi,b)-Math.max(lo,a))/60000;s.halves[idx].observed+=minutes;if(direction)s.halves[idx].outside+=minutes;});
         for(const relatedMetric of ['airTemp','humidity','vpd','co2']){
           if(relatedMetric===metric)continue;const relatedValue=valueFor(row,relatedMetric);if(relatedValue===null||!metricContext(row,relatedMetric).representative)continue;
           s.related[relatedMetric]||={duringSum:0,duringMinutes:0,otherwiseSum:0,otherwiseMinutes:0};const r=s.related[relatedMetric],phase=direction?'during':'otherwise';const overlap=Math.max(0,Math.min(hi,+new Date(row.time)+maxHoldMs(row,relatedMetric))-lo)/60000;r[phase+'Sum']+=relatedValue*overlap;r[phase+'Minutes']+=overlap;
+          // Compare each direction with in-target observations at the same local hour
+          // and under the same recorded context. This avoids mixing cold/hot episodes
+          // or presenting a simple day/night difference as an independent association.
+          for(let cursor=lo,stop=lo+overlap*60000;cursor<stop;){
+            const c=local(cursor),end=Math.min(stop,cursor+(60-c.minute)*60000-cursor%60000),minutes=(end-cursor)/60000;
+            const key=JSON.stringify([relatedMetric,c.hour,ctx.contextId,ctx.target]);
+            if(!s.matched.has(key))s.matched.set(key,{metric:relatedMetric,below:{sum:0,minutes:0},above:{sum:0,minutes:0},normal:{sum:0,minutes:0}});
+            const bucket=s.matched.get(key)[direction||'normal'];bucket.sum+=relatedValue*minutes;bucket.minutes+=minutes;cursor=end;
+          }
+
         }
         if(!direction)continue;
-        const d=s.directions[direction],limit=ctx.target[direction==='below'?0:1],departure=Math.abs(value-limit);d.minutes+=duration;
+        const d=s.directions[direction],limit=ctx.target[direction==='below'?0:1],departure=Math.abs(value-limit);d.minutes+=duration;d.departureSum+=departure*duration;
         if(!d.peak||departure>d.peak.departure)d.peak={at:new Date(lo).toISOString(),value,limit,departure,areaId:row.context.areaId};
         const previous=d.events.at(-1),key=JSON.stringify([row.diagnostic_context_id,ctx.target]);
         if(previous&&previous.end===lo&&previous.key===key)previous.end=hi;else d.events.push({start:lo,end:hi,key});
@@ -54,7 +64,16 @@ export function explainDiagnostics(rows, report) {
           const configured=peers.filter(p=>p.outside!==null),same=configured.filter(p=>p.outside).length,center=median(peers.map(p=>p.value));
           const scope=configured.length<2?'insufficient-peers':same/configured.length>=.7?'widespread':same===0&&center!==null&&Math.abs(d.peak.value-center)>=(SPREAD_LIMITS[metric]??Infinity)?'local':'mixed';
           const events=d.events.map(e=>({from:new Date(e.start).toISOString(),to:new Date(e.end).toISOString(),minutes:(e.end-e.start)/60000})).sort((a,b)=>b.minutes-a.minutes);
-          directions[direction]={minutes:d.minutes,eventCount:events.length,longestMinutes:events[0]?.minutes||0,days:d.days.size,peak:d.peak,peakHours:d.hours.map((minutes,hour)=>({hour,minutes})).sort((a,b)=>b.minutes-a.minutes).filter(h=>h.minutes>0).slice(0,3),longestEvents:events.slice(0,3),scope,peersAtPeak:{count:peers.length,configuredCount:configured.length,sameDirectionCount:same,median:center}};
+          const comparisons=new Map();
+          for(const bucket of s.matched.values()){
+            const excursion=bucket[direction],normal=bucket.normal;
+            if(excursion.minutes<15||normal.minutes<15)continue;
+            if(!comparisons.has(bucket.metric))comparisons.set(bucket.metric,{duringSum:0,baselineSum:0,minutes:0,hours:0});
+            const comparison=comparisons.get(bucket.metric),weight=Math.min(excursion.minutes,normal.minutes);
+            comparison.duringSum+=weight*excursion.sum/excursion.minutes;comparison.baselineSum+=weight*normal.sum/normal.minutes;comparison.minutes+=weight;comparison.hours++;
+          }
+          const matchedRelated=[...comparisons].filter(([,c])=>c.minutes>=60).map(([metric,c])=>({metric,during:c.duringSum/c.minutes,baseline:c.baselineSum/c.minutes,matchedMinutes:c.minutes,hourContextGroups:c.hours}));
+          directions[direction]={minutes:d.minutes,meanDeparture:d.departureSum/d.minutes,matchedRelated,eventCount:events.length,longestMinutes:events[0]?.minutes||0,days:d.days.size,peak:d.peak,peakHours:d.hours.map((minutes,hour)=>({hour,minutes})).sort((a,b)=>b.minutes-a.minutes).filter(h=>h.minutes>0).slice(0,3),longestEvents:events.slice(0,3),scope,peersAtPeak:{count:peers.length,configuredCount:configured.length,sameDirectionCount:same,median:center}};
         }
         const halfDuration=(to-from)/120000,halves=s.halves.map(h=>({coveragePct:100*h.observed/halfDuration,outsidePct:h.observed?100*h.outside/h.observed:null}));
         output.push({nodeId:s.nodeId,nodeName:s.nodeName,sectionId:s.sectionId,metric:s.metric,observedMinutes:s.observedMinutes,estimatedPct:100*s.estimatedMinutes/s.observedMinutes,directions,halves,trend:halves.every(h=>h.coveragePct>=50)&&s.estimatedMinutes===0&&s.targets.size===1?'comparable':'insufficient-evidence',related:Object.entries(s.related).filter(([,r])=>r.duringMinutes>=60&&r.otherwiseMinutes>=60).map(([metric,r])=>({metric,during:r.duringSum/r.duringMinutes,otherwise:r.otherwiseSum/r.otherwiseMinutes,duringMinutes:r.duringMinutes,otherwiseMinutes:r.otherwiseMinutes}))});

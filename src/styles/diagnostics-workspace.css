@@ -53,3 +53,8 @@
 .diag-explanation p,.diag-explanation dd{font-size:14px;line-height:1.7;color:#3e5549}.diag-explanation dl{display:grid;grid-template-columns:180px 1fr;gap:12px 18px}.diag-explanation dt{font-weight:600;font-size:14px}.diag-explanation dd{margin:0}.diag-explanation .diag-reason{background:#f1f5ef;padding:14px;border-radius:8px}
 .diag-supporting{border-top:1px solid #d8e1d9;padding-top:16px}.diag-supporting .diag-evidence{border:0;padding:12px 0}
 @media(max-width:800px){.diag-explanation dl{display:block}.diag-explanation dt{margin:14px 0 4px}.diag-simple .diag-expanded{padding:14px}.diag-simple .diag-finding>button{min-height:44px}}
+
+/* Readable diagnostic reasoning is visible without opening the evidence panel. */
+.diag-interpretation{border-left:3px solid #8ba895;padding:8px 16px;margin:14px 0;max-width:820px;background:#edf3ee}
+.diag-confidence{display:block;max-width:820px;line-height:1.6;color:#52685f;margin:12px 0}
+.diag-finding-fact+.diag-finding-fact{margin-top:24px;padding-top:12px;border-top:1px solid #d8e1d9}

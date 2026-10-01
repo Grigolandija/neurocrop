@@ -11,7 +11,7 @@ export type Episode = {id:string;section_id:string;node_id:string;metric:string;
 export type DiagnosticTrace = {nodeId:string;nodeName:string;sectionId:string;metric:string;points:{at:string;min:number;max:number;mean:number;target:[number,number]|null;count:number}[]}
 export type DiagnosticExplanation = {
  nodeId:string;nodeName:string;sectionId:string;metric:string;observedMinutes:number;estimatedPct:number;
- directions:Partial<Record<'below'|'above',{minutes:number;eventCount:number;longestMinutes:number;days:number;peak:{at:string;value:number;limit:number;departure:number};peakHours:{hour:number;minutes:number}[];longestEvents:{from:string;to:string;minutes:number}[];scope:string;peersAtPeak:{count:number;configuredCount:number;sameDirectionCount:number;median:number|null}}>>;
+ directions:Partial<Record<'below'|'above',{minutes:number;meanDeparture?:number;matchedRelated?:{metric:string;during:number;baseline:number;matchedMinutes:number;hourContextGroups:number}[];eventCount:number;longestMinutes:number;days:number;peak:{at:string;value:number;limit:number;departure:number};peakHours:{hour:number;minutes:number}[];longestEvents:{from:string;to:string;minutes:number}[];scope:string;peersAtPeak:{count:number;configuredCount:number;sameDirectionCount:number;median:number|null}}>>;
  halves:{coveragePct:number;outsidePct:number|null}[];trend:string;related:{metric:string;during:number;otherwise:number;duringMinutes:number;otherwiseMinutes:number}[];
 }
 export type DiagnosticReport = {
