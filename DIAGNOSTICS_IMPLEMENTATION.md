@@ -75,3 +75,17 @@ Pasirinkus pastebėjimą rodomas istorinio plano variantas periodo pabaigoje ir 
 Grafikas: valandos pirminių mėginių vidurkis ir min/max, tame lange nekintančios užfiksuotos profilio ribos. Kai valandoje ribos keičiasi ar jų nėra, tikslų juosta nerodoma. Tuščios valandos nejungiamos. Kitų zonų palyginimas yra jų valandinių medianų mediana; jis nepakeičia 5 min diagnostinio peer skaičiavimo. Trukmės skaičiuojamos ankstesniu riboto reikšmės tęstinumo metodu ir rodomos tik vienam jutikliui. Grafiko limitas 60 000 valandinių taškų visai ataskaitai, viršijimas pažymimas. Senos ataskaitos neturi naujų grafiko ir plano laukų ir lieka nekintančios.
 
 Šiam pertvarkymui reikia atnaujinti ir backend, ir frontend. Papildomų DB migracijų po 0039 nereikia. Pakeitimai vietiniai, diegimas šio darbo metu nevykdytas.
+
+## Paprastas vaizdas ir išsamesnė analizė (2026-10-01)
+
+Pirmame ekrane rodomas vienas problemų sąrašas be iš anksto atverto plano ar grafiko. Išvada atveriama vietoje paspaudus „Plačiau“; planas ir grafikas turi atskirą išskleidimą. Ataskaitos atidarymas pradeda nuo suskleisto vaizdo.
+
+Naujas `explanations` laukas iš pirminių matavimų skaičiuoja atskirai kiekvienam jutikliui ir rodikliui:
+- laiką žemiau/aukščiau jo užfiksuotų ribų, nenutrūkstamų epizodų skaičių, ilgiausią epizodą ir jo pradžią/pabaigą;
+- didžiausią nukrypimą su faktine reikšme, tuo metu galiojusia riba ir timestamp;
+- dienų skaičių bei tris vietinio paros laiko valandas, kuriose sukaupta daugiausia nuokrypio laiko;
+- kitų tos pačios Area jutiklių faktus stipriausio nukrypimo momentu; bent du tinkamas ribas turintys kiti jutikliai būtini vietinio/bendresnio nukrypimo hipotezei. Tai vieno konkretaus momento palyginimas, ne teiginys apie visą periodą;
+- to paties paketo kitų rodiklių vidurkius per nukrypimus ir kitu stebėtu laiku. Abiem grupėms reikia bent 60 min; vidurkiai nerodo priežastingumo, o paros laikas gali būti confounder;
+- abiejų periodo pusių už ribų praleisto stebėto laiko procentus. Palyginimui reikia bent 50 % abiejų pusių aprėpties, patvirtinto konteksto ir vienodų ribų. Pakeistas profilis negali automatiškai tapti „pagerėjimu“.
+
+Trūkstami ir užkešuoti matavimai nekuria epizodų, konteksto pakeitimas ir duomenų tarpas nutraukia seno matavimo galiojimą. Ribotas reikšmės tęstinumas yra įvertinimas tarp realių mėginių, ne nepertraukiamas fizinis matavimas. Patikros parenkamos pagal istorinių ribų tikrumą ir palyginimo mastą, o tiksli priežastis be papildomų duomenų neįvardijama kaip faktas. Senos ataskaitos be `explanations` lauko nepapildomos išgalvota analize. Reikia backend ir frontend atnaujinimo; naujos DB migracijos nereikia.
