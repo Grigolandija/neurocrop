@@ -2,6 +2,10 @@
 
 Komandos Andriui:
 
+## Frontend ir backend atnaujinimas
+
+Naudoti, kai reikia atnaujinti ir produkcinį backend, ir paruošti frontend ZIP.
+
 ```bash
 bash <<'SCRIPT'
 set -euo pipefail
@@ -66,6 +70,45 @@ echo "Frontend ZIP paruoštas: $HOME/neurocrop/REACT-DOMENUI.zip"
 echo "Liko įkelti ZIP turinį į frontend hostingą."
 SCRIPT
 ```
+
+## Tik frontend pakeitimai ir ZIP
+
+Naudoti smulkiems frontend pakeitimams, kai backend ir API sutartis nesikeičia.
+Komanda išsaugo pakeitimus GitHub ir paruošia frontend ZIP; produkcinio backend
+diegimo nepaleidžia. GitHub CI ir automatinis staging atnaujinimas veikia kaip
+įprastai po `push`.
+
+```bash
+bash <<'SCRIPT'
+set -euo pipefail
+
+cd "/Users/andriusgrigas/Documents/New project/frontend"
+git switch main
+git add -A
+if ! git diff --cached --quiet; then
+  git commit -m "UPD frontend"
+fi
+git pull --ff-only origin main
+git push origin main
+REVISION="$(git rev-parse HEAD)"
+
+cd ~/neurocrop
+git switch main
+git pull --ff-only origin main
+test "$(git rev-parse HEAD)" = "$REVISION"
+pnpm install --frozen-lockfile
+pnpm build
+rm -f REACT-DOMENUI.tmp.zip
+(cd dist && zip -r ../REACT-DOMENUI.tmp.zip .)
+mv -f REACT-DOMENUI.tmp.zip REACT-DOMENUI.zip
+
+echo "Frontend ZIP paruoštas: $HOME/neurocrop/REACT-DOMENUI.zip"
+echo "Liko įkelti ZIP turinį į frontend hostingą."
+SCRIPT
+```
+
+ZIP pakeičiamas tik sėkmingai sukūrus naują archyvą. Komanda automatiškai
+neskelbia frontend pakeitimų hostinge.
 
 Dainiui:
 
