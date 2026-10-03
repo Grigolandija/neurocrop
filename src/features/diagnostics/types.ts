@@ -14,7 +14,19 @@ export type DiagnosticExplanation = {
  directions:Partial<Record<'below'|'above',{minutes:number;meanDeparture?:number;matchedRelated?:{metric:string;during:number;baseline:number;matchedMinutes:number;hourContextGroups:number}[];eventCount:number;longestMinutes:number;days:number;peak:{at:string;value:number;limit:number;departure:number};peakHours:{hour:number;minutes:number}[];longestEvents:{from:string;to:string;minutes:number}[];scope:string;peersAtPeak:{count:number;configuredCount:number;sameDirectionCount:number;median:number|null}}>>;
  halves:{coveragePct:number;outsidePct:number|null}[];trend:string;related:{metric:string;during:number;otherwise:number;duringMinutes:number;otherwiseMinutes:number}[];
 }
+export type AgronomicRisk = {
+ kind:'high-vpd'|'low-vpd'|'leaf-condensation';nodeId:string;nodeName:string;sectionId:string;sectionName:string;
+ profileId:string|null;stage:string|null;crops:string[];estimated:boolean;minutes:number;longestMinutes:number;
+ rootDryMinutes:number;rootObservedMinutes:number;vpdMin:number;vpdMax:number;target:[number,number]|null;
+ firstAt:string;lastAt:string;dewPoint:number|null;leafTemperature:number|null;
+}
+export type GrowthRisk = {
+ kind:string;primaryMetric:string;nodeId:string;nodeName:string;sectionId:string;sectionName:string;
+ profileId:string|null;stage:string|null;crops:string[];estimated:boolean;minutes:number;longestMinutes:number;
+ firstAt:string;lastAt:string;support:{metric:string;minimum:number;maximum:number;target:[number,number]|null;unit:string}[];
+}
 export type DiagnosticReport = {
+  agronomy?:(AgronomicRisk|GrowthRisk)[];
   explanations?:DiagnosticExplanation[];
   traces?:DiagnosticTrace[];tracesTruncated?:boolean;diagnosticMap?:GreenhouseMap|null;mapValidFrom?:string|null;mapSource?:string|null;
   area:{id:string;name:string};from:string;to:string;days:number;generatedAt:string;methodVersion:string;timeZone:string;

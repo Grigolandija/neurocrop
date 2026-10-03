@@ -58,3 +58,8 @@
 .diag-interpretation{border-left:3px solid #8ba895;padding:8px 16px;margin:14px 0;max-width:820px;background:#edf3ee}
 .diag-confidence{display:block;max-width:820px;line-height:1.6;color:#52685f;margin:12px 0}
 .diag-finding-fact+.diag-finding-fact{margin-top:24px;padding-top:12px;border-top:1px solid #d8e1d9}
+
+.diag-agronomy article{padding:20px 0;border-bottom:1px solid #d8e1d9;max-width:900px}
+.diag-agronomy article>small{color:#52685f}.diag-agronomy h3{font-size:22px;margin:8px 0 12px!important}
+.diag-agronomy p{line-height:1.7;margin:12px 0;font-size:15px}.diag-agro-action{background:#edf3ee;border-left:3px solid #59856a;padding:14px 18px}
+.diag-agro-evidence,.diag-agronomy details{font-size:13px!important;color:#52685f}.diag-measurement-review{padding:18px 0}

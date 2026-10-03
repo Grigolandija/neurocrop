@@ -3,6 +3,7 @@ import { metricDefinitions } from '../../domain/metricRegistry'
 import type { DiagnosticReport } from './types'
 import { prioritizeFindings } from './findings'
 import { findingNarrative } from './narrative'
+import AgronomicInsights from './AgronomicInsights'
 import DiagnosticExplanation from './DiagnosticExplanation'
 import { DiagnosticEvidence } from './DiagnosticEvidence'
 
@@ -15,6 +16,8 @@ export default function DiagnosticSummary({report,lt,onCheckSensors}:Props){
   const hasReadings=report.metrics.some(m=>m.observedMinutes>0)
   const label=(metric:string)=>{const d=metricDefinitions[metric as keyof typeof metricDefinitions];return d?(lt?d.labelLt:d.label):metric}
   return <div className="diag-summary diag-simple">
+    <AgronomicInsights report={report} lt={lt}/>
+    <details className="diag-measurement-review"><summary>{t('Matavimai, epizodai ir techninis pagrindimas','Measurements, episodes and technical evidence')}</summary>
     <h2>{groups.length?t('Kur reikia dėmesio','What needs attention'):!hasReadings||unknown.length?t('Išvadai dar trūksta matavimų','More readings are needed'):t('Reikšmingų nukrypimų nenustatyta','No significant deviations detected')}</h2>
     <div className="diag-insights">{groups.map(g=><article key={g.id} className="diag-finding">
       <strong className="diag-place">{g.name}</strong>
@@ -32,6 +35,7 @@ export default function DiagnosticSummary({report,lt,onCheckSensors}:Props){
       <button aria-expanded={selectedId===g.id} onClick={()=>setSelected(selectedId===g.id?'':g.id)}>{selectedId===g.id?t('Suskleisti','Show less'):t('Epizodai, jutikliai ir matavimų grafikas','Episodes, sensors and measurement chart')}</button>
       {selectedId===g.id?<div className="diag-expanded"><DiagnosticExplanation report={report} group={g} lt={lt}/><details className="diag-supporting"><summary>{t('Parodyti žemėlapį ir matavimų grafiką','Show map and measurement chart')}</summary><DiagnosticEvidence report={report} group={g} lt={lt}/></details></div>:null}
     </article>)}</div>
+    </details>
     {unknown.length||!hasReadings?<aside className="diag-data-gap"><strong>{t('Kur dar trūksta duomenų','Where evidence is missing')}</strong><p>{Array.from(new Set(unknown.map(m=>`${m.name} · ${label(m.metric)}`))).join('; ')||t('Nėra tinkamų matavimų.','No usable readings.')}</p><button onClick={onCheckSensors}>{t('Patikrinti jutiklių ryšį','Check sensor connectivity')}</button></aside>:null}
   </div>
 }

@@ -1,3 +1,4 @@
+import { analyzeAgronomy } from './agronomy.js';
 import { explainDiagnostics } from './explanations.js';
 import { buildDiagnosticTraces } from './evidence.js';
 import { controllerResponses } from './controller-response.js';
@@ -13,7 +14,7 @@ export async function buildAreaDiagnostic(db, organizationId, areaId, {days=7,to
   try{new Intl.DateTimeFormat('en',{timeZone}).format(until);}catch{throw Object.assign(new Error('Invalid time zone'),{status:400});}
   const area=await db.query('SELECT id,name FROM areas WHERE organization_id=$1 AND id=$2',[organizationId,areaId]);
   if(!area.rows.length)throw Object.assign(new Error('Area not found'),{status:404});
-  const {rows:inventory}=await db.query(`SELECT n.dev_eui, jsonb_build_object('nodeId',n.dev_eui,'nodeName',n.name,'sectionId',n.section_id,'areaId',n.area_id,'source',n.source,'sectionName',s.name,'metrics',p.metrics,
+  const {rows:inventory}=await db.query(`SELECT n.dev_eui, jsonb_build_object('nodeId',n.dev_eui,'nodeName',n.name,'sectionId',n.section_id,'areaId',n.area_id,'source',n.source,'sectionName',s.name,'profileId',s.crop_profile,'stage',p.stage,'metrics',p.metrics,
     'sensors',COALESCE((SELECT jsonb_agg(to_jsonb(c)) FROM node_sensor_configs c WHERE c.organization_id=n.organization_id AND c.node_dev_eui=n.dev_eui),'[]'::jsonb)) AS context
     FROM nodes n JOIN sections s ON s.organization_id=n.organization_id AND s.id=n.section_id
     LEFT JOIN crop_profiles p ON p.organization_id=s.organization_id AND p.id=s.crop_profile
@@ -44,7 +45,7 @@ export async function buildAreaDiagnostic(db, organizationId, areaId, {days=7,to
     ORDER BY valid_from DESC LIMIT 1`,[organizationId,areaId,until]);
   const layout=layouts[0];
   const diagnosticMap=layout?{...layout.map_data,objects:(layout.map_data.objects||[]).map(o=>({...o,metadata:{...o.metadata,sensor:o.metadata?.sensor?{...o.metadata.sensor,measurements:undefined,status:'unassigned',batteryPercent:undefined,lastSeenAt:undefined}:undefined}})),heatmapSettings:{...layout.map_data.heatmapSettings,enabled:false}}:null;
-  return {...report,explanations:explainDiagnostics(rows,report),...buildDiagnosticTraces(rows,report),diagnosticMap,mapValidFrom:layout?.valid_from||null,mapSource:layout?.source||null,area:area.rows[0],days:Number(days),episodes:episodes.rows.slice(0,2000).map(e=>{
+  return {...report,agronomy:analyzeAgronomy(rows,report),explanations:explainDiagnostics(rows,report),...buildDiagnosticTraces(rows,report),diagnosticMap,mapValidFrom:layout?.valid_from||null,mapSource:layout?.source||null,area:area.rows[0],days:Number(days),episodes:episodes.rows.slice(0,2000).map(e=>{
       const evidence={...e.evidence};if(evidence.latest&&+new Date(evidence.latest.observedAt)>+until)delete evidence.latest;
       const extendsPastEnd=e.ended_at&&+new Date(e.ended_at)>+until;
       return {...e,evidence,last_observed_at:new Date(Math.min(+new Date(e.last_observed_at),+until)),ended_at:extendsPastEnd?null:e.ended_at,resolution_reason:extendsPastEnd?null:e.resolution_reason};
