@@ -20,10 +20,12 @@ EXPECTED_CONTAINERS="${EXPECTED_CONTAINERS:-neurocrop-api neurocrop-ingest neuro
 umask 077
 mkdir -p "$MONITOR_STATE_DIR"
 issues_file="$(mktemp "${MONITOR_STATE_DIR}/issues.XXXXXX")"
-trap 'rm -f "$issues_file"' EXIT
+issue_keys_file="$(mktemp "${MONITOR_STATE_DIR}/issue-keys.XXXXXX")"
+trap 'rm -f "$issues_file" "$issue_keys_file"' EXIT
 
 add_issue() {
   printf '%s | %s\n' "$1" "$2" >>"$issues_file"
+  printf '%s | %s\n' "$1" "${3:-$2}" >>"$issue_keys_file"
 }
 
 for container in $EXPECTED_CONTAINERS; do
@@ -61,20 +63,22 @@ fi
 
 disk_used="$(df -P / | awk 'NR==2 {gsub(/%/, "", $5); print $5}')"
 if [[ "$disk_used" =~ ^[0-9]+$ ]] && (( disk_used >= DISK_WARNING_PERCENT )); then
-  add_issue "Disk" "Root filesystem usage is ${disk_used}%"
+  disk_level=warning
+  if (( disk_used >= 90 )); then disk_level=critical; fi
+  add_issue "Disk" "Root filesystem usage is ${disk_used}%" "root-filesystem-${disk_level}"
 fi
 
 release_image_count="$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null \
   | grep -Ec '^(ghcr\.io/grigolandija/neurocrop-(backend|frontend):|neurocrop-(backend|frontend):staging-)' \
   || true)"
 if [[ "$release_image_count" =~ ^[0-9]+$ ]] && (( release_image_count >= RELEASE_IMAGE_WARNING_COUNT )); then
-  add_issue "Docker" "${release_image_count} NeuroCrop release images are stored locally"
+  add_issue "Docker" "${release_image_count} NeuroCrop release images are stored locally" "release-image-count"
 fi
 
 measurement_age="$(docker exec "$PG_CONTAINER" psql -U "$PGUSER" -d neurocrop -Atqc \
   "SELECT COALESCE(EXTRACT(EPOCH FROM (now()-max(received_at)))::bigint, -1) FROM measurements;" 2>/dev/null || printf -- -1)"
 if [[ "$measurement_age" =~ ^[0-9]+$ ]] && (( measurement_age > MEASUREMENT_STALE_MINUTES * 60 )); then
-  add_issue "Ingest" "No new measurement for $((measurement_age / 60)) minutes"
+  add_issue "Ingest" "No new measurement for $((measurement_age / 60)) minutes" "measurements-stale"
 elif [[ "$measurement_age" == "-1" ]]; then
   add_issue "Ingest" "Measurement freshness query failed or no measurements exist"
 fi
@@ -90,14 +94,22 @@ check_marker_age() {
   local age_seconds
   age_seconds=$(( $(date +%s) - $(stat -c %Y "$path") ))
   if (( age_seconds > max_hours * 3600 )); then
-    add_issue "$component" "Last success marker is $((age_seconds / 3600)) hours old"
+    add_issue "$component" "Last success marker is $((age_seconds / 3600)) hours old" "success-marker-stale"
   fi
 }
 check_marker_age "${BACKUP_DIR}/last-successful-backup" "$BACKUP_STALE_HOURS" "Backup"
 check_marker_age "${BACKUP_DIR}/last-successful-restore-test" "$RESTORE_TEST_STALE_HOURS" "Restore test"
 
 sort -u -o "$issues_file" "$issues_file"
-current_hash="$(sha256sum "$issues_file" | awk '{print $1}')"
+sort -u -o "$issue_keys_file" "$issue_keys_file"
+# Keep changing counts/ages in the report, but identify incidents by stable keys.
+current_hash="$(sha256sum "$issue_keys_file" | awk '{print $1}')"
+if [[ "${MONITOR_DRY_RUN:-0}" == 1 ]]; then
+  cat "$issues_file"
+  echo "[monitor] dry-run: $(wc -l <"$issues_file") issue(s)"
+  test ! -s "$issues_file"
+  exit $?
+fi
 state_file="${MONITOR_STATE_DIR}/last-issues.sha256"
 previous_hash="$(cat "$state_file" 2>/dev/null || true)"
 

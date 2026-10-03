@@ -371,8 +371,8 @@ test('production uptime confirms failures and cannot let notification errors mas
   assert.doesNotMatch(workflow, /<title>NeuroCrop Control Center<\/title>/);
   assert.match(workflow, /id: frontend/);
   assert.match(workflow, /name: Send availability transition email\n\s+if:[\s\S]*?continue-on-error: true/);
-  assert.match(workflow, /actions\/cache\/restore@v4/);
-  assert.match(workflow, /actions\/cache\/save@v4/);
+  assert.match(workflow, /actions\/cache\/restore@v5/);
+  assert.match(workflow, /actions\/cache\/save@v5/);
   assert.match(workflow, /Platform operational again/);
   assert.match(workflow, /name: Fail confirmed outage/);
   assert.match(workflow, /API=\$API_OUTCOME frontend=\$FRONTEND_OUTCOME/);

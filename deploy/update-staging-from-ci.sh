@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# Serialize releases and cleanup so an image cannot disappear during a deploy.
+if [ "${NEUROCROP_RELEASE_LOCK_HELD:-}" != 1 ]; then
+  exec 8>/var/lock/neurocrop-release-images.lock
+  flock -x 8
+  export NEUROCROP_RELEASE_LOCK_HELD=1
+fi
+
 REPOSITORY="${NEUROCROP_GITHUB_REPOSITORY:-Grigolandija/neurocrop}"
 WORKFLOW="${NEUROCROP_CI_WORKFLOW:-ci.yml}"
 SOURCE_DIR="${NEUROCROP_STAGING_SOURCE:-/opt/neurocrop-staging-source}"
@@ -42,6 +49,7 @@ docker build --quiet -f "$SOURCE_DIR/deploy/frontend.Dockerfile" -t "$frontend_i
 install -m 600 "$SOURCE_DIR/deploy/staging.compose.yml" "$DEPLOY_DIR/compose.yml"
 install -m 700 "$SOURCE_DIR/deploy/deploy.sh" "$DEPLOY_ROOT/deploy.sh"
 install -m 700 "$SOURCE_DIR/deploy/rollback.sh" "$DEPLOY_ROOT/rollback.sh"
+install -m 700 "$SOURCE_DIR/deploy/cleanup-release-images.py" "$DEPLOY_ROOT/cleanup-release-images.py"
 install -m 700 "$SOURCE_DIR/deploy/update-staging-from-ci.sh" "$DEPLOY_ROOT/update-staging-from-ci.sh"
 
 if [[ -s "$DEPLOY_DIR/image.env" ]]; then

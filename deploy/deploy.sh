@@ -1,6 +1,13 @@
 #!/bin/sh
 set -eu
 
+# Serialize releases and cleanup so an image cannot disappear during a deploy.
+if [ "${NEUROCROP_RELEASE_LOCK_HELD:-}" != 1 ]; then
+  exec 8>/var/lock/neurocrop-release-images.lock
+  flock -x 8
+  export NEUROCROP_RELEASE_LOCK_HELD=1
+fi
+
 environment=${1:?Usage: deploy.sh staging|production backend-image [frontend-image]}
 image=${2:?Usage: deploy.sh staging|production backend-image [frontend-image]}
 frontend_image=${3:-}

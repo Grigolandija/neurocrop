@@ -1,6 +1,13 @@
 #!/bin/sh
 set -eu
 
+# Serialize releases and cleanup so an image cannot disappear during a deploy.
+if [ "${NEUROCROP_RELEASE_LOCK_HELD:-}" != 1 ]; then
+  exec 8>/var/lock/neurocrop-release-images.lock
+  flock -x 8
+  export NEUROCROP_RELEASE_LOCK_HELD=1
+fi
+
 environment=${1:?Usage: rollback.sh staging|production}
 case "$environment" in staging|production) ;; *) echo "Unknown environment: $environment" >&2; exit 2 ;; esac
 

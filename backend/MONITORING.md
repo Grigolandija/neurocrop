@@ -10,7 +10,7 @@ The internal monitor runs every five minutes and checks:
 - measurement ingest freshness;
 - daily backup and weekly offsite restore-test markers.
 
-Alerts are sent through Resend only when the issue set changes. A separate recovery email is sent when all checks become healthy.
+Alerts are sent through Resend only when the issue set changes. Incident keys are stable: changing image counts, measurement ages and backup ages do not resend the same alert. Disk usage escalating to 90% creates a new critical incident. `MONITOR_DRY_RUN=1` checks health without sending email, updating incident state or sending heartbeat requests. A separate recovery email is sent when all checks become healthy.
 Individual Node availability is a product-level condition, not a VPS failure, and
 is intentionally excluded from this internal infrastructure monitor.
 
@@ -40,3 +40,20 @@ The system uses two independent layers:
 The GitHub workflow stores the previous external availability state in an Actions cache. It sends one outage email when a failure is first confirmed, suppresses duplicate outage emails while the failure continues, and sends one recovery email with the outage duration when both public probes become healthy again.
 
 Configure GitHub repository secrets `RESEND_API_KEY` and `MONITOR_EMAIL_TO` (`agrigas1@gmail.com`) before enabling external transition emails.
+
+
+## Release image retention
+
+`deploy/cleanup-release-images.py` defaults to a read-only plan; `--apply` removes
+only NeuroCrop SHA-tagged releases. It preserves every container's image, both
+current and previous production/staging image files, the newest three images per
+repository, and every image younger than 24 hours. Missing or unresolvable state
+files stop cleanup. It never deletes containers, volumes or database backups.
+
+Deploy, rollback, staging updates and cleanup share
+`/var/lock/neurocrop-release-images.lock` to prevent concurrent image removal.
+Install the script to `/opt/neurocrop-deploy/cleanup-release-images.py` and the
+`deploy/systemd/neurocrop-image-cleanup.{service,timer}` units into
+`/etc/systemd/system/`. Run `systemctl daemon-reload` and
+`systemctl enable --now neurocrop-image-cleanup.timer` for daily cleanup.
+Inspect `journalctl -u neurocrop-image-cleanup.service` for results.
