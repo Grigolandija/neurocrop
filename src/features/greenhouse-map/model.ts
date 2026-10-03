@@ -37,6 +37,7 @@ export type SensorMeasurements = {
   waterTemperatureC?: number
   pressureHpa?: number
   measuredAt?: string
+  measuredAtByMetric?: Record<string, string>
 }
 
 export type SensorNodeMetadata = {

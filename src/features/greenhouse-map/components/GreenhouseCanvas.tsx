@@ -6,7 +6,7 @@ import '../../../styles/greenhouse-map-test.css'
 import { createContourPaths, getAdaptiveContourInterval, MIN_CONTOUR_SENSOR_COUNT } from '../heatmap/contourLines'
 import { createMeasurementGrid, gridResolution } from '../heatmap/createMeasurementGrid'
 import { heatmapColorAt, scaleGradient, type HeatmapColorMode } from '../heatmap/heatmapColorScale'
-import { getMetricMeasurementValue, getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
+import { getMetricMeasurementTime, getMetricMeasurementValue, getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
 import { isWallMountedType, snapRectangleBounds, snapRectanglePosition, snapWallMountedObject } from '../geometry'
@@ -666,7 +666,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
         value: !inactive && typeof value === 'number' && Number.isFinite(value) ? value : null,
         xM: object.xM + object.widthM / 2,
         yM: object.yM + object.lengthM / 2,
-        measuredAt: sensor.measurements?.measuredAt || sensor.lastSeenAt,
+        measuredAt: getMetricMeasurementTime(sensor.measurements, map.heatmapSettings.metric) || sensor.lastSeenAt,
         status: sensor.status,
         batteryPercent: sensor.batteryPercent,
         rssi: sensor.rssi,

@@ -9,6 +9,10 @@ export function getMetricMeasurementValue(measurements: SensorMeasurements | und
   return measurements[METRICS[metric].field]
 }
 
+export function getMetricMeasurementTime(measurements: SensorMeasurements | undefined, metric: MetricKey) {
+  return measurements?.measuredAtByMetric?.[METRICS[metric].field] ?? measurements?.measuredAt
+}
+
 export function getValidMeasurementPoints(map: GreenhouseMap, metric: MetricKey, sectionId?: string, soilEcDepthCm?: number): MeasurementPoint[] {
   return map.objects.flatMap((object) => {
     const sensor = object.metadata.sensor
@@ -16,7 +20,7 @@ export function getValidMeasurementPoints(map: GreenhouseMap, metric: MetricKey,
     if (object.type !== 'sensor-node' || !sensor || sensor.status === 'offline' || sensor.status === 'stale' || sensor.status === 'unassigned') return []
     if (sectionId && sensor.sectionId !== sectionId) return []
     if (object.xM < 0 || object.yM < 0 || object.xM > map.dimensions.widthM || object.yM > map.dimensions.lengthM) return []
-    const observedAt = sensor.measurements?.measuredAt || sensor.lastSeenAt
+    const observedAt = getMetricMeasurementTime(sensor.measurements, metric) || sensor.lastSeenAt
     const observedAtMs = observedAt ? new Date(observedAt).getTime() : undefined
     return typeof value === 'number' && Number.isFinite(value) ? [{
       id: object.id,

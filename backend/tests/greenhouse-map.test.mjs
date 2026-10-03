@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import test from 'node:test';
-import { publicHeatmapMeasurements, validateGreenhouseMap } from '../greenhouse-map-routes.js';
+import { publicLatestHeatmapMeasurements, publicHeatmapMeasurements, validateGreenhouseMap } from '../greenhouse-map-routes.js';
 
 function validMap() {
   return {
@@ -155,4 +155,50 @@ test('greenhouse map layout history keeps one tenant-scoped active revision', as
   assert.match(migration, /source IN \('backfill', 'recorded'\)/);
   assert.match(migration, /FROM greenhouse_maps/);
   assert.match(migration, /ON DELETE CASCADE/);
+});
+
+const mapNow = Date.parse('2026-10-03T17:05:00Z');
+const mapSample = (minutesAgo, values, sensors = {}) => ({
+  time: new Date(mapNow - minutesAgo * 60_000).toISOString(), profile: 'normal',
+  raw_object: { sensors, expected_uplink_interval_s: 600 }, ...values,
+});
+
+test('live map retains all three CO2 sources across partial and cached uplinks', () => {
+  const histories = [
+    [mapSample(1, { temperature: 21, co2: null }), mapSample(4, { co2: 571 })],
+    [mapSample(1, { co2: 999 }, { scd41: { fresh: false, state: 'cached_not_due' } }), mapSample(5, { co2: 504 })],
+    [mapSample(3, { co2: 608 })],
+  ];
+  // The old newest-packet-only path loses two sources; cached packets do not
+  // supply new observations even when a legacy row has a populated column.
+  const snapshots = histories.map((rows) => publicLatestHeatmapMeasurements(rows, {}, mapNow));
+  assert.deepEqual(snapshots.map((value) => value.co2Ppm), [571, 504, 608]);
+  assert.equal(snapshots[0].airTemperatureC, 21);
+  assert.equal(snapshots[0].measuredAtByMetric.co2Ppm, histories[0][1].time);
+  assert.equal(snapshots[0].measuredAtByMetric.airTemperatureC, histories[0][0].time);
+});
+
+test('live map does not revive expired, future or failed CO2 observations', () => {
+  for (const rows of [
+    [mapSample(1, { co2: null }), mapSample(80, { co2: 571 })],
+    [mapSample(-10, { co2: 571 })],
+    [mapSample(1, { co2: 571 }, { scd41: { present: false } })],
+    [mapSample(1, { co2: 571 }, { scd41: { state: 'cached_read_failed' } })],
+  ]) {
+    const snapshot = publicLatestHeatmapMeasurements(rows, {}, mapNow);
+    assert.equal(snapshot.co2Ppm, null);
+    assert.equal(snapshot.measuredAtByMetric.co2Ppm, undefined);
+  }
+});
+
+test('live map retains probe readings but respects the integrated climate opt-out', () => {
+  const snapshot = publicLatestHeatmapMeasurements([
+    mapSample(1, { temperature: 20, humidity: 60, co2: null }),
+    mapSample(5, { co2: 571, soil_temperature: 19, raw_object: { soil_ec_depths: [{ depth_cm: 10, value: 1.5 }] } }),
+  ], { sht45: { allowSpatialInterpolation: false } }, mapNow);
+  assert.equal(snapshot.airTemperatureC, null);
+  assert.equal(snapshot.vpdKpa, null);
+  assert.equal(snapshot.co2Ppm, 571);
+  assert.equal(snapshot.rootTemperatureC, 19);
+  assert.deepEqual(snapshot.soilEcByDepth, [{ depthCm: 10, value: 1.5 }]);
 });

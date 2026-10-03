@@ -5,7 +5,7 @@ import { getMetricIdByHeatmapKey } from '../../domain/metricRegistry'
 import { useInterfaceLanguage } from '../../i18n'
 import GreenhouseCanvas from '../greenhouse-map/components/GreenhouseCanvas'
 import type { HeatmapColorMode } from '../greenhouse-map/heatmap/heatmapColorScale'
-import { getMetricMeasurementValue } from '../greenhouse-map/heatmap/heatmapMetrics'
+import { getMetricMeasurementTime, getMetricMeasurementValue } from '../greenhouse-map/heatmap/heatmapMetrics'
 import { METRICS, type MetricKey } from '../greenhouse-map/model'
 import {
   areaMapRepository,
@@ -231,7 +231,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   }) ?? []
   const validNodes = validSensorObjects.length
   const latestMeasurementAt = validSensorObjects.reduce<Date | null>((latest, object) => {
-    const measuredAt = object.metadata.sensor?.measurements?.measuredAt
+    const measuredAt = getMetricMeasurementTime(object.metadata.sensor?.measurements, selectedMetric)
     if (!measuredAt) return latest
     const candidate = new Date(measuredAt)
     if (Number.isNaN(candidate.getTime())) return latest

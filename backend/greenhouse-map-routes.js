@@ -4,7 +4,8 @@ import { calcVPD } from './calculations.js';
 import { statusFromMeasurementTime } from './score.js';
 import { expectedUplinkIntervalSec } from './node-health.js';
 import { measurementRollupAverageSql } from './measurement-rollups.js';
-import { normalizeSoilEcDepths } from './telemetry-values.js';
+import { normalizeSoilEcDepths, sensorHasNewMeasurement, sensorMeasurementIntervalSec } from './telemetry-values.js';
+import { loadRecentMeasurementsByNode } from './recent-measurements.js';
 import { METRIC_DEFINITIONS } from './metric-registry.js';
 
 const MAX_OBJECTS = 2000;
@@ -147,7 +148,34 @@ export function publicHeatmapMeasurements(measurement, sensorContexts = {}) {
   return output;
 }
 
-function publicMapNode(row) {
+// Sensors have independent sampling schedules. A cached/missing value in the
+// newest uplink must not hide the preceding genuine observation or redate it.
+export function publicLatestHeatmapMeasurements(rows, sensorContexts = {}, nowMs = Date.now()) {
+  const ordered = [...rows].sort((a, b) => new Date(b.time) - new Date(a.time));
+  const values = new Map(ordered.map((row) => [row, publicHeatmapMeasurements(row, sensorContexts)]));
+  const output = publicHeatmapMeasurements(null, sensorContexts);
+  output.measuredAt = ordered[0]?.time ?? null;
+  output.measuredAtByMetric = {};
+  for (const [metricId, definition] of HEATMAP_DEFINITIONS) {
+    if (!mayInterpolateMetric(sensorContexts, metricId)) continue;
+    const source = ordered.find((row) => {
+      const sensorKey = metricId === 'vpd' ? METRIC_DEFINITIONS.airTemp.sensorKey : definition.sensorKey;
+      if (!sensorHasNewMeasurement(row.raw_object?.sensors?.[sensorKey])) return false;
+      return values.get(row)[definition.heatmap.field] !== null || (metricId === 'soilEc' && values.get(row).soilEcByDepth.length > 0);
+    });
+    if (!source) continue;
+    const uplink = Number(source.raw_object?.expected_uplink_interval_s) || expectedUplinkIntervalSec(source.profile);
+    const maxAge = sensorMeasurementIntervalSec(metricId, source.profile, uplink) * 2.5 * 1000;
+    const age = nowMs - new Date(source.time).getTime();
+    if (!Number.isFinite(age) || age < -60_000 || age > maxAge) continue;
+    output[definition.heatmap.field] = values.get(source)[definition.heatmap.field];
+    output.measuredAtByMetric[definition.heatmap.field] = source.time;
+    if (metricId === 'soilEc') output.soilEcByDepth = normalizeSoilEcDepths(source.raw_object);
+  }
+  return output;
+}
+
+function publicMapNode(row, recentMeasurements = []) {
   const measurement = row.measurement || null;
   const lastSeenAt = row.last_received_at || row.last_seen || measurement?.time || null;
   return {
@@ -165,7 +193,7 @@ function publicMapNode(row) {
     snr: row.last_snr ?? measurement?.snr ?? null,
     sensors: Object.entries(row.last_sensor_presence || {}).filter(([, present]) => present === true).map(([sensor]) => sensor),
     measurementContexts: row.sensor_contexts || {},
-    measurements: publicHeatmapMeasurements(measurement, row.sensor_contexts || {})
+    measurements: publicLatestHeatmapMeasurements(recentMeasurements, row.sensor_contexts || {})
   };
 }
 
@@ -229,25 +257,27 @@ async function getAreaNodes(organizationId, areaId) {
               )
               FROM node_sensor_configs c
               WHERE c.organization_id=n.organization_id AND lower(c.node_dev_eui)=lower(n.dev_eui)
-            ), '{}'::jsonb) AS sensor_contexts,
-            to_jsonb(m.*) AS measurement
+            ), '{}'::jsonb) AS sensor_contexts
      FROM nodes n
      LEFT JOIN sections s
        ON s.organization_id=n.organization_id AND s.id=n.section_id
-     LEFT JOIN LATERAL (
-       SELECT latest.*
-       FROM measurements latest
-       WHERE lower(latest.dev_eui)=lower(n.dev_eui)
-       ORDER BY latest.time DESC
-       LIMIT 1
-     ) m ON true
      WHERE n.organization_id=$1
        AND n.area_id=$2
        AND n.archived_at IS NULL
      ORDER BY n.created_at ASC`,
     [organizationId, areaId]
   );
-  return rows.map(publicMapNode);
+  const recent = await loadRecentMeasurementsByNode(rows.map((row) => row.dev_eui.toLowerCase()));
+  const byNode = new Map();
+  for (const measurement of recent) {
+    const key = measurement.dev_eui.toLowerCase();
+    if (!byNode.has(key)) byNode.set(key, []);
+    byNode.get(key).push(measurement);
+  }
+  return rows.map((row) => {
+    const measurements = byNode.get(row.dev_eui.toLowerCase()) || [];
+    return publicMapNode({ ...row, measurement: measurements[0] || null }, measurements);
+  });
 }
 
 function historicalNumber(value) {

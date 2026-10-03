@@ -1,3 +1,4 @@
+import { loadRecentMeasurementsByNode } from './recent-measurements.js';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
 import { performance } from 'node:perf_hooks';
@@ -2223,27 +2224,6 @@ function latestReadingsError(status, code, message) {
   return error;
 }
 
-async function loadRecentMeasurementsByNode(devEuis, concurrency = 4) {
-  const results = new Array(devEuis.length);
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(concurrency, devEuis.length) }, async () => {
-    while (cursor < devEuis.length) {
-      const index = cursor;
-      cursor += 1;
-      const { rows } = await query(
-        `SELECT measurement.*
-         FROM measurements measurement
-         WHERE measurement.dev_eui=$1
-         ORDER BY measurement.time DESC
-         LIMIT 100`,
-        [devEuis[index]]
-      );
-      results[index] = rows;
-    }
-  });
-  await Promise.all(workers);
-  return results.flat();
-}
 
 async function buildLatestReadings(requestedSectionId, organizationId, timing = null) {
     const [section, nodeResult] = await Promise.all([

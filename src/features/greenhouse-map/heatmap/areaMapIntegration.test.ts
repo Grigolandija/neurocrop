@@ -199,3 +199,22 @@ describe('Area Map API context integration', () => {
     expect(readOnlyMap.objects.some((object) => object.metadata.sensor?.status === 'offline')).toBe(true)
   })
 })
+
+
+it('keeps three CO2 sources and their individual observation times through the map merge', async () => {
+  const { createAreaMap, mergeAreaMapContext } = await import('../services/areaMapRepository')
+  const { getValidMeasurementPoints, getMetricMeasurementTime } = await import('./heatmapMetrics')
+  const measuredAt = '2026-10-03T17:04:00Z'
+  const sources: AreaMapNode[] = [571, 504, 608].map((value, index) => ({
+    ...nodes[0], devEui: `70b3d57ed006000${index + 1}`, status: 'online',
+    measurements: { co2Ppm: value, airTemperatureC: 21, measuredAt,
+      measuredAtByMetric: { co2Ppm: `2026-10-03T17:0${index}:00Z` } },
+  }))
+  const area = { id: 'area-1', name: 'Production greenhouse' }
+  const map = mergeAreaMapContext(createAreaMap(area, sources), area, sources)
+  const points = getValidMeasurementPoints(map, 'co2')
+  expect(points.map((point) => point.value)).toEqual([571, 504, 608])
+  expect(points.map((point) => point.observedAtMs)).toEqual(sources.map((source) =>
+    Date.parse(source.measurements!.measuredAtByMetric!.co2Ppm)))
+  expect(getMetricMeasurementTime(map.objects[0].metadata.sensor?.measurements, 'air-temperature')).toBe(measuredAt)
+})

@@ -136,7 +136,7 @@ test('latest section readings retain timestamped last-known values after interru
   const block = routeBlock(apiSource, "app.get('/readings/latest'");
   assert.match(block, /status === 'live' \|\| status === 'delayed'/);
   assert.match(block, /JOIN LATERAL/);
-  assert.match(block, /LIMIT 100/);
+  assert.match(block, /loadRecentMeasurementsByNode\(devEuis/);
   assert.match(block, /collectLatestKnownSourcesByMetric\(\)/);
   assert.match(block, /measurements\.find/);
   assert.match(block, /reportingNodes: currentSamples\.length/);

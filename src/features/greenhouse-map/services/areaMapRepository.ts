@@ -120,6 +120,8 @@ function normalizeNode(value: AreaMapNode): AreaMapNode {
       waterTemperatureC: finite(measurements.waterTemperatureC),
       pressureHpa: finite(measurements.pressureHpa),
       measuredAt: text(measurements.measuredAt),
+      measuredAtByMetric: Object.fromEntries(Object.entries(measurements.measuredAtByMetric ?? {})
+        .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && Number.isFinite(Date.parse(entry[1])))),
     },
   }
 }
