@@ -3,20 +3,68 @@
 Komandos Andriui:
 
 ```bash
+bash <<'SCRIPT'
+set -euo pipefail
+export PATH="$HOME/.local/bin:$PATH"
+REPO="Grigolandija/neurocrop"
+
 cd "/Users/andriusgrigas/Documents/New project/frontend"
 git switch main
-git pull --ff-only origin main
 git add -A
-git commit -m "UPD"
+if ! git diff --cached --quiet; then
+  git commit -m "UPD"
+fi
+git pull --ff-only origin main
 git push origin main
+REVISION="$(git rev-parse HEAD)"
 
 cd ~/neurocrop
+git switch main
 git pull --ff-only origin main
+test "$(git rev-parse HEAD)" = "$REVISION"
 pnpm install --frozen-lockfile
 pnpm build
 rm -f REACT-DOMENUI.zip
-cd dist
-zip -r ../REACT-DOMENUI.zip .
+(cd dist && zip -r ../REACT-DOMENUI.zip .)
+
+# Suranda vykdymą ir laukia, kol jis sėkmingai baigsis.
+wait_for_run() {
+  local workflow="$1" previous="${2:-0}" run_id=""
+  for ((attempt=1; attempt<=60; attempt++)); do
+    run_id="$(gh run list --repo "$REPO" \
+      --workflow "$workflow" --branch main --commit "$REVISION" \
+      --limit 20 --json databaseId \
+      --jq "[.[] | select(.databaseId > $previous)] | max_by(.databaseId) | .databaseId // empty")"
+    if [ -n "$run_id" ]; then
+      gh run watch "$run_id" --repo "$REPO" --exit-status
+      return
+    fi
+    sleep 5
+  done
+  echo "GitHub vykdymas nerastas. Patikrink Actions."
+  return 1
+}
+
+echo "Laukiame CI ir E2E..."
+wait_for_run ci.yml
+
+# Diegiame tik tą versiją, kurią ką tik patikrinome.
+test "$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')" = "$REVISION"
+
+PREVIOUS="$(gh run list --repo "$REPO" \
+  --workflow release.yml --limit 1 \
+  --json databaseId --jq '.[0].databaseId // 0')"
+
+gh workflow run release.yml --repo "$REPO" \
+  --ref main -f environment=production
+
+echo "Laukiame backend diegimo..."
+wait_for_run release.yml "$PREVIOUS"
+
+echo "Backend atnaujintas."
+echo "Frontend ZIP paruoštas: $HOME/neurocrop/REACT-DOMENUI.zip"
+echo "Liko įkelti ZIP turinį į frontend hostingą."
+SCRIPT
 ```
 
 Dainiui:
