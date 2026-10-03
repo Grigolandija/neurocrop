@@ -22,12 +22,12 @@ permissions:
 
 jobs:
   health:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Restore previous uptime state
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: .uptime-state
           key: production-uptime-state-${{ github.run_id }}
@@ -99,7 +99,7 @@ jobs:
           echo "duration_seconds=$(jq -r '.durationSeconds' <<<"$result")" >> "$GITHUB_OUTPUT"
       - name: Save current uptime state
         if: always() && steps.transition.outputs.current != ''
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: .uptime-state
           key: production-uptime-state-${{ github.run_id }}

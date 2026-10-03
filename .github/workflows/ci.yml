@@ -14,10 +14,10 @@ concurrency:
 
 jobs:
   operations:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Validate operational shell scripts
         shell: bash
         run: |
@@ -32,14 +32,14 @@ jobs:
         run: docker compose -f deploy/production.compose.yml config --quiet
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
         with:
           version: 11.9.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
@@ -51,7 +51,7 @@ jobs:
       - run: pnpm test:bundle
 
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
@@ -93,8 +93,8 @@ jobs:
       DEFAULT_OTAA_APP_KEY: 000102030405060708090a0b0c0d0e0f
       ENABLE_LEGACY_NODE_REGISTRATION: "true"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
@@ -127,7 +127,7 @@ jobs:
         run: docker build -t neurocrop-backend:${{ github.sha }} backend
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: [frontend, backend]
     services:
@@ -159,11 +159,11 @@ jobs:
       E2E_API_URL: http://127.0.0.1:3100
       E2E_FRONTEND_URL: http://127.0.0.1:4173
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
         with:
           version: 11.9.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
@@ -188,7 +188,7 @@ jobs:
       - run: pnpm test:e2e
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report
           path: |
