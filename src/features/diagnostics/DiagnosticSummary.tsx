@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { metricDefinitions } from '../../domain/metricRegistry'
 import type { DiagnosticReport } from './types'
 import { prioritizeFindings } from './findings'
 import { findingNarrative } from './narrative'
 import AgronomicInsights from './AgronomicInsights'
+import DiagnosticOverview from './DiagnosticOverview'
+import { agronomicAdvice } from './agronomicAdvice'
 import DiagnosticExplanation from './DiagnosticExplanation'
 import { DiagnosticEvidence } from './DiagnosticEvidence'
 
@@ -11,12 +13,14 @@ type Props={report:DiagnosticReport;lt:boolean;onCheckSensors:()=>void}
 export default function DiagnosticSummary({report,lt,onCheckSensors}:Props){
   const t=(a:string,b:string)=>lt?a:b
   const groups=prioritizeFindings(report)
+  const advice=useMemo(()=>agronomicAdvice(report,lt),[report,lt])
   const [selectedId,setSelected]=useState('')
   const unknown=report.insights.filter(i=>i.kind==='insufficient-data')
   const hasReadings=report.metrics.some(m=>m.observedMinutes>0)
   const label=(metric:string)=>{const d=metricDefinitions[metric as keyof typeof metricDefinitions];return d?(lt?d.labelLt:d.label):metric}
   return <div className="diag-summary diag-simple">
-    <AgronomicInsights report={report} lt={lt}/>
+    <DiagnosticOverview report={report} advice={advice} lt={lt}/>
+    <AgronomicInsights advice={advice} lt={lt}/>
     <details className="diag-measurement-review"><summary>{t('Matavimai, epizodai ir techninis pagrindimas','Measurements, episodes and technical evidence')}</summary>
     <h2>{groups.length?t('Kur reikia dėmesio','What needs attention'):!hasReadings||unknown.length?t('Išvadai dar trūksta matavimų','More readings are needed'):t('Reikšmingų nukrypimų nenustatyta','No significant deviations detected')}</h2>
     <div className="diag-insights">{groups.map(g=><article key={g.id} className="diag-finding">

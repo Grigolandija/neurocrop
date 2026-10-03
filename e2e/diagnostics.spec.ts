@@ -17,6 +17,7 @@ const growthFixtures=[
 const expandedReport={...report,agronomy:[...report.agronomy,...growthFixtures]}
 test('diagnostic navigation, evidence, saved report and mobile layout with explicit fixtures',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message))
+ let savedSnapshot={...expandedReport,days:14,from:'2026-08-25T00:00:00Z'},analysisCalls=0
  await page.route('**/runtime-config.js*',r=>r.fulfill({contentType:'application/javascript',body:`window.NEUROCROP_CONFIG={apiBaseUrl:'${api}'};`}))
  await page.route(`${api}/**`,async route=>{
   const path=new URL(route.request().url()).pathname
@@ -27,10 +28,13 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
   if(path==='/nodes')data={nodes:[]}
   if(path==='/alerts')data={alerts:[]}
   if(path==='/actions/today')data={actions:[]}
-  if(path==='/diagnostics/areas/area')data=expandedReport
+  if(path==='/diagnostics/areas/area'){analysisCalls++;data=expandedReport}
   if(path==='/diagnostics/areas/area/schedule')data={enabled:false}
-  if(path==='/diagnostic-reports')data=route.request().method()==='POST'?{id:'saved-1',snapshot:expandedReport}:{reports:[{id:'saved-1',area_id:'area',area:report.area,created_at:report.to,from:report.from,to:report.to,days:'7'}]}
-  if(path==='/diagnostic-reports/saved-1')data={id:'saved-1',snapshot:expandedReport}
+  if(path==='/diagnostic-reports'){
+   if(route.request().method()==='POST'){savedSnapshot=expandedReport;data={id:'saved-1',snapshot:savedSnapshot}}
+   else data={reports:[{id:'saved-1',area_id:'area',area:report.area,created_at:report.to,from:savedSnapshot.from,to:report.to,days:String(savedSnapshot.days)}]}
+  }
+  if(path==='/diagnostic-reports/saved-1')data={id:'saved-1',snapshot:savedSnapshot}
   await route.fulfill({json:data})
  })
  await page.goto('/diagnostics')
@@ -38,9 +42,33 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
  await expect(page.locator('[data-nc-react-workspace="diagnostics"]')).toBeVisible()
  await expect(page.locator('.diag-heading h1')).toContainText(/diagnos/i)
  await expect(page.locator('.diag-finding')).toHaveCount(0)
+ await expect(page.locator('.diag-start')).toBeVisible()
+ await page.screenshot({path:'/tmp/neurocrop-diagnostics-start.png',fullPage:true,animations:'disabled'})
+ await page.locator('.diag-tabs button').nth(2).click()
+ await expect(page.locator('.diag-report-row')).toBeVisible()
+ await expect(page.locator('.diag-start')).not.toBeVisible()
+ await page.locator('.diag-report-row button').first().click()
+ await expect(page.locator('.diag-filters select').nth(1)).toHaveValue('14')
+ await expect(page.locator('.diag-agro-card')).toHaveCount(7)
+ await expect(page.locator('.diag-period b')).toContainText('Saved snapshot')
+ expect(analysisCalls).toBe(0)
+ await page.getByRole('button',{name:'Areas',exact:true}).click()
+ await page.getByRole('button',{name:'Diagnostics',exact:true}).click()
+ await expect(page.locator('.diag-filters select').nth(1)).toHaveValue('14')
+ await expect(page.locator('.diag-period b')).toContainText('Saved snapshot')
+ expect(analysisCalls).toBe(0)
+ await page.locator('.diag-filters select').nth(1).selectOption('7')
+ await expect(page.locator('.diag-start')).toBeVisible()
  await page.getByRole('button',{name:'Generate report',exact:true}).click()
  await expect(page.locator('.diag-agronomy')).toContainText('High evaporative demand coincided with a dry root zone')
  await expect(page.locator('.diag-agronomy')).toContainText('inspect emitters')
+ await expect(page.locator('.diag-agro-card')).toHaveCount(7)
+ await expect(page.locator('.diag-overview')).toContainText('7')
+ await expect(page.locator('.diag-agro-heading').first()).toContainText('Check first')
+ await expect(page.locator('.diag-agro-card').first().locator('.diag-agro-action')).toBeVisible()
+ await expect(page.locator('.diag-agro-card').first().locator('.diag-agro-impact')).toBeVisible()
+ await page.screenshot({path:'/tmp/neurocrop-diagnostics-redesign-top.png',animations:'disabled'})
+
  for(const title of ['Heat load may disrupt growth','CO₂ may limit photosynthesis','Light may be insufficient','Persistently wet substrate','Salt concentration may hinder','Nutrients may be less available'])await expect(page.locator('.diag-agronomy')).toContainText(title)
  await expect(page.locator('.diag-insights')).not.toBeVisible()
  await page.locator('.diag-measurement-review > summary').click()
@@ -73,6 +101,9 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
  await expect(page.locator('.diag-agronomy > h2')).toContainText('Ką tai reiškia augalams')
  await page.evaluate(()=>{(document.activeElement as HTMLElement)?.blur();window.scrollTo(0,0)})
  await page.screenshot({path:'/tmp/neurocrop-diagnostics-desktop.png',fullPage:true,animations:'disabled'})
+ await page.screenshot({path:'/tmp/neurocrop-diagnostics-redesign-lt-top.png',animations:'disabled'})
+ await page.locator('.diag-agro-card').first().scrollIntoViewIfNeeded()
+ await page.screenshot({path:'/tmp/neurocrop-diagnostics-redesign-preview.png',animations:'disabled'})
  await page.locator('.diag-measurement-review > summary').click()
  await page.locator('.diag-finding > button').first().click()
  await page.screenshot({path:'/tmp/neurocrop-diagnostics-depth.png',fullPage:true,animations:'disabled'})
@@ -81,6 +112,7 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
  await page.setViewportSize({width:390,height:844})
  await page.evaluate(()=>window.scrollTo(0,0))
  await page.screenshot({path:'/tmp/neurocrop-diagnostics-mobile.png',fullPage:true,animations:'disabled'})
+ await page.screenshot({path:'/tmp/neurocrop-diagnostics-redesign-mobile-top.png',animations:'disabled'})
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
  await page.locator('.diag-measurement-review > summary').click()
  await page.locator('.diag-finding > button').first().click()
