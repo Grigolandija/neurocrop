@@ -22,13 +22,19 @@ if ! flock -n 9; then
   exit 0
 fi
 
-api_url="https://api.github.com/repos/${REPOSITORY}/actions/workflows/${WORKFLOW}/runs?branch=main&status=success&per_page=1"
+git -C "$SOURCE_DIR" fetch --quiet origin main
+main_sha="$(git -C "$SOURCE_DIR" rev-parse refs/remotes/origin/main)"
+api_url="https://api.github.com/repos/${REPOSITORY}/actions/workflows/${WORKFLOW}/runs?branch=main&head_sha=${main_sha}&status=success&per_page=1"
 payload="$(curl --fail --silent --show-error --max-time 20 \
   -H 'Accept: application/vnd.github+json' \
   -H 'X-GitHub-Api-Version: 2022-11-28' \
   "$api_url")"
 sha="$(printf '%s' "$payload" | python3 -c 'import json,sys; runs=json.load(sys.stdin).get("workflow_runs", []); print(runs[0].get("head_sha", "") if runs else "")')"
 
+if [[ -z "$sha" ]]; then
+  echo "[staging-update] waiting for successful CI of current main ${main_sha:0:12}"
+  exit 0
+fi
 if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
   echo "[staging-update] no successful main CI run found" >&2
   exit 1
@@ -36,8 +42,6 @@ fi
 
 # An old CI rerun can appear before the newest successful revision in the API.
 # Never roll staging back merely because that old run completed later.
-git -C "$SOURCE_DIR" fetch --quiet origin main
-main_sha="$(git -C "$SOURCE_DIR" rev-parse refs/remotes/origin/main)"
 if [[ "$sha" != "$main_sha" ]]; then
   echo "[staging-update] waiting for successful CI of current main ${main_sha:0:12}"
   exit 0
