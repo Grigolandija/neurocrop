@@ -33,13 +33,25 @@ if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
   echo "[staging-update] no successful main CI run found" >&2
   exit 1
 fi
+
+# An old CI rerun can appear before the newest successful revision in the API.
+# Never roll staging back merely because that old run completed later.
+git -C "$SOURCE_DIR" fetch --quiet origin main
+main_sha="$(git -C "$SOURCE_DIR" rev-parse refs/remotes/origin/main)"
+if [[ "$sha" != "$main_sha" ]]; then
+  echo "[staging-update] waiting for successful CI of current main ${main_sha:0:12}"
+  exit 0
+fi
 if [[ "$(cat "$STATE_FILE" 2>/dev/null || true)" == "$sha" ]]; then
   echo "[staging-update] already deployed ${sha:0:12}"
   exit 0
 fi
 
-git -C "$SOURCE_DIR" fetch --quiet origin main
 git -C "$SOURCE_DIR" checkout --quiet --detach "$sha"
+
+for required in staging.compose.yml deploy.sh rollback.sh cleanup-release-images.py update-staging-from-ci.sh; do
+  test -f "$SOURCE_DIR/deploy/$required" || { echo "[staging-update] missing required deployment file: $required" >&2; exit 1; }
+done
 
 backend_image="neurocrop-backend:staging-${sha}"
 frontend_image="neurocrop-frontend:staging-${sha}"
