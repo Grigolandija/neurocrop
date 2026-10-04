@@ -20,7 +20,7 @@ export default function DiagnosticSummary({report,lt,onCheckSensors}:Props){
   const label=(metric:string)=>{const d=metricDefinitions[metric as keyof typeof metricDefinitions];return d?(lt?d.labelLt:d.label):metric}
   return <div className="diag-summary diag-simple">
     <DiagnosticOverview report={report} advice={advice} lt={lt}/>
-    <AgronomicInsights advice={advice} lt={lt}/>
+    <AgronomicInsights advice={advice} lt={lt} available={Boolean(report.agronomicInsights)} legacy={report.agronomicInsights?.origin==='legacy-report'}/>
     <details className="diag-measurement-review"><summary>{t('Matavimai, epizodai ir techninis pagrindimas','Measurements, episodes and technical evidence')}</summary>
     <h2>{groups.length?t('Kur reikia dėmesio','What needs attention'):!hasReadings||unknown.length?t('Išvadai dar trūksta matavimų','More readings are needed'):t('Reikšmingų nukrypimų nenustatyta','No significant deviations detected')}</h2>
     <div className="diag-insights">{groups.map(g=><article key={g.id} className="diag-finding">

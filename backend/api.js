@@ -35,8 +35,9 @@ import {
   buildTodayActions,
   evaluateActionOutcome,
   getActionVerificationPolicy,
-  isActionFeedbackTransitionAllowed
-} from './today-actions.js';
+  isActionFeedbackTransitionAllowed,
+  buildCropRisks
+} from './agronomy/index.js';
 import { normalizeTelemetryBoolean, normalizeTelemetryNumber, sensorHasNewMeasurement, sensorMeasurementIntervalSec } from './telemetry-values.js';
 import { startMeasurementRetention } from './measurement-retention.js';
 import { getMeasurementRollupSeries } from './measurement-rollups.js';
@@ -49,7 +50,6 @@ import { registerPasswordResetRoutes } from './password-reset-routes.js';
 import { resolveOptionalClerkAuth } from './clerk-auth.js';
 import { registerPushNotificationRoutes } from './push-notifications.js';
 import { registerAlertEmailNotificationRoutes } from './alert-email-notifications.js';
-import { buildCropRisks } from './crop-risk.js';
 import { createServerTiming } from './server-timing.js';
 import { registerDiagnosticRoutes } from './diagnostics/routes.js';
 import { startDiagnosticMonitor } from './diagnostics/repository.js';

@@ -1,4 +1,4 @@
-import { analyzeAgronomy } from './agronomy.js';
+import { analyzeHistoricalAgronomy } from '../agronomy/index.js';
 import { explainDiagnostics } from './explanations.js';
 import { buildDiagnosticTraces } from './evidence.js';
 import { controllerResponses } from './controller-response.js';
@@ -45,7 +45,7 @@ export async function buildAreaDiagnostic(db, organizationId, areaId, {days=7,to
     ORDER BY valid_from DESC LIMIT 1`,[organizationId,areaId,until]);
   const layout=layouts[0];
   const diagnosticMap=layout?{...layout.map_data,objects:(layout.map_data.objects||[]).map(o=>({...o,metadata:{...o.metadata,sensor:o.metadata?.sensor?{...o.metadata.sensor,measurements:undefined,status:'unassigned',batteryPercent:undefined,lastSeenAt:undefined}:undefined}})),heatmapSettings:{...layout.map_data.heatmapSettings,enabled:false}}:null;
-  return {...report,agronomy:analyzeAgronomy(rows,report),explanations:explainDiagnostics(rows,report),...buildDiagnosticTraces(rows,report),diagnosticMap,mapValidFrom:layout?.valid_from||null,mapSource:layout?.source||null,area:area.rows[0],days:Number(days),episodes:episodes.rows.slice(0,2000).map(e=>{
+  return {...report,...analyzeHistoricalAgronomy(rows,report),explanations:explainDiagnostics(rows,report),...buildDiagnosticTraces(rows,report),diagnosticMap,mapValidFrom:layout?.valid_from||null,mapSource:layout?.source||null,area:area.rows[0],days:Number(days),episodes:episodes.rows.slice(0,2000).map(e=>{
       const evidence={...e.evidence};if(evidence.latest&&+new Date(evidence.latest.observedAt)>+until)delete evidence.latest;
       const extendsPastEnd=e.ended_at&&+new Date(e.ended_at)>+until;
       return {...e,evidence,last_observed_at:new Date(Math.min(+new Date(e.last_observed_at),+until)),ended_at:extendsPastEnd?null:e.ended_at,resolution_reason:extendsPastEnd?null:e.resolution_reason};

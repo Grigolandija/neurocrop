@@ -1,5 +1,5 @@
 import { buildScoreFromMetricValues, buildScoreRules, evaluateMetricValue } from './score.js';
-import { buildTodayActions } from './today-actions.js';
+import { buildTodayActions } from './agronomy/index.js';
 import { calcVPD } from './calculations.js';
 import { METRIC_DEFINITIONS } from './metric-registry.js';
 

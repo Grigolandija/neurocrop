@@ -1,4 +1,15 @@
 import type { GreenhouseMap } from '../greenhouse-map/model'
+export type AgronomicAdvice = {
+  priority:number;id:string;ruleId:string;place:string;title:string;meaning:string;
+  action:string;verify:string;evidence:string;limits:string;source:{title:string;url:string};
+  evidenceDetails:{ruleId:string;nodeId:string;contextId:string|null;profileId:string|null;stage:string|null;crops:string[];
+    contextQuality:'captured'|'estimated'|'summary-only';from:string;to:string;observedMinutes:number;longestMinutes:number|null;
+    target:[number,number]|null;support:GrowthRisk['support'];rootObservedMinutes:number|null;rootDryMinutes:number|null};
+}
+export type AgronomicInsights = {
+  schemaVersion:number;engineVersion:string;catalogVersion:string;
+  origin:'historical-analysis'|'legacy-report';lt:AgronomicAdvice[];en:AgronomicAdvice[];
+}
 export type DiagnosticMetric = {
   sectionId: string; name: string; metric: string; unit: string; minimum: number|null; maximum: number|null; mean: number|null;
   observedMinutes: number; expectedMinutes: number; belowMinutes: number; aboveMinutes: number; unknownMinutes: number;
@@ -26,6 +37,7 @@ export type GrowthRisk = {
  firstAt:string;lastAt:string;support:{metric:string;minimum:number;maximum:number;target:[number,number]|null;unit:string}[];
 }
 export type DiagnosticReport = {
+  agronomicInsights?:AgronomicInsights;
   agronomy?:(AgronomicRisk|GrowthRisk)[];
   explanations?:DiagnosticExplanation[];
   traces?:DiagnosticTrace[];tracesTruncated?:boolean;diagnosticMap?:GreenhouseMap|null;mapValidFrom?:string|null;mapSource?:string|null;

@@ -1,5 +1,12 @@
 # NeuroCrop diagnostikos įgyvendinimas
 
+2026-10-04: agronominė logika sujungta į `backend/agronomy/`; diagnostika ir
+kasdienės rekomendacijos naudoja bendrą backend variklį. Naujos ataskaitos saugo
+dvikalbes išvadas, įrodymus ir variklio bei katalogo versijas. Frontend pasirenka
+kalbą ir atvaizduoja išsaugotą eiliškumą. Senų ataskaitų API atsakymas papildomas
+pagal išsaugotus įrodymus, nekeičiant DB snapshot, ir pažymimas kaip dabartinių
+taisyklių interpretacija. Plačiau: [agronominis variklis](backend/agronomy/README.md).
+
 2026-09-29. Pakeitimai paruošti vietiniame repozitorijoje; produkcinė DB ir diegimas nekeisti. Pradinio audito ataskaita: `../outputs/NeuroCrop-diagnostikos-auditas-2026-09-29.md`.
 
 ## Kur rasti

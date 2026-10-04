@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { pool } from '../db.js';
 import { requireUserAuth, requireRole } from '../auth-users.js';
 import { buildAreaDiagnostic, saveReport } from './repository.js';
+import { withAgronomicInsights } from '../agronomy/index.js';
 const writers=requireRole('owner','admin','grower');
 const technicians=requireRole('owner','admin','technician');
 const wrap=fn=>async(req,res,next)=>{try{res.set('Cache-Control','no-store');await fn(req,res);}catch(e){if(e.status&&e.status<500)return res.status(e.status).json({error:{code:'DIAGNOSTIC_ERROR',message:e.message}});next(e);}};
@@ -35,7 +36,7 @@ export function registerDiagnosticRoutes(app){
   app.post('/diagnostic-reports',requireUserAuth,writers,wrap(async(req,res)=>res.status(201).json(await saveReport(pool,org(req),String(req.body?.areaId||''),req.body,req.user.id))));
   app.get('/diagnostic-reports/:id',requireUserAuth,wrap(async(req,res)=>{
     const {rows}=await pool.query('SELECT id,snapshot,created_at FROM diagnostic_reports WHERE organization_id=$1 AND id=$2',[org(req),req.params.id]);
-    if(!rows.length)return res.status(404).json({error:{code:'NOT_FOUND',message:'Report not found'}});res.json(rows[0]);
+    if(!rows.length)return res.status(404).json({error:{code:'NOT_FOUND',message:'Report not found'}});res.json({...rows[0],snapshot:withAgronomicInsights(rows[0].snapshot)});
   }));
   app.get('/diagnostic-reports/:id/export.csv',requireUserAuth,wrap(async(req,res)=>{
     const {rows}=await pool.query('SELECT snapshot FROM diagnostic_reports WHERE organization_id=$1 AND id=$2',[org(req),req.params.id]);

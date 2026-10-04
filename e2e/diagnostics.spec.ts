@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test'
+import {withAgronomicInsights} from '../backend/agronomy/index.js'
 const api='http://diagnostics.test'
 const metric={sectionId:'north',name:'Šiaurės zona',metric:'airTemp',unit:'°C',minimum:20,maximum:31,mean:25.8,observedMinutes:1000,expectedMinutes:1100,belowMinutes:0,aboveMinutes:280,unknownMinutes:100,coveragePct:90.9,outsideObservedPct:28,estimatedContextPct:0,peerDelta:2.1,peerMinutes:900,peerOutsidePct:70,recurringDays:5,medianSpread:2.8,maxSpread:4.2,dayMean:26,nightMean:22,daylightExposurePpmHours:null,lightAccumulationLuxHours:null,hourly:Array.from({length:24},(_,hour)=>({hour,observedMinutes:60,outsideMinutes:hour<6?30:0,recurringDays:hour<6?5:0}))}
 const map={schemaVersion:1,id:'test-map',name:'Test map',shape:{type:'rectangle'},dimensions:{widthM:20,lengthM:8,heightM:4},wallThicknessM:.01,gridSizeM:.5,orientationDeg:0,createdAt:'2026-09-01',updatedAt:'2026-09-01',layers:['structure','sensors'].map(id=>({id,name:id,visible:true,locked:true,opacity:1})),heatmapSettings:{enabled:false,metric:'air-temperature',interpolationMethod:'idw',idwPower:2,cellSizeM:.25,nearestSensorCount:5,minimumSensorCount:2,maxInfluenceDistanceM:15,maxReadingAgeMinutes:30,opacity:.88,scaleMode:'auto',showConfidence:true},objects:[{id:'door',type:'door',name:'Durys',xM:9,yM:0,widthM:1.2,lengthM:.25,rotationDeg:0,layerId:'structure',visible:true,locked:true,metadata:{}},{id:'sensor',type:'sensor-node',name:'NeuroSense 1',xM:10,yM:2,widthM:.65,lengthM:.65,rotationDeg:0,layerId:'sensors',visible:true,locked:true,metadata:{sensor:{devEui:'node-1',installationConfirmedAt:'2026-09-01',sensors:[],status:'unassigned'}}}]}
@@ -14,10 +15,10 @@ const growthFixtures=[
  ['heat-load','airTemp',30,'°C'],['co2-low-lit','co2',300,'ppm'],['light-low','ppfd',100,'µmol/m²/s'],
  ['wet-root','soilMoisture',80,'%'],['substrate-salinity','soilEc',4,'mS/cm'],['ph-high','ph',7.5,''],
 ].map(([kind,metric,value,unit])=>({kind,primaryMetric:metric,nodeId:'node-1',nodeName:'NeuroSense 1',sectionId:'north',sectionName:'Šiaurės zona',profileId:'crop',stage:'vegetative',crops:['Tomato'],estimated:false,minutes:120,longestMinutes:60,firstAt:report.from,lastAt:report.to,support:[{metric,minimum:value,maximum:value,target:null,unit}]}))
-const expandedReport={...report,agronomy:[...report.agronomy,...growthFixtures]}
+const expandedReport=withAgronomicInsights({...report,agronomy:[...report.agronomy,...growthFixtures]},'historical-analysis')
 test('diagnostic navigation, evidence, saved report and mobile layout with explicit fixtures',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message))
- let savedSnapshot={...expandedReport,days:14,from:'2026-08-25T00:00:00Z'},analysisCalls=0
+ let savedSnapshot=withAgronomicInsights({...report,agronomy:expandedReport.agronomy,days:14,from:'2026-08-25T00:00:00Z'}),analysisCalls=0
  await page.route('**/runtime-config.js*',r=>r.fulfill({contentType:'application/javascript',body:`window.NEUROCROP_CONFIG={apiBaseUrl:'${api}'};`}))
  await page.route(`${api}/**`,async route=>{
   const path=new URL(route.request().url()).pathname
@@ -50,6 +51,7 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
  await page.locator('.diag-report-row button').first().click()
  await expect(page.locator('.diag-filters select').nth(1)).toHaveValue('14')
  await expect(page.locator('.diag-agro-card')).toHaveCount(7)
+ await expect(page.locator('.diag-agronomy')).toContainText('The old report’s measurements are unchanged')
  await expect(page.locator('.diag-period b')).toContainText('Saved snapshot')
  expect(analysisCalls).toBe(0)
  await page.getByRole('button',{name:'Areas',exact:true}).click()
@@ -142,7 +144,7 @@ test('30-day analysis survives the former 15s deadline and can retry a timeout',
    analysisCalls++
    if(failNext){failNext=false;await route.fulfill({status:504,json:{message:'Gateway Time-out'}});return}
    if(url.searchParams.get('days')==='30')await new Promise(resolve=>setTimeout(resolve,16_000))
-   data={...report,days:Number(url.searchParams.get('days')),from:url.searchParams.get('days')==='30'?'2026-08-09T00:00:00Z':report.from}
+   data=withAgronomicInsights({...report,days:Number(url.searchParams.get('days')),from:url.searchParams.get('days')==='30'?'2026-08-09T00:00:00Z':report.from},'historical-analysis')
   }
   await route.fulfill({json:data})
  })

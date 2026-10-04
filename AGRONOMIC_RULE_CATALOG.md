@@ -3,6 +3,11 @@
 Versija: 0.1 (mokslinis darbinis katalogas)  
 Data: 2026-07-24
 
+2026-10-04: vykdomų taisyklių ir interpretacijų šaltinis sujungtas į
+`backend/agronomy/catalog.js`. Bendri įėjimo taškai yra `backend/agronomy/index.js`.
+Šis dokumentas lieka agronominių žinių darbinis pagrindas; įgyvendintas sąlygas,
+įrodymų ribas ir versijavimą aprašo [variklio dokumentacija](backend/agronomy/README.md).
+
 ## 1. Paskirtis ir ribos
 
 Šis katalogas aprašo bendrą kontroliuojamos aplinkos, šiltnamio ir hidroponikos
