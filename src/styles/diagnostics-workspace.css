@@ -1,10 +1,10 @@
 /* Diagnostic report: one reading order, from priorities to supporting evidence. */
 .nc-diagnostics {
-  --diag-ink: #203b31;
-  --diag-muted: #607168;
-  --diag-green: #215941;
-  --diag-border: #dce5de;
-  --diag-soft: #f1f5f1;
+  --diag-ink: var(--color-text, #203b31);
+  --diag-muted: var(--color-text-secondary, #607168);
+  --diag-green: var(--color-accent-plant, #215941);
+  --diag-border: var(--color-border, #dce5de);
+  --diag-soft: var(--color-surface-subtle, #f1f5f1);
   color: var(--diag-ink);
   max-width: 1240px;
   margin: 0 auto;
@@ -24,33 +24,37 @@
 .nc-diagnostics button { cursor: pointer; transition: background .15s, border-color .15s; }
 .nc-diagnostics button:hover { background: #f0f5ef; border-color: #a7beb0; }
 .nc-diagnostics button:disabled { opacity: .5; cursor: not-allowed; }
-.nc-diagnostics .diag-tabs button:disabled { background: transparent; }
+/* The global disabled-control rule uses !important; tabs remain text links. */
+.designer-app .nc-diagnostics .diag-tabs button:disabled {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--color-disabled, #7b847e) !important;
+}
 .nc-diagnostics button:focus-visible, .nc-diagnostics select:focus-visible,
 .nc-diagnostics input:focus-visible, .nc-diagnostics summary:focus-visible, .nc-diagnostics a:focus-visible {
   outline: 3px solid #468c70; outline-offset: 3px;
 }
-.nc-diagnostics .primary { background: var(--diag-green); border-color: var(--diag-green); color: #fff; }
-.nc-diagnostics .primary:hover { background: #174732; }
+.nc-diagnostics .primary { background: var(--color-primary, var(--diag-green)); border-color: var(--color-primary, var(--diag-green)); color: var(--color-on-primary, #fff); }
+.nc-diagnostics .primary:hover { background: var(--color-primary-hover, #174732); }
 .nc-diagnostics button i { margin-right: 8px; font-size: 13px; }
 .nc-diagnostics h1, .nc-diagnostics h2, .nc-diagnostics h3, .nc-diagnostics h4 { color: var(--diag-ink); }
 .nc-diagnostics summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .nc-diagnostics details p { line-height: 1.65; }
 .nc-diagnostics a { color: #245b42; text-underline-offset: 3px; }
 .diag-eyebrow { display: block; color: var(--diag-muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; line-height: 1.6; }
-.diag-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.diag-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .diag-heading h1 { margin: 5px 0 8px; font-size: 30px; font-weight: 650; letter-spacing: -.025em; line-height: 1.25; }
 .diag-heading p { margin: 0; color: var(--diag-muted); line-height: 1.6; font-size: 14px; }
 .diag-toolbar { display: flex; gap: 8px; flex-shrink: 0; }
 .diag-toolbar button { font-size: 12px; font-weight: 600; }
-.diag-filters { display: flex; gap: 14px; align-items: end; margin: 18px 0 12px; padding: 12px 18px; background: #eef3ee; border: 1px solid var(--diag-border); border-radius: 10px; }
+.diag-filters { display: grid; grid-template-columns: minmax(180px, 300px) minmax(140px, 190px) max-content; gap: 14px; align-items: end; margin: 22px 0 12px; padding: 16px; background: var(--color-surface, #fff); border: 1px solid var(--diag-border); border-radius: 10px; }
 .diag-filters label { display: flex; flex-direction: column; gap: 7px; font-size: 11px; font-weight: 650; color: var(--diag-muted); }
-.diag-filters select { min-width: 185px; font-size: 14px; font-weight: 500; }
-.diag-filters .primary { margin-left: auto; font-weight: 600; padding-inline: 20px; }
+.diag-filters select { min-width: 0; width: 100%; min-height: 44px; font-size: 14px; font-weight: 500; }
+.diag-filters .primary { min-height: 44px; font-weight: 600; padding-inline: 20px; }
 .diag-tabs { display: flex; gap: 24px; align-items: center; border-bottom: 1px solid var(--diag-border); margin: 0 0 14px; }
 .diag-tabs button { border: 0; border-radius: 0; background: transparent; padding: 12px 0; margin-bottom: -1px; border-bottom: 2px solid transparent; font-size: 13px; color: var(--diag-muted); min-height: 44px; white-space: nowrap; }
 .diag-tabs button:hover { background: transparent; color: var(--diag-ink); }
 .diag-tabs button[aria-current=page] { color: var(--diag-green); border-bottom-color: var(--diag-green); font-weight: 700; }
-.diag-tabs .diag-setup-link { margin-left: auto; font-size: 12px; }
 .diag-panel { display: none; }
 .diag-panel.active { display: block; }
 .diag-period { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; color: var(--diag-muted); margin: 0 0 14px; font-size: 12px; }
@@ -99,17 +103,17 @@
 .diag-agro-empty { display: flex; gap: 16px; padding: 22px; background: #fff; border: 1px solid var(--diag-border); border-radius: 10px; }
 .diag-agro-empty > i { color: #6d8b6e; font-size: 24px; }
 .diag-agro-empty p { margin: 0; line-height: 1.7; color: var(--diag-muted); }
-.diag-state { padding: 40px 24px; background: #fff; border: 1px solid var(--diag-border); border-radius: 12px; text-align: center; }
+.diag-state { padding: 28px 24px; background: var(--color-surface, #fff); border: 1px solid var(--diag-border); border-radius: 10px; text-align: center; }
 .diag-state-icon { display: grid; place-items: center; height: 56px; width: 56px; border-radius: 14px; background: #eff4ee; color: #457451; margin: 0 auto 18px; font-size: 22px; }
 .diag-state h2 { max-width: 520px; margin: 8px auto 12px; font-size: 26px; line-height: 1.35; letter-spacing: -.02em; }
 .diag-state > p { max-width: 580px; margin: 0 auto; color: var(--diag-muted); line-height: 1.7; }
 .diag-state > button { margin-top: 20px; }
-.diag-state > small { display: block; margin-top: 24px; color: var(--diag-muted); font-size: 11px; }
-.diag-start-benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 830px; margin: 34px auto 0; padding-top: 24px; border-top: 1px solid var(--diag-border); text-align: left; }
-.diag-start-benefits div { display: grid; grid-template-columns: 20px 1fr; gap: 8px 10px; }
-.diag-start-benefits i { color: #648264; font-size: 14px; }
-.diag-start-benefits strong { font-size: 12px; }
-.diag-start-benefits span { grid-column: 2; color: var(--diag-muted); font-size: 12px; line-height: 1.6; }
+.diag-start { display: flex; align-items: flex-start; gap: 18px; text-align: left; }
+.diag-start .diag-state-icon { flex: 0 0 48px; width: 48px; height: 48px; margin: 0; border-radius: 10px; font-size: 20px; }
+.diag-start-copy { min-width: 0; max-width: 760px; }
+.diag-start-copy h2 { max-width: none; margin: 0 0 8px; }
+.diag-start-copy p { margin: 0; color: var(--diag-ink); line-height: 1.65; }
+.diag-start-copy small { display: block; margin-top: 12px; color: var(--diag-muted); font-size: 12px; line-height: 1.65; }
 .diag-loading-track { height: 4px; width: 230px; max-width: 100%; overflow: hidden; background: #e9efe5; border-radius: 4px; margin: 24px auto 0; }
 .diag-loading-track span { display: block; width: 35%; height: 100%; background: #528361; border-radius: 4px; animation: diag-progress 1.7s ease-in-out infinite alternate; }
 @keyframes diag-progress { from { transform: translateX(0); } to { transform: translateX(185%); } }
@@ -194,6 +198,10 @@
   .diag-overview h2 { font-size: 20px; }
   .diag-priority-label { white-space: normal; max-width: 100px; }
 }
+@media(min-width: 701px) and (max-width: 850px) {
+  .diag-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .diag-filters .primary { grid-column: 1 / -1; justify-self: start; }
+}
 @media(max-width: 700px) {
   .nc-diagnostics { padding: 20px 12px 32px; }
   .diag-heading { display: block; }
@@ -201,12 +209,12 @@
   .diag-heading p { font-size: 13px; }
   .diag-toolbar { flex-direction: row; margin-top: 16px; }
   .diag-toolbar button { flex: 1; font-size: 11px; padding: 9px 10px; }
-  .diag-filters { flex-wrap: wrap; gap: 12px; padding: 14px; margin-top: 20px; }
-  .diag-filters label { flex: 1; min-width: 0; }
+  .diag-filters { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px; padding: 14px; margin-top: 20px; }
+  .diag-filters label { min-width: 0; }
   .diag-filters select { min-width: 0; width: 100%; padding-inline: 10px; font-size: 13px; }
-  .diag-filters .primary { width: 100%; margin: 0; }
-  .diag-tabs { gap: 20px; flex-wrap: nowrap; overflow-x: auto; }
-  .diag-tabs .diag-setup-link { margin-left: auto; width: auto; min-height: 44px; padding: 12px 0; }
+  .diag-filters .primary { grid-column: 1 / -1; width: 100%; margin: 0; }
+  .diag-tabs { gap: 18px; flex-wrap: nowrap; overflow-x: auto; }
+  .diag-tabs button { flex-shrink: 0; }
   .diag-period { gap: 8px 12px; }
   .diag-period b { margin-left: 0; }
   .diag-overview { display: block; padding: 20px; }
@@ -223,7 +231,8 @@
   .diag-agro-verify, .diag-agro-footer { padding: 16px; }
   .diag-state { padding: 28px 18px; }
   .diag-state h2 { font-size: 23px; }
-  .diag-start-benefits { grid-template-columns: 1fr; gap: 20px; margin-top: 24px; }
+  .diag-start { display: block; padding: 20px 18px; }
+  .diag-start .diag-state-icon { margin-bottom: 16px; }
   .diag-measurement-review { padding: 16px; }
   .diag-expanded { padding: 14px; }
   .diag-explanation dl { display: block; }
@@ -231,6 +240,9 @@
   .diag-cards, .diag-form { grid-template-columns: 1fr; }
   .diag-report-row { flex-wrap: wrap; }
   .diag-report-row > div { flex: 1 0 100%; }
+}
+@media(max-width: 480px) {
+  .diag-filters { grid-template-columns: minmax(0, 1fr); }
 }
 .diag-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 20px 0; }
 .diag-cards article { padding: 18px; background: #fff; border: 1px solid var(--diag-border); border-radius: 8px; }
