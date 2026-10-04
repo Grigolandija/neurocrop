@@ -106,6 +106,8 @@
   box-shadow: none;
 }
 
+.designer-app :is(.nc-areas-button, .nc-sections-button).primary { border: 1px solid var(--color-primary); }
+
 .designer-app :is(
   .nc-areas-button:not(.primary):not(.danger),
   .nc-sections-button.secondary,
@@ -128,7 +130,9 @@
   display: block;
 }
 
-.designer-app .nc-areas-summary {
+.designer-app :is(.nc-areas-summary, .nc-sections-summary) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: var(--space-16);
   overflow: visible;
   border: 0;
@@ -138,9 +142,42 @@
   box-shadow: none;
 }
 
-.designer-app .nc-areas-summary > :is(button, div) {
+/* Areas and Sections share the same summary, rather than separate variants. */
+.designer-app :is(.nc-areas-summary, .nc-sections-summary) > :is(button, div) {
+  position: relative;
+  display: grid;
   min-height: 4.75rem;
+  grid-template-columns: 1fr;
+  align-content: center;
+  gap: var(--space-4);
+  border: 0;
+  border-right: 1px solid var(--color-border);
   padding: var(--space-12) var(--space-16);
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+}
+.designer-app :is(.nc-areas-summary, .nc-sections-summary) > :last-child { border-right: 0; }
+.designer-app :is(.nc-areas-summary, .nc-sections-summary) strong {
+  font-family: var(--font-technical);
+  font-size: var(--type-h2);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+}
+.designer-app :is(.nc-areas-summary, .nc-sections-summary) span {
+  color: var(--color-text-tertiary);
+  font-size: var(--type-caption);
+  font-weight: var(--weight-medium);
+}
+.designer-app :is(.nc-areas-summary, .nc-sections-summary) .attention strong { color: var(--color-warning); }
+.designer-app :is(.nc-areas-summary, .nc-sections-summary) button:hover { background: var(--color-row-hover); }
+.designer-app :is(.nc-areas-summary, .nc-sections-summary) button.active::after {
+  position: absolute;
+  inset: auto var(--space-16) 0;
+  height: .2rem;
+  border-radius: 99rem 99rem 0 0;
+  background: var(--color-secondary);
+  content: "";
 }
 
 .designer-app #nodesManagementSection .node-fleet-stats {
@@ -214,6 +251,23 @@
   padding: var(--space-16);
   background: var(--color-surface);
 }
+
+.designer-app :is(.nc-areas-toolbar, .nc-sections-toolbar) { align-items: end; }
+.designer-app :is(.nc-areas-search, .nc-sections-search) input { padding-inline: 2.4rem; }
+.designer-app .nc-sections-toolbar {
+  grid-template-columns: minmax(16rem, 1fr) repeat(3, minmax(11rem, .55fr));
+}
+.designer-app :is(.nc-area-row, .nc-section-row, .nc-section-area > header > button) { min-height: 5.35rem; }
+.designer-app :is(.nc-area-glyph, .nc-section-area-icon, .nc-section-name > span:first-child) {
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: .7rem;
+}
+.designer-app .nc-section-area > header > button {
+  grid-template-columns: 1rem 2.65rem minmax(12rem, 1fr) auto auto auto;
+}
+.designer-app .nc-section-name { grid-template-columns: 2.65rem minmax(0, 1fr) auto; }
+.designer-app .nc-section-area > header small { font-size: var(--type-caption); margin-top: .2rem; }
 
 .designer-app #nodesManagementSection .node-fleet-toolbar {
   display: grid;

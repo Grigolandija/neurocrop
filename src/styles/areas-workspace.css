@@ -11,15 +11,6 @@
 .nc-areas-feedback.warning { border-color: var(--color-warning-border); background: var(--color-warning-soft); color: var(--color-warning); }
 .nc-areas-feedback span { flex: 1; }
 .nc-areas-feedback button { width: 2rem; height: 2rem; border-radius: .4rem; background: transparent; color: inherit; }
-.nc-areas-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); overflow: hidden; border: 1px solid var(--color-border); border-radius: .9rem; background: var(--color-surface); box-shadow: 0 .35rem 1.4rem var(--color-shadow); }
-.nc-areas-summary > :is(button,div) { display: grid; min-height: 6.6rem; align-content: center; gap: var(--space-4); border-right: 1px solid var(--color-border); padding: var(--space-20) var(--space-24); background: transparent; color: var(--color-text); text-align: left; }
-.nc-areas-summary > :last-child { border-right: 0; }
-.nc-areas-summary button { position: relative; }
-.nc-areas-summary button:hover { background: var(--color-row-hover); }
-.nc-areas-summary button.active::after { position: absolute; inset: auto var(--space-20) 0; height: .2rem; border-radius: 99rem 99rem 0 0; background: var(--color-secondary); content: ""; }
-.nc-areas-summary strong { font-family: var(--font-technical); font-size: var(--type-h2); line-height: 1; }
-.nc-areas-summary span { color: var(--color-text-tertiary); font-size: var(--type-caption); font-weight: var(--weight-medium); }
-.nc-areas-summary .attention strong { color: var(--color-warning); }
 .nc-areas-register { overflow: visible; border: 1px solid var(--color-border); border-radius: .9rem; background: var(--color-surface); box-shadow: 0 .35rem 1.4rem var(--color-shadow); }
 .nc-areas-toolbar { display: grid; grid-template-columns: minmax(16rem,1fr) minmax(11rem,.32fr) minmax(11rem,.32fr); gap: var(--space-12); border-bottom: 1px solid var(--color-border); padding: var(--space-16); background: var(--color-surface-elevated); }
 .nc-areas-toolbar label { display: grid; gap: var(--space-4); }
@@ -123,10 +114,6 @@
 @media (max-width: 700px) {
   .nc-areas-head { align-items: stretch; flex-direction: column; }
   .nc-areas-head > button { width: 100%; }
-  .nc-areas-summary { grid-template-columns: repeat(2,1fr); }
-  .nc-areas-summary > :is(button,div) { min-height: 5.5rem; border-bottom: 1px solid var(--color-border); }
-  .nc-areas-summary > :nth-child(2) { border-right: 0; }
-  .nc-areas-summary > :nth-last-child(-n+2) { border-bottom: 0; }
   .nc-areas-toolbar, .nc-areas-form { grid-template-columns: 1fr; }
   .nc-areas-form label { grid-column: auto !important; }
   .nc-area-detail { grid-template-columns: 1fr; }
