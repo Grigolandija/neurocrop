@@ -12,6 +12,8 @@ The API applies pending migrations before opening its HTTP port. If a migration 
 
 ## Commands
 
+`0040_diagnostic_history_retention.sql` filters repeated alert/risk evaluations from metadata history. Changes to severity, direction, targets, lifecycle status, user actions and configuration still receive full snapshots. Measurements, diagnostic episodes, saved reports and event-time contexts are unchanged. The retention worker runs every six hours and keeps 365 days of metadata history by default (`DIAGNOSTIC_HISTORY_RETENTION_DAYS`, minimum 93), plus the final snapshot before the cutoff for each organization/entity/identifier as a baseline. Deletions are bounded batches under the existing maintenance advisory lock.
+
 Apply pending migrations without starting the API:
 
 ```sh

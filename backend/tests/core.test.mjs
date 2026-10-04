@@ -30,6 +30,7 @@ import {
 import {
   getMeasurementRetentionDays,
   getMeasurementRollupRetention,
+  getDiagnosticHistoryRetentionDays,
   runMeasurementRetention
 } from '../measurement-retention.js';
 import {
@@ -204,6 +205,8 @@ test('historical telemetry stores only metadata required by product queries', ()
 
 test('measurement retention is bounded, batched and protected by an advisory lock', async () => {
   assert.equal(getMeasurementRetentionDays({}), 35);
+  assert.equal(getDiagnosticHistoryRetentionDays({}), 365);
+  assert.throws(() => getDiagnosticHistoryRetentionDays({ DIAGNOSTIC_HISTORY_RETENTION_DAYS: '30' }), /between 93 and 3650/);
   assert.equal(getMeasurementRetentionDays({ MEASUREMENT_RETENTION_DAYS: '60' }), 60);
   assert.deepEqual(getMeasurementRollupRetention({}), { 10: 93, 60: 1095 });
   assert.deepEqual(getMeasurementRollupRetention({

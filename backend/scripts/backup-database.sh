@@ -8,6 +8,7 @@ BACKUP_DIR="${BACKUP_DIR:-/var/backups/neurocrop}"
 BACKUP_MIRROR_DIR="${BACKUP_MIRROR_DIR:-}"
 RCLONE_REMOTE="${RCLONE_REMOTE:-}"
 BACKUP_RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
+OFFSITE_BACKUP_RETENTION_DAYS="${OFFSITE_BACKUP_RETENTION_DAYS:-90}"
 REQUIRE_OFFSITE_COPY="${REQUIRE_OFFSITE_COPY:-false}"
 LOCK_FILE="${BACKUP_LOCK_FILE:-/var/lock/neurocrop-backup.lock}"
 
@@ -53,6 +54,7 @@ trap cleanup EXIT
 
 docker inspect "$PG_CONTAINER" >/dev/null 2>&1
 if [[ -n "$RCLONE_REMOTE" ]]; then command -v rclone >/dev/null; fi
+if [[ -n "$RCLONE_REMOTE" ]]; then command -v python3 >/dev/null; fi
 if [[ -n "$BACKUP_MIRROR_DIR" ]]; then mkdir -p "$BACKUP_MIRROR_DIR"; fi
 
 for database in "${databases[@]}"; do
@@ -90,6 +92,8 @@ for database in "${databases[@]}"; do
     rclone copyto --immutable "$checksum_path" "${RCLONE_REMOTE%/}/${base_name}.sha256"
     remote_listing="$(rclone lsf "${RCLONE_REMOTE%/}" --files-only --include "$base_name")"
     [[ "$remote_listing" == "$base_name" ]]
+    checksum_listing="$(rclone lsf "${RCLONE_REMOTE%/}" --files-only --include "${base_name}.sha256")"
+    [[ "$checksum_listing" == "${base_name}.sha256" ]]
     echo "[backup] encrypted R2 copy verified for ${database}"
   fi
 done
@@ -101,6 +105,13 @@ if [[ "$offsite_copied" != "true" && "$REQUIRE_OFFSITE_COPY" == "true" ]]; then
   exit 1
 elif [[ "$offsite_copied" != "true" ]]; then
   echo "[backup] warning: offsite storage is not configured" >&2
+fi
+
+if [[ -n "$RCLONE_REMOTE" ]]; then
+  # Only after every new DB dump has been uploaded and verified successfully.
+  python3 "$(dirname "${BASH_SOURCE[0]}")/cleanup-offsite-backups.py" \
+    --remote "$RCLONE_REMOTE" --days "$OFFSITE_BACKUP_RETENTION_DAYS" \
+    --databases "${databases[@]}" --apply
 fi
 
 find "$BACKUP_DIR" -type f \

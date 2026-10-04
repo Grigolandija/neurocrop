@@ -44,9 +44,14 @@ export function getMeasurementRollupRetention(env = process.env) {
   };
 }
 
+export function getDiagnosticHistoryRetentionDays(env = process.env) {
+  return configuredRollupRetentionDays(env, 'DIAGNOSTIC_HISTORY_RETENTION_DAYS', 365, 93);
+}
+
 export async function runMeasurementRetention(pool, options = {}) {
   const retentionDays = options.retentionDays ?? getMeasurementRetentionDays(options.env);
   const rollupRetention = options.rollupRetention ?? getMeasurementRollupRetention(options.env);
+  const historyRetentionDays = options.historyRetentionDays ?? getDiagnosticHistoryRetentionDays(options.env);
   const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
   const maxBatches = options.maxBatches ?? DEFAULT_MAX_BATCHES;
   const now = options.now ? new Date(options.now) : new Date();
@@ -55,6 +60,7 @@ export async function runMeasurementRetention(pool, options = {}) {
   let locked = false;
   let deleted = 0;
   let rollupsDeleted = 0;
+  let historyDeleted = 0;
 
   try {
     const lockResult = await client.query(
@@ -99,11 +105,36 @@ export async function runMeasurementRetention(pool, options = {}) {
       }
     }
 
+    const historyCutoff = new Date(now.getTime() - historyRetentionDays * 24 * 60 * 60 * 1000);
+    for (let batch = 0; batch < maxBatches; batch += 1) {
+      const result = await client.query(
+        `DELETE FROM diagnostic_metadata_history
+         WHERE id IN (
+           SELECT h.id FROM diagnostic_metadata_history h
+           WHERE h.recorded_at < $1
+             AND EXISTS (
+               SELECT 1 FROM diagnostic_metadata_history newer
+               WHERE newer.organization_id=h.organization_id
+                 AND newer.entity=h.entity AND newer.entity_id=h.entity_id
+                 AND newer.recorded_at <= $1
+                 AND (newer.recorded_at,newer.id) > (h.recorded_at,h.id)
+             )
+           ORDER BY h.recorded_at,h.id LIMIT $2
+         )`,
+        [historyCutoff, batchSize]
+      );
+      historyDeleted += result.rowCount;
+      if (result.rowCount < batchSize) break;
+    }
+
+    // Keep the last snapshot preceding the cutoff as the historical baseline.
+    // Contexts referenced by measurements and saved reports are not deleted.
     // Small rolling-retention batches do not materially change planner stats.
     // Let autovacuum handle them; ANALYZE only after a substantial cleanup.
     if (deleted >= ANALYZE_AFTER_DELETIONS) await client.query('ANALYZE measurements');
     if (rollupsDeleted >= ANALYZE_AFTER_DELETIONS) await client.query('ANALYZE measurement_rollups');
-    return { deleted, rollupsDeleted, skipped: false, cutoff };
+    if (historyDeleted >= ANALYZE_AFTER_DELETIONS) await client.query('ANALYZE diagnostic_metadata_history');
+    return { deleted, rollupsDeleted, historyDeleted, skipped: false, cutoff };
   } finally {
     if (locked) {
       await client.query('SELECT pg_advisory_unlock(hashtext($1))', [RETENTION_LOCK_NAME]).catch(() => {});
@@ -128,6 +159,9 @@ export function startMeasurementRetention(pool, options = {}) {
       }
       if (result.rollupsDeleted > 0) {
         console.log(`[retention] deleted ${result.rollupsDeleted} expired measurement rollups`);
+      }
+      if (result.historyDeleted > 0) {
+        console.log(`[retention] deleted ${result.historyDeleted} expired diagnostic history snapshots; baselines preserved`);
       }
     } catch (error) {
       console.error('[retention] measurement cleanup failed:', error.message);

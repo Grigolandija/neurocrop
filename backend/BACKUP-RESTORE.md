@@ -7,9 +7,18 @@ NeuroCrop creates PostgreSQL custom-format backups of both the `neurocrop` appli
 - RPO: up to 24 hours with the default daily schedule.
 - Restore verification: weekly.
 - Local retention: 30 days by default.
+- Encrypted R2 retention: 90 days by default (`OFFSITE_BACKUP_RETENTION_DAYS`).
 - Production requires a copy outside the VPS by setting `REQUIRE_OFFSITE_COPY=true`.
 
 With `RCLONE_REMOTE=neurocrop-r2-crypt:`, the daily job verifies an encrypted R2 upload and the weekly restore test downloads its input from R2 rather than trusting the local disk.
+
+R2 cleanup runs only after all new database uploads succeed. It deletes complete dump/checksum pairs older than the configured limit, only for the explicitly configured database names. The newest three pairs per database are protected; cleanup refuses to proceed unless every database has a complete backup from the last 36 hours. Unrelated objects, nested paths and incomplete pairs are never removed. The encrypted remote is accessed through rclone; no bucket-wide purge is used.
+
+Preview the cleanup without deleting anything (with the service's environment loaded):
+
+```sh
+python3 /opt/neurocrop-backend/scripts/cleanup-offsite-backups.py --remote neurocrop-r2-crypt: --days 90
+```
 
 ## Install on the VPS
 

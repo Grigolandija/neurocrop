@@ -10,6 +10,16 @@ The internal monitor runs every five minutes and checks:
 - measurement ingest freshness;
 - daily backup and weekly offsite restore-test markers.
 
+## Server configuration checks
+
+Keep `/etc` at its standard directory mode 755 so service users can read public NSS and DNS configuration. Secret files remain 600 (or 640 for their dedicated group); never recursively change permissions. A 700 `/etc` prevents `man-db` from resolving its service account and prevents `fwupd-refresh` from resolving download hosts.
+
+On this VPS, ifupdown owns the external network interface and networkd has no managed interfaces. `systemd-networkd-wait-online.service` should therefore be disabled; do not restart or disable the network services themselves.
+
+Publish Mosquitto's plaintext port only on loopback (`127.0.0.1:1883:1883`). Containers continue using `mosquitto:1883` inside the Docker network. External clients use authenticated TLS on 8883. Docker-published ports bypass ordinary UFW INPUT rules, so a UFW deny rule alone does not protect 1883. Rejected unsupported TLS handshakes from public clients are expected security rejections; never lower the TLS version or allow anonymous access to suppress them.
+
+The production Caddy API block is in `ops/caddy-api.conf`. Validate the complete Caddyfile before reloading it. Its five-second retry window handles safe GET/HEAD/OPTIONS reconnects during releases and does not replay write requests. The upstream connection pool expires idle connections after four seconds, before Node's default five-second keepalive timeout. Preserve other virtual hosts when installing the block.
+
 Alerts are sent through Resend only when the issue set changes. Incident keys are stable: changing image counts, measurement ages and backup ages do not resend the same alert. Disk usage escalating to 90% creates a new critical incident. `MONITOR_DRY_RUN=1` checks health without sending email, updating incident state or sending heartbeat requests. A separate recovery email is sent when all checks become healthy.
 Individual Node availability is a product-level condition, not a VPS failure, and
 is intentionally excluded from this internal infrastructure monitor.

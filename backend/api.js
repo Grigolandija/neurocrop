@@ -2864,22 +2864,21 @@ async function getTelemetryEvents(devEuis, from, to) {
        FROM raw_samples
        WINDOW node_window AS (PARTITION BY dev_eui ORDER BY time ASC)
      ), events AS (
-       SELECT time AS occurred_at, 1 AS event_order, 'reporting_mode_changed' AS type,
-              'info' AS severity, dev_eui, previous_profile AS from_profile,
-              profile AS to_profile, NULL::integer AS duration_minutes
+       SELECT time AS occurred_at, event.event_order, event.type, event.severity,
+              dev_eui, event.from_profile, event.to_profile, event.duration_minutes
        FROM samples
-       WHERE previous_profile IS NOT NULL AND previous_profile <> ''
-         AND profile IS NOT NULL AND profile <> '' AND previous_profile <> profile
-       UNION ALL
-       SELECT time, 2, 'delivery_gap', 'warning', dev_eui, NULL, NULL,
-              ROUND(EXTRACT(EPOCH FROM (time - previous_time)) / 60)::integer
-       FROM samples
-       WHERE previous_time IS NOT NULL
-         AND EXTRACT(EPOCH FROM (time - previous_time)) > previous_interval_sec * 3
-       UNION ALL
-       SELECT time, 3, 'transmission_failed', 'warning', dev_eui, NULL, NULL, NULL
-       FROM samples
-       WHERE tx_failed=true AND COALESCE(previous_tx_failed, false)=false
+       CROSS JOIN LATERAL (VALUES
+         (1, 'reporting_mode_changed', 'info', previous_profile, profile, NULL::integer,
+          previous_profile IS NOT NULL AND previous_profile <> ''
+          AND profile IS NOT NULL AND profile <> '' AND previous_profile <> profile),
+         (2, 'delivery_gap', 'warning', NULL, NULL,
+          ROUND(EXTRACT(EPOCH FROM (time - previous_time)) / 60)::integer,
+          previous_time IS NOT NULL
+          AND EXTRACT(EPOCH FROM (time - previous_time)) > previous_interval_sec * 3),
+         (3, 'transmission_failed', 'warning', NULL, NULL, NULL::integer,
+          tx_failed=true AND COALESCE(previous_tx_failed, false)=false)
+       ) AS event(event_order, type, severity, from_profile, to_profile, duration_minutes, matched)
+       WHERE event.matched
      ), latest AS (
        SELECT * FROM events ORDER BY occurred_at DESC, event_order DESC LIMIT 80
      )
