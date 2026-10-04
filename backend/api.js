@@ -2839,8 +2839,10 @@ async function getMetricHistoryBuckets(devEuis, metric, from, to, stepMinutes, o
 }
 
 async function getTelemetryEvents(devEuis, from, to) {
+  // Project before the window sort: an inlined CTE carries the large raw JSON
+  // through the sorter instead of these few compact hardware values.
   const { rows } = await query(
-    `WITH raw_samples AS (
+    `WITH raw_samples AS MATERIALIZED (
        SELECT time,
               m.dev_eui,
               profile,

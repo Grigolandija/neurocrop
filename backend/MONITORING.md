@@ -14,6 +14,13 @@ The internal monitor runs every five minutes and checks:
 
 Keep `/etc` at its standard directory mode 755 so service users can read public NSS and DNS configuration. Secret files remain 600 (or 640 for their dedicated group); never recursively change permissions. A 700 `/etc` prevents `man-db` from resolving its service account and prevents `fwupd-refresh` from resolving download hosts.
 
+If broad directory access must remain restricted, use named traversal ACLs for the affected service accounts instead. The server repair granted only `man`, `fwupd-refresh` and `_apt` execute access, preserving the denial of directory listing and secret-file access. `_apt` needs traversal for package-download DNS. Save the original ACL before changing it:
+
+```sh
+getfacl -p /etc > /root/etc-acl.before
+setfacl -m u:man:--x,u:fwupd-refresh:--x,u:_apt:--x /etc
+```
+
 On this VPS, ifupdown owns the external network interface and networkd has no managed interfaces. `systemd-networkd-wait-online.service` should therefore be disabled; do not restart or disable the network services themselves.
 
 Publish Mosquitto's plaintext port only on loopback (`127.0.0.1:1883:1883`). Containers continue using `mosquitto:1883` inside the Docker network. External clients use authenticated TLS on 8883. Docker-published ports bypass ordinary UFW INPUT rules, so a UFW deny rule alone does not protect 1883. Rejected unsupported TLS handshakes from public clients are expected security rejections; never lower the TLS version or allow anonymous access to suppress them.
