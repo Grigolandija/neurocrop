@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
 import { ModalPortal } from '../../components/ModalPortal'
+import { StructureHeader } from '../../components/StructureWorkspace'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { getMetricDefinition as getRegistryMetricDefinition } from '../../domain/metricRegistry'
 import { openTrend } from '../../state/dashboardStore'
@@ -582,7 +583,9 @@ function ReadingCell({ section, metric, profile, mode, onOpenTrend }: { section:
   const summaryLabel = getValueSummary(section, metric)
   const showSummaryLabel = mode === 'value' && value !== null
   return <button type="button" className="nc-reading-cell" data-tone={tone} data-quality={quality} onClick={onOpenTrend} title={`Open ${section.name} ${metric.label.toLowerCase()} trend`} aria-label={`Open ${section.name} ${metric.label} trend`}>
-    <strong>{tx(display)}{showSummaryLabel ? <small className="nc-reading-average">{summaryLabel}</small> : null}</strong><i aria-label={qualityLabels[quality]} />
+    <strong>{mode === 'value' && value !== null ? <span className="nc-reading-number">{formatValue(value, metric)} <span className="nc-reading-unit">{metric.unit}</span></span> : tx(display)}{showSummaryLabel ? <small className="nc-reading-average">{summaryLabel}</small> : null}</strong>
+    {value !== null && quality !== 'live' ? <span className="nc-reading-quality">{tx(quality === 'stale' ? 'Delayed reading' : quality === 'offline' ? 'Last known reading' : qualityLabels[quality])}</span> : null}
+    <i aria-label={tx(qualityLabels[quality])} />
   </button>
 }
 
@@ -976,17 +979,16 @@ export default function ReadingsWorkspace() {
     setTrendPreview({ sectionId: section.id, metricKey: metric.key })
   }
 
-  return <main className="nc-readings-workspace" aria-busy={status === 'loading'}>
-    <header className="nc-readings-hero">
-      <div><p className="nc-overline">{tx("Live workspace")}</p><h1>{tx("Live readings, section by section.")}</h1><p>{tx("Compare current measurements across the operation. Cell color shows crop status; the small marker shows whether the reading can be trusted.")}</p></div>
-      <div className="nc-readings-actions"><span><strong>{readingsUnavailable ?tx("Sections unavailable") : `${sections.length} sections monitored`}</strong><small>{refreshing ?tx("Refreshing current measurements…") : readingsUnavailable ?tx("Live data could not be loaded") :tx("Updated from live node packets")}</small></span><button type="button" onClick={() => setRefreshToken((value) => value + 1)} disabled={refreshing}><i className="fa-solid fa-rotate" />{tx("Refresh")}</button></div>
-    </header>
+  return <main className="nc-readings-workspace nc-monitor-page" aria-busy={status === 'loading'}>
+    <StructureHeader className="nc-readings-hero" eyebrow={tx('Live workspace')} title={tx('Readings')}
+      description={tx('Compare current conditions. Select a measurement to see its history.')}
+      action={<div className="nc-readings-actions"><span><strong>{readingsUnavailable ? tx('Sections unavailable') : `${sections.length} ${tx('sections')}`}</strong><small>{refreshing ? tx('Refreshing current measurements…') : readingsUnavailable ? tx('Live data could not be loaded') : tx('Updated from live node packets')}</small></span><button type="button" onClick={() => setRefreshToken(value => value + 1)} disabled={refreshing}><i className="fa-solid fa-rotate" />{tx('Refresh')}</button></div>} />
 
     {status === 'error' ? <section className="nc-readings-state" role="alert"><i className="fa-solid fa-triangle-exclamation" /><div><strong>{tx("Readings could not be loaded")}</strong><p>{error}</p></div><button type="button" onClick={() => setRefreshToken((value) => value + 1)}>{tx("Try again")}</button></section> : null}
-    <section className="nc-readings-health" aria-label={tx("Live data availability")}><div><b>{readingsUnavailable ? '—' : freshness.live}</b><span><strong>{tx("Current")}</strong><small>{tx("Arriving on schedule")}</small></span></div><div data-state="stale"><b>{readingsUnavailable ? '—' : freshness.stale}</b><span><strong>{tx("Delayed")}</strong><small>{tx("Usable, clearly marked")}</small></span></div><div data-state="offline"><b>{readingsUnavailable ? '—' : freshness.offline}</b><span><strong>{tx("Interrupted")}</strong><small>{tx("No current aggregate")}</small></span></div><p><i className="fa-solid fa-circle-info" /> {tx("Missing, stale and uninstalled sensors are never converted to zero.")}</p></section>
+    <section className="nc-readings-health" aria-label={tx("Live data availability")}><div><b>{readingsUnavailable ? '—' : freshness.live}</b><span><strong>{tx("Current")}</strong><small>{tx("Arriving on schedule")}</small></span></div><div data-state="stale"><b>{readingsUnavailable ? '—' : freshness.stale}</b><span><strong>{tx("Delayed")}</strong><small>{tx("Usable, clearly marked")}</small></span></div><div data-state="offline"><b>{readingsUnavailable ? '—' : freshness.offline}</b><span><strong>{tx("Interrupted")}</strong><small>{tx("No current aggregate")}</small></span></div><p><i className="fa-solid fa-circle-info" /> {tx('Data availability by section. Missing readings are shown explicitly.')}</p></section>
 
     <section className="nc-readings-matrix" aria-labelledby="nc-readings-title">
-      <header><div><p className="nc-overline">{tx("Live readings")}</p><h2 id="nc-readings-title">{tx("Every current reading in one place")}</h2><span>{tx("Choose a working set instead of forcing all 13 parameters onto every screen.")}</span></div></header>
+      <header><div><p className="nc-overline">{tx("Live readings")}</p><h2 id="nc-readings-title">{tx("Every current reading in one place")}</h2><span>{tx('Units are shown beside each value. Delayed measurements are marked.')}</span></div></header>
       <div className="nc-readings-controls">
         <div className="nc-area-tabs" role="tablist" aria-label={tx("Filter by Area")}>
           <button type="button" role="tab" aria-selected={areaFilter === 'all'} className={areaFilter === 'all' ? 'active' : ''} onClick={() => setAreaFilter('all')}>{tx("All areas")} <b aria-label={`${sections.length} sections`}>{sections.length}</b></button>
@@ -1015,7 +1017,10 @@ export default function ReadingsWorkspace() {
               <div className={`nc-readings-row nc-section-summary-row ${expanded ? 'expanded' : ''}`} style={matrixStyle}>
                 <div className="nc-reading-section"><span data-state={normalizedDeviation(section, visibleMetrics, profiles) > 0 ? 'watch' : 'good'} /><button type="button" onClick={() => toggleSectionNodes(section.id)} title={`${section.name} · ${section.areaName} · ${section.profileName}`} aria-expanded={expanded} aria-controls={`nc-section-nodes-${section.id}`}><strong>{section.name}</strong></button><button type="button" className={pinned.includes(section.id) ? 'pinned' : ''} disabled={!pinned.includes(section.id) && pinned.length >= 3} onClick={() => togglePin(section.id)} aria-pressed={pinned.includes(section.id)} aria-label={`${pinned.includes(section.id) ? 'Unpin' : 'Pin'} ${section.name}`}><i className="fa-solid fa-thumbtack" /></button></div>
                 {section.nodes.length ? visibleMetrics.map((metric) => <ReadingCell section={section} metric={metric} profile={profiles.get(section.profileId)} mode={mode} onOpenTrend={() => openTrendPreview(section, metric)} key={metric.key} />) : visibleMetrics.length ? <div className="nc-section-no-nodes" style={{ gridColumn: `2 / span ${visibleMetrics.length}` }}><i className="fa-solid fa-circle-minus" />{tx("No Nodes are assigned to this Section.")}</div> : null}
-                <span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}><strong>{section.nodes.length ? <>{formatAge(section)} · {numeric(section.latest?.reportingNodes) ?? section.nodes.filter((node) => node.active !== false).length} {tx("reporting")} · {numeric(section.latest?.registeredNodes) ?? section.nodes.length} {tx("registered")}</> : visibleMetrics.length ? '—' : tx("No Nodes are assigned to this Section.")}</strong></span>
+                <span className="nc-reading-freshness" data-quality={getSectionFreshness(section)}>
+                  <strong>{section.nodes.length ? formatAge(section) : '—'}</strong>
+                  <small>{section.nodes.length ? `${numeric(section.latest?.reportingNodes) ?? section.nodes.filter(node => node.active !== false).length}/${numeric(section.latest?.registeredNodes) ?? section.nodes.length} ${tx('reporting')}` : tx('No Nodes are assigned to this Section.')}</small>
+                </span>
                 <button className="nc-reading-open" onClick={() => toggleSectionNodes(section.id)} disabled={!section.nodes.length} aria-expanded={expanded} aria-controls={`nc-section-nodes-${section.id}`} aria-label={`${expanded ? 'Hide' : 'Show'} ${section.name} node measurements`}><i className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} /></button>
               </div>
               {expanded && section.nodes.length ? <NodeMeasurementsPanel section={section} profile={profiles.get(section.profileId)} visibleMetrics={visibleMetrics} matrixStyle={matrixStyle} /> : null}

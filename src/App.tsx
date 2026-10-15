@@ -21,6 +21,7 @@ import './styles/neurocrop-typography-system.css'
 import './styles/app-shell.css'
 import './styles/operational-consistency.css'
 import './styles/mobile-experience.css'
+import './styles/monitoring-workspace.css'
 
 declare global {
   interface Window {

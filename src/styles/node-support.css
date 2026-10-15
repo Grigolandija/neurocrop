@@ -1,5 +1,7 @@
 .nc-node-support { margin: 1rem 0; padding: 1rem 1.25rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }
 .nc-node-support > h3 { margin: 0 0 .5rem; }
+.nc-node-support[data-state] { border-left: 3px solid var(--color-warning); }
+.nc-node-support[data-state="reporting"] { border-left-color: var(--color-success); }
 .nc-node-support p { margin: .5rem 0; font-size: var(--type-body-sm); line-height: 1.65; }
 .nc-node-support small { display: block; color: var(--color-text-secondary); overflow-wrap: anywhere; font-size: var(--type-caption); }
 .nc-node-support summary { cursor: pointer; padding: .65rem 0; font-size: var(--type-body-sm); font-weight: 600; }

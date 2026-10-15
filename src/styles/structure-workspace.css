@@ -1,5 +1,5 @@
-/* One layout for the Areas and Sections directories, including lazy-loaded pages. */
-.designer-app .nc-structure-page:is(.nc-areas-page, .nc-sections-page) {
+/* Shared directory layout, including lazy-loaded Areas, Sections and Nodes. */
+.designer-app .nc-structure-page:is(.nc-areas-page, .nc-sections-page, .node-fleet-page) {
   display: grid;
   min-width: 0;
   gap: var(--space-24);
@@ -13,6 +13,15 @@
   padding: 0;
 }
 .nc-structure-head > div:first-child { min-width: 0; }
+.designer-app .nc-structure-head h1 {
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: var(--type-display-m) !important;
+  font-weight: var(--weight-semibold) !important;
+  letter-spacing: var(--tracking-display) !important;
+  line-height: var(--leading-display) !important;
+}
 .designer-app .nc-structure-head > div:first-child > p { margin: 0 0 var(--space-8); }
 .designer-app .nc-structure-head > div:first-child > span {
   max-width: 48rem;
@@ -30,14 +39,24 @@
   box-shadow: none;
 }
 .designer-app .nc-structure-page .nc-structure-summary > :is(button, div) {
+  position: relative;
   display: grid;
   min-height: 5.5rem;
   align-content: center;
   justify-items: start;
   gap: var(--space-4);
   padding: var(--space-16) var(--space-20);
-  border-bottom: 0;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
 }
+.designer-app .nc-structure-summary > :last-child { border-right: 0 !important; }
+.designer-app .nc-structure-summary strong { font-family: var(--font-technical); font-size: var(--type-h2); font-weight: var(--weight-semibold); line-height: 1.15; }
+.designer-app .nc-structure-summary span { color: var(--color-text-secondary); font-size: var(--type-caption); }
+.designer-app .nc-structure-summary .attention strong { color: var(--color-warning); }
+.designer-app .nc-structure-summary button.active::after { position: absolute; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--color-secondary); content: ''; }
 .designer-app .nc-structure-summary button.active { background: var(--color-success-soft); }
 .designer-app .nc-structure-summary button.active::after { right: var(--space-20); left: var(--space-20); }
 .designer-app .nc-structure-summary > button:disabled { opacity: 1; }
@@ -115,7 +134,7 @@
   .designer-app .nc-structure-page :is(.nc-areas-search, .nc-sections-search) { grid-column: 1 / -1; }
 }
 @media (max-width: 640px) {
-  .designer-app .nc-structure-page:is(.nc-areas-page, .nc-sections-page) { gap: var(--space-16); }
+  .designer-app .nc-structure-page:is(.nc-areas-page, .nc-sections-page, .node-fleet-page) { gap: var(--space-16); }
   .designer-app .nc-structure-page .nc-structure-head-action,
   .designer-app .nc-structure-page .nc-structure-head-action > button { width: 100%; }
   .designer-app .nc-structure-page .nc-structure-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -2,11 +2,11 @@ import type { ReactNode } from 'react'
 import { translateInterfaceText as tx } from '../i18n'
 import '../styles/structure-workspace.css'
 
-export function StructureHeader({ className, title, description, action }: {
-  className: string; title: string; description: string; action: ReactNode
+export function StructureHeader({ className, title, description, action, eyebrow = tx('Workspace structure') }: {
+  className: string; title: string; description: string; action: ReactNode; eyebrow?: string
 }) {
   return <header className={`nc-structure-head ${className}`}>
-    <div><p>{tx('Workspace structure')}</p><h1>{title}</h1><span>{description}</span></div>
+    <div><p>{eyebrow}</p><h1>{title}</h1><span>{description}</span></div>
     <div className="nc-structure-head-action">{action}</div>
   </header>
 }

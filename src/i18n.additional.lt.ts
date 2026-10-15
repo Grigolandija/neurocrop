@@ -1,5 +1,16 @@
 // Copy introduced by the React workspaces after the original interface glossary.
 export const additionalLtTranslations: Readonly<Record<string, string>> = Object.freeze({
+  'Check node status, location, battery and when data last arrived.': 'Patikrinkite mazgų būklę, vietą, bateriją ir paskutinių duomenų laiką.',
+  'Node fleet status': 'Mazgų būklės suvestinė',
+  'All nodes': 'Visi mazgai',
+  'Last known reading': 'Paskutinis žinomas matavimas',
+  'Search nodes': 'Ieškoti mazgų',
+  'No recent data': 'Naujų duomenų negaunama',
+  'Data is arriving late': 'Duomenys vėluoja',
+  'Compare current conditions. Select a measurement to see its history.': 'Palyginkite dabartines sąlygas. Pasirinkite matavimą jo istorijai peržiūrėti.',
+  'Data availability by section. Missing readings are shown explicitly.': 'Duomenų gavimas pagal sekcijas. Trūkstami matavimai pažymėti atskirai.',
+  'Units are shown beside each value. Delayed measurements are marked.': 'Prie kiekvienos reikšmės pateikti vienetai. Pavėluoti matavimai pažymėti.',
+  'Delayed reading': 'Pavėluotas matavimas',
   '24-hour history is not available for this metric.': 'Šio rodiklio 24 valandų istorija nepasiekiama.',
   '24-hour trend': '24 valandų tendencija',
   '24h ago': 'prieš 24 val.',

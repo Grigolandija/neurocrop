@@ -3,6 +3,7 @@ import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { ModalPortal } from '../../components/ModalPortal'
+import { StructureHeader, StructureSummary, StructureFooter } from '../../components/StructureWorkspace'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import '../../styles/nodes-page.css'
 import {
@@ -164,6 +165,8 @@ function nodeState(node: NodeRow) {
   const health = getHealthSummary(node, node)
   if (node.transportStatus === 'offline') return { key: 'offline', label: 'Offline', tone: 'offline' }
   if (health.tone === 'critical') return { key: 'fault', label: 'Fault', tone: 'critical' }
+  if (['delayed', 'stale'].includes(node.transportStatus)) return { key: 'fault', label: 'Delayed', tone: 'watch' }
+  if (Number.isFinite(node.level) && Number(node.level) < 30) return { key: 'fault', label: 'Low battery', tone: 'watch' }
   if (health.tone === 'warning') return { key: 'fault', label: 'Watch', tone: 'watch' }
   return { key: 'healthy', label: 'Healthy', tone: 'good' }
 }
@@ -310,13 +313,17 @@ export default function NodesWorkspace() {
     return nodes.filter((node) => areaFilter === 'all' || node.areaId === areaFilter)
       .filter((node) => stateFilter === 'all' || nodeState(node).key === stateFilter)
       .filter((node) => !needle || `${node.name} ${node.targetName} ${node.areaName} ${node.sectionName}`.toLowerCase().includes(needle))
+      .sort((left, right) => {
+        const priority: Record<string, number> = { fault: 0, offline: 1, healthy: 2 }
+        return priority[nodeState(left).key] - priority[nodeState(right).key] || left.name.localeCompare(right.name)
+      })
   }, [areaFilter, nodes, query, stateFilter])
 
   const counts = useMemo(() => ({
-    online: nodes.filter((node) => node.transportStatus === 'live').length,
-    lowBattery: nodes.filter((node) => Number.isFinite(node.level) && Number(node.level) < 30).length,
-    faults: nodes.filter((node) => nodeState(node).key === 'fault').length,
-    offline: nodes.filter((node) => node.transportStatus === 'offline').length,
+    total: nodes.length,
+    healthy: nodes.filter(node => nodeState(node).key === 'healthy').length,
+    attention: nodes.filter(node => nodeState(node).key === 'fault').length,
+    offline: nodes.filter(node => nodeState(node).key === 'offline').length,
   }), [nodes])
 
   function defaultAssignment() {
@@ -436,8 +443,11 @@ export default function NodesWorkspace() {
 
   if (routeNodeId) {
     if (!selectedNode) return <div className="node-detail-page" data-react-nodes-workspace><button type="button" className="node-detail-back" onClick={() => navigate('/nodes')}><i className="fa-solid fa-chevron-left" />{tx("Nodes")}</button><section className="node-detail-empty"><h2>{tx("Node not found")}</h2><p>{tx("This node is no longer available in the current workspace.")}</p></section></div>
-    const health = getHealthSummary(selectedNode, selectedNode)
     const state = nodeState(selectedNode)
+    const detailHeadline = state.key === 'healthy' ? tx('Reporting normally')
+      : selectedNode.transportStatus === 'offline' ? tx('No recent data')
+        : ['delayed', 'stale'].includes(selectedNode.transportStatus) ? tx('Data is arriving late')
+          : state.label === 'Low battery' ? tx('Low battery') : tx('Needs attention')
     const lastPayload = formatLastPayload(selectedNode, selectedNode, translate)
     const detected = sensors.length ? sensors.filter((sensor) => sensor.detected) : getDetectedSensorNames(selectedNode).map((label) => ({ label, detected: true }))
     const integratedSensors = detected.filter((sensor) => isIntegratedSensor(sensor as Sensor)) as Sensor[]
@@ -446,13 +456,14 @@ export default function NodesWorkspace() {
     const gatewayLabels = receivingGateways.map((gateway) => gateway.name || gateway.serialNumber || gateway.gatewayId).filter(Boolean)
     const visibleGateways = gatewayLabels.length ? gatewayLabels : (selectedNode.lastGatewayIds || [])
     const radioSignal = [Number.isFinite(selectedNode.rssi) ? `${selectedNode.rssi} dBm` : '', Number.isFinite(selectedNode.snr) ? `SNR ${selectedNode.snr}` : '', Number.isFinite(selectedNode.spreadingFactor) ? `SF${selectedNode.spreadingFactor}` : ''].filter(Boolean).join(' · ')
-    return <div className="node-detail-page" data-react-nodes-workspace>
+    return <div className="node-detail-page nc-monitor-page" data-react-nodes-workspace>
       <nav className="node-detail-breadcrumbs" aria-label="Breadcrumb"><button onClick={() => navigate('/nodes')}>{tx("Nodes")}</button><i className="fa-solid fa-chevron-right" /><span>{selectedNode.name}</span></nav>
       <header className="node-detail-head"><div><p>{tx("Sensor node")}</p><h2>{selectedNode.name}</h2><span>{selectedNode.simulated ? `${tx("Simulated")} · ` : ''}{selectedNode.areaName} · {selectedNode.sectionName}</span></div><div className="node-detail-actions"><button type="button" className="node-detail-secondary-action actionable" onClick={() => openEditor(selectedNode)}><i className="fa-solid fa-pen" />{tx("Edit node")}</button></div></header>
       {feedback ? <div className="management-notice success"><i className="fa-solid fa-circle-check" />{feedback}</div> : null}
       {modalError && !editor ? <div className="management-notice warning"><i className="fa-solid fa-triangle-exclamation" />{modalError}</div> : null}
+      <NodeSupport key={selectedNode.devEui} devEui={selectedNode.devEui} support={selectedNode.support} simulated={selectedNode.simulated} />
       <section className="node-detail-overview">
-        <div className="node-detail-health"><span className="node-detail-orbit" data-tone={state.tone}><i className="fa-solid fa-microchip" /></span><div><span className="node-detail-status" data-tone={state.tone}><i className="fa-solid fa-circle" />{state.label}</span><h3>{selectedNode.gatewayStatus === 'offline' ?tx("Gateway offline") : selectedNode.transportStatus === 'offline' ?tx("No recent uplink") : health.tone === 'optimal' ?tx("Reporting normally") :tx("Device diagnostics require review")}</h3><p>{tx("Last payload")} {lastPayload.relative}</p></div></div>
+        <div className="node-detail-health"><span className="node-detail-orbit" data-tone={state.tone}><i className="fa-solid fa-microchip" /></span><div><span className="node-detail-status" data-tone={state.tone}><i className="fa-solid fa-circle" />{tx(state.label)}</span><h3>{detailHeadline}</h3><p>{tx("Last payload")} {lastPayload.relative}</p></div></div>
         <div className="node-detail-facts">
           <div><small>{tx("Battery")}</small><strong>{Number.isFinite(selectedNode.level) ? `${selectedNode.level}%` : '—'}</strong><span className="node-detail-track"><i style={{ width: `${Number(selectedNode.level) || 0}%` }} /></span><p>{Number.isFinite(selectedNode.batteryMv) ? `${(Number(selectedNode.batteryMv) / 1000).toFixed(2)} V · ` : ''}{Number.isFinite(selectedNode.level) && Number(selectedNode.level) < 25 ? tx("Charge or replace soon") : tx("Battery level")}</p></div>
           <div><small>{tx("Last connection")}</small><strong>{lastPayload.relative}</strong><p>{tx("Latest data received")}</p></div>
@@ -460,7 +471,7 @@ export default function NodesWorkspace() {
         </div>
       </section>
       <div className="node-detail-columns node-detail-columns-single">
-        <NodeSupport key={selectedNode.devEui} devEui={selectedNode.devEui} support={selectedNode.support} simulated={selectedNode.simulated} />
+
         <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("All sensors use the Node location automatically. Only the integrated air sensor climate use can be adjusted.")}</span></header>
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? <div className="nc-sensor-groups">
             {integratedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Integrated air climate sensor")}</h4><p>{tx("Measures air temperature and humidity around the Node.")}</p></div></header><div className="node-detail-sensors">{integratedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && index === 0} returnToNodesOnClose={openSensorSetup} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
@@ -472,35 +483,40 @@ export default function NodesWorkspace() {
     </div>
   }
 
-  return <div className="node-fleet-page" data-react-nodes-workspace>
-    <header className="node-fleet-page-head"><div><p>{tx("Device fleet")}</p><h2>{tx("Sensor nodes")}</h2><span>{tx("Hardware availability, battery, signal, installed sensors, and latest uplink freshness.")}</span></div><button type="button" className="node-fleet-primary-action actionable" onClick={openRegistration}><i className="fa-solid fa-plus" />{tx("Register node")}</button></header>
-    <section className="node-fleet-stats" aria-label="Node fleet status">
-      <div><span data-tone="optimal"><i className="fa-solid fa-signal" /></span><strong>{counts.online}</strong><small>{tx("Online")}</small></div>
-      <div><span data-tone="warning"><i className="fa-solid fa-battery-quarter" /></span><strong>{counts.lowBattery}</strong><small>{tx("Low battery")}</small></div>
-      <div><span data-tone="critical"><i className="fa-solid fa-triangle-exclamation" /></span><strong>{counts.faults}</strong><small>{tx("Faults")}</small></div>
-      <div><span data-tone="offline"><i className="fa-solid fa-link-slash" /></span><strong>{counts.offline}</strong><small>{tx("Offline")}</small></div>
-    </section>
+  return <div className="node-fleet-page nc-structure-page nc-monitor-page" data-react-nodes-workspace>
+    <StructureHeader className="node-fleet-page-head" eyebrow={tx('Device fleet')} title={tx('Sensor nodes')}
+      description={tx('Check node status, location, battery and when data last arrived.')}
+      action={<button type="button" className="node-fleet-primary-action actionable" onClick={openRegistration}><i className="fa-solid fa-plus" aria-hidden="true" />{tx('Register node')}</button>} />
+    <StructureSummary className="nc-node-fleet-summary" label={tx('Node fleet status')} loading={false} items={[
+      { label: tx('All nodes'), value: counts.total, active: stateFilter === 'all', onClick: () => setStateFilter('all') },
+      { label: tx('Reporting normally'), value: counts.healthy, active: stateFilter === 'healthy', onClick: () => setStateFilter(stateFilter === 'healthy' ? 'all' : 'healthy') },
+      { label: tx('Needs attention'), value: counts.attention, tone: 'attention', active: stateFilter === 'fault', onClick: () => setStateFilter(stateFilter === 'fault' ? 'all' : 'fault') },
+      { label: tx('Offline'), value: counts.offline, active: stateFilter === 'offline', onClick: () => setStateFilter(stateFilter === 'offline' ? 'all' : 'offline') },
+    ]} />
     {feedback ? <div className="management-notice success"><i className="fa-solid fa-circle-check" />{feedback}</div> : null}
     <section className="nc-node-list">
-      <div className="nc-list-toolbar"><label className="nc-search-field"><i className="fa-solid fa-magnifying-glass" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tx("Search name, place or section")} /></label><div className="nc-toolbar-selects">
-        <label className="block"><span className="sr-only">{tx("Filter by area")}</span><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}><option value="all">{tx("All areas")}</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label>
-        <label className="block"><span className="sr-only">{tx("Filter by state")}</span><select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}><option value="all">{tx("All states")}</option><option value="healthy">{tx("Healthy")}</option><option value="fault">{tx("Fault")}</option><option value="offline">{tx("Offline")}</option></select></label>
-      </div></div>
-      <div className="nc-data-table-wrap"><table className="nc-data-table nc-node-table"><thead><tr><th>{tx("Node")}</th><th>{tx("Location")}</th><th>{tx("State")}</th><th>{tx("Battery")}</th><th>{tx("Last payload")}</th><th>{tx("Sensor setup")}</th><th /></tr></thead><tbody>
+      <div className="nc-list-toolbar">
+        <label><span>{tx('Search nodes')}</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={tx('Search name, place or section')} /></label>
+        <label><span>{tx('Area')}</span><select value={areaFilter} onChange={event => setAreaFilter(event.target.value)}><option value="all">{tx('All areas')}</option>{areas.map(area => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label>
+        <label><span>{tx('State')}</span><select value={stateFilter} onChange={event => setStateFilter(event.target.value)}><option value="all">{tx('All states')}</option><option value="healthy">{tx('Reporting normally')}</option><option value="fault">{tx('Needs attention')}</option><option value="offline">{tx('Offline')}</option></select></label>
+      </div>
+      <div className="nc-data-table-wrap"><table className="nc-data-table nc-node-table"><thead><tr><th>{tx("Node")}</th><th>{tx("Location")}</th><th>{tx("State")}</th><th>{tx("Battery")}</th><th>{tx("Latest data")}</th><th>{tx("Sensor setup")}</th><th /></tr></thead><tbody>
         {visibleNodes.length ? visibleNodes.map((node) => {
           const state = nodeState(node)
           const lastPayload = formatLastPayload(node, node, translate)
           const batteryLow = Number.isFinite(node.level) && Number(node.level) < 30
           return <tr key={node.devEui || node.id}>
             <td><button type="button" className="nc-node-identity" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)}><strong>{node.name}</strong>{node.simulated ? <em>{tx("Simulated")}</em> : null}{node.targetName ? <small>{node.targetName}</small> : null}</button></td>
-            <td><strong>{node.sectionName}</strong><small>{node.areaName}</small></td>
-            <td><span className={`nc-status-new ${state.tone}`}><span className={`nc-state-dot ${state.tone}`} />{state.label}</span></td>
-            <td><span className={`nc-node-battery ${batteryLow ? 'is-low' : ''}`}><i className={`fa-solid ${Number(node.level) < 25 ? 'fa-battery-quarter' : 'fa-battery-three-quarters'}`} />{Number.isFinite(node.level) ? `${node.transportStatus === 'offline' ? 'Last ' : ''}${node.level}%` :tx("Battery unknown")}</span></td>
-            <td>{lastPayload.relative}</td><td><button type="button" className="nc-node-sensor-setup-button" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}?setup=sensors`)}><i className="fa-solid fa-sliders" />{tx("Configure sensors")}</button></td>
+            <td data-label={tx('Location')}><strong>{node.sectionName}</strong><small>{node.areaName}</small></td>
+            <td><span className={`nc-status-new ${state.tone}`}><span className={`nc-state-dot ${state.tone}`} />{tx(state.label)}</span></td>
+            <td data-label={tx('Battery')}><span className={`nc-node-battery ${batteryLow ? 'is-low' : ''}`}><i className={`fa-solid ${Number(node.level) < 25 ? 'fa-battery-quarter' : 'fa-battery-three-quarters'}`} />{Number.isFinite(node.level) ? `${node.transportStatus === 'offline' ? 'Last ' : ''}${node.level}%` :tx("Battery unknown")}</span></td>
+            <td data-label={tx('Latest data')}>{lastPayload.relative}</td><td><button type="button" className="nc-node-sensor-setup-button" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}?setup=sensors`)}><i className="fa-solid fa-sliders" />{tx("Configure sensors")}</button></td>
             <td><button type="button" className="nc-row-arrow" onClick={() => navigate(`/nodes/${encodeURIComponent((node.devEui || node.id).toLowerCase())}`)} aria-label={`Open ${node.name} details`}><i className="fa-solid fa-chevron-right" /></button></td>
           </tr>
         }) : <tr><td colSpan={7} className="nc-node-empty">{nodes.length ?tx("No nodes match these filters.") :tx("No nodes registered yet.")}</td></tr>}
       </tbody></table></div>
+      <StructureFooter visible={visibleNodes.length} total={nodes.length} noun={tx('nodes')}
+        onReset={query || areaFilter !== 'all' || stateFilter !== 'all' ? () => { setQuery(''); setAreaFilter('all'); setStateFilter('all') } : undefined} />
     </section>
     {registration ? <RegistrationModal registration={registration} areas={areas} sections={sections} busy={busy} error={modalError} onChange={setRegistration} onAreaChange={chooseRegistrationArea} onClose={() => setRegistration(null)} onSubmit={registerNode} /> : null}
   </div>

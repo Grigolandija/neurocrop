@@ -35,8 +35,8 @@ export default function NodeSupport({ devEui, support, simulated }: { devEui: st
   }
   const message = support && messages[support.code]
   const date = (v: string) => new Date(v).toLocaleString(lt ? 'lt-LT' : 'en-GB')
-  return <section className="nc-node-support">
-    {support && message ? <><h3>{t('Ką patikrinti', 'What to check')}</h3><p>{t(...message)}</p>
+  return <section className="nc-node-support" data-state={support?.code}>
+    {support && message ? <><h3>{support.code === 'reporting' ? t('Ryšio būklė', 'Connection status') : t('Ką patikrinti', 'What to check')}</h3><p>{t(...message)}</p>
       <small>{t('Numatytas siuntimo intervalas', 'Expected reporting interval')}: {support.expectedIntervalSec % 60 === 0 ? `${support.expectedIntervalSec / 60} min` : `${support.expectedIntervalSec} s`}.
         {support.elapsedIntervals !== null && support.elapsedIntervals > 2 ? ` ${t('Nuo paskutinio pranešimo praėjo intervalų', 'Reporting intervals elapsed since the last message')}: ${support.elapsedIntervals}.` : ''}</small></> : null}
     <details onToggle={e => setOpen(e.currentTarget.open)}>
