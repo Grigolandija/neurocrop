@@ -17,7 +17,7 @@
 .designer-app #nodesManagementSection .nc-monitor-page .nc-list-toolbar :is(input, select):focus { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .designer-app #nodesManagementSection .nc-monitor-page .nc-node-table { width: 100%; font-size: var(--type-body-sm); }
 .designer-app #nodesManagementSection .nc-monitor-page .nc-node-table th { height: 3rem; background: var(--color-surface-subtle); color: var(--color-text-tertiary); font-size: var(--type-micro); }
-.designer-app #nodesManagementSection .nc-monitor-page .nc-node-table td { height: 5.35rem; }
+.designer-app #nodesManagementSection .nc-monitor-page .nc-node-table td { height: 3.5rem; padding-block: var(--space-8); }
 .designer-app #nodesManagementSection .nc-monitor-page .nc-data-table-wrap { border: 0; border-radius: 0; background: var(--color-surface); }
 .designer-app #nodesManagementSection .nc-monitor-page .nc-node-identity strong { color: var(--color-text); font-size: var(--type-body-sm); }
 .designer-app #nodesManagementSection .nc-monitor-page .nc-node-table td strong { font-size: var(--type-body-sm); }
