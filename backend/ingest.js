@@ -6,6 +6,7 @@ import { normalizeErrorCounters, normalizeErrorFlags } from './node-health.js';
 import { startSimulatedNodeGenerator } from './simulated-nodes.js';
 import { REGISTERED_TELEMETRY_DEFINITIONS } from './metric-registry.js';
 import { IngestInbox, durableMessageHandler } from './ingest-inbox.js';
+import { buildUplinkProvenance, storeUplinkProvenance, uplinkRadioEvidence } from './uplink-provenance.js';
 import {
   compactTelemetryMetadata,
   normalizeRegisteredTelemetry,
@@ -21,6 +22,7 @@ const READY_FILE = process.env.INGEST_READY_FILE || '/tmp/neurocrop-ingest-ready
 const inbox = new IngestInbox(process.env.INGEST_INBOX_DIR || './ingest-inbox');
 let databaseHealthy = true;
 let storageHealthy = true;
+let shuttingDown = false;
 const registeredColumns = REGISTERED_TELEMETRY_DEFINITIONS.map(({ column }) => column);
 const registeredPlaceholders = REGISTERED_TELEMETRY_DEFINITIONS.map((_, index) => `$${index + 3}`);
 const registeredValueCount = REGISTERED_TELEMETRY_DEFINITIONS.length;
@@ -77,9 +79,12 @@ client.handleMessage = (packet, callback) => storeMessage(packet, (error) => {
 });
 
 async function flushInbox() {
+  if (shuttingDown) return;
   try {
     await inbox.flush(handleUplink);
     databaseHealthy = true;
+    // Drain another bounded batch promptly; the 5s timer is for failed writes.
+    if (inbox.entries.size) setImmediate(() => { void flushInbox(); });
   } catch (error) {
     databaseHealthy = false;
     clearReady();
@@ -112,12 +117,9 @@ async function handleUplink(msg) {
     return;
   }
   const time = deviceMeasuredAt || receivedAt;
-  const rx = Array.isArray(msg.rxInfo) && msg.rxInfo.length ? msg.rxInfo[0] : {};
-  const gatewayIds = [...new Set(
-    (Array.isArray(msg.rxInfo) ? msg.rxInfo : [])
-      .map((entry) => String(entry?.gatewayId || '').trim().toLowerCase())
-      .filter((value) => /^[0-9a-f]{16}$/.test(value))
-  )];
+  const radio = uplinkRadioEvidence(msg.rxInfo);
+  const rx = radio[0] || {};
+  const gatewayIds = [...new Set(radio.map(entry => entry.id).filter(Boolean))];
   const sf = msg.txInfo?.modulation?.lora?.spreadingFactor ?? null;
   const adaptive = obj.adaptive || {};
   const errorFlags = normalizeErrorFlags(obj.error_flags);
@@ -128,6 +130,7 @@ async function handleUplink(msg) {
     Object.entries(obj.sensors || {}).map(([sensor, state]) => [sensor, normalizeTelemetryBoolean(state?.present) === true])
   );
 
+  const provenance = buildUplinkProvenance(msg, { devEui, receivedAt, time, metadata: historicalMetadata, telemetry });
   const dbClient = await pool.connect();
   let inserted = false;
   try {
@@ -135,6 +138,14 @@ async function handleUplink(msg) {
     await dbClient.query("SET LOCAL statement_timeout = '15s'");
     // Serializing a device stream makes duplicate-delivery checks race-safe.
     await dbClient.query('SELECT pg_advisory_xact_lock(hashtext($1))', [devEui]);
+
+    // Replay must not alter inventory or manufacture another observation.
+    const { rows: replay } = await dbClient.query('SELECT id FROM uplink_events WHERE id=$1', [provenance.id]);
+    if (replay.length) { await dbClient.query('COMMIT'); return; }
+    const { rows: inventory } = await dbClient.query('SELECT organization_id, area_id, section_id FROM nodes WHERE lower(dev_eui)=$1 AND archived_at IS NULL', [devEui]);
+    if (!inventory.length) { await dbClient.query('ROLLBACK'); return; }
+
+    provenance.evidence.location = { areaId: inventory[0].area_id, sectionId: inventory[0].section_id };
 
     // Ingestion never creates inventory records: a device must first be registered.
     const { rows: updatedNodes } = await dbClient.query(
@@ -153,6 +164,7 @@ async function handleUplink(msg) {
          last_sensor_presence=$13::jsonb,
          last_error_flags=$14::jsonb,
          last_error_counters=$15::jsonb,
+         last_uplink_interval_sec=COALESCE($17,last_uplink_interval_sec),
          last_gateway_ids=CASE
            WHEN cardinality($16::text[]) > 0 THEN $16::text[]
            ELSE last_gateway_ids
@@ -165,7 +177,8 @@ async function handleUplink(msg) {
         devEui, normalizeTelemetryValue('firmware_build', obj.firmware_build), time, receivedAt, dev.deviceName || null,
         normalizeTelemetryValue('battery_mv', obj.battery_mv), telemetry.battery_percent, obj.firmware_version ?? null, adaptive.profile ?? null,
         normalizeTelemetryValue('rssi', rx.rssi), normalizeTelemetryValue('snr', rx.snr), normalizeTelemetryValue('spreading_factor', sf), JSON.stringify(sensorPresence),
-        JSON.stringify(errorFlags), JSON.stringify(ec), gatewayIds
+        JSON.stringify(errorFlags), JSON.stringify(ec), gatewayIds,
+        Number.isInteger(historicalMetadata.expected_uplink_interval_s) ? historicalMetadata.expected_uplink_interval_s : null
       ]
     );
     if (!updatedNodes[0]) {
@@ -185,9 +198,9 @@ async function handleUplink(msg) {
           time,dev_eui,${registeredColumns.join(',')},air_pressure,
           battery_mv,firmware_build,profile,battery_critical,
           vpd_out_of_range,err_read_fail,err_reinit,err_tx_fail,rssi,snr,
-          spreading_factor,raw_object,received_at)
+          spreading_factor,raw_object,received_at,uplink_event_id)
        VALUES ($1,$2,${registeredPlaceholders.join(',')},${Array.from(
-         { length: 14 },
+         { length: 15 },
          (_, index) => `$${registeredValueCount + index + 3}`
        ).join(',')})
        ON CONFLICT (dev_eui, time) DO NOTHING
@@ -197,10 +210,11 @@ async function handleUplink(msg) {
        normalizeTelemetryValue('battery_mv', obj.battery_mv),
        normalizeTelemetryValue('firmware_build', obj.firmware_build), adaptive.profile ?? null, normalizeTelemetryBoolean(adaptive.battery_critical),
        normalizeTelemetryBoolean(adaptive.vpd_out_of_range), normalizeTelemetryValue('error_counter', ec.read_fail), normalizeTelemetryValue('error_counter', ec.reinit), normalizeTelemetryValue('error_counter', ec.tx_fail),
-       normalizeTelemetryValue('rssi', rx.rssi), normalizeTelemetryValue('snr', rx.snr), normalizeTelemetryValue('spreading_factor', sf), JSON.stringify(historicalMetadata), receivedAt]
+       normalizeTelemetryValue('rssi', rx.rssi), normalizeTelemetryValue('snr', rx.snr), normalizeTelemetryValue('spreading_factor', sf), JSON.stringify(historicalMetadata), receivedAt, provenance.id]
     );
     if (deviceMeasuredAt && insertedRows.length) await dbClient.query('UPDATE measurements SET device_measured_at=$3 WHERE dev_eui=$1 AND time=$2', [devEui, time, deviceMeasuredAt]);
     inserted = Boolean(insertedRows[0]);
+    await storeUplinkProvenance(dbClient, provenance, { devEui, receivedAt, time, organizationId: inventory[0].organization_id, inserted });
     await dbClient.query('COMMIT');
   } catch (error) {
     await dbClient.query('ROLLBACK').catch(() => {});
@@ -212,7 +226,6 @@ async function handleUplink(msg) {
   console.log(`[ingest] stored uplink for ${devEui}`);
 }
 
-let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;

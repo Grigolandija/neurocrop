@@ -1,3 +1,4 @@
+import NodeSupport from './NodeSupport'
 import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
@@ -459,6 +460,7 @@ export default function NodesWorkspace() {
         </div>
       </section>
       <div className="node-detail-columns node-detail-columns-single">
+        <NodeSupport key={selectedNode.devEui} devEui={selectedNode.devEui} support={selectedNode.support} simulated={selectedNode.simulated} />
         <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("All sensors use the Node location automatically. Only the integrated air sensor climate use can be adjusted.")}</span></header>
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? <div className="nc-sensor-groups">
             {integratedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Integrated air climate sensor")}</h4><p>{tx("Measures air temperature and humidity around the Node.")}</p></div></header><div className="node-detail-sensors">{integratedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && index === 0} returnToNodesOnClose={openSensorSetup} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}

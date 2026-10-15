@@ -1,0 +1,19 @@
+.nc-node-support { margin: 1rem 0; padding: 1rem 1.25rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }
+.nc-node-support > h3 { margin: 0 0 .5rem; }
+.nc-node-support p { margin: .5rem 0; font-size: var(--type-body-sm); line-height: 1.65; }
+.nc-node-support small { display: block; color: var(--color-text-secondary); overflow-wrap: anywhere; font-size: var(--type-caption); }
+.nc-node-support summary { cursor: pointer; padding: .65rem 0; font-size: var(--type-body-sm); font-weight: 600; }
+.nc-node-support > details { margin-top: .5rem; border-top: 1px solid var(--color-border); }
+.nc-node-support summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.nc-node-uplink { border-top: 1px solid var(--color-border); padding: .25rem 0 .5rem; }
+.nc-node-uplink dl { display: grid; grid-template-columns: minmax(8rem, .4fr) minmax(0, 1fr); gap: .4rem 1rem; font-size: var(--type-body-sm); }
+.nc-node-uplink dt { color: var(--color-text-secondary); }
+.nc-node-uplink dd { margin: 0; overflow-wrap: anywhere; }
+.nc-node-uplink-table { overflow-x: auto; max-width: 100%; margin: .75rem 0; }
+.nc-node-uplink table { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
+.nc-node-uplink :is(th,td) { padding: .6rem; border-bottom: 1px solid var(--color-border); text-align: left; }
+@media(max-width: 600px) {
+  .nc-node-support { padding: 1rem; }
+  .nc-node-uplink dl { grid-template-columns: minmax(0, 1fr); }
+  .nc-node-uplink dd { margin-bottom: .4rem; }
+}

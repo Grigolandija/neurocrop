@@ -8,6 +8,7 @@ import test from 'node:test';
 import { IngestInbox, durableMessageHandler } from '../ingest-inbox.js';
 import * as telemetry from '../telemetry-values.js';
 import * as health from '../node-health.js';
+import * as provenance from '../uplink-provenance.js';
 import { REGISTERED_TELEMETRY_DEFINITIONS } from '../metric-registry.js';
 import { withHistoryGaps } from '../history-gaps.js';
 
@@ -16,6 +17,33 @@ function directory(t) {
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
+
+test('the real worker promptly drains a multi-batch backlog after DB recovery and stops on shutdown', async t => {
+  const inbox = new IngestInbox(directory(t)), scheduled = [];
+  for (let i = 0; i < 250; i++) inbox.put(JSON.stringify({ id: i }));
+  let failing = true, consumed = 0;
+  const context = vm.createContext({ inbox, shuttingDown: false, databaseHealthy: true,
+    handleUplink: async () => { if (failing) throw new Error('DB unavailable'); consumed++; },
+    setImmediate: fn => scheduled.push(fn), clearReady() {}, console: { error() {} }
+  });
+  const source = fs.readFileSync(new URL('../ingest.js', import.meta.url), 'utf8');
+  vm.runInContext(source.slice(source.indexOf('async function flushInbox'), source.indexOf('const retryTimer')), context);
+  await context.flushInbox();
+  assert.equal(inbox.entries.size, 250); assert.equal(scheduled.length, 0);
+  assert.equal(context.databaseHealthy, false);
+  failing = false;
+  await context.flushInbox();
+  assert.equal(consumed, 100); assert.equal(scheduled.length, 1);
+  while (scheduled.length) {
+    scheduled.shift()();
+    await inbox.flushing;
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal(consumed, 250); assert.equal(inbox.entries.size, 0);
+  assert.equal(context.databaseHealthy, true);
+  inbox.put('{"id":"after-shutdown"}'); context.shuttingDown = true;
+  await context.flushInbox(); assert.equal(inbox.entries.size, 1);
+});
 
 test('inbox survives restart and retries failed DB writes before deleting a packet', async (t) => {
   const dir = directory(t);
@@ -117,15 +145,15 @@ test('actual uplink handler rejects invalid time before touching DB and stores c
   const source = fs.readFileSync(new URL('../ingest.js', import.meta.url), 'utf8');
   const calls = [];
   const context = vm.createContext({
-    ...telemetry, ...health, REGISTERED_TELEMETRY_DEFINITIONS,
+    ...telemetry, ...health, ...provenance, REGISTERED_TELEMETRY_DEFINITIONS,
     console: { log() {}, warn() {} },
     pool: { connect: async () => ({ release() {}, query: async (sql, args) => {
       calls.push({ sql, args });
-      return { rows: sql.includes('UPDATE nodes') ? [{ dev_eui: args[0] }] : sql.includes('INSERT INTO measurements') ? [{ time: args[0] }] : [] };
+      return { rows: sql.includes('SELECT organization_id') ? [{ organization_id: 'test-org' }] : sql.includes('UPDATE nodes') ? [{ dev_eui: args[0] }] : sql.includes('INSERT INTO measurements') ? [{ time: args[0] }] : [] };
     } }) },
   });
   const declarations = source.slice(source.indexOf('const registeredColumns'), source.indexOf('function markReady'));
-  vm.runInContext(declarations + source.slice(source.indexOf('async function handleUplink'), source.indexOf('let shuttingDown')), context);
+  vm.runInContext(declarations + source.slice(source.indexOf('async function handleUplink'), source.indexOf('async function shutdown')), context);
   const message = { deviceInfo: { devEui: '0000000000000001' }, time: 'invalid', object: {} };
   await context.handleUplink(message);
   assert.equal(calls.length, 0);

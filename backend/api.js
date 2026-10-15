@@ -1,3 +1,4 @@
+import { registerTelemetrySupportRoutes } from './telemetry-support-routes.js';
 import { loadRecentMeasurementsByNode } from './recent-measurements.js';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
@@ -30,7 +31,7 @@ import { getAllowedOrigins, getTrustProxyHops, publicError } from './config.js';
 import { validateCropProfileMetrics } from './validation.js';
 import { createMemoryRateLimiter } from './rate-limit.js';
 import { runMigrations } from './migrate.js';
-import { buildNodeHealth, expectedUplinkIntervalSec } from './node-health.js';
+import { buildNodeHealth, buildNodeSupport, expectedUplinkIntervalSec } from './node-health.js';
 import {
   buildTodayActions,
   evaluateActionOutcome,
@@ -114,6 +115,7 @@ registerPlatformOrganizationRoutes(app);
 registerWorkflowRoutes(app);
 registerGreenhouseMapRoutes(app);
 registerGatewayFactoryRoutes(app);
+registerTelemetrySupportRoutes(app, { query, requireAuth, getOrganizationId });
 registerPasswordResetRoutes(app);
 registerPushNotificationRoutes(app);
 registerAlertEmailNotificationRoutes(app);
@@ -3727,7 +3729,7 @@ app.get('/nodes', requireAuth, async (req, res) => {
          a.name AS area_name, s.name AS section_name,
          n.created_at, n.last_seen, n.last_received_at,
          n.last_battery_mv, n.last_battery_percent, n.last_firmware_version,
-         n.last_profile, n.last_rssi, n.last_snr, n.last_spreading_factor,
+         n.last_profile, n.last_uplink_interval_sec, n.last_rssi, n.last_snr, n.last_spreading_factor,
          n.last_sensor_presence, n.last_error_flags, n.last_error_counters,
          n.last_gateway_ids, n.source,
          COALESCE((
@@ -3767,11 +3769,10 @@ app.get('/nodes', requireAuth, async (req, res) => {
       nodes: rows.map((row) => {
         const devEui = normalizeDevEui(row.dev_eui);
         const lastSeen = row.last_received_at || row.last_seen || null;
-        const measuredStatus = statusFromMeasurementTime(lastSeen, Date.now(), expectedUplinkIntervalSec(row.last_profile));
+        const support = buildNodeSupport(row);
+        const measuredStatus = statusFromMeasurementTime(lastSeen, Date.now(), support.expectedIntervalSec);
         const transportStatus = measuredStatus;
-        const gatewayStatus = measuredStatus === 'live' && Array.isArray(row.last_gateway_ids) && row.last_gateway_ids.length
-          ? 'online'
-          : 'unknown';
+        const gatewayStatus = measuredStatus === 'live' && row.last_gateway_ids?.length ? 'online' : support.gatewayStatus;
         return {
           id: row.name || devEui,
           devEui,
@@ -3788,6 +3789,8 @@ app.get('/nodes', requireAuth, async (req, res) => {
           gatewayStatus,
           lastGatewayIds: row.last_gateway_ids || [],
           receivingGateways: row.receiving_gateways || [],
+          support,
+          expectedUplinkIntervalSec: support.expectedIntervalSec,
           lastSeen,
           createdAt: row.created_at,
           level: row.last_battery_percent ?? null,

@@ -116,6 +116,7 @@ export const neurocropApi = {
   updateSection: (id: string, payload: Payload) => structuralMutation(`/sections/${encoded(id)}`, { method: 'PATCH', body: json(payload) }),
   deleteSection: (id: string) => structuralMutation(`/sections/${encoded(id)}`, { method: 'DELETE' }),
   updateNode: (devEui: string, payload: Payload) => structuralMutation(`/nodes/${encoded(devEui)}`, { method: 'PATCH', body: json(payload) }),
+  getNodeUplinks: (devEui: string) => request(`/nodes/${encoded(devEui)}/uplinks`, { cache: 'no-store' }),
   getNodeSensors: (devEui: string) => request(`/nodes/${encoded(devEui)}/sensors`),
   updateNodeSensor: (devEui: string, port: string, payload: Payload) => request(`/nodes/${encoded(devEui)}/sensors/${encoded(port)}`, { method: 'PATCH', body: json(payload) }),
   createCropProfile: (payload: Payload) => request('/crop-profiles', { method: 'POST', body: json(payload) }),

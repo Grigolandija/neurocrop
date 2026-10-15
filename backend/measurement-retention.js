@@ -61,6 +61,7 @@ export async function runMeasurementRetention(pool, options = {}) {
   let deleted = 0;
   let rollupsDeleted = 0;
   let historyDeleted = 0;
+  let uplinksDeleted = 0;
 
   try {
     const lockResult = await client.query(
@@ -127,6 +128,15 @@ export async function runMeasurementRetention(pool, options = {}) {
       if (result.rowCount < batchSize) break;
     }
 
+    // Reception evidence follows detailed-measurement retention and is bounded in batches.
+    for (let batch = 0; batch < maxBatches; batch += 1) {
+      const result = await client.query(`DELETE FROM uplink_events WHERE id IN (
+        SELECT id FROM uplink_events WHERE recorded_at < $1 ORDER BY recorded_at LIMIT $2
+      )`, [cutoff, batchSize]);
+      uplinksDeleted += result.rowCount;
+      if (result.rowCount < batchSize) break;
+    }
+
     // Keep the last snapshot preceding the cutoff as the historical baseline.
     // Contexts referenced by measurements and saved reports are not deleted.
     // Small rolling-retention batches do not materially change planner stats.
@@ -134,7 +144,7 @@ export async function runMeasurementRetention(pool, options = {}) {
     if (deleted >= ANALYZE_AFTER_DELETIONS) await client.query('ANALYZE measurements');
     if (rollupsDeleted >= ANALYZE_AFTER_DELETIONS) await client.query('ANALYZE measurement_rollups');
     if (historyDeleted >= ANALYZE_AFTER_DELETIONS) await client.query('ANALYZE diagnostic_metadata_history');
-    return { deleted, rollupsDeleted, historyDeleted, skipped: false, cutoff };
+    return { deleted, rollupsDeleted, historyDeleted, uplinksDeleted, skipped: false, cutoff };
   } finally {
     if (locked) {
       await client.query('SELECT pg_advisory_unlock(hashtext($1))', [RETENTION_LOCK_NAME]).catch(() => {});
@@ -163,6 +173,7 @@ export function startMeasurementRetention(pool, options = {}) {
       if (result.historyDeleted > 0) {
         console.log(`[retention] deleted ${result.historyDeleted} expired diagnostic history snapshots; baselines preserved`);
       }
+      if (result.uplinksDeleted > 0) console.log(`[retention] deleted ${result.uplinksDeleted} expired uplink evidence records`);
     } catch (error) {
       console.error('[retention] measurement cleanup failed:', error.message);
     } finally {

@@ -134,6 +134,29 @@ export function buildNodeHealth({ transportStatus, gatewayStatus, errorFlags, er
   };
 }
 
+// Operational evidence only. Elapsed intervals are not a packet-loss estimate.
+export function buildNodeSupport(node, now = Date.now()) {
+  const reported = node.last_uplink_interval_sec;
+  const expectedIntervalSec = Number.isInteger(reported) && reported >= 1 && reported <= 86400
+    ? reported : expectedUplinkIntervalSec(node.last_profile);
+  const lastReceivedAt = node.last_received_at || node.last_seen || null;
+  const received = lastReceivedAt ? +new Date(lastReceivedAt) : NaN;
+  const ageSec = Number.isFinite(received) ? Math.max(0, Math.floor((now - received) / 1000)) : null;
+  const gateways = Array.isArray(node.receiving_gateways) ? node.receiving_gateways : [];
+  const known = gateways.filter(g => g.lastSeenAt && Number.isFinite(+new Date(g.lastSeenAt)));
+  const gatewayStatus = known.some(g => now - +new Date(g.lastSeenAt) <= 180_000) ? 'online'
+    : known.length === gateways.length && known.length > 0 ? 'offline' : 'unknown';
+  const flags = normalizeErrorFlags(node.last_error_flags);
+  const elapsedIntervals = ageSec === null ? null : Math.floor(ageSec / expectedIntervalSec);
+  const code = ageSec === null ? 'never_received'
+    : ageSec > expectedIntervalSec * 2 ? (gatewayStatus === 'offline' ? 'gateway_unavailable' : gatewayStatus === 'online' ? 'node_unavailable' : 'connection_unknown')
+    : flags.sensor_missing || flags.sensor_stale ? 'sensor_unavailable'
+    : flags.battery_critical || flags.battery_low ? 'battery_attention'
+    : Object.entries(flags).some(([key, value]) => key !== 'raw' && value === true) ? 'device_attention' : 'reporting';
+  return { code, expectedIntervalSec, elapsedIntervals, lastReceivedAt,
+    gatewayStatus, evidenceAt: new Date(now).toISOString() };
+}
+
 function normalizeCounter(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.min(15, Math.trunc(number))) : 0;

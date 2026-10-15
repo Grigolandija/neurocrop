@@ -1,3 +1,4 @@
+import { registerNodeAcceptanceRoutes } from './node-acceptance.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -76,7 +77,9 @@ function readNodeFirmwareRelease() {
   const version = String(manifest.version || '').trim();
   const fileName = path.basename(String(manifest.file || '').trim());
   const expectedSha256 = String(manifest.sha256 || '').trim().toLowerCase();
+  const telemetryVersion = String(manifest.telemetryVersion || version.replace(/-factory$/, '')).trim();
   if (!/^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$/.test(version) ||
+      !/^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$/.test(telemetryVersion) ||
       !/^NeuroSense-[0-9A-Za-z._-]+\.uf2$/.test(fileName) ||
       !/^[0-9a-f]{64}$/.test(expectedSha256)) {
     throw new Error('Node firmware manifest is invalid');
@@ -88,7 +91,7 @@ function readNodeFirmwareRelease() {
   if (actualSha256 !== expectedSha256) {
     throw new Error('Node firmware checksum does not match the manifest');
   }
-  return { version, fileName, sha256: actualSha256, size: contents.length, firmwarePath };
+  return { version, telemetryVersion, fileName, sha256: actualSha256, size: contents.length, firmwarePath };
 }
 
 function deviceTokenSecret() {
@@ -448,6 +451,7 @@ async function availableGatewayUpdate(gateway) {
 }
 
 export function registerGatewayFactoryRoutes(app) {
+  registerNodeAcceptanceRoutes(app, { query, pool, factoryAuth, readFirmware: readNodeFirmwareRelease });
   const enrollmentLimiter = createMemoryRateLimiter({ limit: 20, windowMs: 15 * 60 * 1000 });
 
   app.get('/gateway-factory/health', factoryAuth, (req, res) => {
@@ -457,7 +461,7 @@ export function registerGatewayFactoryRoutes(app) {
       if (!chirpstack.token || !chirpstack.tenantId || !deviceTokenSecret()) {
         throw new Error('Gateway enrollment secrets are incomplete');
       }
-      res.json({ status: 'ready', region: 'EU868' });
+      res.json({ status: 'ready', region: 'EU868', nodeAcceptanceSchemaVersion: 1 });
     } catch (error) {
       console.error('[gateway-factory] readiness:', error.message);
       res.status(503).json({

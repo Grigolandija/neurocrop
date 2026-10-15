@@ -525,7 +525,8 @@ test('ingestion normalizes device identity, deduplicates MQTT deliveries and com
   assert.match(source, /ON CONFLICT \(dev_eui, time\) DO NOTHING/);
   assert.ok(source.indexOf('await runMigrations()') < source.indexOf('mqtt.connect(MQTT_URL,'));
   assert.ok(source.indexOf("dbClient.query('BEGIN')") < source.indexOf('UPDATE nodes SET'));
-  assert.ok(source.indexOf('INSERT INTO measurements') < source.indexOf("dbClient.query('COMMIT')"));
+  assert.ok(source.indexOf('INSERT INTO measurements') < source.lastIndexOf("dbClient.query('COMMIT')"));
+  assert.ok(source.indexOf('await storeUplinkProvenance') < source.lastIndexOf("dbClient.query('COMMIT')"));
 });
 
 test('API and ingestion workers close gracefully on Docker SIGTERM', () => {

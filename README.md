@@ -551,9 +551,13 @@ Dabartinė implementacija naudoja ChirpStack MQTT uplink įvykius. Ji normalizuo
 `DevEUI`, atmeta neregistruotus ar archyvuotus įrenginius, serializuoja vieno
 įrenginio srautą ir deduplikuoja pagal `(dev_eui, time)`.
 
-Toliau pateiktas pilnas tikslinis ingest kontraktas. Dabartinė implementacija dar
-nesaugo atskiro raw uplink, frame counter, uplink ID ar dekoderio versijos, todėl
-šių punktų negalima laikyti įgyvendintais vien pagal šį repository:
+Migracija `0041` prideda atskirus uplink kilmės įrašus, frame counter,
+šaltinio įvykio ID ir originalų base64 turinį, kai jis pateiktas. Dekoderio
+versija išsaugoma tik tada, kai ją praneša `object.decoder_version`. Senesnių
+matavimų kilmė neatkuriama. API, saugojimo ribos ir gamybinė patikra aprašyti
+[matavimų patikimumo dokumentacijoje](backend/TELEMETRY-RELIABILITY.md).
+
+Tikslinė priėmimo grandinė:
 
 1. Gauti uplink įvykį.
 2. Patikrinti šaltinį arba integration secret.
