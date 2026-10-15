@@ -2,6 +2,7 @@ import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { ModalPortal } from '../../components/ModalPortal'
+import { StructureHeader, StructureSummary, StructureFooter } from '../../components/StructureWorkspace'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { useWorkspaceAccess } from '../../state/workspaceAccess'
 import '../../styles/areas-workspace.css'
@@ -10,7 +11,7 @@ import '../../styles/areas-workspace.css'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonRecord = Record<string, any>
 type Health = 'stable' | 'attention' | 'critical' | 'unconfigured'
-type HealthFilter = 'all' | Health
+type HealthFilter = 'all' | 'needs-attention' | Health
 type SortMode = 'name' | 'health' | 'sections' | 'nodes'
 type Editor = { mode: 'create' | 'edit'; id?: string; name: string; kind: string; location: string }
 type DeleteState = { id: string; name: string; sectionCount: number; keepSections: boolean }
@@ -95,10 +96,10 @@ function dashboardHealth(zones: JsonRecord[], nodeCount: number, reportingCount:
 }
 
 function healthCopy(health: Health) {
-  if (health === 'stable') return 'Stable'
-  if (health === 'critical') return 'Action required'
-  if (health === 'attention') return 'Watch'
-  return 'Not configured'
+  if (health === 'stable') return tx('Stable')
+  if (health === 'critical') return tx('Action required')
+  if (health === 'attention') return tx('Watch')
+  return tx('Not configured')
 }
 
 function kindIcon(kind: string) {
@@ -217,7 +218,7 @@ export default function AreasWorkspace() {
   const visibleAreas = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return areas
-      .filter((area) => healthFilter === 'all' || area.health === healthFilter)
+      .filter((area) => healthFilter === 'all' || (healthFilter === 'needs-attention' ? area.health === 'attention' || area.health === 'critical' : area.health === healthFilter))
       .filter((area) => !needle || `${area.name} ${area.kind} ${area.location}`.toLowerCase().includes(needle))
       .sort((left, right) => {
         if (sort === 'health') return healthPriority[left.health] - healthPriority[right.health] || left.name.localeCompare(right.name)
@@ -302,25 +303,24 @@ export default function AreasWorkspace() {
     }
   }
 
-  return <div className="nc-areas-page">
-    <header className="nc-areas-head">
-      <div><p>{tx("Workspace structure")}</p><h1>{tx("Areas")}</h1><span>{tx("Top-level monitored environments: greenhouses, fields, rooms, and trial facilities.")}</span></div>
-      <button type="button" className="nc-areas-button primary" onClick={openCreate}><i className="fa-solid fa-plus" />{tx("Create area")}</button>
-    </header>
+  return <div className="nc-areas-page nc-structure-page">
+    <StructureHeader className="nc-areas-head" title={tx('Areas')}
+      description={tx('Top-level monitored environments: greenhouses, fields, rooms, and trial facilities.')}
+      action={<button type="button" className="nc-areas-button primary" onClick={openCreate}><i className="fa-solid fa-plus" aria-hidden="true" />{tx('Create area')}</button>} />
 
     {feedback ? <div className={`nc-areas-feedback ${feedback.tone}`} role="status"><i className={`fa-solid ${feedback.tone === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation'}`} /><span>{feedback.message}</span><button type="button" onClick={() => setFeedback(null)} aria-label={tx("Dismiss")}><i className="fa-solid fa-xmark" /></button></div> : null}
 
-    <section className="nc-areas-summary" aria-label={tx("Area summary")}>
-      <button type="button" className={healthFilter === 'all' ? 'active' : ''} onClick={() => setHealthFilter('all')}><strong>{areas.length}</strong><span>{tx("Active areas")}</span></button>
-      <div><strong>{summary.sections}</strong><span>{tx("Sections")}</span></div>
-      <div><strong>{summary.nodes}</strong><span>{tx("Sensor nodes")}</span></div>
-      <button type="button" className={`attention ${healthFilter === 'attention' ? 'active' : ''}`} onClick={() => setHealthFilter(healthFilter === 'attention' ? 'all' : 'attention')}><strong>{summary.attention}</strong><span>{tx("Need attention")}</span></button>
-    </section>
+    <StructureSummary className="nc-areas-summary" label={tx('Area summary')} loading={status === 'loading'} items={[
+      { label: tx('Active areas'), value: areas.length, active: healthFilter === 'all', onClick: () => setHealthFilter('all') },
+      { label: tx('Sections'), value: summary.sections },
+      { label: tx('Sensor nodes'), value: summary.nodes },
+      { label: tx('Need attention'), value: summary.attention, tone: 'attention', active: healthFilter === 'needs-attention', onClick: () => setHealthFilter(healthFilter === 'needs-attention' ? 'all' : 'needs-attention') },
+    ]} />
 
     <section className="nc-areas-register">
       <div className="nc-areas-toolbar">
         <label className="nc-areas-search"><span>{tx("Search areas")}</span><i className="fa-solid fa-magnifying-glass" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tx("Name, environment, location…")} />{query ? <button type="button" onClick={() => setQuery('')} aria-label={tx("Clear search")}><i className="fa-solid fa-xmark" /></button> : null}</label>
-        <label><span>{tx("Health")}</span><select value={healthFilter} onChange={(event) => setHealthFilter(event.target.value as HealthFilter)}><option value="all">{tx("All health states")}</option><option value="stable">{tx("Stable")}</option><option value="attention">{tx("Watch")}</option><option value="critical">{tx("Action required")}</option><option value="unconfigured">{tx("Not configured")}</option></select></label>
+        <label><span>{tx("Health")}</span><select value={healthFilter} onChange={(event) => setHealthFilter(event.target.value as HealthFilter)}><option value="all">{tx("All health states")}</option><option value="needs-attention">{tx("Need attention")}</option><option value="stable">{tx("Stable")}</option><option value="attention">{tx("Watch")}</option><option value="critical">{tx("Action required")}</option><option value="unconfigured">{tx("Not configured")}</option></select></label>
         <label><span>{tx("Sort")}</span><select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="name">{tx("Name A–Z")}</option><option value="health">{tx("Health priority")}</option><option value="sections">{tx("Most sections")}</option><option value="nodes">{tx("Most nodes")}</option></select></label>
       </div>
 
@@ -368,7 +368,8 @@ export default function AreasWorkspace() {
           </div> : null}
         </article>)}
       </div> : null}
-      {status === 'ready' && areas.length ? <footer><span>{tx("Showing")} {visibleAreas.length} {tx("of")} {areas.length} {tx("areas")}</span><span><i /> {tx("Stable")} <i /> {tx("Watch")} <i /> {tx("Action required")}</span></footer> : null}
+      {status === 'ready' ? <StructureFooter visible={visibleAreas.length} total={areas.length} noun={tx('areas')}
+        onReset={query || healthFilter !== 'all' ? () => { setQuery(''); setHealthFilter('all') } : undefined} /> : null}
     </section>
 
     {editor ? <ModalPortal><div className="nc-areas-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setEditor(null) }}><form className="nc-areas-modal" onSubmit={saveArea} role="dialog" aria-modal="true" aria-labelledby="nc-area-editor-title">

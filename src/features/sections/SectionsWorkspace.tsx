@@ -2,6 +2,7 @@ import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { ModalPortal } from '../../components/ModalPortal'
+import { StructureHeader, StructureSummary, StructureFooter } from '../../components/StructureWorkspace'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { useWorkspaceAccess } from '../../state/workspaceAccess'
 import '../../styles/sections-workspace.css'
@@ -139,7 +140,7 @@ export default function SectionsWorkspace() {
   const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>('all')
   const [sort, setSort] = useState<SortMode>('area')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [collapsedAreas, setCollapsedAreas] = useState<string[] | null>(null)
+  const [collapsedAreas, setCollapsedAreas] = useState<string[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editor, setEditor] = useState<EditorState | null>(null)
@@ -174,7 +175,7 @@ export default function SectionsWorkspace() {
     handledContext.current = location.search
     queueMicrotask(() => {
       setAreaFilter(requestedAreaId || requestedSection.areaId)
-      setCollapsedAreas((current) => (current ?? areas.map((area) => area.id)).filter((id) => id !== requestedSection.areaId))
+      setCollapsedAreas((current) => current.filter((id) => id !== requestedSection.areaId))
       setExpandedId(requestedSection.id)
     })
   }, [areas, location.search, sections])
@@ -253,7 +254,7 @@ export default function SectionsWorkspace() {
 
         const nextAreas = [...areaMap.values()].sort((left, right) => left.name.localeCompare(right.name))
         setAreas(nextAreas)
-        setCollapsedAreas((current) => current ?? nextAreas.map((area) => area.id))
+        setCollapsedAreas((current) => current.filter((id) => nextAreas.some((area) => area.id === id)))
         setProfiles(profileRows.sort((left, right) => left.name.localeCompare(right.name)))
         setSections(normalized)
         setSelectedIds((current) => current.filter((id) => normalized.some((section) => section.id === id)))
@@ -380,16 +381,19 @@ export default function SectionsWorkspace() {
     } finally { setBusy(false) }
   }
 
-  return <main className="nc-sections-page">
-    <header className="nc-sections-head">
-      <div><p>{tx("Workspace structure")}</p><h1>{tx("Sections")}</h1><span>{tx("Organize growing zones, verify hardware coverage, and keep crop profiles assigned correctly.")}</span></div>
-      <div><button type="button" className="nc-sections-button primary" onClick={openCreate} disabled={!areas.length || !profiles.length}><i className="fa-solid fa-plus" />{tx("Create section")}</button></div>
-    </header>
+  return <main className="nc-sections-page nc-structure-page">
+    <StructureHeader className="nc-sections-head" title={tx('Sections')}
+      description={tx('Organize growing zones, verify hardware coverage, and keep crop profiles assigned correctly.')}
+      action={<button type="button" className="nc-sections-button primary" onClick={openCreate} disabled={!areas.length || !profiles.length}><i className="fa-solid fa-plus" aria-hidden="true" />{tx('Create section')}</button>} />
 
-    <section className="nc-sections-summary" aria-label={tx("Section readiness summary")}>
-      <button type="button" className={readinessFilter === 'all' ? 'active' : ''} onClick={() => setReadinessFilter('all')}><strong>{counts.total}</strong><span>{tx("Active sections")}</span></button>
-      {(['ready', 'attention', 'unconfigured'] as const).map((state) => <button type="button" key={state} className={`${state === 'attention' ? 'attention' : ''} ${readinessFilter === state ? 'active' : ''}`} data-state={state} onClick={() => setReadinessFilter(readinessFilter === state ? 'all' : state)}><strong>{counts[state]}</strong><span>{state === 'ready' ?tx("Ready") : state === 'attention' ?tx("Require attention") :tx("Not configured")}</span></button>)}
-    </section>
+    <StructureSummary className="nc-sections-summary" label={tx('Section readiness summary')} loading={status === 'loading'} items={[
+      { label: tx('Active sections'), value: counts.total, active: readinessFilter === 'all', onClick: () => setReadinessFilter('all') },
+      ...(['ready', 'attention', 'unconfigured'] as const).map(state => ({
+        label: state === 'ready' ? tx('Ready') : state === 'attention' ? tx('Require attention') : tx('Not configured'),
+        value: counts[state], tone: state === 'attention' ? 'attention' as const : undefined,
+        active: readinessFilter === state, onClick: () => setReadinessFilter(readinessFilter === state ? 'all' : state),
+      })),
+    ]} />
 
     {feedback ? <div className="nc-sections-feedback" data-tone={feedback.tone} role="status"><i className={`fa-solid ${feedback.tone === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation'}`} /><span>{feedback.message}</span><button type="button" onClick={() => setFeedback(null)} aria-label={tx("Dismiss")}><i className="fa-solid fa-xmark" /></button></div> : null}
 
@@ -410,11 +414,11 @@ export default function SectionsWorkspace() {
       {status === 'ready' ? <div className="nc-section-register directory">
         <div className="nc-section-register-head directory"><label><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} aria-label={tx("Select all visible sections")} /></label><span>{tx("Section")}</span><span>{tx("Crop profile")}</span><span>{tx("Assigned nodes")}</span><span>{tx("Latest data")}</span><span>{tx("Readiness")}</span><span /></div>
         {areaGroups.length ? areaGroups.map(({ area, sections: areaSections }) => {
-          const collapsed = collapsedAreas?.includes(area.id) ?? true
+          const collapsed = collapsedAreas.includes(area.id)
           const readyCount = areaSections.filter((section) => readiness(section) === 'ready').length
           return <section className="nc-section-area" key={area.id}>
-            <header><button type="button" onClick={() => setCollapsedAreas((current) => {
-              const collapsedIds = current ?? areas.map((item) => item.id)
+            <header><button type="button" aria-expanded={!collapsed} onClick={() => setCollapsedAreas((current) => {
+              const collapsedIds = current
               return collapsedIds.includes(area.id) ? collapsedIds.filter((id) => id !== area.id) : [...collapsedIds, area.id]
             })}><i className={`fa-solid fa-chevron-${collapsed ? 'right' : 'down'}`} /><span className="nc-section-area-icon"><i className="fa-solid fa-location-dot" /></span><span><strong>{area.name}</strong><small>{[area.kind, area.location].filter(Boolean).join(' · ')}</small></span><span>{areaSections.length} {tx("sections")}</span><span>{areaSections.reduce((sum, section) => sum + section.nodeCount, 0)} {tx("nodes")}</span><span>{readyCount}/{areaSections.length} {tx("ready")}</span></button></header>
             {!collapsed ? areaSections.map((section) => {
@@ -424,16 +428,17 @@ export default function SectionsWorkspace() {
               return <article className={expanded ? 'expanded' : ''} key={section.id}>
                 <div className="nc-section-row directory">
                   <label><input type="checkbox" checked={selectedIds.includes(section.id)} onChange={() => toggleSelected(section.id)} aria-label={`Select ${section.name}`} /></label>
-                  <button type="button" className="nc-section-name" onClick={() => setExpandedId(expanded ? null : section.id)}><span data-state={readiness(section)}>{section.name.slice(0, 2).toUpperCase()}</span><span><strong>{section.name}</strong><small>{section.areaName}</small></span><i className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} /></button>
-                  <div className="nc-section-profile"><strong>{section.profileName}</strong><small>{[section.crop, section.stage].filter(Boolean).join(' · ') ||tx("Crop evaluation profile")}</small></div><div className="nc-section-nodes"><strong>{section.nodeCount ? `${section.reportingCount}/${section.nodeCount} reporting` :tx("No nodes assigned")}</strong><span><i style={{ width: `${section.nodeCount ? Math.min(100, section.reportingCount / section.nodeCount * 100) : 0}%` }} /></span></div><div className="nc-section-freshness" data-state={fresh.state}><strong>{fresh.label}</strong><small>{fresh.detail}</small></div><span className="nc-section-status" data-state={readiness(section)}><i />{ready.label}</span>
-                  <div className="nc-section-actions"><button type="button" aria-label={`Actions for ${section.name}`} onClick={() => setMenuId(menuId === section.id ? null : section.id)}><i className="fa-solid fa-ellipsis" /></button>{menuId === section.id ? <div><button type="button" onClick={() => openEdit(section)}><i className="fa-solid fa-pen" />{tx("Edit details")}</button><button type="button" onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />{tx("Assign nodes")}</button><button type="button" onClick={() => duplicateSection(section)}><i className="fa-regular fa-copy" />{tx("Duplicate")}</button><button type="button" className="danger" onClick={() => { setMenuId(null); setDeleteIds([section.id]) }}><i className="fa-solid fa-trash" />{tx("Delete")}</button></div> : null}</div>
+                  <button type="button" className="nc-section-name" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? null : section.id)}><span data-state={readiness(section)}>{section.name.slice(0, 2).toUpperCase()}</span><span><strong>{section.name}</strong><small>{section.areaName}</small></span><i className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} /></button>
+                  <div className="nc-section-profile" data-label={tx('Crop profile')}><strong>{section.profileName}</strong><small>{[section.crop, section.stage].filter(Boolean).join(' · ') ||tx("Crop evaluation profile")}</small></div><div className="nc-section-nodes" data-label={tx('Assigned nodes')}><strong>{section.nodeCount ? `${section.reportingCount}/${section.nodeCount} ${tx('reporting')}` :tx("No nodes assigned")}</strong><span><i style={{ width: `${section.nodeCount ? Math.min(100, section.reportingCount / section.nodeCount * 100) : 0}%` }} /></span></div><div className="nc-section-freshness" data-label={tx('Latest data')} data-state={fresh.state}><strong>{tx(fresh.label)}</strong><small>{tx(fresh.detail)}</small></div><span className="nc-section-status" data-state={readiness(section)}><i />{tx(ready.label)}</span>
+                  <div className="nc-section-actions"><button type="button" aria-label={`Actions for ${section.name}`} onClick={() => setMenuId(menuId === section.id ? null : section.id)}><i className="fa-solid fa-ellipsis-vertical" /></button>{menuId === section.id ? <div><button type="button" onClick={() => openEdit(section)}><i className="fa-solid fa-pen" />{tx("Edit details")}</button><button type="button" onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />{tx("Assign nodes")}</button><button type="button" onClick={() => duplicateSection(section)}><i className="fa-regular fa-copy" />{tx("Duplicate")}</button><button type="button" className="danger" onClick={() => { setMenuId(null); setDeleteIds([section.id]) }}><i className="fa-solid fa-trash" />{tx("Delete")}</button></div> : null}</div>
                 </div>
                 {expanded ? <div className="nc-section-detail"><div><p>{tx("Section identity")}</p><dl><div><dt>{tx("Physical area")}</dt><dd>{section.areaName}</dd></div><div><dt>{tx("Crop profile")}</dt><dd>{section.profileName}</dd></div><div><dt>{tx("Section ID")}</dt><dd>{section.id}</dd></div></dl></div><div><p>{tx("Hardware assignment")}</p><dl><div><dt>{tx("Assigned nodes")}</dt><dd>{section.nodeCount}</dd></div><div><dt>{tx("Currently reporting")}</dt><dd>{section.reportingCount}</dd></div><div><dt>{tx("Data state")}</dt><dd>{fresh.detail}</dd></div></dl></div><div><p>{tx("Quick actions")}</p><nav><button type="button" onClick={() => openEdit(section)}><i className="fa-solid fa-pen" />{tx("Edit section")}</button><button type="button" onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />{tx("Manage nodes")}</button><button type="button" onClick={() => navigate('/readings')}><i className="fa-solid fa-wave-square" />{tx("Open readings")}</button></nav></div></div> : null}
               </article>
             }) : null}
           </section>
         }) : <div className="nc-sections-empty"><i className="fa-solid fa-filter-circle-xmark" /><h2>{tx("No sections match this view")}</h2><p>{tx("Clear one or more filters, or create a new section.")}</p><button type="button" onClick={resetFilters}>{tx("Reset filters")}</button></div>}
-        <footer><span>{tx("Showing")} <strong>{filteredSections.length}</strong> {tx("of")} {sections.length} {tx("sections")}</span></footer>
+        <StructureFooter visible={filteredSections.length} total={sections.length} noun={tx('sections')}
+          onReset={query || areaFilter !== 'all' || profileFilter !== 'all' || readinessFilter !== 'all' ? resetFilters : undefined} />
       </div> : null}
     </section>
 

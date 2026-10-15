@@ -645,7 +645,7 @@
     min-height: 44px;
   }
 
-  .designer-app :is(.nc-actions-controls, .nc-alerts-toolbar, .nc-readings-controls, .nc-section-filters, .nc-areas-toolbar) {
+  .designer-app :is(.nc-actions-controls, .nc-alerts-toolbar, .nc-readings-controls, .nc-section-filters) {
     grid-template-columns: 1fr !important;
     align-items: stretch !important;
   }

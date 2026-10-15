@@ -1,0 +1,151 @@
+/* One layout for the Areas and Sections directories, including lazy-loaded pages. */
+.designer-app .nc-structure-page:is(.nc-areas-page, .nc-sections-page) {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-24);
+}
+.designer-app .nc-structure-page .nc-structure-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-24);
+  margin: 0;
+  padding: 0;
+}
+.nc-structure-head > div:first-child { min-width: 0; }
+.designer-app .nc-structure-head > div:first-child > p { margin: 0 0 var(--space-8); }
+.designer-app .nc-structure-head > div:first-child > span {
+  max-width: 48rem;
+  font-size: var(--type-body-sm);
+}
+.nc-structure-head-action { flex-shrink: 0; }
+.designer-app .nc-structure-page .nc-structure-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  box-shadow: none;
+}
+.designer-app .nc-structure-page .nc-structure-summary > :is(button, div) {
+  display: grid;
+  min-height: 5.5rem;
+  align-content: center;
+  justify-items: start;
+  gap: var(--space-4);
+  padding: var(--space-16) var(--space-20);
+  border-bottom: 0;
+}
+.designer-app .nc-structure-summary button.active { background: var(--color-success-soft); }
+.designer-app .nc-structure-summary button.active::after { right: var(--space-20); left: var(--space-20); }
+.designer-app .nc-structure-summary > button:disabled { opacity: 1; }
+.designer-app .nc-structure-page :is(.nc-areas-register, .nc-sections-shell) {
+  min-width: 0;
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+.designer-app .nc-structure-page :is(.nc-areas-toolbar, .nc-sections-toolbar) {
+  display: grid;
+  min-height: 6rem;
+  align-items: end;
+  gap: var(--space-16);
+  padding: var(--space-20);
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  background: var(--color-surface);
+}
+.designer-app .nc-structure-page .nc-areas-toolbar {
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
+}
+.designer-app .nc-structure-page .nc-sections-toolbar {
+  grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
+}
+.nc-structure-page :is(.nc-areas-toolbar, .nc-sections-toolbar) > label { min-width: 0; }
+.designer-app .nc-structure-page :is(.nc-areas-toolbar, .nc-sections-toolbar) :is(input, select) {
+  min-width: 0;
+  min-height: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-control);
+}
+.designer-app .nc-structure-page :is(.nc-areas-search, .nc-sections-search) > i { bottom: .9rem; }
+.designer-app .nc-structure-page :is(.nc-area-list-head, .nc-section-register-head) {
+  min-height: 3rem;
+  background: var(--color-surface-subtle);
+}
+.designer-app .nc-structure-page :is(.nc-area-row, .nc-section-row) { min-height: 5.35rem; }
+.designer-app .nc-structure-page .nc-section-area > header > button {
+  min-height: 3.5rem;
+  background: var(--color-surface-subtle);
+}
+.designer-app .nc-structure-page .nc-section-area-icon { width: 2rem; height: 2rem; border-radius: .5rem; }
+.designer-app .nc-structure-page .nc-structure-footer {
+  display: flex;
+  min-height: 3.25rem;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-20);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption);
+}
+.nc-structure-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 2rem;
+  border: 0;
+  padding: 0 var(--space-8);
+  background: transparent;
+  color: var(--color-secondary);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+}
+.designer-app .nc-structure-page .nc-structure-footer > span { display: block; }
+.designer-app .nc-structure-page .nc-structure-footer button i { width: auto; height: auto; border-radius: 0; background: transparent; }
+.designer-app .nc-structure-page .nc-sections-summary-note { justify-content: flex-start; margin: calc(-1 * var(--space-8)) 0 0; }
+.nc-structure-page button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+
+@media (max-width: 980px) {
+  .designer-app .nc-structure-page .nc-structure-head { align-items: flex-start; flex-direction: column; gap: var(--space-16); }
+  .designer-app .nc-structure-page :is(.nc-areas-toolbar, .nc-sections-toolbar) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .designer-app .nc-structure-page :is(.nc-areas-search, .nc-sections-search) { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .designer-app .nc-structure-page:is(.nc-areas-page, .nc-sections-page) { gap: var(--space-16); }
+  .designer-app .nc-structure-page .nc-structure-head-action,
+  .designer-app .nc-structure-page .nc-structure-head-action > button { width: 100%; }
+  .designer-app .nc-structure-page .nc-structure-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .designer-app .nc-structure-page .nc-structure-summary > :is(button, div) { min-height: 5rem; padding: var(--space-12) var(--space-16); border-bottom: 1px solid var(--color-border); }
+  .designer-app .nc-structure-page .nc-structure-summary > :nth-child(2) { border-right: 0; }
+  .designer-app .nc-structure-page .nc-structure-summary > :nth-last-child(-n+2) { border-bottom: 0; }
+  .designer-app .nc-structure-page :is(.nc-areas-toolbar, .nc-sections-toolbar) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-12); padding: var(--space-16); }
+  .designer-app .nc-structure-page .nc-sections-toolbar > label:last-child { grid-column: 1 / -1; }
+  .designer-app .nc-structure-page .nc-structure-footer { flex-wrap: wrap; padding-inline: var(--space-16); }
+  .designer-app .nc-structure-page .nc-section-row.directory {
+    grid-template-columns: 28px minmax(0, 1fr) auto 44px;
+    gap: var(--space-8);
+    padding: var(--space-12);
+  }
+  .designer-app .nc-structure-page .nc-section-row.directory > label { grid-column: 1; grid-row: 1; }
+  .designer-app .nc-structure-page .nc-section-row.directory .nc-section-name { grid-column: 2 / 4; grid-row: 1; }
+  .designer-app .nc-structure-page .nc-section-row.directory .nc-section-actions { grid-column: 4; grid-row: 1; }
+  .designer-app .nc-structure-page .nc-section-row.directory .nc-section-status { grid-column: 2 / -1; grid-row: 2; }
+  .designer-app .nc-structure-page .nc-section-row.directory :is(.nc-section-profile, .nc-section-nodes, .nc-section-freshness) {
+    display: block;
+    grid-column: 2 / -1;
+    min-width: 0;
+    padding: 0;
+  }
+  .designer-app .nc-structure-page .nc-section-row.directory [data-label]::before {
+    display: block;
+    margin-bottom: var(--space-4);
+    color: var(--color-text-tertiary);
+    content: attr(data-label);
+    font-size: var(--type-micro);
+  }
+  .designer-app .nc-structure-page .nc-section-row.directory :is(.nc-section-profile, .nc-section-freshness) small { display: none; }
+}
