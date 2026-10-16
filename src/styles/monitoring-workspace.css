@@ -29,21 +29,6 @@
 .designer-app #nodesManagementSection .nc-monitor-page .node-detail-orbit { width: 3rem; height: 3rem; border-radius: .7rem; }
 .designer-app #nodesManagementSection .nc-monitor-page .node-detail-orbit[data-tone="watch"] { color: var(--color-warning); border-color: var(--color-warning-border); background: var(--color-warning-soft); }
 
-.designer-app .nc-monitor-page .nc-readings-health { border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); }
-.designer-app .nc-monitor-page .nc-readings-matrix { padding: var(--space-20); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); }
-.designer-app .nc-monitor-page .nc-readings-matrix > header { margin-bottom: var(--space-16); }
-.designer-app .nc-monitor-page .nc-reading-cell { flex-direction: column; align-items: flex-start; justify-content: flex-start; min-height: 5rem; padding-block: var(--space-12); }
-.designer-app .nc-monitor-page .nc-reading-cell strong { width: 100%; white-space: normal; overflow: visible; padding-right: var(--space-8); }
-.nc-reading-number { white-space: nowrap; }
-.designer-app .nc-monitor-page .nc-reading-average { display: block; margin: var(--space-4) 0 0; }
-.designer-app .nc-monitor-page .nc-reading-freshness { flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-4); white-space: normal; }
-.designer-app .nc-monitor-page .nc-reading-freshness strong { white-space: nowrap; }
-.designer-app .nc-monitor-page .nc-reading-freshness small { line-height: 1.4; overflow-wrap: anywhere; }
-.nc-reading-cell .nc-reading-quality { display: block; width: fit-content; margin-top: var(--space-4); border-radius: .25rem; padding: .15rem .35rem; color: var(--color-warning); background: var(--color-warning-soft); font-size: var(--type-micro); font-weight: var(--weight-semibold); line-height: 1.3; }
-.nc-reading-cell[data-quality="offline"] .nc-reading-quality, .nc-reading-cell[data-quality="calibration"] .nc-reading-quality { background: var(--color-offline-soft); color: var(--color-text-secondary); }
-.nc-reading-unit { color: var(--color-text-secondary); font-size: var(--type-caption); font-weight: var(--weight-medium); white-space: nowrap; }
-.designer-app .nc-monitor-page .nc-readings-row-head > span { white-space: normal; }
-.designer-app .nc-monitor-page .nc-readings-row-head small { display: block; margin-top: var(--space-4); }
 
 
 @media (max-width: 980px) {
@@ -52,12 +37,6 @@
   .designer-app #nodesManagementSection .nc-monitor-page .nc-list-toolbar > label:first-child { grid-column: 1 / -1; }
 }
 @media (max-width: 767px) {
-  .designer-app .nc-monitor-page .nc-readings-matrix { padding: var(--space-12); }
-  .designer-app .nc-monitor-page .nc-readings-health { grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; }
-  .designer-app .nc-monitor-page .nc-readings-health > div { display: grid; min-width: 0; min-height: 5rem; align-content: center; gap: var(--space-4); padding: var(--space-12); border-right: 1px solid var(--color-border); border-bottom: 0; }
-  .designer-app .nc-monitor-page .nc-readings-health > div:nth-child(3) { border-right: 0; }
-  .designer-app .nc-monitor-page .nc-readings-health small { display: none; }
-  .designer-app .nc-monitor-page .nc-readings-health > p { grid-column: 1 / -1; min-width: 0; border-top: 1px solid var(--color-border); padding: var(--space-12); font-size: var(--type-caption); }
   .designer-app .nc-monitor-page .nc-structure-head-action { min-width: 0; width: 100%; flex-wrap: wrap; }
   .designer-app #nodesManagementSection .nc-monitor-page .nc-list-toolbar { padding: var(--space-16); }
   .designer-app #nodesManagementSection .nc-monitor-page .nc-node-list .nc-structure-footer { flex-wrap: wrap; padding-inline: var(--space-16); }

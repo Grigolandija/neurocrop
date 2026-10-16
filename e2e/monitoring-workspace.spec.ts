@@ -81,19 +81,19 @@ test('Nodes prioritizes attention and exposes filters, instructions and a readab
   expect(errors).toEqual([])
 })
 
-test('Readings visibly separates delayed, last-known and missing data without changing values', async ({ page }) => {
+test('Readings preserves current, delayed and missing measurements in its original layout', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
   await page.setViewportSize({ width: 1440, height: 1000 })
   await setup(page, '/readings')
-  await expect(page.locator('.nc-reading-cell .nc-reading-quality', { hasText: 'Delayed reading' }).first()).toBeVisible()
-  await expect(page.locator('.nc-reading-cell .nc-reading-quality', { hasText: 'Last known reading' }).first()).toBeVisible()
+  await expect(page.locator('.nc-reading-cell[data-quality="stale"]').first()).toBeVisible()
+  await expect(page.locator('.nc-reading-cell[data-quality="offline"]').first()).toBeVisible()
   await expect(page.locator('.nc-reading-cell[data-quality="no-data"]').first()).toContainText('No data')
   await expect(page.locator('.nc-reading-cell[data-quality="stale"]').first()).toContainText('32')
-  await page.screenshot({ path: '/tmp/neurocrop-readings-refresh.png', animations: 'disabled' })
+  await page.screenshot({ path: '/tmp/neurocrop-readings-restored.png', animations: 'disabled' })
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.locator('.nc-section-summary-row').first().scrollIntoViewIfNeeded()
-  await page.screenshot({ path: '/tmp/neurocrop-readings-refresh-mobile.png', animations: 'disabled' })
+  await page.screenshot({ path: '/tmp/neurocrop-readings-restored-mobile.png', animations: 'disabled' })
   expect(errors).toEqual([])
 })
