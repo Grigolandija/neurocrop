@@ -1,10 +1,9 @@
 import { VOLUME_LAYERS } from './volumeGrid'
 
-// Integrate the actual XYZ field through the entire greenhouse envelope. A
-// contour base makes the complete footprint legible; the surrounding translucent
-// volume preserves height-dependent variation. Sensor labels stay separate.
+// Transparent XYZ volume across the greenhouse envelope. A subtle boundary
+// makes its extent visible without an opaque plane hiding the saved layout.
 export const volumeWgsl = `
-struct Uniforms { inverse: mat4x4f, bounds: vec4f, levels0: vec4f, levels1: vec4f }
+struct Uniforms { inverse: mat4x4f, bounds: vec4f }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 @group(0) @binding(1) var sceneColor: texture_2d<f32>;
 @group(0) @binding(2) var sceneDepth: texture_depth_2d;
@@ -31,37 +30,26 @@ fn sampleField(p: vec3f) -> vec4f {
 fn fieldColor(s: vec4f) -> vec3f {
   let rgb=colorAt(s.r);return mix(rgb,vec3f(dot(rgb,vec3f(.25,.55,.2))),(.12+.16*s.b)*(1-s.g));
 }
-fn baseColor(p: vec3f,s: vec4f) -> vec3f {
-  let contour=1-smoothstep(.018,.065,abs(fract(s.r*10+.5)-.5));
-  let hatch=select(0.0,.13*step(.88,fract((p.x+p.z)*1.8)),s.b>.5 && s.g<.45);
-  return mix(fieldColor(s),vec3f(.94,.99,.98),contour*.30+hatch);
-}
 @fragment fn fragmentMain(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
   let size=textureDimensions(sceneColor);let xy=vec2i(pixel.xy);var base=textureLoad(sceneColor,xy,0).rgb;
   if(u.bounds.w<.5){return vec4f(base,1);}
   let ndc=vec2f(pixel.x/f32(size.x)*2-1,1-pixel.y/f32(size.y)*2);
   let origin=world(ndc,0);let direction=normalize(world(ndc,1)-origin);
   let opaque=distance(world(ndc,textureLoad(sceneDepth,xy,0)),origin);
-  // A full-width contour reference at the lowest measured level keeps the map
-  // readable from above. The field is also rendered below and above this plane.
-  if(u.levels0.x>=0 && abs(direction.y)>.0001){
-    let t=(u.levels0.x-origin.y)/direction.y;
-    if(t>0 && t<opaque){let p=origin+direction*t;let s=sampleField(p);base=mix(base,baseColor(p,s),.75*s.a);}
-  }
   let inv=1/(direction+vec3f(.000001));
   let t0=(vec3f(-u.bounds.x/2,0,-u.bounds.y/2)-origin)*inv;
   let t1=(vec3f(u.bounds.x/2,u.bounds.z,u.bounds.y/2)-origin)*inv;
   let near=min(t0,t1);let far=max(t0,t1);
   let start=max(0.0,max(near.x,max(near.y,near.z)));let end=min(opaque,min(far.x,min(far.y,far.z)));
   if(end<=start){return vec4f(base,1);}
-  let stepSize=(end-start)/48;var color=vec3f(0);var alpha=0.0;
-  for(var i=0u;i<48u;i++){
-    let p=origin+direction*(start+(f32(i)+.5)*stepSize);let s=sampleField(p);
-    let a=1-exp(-s.a*stepSize*2.1/u.bounds.z);
-    color+=(1-alpha)*a*fieldColor(s);alpha+=(1-alpha)*a;
+  let ds=(end-start)/96;var rgb=vec3f(0);var opacity=0.0;
+  for(var iteration=0u;iteration<96u;iteration++){
+    let p=origin+direction*(start+(f32(iteration)+.5)*ds);let s=sampleField(p);
+    let edge=min(min(u.bounds.x/2-abs(p.x),u.bounds.y/2-abs(p.z)),u.bounds.z*(1-.32*abs(p.z)/(u.bounds.y/2))-p.y);
+    let a=((1-exp(-ds*.22/u.bounds.z))+.07*(1-smoothstep(.0,ds*1.4,edge)))*s.a;
+    rgb+=(1-opacity)*a*fieldColor(s);opacity+=(1-opacity)*a;
   }
-  let opacity=min(.68,alpha*.88);
-  return vec4f(mix(base,color/max(alpha,.00001),opacity),1);
+  return vec4f(mix(base,rgb/max(opacity,.00001),min(opacity,.72)),1);
 }`
 
 export const volumeVertexGl = `#version 300 es
@@ -71,7 +59,6 @@ export const volumeFragmentGl = `#version 300 es
 precision highp float;
 uniform mat4 inverseCamera;
 uniform vec4 bounds;
-uniform float referenceHeight;
 uniform sampler2D sceneColor;
 uniform sampler2D sceneDepth;
 uniform sampler2D field;
@@ -91,24 +78,20 @@ vec4 sampleField(vec3 p){
   vec4 s=mix(a,b,fract(y));return vec4(s.rgb/max(s.a,.00001),s.a);
 }
 vec3 fieldColor(vec4 s){vec3 rgb=colorAt(s.r);return mix(rgb,vec3(dot(rgb,vec3(.25,.55,.2))),(.12+.16*s.b)*(1.-s.g));}
-vec3 baseColor(vec3 p,vec4 s){
-  float contour=1.-smoothstep(.018,.065,abs(fract(s.r*10.+.5)-.5));
-  float hatch=(s.b>.5 && s.g<.45) ? .13*step(.88,fract((p.x+p.z)*1.8)) : 0.;
-  return mix(fieldColor(s),vec3(.94,.99,.98),contour*.30+hatch);
-}
 void main(){
   ivec2 size=textureSize(sceneColor,0),xy=ivec2(gl_FragCoord.xy);vec3 base=texelFetch(sceneColor,xy,0).rgb;
   if(bounds.w<.5){outputColor=vec4(base,1.);return;}
   vec2 ndc=gl_FragCoord.xy/vec2(size)*2.-1.;vec3 origin=world(ndc,0.),direction=normalize(world(ndc,1.)-origin);
   float opaque=distance(world(ndc,texelFetch(sceneDepth,xy,0).r),origin);
-  if(referenceHeight>=0. && abs(direction.y)>.0001){float t=(referenceHeight-origin.y)/direction.y;if(t>0. && t<opaque){vec3 p=origin+direction*t;vec4 s=sampleField(p);base=mix(base,baseColor(p,s),.75*s.a);}}
   vec3 inv=1./(direction+vec3(.000001));vec3 t0=(vec3(-bounds.x/2.,0.,-bounds.y/2.)-origin)*inv,t1=(vec3(bounds.x/2.,bounds.z,bounds.y/2.)-origin)*inv;
   vec3 near=min(t0,t1),far=max(t0,t1);float start=max(0.,max(near.x,max(near.y,near.z))),end=min(opaque,min(far.x,min(far.y,far.z)));
   if(end<=start){outputColor=vec4(base,1.);return;}
-  float stepSize=(end-start)/48.,alpha=0.;vec3 color=vec3(0.);
-  for(int i=0;i<48;i++){
-    vec3 p=origin+direction*(start+(float(i)+.5)*stepSize);vec4 s=sampleField(p);float a=1.-exp(-s.a*stepSize*2.1/bounds.z);
-    color+=(1.-alpha)*a*fieldColor(s);alpha+=(1.-alpha)*a;
+  float ds=(end-start)/96.,opacity=0.;vec3 rgb=vec3(0.);
+  for(int iteration=0;iteration<96;iteration++){
+    vec3 p=origin+direction*(start+(float(iteration)+.5)*ds);vec4 s=sampleField(p);
+    float edge=min(min(bounds.x/2.-abs(p.x),bounds.y/2.-abs(p.z)),bounds.z*(1.-.32*abs(p.z)/(bounds.y/2.))-p.y);
+    float a=((1.-exp(-ds*.22/bounds.z))+.07*(1.-smoothstep(0.,ds*1.4,edge)))*s.a;
+    rgb+=(1.-opacity)*a*fieldColor(s);opacity+=(1.-opacity)*a;
   }
-  outputColor=vec4(mix(base,color/max(alpha,.00001),min(.68,alpha*.88)),1.);
+  outputColor=vec4(mix(base,rgb/max(opacity,.00001),min(opacity,.72)),1.);
 }`

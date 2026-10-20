@@ -79,17 +79,8 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
       const level = type === 'growing-bed' ? .16 : .72
       box(x,level,z,ow,.18,ol,[.32,.44,.39],rot)
       for (const px of [.1,ow-.1]) for (const pz of [.1,ol-.1]) { const [a,b]=pos(px,pz); box(a,level/2,b,.06,level,.06,steel) }
-      const nx=Math.min(22,Math.max(1,Math.floor(ow/.4))), nz=Math.min(12,Math.max(1,Math.floor(ol/.4)))
-      for (let a=0;a<nx;a++) for (let b=0;b<nz;b++) {
-        const [px,pz]=pos((a+.5)*ow/nx,(b+.5)*ol/nz)
-        const variation = .82 + ((a*7+b*3)%9)*.035
-        const c = green.map(v=>v*variation) as Color
-        const r = Math.min(.23,ow/nx*.47,ol/nz*.47), base=level+.1, tip=base+.23+((a+b)%3)*.06
-        triangle([px-r,base,pz-r],[px+r,base,pz-r],[px,tip,pz],c,.7)
-        triangle([px+r,base,pz-r],[px+r,base,pz+r],[px,tip,pz],c,.95)
-        triangle([px+r,base,pz+r],[px-r,base,pz+r],[px,tip,pz],c,.8)
-        triangle([px-r,base,pz+r],[px-r,base,pz-r],[px,tip,pz],c)
-      }
+      // A neutral canopy surface keeps the saved layout legible through the volume.
+      box(x,level+.12,z,Math.max(.05,ow-.1),.06,Math.max(.05,ol-.1),green,rot)
     } else if (type==='partition') box(x,h*.32,z,ow,h*.64,Math.max(.05,ol),[.35,.44,.41],rot)
     else if (type==='door') { box(x,1.05,z,ow,2.1,Math.max(.07,ol),[.25,.63,.56],rot); box(x,2.14,z,ow+.1,.07,Math.max(.1,ol),white,rot) }
     else if (type==='walkway') box(x,.018,z,ow,.02,ol,[.28,.36,.34],rot)
