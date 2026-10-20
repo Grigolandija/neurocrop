@@ -58,10 +58,10 @@ describe('measured XYZ climate field',()=>{
   })
   it('also fills aisles outside drawn growing zones, without borrowing readings for another named zone',()=>{
     const {map,readings}=fixture()
-    map.objects.push({id:'zone',type:'section-zone',name:'Crop',xM:1,yM:1,widthM:17,lengthM:9,rotationDeg:0,layerId:'sensors',visible:true,locked:false,metadata:{section:{sectionId:'demo-section'}}})
+    map.objects.push({id:'zone',type:'section-zone',name:'Crop',xM:1,yM:1,widthM:17,lengthM:9,rotationDeg:0,layerId:'sensors',visible:true,locked:false,metadata:{section:{sectionId:'demo-section',sectionName:'Crop'}}})
     const grid=createVolumeGrid(map,readings,4.2)
     expect(valueAt(grid,.2,.2,1.5)).not.toBeNull()
-    map.objects.push({id:'empty-zone',type:'section-zone',name:'Another room',xM:0,yM:0,widthM:.8,lengthM:.8,rotationDeg:0,layerId:'sensors',visible:true,locked:false,metadata:{section:{sectionId:'unmeasured-section'}}})
+    map.objects.push({id:'empty-zone',type:'section-zone',name:'Another room',xM:0,yM:0,widthM:.8,lengthM:.8,rotationDeg:0,layerId:'sensors',visible:true,locked:false,metadata:{section:{sectionId:'unmeasured-section',sectionName:'Another room'}}})
     expect(valueAt(createVolumeGrid(map,readings,4.2),.2,.2,1.5)).toBeNull()
   })
   it('excludes unknown heights and blocks interpolation through a partition',()=>{
