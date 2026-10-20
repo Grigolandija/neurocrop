@@ -38,10 +38,10 @@ async function webgpu(onLost: () => void): Promise<Backend> {
     const volumeShader = device.createShaderModule({ code: volumeWgsl })
     const volumePipeline = await device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: volumeShader, entryPoint: 'vertexMain' }, fragment: { module: volumeShader, entryPoint: 'fragmentMain', targets: [{ format }] } })
     const uniform = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
-    const volumeUniform = device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
+    const volumeUniform = device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
     const bindGroup = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniform } }] })
     let buffer: GPUBuffer | null = null, depth: GPUTexture | null = null, color: GPUTexture | null = null, fieldTexture: GPUTexture | null = null
-    let volumeGroup: GPUBindGroup | null = null, count = 0, bounds = [1, 1, 1]
+    let volumeGroup: GPUBindGroup | null = null, count = 0, bounds = [1, 1, 1], levels = Array(8).fill(-1000)
     const bindVolume = () => {
       if (!depth || !color || !fieldTexture) return
       volumeGroup = device.createBindGroup({ layout: volumePipeline.getBindGroupLayout(0), entries: [
@@ -65,12 +65,12 @@ async function webgpu(onLost: () => void): Promise<Backend> {
         device.queue.writeBuffer(buffer, 0, data.buffer as ArrayBuffer, data.byteOffset, data.byteLength)
         fieldTexture = device.createTexture({ size: [field.width, field.height * field.layers], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST })
         device.queue.writeTexture({ texture: fieldTexture }, field.pixels.buffer as ArrayBuffer, { bytesPerRow: field.width * 4 }, { width: field.width, height: field.height * field.layers })
-        bounds = field.bounds; count = data.length / 6; bindVolume()
+        bounds = field.bounds; levels = Array.from({length:8},(_,i)=>field.levels[i] ?? -1000); count = data.length / 6; bindVolume()
       },
       draw(matrix, presentation) {
         if (!depth || !color || !buffer || !volumeGroup) return
         device.queue.writeBuffer(uniform, 0, matrix.buffer as ArrayBuffer, matrix.byteOffset, matrix.byteLength)
-        const params = new Float32Array([...inverseMatrix(matrix), ...bounds, presentation])
+        const params = new Float32Array([...inverseMatrix(matrix), ...bounds, presentation, ...levels])
         device.queue.writeBuffer(volumeUniform, 0, params.buffer)
         const encoder = device.createCommandEncoder()
         const pass = encoder.beginRenderPass({ colorAttachments: [{ view: color.createView(), clearValue: clear, loadOp: 'clear', storeOp: 'store' }], depthStencilAttachment: { view: depth.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' } })
@@ -111,6 +111,7 @@ function webgl(): Backend {
   for (const [name, offset] of [['position', 0], ['color', 12]] as const) { const location = gl.getAttribLocation(program, name); gl.enableVertexAttribArray(location); gl.vertexAttribPointer(location, 3, gl.FLOAT, false, 24, offset) }
   const matrixLocation = gl.getUniformLocation(program, 'matrix')
   const inverseLocation = gl.getUniformLocation(volumeProgram, 'inverseCamera'), boundsLocation = gl.getUniformLocation(volumeProgram, 'bounds')
+  const levelsLocation = gl.getUniformLocation(volumeProgram, 'levels[0]')
   gl.useProgram(volumeProgram)
   for (const [i, name] of ['sceneColor', 'sceneDepth', 'field'].entries()) gl.uniform1i(gl.getUniformLocation(volumeProgram, name), i)
   const framebuffer = gl.createFramebuffer()!
@@ -121,7 +122,7 @@ function webgl(): Backend {
     return t
   }
   const color = texture(), depth = texture(), fieldTexture = texture()
-  let count = 0, bounds = [1, 1, 1]
+  let count = 0, bounds = [1, 1, 1], levels = Array(8).fill(-1000)
   gl.clearColor(clear.r, clear.g, clear.b, 1)
   return {
     canvas, name: 'WebGL',
@@ -137,13 +138,13 @@ function webgl(): Backend {
     upload(data, field) {
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); count = data.length / 6
       gl.bindTexture(gl.TEXTURE_2D, fieldTexture); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, field.width, field.height * field.layers, 0, gl.RGBA, gl.UNSIGNED_BYTE, field.pixels)
-      bounds = field.bounds
+      bounds = field.bounds; levels = Array.from({length:8},(_,i)=>field.levels[i] ?? -1000)
     },
     draw(matrix, presentation) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer); gl.enable(gl.DEPTH_TEST); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       gl.useProgram(program); gl.bindVertexArray(vao); gl.uniformMatrix4fv(matrixLocation, false, matrix); gl.drawArrays(gl.TRIANGLES, 0, count)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.disable(gl.DEPTH_TEST); gl.useProgram(volumeProgram); gl.bindVertexArray(screenVao)
-      gl.uniformMatrix4fv(inverseLocation, false, inverseMatrix(matrix)); gl.uniform4f(boundsLocation, ...bounds as [number,number,number], presentation)
+      gl.uniformMatrix4fv(inverseLocation, false, inverseMatrix(matrix)); gl.uniform4f(boundsLocation, ...bounds as [number,number,number], presentation); gl.uniform1fv(levelsLocation, levels)
       for (const [i,t] of [color, depth, fieldTexture].entries()) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t) }
       gl.drawArrays(gl.TRIANGLES, 0, 3)
     },

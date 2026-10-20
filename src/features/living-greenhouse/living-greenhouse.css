@@ -200,3 +200,21 @@
   .nc-living-setup-links a { flex: 1; justify-content: center; }
   .nc-living[data-integrated="true"] .nc-living-heading { gap: 14px; padding-top: 8px; }
 }
+
+/* Keep last observations visible without presenting them as a live field. */
+.nc-living-pin[data-delayed="true"] { border: 1px dashed #d9ae65; color: #f0d8ad; background: #332c20f5; }
+.nc-living-pin[data-delayed="true"] > i { background: #d9ae65; }
+.nc-living-pin .nc-living-pin-id { font-size: 9px; color: #a6bcb2; padding-right: 6px; border-right: 1px solid #ffffff28; }
+.nc-living-pin .nc-living-pin-delay { color: #dfb66f; }
+.nc-living-sensor-list > button { min-height: 49px; padding-block: 9px; border-bottom: 1px solid #ffffff0a; }
+.nc-living-sensor-list > button[data-delayed="true"] > span > i { background: #d9ae65; }
+.nc-living-sensor-list > button[data-delayed="true"] b { color: #e8c78d; }
+.nc-living-sensor-list > button .nc-living-delay-label { color: #d9ae65; }
+.nc-living-delay-summary { margin: -8px 0 18px; padding: 10px 12px; border-left: 2px solid #d9ae65; background: #d9ae650c; font-size: 11px; line-height: 1.6; color: #dbbf8c; }
+.nc-living-sensor-detail > span[data-delayed="true"] b { color: #e8c78d; }
+@media (max-width: 720px) {
+  .nc-living-toolbar .nc-living-metric { flex: 1 1 105px; min-width: 0; margin-right: 0; }
+  .nc-living-toolbar .nc-living-metric select { width: 100%; min-width: 0; }
+  .nc-living-toolbar .nc-living-volume-mode { flex: 0 0 auto; margin-left: 0; }
+  .nc-living-toolbar .nc-living-volume-mode button { padding-inline: 8px; font-size: 10px; }
+}

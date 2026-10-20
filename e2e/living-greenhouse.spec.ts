@@ -72,7 +72,7 @@ test('3D demonstration renders, selects sensors and plays recorded intervals wit
   await page.clock.setFixedTime(new Date('2026-10-20T12:00:00Z'))
   await page.goto('/greenhouse-live/demo')
   await expect(page.locator('.nc-living-source')).toContainText('Demonstraciniai duomenys')
-  await expect(page.locator('.nc-living-engine')).toHaveText(/WebGPU|WebGL/,{timeout:20000})
+  await expect(page.locator('.nc-living-engine')).toHaveText('WebGPU',{timeout:20000})
   await expect(page.locator('.nc-living-empty')).toHaveCount(0)
   await expect(page.locator('.nc-living-pin')).toHaveCount(6)
   await expect(page.getByRole('button',{name:/^(Mikroklimatas|Microclimate)$/})).toHaveAttribute('aria-pressed','true')
@@ -187,4 +187,42 @@ test('authenticated view uses only saved sensor positions and does not apply tod
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   await page.screenshot({path:'/tmp/neurocrop-living-saved-plan-mobile.png',fullPage:true})
   expect(errors).toEqual([])
+})
+
+test('delayed Node readings stay visible with their age and never enter the current heatmap',async({page})=>{
+  const now='2026-10-20T16:00:00Z',old='2026-10-20T15:20:00Z'
+  await page.clock.setFixedTime(new Date(now))
+  const positions=[[.2,.2],[3.3,.2],[7.3,.2],[3.3,2.2],[.2,4.3],[7.3,4.3]]
+  const nodes=positions.map((_,i)=>({devEui:`000000000000000${i}`,displayName:`NSN-00000${i+2}`,status:i===3 ? 'stale' : 'online',sensors:['sht45'],sectionId:'s',lastSeenAt:i===3 ? old : now,measurementHeightsM:{'air-temperature':i===3 ? 2.5 : 1.5},measurements:{airTemperatureC:i===3 ? null : 19+i*.4,rootTemperatureC:i===3 ? null : 18,illuminanceLux:i===3 ? null : 3000,measuredAt:now},lastMeasurements:{airTemperatureC:i===3 ? 29.4 : 19+i*.4,measuredAtByMetric:{airTemperatureC:i===3 ? old : now}}}))
+  const context={area:{id:'test',name:'Greenhouse'},mapEnabled:true,nodes,sections:[],profiles:[],permissions:{canEdit:true},map:{
+    schemaVersion:1,id:'map',name:'Greenhouse',dimensions:{widthM:8,lengthM:5,heightM:3.7},shape:{type:'rectangle'},gridSizeM:.5,orientationDeg:0,wallThicknessM:.01,createdAt:now,updatedAt:now,
+    layers:[{id:'sensors',visible:true,opacity:1}],heatmapSettings:{enabled:true,metric:'air-temperature',interpolationMethod:'idw',idwPower:2,cellSizeM:.25,nearestSensorCount:5,minimumSensorCount:2,maxInfluenceDistanceM:10,maxReadingAgeMinutes:30,opacity:.88,scaleMode:'auto',showConfidence:true},
+    objects:[...nodes.map((n,i)=>({id:`sensor-${i}`,type:'sensor-node',name:n.displayName,xM:positions[i][0],yM:positions[i][1],widthM:.2,lengthM:.2,rotationDeg:0,visible:true,layerId:'sensors',metadata:{sensor:n}})),
+      ...[.6,3.2].map((y,i)=>({id:`bed-${i}`,type:'growing-table',name:'Bed',xM:.6,yM:y,widthM:6.5,lengthM:1.1,rotationDeg:0,visible:true,layerId:'sensors',metadata:{}}))],
+  }}
+  await page.route('**/runtime-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.NEUROCROP_CONFIG={apiBaseUrl:'http://delayed.test'};"}))
+  await page.route('http://delayed.test/**',async r=>{
+    const path=new URL(r.request().url()).pathname
+    const data=path==='/auth/me' ? {user:{id:'test',email:'grower@example.test',role:'owner',organizationId:'test'}} : path==='/areas' ? {areas:[{id:'test',name:'Greenhouse',mapEnabled:true,mapConfigured:true}]} : path==='/sections' ? {sections:[{id:'s',areaId:'test',name:'Section'}]} : path==='/nodes' ? {nodes} : path==='/crop-profiles' ? {profiles:[]} : path==='/areas/test/map' ? context : {}
+    await r.fulfill({json:data})
+  })
+  await page.setViewportSize({width:1600,height:1050})
+  await page.goto('/greenhouse-live?area=test')
+  await page.locator('[data-product-choice="greenhouse"]').click()
+  await expect(page.locator('.nc-living-engine')).toHaveText(/WebGPU|WebGL/,{timeout:20000})
+  const delayed=page.locator('.nc-living-sensor-list button[data-delayed="true"]')
+  await expect(delayed).toHaveCount(1)
+  await expect(delayed).toContainText('29.4 °C')
+  await expect(delayed).toContainText('40 min ago')
+  await expect(delayed).toContainText('Delayed')
+  await expect(page.locator('.nc-living-pin[data-delayed="true"]')).toContainText('29.4')
+  await expect(page.locator('.nc-living-big-number')).not.toContainText('29.4')
+  await expect(page.locator('.nc-living-range')).toContainText('5/6')
+  await expect(page.getByRole('combobox',{name:'Metric'}).locator('option[value="illuminance"]')).toHaveCount(1)
+  await expect(page.getByRole('combobox',{name:'Metric'}).getByRole('option',{name:'Substrate temperature',exact:true})).toHaveCount(1)
+  await page.screenshot({path:'/tmp/neurocrop-living-contours.png',fullPage:true,animations:'disabled'})
+  await page.setViewportSize({width:390,height:844})
+  await expect.poll(()=>page.locator('.nc-living-pin:visible').count()).toBe(6)
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  await page.screenshot({path:'/tmp/neurocrop-living-contours-mobile.png',fullPage:true,animations:'disabled'})
 })

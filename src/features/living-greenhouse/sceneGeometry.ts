@@ -6,9 +6,9 @@ import type { LivingView } from './spatialEvidence'
 import { createVolumeGrid } from './volumeGrid'
 
 type Color = [number, number, number]
-export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3 }
+export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[] }
 export function climateColor(value: number, min: number, max: number): Color {
-  const stops: Color[] = [[.13, .48, .73], [.22, .73, .73], [.68, .82, .55], [.97, .63, .28], [.88, .29, .22]]
+  const stops: Color[] = [[.10, .42, .90], [.06, .78, .86], [.89, .89, .45], [1, .57, .18], [.94, .22, .25]]
   const t = Math.max(0, Math.min(.99999, (value - min) / (max - min || 1))) * 4
   const i = Math.floor(t)
   return stops[i].map((c, j) => c + (stops[i + 1][j] - c) * (t - i)) as Color
@@ -18,7 +18,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   const data: number[] = []
   const w = map.dimensions.widthM, l = map.dimensions.lengthM, size = Math.max(w, l)
   const h = map.dimensions.heightM || Math.min(5, Math.max(2.5, size * .17))
-  const white: Color = [.70, .85, .81], steel: Color = [.31, .46, .44], green: Color = [.25, .52, .34]
+  const white: Color = [.39, .55, .50], steel: Color = [.25, .37, .34], green: Color = [.20, .32, .27]
   const triangle = (a: Vec3, b: Vec3, c: Vec3, color: Color, shade = 1) => {
     for (const p of [a, b, c]) data.push(...p, ...color.map(n => n * shade))
   }
@@ -58,10 +58,14 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   const pixels = new Uint8Array(grid.width*grid.depth*grid.layers*4)
   for(let i=0;i<grid.values.length;i++) {
     if(!grid.mask[i])continue
-    const color=climateColor(grid.values[i],scale.min,scale.max)
-    pixels.set([...color.map(c=>Math.round(c*255)),Math.round(grid.confidence[i]*255)],i*4)
+    const normalized=Math.max(0,Math.min(1,(grid.values[i]-scale.min)/(scale.max-scale.min || 1)))
+    pixels.set([Math.round(normalized*255),Math.round(grid.confidence[i]*255),0,255],i*4)
   }
-  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,bounds:[w,l,h]}
+  // Show actual measured levels automatically, never a user-selected height.
+  const heights=sensors.filter(s=>s.value!==null && s.heightM!==null && s.heightM<=h).map(s=>s.heightM!).sort((a,b)=>a-b)
+  const levels=heights.filter((height,i)=>!i || height-heights[i-1]>.15)
+  const shownLevels=levels.length<=8 ? levels : Array.from({length:8},(_,i)=>levels[Math.round(i*(levels.length-1)/7)])
+  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,bounds:[w,l,h],levels:shownLevels}
   // Footprints and rotations come from the saved plan; plant forms are illustrative.
   for (const object of map.objects) {
     const { type, widthM: ow, lengthM: ol, xM, yM, rotationDeg } = object
@@ -90,7 +94,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     else if (['heater','cooling-unit','electrical-cabinet','irrigation-unit'].includes(type)) box(x,.45,z,ow,.9,ol,steel,rot)
     else if (['fan','lamp','window','ventilation-opening'].includes(type)) box(x,h*.55,z,ow,.18,ol,white,rot)
   }
-  const eave = h*.68, r = Math.max(.025, Math.min(.06,size*.0022))
+  const eave = h*.68, r = Math.max(.015, Math.min(.04,size*.0015))
   const frames = Math.min(14,Math.max(3,Math.ceil(w/3)))
   for (let i=0;i<=frames;i++) {
     const x=-w/2+w*i/frames
@@ -102,7 +106,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   for (const s of sensors) {
     const x=s.object.xM+s.object.widthM/2-w/2, z=s.object.yM+s.object.lengthM/2-l/2
     const y=s.heightM ?? 0
-    const color: Color=s.value===null ? [.4,.46,.44] : options.attentionIds?.has(s.object.id) ? [1,.57,.25] : [.54,.99,.78]
+    const color: Color=s.value===null ? s.lastValue!==null ? [.78,.60,.32] : [.4,.46,.44] : climateColor(s.value,scale.min,scale.max)
     box(x,y/2,z,.035,y,.035,steel)
     box(x,y,z,.18,.16,.18,color)
     box(x,.025,z,.28,.03,.28,color)

@@ -60,4 +60,18 @@ describe('Living greenhouse evidence boundaries', () => {
     expect(scene.vertices.length).toBeGreaterThan(0)
     expect(scene.vertices.every(Number.isFinite)).toBe(true)
   })
+
+  it('shows delayed observations with their real age without painting them or backfilling history', () => {
+    const {context,history}=livingDemo(),at=Date.parse(context.updatedAt!)
+    const stamp=new Date(at-40*60000).toISOString()
+    context.nodes[0]={...context.nodes[0],status:'stale',measurements:{measuredAt:stamp},lastMeasurements:{airTemperatureC:20.13,measuredAtByMetric:{airTemperatureC:stamp}}}
+    const reading=measuredSensors(livingMap(context,null,null)!,'air-temperature',at)[0]
+    expect(reading.value).toBeNull()
+    expect(reading.lastValue).toBe(20.13)
+    expect(reading.lastTimestamp).toBe(stamp)
+    expect(reading.delayed).toBe(true)
+    history.frames[0].nodes=[]
+    const historical=measuredSensors(livingMap(context,history,0)!,'air-temperature',Date.parse(history.from))[0]
+    expect(historical.lastValue).toBeNull()
+  })
 })

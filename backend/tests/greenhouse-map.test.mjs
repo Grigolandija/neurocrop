@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import test from 'node:test';
-import { publicLatestHeatmapMeasurements, publicHeatmapMeasurements, validateGreenhouseMap } from '../greenhouse-map-routes.js';
+import { publicLatestHeatmapMeasurements, publicLastObservedHeatmapMeasurements, publicHeatmapMeasurements, validateGreenhouseMap } from '../greenhouse-map-routes.js';
 
 function validMap() {
   return {
@@ -214,4 +214,16 @@ test('live map retains probe readings but respects the integrated climate opt-ou
   assert.equal(snapshot.co2Ppm, 571);
   assert.equal(snapshot.rootTemperatureC, 19);
   assert.deepEqual(snapshot.soilEcByDepth, [{ depthCm: 10, value: 1.5 }]);
+});
+
+test('last observations remain inspectable after expiry but never become current field inputs', () => {
+  const rows = [
+    mapSample(1, { temperature: 99 }, { sht45: { fresh: false, state: 'cached_read_failed' } }),
+    mapSample(40, { temperature: 20.13, humidity: 72.04 }),
+  ];
+  const last = publicLastObservedHeatmapMeasurements(rows, {}, mapNow);
+  assert.equal(last.airTemperatureC, 20.13);
+  assert.equal(last.measuredAtByMetric.airTemperatureC, rows[1].time);
+  assert.equal(publicLatestHeatmapMeasurements(rows, {}, mapNow).airTemperatureC, null);
+  assert.equal(publicLastObservedHeatmapMeasurements([mapSample(-10, { temperature: 20 })], {}, mapNow).airTemperatureC, null);
 });

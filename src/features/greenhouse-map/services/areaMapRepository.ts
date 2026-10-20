@@ -98,6 +98,7 @@ function normalizeNode(value: AreaMapNode): AreaMapNode {
     installationHeightM: finite(value.installationHeightM),
     installationConfirmedAt: text(value.installationConfirmedAt),
     measurementHeightsM: value.measurementHeightsM,
+    lastMeasurements: value.lastMeasurements,
     model: text(value.model),
     sensors: Array.isArray(value.sensors) ? value.sensors.map(String) : [],
     status: normalizeStatus(value.status),

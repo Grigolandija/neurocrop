@@ -153,7 +153,7 @@ export function publicHeatmapMeasurements(measurement, sensorContexts = {}) {
 
 // Sensors have independent sampling schedules. A cached/missing value in the
 // newest uplink must not hide the preceding genuine observation or redate it.
-export function publicLatestHeatmapMeasurements(rows, sensorContexts = {}, nowMs = Date.now()) {
+function observedHeatmapMeasurements(rows, sensorContexts, nowMs, currentOnly) {
   const ordered = [...rows].sort((a, b) => new Date(b.time) - new Date(a.time));
   const values = new Map(ordered.map((row) => [row, publicHeatmapMeasurements(row, sensorContexts)]));
   const output = publicHeatmapMeasurements(null, sensorContexts);
@@ -170,12 +170,22 @@ export function publicLatestHeatmapMeasurements(rows, sensorContexts = {}, nowMs
     const uplink = Number(source.raw_object?.expected_uplink_interval_s) || expectedUplinkIntervalSec(source.profile);
     const maxAge = sensorMeasurementIntervalSec(metricId, source.profile, uplink) * 2.5 * 1000;
     const age = nowMs - new Date(source.time).getTime();
-    if (!Number.isFinite(age) || age < -60_000 || age > maxAge) continue;
+    if (!Number.isFinite(age) || age < -60_000 || (currentOnly && age > maxAge)) continue;
     output[definition.heatmap.field] = values.get(source)[definition.heatmap.field];
     output.measuredAtByMetric[definition.heatmap.field] = source.time;
     if (metricId === 'soilEc') output.soilEcByDepth = normalizeSoilEcDepths(source.raw_object);
   }
   return output;
+}
+
+export function publicLatestHeatmapMeasurements(rows, sensorContexts = {}, nowMs = Date.now()) {
+  return observedHeatmapMeasurements(rows, sensorContexts, nowMs, true);
+}
+
+// Inspector-only observations retain their real timestamp. They must never be
+// substituted for current measurements used by spatial interpolation.
+export function publicLastObservedHeatmapMeasurements(rows, sensorContexts = {}, nowMs = Date.now()) {
+  return observedHeatmapMeasurements(rows, sensorContexts, nowMs, false);
 }
 
 function publicMapNode(row, recentMeasurements = []) {
@@ -199,7 +209,8 @@ function publicMapNode(row, recentMeasurements = []) {
     measurementHeightsM: measurementHeights(row.sensor_contexts || {}, row),
     installationHeightM: row.installation_height_cm == null ? null : row.installation_height_cm / 100,
     installationConfirmedAt: row.installation_height_recorded_at || null,
-    measurements: publicLatestHeatmapMeasurements(recentMeasurements, row.sensor_contexts || {})
+    measurements: publicLatestHeatmapMeasurements(recentMeasurements, row.sensor_contexts || {}),
+    lastMeasurements: publicLastObservedHeatmapMeasurements(recentMeasurements, row.sensor_contexts || {})
   };
 }
 
@@ -213,6 +224,7 @@ function sanitizeMapForStorage(map, areaId) {
       if (!sensor) return object;
       const {
         measurements: _measurements,
+        lastMeasurements: _lastMeasurements,
         measurementHeightsM: _measurementHeightsM,
         batteryPercent: _batteryPercent,
         lastSeenAt: _lastSeenAt,

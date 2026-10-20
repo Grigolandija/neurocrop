@@ -59,6 +59,7 @@ export type SensorNodeMetadata = {
   snr?: number
   coverageRadiusM?: number
   measurements?: SensorMeasurements
+  lastMeasurements?: SensorMeasurements
 }
 
 export type ObjectMetadata = {

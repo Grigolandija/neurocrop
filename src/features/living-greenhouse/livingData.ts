@@ -1,9 +1,9 @@
 import { createDemoMap } from '../greenhouse-map/demo'
 import { getMetricMeasurementTime, getMetricMeasurementValue } from '../greenhouse-map/heatmap/heatmapMetrics'
-import type { GreenhouseMap, GreenhouseObject, MetricKey } from '../greenhouse-map/model'
+import { METRICS, type GreenhouseMap, type GreenhouseObject, type MetricKey } from '../greenhouse-map/model'
 import type { AreaMapContext, AreaMapHistory } from '../greenhouse-map/services/areaMapRepository'
 
-export const livingMetrics: MetricKey[] = ['air-temperature', 'relative-humidity', 'co2', 'vpd']
+export const livingMetrics = Object.keys(METRICS) as MetricKey[]
 
 // A rendering prototype must never invent positions for unplaced live nodes.
 // Historical observations require the layout that was recorded for that time.
@@ -28,6 +28,7 @@ export function livingMap(context: AreaMapContext, history: AreaMapHistory | nul
       : reading?.measurements
     return { ...o, metadata: { ...o.metadata, sensor: { ...o.metadata.sensor, sensors: o.metadata.sensor?.sensors || [],
       status: frame ? reading ? 'online' : 'stale' : live.get(id)?.status || 'offline', measurements,
+      lastMeasurements: frame ? undefined : live.get(id)?.lastMeasurements,
       lastSeenAt: frame ? undefined : live.get(id)?.lastSeenAt,
       measurementHeightsM: frame
         ? reading?.measurementHeightsM ?? Object.fromEntries(livingMetrics.map(m=>[m,null]))
@@ -46,10 +47,16 @@ export function measuredSensors(map: GreenhouseMap, metric: MetricKey, at: numbe
     const valid = sensor && !['offline', 'stale', 'unassigned'].includes(sensor.status)
       && typeof raw === 'number' && Number.isFinite(raw)
       && Number.isFinite(age) && age >= -60_000 && age <= map.heatmapSettings.maxReadingAgeMinutes * 60_000
+    const previous = sensor?.lastMeasurements ?? sensor?.measurements
+    const lastRaw = getMetricMeasurementValue(previous, metric)
+    const lastTimestamp = getMetricMeasurementTime(previous, metric)
+    const lastAge = lastTimestamp ? at - Date.parse(lastTimestamp) : NaN
+    const lastValue = typeof lastRaw === 'number' && Number.isFinite(lastRaw) && Number.isFinite(lastAge) && lastAge >= -60_000 ? lastRaw : null
     const heights=sensor?.measurementHeightsM
     const height=heights && Object.hasOwn(heights,metric) ? heights[metric] : sensor?.installationHeightM
     const heightM=typeof height==='number' && Number.isFinite(height) && height>=0 && height<=100 ? height : null
-    return { object, value: valid ? raw as number : null, timestamp, heightM }
+    return { object, value: valid ? raw as number : null, timestamp, heightM,
+      lastValue, lastTimestamp, delayed: !valid && lastValue !== null }
   })
 }
 
