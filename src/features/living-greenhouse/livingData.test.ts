@@ -3,6 +3,22 @@ import { livingDemo, livingMap, measuredSensors } from './livingData'
 import { sceneGeometry } from './sceneGeometry'
 
 describe('Living greenhouse evidence boundaries', () => {
+  it('places a door on the same north/east side as the saved 2D plan', () => {
+    const {context}=livingDemo(),map=context.map!
+    map.dimensions={widthM:8,lengthM:5,heightM:4}
+    map.objects=[{id:'north-door',type:'door',name:'North door',xM:6,yM:4.8,widthM:1.4,lengthM:.2,rotationDeg:0,layerId:'structure',locked:true,visible:true,metadata:{}}]
+    const scene=sceneGeometry(map,'air-temperature',Date.parse(context.updatedAt!))
+    const door=[]
+    for(let i=0;i<scene.vertices.length;i+=6) {
+      if(Math.abs(scene.vertices[i+3]-.25)<.0001 && Math.abs(scene.vertices[i+4]-.63)<.0001 && Math.abs(scene.vertices[i+5]-.56)<.0001)door.push(Array.from(scene.vertices.slice(i,i+3)))
+    }
+    expect(door.length).toBeGreaterThan(0)
+    expect(Math.min(...door.map(v=>v[0]))).toBeCloseTo(2)
+    expect(Math.max(...door.map(v=>v[0]))).toBeCloseTo(3.4)
+    expect(Math.min(...door.map(v=>v[2]))).toBeCloseTo(-2.5)
+    expect(Math.max(...door.map(v=>v[2]))).toBeCloseTo(-2.3)
+  })
+
   it('does not place unassigned nodes or reuse readings stored in the map', () => {
     const { context } = livingDemo()
     const placed = context.map!.objects.filter(o => o.type === 'sensor-node')

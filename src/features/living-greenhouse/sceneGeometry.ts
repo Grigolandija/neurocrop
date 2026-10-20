@@ -1,7 +1,7 @@
 import { getStableScale } from '../greenhouse-map/heatmap/heatmapMetrics'
 import type { GreenhouseMap, MetricKey } from '../greenhouse-map/model'
 import { measuredSensors } from './livingData'
-import type { Vec3 } from './sceneMath'
+import { planToScene, type Vec3 } from './sceneMath'
 import type { LivingView } from './spatialEvidence'
 import { createVolumeGrid } from './volumeGrid'
 
@@ -72,8 +72,12 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   // Footprints and rotations come from the saved plan; plant forms are illustrative.
   for (const object of map.objects) {
     const { type, widthM: ow, lengthM: ol, xM, yM, rotationDeg } = object
-    const rot = rotationDeg * Math.PI / 180
-    const pos = (x: number, z: number): [number,number] => [xM + x*Math.cos(rot)-z*Math.sin(rot)-w/2, yM + x*Math.sin(rot)+z*Math.cos(rot)-l/2]
+    const angle = rotationDeg * Math.PI / 180
+    const rot = -angle
+    const pos = (x: number, y: number): [number,number] => {
+      const [sx,,sz]=planToScene(xM+x*Math.cos(angle)-y*Math.sin(angle),yM+x*Math.sin(angle)+y*Math.cos(angle),0,map.dimensions)
+      return [sx,sz]
+    }
     const [x,z] = pos(ow/2,ol/2)
     if (['growing-table','rack','growing-bed','hydroponic-channel'].includes(type)) {
       const level = type === 'growing-bed' ? .16 : .72
@@ -98,7 +102,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   }
   for (const [y,z] of [[eave,-l/2],[h,0],[eave,l/2],[eave+(h-eave)*.5,-l/4],[eave+(h-eave)*.5,l/4]]) beam([-w/2,y,z],[w/2,y,z],r*.7,white)
   for (const s of sensors) {
-    const x=s.object.xM+s.object.widthM/2-w/2, z=s.object.yM+s.object.lengthM/2-l/2
+    const [x,,z]=planToScene(s.object.xM+s.object.widthM/2,s.object.yM+s.object.lengthM/2,0,map.dimensions)
     const y=s.heightM ?? 0
     const color: Color=s.value===null ? s.lastValue!==null ? [.78,.60,.32] : [.4,.46,.44] : climateColor(s.value,scale.min,scale.max)
     box(x,y/2,z,.035,y,.035,steel)

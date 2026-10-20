@@ -20,7 +20,7 @@ fn colorAt(t: f32) -> vec3f {
 fn sampleField(p: vec3f) -> vec4f {
   if(abs(p.x)>u.bounds.x/2 || abs(p.z)>u.bounds.y/2 || p.y<0 || p.y>u.bounds.z*(1-.32*abs(p.z)/(u.bounds.y/2))){return vec4f(0);}
   let size=vec2f(textureDimensions(field));let rows=size.y/f32(${VOLUME_LAYERS});
-  let cell=clamp(vec2f(p.x/u.bounds.x+.5,p.z/u.bounds.y+.5),vec2f(.5)/vec2f(size.x,rows),vec2f(1)-vec2f(.5)/vec2f(size.x,rows));
+  let cell=clamp(vec2f(p.x/u.bounds.x+.5,.5-p.z/u.bounds.y),vec2f(.5)/vec2f(size.x,rows),vec2f(1)-vec2f(.5)/vec2f(size.x,rows));
   let y=clamp(p.y/u.bounds.z*f32(${VOLUME_LAYERS})-.5,0.0,f32(${VOLUME_LAYERS}-1));
   let lower=floor(y);let upper=min(lower+1,f32(${VOLUME_LAYERS}-1));
   let a=textureSampleLevel(field,fieldSampler,vec2f(cell.x,(lower+cell.y)/f32(${VOLUME_LAYERS})),0);
@@ -71,7 +71,7 @@ vec3 colorAt(float t){
 vec4 sampleField(vec3 p){
   if(abs(p.x)>bounds.x/2. || abs(p.z)>bounds.y/2. || p.y<0. || p.y>bounds.z*(1.-.32*abs(p.z)/(bounds.y/2.)))return vec4(0.);
   vec2 size=vec2(textureSize(field,0));float rows=size.y/float(${VOLUME_LAYERS});
-  vec2 cell=clamp(vec2(p.x/bounds.x+.5,p.z/bounds.y+.5),vec2(.5)/vec2(size.x,rows),vec2(1.)-vec2(.5)/vec2(size.x,rows));
+  vec2 cell=clamp(vec2(p.x/bounds.x+.5,.5-p.z/bounds.y),vec2(.5)/vec2(size.x,rows),vec2(1.)-vec2(.5)/vec2(size.x,rows));
   float y=clamp(p.y/bounds.z*float(${VOLUME_LAYERS})-.5,0.,float(${VOLUME_LAYERS}-1));
   float lower=floor(y),upper=min(lower+1.,float(${VOLUME_LAYERS}-1));
   vec4 a=texture(field,vec2(cell.x,(lower+cell.y)/float(${VOLUME_LAYERS}))),b=texture(field,vec2(cell.x,(upper+cell.y)/float(${VOLUME_LAYERS})));

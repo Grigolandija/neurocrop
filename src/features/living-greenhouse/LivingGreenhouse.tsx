@@ -6,7 +6,7 @@ import { areaMapRepository, type AreaMapContext, type AreaMapHistory, type AreaS
 import { createLivingScene, type LivingScene } from './gpuScene'
 import { livingDemo, livingMap, livingMetrics, measuredSensors } from './livingData'
 import { climateColor, sceneGeometry } from './sceneGeometry'
-import { project } from './sceneMath'
+import { planToScene, project } from './sceneMath'
 import { liveTarget, verticalComparisons, type LivingView } from './spatialEvidence'
 import './living-greenhouse.css'
 
@@ -110,7 +110,7 @@ export default function LivingGreenhouse({ demoOnly = false }: { demoOnly?: bool
       for (const s of currentGeometry.current?.sensors || []) {
         const button = pins.current.get(s.object.id)
         if (!button) continue
-        const p = project([s.object.xM+s.object.widthM/2-d.widthM/2, (s.heightM ?? 0)+.3, s.object.yM+s.object.lengthM/2-d.lengthM/2], matrix, width, height)
+        const p = project(planToScene(s.object.xM+s.object.widthM/2,s.object.yM+s.object.lengthM/2,(s.heightM ?? 0)+.3,d), matrix, width, height)
         button.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -100%)`
         button.style.visibility = p.visible && p.x>0 && p.x<width && p.y>0 && p.y<height ? 'visible' : 'hidden'
       }

@@ -98,6 +98,11 @@ test('3D demonstration renders, selects sensors and plays recorded intervals wit
   await page.getByRole('button',{name:'Pristabdyti'}).click()
   await page.locator('#living-time').fill('64')
   await page.getByRole('button',{name:'Vaizdas iš viršaus',exact:true}).click()
+  // The saved plan uses Cartesian Y: DEMO-03 at Y=9 must stay above
+  // DEMO-01 at Y=2; increasing plan X must still move to the right.
+  const pin=(id:string)=>page.getByRole('button',{name:new RegExp(`NSN-DEMO-${id}:`)})
+  await expect.poll(async()=>((await pin('03').boundingBox())?.y || 0)-((await pin('01').boundingBox())?.y || 0)).toBeLessThan(-20)
+  expect((await pin('02').boundingBox())!.x).toBeGreaterThan((await pin('01').boundingBox())!.x)
   await page.getByRole('button',{name:'Pradinis vaizdas',exact:true}).click()
   await page.waitForTimeout(300)
   await page.screenshot({path:'/tmp/neurocrop-living-desktop.png',fullPage:true})
@@ -202,7 +207,9 @@ test('delayed Node readings stay visible with their age and never enter the curr
     schemaVersion:1,id:'map',name:'Greenhouse',dimensions:{widthM:8,lengthM:5,heightM:3.7},shape:{type:'rectangle'},gridSizeM:.5,orientationDeg:0,wallThicknessM:.01,createdAt:now,updatedAt:now,
     layers:[{id:'sensors',visible:true,opacity:1}],heatmapSettings:{enabled:true,metric:'air-temperature',interpolationMethod:'idw',idwPower:2,cellSizeM:.25,nearestSensorCount:5,minimumSensorCount:2,maxInfluenceDistanceM:10,maxReadingAgeMinutes:30,opacity:.88,scaleMode:'auto',showConfidence:true},
     objects:[...nodes.map((n,i)=>({id:`sensor-${i}`,type:'sensor-node',name:n.displayName,xM:positions[i][0],yM:positions[i][1],widthM:.2,lengthM:.2,rotationDeg:0,visible:true,layerId:'sensors',metadata:{sensor:n}})),
-      ...[.6,3.2].map((y,i)=>({id:`bed-${i}`,type:'growing-table',name:'Bed',xM:.6,yM:y,widthM:6.5,lengthM:1.1,rotationDeg:0,visible:true,layerId:'sensors',metadata:{}}))],
+      ...[.6,3.2].map((y,i)=>({id:`bed-${i}`,type:'growing-table',name:'Bed',xM:.6,yM:y,widthM:6.5,lengthM:1.1,rotationDeg:0,visible:true,layerId:'sensors',metadata:{}})),
+      {id:'north-door',type:'door',name:'North door',xM:6.8,yM:4.8,widthM:1,lengthM:.2,rotationDeg:0,visible:true,layerId:'sensors',metadata:{}},
+      {id:'east-door',type:'door',name:'East door',xM:7.8,yM:1.5,widthM:.2,lengthM:2,rotationDeg:0,visible:true,layerId:'sensors',metadata:{}}],
   }}
   await page.route('**/runtime-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.NEUROCROP_CONFIG={apiBaseUrl:'http://delayed.test'};"}))
   await page.route('http://delayed.test/**',async r=>{
