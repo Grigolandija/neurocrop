@@ -17,7 +17,11 @@ export function climateColor(value: number, min: number, max: number): Color {
 export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number, scaleOverride?: { min: number; max: number }, options: {view:LivingView; attentionIds?:Set<string>} = {view:'volume'}) {
   const data: number[] = []
   const w = map.dimensions.widthM, l = map.dimensions.lengthM, size = Math.max(w, l)
-  const h = map.dimensions.heightM || Math.min(5, Math.max(2.5, size * .17))
+  const sensors = measuredSensors(map, metric, at)
+  // An illustrative roof must not cut off a Node whose measured height is known.
+  // A configured greenhouse height remains authoritative.
+  const nodeEnvelope = sensors.reduce((height,s)=>s.heightM===null ? height : Math.max(height,(s.heightM+.3)/(1-.32*Math.min(1,Math.abs(s.object.yM+s.object.lengthM/2-l/2)/(l/2)))),0)
+  const h = map.dimensions.heightM || Math.max(Math.min(5, Math.max(2.5, size * .17)),nodeEnvelope)
   const white: Color = [.39, .55, .50], steel: Color = [.25, .37, .34], green: Color = [.20, .32, .27]
   const triangle = (a: Vec3, b: Vec3, c: Vec3, color: Color, shade = 1) => {
     for (const p of [a, b, c]) data.push(...p, ...color.map(n => n * shade))
@@ -50,7 +54,6 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   const step = Math.max(1, Math.ceil(size / 35))
   for (let x = 0; x <= w; x += step) box(x-w/2,0,0,.012,.012,l,[.28,.37,.35])
   for (let z = 0; z <= l; z += step) box(0,0,z-l/2,w,.012,.012,[.28,.37,.35])
-  const sensors = measuredSensors(map, metric, at)
   const values = sensors.flatMap(s => s.value === null ? [] : [s.value])
   const scale = scaleOverride || getStableScale(values, metric)
   const grid = createVolumeGrid(map, options.view==='volume' ? sensors : [], h)
@@ -59,7 +62,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   for(let i=0;i<grid.values.length;i++) {
     if(!grid.mask[i])continue
     const normalized=Math.max(0,Math.min(1,(grid.values[i]-scale.min)/(scale.max-scale.min || 1)))
-    pixels.set([Math.round(normalized*255),Math.round(grid.confidence[i]*255),0,255],i*4)
+    pixels.set([Math.round(normalized*255),Math.round(grid.confidence[i]*255),grid.extrapolated[i]*255,255],i*4)
   }
   // Show actual measured levels automatically, never a user-selected height.
   const heights=sensors.filter(s=>s.value!==null && s.heightM!==null && s.heightM<=h).map(s=>s.heightM!).sort((a,b)=>a-b)
@@ -111,5 +114,5 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     box(x,y,z,.18,.16,.18,color)
     box(x,.025,z,.28,.03,.28,color)
   }
-  return { vertices: new Float32Array(data), volume, sensors, scale, height: h, volumeReady: grid.mask.some(Boolean), knownHeights: grid.knownCount, heightRange: grid.heightRange, coverage: grid.mask.filter(Boolean).length / Math.max(1,grid.mask.length) }
+  return { vertices: new Float32Array(data), volume, sensors, scale, height: h, volumeReady: grid.mask.some(Boolean), knownHeights: grid.knownCount, heightRange: grid.heightRange, coverage: grid.mask.filter(Boolean).length / Math.max(1,grid.mask.length), modeledFraction:grid.extrapolated.filter(Boolean).length/Math.max(1,grid.mask.filter(Boolean).length) }
 }

@@ -35,4 +35,13 @@ describe('spatial evidence',()=>{
     delete history.frames[0].nodes[0].measurementHeightsM;
     expect(measuredSensors(livingMap(context,history,0)!,'air-temperature',Date.parse(history.from)+900000)[0].heightM).toBeNull();
   })
+  it('keeps high Nodes inside an illustrative roof instead of clipping their measurements',()=>{
+    const {context}=livingDemo();delete context.map!.dimensions.heightM
+    context.nodes[0].measurementHeightsM={'air-temperature':3.5}
+    const map=livingMap(context,null,null)!,at=Date.parse(context.updatedAt!)
+    const scene=sceneGeometry(map,'air-temperature',at)
+    const node=scene.sensors[0],z=node.object.yM+node.object.lengthM/2
+    expect(scene.height*(1-.32*Math.abs(z-map.dimensions.lengthM/2)/(map.dimensions.lengthM/2))).toBeGreaterThan(3.5)
+    expect(scene.knownHeights).toBe(6)
+  })
 })

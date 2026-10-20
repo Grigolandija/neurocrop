@@ -36,6 +36,7 @@ async function webgpu(onLost: () => void): Promise<Backend> {
     ` })
     const pipeline = await device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: shader, entryPoint: 'vertexMain', buffers: [{ arrayStride: 24, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x3' }] }] }, fragment: { module: shader, entryPoint: 'fragmentMain', targets: [{ format }] }, primitive: { topology: 'triangle-list', cullMode: 'none' }, depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' } })
     const volumeShader = device.createShaderModule({ code: volumeWgsl })
+    const fieldSampler = device.createSampler({minFilter:'linear',magFilter:'linear'})
     const volumePipeline = await device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: volumeShader, entryPoint: 'vertexMain' }, fragment: { module: volumeShader, entryPoint: 'fragmentMain', targets: [{ format }] } })
     const uniform = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
     const volumeUniform = device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
@@ -47,6 +48,7 @@ async function webgpu(onLost: () => void): Promise<Backend> {
       volumeGroup = device.createBindGroup({ layout: volumePipeline.getBindGroupLayout(0), entries: [
         { binding: 0, resource: { buffer: volumeUniform } }, { binding: 1, resource: color.createView() },
         { binding: 2, resource: depth.createView() }, { binding: 3, resource: fieldTexture.createView() },
+        { binding: 4, resource: fieldSampler },
       ] })
     }
     void device.lost.then(info => { if (!disposed && info.reason !== 'destroyed') onLost() })
@@ -111,7 +113,7 @@ function webgl(): Backend {
   for (const [name, offset] of [['position', 0], ['color', 12]] as const) { const location = gl.getAttribLocation(program, name); gl.enableVertexAttribArray(location); gl.vertexAttribPointer(location, 3, gl.FLOAT, false, 24, offset) }
   const matrixLocation = gl.getUniformLocation(program, 'matrix')
   const inverseLocation = gl.getUniformLocation(volumeProgram, 'inverseCamera'), boundsLocation = gl.getUniformLocation(volumeProgram, 'bounds')
-  const levelsLocation = gl.getUniformLocation(volumeProgram, 'levels[0]')
+  const levelsLocation = gl.getUniformLocation(volumeProgram, 'referenceHeight')
   gl.useProgram(volumeProgram)
   for (const [i, name] of ['sceneColor', 'sceneDepth', 'field'].entries()) gl.uniform1i(gl.getUniformLocation(volumeProgram, name), i)
   const framebuffer = gl.createFramebuffer()!
@@ -122,6 +124,7 @@ function webgl(): Backend {
     return t
   }
   const color = texture(), depth = texture(), fieldTexture = texture()
+  gl.bindTexture(gl.TEXTURE_2D,fieldTexture); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR)
   let count = 0, bounds = [1, 1, 1], levels = Array(8).fill(-1000)
   gl.clearColor(clear.r, clear.g, clear.b, 1)
   return {
@@ -144,7 +147,7 @@ function webgl(): Backend {
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer); gl.enable(gl.DEPTH_TEST); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       gl.useProgram(program); gl.bindVertexArray(vao); gl.uniformMatrix4fv(matrixLocation, false, matrix); gl.drawArrays(gl.TRIANGLES, 0, count)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.disable(gl.DEPTH_TEST); gl.useProgram(volumeProgram); gl.bindVertexArray(screenVao)
-      gl.uniformMatrix4fv(inverseLocation, false, inverseMatrix(matrix)); gl.uniform4f(boundsLocation, ...bounds as [number,number,number], presentation); gl.uniform1fv(levelsLocation, levels)
+      gl.uniformMatrix4fv(inverseLocation, false, inverseMatrix(matrix)); gl.uniform4f(boundsLocation, ...bounds as [number,number,number], presentation); gl.uniform1f(levelsLocation, levels[0])
       for (const [i,t] of [color, depth, fieldTexture].entries()) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t) }
       gl.drawArrays(gl.TRIANGLES, 0, 3)
     },

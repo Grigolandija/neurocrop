@@ -17,19 +17,44 @@ describe('measured XYZ climate field',()=>{
     const {map,readings}=fixture(),grid=createVolumeGrid(map,readings,4.2)
     const low=valueAt(grid,10,5,1.3)!,high=valueAt(grid,10,5,2.7)!
     expect(low).not.toBeNull();expect(high).not.toBeNull();expect(high).toBeGreaterThan(low)
-    expect(valueAt(grid,10,5,.2)).toBeNull();expect(valueAt(grid,10,5,3.8)).toBeNull()
+    expect(valueAt(grid,10,5,.2)).not.toBeNull();expect(valueAt(grid,10,5,3.8)).not.toBeNull()
   })
   it('changing only Node heights changes the spatial result',()=>{
     const {map,readings}=fixture(),before=createVolumeGrid(map,readings,4.2)
     readings.forEach(r=>{r.heightM=1.5})
     const after=createVolumeGrid(map,readings,4.2)
-    expect(valueAt(before,10,5,2.7)).not.toBeNull();expect(valueAt(after,10,5,2.7)).toBeNull()
+    expect(valueAt(before,10,5,2.7)).not.toBe(valueAt(after,10,5,2.7))
     expect(valueAt(after,10,5,1.5)).not.toBeNull()
   })
-  it('never extends a single height across the whole greenhouse volume',()=>{
+  it('fills the envelope from one measured level while explicitly lowering support elsewhere',()=>{
     const {map,readings}=fixture();readings.forEach(r=>{r.heightM=1.5})
     const grid=createVolumeGrid(map,readings,4.2)
-    expect(valueAt(grid,10,5,.5)).toBeNull();expect(valueAt(grid,10,5,3)).toBeNull()
+    expect(valueAt(grid,10,5,.5)).not.toBeNull();expect(valueAt(grid,10,5,3)).not.toBeNull()
+    const at=(height:number)=>(Math.floor(height/4.2*grid.layers)*grid.depth+Math.floor(5/12*grid.depth))*grid.width+Math.floor(10/20*grid.width)
+    expect(grid.extrapolated[at(.5)]).toBe(1)
+    expect(grid.confidence[at(.5)]).toBeLessThan(grid.confidence[at(1.5)])
+  })
+  it('covers every interior voxel, including corners outside the sensor hull and the old radius',()=>{
+    const {map,readings}=fixture()
+    map.heatmapSettings.maxInfluenceDistanceM=.2
+    const grid=createVolumeGrid(map,readings,4.2)
+    for(let y=0;y<grid.layers;y++)for(let z=0;z<grid.depth;z++)for(let x=0;x<grid.width;x++){
+      const height=(y+.5)*4.2/grid.layers,roof=4.2*(1-.32*Math.abs((z+.5)*12/grid.depth-6)/6)
+      const i=(y*grid.depth+z)*grid.width+x
+      if(height>roof){expect(grid.mask[i]).toBe(0);continue}
+      expect(grid.mask[i]).toBe(1)
+      expect(grid.values[i]).toBeGreaterThanOrEqual(20)
+      expect(grid.values[i]).toBeLessThanOrEqual(30.00001)
+    }
+    expect(valueAt(grid,.2,.2,.2)).not.toBeNull()
+  })
+  it('uses each independent XYZ location when every Node has a different height',()=>{
+    const {map,readings}=fixture()
+    readings.forEach((r,i)=>{r.heightM=.4+i*.5;r.value=17+i*2})
+    const before=createVolumeGrid(map,readings,4.2)
+    const first=readings[0].heightM;readings[0].heightM=readings[5].heightM;readings[5].heightM=first
+    const after=createVolumeGrid(map,readings,4.2)
+    expect(valueAt(before,3.2,2.2,.5)).not.toBeCloseTo(valueAt(after,3.2,2.2,.5)!,1)
   })
   it('excludes unknown heights and blocks interpolation through a partition',()=>{
     const {map,readings}=fixture();readings.forEach(r=>{r.heightM=null})

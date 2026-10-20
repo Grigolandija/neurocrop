@@ -78,6 +78,7 @@ test('3D demonstration renders, selects sensors and plays recorded intervals wit
   await expect(page.locator('.nc-living-engine')).toHaveText('WebGPU',{timeout:20000})
   await expect(page.locator('.nc-living-empty')).toHaveCount(0)
   await expect(page.locator('.nc-living-pin')).toHaveCount(6)
+  await expect(page.locator('.nc-living-scene-caption')).toContainText('Visas tūris: 0–4,2 m')
   await expect(page.getByRole('button',{name:/^(Mikroklimatas|Microclimate)$/})).toHaveAttribute('aria-pressed','true')
   await expectVolumeChangesPixels(page)
   await expect(page.getByRole('button',{name:'Matavimai',exact:true})).toHaveAttribute('aria-pressed','true')
