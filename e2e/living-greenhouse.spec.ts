@@ -5,6 +5,9 @@ import { graphicsOptions } from './support/graphics'
 test.use(graphicsOptions)
 
 async function expectVolumeChangesPixels(page: Page) {
+  // This must be a context option: an ignored test option lets the camera intro
+  // change the baseline while the software renderer is taking its first frame.
+  expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true)
   const canvas=page.locator('.nc-living-canvas canvas')
   const mode=page.getByRole('group',{name:/Mikroklimato vaizdavimas|Climate visualization/})
   const capture=async()=>{
