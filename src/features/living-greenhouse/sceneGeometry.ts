@@ -22,7 +22,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   // A configured greenhouse height remains authoritative.
   const nodeEnvelope = sensors.reduce((height,s)=>s.heightM===null ? height : Math.max(height,(s.heightM+.3)/(1-.32*Math.min(1,Math.abs(s.object.yM+s.object.lengthM/2-l/2)/(l/2)))),0)
   const h = map.dimensions.heightM || Math.max(Math.min(5, Math.max(2.5, size * .17)),nodeEnvelope)
-  const white: Color = [.39, .55, .50], steel: Color = [.25, .37, .34], green: Color = [.20, .32, .27]
+  const white: Color = [.39, .55, .50], steel: Color = [.25, .37, .34], green: Color = [.52, .63, .48]
   const triangle = (a: Vec3, b: Vec3, c: Vec3, color: Color, shade = 1) => {
     for (const p of [a, b, c]) data.push(...p, ...color.map(n => n * shade))
   }
@@ -49,11 +49,11 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     quad(p(a,-1,1),p(a,-1,-1),p(b,-1,-1),p(b,-1,1),color,.85)
   }
   // Floating architectural plinth and recessed floor grid.
-  box(0,-.30,0,w + .8,.5,l + .8,[.16,.26,.26])
-  box(0,-.04,0,w,.06,l,[.22,.32,.31])
+  box(0,-.30,0,w + .8,.5,l + .8,[.73,.79,.73])
+  box(0,-.04,0,w,.06,l,[.84,.87,.82])
   const step = Math.max(1, Math.ceil(size / 35))
-  for (let x = 0; x <= w; x += step) box(x-w/2,0,0,.012,.012,l,[.28,.37,.35])
-  for (let z = 0; z <= l; z += step) box(0,0,z-l/2,w,.012,.012,[.28,.37,.35])
+  for (let x = 0; x <= w; x += step) box(x-w/2,0,0,.012,.012,l,[.76,.81,.75])
+  for (let z = 0; z <= l; z += step) box(0,0,z-l/2,w,.012,.012,[.76,.81,.75])
   const values = sensors.flatMap(s => s.value === null ? [] : [s.value])
   const scale = scaleOverride || getStableScale(values, metric)
   const grid = createVolumeGrid(map, options.view==='volume' ? sensors : [], h)
@@ -81,13 +81,13 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     const [x,z] = pos(ow/2,ol/2)
     if (['growing-table','rack','growing-bed','hydroponic-channel'].includes(type)) {
       const level = type === 'growing-bed' ? .16 : .72
-      box(x,level,z,ow,.18,ol,[.32,.44,.39],rot)
+      box(x,level,z,ow,.18,ol,[.66,.74,.65],rot)
       for (const px of [.1,ow-.1]) for (const pz of [.1,ol-.1]) { const [a,b]=pos(px,pz); box(a,level/2,b,.06,level,.06,steel) }
       // A neutral canopy surface keeps the saved layout legible through the volume.
       box(x,level+.12,z,Math.max(.05,ow-.1),.06,Math.max(.05,ol-.1),green,rot)
-    } else if (type==='partition') box(x,h*.32,z,ow,h*.64,Math.max(.05,ol),[.35,.44,.41],rot)
+    } else if (type==='partition') box(x,h*.32,z,ow,h*.64,Math.max(.05,ol),[.74,.79,.73],rot)
     else if (type==='door') { box(x,1.05,z,ow,2.1,Math.max(.07,ol),[.25,.63,.56],rot); box(x,2.14,z,ow+.1,.07,Math.max(.1,ol),white,rot) }
-    else if (type==='walkway') box(x,.018,z,ow,.02,ol,[.28,.36,.34],rot)
+    else if (type==='walkway') box(x,.018,z,ow,.02,ol,[.88,.90,.86],rot)
     else if (type==='reservoir') box(x,.5,z,ow,1,ol,[.41,.63,.65],rot)
     else if (['heater','cooling-unit','electrical-cabinet','irrigation-unit'].includes(type)) box(x,.45,z,ow,.9,ol,steel,rot)
     else if (['fan','lamp','window','ventilation-opening'].includes(type)) box(x,h*.55,z,ow,.18,ol,white,rot)

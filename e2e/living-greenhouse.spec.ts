@@ -47,8 +47,8 @@ async function expectVolumeChangesPixels(page: Page) {
   await mode.getByRole('button',{name:/^(Matavimai|Measurements)$/}).click()
   const points=await capture()
   const baseline=await compare(points,points)
-  // A white compositor placeholder and an empty dark canvas must both fail.
-  expect(baseline.backgroundBrightness).toBeLessThan(250)
+  // A light canvas must contain actual geometry, not an empty compositor placeholder.
+  expect(baseline.backgroundBrightness).toBeGreaterThan(650)
   expect(baseline.modelFraction).toBeGreaterThan(.03)
   await mode.getByRole('button',{name:/^(Mikroklimatas|Microclimate)$/}).click()
   let volume=points,metrics=baseline
@@ -233,6 +233,7 @@ test('delayed Node readings stay visible with their age and never enter the curr
   await expect(page.getByRole('combobox',{name:'Metric'}).getByRole('option',{name:'Substrate temperature',exact:true})).toHaveCount(1)
   await page.screenshot({path:'/tmp/neurocrop-living-contours.png',fullPage:true,animations:'disabled'})
   await page.setViewportSize({width:390,height:844})
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
   await expect.poll(()=>page.locator('.nc-living-pin:visible').count()).toBe(6)
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   await page.screenshot({path:'/tmp/neurocrop-living-contours-mobile.png',fullPage:true,animations:'disabled'})

@@ -12,7 +12,8 @@ type Backend = {
   resize: () => void
   dispose: () => void
 }
-const clear = { r: .032, g: .075, b: .073, a: 1 }
+// Match the light NeuroCrop workspace in both graphics backends.
+const clear = { r: .965, g: .973, b: .953, a: 1 }
 
 async function webgpu(onLost: () => void): Promise<Backend> {
   const adapter = await navigator.gpu?.requestAdapter({ powerPreference: 'low-power' })
