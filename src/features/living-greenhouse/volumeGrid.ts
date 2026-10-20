@@ -35,7 +35,7 @@ export function createVolumeGrid(map: GreenhouseMap, readings: SensorReading[], 
     if(barriers.some(p=>pointInPolygon(position,p)))continue
     const zone=zones.find(zone=>pointInPolygon(position,zone.polygon))?.id
     const horizontal=sources.flatMap(s=>{
-      if(zones.length && s.zone!==zone)return []
+      if(zone && s.zone!==zone)return []
       if(barriers.some(p=>segmentCrossesPolygon(position,{xM:s.x,yM:s.z},p)))return []
       return [{source:s,distance:Math.hypot(s.x-position.xM,s.z-position.yM)}]
     }).sort((a,b)=>a.distance-b.distance)
