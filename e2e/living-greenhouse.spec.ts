@@ -1,29 +1,14 @@
-/// <reference types="@webgpu/types" />
 import { test, expect, type Page } from '@playwright/test'
 
 import { graphicsOptions } from './support/graphics'
 
 test.use(graphicsOptions)
 
-// A DOM paint does not imply that an asynchronous WebGPU submission finished.
-// Fence the real queues in the test, without adding test hooks to the product.
-test.beforeEach(async({page})=>{
-  await page.addInitScript(()=>{
-    const queues=new Set<GPUQueue>()
-    if(typeof GPUQueue!=='undefined'){
-      const submit=GPUQueue.prototype.submit
-      GPUQueue.prototype.submit=function(buffers){queues.add(this);return submit.call(this,buffers)}
-    }
-    Object.defineProperty(window,'waitForLivingGpu',{value:()=>Promise.all([...queues].map(queue=>queue.onSubmittedWorkDone()))})
-  })
-})
-
 async function expectVolumeChangesPixels(page: Page) {
   const canvas=page.locator('.nc-living-canvas canvas')
   const mode=page.getByRole('group',{name:/Mikroklimato vaizdavimas|Climate visualization/})
   const capture=async()=>{
     await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
-    await page.evaluate(async()=>{const state=window as typeof window & {waitForLivingGpu?:()=>Promise<unknown>};await state.waitForLivingGpu?.()})
     await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
     return canvas.screenshot({animations:'disabled',style:'.nc-living-pin, .nc-living-scene-caption, .nc-living-legend, .nc-living-point-key, .nc-living-view-controls { visibility: hidden !important; }'})
   }

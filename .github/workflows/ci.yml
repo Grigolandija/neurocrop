@@ -170,6 +170,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      - name: Install software Vulkan and virtual display
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers xvfb xauth
       - name: Prepare backend
         working-directory: backend
         run: npm ci --ignore-scripts && npm run migrate && node scripts/seed-ci-tenants.mjs
