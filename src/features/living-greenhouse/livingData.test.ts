@@ -3,6 +3,14 @@ import { livingDemo, livingMap, measuredSensors } from './livingData'
 import { sceneGeometry } from './sceneGeometry'
 
 describe('Living greenhouse evidence boundaries', () => {
+  it('adds no stands or duplicate 3D geometry for Nodes represented by projected points', () => {
+    const {context}=livingDemo(),map=livingMap(context,null,null)!,at=Date.parse(context.updatedAt!)
+    const withNodes=sceneGeometry(map,'air-temperature',at,{min:18,max:30},{view:'points'})
+    const withoutNodes=sceneGeometry({...map,objects:map.objects.filter(o=>o.type!=='sensor-node')},'air-temperature',at,{min:18,max:30},{view:'points'})
+    expect(withNodes.sensors).toHaveLength(6)
+    expect(withNodes.vertices).toEqual(withoutNodes.vertices)
+  })
+
   it('places a door on the same north/east side as the saved 2D plan', () => {
     const {context}=livingDemo(),map=context.map!
     map.dimensions={widthM:8,lengthM:5,heightM:4}

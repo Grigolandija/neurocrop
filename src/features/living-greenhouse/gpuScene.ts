@@ -195,6 +195,7 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
   }
   raf=requestAnimationFrame(draw)
   return { name:backend.name,
+    invalidate() { dirty=true },
     update(vertices:Float32Array,nextSize:number,field:VolumeField) { backend.upload(vertices,field); size=nextSize; dirty=true },
     setPresentation(view:LivingView) { presentation=view==='volume' ? 1 : 0; dirty=true },
     reset(top=false) { elevation=top ? 1.47 : .70; azimuth=top ? 0 : .67; zoom=1; dirty=true },

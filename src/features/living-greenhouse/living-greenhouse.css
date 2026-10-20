@@ -6,12 +6,6 @@
 .nc-living button:disabled { opacity: .35; cursor: default; }
 .nc-living :is(button,a,select,input):focus-visible { outline: 2px solid var(--living-mint); outline-offset: 4px; }
 .nc-living a { color: inherit; text-decoration: none; }
-@media (max-width: 600px) {
-  .nc-living .nc-living-pin { height: 20px; min-width: 20px; padding: 0 4px; gap: 0; border-radius: 50%; }
-  .nc-living .nc-living-pin > i,
-  .nc-living .nc-living-pin > span:not(.nc-living-pin-id) { display: none; }
-  .nc-living .nc-living-pin > .nc-living-pin-id { display: block; font-size: 10px; }
-}
 .nc-living .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .nc-living-topbar { display: flex; align-items: center; gap: 18px; height: 76px; border-bottom: 1px solid var(--living-line); }
 .nc-living-brand { display: flex; align-items: center; gap: 10px; font-size: 19px !important; font-weight: 600 !important; letter-spacing: -.5px; }
@@ -42,8 +36,6 @@
 .nc-living-time-mode button[aria-pressed="true"] { background: #e1ece3; color: #224f3a; box-shadow: 0 1px 4px #1b3f2b0a; }
 .nc-living-volume-mode button > i { font-size: 10px; margin-right: 3px; }
 .nc-living-volume-note { display: block; margin-top: 10px; max-width: 350px; color: #62736b; font-size: 10px; line-height: 1.5; }
-.nc-living-pin[data-attention="true"] { border-color: #9a651a; color: #805416; background: #fff5df; }
-.nc-living-pin[data-attention="true"] > i { background: #9a651a; }
 .nc-living-big-number[data-range="true"] { font-size: 31px; letter-spacing: -1px; }
 .nc-living-comparison { margin: 15px 0; border: 1px solid #cfdfce; border-radius: 7px; padding: 12px; background: #eef5ee; }
 .nc-living-comparison > span { display: block; color: var(--living-mute); font-size: 8px; letter-spacing: 1.2px; }
@@ -68,15 +60,30 @@
 .nc-living-scene-caption { position: absolute; top: 28px; left: 28px; pointer-events: none; }
 .nc-living-scene-caption > span { display: flex; align-items: center; gap: 7px; font-size: 9px; color: var(--living-mute); letter-spacing: 1.5px; }
 .nc-living-scene-caption p { margin: 9px 0 0; color: #40594c; font-size: 14px; font-weight: 300; }
-.nc-living-pin { position: absolute; z-index: 2; top: 0; left: 0; visibility: hidden; display: flex; align-items: center; gap: 6px; height: 30px; border: 1px solid #b7cbbd; border-radius: 6px; padding: 0 8px; color: #243f30; background: #fffffff2; box-shadow: 0 3px 15px #233b2820; white-space: nowrap; }
-.nc-living-pin > i { width: 4px; height: 4px; border-radius: 50%; background: var(--living-mint); }
-.nc-living-pin > span { font-size: 12px; font-variant-numeric: tabular-nums; }
-.nc-living-pin small { margin-left: 3px; color: #62736b; font-size: 9px; }
-.nc-living-pin b { position: absolute; top: calc(100% + 7px); left: 50%; transform: translateX(-50%); display: none; padding: 5px 7px; border-radius: 4px; font-size: 9px; font-weight: 500; color: #243f30; background: #fffffff5; }
-.nc-living-pin:is(:hover,:focus-visible,[data-selected="true"]) { border-color: var(--living-mint); background: #e6f1e7; z-index: 4; }
-.nc-living-pin:is(:hover,:focus-visible,[data-selected="true"]) b { display: block; }
-.nc-living-pin[data-missing="true"] { border-color: #c6d0c7; background: #edf1ed; color: #65766b; }
-.nc-living-pin[data-missing="true"] > i { background: #778b7d; }
+/* One screen-sized point at the saved XYZ position; details are on demand. */
+.nc-living-pin { position: absolute; z-index: 2; top: 0; left: 0; visibility: hidden; display: grid; place-items: center; width: 28px; height: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--living-ink); touch-action: manipulation; }
+.nc-living-pin > i { display: block; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #536c5d90, 0 1px 4px #233b2820; }
+.nc-living-pin[data-attention="true"] > i { outline: 2px solid #9a651a; outline-offset: 1px; }
+.nc-living-pin[data-delayed="true"] > i, .nc-living-pin[data-height-unknown="true"] > i { outline: 1px dashed #9a6a20; outline-offset: 2px; }
+.nc-living-pin[data-missing="true"] > i { opacity: .65; }
+.nc-living-pin-label { display: none; position: absolute; bottom: calc(50% + 12px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 245px; padding: 9px 12px; border: 1px solid #cbd9ce; border-radius: 8px; background: #fffffff5; box-shadow: 0 4px 16px #233b2818; text-align: left; overflow-wrap: anywhere; pointer-events: none; }
+.nc-living-pin-label > strong { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 600; }
+.nc-living-pin-label > span { display: block; font-size: 14px; font-variant-numeric: tabular-nums; }
+.nc-living-pin-label small { color: var(--living-mute); font-size: 10px; }
+.nc-living-pin-label > small { display: block; margin-top: 4px; }
+.nc-living-pin-label .nc-living-pin-delay { color: #875b19; }
+.nc-living-pin[data-label-align="start"] .nc-living-pin-label { transform: none; }
+.nc-living-pin[data-label-align="end"] .nc-living-pin-label { transform: translateX(-100%); }
+.nc-living-pin[data-label-below="true"] .nc-living-pin-label { top: calc(50% + 12px); bottom: auto; }
+.nc-living-pin:is(:focus-visible,[data-selected="true"]) { z-index: 4; }
+.nc-living-pin:is(:focus-visible,[data-selected="true"]) .nc-living-pin-label { display: block; }
+.nc-living-pin:is(:focus-visible,[data-selected="true"]) > i { box-shadow: 0 0 0 2px #28694f, 0 0 0 5px #28694f18; }
+@media (hover: hover) {
+  .nc-living-pin:hover { z-index: 4; }
+  .nc-living-pin:hover .nc-living-pin-label { display: block; }
+  .nc-living-pin:hover > i { box-shadow: 0 0 0 2px #28694f, 0 0 0 5px #28694f18; }
+}
+@media (max-width: 720px) { .designer-app .nc-living .nc-living-pin, .nc-living .nc-living-pin { width: 32px; height: 32px; min-height: 32px; } }
 .nc-living-inspector { position: absolute; z-index: 3; inset: 0 0 0 auto; width: 290px; padding: 28px 23px; border-left: 1px solid var(--living-line); background: #ffffff; overflow-y: auto; }
 .nc-living-inspector-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--living-mute); }
 .nc-living-inspector-head > span { font-size: 9px; line-height: 1.6; letter-spacing: 1.4px; }
@@ -134,7 +141,6 @@
 .designer-app .nc-living .nc-living-big-number { font-weight: 300 !important; }
 .designer-app .nc-living .nc-living-big-number small { font-size: 18px !important; }
 .designer-app .nc-living :is(.nc-living-range b, .nc-living-sensor-list b, .nc-living-timeline-label strong, .nc-living-legend b) { font-weight: 400 !important; }
-.designer-app .nc-living .nc-living-pin small { font-size: 9px !important; }
 .designer-app .nc-living .nc-living-source small { font-size: 11px !important; }
 .designer-app .nc-living .nc-living-volume-note { font-size: 10px !important; }
 .designer-app .nc-living .nc-living-range small { font-size: 10px !important; }
@@ -180,7 +186,6 @@
   .designer-app .nc-living-heading h1 { font-size: 31px !important; letter-spacing: -1px !important; }
   .designer-app .nc-living select { font-size: 11px !important; }
   .designer-app .nc-living .nc-living-source small { font-size: 10px !important; }
-  .designer-app .nc-living .nc-living-pin { min-height: 30px; }
   .designer-app .nc-living .nc-living-view-controls > button { min-height: 32px; }
   .designer-app .nc-living .nc-living-time-mode > button { min-height: 33px; }
   .designer-app .nc-living .nc-living-play { min-height: 35px; }
@@ -208,10 +213,6 @@
 }
 
 /* Keep last observations visible without presenting them as a live field. */
-.nc-living-pin[data-delayed="true"] { border: 1px dashed #9a6a20; color: #805416; background: #fff5e5f5; }
-.nc-living-pin[data-delayed="true"] > i { background: #9a6a20; }
-.nc-living-pin .nc-living-pin-id { font-size: 9px; color: #62736b; padding-right: 6px; border-right: 1px solid #dce4dc; }
-.nc-living-pin .nc-living-pin-delay { color: #93621b; }
 .nc-living-sensor-list > button { min-height: 49px; padding-block: 9px; border-bottom: 1px solid #e7ece5; }
 .nc-living-sensor-list > button[data-delayed="true"] > span > i { background: #9a6a20; }
 .nc-living-sensor-list > button[data-delayed="true"] b { color: #875b19; }

@@ -101,13 +101,5 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     if (i===0 || i===frames) beam([x,eave,-l/2],[x,eave,l/2],r*.6,steel)
   }
   for (const [y,z] of [[eave,-l/2],[h,0],[eave,l/2],[eave+(h-eave)*.5,-l/4],[eave+(h-eave)*.5,l/4]]) beam([-w/2,y,z],[w/2,y,z],r*.7,white)
-  for (const s of sensors) {
-    const [x,,z]=planToScene(s.object.xM+s.object.widthM/2,s.object.yM+s.object.lengthM/2,0,map.dimensions)
-    const y=s.heightM ?? 0
-    const color: Color=s.value===null ? s.lastValue!==null ? [.78,.60,.32] : [.4,.46,.44] : climateColor(s.value,scale.min,scale.max)
-    box(x,y/2,z,.035,y,.035,steel)
-    box(x,y,z,.18,.16,.18,color)
-    box(x,.025,z,.28,.03,.28,color)
-  }
   return { vertices: new Float32Array(data), volume, sensors, scale, height: h, volumeReady: grid.mask.some(Boolean), knownHeights: grid.knownCount, heightRange: grid.heightRange, coverage: grid.mask.filter(Boolean).length / Math.max(1,grid.mask.length), modeledFraction:grid.extrapolated.filter(Boolean).length/Math.max(1,grid.mask.filter(Boolean).length) }
 }
