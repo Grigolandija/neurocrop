@@ -65,6 +65,16 @@ test('authenticated CRUD, scoring, Trends and CSV flow', { skip: !configured }, 
     assert.equal(node.node.sectionId, sectionId);
     const renamed = await json(cookie, `/nodes/${devEui}`, 'PATCH', { name: `CI Renamed ${suffix}`, sectionId });
     assert.equal(renamed.node.name, `CI Renamed ${suffix}`);
+    const elevated = await json(cookie, `/nodes/${devEui}`, 'PATCH', { installationHeightCm: 175 });
+    assert.equal(elevated.node.installationHeightCm, 175);
+    const heightDirectory = await json(cookie, '/nodes');
+    assert.equal(heightDirectory.nodes.find(n=>n.devEui===devEui).installationHeightCm, 175);
+    const heightOnlyRename = await json(cookie, `/nodes/${devEui}`, 'PATCH', { name: `CI Renamed ${suffix}` });
+    assert.equal(heightOnlyRename.node.installationHeightCm, 175);
+    await json(cookie, `/nodes/${devEui}`, 'PATCH', { installationHeightCm: -1 }, 400);
+    const clearedHeight = await json(cookie, `/nodes/${devEui}`, 'PATCH', { installationHeightCm: null });
+    assert.equal(clearedHeight.node.installationHeightCm, null);
+
 
     const alertId = `metric:${areaId}:${sectionId}:airTemp`;
     const acknowledged = await json(cookie, `/alerts/${encodeURIComponent(alertId)}/acknowledge`, 'POST', {

@@ -49,6 +49,7 @@ export type SensorNodeMetadata = {
   sectionName?: string
   installationHeightM?: number
   installationConfirmedAt?: string
+  measurementHeightsM?: Partial<Record<MetricKey, number | null>>
   model?: string
   sensors: string[]
   status: NodeStatus

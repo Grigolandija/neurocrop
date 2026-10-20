@@ -32,6 +32,7 @@ export type AreaMapContext = {
 export type AreaMapHistoryNode = {
   devEui: string
   measuredAt: string | null
+  measurementHeightsM?: SensorNodeMetadata['measurementHeightsM']
   measurements: {
     airTemperatureC?: number
     relativeHumidityPercent?: number
@@ -96,6 +97,7 @@ function normalizeNode(value: AreaMapNode): AreaMapNode {
     sectionName: text(value.sectionName),
     installationHeightM: finite(value.installationHeightM),
     installationConfirmedAt: text(value.installationConfirmedAt),
+    measurementHeightsM: value.measurementHeightsM,
     model: text(value.model),
     sensors: Array.isArray(value.sensors) ? value.sensors.map(String) : [],
     status: normalizeStatus(value.status),
@@ -193,8 +195,8 @@ export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes
           ...object.metadata.sensor,
           ...live,
           coverageRadiusM: object.metadata.sensor.coverageRadiusM ?? live.coverageRadiusM ?? 3,
-          installationHeightM: object.metadata.sensor.installationHeightM ?? live.installationHeightM,
-          installationConfirmedAt: object.metadata.sensor.installationConfirmedAt ?? live.installationConfirmedAt,
+          installationHeightM: live.installationConfirmedAt ? live.installationHeightM : object.metadata.sensor.installationHeightM ?? live.installationHeightM,
+          installationConfirmedAt: live.installationConfirmedAt ?? object.metadata.sensor.installationConfirmedAt,
         },
       },
     }]
@@ -215,6 +217,7 @@ export const areaMapRepository = {
       kind: text(area.kind),
       location: text(area.location),
       mapEnabled: area.map_enabled === true || area.mapEnabled === true,
+      mapConfigured: area.map_configured === true || area.mapConfigured === true,
     })).filter((area) => area.id)
   },
   async load(areaId: string): Promise<AreaMapContext> {
@@ -257,6 +260,7 @@ export const areaMapRepository = {
         nodes: Array.isArray(frame.nodes) ? frame.nodes.map((node) => ({
           devEui: String(node.devEui || '').toLowerCase(),
           measuredAt: node.measuredAt ? String(node.measuredAt) : null,
+          measurementHeightsM: node.measurementHeightsM,
           measurements: {
             airTemperatureC: finite(node.measurements?.airTemperatureC),
             relativeHumidityPercent: finite(node.measurements?.relativeHumidityPercent),

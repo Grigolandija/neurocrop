@@ -1,4 +1,5 @@
 import NodeSupport from './NodeSupport'
+import SensorHeightEditor from './SensorHeightEditor'
 import { translateInterfaceText as tx } from '../../i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
@@ -26,6 +27,7 @@ type NodeRow = JsonRecord & {
   sectionId: string
   sectionName: string
   targetName: string
+  installationHeightCm: number | null
   source: 'physical' | 'simulated'
   simulated: boolean
   transportStatus: string
@@ -53,6 +55,7 @@ type Editor = {
   name: string
   areaId: string
   sectionId: string
+  installationHeight: string
   history: 'keep' | 'delete'
   confirmed: boolean
 }
@@ -76,6 +79,7 @@ type Sensor = Omit<Partial<SensorContext>, 'spatialScope'> & {
   detected?: boolean
   metrics?: string[]
   configurable?: boolean
+  heightRecordedAt?: string | null
   inheritedFromNode?: boolean
 }
 
@@ -145,6 +149,7 @@ function normalizeNodes(payload: unknown, areas: Area[], sections: Section[]) {
       sectionId,
       sectionName: text(source.sectionName || source.section_name || section?.name, 'Unassigned'),
       targetName: text(source.targetName || source.target_name),
+      installationHeightCm: typeof source.installationHeightCm === 'number' && Number.isFinite(source.installationHeightCm) ? source.installationHeightCm : null,
       source: source.source === 'simulated' ? 'simulated' : 'physical',
       simulated: source.simulated === true || source.source === 'simulated',
       transportStatus: freshness.transportStatus,
@@ -345,6 +350,7 @@ export default function NodesWorkspace() {
       name: node.name,
       areaId: node.areaId || '',
       sectionId: node.sectionId,
+      installationHeight: node.installationHeightCm == null ? '' : String(node.installationHeightCm),
       history: 'keep',
       confirmed: false,
     })
@@ -390,9 +396,11 @@ export default function NodesWorkspace() {
     if (!editor || busy) return
     if (!editor.name.trim()) return setModalError('Enter a node display name.')
     if (!editor.sectionId) return setModalError('Choose a section for the selected area.')
+    const height = editor.installationHeight.trim() === '' ? null : Number(editor.installationHeight)
+    if (height !== null && (!Number.isFinite(height) || height < 0 || height > 10000)) return setModalError(tx('Enter a valid Node height between 0 and 10000 cm.'))
     setBusy(true); setModalError('')
     try {
-      await neurocropApi.updateNode(editor.node.devEui, { name: editor.name.trim(), sectionId: editor.sectionId })
+      await neurocropApi.updateNode(editor.node.devEui, { name: editor.name.trim(), sectionId: editor.sectionId, installationHeightCm: height })
       setEditor(null)
       setFeedback(`${editor.name.trim()} saved.`)
       setRefreshToken((value) => value + 1)
@@ -420,6 +428,16 @@ export default function NodesWorkspace() {
     } finally {
       setBusy(false)
     }
+  }
+
+  async function saveHeight(sensor: Sensor, height: number | null) {
+    if (!selectedNode?.devEui || busy) return false
+    setBusy(true); setModalError('')
+    try {
+      const payload=await neurocropApi.updateSensorHeight(selectedNode.devEui,sensor.port || 'sht45',height)
+      setSensors(records(payload,['sensors'])); setFeedback(tx('Sensor height saved.')); return true
+    } catch(reason) { setModalError(errorMessage(reason,'Sensor height could not be saved.')); return false }
+    finally { setBusy(false) }
   }
 
   async function saveSensor(sensor: Sensor, context: SensorContext) {
@@ -472,10 +490,10 @@ export default function NodesWorkspace() {
       </section>
       <div className="node-detail-columns node-detail-columns-single">
 
-        <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("All sensors use the Node location automatically. Only the integrated air sensor climate use can be adjusted.")}</span></header>
+        <section className="node-detail-section"><header><p>{tx("Hardware")}</p><h3>{tx("Installed sensors")}</h3><span className="nc-sensor-section-help">{tx("Sensors use the Node position and height. Set a separate sensor height only when it differs from the Node.")}</span></header>
           {sensorsLoading ? <p className="node-detail-muted"><i className="fa-solid fa-spinner fa-spin" /> {tx("Loading detected sensors…")}</p> : detected.length ? <div className="nc-sensor-groups">
-            {integratedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Integrated air climate sensor")}</h4><p>{tx("Measures air temperature and humidity around the Node.")}</p></div></header><div className="node-detail-sensors">{integratedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && index === 0} returnToNodesOnClose={openSensorSetup} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
-            {connectedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Connected sensors and probes")}</h4><p>{tx("These sensors use the same location as the Node.")}</p></div></header><div className="node-detail-sensors">{connectedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index + integratedSensors.length} configurable={false} initiallyOpen={false} returnToNodesOnClose={false} busy={busy} error={modalError} onSave={saveSensor} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
+            {integratedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Integrated air climate sensor")}</h4><p>{tx("Measures air temperature and humidity around the Node.")}</p></div></header><div className="node-detail-sensors">{integratedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index} configurable={sensor.configurable === true} initiallyOpen={openSensorSetup && index === 0} returnToNodesOnClose={openSensorSetup} busy={busy} error={modalError} onSave={saveSensor} onHeightSave={saveHeight} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
+            {connectedSensors.length ? <section className="nc-sensor-group"><header><div><h4>{tx("Connected sensors and probes")}</h4><p>{tx("These sensors use the same location as the Node.")}</p></div></header><div className="node-detail-sensors">{connectedSensors.map((sensor, index) => <SensorRow sensor={sensor} index={index + integratedSensors.length} configurable={false} initiallyOpen={false} returnToNodesOnClose={false} busy={busy} error={modalError} onSave={saveSensor} onHeightSave={saveHeight} key={`${sensor.port || sensorLabel(sensor)}-${index}`} />)}</div></section> : null}
           </div> : <p className="node-detail-muted">{tx("No sensor presence information was reported.")}</p>}
         </section>
       </div>
@@ -522,9 +540,10 @@ export default function NodesWorkspace() {
   </div>
 }
 
-function SensorRow({ sensor, index, configurable, initiallyOpen, returnToNodesOnClose, busy, error, onSave }: { sensor: Sensor; index: number; configurable: boolean; initiallyOpen: boolean; returnToNodesOnClose: boolean; busy: boolean; error: string; onSave: (sensor: Sensor, context: SensorContext) => Promise<boolean> }) {
+function SensorRow({ sensor, index, configurable, initiallyOpen, returnToNodesOnClose, busy, error, onSave, onHeightSave }: { sensor: Sensor; index: number; configurable: boolean; initiallyOpen: boolean; returnToNodesOnClose: boolean; busy: boolean; error: string; onSave: (sensor: Sensor, context: SensorContext) => Promise<boolean>; onHeightSave: (sensor: Sensor, height: number | null) => Promise<boolean> }) {
   const navigate = useNavigate()
   const [editing, setEditing] = useState(initiallyOpen)
+  const [heightEditing,setHeightEditing]=useState(false)
   const isAirClimateSensor = ['sht45', 'internal'].includes(sensor.port || '')
   const isTemperatureProbe = ['ds18b20', 'onewire'].includes(sensor.port || '')
   const isConnectedProbe = isTemperatureProbe || String(sensor.port || '').endsWith('_probe')
@@ -577,7 +596,7 @@ function SensorRow({ sensor, index, configurable, initiallyOpen, returnToNodesOn
     if (returnToNodesOnClose) navigate('/nodes', { replace: true })
   }
   const actionLabel = setupNeedsAttention ? tx("Set up") : tx("Climate use")
-  return <><div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{displayName}</strong><small>{summary}</small></div><div className="nc-node-sensor-actions"><span className="node-detail-status" data-tone={setupNeedsAttention ? 'warning' : 'optimal'}><i className="fa-solid fa-circle" />{tx(setupNeedsAttention ? "Needs setup" : "Ready")}</span>{configurable ? <button type="button" className="nc-sensor-context-toggle" data-attention={setupNeedsAttention} onClick={() => setEditing(true)}><i className={`fa-solid ${isAirClimateSensor ? 'fa-cloud-sun' : 'fa-location-dot'}`} />{actionLabel}</button> : null}</div></div>{configurable && editing ? <ModalPortal><div className="nc-nodes-modal-layer"><button className="nc-nodes-modal-backdrop" onClick={closeSetup} aria-label={tx("Close")} /><section className="management-modal-shell nc-sensor-setup-modal" role="dialog" aria-modal="true" aria-labelledby={`sensorSetupTitle-${index}`}><header className="node-edit-modal-head"><div><p className="eyebrow">{tx("Sensor measurement")}</p><h2 id={`sensorSetupTitle-${index}`}>{displayName}</h2><span>{summary}</span></div><button type="button" className="node-edit-close" onClick={closeSetup} aria-label={tx("Close setup")}><i className="fa-solid fa-xmark" /></button></header><div className="nc-node-sensor-context">
+  return <><div className="nc-node-sensor-row"><span><i className={`fa-solid ${index % 2 ? 'fa-temperature-half' : 'fa-wave-square'}`} /></span><div><strong>{displayName}</strong><small>{summary}</small></div><div className="nc-node-sensor-actions">{sensor.configurable && !isAirClimateSensor ? <button type="button" className="nc-sensor-height-trigger" onClick={()=>setHeightEditing(true)}><i className="fa-solid fa-arrows-up-down" />{sensor.heightCm == null ? tx("Set height") : `${sensor.heightCm/100} m`}</button> : null}<span className="node-detail-status" data-tone={setupNeedsAttention ? 'warning' : 'optimal'}><i className="fa-solid fa-circle" />{tx(setupNeedsAttention ? "Needs setup" : "Ready")}</span>{configurable ? <button type="button" className="nc-sensor-context-toggle" data-attention={setupNeedsAttention} onClick={() => setEditing(true)}><i className={`fa-solid ${isAirClimateSensor ? 'fa-cloud-sun' : 'fa-location-dot'}`} />{actionLabel}</button> : null}</div></div>{heightEditing ? <SensorHeightEditor name={displayName} heightCm={sensor.heightCm} busy={busy} error={error} onClose={()=>setHeightEditing(false)} onSave={height=>onHeightSave(sensor,height)} /> : null}{configurable && editing ? <ModalPortal><div className="nc-nodes-modal-layer"><button className="nc-nodes-modal-backdrop" onClick={closeSetup} aria-label={tx("Close")} /><section className="management-modal-shell nc-sensor-setup-modal" role="dialog" aria-modal="true" aria-labelledby={`sensorSetupTitle-${index}`}><header className="node-edit-modal-head"><div><p className="eyebrow">{tx("Sensor measurement")}</p><h2 id={`sensorSetupTitle-${index}`}>{displayName}</h2><span>{summary}</span></div><button type="button" className="node-edit-close" onClick={closeSetup} aria-label={tx("Close setup")}><i className="fa-solid fa-xmark" /></button></header><div className="nc-node-sensor-context">
       <div className="nc-sensor-purpose-question wide"><span className="nc-sensor-step">1</span><div><strong>{tx("What does this sensor represent?")}</strong><span>{tx("Configure this sensor separately from the other sensors connected to the node.")}</span></div></div>
       <div className="nc-sensor-purpose-cards wide">
         <button type="button" data-selected={choice === 'section'} onClick={() => choosePurpose('section')}><i className="fa-solid fa-layer-group" /><span><strong>{tx("The whole Section")}</strong><small>{tx("Use when this reading represents the general growing climate.")}</small></span><i className="fa-solid fa-circle-check nc-sensor-choice-check" /></button>
@@ -587,7 +606,7 @@ function SensorRow({ sensor, index, configurable, initiallyOpen, returnToNodesOn
       {choice === 'target' && isAirClimateSensor ? <label className="nc-sensor-section-inclusion wide" data-enabled={context.useForSectionScore}><input type="checkbox" checked={context.useForSectionScore} onChange={(event) => setSectionClimateUse(event.target.checked)} /><span><strong>{tx("Include air temperature and humidity in the Section climate")}</strong><small>{tx("Use this when the integrated air sensor measures the surrounding room air, even though the Node is assigned to a specific place.")}</small></span></label> : null}
       <div className="nc-sensor-purpose-preview wide" data-section={choice === 'section' || context.useForSectionScore}><i className={`fa-solid ${choice === 'section' || context.useForSectionScore ? 'fa-circle-check' : 'fa-location-dot'}`} /><div><strong>{tx("How NeuroCrop will use this data")}</strong><span>{choice === 'section' ? tx("Included in the Section average, Growing Score, alerts and heatmap.") : context.useForSectionScore ? <>{tx("Shown as")} <strong>{context.targetName || tx("this spot")}</strong>. {tx("Air temperature and humidity will also be included in the Section climate, score, alerts and heatmap.")}</> : <>{tx("Shown separately as")} <strong>{context.targetName || tx("this spot")}</strong>. {tx("It will not change the Section average, Growing Score, Section alerts or heatmap.")}</>}</span></div></div>
       {error ? <p className="management-modal-error wide" role="alert">{error}</p> : null}
-      <footer className="wide"><span>{targetMissing ? tx("Enter a name before saving.") : tx("You can change this later without deleting any readings.")}</span><button type="button" disabled={busy || targetMissing || !context.label.trim()} onClick={() => void onSave(sensor, { ...context, label: context.label.trim(), targetName: context.targetName.trim() }).then((saved) => { if (saved) closeSetup() })}>{busy ? tx("Saving…") : tx("Save measurement use")}</button></footer>
+      <footer className="wide"><span>{targetMissing ? tx("Enter a name before saving.") : tx("You can change this later without deleting any readings.")}</span><button type="button" disabled={busy || targetMissing || !context.label.trim()} onClick={() => void onSave(sensor, { ...context, heightCm: sensor.heightCm ?? null, label: context.label.trim(), targetName: context.targetName.trim() }).then((saved) => { if (saved) closeSetup() })}>{busy ? tx("Saving…") : tx("Save measurement use")}</button></footer>
     </div></section></div></ModalPortal> : null}</>
 }
 
@@ -601,7 +620,7 @@ function RegistrationModal({ registration, areas, sections, busy, error, onChang
 function NodeEditor({ editor, areas, sections, busy, error, onChange, onAreaChange, onClose, onSave, onRemove }: { editor: Editor; areas: Area[]; sections: Section[]; busy: boolean; error: string; onChange: (value: Editor) => void; onAreaChange: (id: string) => void; onClose: () => void; onSave: (event: FormEvent) => void; onRemove: () => Promise<void> }) {
   const availableSections = sections.filter((section) => section.areaId === editor.areaId)
   return <ModalPortal><div className="nc-nodes-modal-layer"><button className="nc-nodes-modal-backdrop" onClick={onClose} aria-label={tx("Close")} /><section className="management-modal-shell node-edit-modal" role="dialog" aria-modal="true" aria-labelledby="nodeManagementTitle"><header className="node-edit-modal-head"><div><p className="eyebrow">{tx("Node configuration")}</p><h2 id="nodeManagementTitle">{tx("Edit node")}</h2><span>{tx("Update its name and assignment.")}</span></div><button type="button" className="node-edit-close" onClick={onClose} aria-label="Close edit node dialog"><i className="fa-solid fa-xmark" /></button></header>
-    <form className="node-edit-form" onSubmit={onSave}><label className="node-edit-field"><span>{tx("Node display name")}</span><input name="modalNodeName" required value={editor.name} onChange={(event) => onChange({ ...editor, name: event.target.value })} /></label><label className="node-edit-field"><span>{tx("Assigned area")}</span><select name="modalNodeSiteId" value={editor.areaId} onChange={(event) => onAreaChange(event.target.value)}><option value="">{tx("Unassigned")}</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label><label className="node-edit-field field-wide"><span>{tx("Assigned section")}</span><select name="modalNodeSectionId" required={availableSections.length > 0} disabled={!availableSections.length} value={editor.sectionId} onChange={(event) => onChange({ ...editor, sectionId: event.target.value })}>{availableSections.length ? availableSections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>) : <option value="">{tx("No sections available")}</option>}</select></label><p className="node-move-note field-wide">{tx("Moving a node keeps its factory identity. Future readings will belong to the selected Area and Section.")}</p>
+    <form className="node-edit-form" onSubmit={onSave}><label className="node-edit-field"><span>{tx("Node display name")}</span><input name="modalNodeName" required value={editor.name} onChange={(event) => onChange({ ...editor, name: event.target.value })} /></label><label className="node-edit-field"><span>{tx("Assigned area")}</span><select name="modalNodeSiteId" value={editor.areaId} onChange={(event) => onAreaChange(event.target.value)}><option value="">{tx("Unassigned")}</option>{areas.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}</select></label><label className="node-edit-field field-wide"><span>{tx("Assigned section")}</span><select name="modalNodeSectionId" required={availableSections.length > 0} disabled={!availableSections.length} value={editor.sectionId} onChange={(event) => onChange({ ...editor, sectionId: event.target.value })}>{availableSections.length ? availableSections.map((section) => <option value={section.id} key={section.id}>{section.name}</option>) : <option value="">{tx("No sections available")}</option>}</select></label><label className="node-edit-field field-wide"><span>{tx("Node height above floor, cm")}</span><input type="number" min="0" max="10000" step="0.1" placeholder={tx("e.g. 150")} value={editor.installationHeight} onChange={event => onChange({ ...editor, installationHeight: event.target.value })} /><small>{tx("Enter where this Node is installed. The 3D climate map uses this height automatically. Leave empty if unknown.")}</small></label><p className="node-move-note field-wide">{tx("Moving a node keeps its factory identity. Future readings will belong to the selected Area and Section.")}</p>
       {error ? <p className="management-modal-error field-wide" role="alert">{error}</p> : null}
       <section className="node-remove-zone field-wide" aria-labelledby="remove-node-title"><div className="node-remove-head"><h3 id="remove-node-title">{tx("Unassign node")}</h3><p>{editor.node.simulated ? tx("The simulated node will return to free inventory and its generated measurement history will be cleared.") : tx("The node will leave this workspace but remain registered and available for reassignment.")}</p></div>{editor.node.simulated ? null : <fieldset className="node-delete-history-options"><legend>{tx("Measurement history")}</legend><label><input type="radio" checked={editor.history === 'keep'} onChange={() => onChange({ ...editor, history: 'keep' })} /><span><strong>{tx("Keep measurement history")}</strong><small>{tx("Keep the data available for recovery until the hardware is assigned again.")}</small></span></label><label data-danger><input type="radio" checked={editor.history === 'delete'} onChange={() => onChange({ ...editor, history: 'delete' })} /><span><strong>{tx("Delete measurement history")}</strong><small>{tx("Permanently delete every measurement, but keep the hardware registration.")}</small></span></label></fieldset>}<div className="node-remove-actions"><label><input type="checkbox" checked={editor.confirmed} onChange={(event) => onChange({ ...editor, confirmed: event.target.checked })} /><span>{tx("I understand and want to unassign this node")}</span></label><button type="button" disabled={!editor.confirmed || busy} onClick={() => void onRemove()}><i className="fa-solid fa-link-slash" />{tx("Unassign node")}</button></div></section>
       <footer className="node-edit-footer field-wide"><button type="button" className="button-new secondary" onClick={onClose}>{tx("Cancel")}</button><button type="submit" className="button-new primary" disabled={busy || !editor.sectionId}><i className={`fa-solid ${busy ? 'fa-spinner fa-spin' : 'fa-check'}`} />{busy ?tx("Saving…") :tx("Save changes")}</button></footer>

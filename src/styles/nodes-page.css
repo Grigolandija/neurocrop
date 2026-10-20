@@ -1062,6 +1062,11 @@
 }
 
 .designer-app #nodesManagementSection .nc-node-sensor-setup-button:hover { border-color: rgba(33, 79, 64, .35); background: var(--node-muted); }
+.nc-sensor-height-trigger { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); color: var(--color-text); font: inherit; font-size: 12px; cursor: pointer; }
+.nc-sensor-height-modal { width: min(520px, calc(100vw - 32px)); }
+.nc-sensor-height-modal form { display: grid; gap: 18px; padding: 24px; }
+.nc-sensor-height-modal form > p { margin: 0; color: var(--color-text-secondary); line-height: 1.65; }
+.nc-sensor-height-modal form > small { color: var(--color-text-secondary); line-height: 1.6; }
 
 .designer-app #nodesManagementSection .nc-row-arrow {
   display: grid;

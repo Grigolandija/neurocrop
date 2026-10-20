@@ -26,6 +26,8 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
     if (object.widthM <= 0 || object.lengthM <= 0 || object.xM < 0 || object.yM < 0) return { ok: false, error: `Object ${object.id} has negative coordinates or invalid dimensions.` }
     if (object.xM + object.widthM > map.dimensions.widthM + 1e-6 || object.yM + object.lengthM > map.dimensions.lengthM + 1e-6) return { ok: false, error: `Object ${object.id} is outside the greenhouse.` }
     if (!layerIds.has(object.layerId)) return { ok: false, error: `Object ${object.id} references an unknown layer.` }
+    const height=object.metadata?.sensor?.installationHeightM
+    if(height!=null && (!finite(height) || height<0 || height>100 || (map.dimensions.heightM && height>map.dimensions.heightM)))return {ok:false,error:'Sensor height must be inside the greenhouse.'}
     const wallMount = object.metadata?.wallMount
     if (wallMount !== undefined) {
       if (!wallMountedTypes.has(object.type) || !perimeterWalls.has(wallMount.wall) || !finite(wallMount.offsetM) || wallMount.offsetM < 0) return { ok: false, error: `Object ${object.id} has an invalid wall mount.` }

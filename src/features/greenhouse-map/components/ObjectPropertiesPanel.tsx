@@ -60,7 +60,8 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
         <div><dt>{tr('Section', 'Sekcija')}</dt><dd>{sensor.sectionName || tr('Unassigned', 'Nepriskirta')}</dd></div>
         <div><dt>{tr('Status', 'Būsena')}</dt><dd>{sensor.status}{sensor.batteryPercent !== undefined ? ` · ${sensor.batteryPercent}%` : ''}</dd></div>
       </dl>
-      <div className="gh-field-row"><label className="gh-field"><span>{tr('Installation height', 'Montavimo aukštis')} <em>m</em></span><NumericInput disabled={placementLocked} allowEmpty min="0" value={sensor.installationHeightM} onCommit={(value) => patchSensor({ installationHeightM: value })} /></label><label className="gh-field"><span>{tr('Planned coverage', 'Planuojama aprėptis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".1" step=".1" value={sensor.coverageRadiusM ?? 3} onCommit={(value) => patchSensor({ coverageRadiusM: value ?? sensor.coverageRadiusM ?? 3 })} /></label></div>
+      <p className="gh-muted">{tr('Node height is set in Nodes → Edit node. The 3D climate map uses it automatically.', 'Mazgo aukštis įvedamas Mazgai → Redaguoti mazgą. 3D mikroklimato žemėlapis jį naudoja automatiškai.')}</p>
+      <label className="gh-field"><span>{tr('Planned coverage', 'Planuojama aprėptis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".1" step=".1" value={sensor.coverageRadiusM ?? 3} onCommit={value=>patchSensor({coverageRadiusM:value ?? sensor.coverageRadiusM ?? 3})} /></label>
       <div className="gh-radio-row"><span><small>RSSI</small><strong>{sensor.rssi ?? '—'} dBm</strong></span><span><small>SNR</small><strong>{sensor.snr ?? '—'} dB</strong></span><span><small>{tr('Last uplink', 'Paskutinis ryšys')}</small><strong>{sensor.lastSeenAt ? new Date(sensor.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></span></div>
     </section> : null}
   </aside>

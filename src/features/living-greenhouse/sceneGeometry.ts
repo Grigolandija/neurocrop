@@ -1,0 +1,111 @@
+import { getStableScale } from '../greenhouse-map/heatmap/heatmapMetrics'
+import type { GreenhouseMap, MetricKey } from '../greenhouse-map/model'
+import { measuredSensors } from './livingData'
+import type { Vec3 } from './sceneMath'
+import type { LivingView } from './spatialEvidence'
+import { createVolumeGrid } from './volumeGrid'
+
+type Color = [number, number, number]
+export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3 }
+export function climateColor(value: number, min: number, max: number): Color {
+  const stops: Color[] = [[.13, .48, .73], [.22, .73, .73], [.68, .82, .55], [.97, .63, .28], [.88, .29, .22]]
+  const t = Math.max(0, Math.min(.99999, (value - min) / (max - min || 1))) * 4
+  const i = Math.floor(t)
+  return stops[i].map((c, j) => c + (stops[i + 1][j] - c) * (t - i)) as Color
+}
+
+export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number, scaleOverride?: { min: number; max: number }, options: {view:LivingView; attentionIds?:Set<string>} = {view:'volume'}) {
+  const data: number[] = []
+  const w = map.dimensions.widthM, l = map.dimensions.lengthM, size = Math.max(w, l)
+  const h = map.dimensions.heightM || Math.min(5, Math.max(2.5, size * .17))
+  const white: Color = [.70, .85, .81], steel: Color = [.31, .46, .44], green: Color = [.25, .52, .34]
+  const triangle = (a: Vec3, b: Vec3, c: Vec3, color: Color, shade = 1) => {
+    for (const p of [a, b, c]) data.push(...p, ...color.map(n => n * shade))
+  }
+  const quad = (a: Vec3, b: Vec3, c: Vec3, d: Vec3, color: Color, shade = 1) => { triangle(a, b, c, color, shade); triangle(a, c, d, color, shade) }
+  const box = (cx: number, cy: number, cz: number, bw: number, bh: number, bl: number, color: Color, rotation = 0) => {
+    const cs = Math.cos(rotation), sn = Math.sin(rotation)
+    const p = (x: number, y: number, z: number): Vec3 => [cx + x * cs - z * sn, cy + y, cz + x * sn + z * cs]
+    const a = bw / 2, b = bh / 2, c = bl / 2
+    quad(p(-a,b,-c),p(a,b,-c),p(a,b,c),p(-a,b,c),color)
+    quad(p(-a,-b,c),p(a,-b,c),p(a,b,c),p(-a,b,c),color,.68)
+    quad(p(a,-b,-c),p(-a,-b,-c),p(-a,b,-c),p(a,b,-c),color,.82)
+    quad(p(-a,-b,-c),p(-a,-b,c),p(-a,b,c),p(-a,b,-c),color,.6)
+    quad(p(a,-b,c),p(a,-b,-c),p(a,b,-c),p(a,b,c),color,.78)
+  }
+  const beam = (a: Vec3, b: Vec3, r: number, color: Color) => {
+    const d = b.map((v, i) => v - a[i]) as Vec3
+    const len = Math.hypot(...d)
+    const u: Vec3 = Math.abs(d[1]) > len * .95 ? [r,0,0] : [-d[2] / Math.hypot(d[0],d[2]) * r,0,d[0] / Math.hypot(d[0],d[2]) * r]
+    const v: Vec3 = [(d[1]*u[2]-d[2]*u[1])/len,(d[2]*u[0]-d[0]*u[2])/len,(d[0]*u[1]-d[1]*u[0])/len]
+    const p = (o: Vec3, s: number, t: number): Vec3 => o.map((n,i) => n + u[i]*s + v[i]*t) as Vec3
+    quad(p(a,-1,-1),p(a,1,-1),p(b,1,-1),p(b,-1,-1),color,.8)
+    quad(p(a,1,-1),p(a,1,1),p(b,1,1),p(b,1,-1),color)
+    quad(p(a,1,1),p(a,-1,1),p(b,-1,1),p(b,1,1),color,.68)
+    quad(p(a,-1,1),p(a,-1,-1),p(b,-1,-1),p(b,-1,1),color,.85)
+  }
+  // Floating architectural plinth and recessed floor grid.
+  box(0,-.30,0,w + .8,.5,l + .8,[.16,.26,.26])
+  box(0,-.04,0,w,.06,l,[.22,.32,.31])
+  const step = Math.max(1, Math.ceil(size / 35))
+  for (let x = 0; x <= w; x += step) box(x-w/2,0,0,.012,.012,l,[.28,.37,.35])
+  for (let z = 0; z <= l; z += step) box(0,0,z-l/2,w,.012,.012,[.28,.37,.35])
+  const sensors = measuredSensors(map, metric, at)
+  const values = sensors.flatMap(s => s.value === null ? [] : [s.value])
+  const scale = scaleOverride || getStableScale(values, metric)
+  const grid = createVolumeGrid(map, options.view==='volume' ? sensors : [], h)
+  // Layers are stored in a 2D atlas for identical WebGPU and WebGL rendering.
+  const pixels = new Uint8Array(grid.width*grid.depth*grid.layers*4)
+  for(let i=0;i<grid.values.length;i++) {
+    if(!grid.mask[i])continue
+    const color=climateColor(grid.values[i],scale.min,scale.max)
+    pixels.set([...color.map(c=>Math.round(c*255)),Math.round(grid.confidence[i]*255)],i*4)
+  }
+  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,bounds:[w,l,h]}
+  // Footprints and rotations come from the saved plan; plant forms are illustrative.
+  for (const object of map.objects) {
+    const { type, widthM: ow, lengthM: ol, xM, yM, rotationDeg } = object
+    const rot = rotationDeg * Math.PI / 180
+    const pos = (x: number, z: number): [number,number] => [xM + x*Math.cos(rot)-z*Math.sin(rot)-w/2, yM + x*Math.sin(rot)+z*Math.cos(rot)-l/2]
+    const [x,z] = pos(ow/2,ol/2)
+    if (['growing-table','rack','growing-bed','hydroponic-channel'].includes(type)) {
+      const level = type === 'growing-bed' ? .16 : .72
+      box(x,level,z,ow,.18,ol,[.32,.44,.39],rot)
+      for (const px of [.1,ow-.1]) for (const pz of [.1,ol-.1]) { const [a,b]=pos(px,pz); box(a,level/2,b,.06,level,.06,steel) }
+      const nx=Math.min(22,Math.max(1,Math.floor(ow/.4))), nz=Math.min(12,Math.max(1,Math.floor(ol/.4)))
+      for (let a=0;a<nx;a++) for (let b=0;b<nz;b++) {
+        const [px,pz]=pos((a+.5)*ow/nx,(b+.5)*ol/nz)
+        const variation = .82 + ((a*7+b*3)%9)*.035
+        const c = green.map(v=>v*variation) as Color
+        const r = Math.min(.23,ow/nx*.47,ol/nz*.47), base=level+.1, tip=base+.23+((a+b)%3)*.06
+        triangle([px-r,base,pz-r],[px+r,base,pz-r],[px,tip,pz],c,.7)
+        triangle([px+r,base,pz-r],[px+r,base,pz+r],[px,tip,pz],c,.95)
+        triangle([px+r,base,pz+r],[px-r,base,pz+r],[px,tip,pz],c,.8)
+        triangle([px-r,base,pz+r],[px-r,base,pz-r],[px,tip,pz],c)
+      }
+    } else if (type==='partition') box(x,h*.32,z,ow,h*.64,Math.max(.05,ol),[.35,.44,.41],rot)
+    else if (type==='door') { box(x,1.05,z,ow,2.1,Math.max(.07,ol),[.25,.63,.56],rot); box(x,2.14,z,ow+.1,.07,Math.max(.1,ol),white,rot) }
+    else if (type==='walkway') box(x,.018,z,ow,.02,ol,[.28,.36,.34],rot)
+    else if (type==='reservoir') box(x,.5,z,ow,1,ol,[.41,.63,.65],rot)
+    else if (['heater','cooling-unit','electrical-cabinet','irrigation-unit'].includes(type)) box(x,.45,z,ow,.9,ol,steel,rot)
+    else if (['fan','lamp','window','ventilation-opening'].includes(type)) box(x,h*.55,z,ow,.18,ol,white,rot)
+  }
+  const eave = h*.68, r = Math.max(.025, Math.min(.06,size*.0022))
+  const frames = Math.min(14,Math.max(3,Math.ceil(w/3)))
+  for (let i=0;i<=frames;i++) {
+    const x=-w/2+w*i/frames
+    for (const z of [-l/2,l/2]) beam([x,.01,z],[x,eave,z],r,white)
+    beam([x,eave,-l/2],[x,h,0],r,white); beam([x,h,0],[x,eave,l/2],r,white)
+    if (i===0 || i===frames) beam([x,eave,-l/2],[x,eave,l/2],r*.6,steel)
+  }
+  for (const [y,z] of [[eave,-l/2],[h,0],[eave,l/2],[eave+(h-eave)*.5,-l/4],[eave+(h-eave)*.5,l/4]]) beam([-w/2,y,z],[w/2,y,z],r*.7,white)
+  for (const s of sensors) {
+    const x=s.object.xM+s.object.widthM/2-w/2, z=s.object.yM+s.object.lengthM/2-l/2
+    const y=s.heightM ?? 0
+    const color: Color=s.value===null ? [.4,.46,.44] : options.attentionIds?.has(s.object.id) ? [1,.57,.25] : [.54,.99,.78]
+    box(x,y/2,z,.035,y,.035,steel)
+    box(x,y,z,.18,.16,.18,color)
+    box(x,.025,z,.28,.03,.28,color)
+  }
+  return { vertices: new Float32Array(data), volume, sensors, scale, height: h, volumeReady: grid.mask.some(Boolean), knownHeights: grid.knownCount, heightRange: grid.heightRange, coverage: grid.mask.filter(Boolean).length / Math.max(1,grid.mask.length) }
+}

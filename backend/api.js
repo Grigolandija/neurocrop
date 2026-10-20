@@ -46,6 +46,7 @@ import { withHistoryGaps } from './history-gaps.js';
 import { registerWorkflowRoutes, startAlertNotificationMonitor } from './workflow-routes.js';
 import { SIMULATOR_METRICS, simulateAgronomicScenario } from './agronomic-simulator.js';
 import { registerGreenhouseMapRoutes } from './greenhouse-map-routes.js';
+import { saveSensorHeight } from './sensor-heights.js';
 import { registerGatewayFactoryRoutes } from './gateway-factory-routes.js';
 import { registerPasswordResetRoutes } from './password-reset-routes.js';
 import { resolveOptionalClerkAuth } from './clerk-auth.js';
@@ -3505,6 +3506,7 @@ function publicSensorContext(config, defaults, inheritedContext = null) {
     spatialScope: effectiveContext?.spatial_scope || defaults.spatialScope,
     depthCm: config?.depth_cm ?? null,
     heightCm: config?.height_cm ?? null,
+    heightRecordedAt: config?.height_recorded_at ?? null,
     useForSectionScore: config?.use_for_section_score ?? defaults.useForSectionScore,
     allowSpatialInterpolation: config?.allow_spatial_interpolation ?? defaults.allowSpatialInterpolation,
     inheritedFromNode: effectiveContext === inheritedContext && Boolean(inheritedContext)
@@ -3612,7 +3614,7 @@ async function getNodeSensorPayload(devEui, organizationId) {
 
   const { rows: configRows } = await query(
     `SELECT port, role, label, is_enabled, medium, target_type, target_name,
-            spatial_scope, depth_cm, height_cm,
+            spatial_scope, depth_cm, height_cm, height_recorded_at,
             use_for_section_score, allow_spatial_interpolation
      FROM node_sensor_configs
      WHERE lower(node_dev_eui)=$1 AND organization_id=$2`,
@@ -3731,7 +3733,7 @@ app.get('/nodes', requireAuth, async (req, res) => {
          n.last_battery_mv, n.last_battery_percent, n.last_firmware_version,
          n.last_profile, n.last_uplink_interval_sec, n.last_rssi, n.last_snr, n.last_spreading_factor,
          n.last_sensor_presence, n.last_error_flags, n.last_error_counters,
-         n.last_gateway_ids, n.source,
+         n.last_gateway_ids, n.source, n.installation_height_cm, n.installation_height_recorded_at,
          COALESCE((
            SELECT NULLIF(TRIM(nsc.target_name), '')
            FROM node_sensor_configs nsc
@@ -3784,6 +3786,8 @@ app.get('/nodes', requireAuth, async (req, res) => {
           sectionId: row.section_id,
           sectionName: row.section_name || null,
           targetName: row.target_name || null,
+          installationHeightCm: row.installation_height_cm ?? null,
+          installationHeightRecordedAt: row.installation_height_recorded_at ?? null,
           active: transportStatus !== 'offline',
           transportStatus,
           gatewayStatus,
@@ -3833,6 +3837,26 @@ app.get('/nodes/:devEui/sensors', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('[api] GET /nodes/:devEui/sensors:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  }
+});
+
+app.patch('/nodes/:devEui/sensors/:port/height', requireAuth, requireRole('owner', 'admin', 'technician'), async (req, res) => {
+  const devEui=normalizeDevEui(req.params.devEui),port=String(req.params.port || '');
+  const heightCm=req.body?.heightCm;
+  if(!/^[0-9a-f]{16}$/.test(devEui) || (heightCm!==null && (typeof heightCm!=='number' || !Number.isFinite(heightCm) || heightCm<0 || heightCm>10000))) {
+    return res.status(400).json({error:{code:'VALIDATION_ERROR',message:'Provide a sensor height in centimetres, or null when unknown'}});
+  }
+  try {
+    const organizationId=getOrganizationId(req);
+    const payload=await getNodeSensorPayload(devEui,organizationId);
+    if(!payload)return res.status(404).json({error:{code:'NOT_FOUND',message:'Node not found'}});
+    const sensor=payload.sensors.find(s=>s.port===port);
+    if(!sensor)return res.status(400).json({error:{code:'VALIDATION_ERROR',message:'Unknown sensor channel'}});
+    await saveSensorHeight({query},organizationId,devEui,sensor,heightCm);
+    res.json(await getNodeSensorPayload(devEui,organizationId));
+  } catch(e) {
+    console.error('[api] sensor height:',e.message);
+    res.status(500).json({error:{code:'DB_ERROR',message:'Sensor height could not be saved'}});
   }
 });
 
@@ -3908,7 +3932,9 @@ app.patch('/nodes/:devEui/sensors/:port', requireAuth, requireRole('owner', 'adm
        DO UPDATE SET role=EXCLUDED.role, label=EXCLUDED.label,
          medium=EXCLUDED.medium, target_type=EXCLUDED.target_type,
          target_name=EXCLUDED.target_name, spatial_scope=EXCLUDED.spatial_scope,
-         depth_cm=EXCLUDED.depth_cm, height_cm=EXCLUDED.height_cm,
+         depth_cm=EXCLUDED.depth_cm,
+         height_recorded_at=CASE WHEN node_sensor_configs.height_cm IS DISTINCT FROM EXCLUDED.height_cm THEN now() ELSE node_sensor_configs.height_recorded_at END,
+         height_cm=EXCLUDED.height_cm,
          use_for_section_score=EXCLUDED.use_for_section_score,
          allow_spatial_interpolation=EXCLUDED.allow_spatial_interpolation,
          updated_at=now()`,
@@ -4041,6 +4067,8 @@ app.post('/nodes/claim', requireAuth, requireRole('owner', 'admin', 'technician'
          area_id=$3,
          section_id=$4,
          factory_status='assigned',
+         installation_height_cm=NULL,
+         installation_height_recorded_at=NULL,
          archived_at=NULL,
          firmware_build=NULL,
          last_seen=NULL,
@@ -4093,11 +4121,16 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
   const sectionId = String(req.body?.sectionId || '').trim();
   const organizationId = getOrganizationId(req);
   const identityChanged = nextDevEui !== devEui;
+  const heightProvided = Object.hasOwn(req.body || {}, 'installationHeightCm');
+  const heightCm = req.body?.installationHeightCm;
+  if (heightProvided && heightCm !== null && (typeof heightCm !== 'number' || !Number.isFinite(heightCm) || heightCm < 0 || heightCm > 10000)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Node height must be between 0 and 10000 cm, or null when unknown' } });
+  }
 
   if (!/^[0-9a-f]{16}$/.test(devEui) || !/^[0-9a-f]{16}$/.test(nextDevEui)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'DevEUI must be 16 hexadecimal characters' } });
   }
-  if (!name && !sectionId && !identityChanged) {
+  if (!name && !sectionId && !identityChanged && !heightProvided) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Nothing to update' } });
   }
   if (identityChanged) {
@@ -4123,10 +4156,12 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
       `UPDATE nodes
        SET name=COALESCE(NULLIF($1, ''), name),
            section_id=COALESCE($2, section_id),
-           area_id=COALESCE($3, area_id)
+           area_id=COALESCE($3, area_id),
+           installation_height_cm=CASE WHEN $6::boolean THEN $7::real ELSE installation_height_cm END,
+           installation_height_recorded_at=CASE WHEN $6::boolean THEN now() ELSE installation_height_recorded_at END
        WHERE lower(dev_eui)=$4 AND organization_id=$5 AND archived_at IS NULL
-       RETURNING dev_eui, name, node_type, area_id, section_id, source, created_at, last_seen`,
-      [name, section?.id || null, section?.area_id || null, devEui, organizationId]
+       RETURNING dev_eui, name, node_type, area_id, section_id, source, created_at, last_seen, installation_height_cm, installation_height_recorded_at`,
+      [name, section?.id || null, section?.area_id || null, devEui, organizationId, heightProvided, heightCm ?? null]
     );
 
     if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });
@@ -4139,6 +4174,8 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
       createdAt: rows[0].created_at,
       lastSeen: rows[0].last_seen,
       source: rows[0].source,
+      installationHeightCm: rows[0].installation_height_cm ?? null,
+      installationHeightRecordedAt: rows[0].installation_height_recorded_at ?? null,
       simulated: rows[0].source === 'simulated',
     } });
   } catch (e) {
@@ -4215,6 +4252,8 @@ app.delete('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technic
          section_id=NULL,
          name=COALESCE(factory_serial, name, dev_eui),
          factory_status='unassigned',
+         installation_height_cm=NULL,
+         installation_height_recorded_at=NULL,
          archived_at=NULL
        WHERE lower(dev_eui)=$1 AND organization_id=$2`,
       [devEui, organizationId]

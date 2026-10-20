@@ -7,6 +7,7 @@ import { measurementRollupAverageSql } from './measurement-rollups.js';
 import { normalizeSoilEcDepths, sensorHasNewMeasurement, sensorMeasurementIntervalSec } from './telemetry-values.js';
 import { loadRecentMeasurementsByNode } from './recent-measurements.js';
 import { METRIC_DEFINITIONS } from './metric-registry.js';
+import { measurementHeights, historicalMeasurementHeights, loadHeightEvents } from './sensor-heights.js';
 
 const MAX_OBJECTS = 2000;
 const MAX_LAYERS = 50;
@@ -66,6 +67,8 @@ export function validateGreenhouseMap(value) {
     if (!layerIds.has(object.layerId) || typeof object.visible !== 'boolean' || typeof object.locked !== 'boolean') return validationError(`Object ${object.id} has invalid layer or visibility state`);
     if (object.metadata !== undefined && (!object.metadata || typeof object.metadata !== 'object' || Array.isArray(object.metadata))) return validationError(`Object ${object.id} metadata must be an object`);
     const wallMount = object.metadata?.wallMount;
+    const height=object.metadata?.sensor?.installationHeightM;
+    if(height!==undefined && height!==null && (!finite(height) || height<0 || height>100 || (value.dimensions.heightM>0 && height>value.dimensions.heightM)))return validationError(`Object ${object.id} has an invalid sensor height`);
     if (wallMount !== undefined) {
       if (!wallMountedTypes.has(object.type) || !wallMount || typeof wallMount !== 'object' || Array.isArray(wallMount) || !perimeterWalls.has(wallMount.wall) || !finite(wallMount.offsetM) || wallMount.offsetM < 0) {
         return validationError(`Object ${object.id} has an invalid wall mount`);
@@ -193,6 +196,9 @@ function publicMapNode(row, recentMeasurements = []) {
     snr: row.last_snr ?? measurement?.snr ?? null,
     sensors: Object.entries(row.last_sensor_presence || {}).filter(([, present]) => present === true).map(([sensor]) => sensor),
     measurementContexts: row.sensor_contexts || {},
+    measurementHeightsM: measurementHeights(row.sensor_contexts || {}, row),
+    installationHeightM: row.installation_height_cm == null ? null : row.installation_height_cm / 100,
+    installationConfirmedAt: row.installation_height_recorded_at || null,
     measurements: publicLatestHeatmapMeasurements(recentMeasurements, row.sensor_contexts || {})
   };
 }
@@ -207,6 +213,7 @@ function sanitizeMapForStorage(map, areaId) {
       if (!sensor) return object;
       const {
         measurements: _measurements,
+        measurementHeightsM: _measurementHeightsM,
         batteryPercent: _batteryPercent,
         lastSeenAt: _lastSeenAt,
         rssi: _rssi,
@@ -238,7 +245,7 @@ async function getArea(organizationId, areaId) {
 async function getAreaNodes(organizationId, areaId) {
   const { rows } = await query(
     `SELECT n.dev_eui, n.name, n.node_type, n.area_id, n.section_id,
-            n.last_seen, n.last_received_at, n.last_battery_percent,
+            n.last_seen, n.last_received_at, n.last_battery_percent, n.installation_height_cm, n.installation_height_recorded_at,
             n.last_rssi, n.last_snr, n.last_profile, n.last_sensor_presence,
             s.name AS section_name,
             COALESCE((
@@ -251,6 +258,7 @@ async function getAreaNodes(organizationId, areaId) {
                   'spatialScope', c.spatial_scope,
                   'depthCm', c.depth_cm,
                   'heightCm', c.height_cm,
+                  'heightRecordedAt', c.height_recorded_at,
                   'useForSectionScore', c.use_for_section_score,
                   'allowSpatialInterpolation', c.allow_spatial_interpolation
                 )
@@ -286,7 +294,7 @@ function historicalNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-async function getAreaMapHistory(devEuis, from, to, sensorContextsByNode = new Map()) {
+async function getAreaMapHistory(devEuis, from, to, sensorContextsByNode = new Map(), heightEvents = []) {
   const bucketSeconds = MAP_HISTORY_STEP_MINUTES * 60;
   const alignedQueryFrom = new Date(Math.floor(from.getTime() / (bucketSeconds * 1000)) * bucketSeconds * 1000);
   const heatmapSelectSql = HEATMAP_DEFINITIONS.map(([metricId, definition]) =>
@@ -327,6 +335,7 @@ async function getAreaMapHistory(devEuis, from, to, sensorContextsByNode = new M
     frame.nodes.push({
       devEui: row.dev_eui,
       measuredAt: row.measured_at,
+      measurementHeightsM: historicalMeasurementHeights(heightEvents,row.dev_eui,timestamp,timestamp+bucketSeconds*1000),
       measurements: Object.fromEntries(HEATMAP_DEFINITIONS.map(([metricId, definition]) => [
         definition.heatmap.field,
         mayInterpolateMetric(sensorContextsByNode.get(String(row.dev_eui).toLowerCase()), metricId)
@@ -500,7 +509,9 @@ export function registerGreenhouseMapRoutes(app) {
         if (!sensorContextsByNode.has(row.dev_eui)) sensorContextsByNode.set(row.dev_eui, {});
         sensorContextsByNode.get(row.dev_eui)[row.port] = row;
       });
-      const frames = await getAreaMapHistory(devEuis, from, to, sensorContextsByNode);
+      const heightFrom=new Date(Math.floor(+from/(MAP_HISTORY_STEP_MINUTES*60000))*MAP_HISTORY_STEP_MINUTES*60000);
+      const heightEvents=await loadHeightEvents({query},organizationId,devEuis,heightFrom,to);
+      const frames = await getAreaMapHistory(devEuis, from, to, sensorContextsByNode, heightEvents);
       res.set('Cache-Control', 'private, max-age=30');
       res.json({
         areaId,

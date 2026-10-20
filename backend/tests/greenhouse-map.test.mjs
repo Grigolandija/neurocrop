@@ -32,6 +32,19 @@ test('greenhouse map validation accepts a bounded typed map', () => {
   assert.deepEqual(validateGreenhouseMap(validMap()), { valid: true });
 });
 
+test('sensor enclosure height can be unknown or zero but must fit the greenhouse', () => {
+  for (const height of [undefined, null, 0, 1.5, 4]) {
+    const map = validMap();
+    map.objects[0].metadata.sensor.installationHeightM = height;
+    assert.equal(validateGreenhouseMap(map).valid, true);
+  }
+  for (const height of [-1, 4.1, Infinity, '1.5']) {
+    const map = validMap();
+    map.objects[0].metadata.sensor.installationHeightM = height;
+    assert.match(validateGreenhouseMap(map).message, /sensor height/i);
+  }
+});
+
 test('greenhouse map validation rejects invalid geometry without changing the input', () => {
   const map = validMap();
   map.objects[0].xM = -1;

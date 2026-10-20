@@ -91,6 +91,7 @@ const loadSimulatorWorkspace = recoverWorkspaceImport('simulator', () => import(
 const loadActionsWorkspace = recoverWorkspaceImport('actions', () => import('../features/actions/ActionsWorkspace'))
 const loadAlertsWorkspace = recoverWorkspaceImport('alerts', () => import('../features/alerts/AlertsWorkspace'))
 const loadTrendsWorkspace = recoverWorkspaceImport('trends', () => import('../features/trends/TrendsWorkspace'))
+const loadClimate3DWorkspace = recoverWorkspaceImport('climate-3d', () => import('../features/living-greenhouse/LivingGreenhouse'))
 const loadNodesWorkspace = recoverWorkspaceImport('nodes', () => import('../features/nodes/NodesWorkspace'))
 const loadCropProfilesWorkspace = recoverWorkspaceImport('crop-profiles', () => import('../features/settings/CropProfilesWorkspace'))
 
@@ -106,6 +107,7 @@ const simulatorWorkspace = createPreloadableWorkspace(loadSimulatorWorkspace)
 const actionsWorkspace = createPreloadableWorkspace(loadActionsWorkspace)
 const alertsWorkspace = createPreloadableWorkspace(loadAlertsWorkspace)
 const trendsWorkspace = createPreloadableWorkspace(loadTrendsWorkspace)
+const climate3DWorkspace = createPreloadableWorkspace(loadClimate3DWorkspace)
 const nodesWorkspace = createPreloadableWorkspace(loadNodesWorkspace)
 const cropProfilesWorkspace = createPreloadableWorkspace(loadCropProfilesWorkspace)
 
@@ -121,6 +123,7 @@ const SimulatorWorkspace = simulatorWorkspace.Component
 const ActionsWorkspace = actionsWorkspace.Component
 const AlertsWorkspace = alertsWorkspace.Component
 const TrendsWorkspace = trendsWorkspace.Component
+const Climate3DWorkspace = climate3DWorkspace.Component
 const NodesWorkspace = nodesWorkspace.Component
 const CropProfilesWorkspace = cropProfilesWorkspace.Component
 
@@ -131,6 +134,7 @@ const workspaceModuleLoadersByRoute: Record<string, () => Promise<WorkspaceModul
   '/sections': sectionsWorkspace.preload,
   '/nodes': nodesWorkspace.preload,
   '/readings': readingsWorkspace.preload,
+  '/greenhouse-live': climate3DWorkspace.preload,
   '/history': trendsWorkspace.preload,
   '/alerts': alertsWorkspace.preload,
   '/actions': actionsWorkspace.preload,
@@ -211,7 +215,7 @@ function warmWorkspaceModules(loaders: Array<() => Promise<WorkspaceModule>>) {
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
   '/history', '/settings', '/organization', '/crop-profiles', '/admin',
-  '/admin/integrations', '/simulator', '/diagnostics',
+  '/admin/integrations', '/simulator', '/diagnostics', '/greenhouse-live',
 ])
 
 const workspaceHostIds: Partial<Record<string, string>> = {
@@ -256,6 +260,7 @@ function Workspaces({ pathname, includeAdmin, routePending }: { pathname: string
     { route: '/sections', content: <SectionsWorkspace /> },
     { route: '/nodes', content: <NodesWorkspace /> },
     { route: '/readings', content: <ReadingsWorkspace /> },
+    { route: '/greenhouse-live', content: <Climate3DWorkspace /> },
     { route: '/history', content: <TrendsWorkspace /> },
     { route: '/alerts', content: <AlertsWorkspace /> },
     { route: '/actions', content: <ActionsWorkspace /> },
