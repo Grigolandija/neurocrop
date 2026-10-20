@@ -1,6 +1,8 @@
 import {test,expect} from '@playwright/test'
 
-test.use({launchOptions:{args:['--enable-unsafe-webgpu','--use-angle=swiftshader']}})
+import { graphicsOptions } from './support/graphics'
+
+test.use(graphicsOptions)
 
 test('Node height is entered in Nodes, saved, and used automatically by the 3D climate view',async({page})=>{
   const devEui='0011223344556677',api='http://node-height.test',now=new Date().toISOString()

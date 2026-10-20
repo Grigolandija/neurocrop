@@ -1,30 +1,79 @@
+/// <reference types="@webgpu/types" />
 import { test, expect, type Page } from '@playwright/test'
 
-// Chromium's headless native Metal compositor can omit WebGPU canvas pixels
-// from screenshots. SwiftShader exercises WebGPU and provides readable pixels.
-test.use({ launchOptions: { args: ['--enable-unsafe-webgpu', '--use-angle=swiftshader'] } })
+import { graphicsOptions } from './support/graphics'
+
+test.use(graphicsOptions)
+
+// A DOM paint does not imply that an asynchronous WebGPU submission finished.
+// Fence the real queues in the test, without adding test hooks to the product.
+test.beforeEach(async({page})=>{
+  await page.addInitScript(()=>{
+    const queues=new Set<GPUQueue>()
+    if(typeof GPUQueue!=='undefined'){
+      const submit=GPUQueue.prototype.submit
+      GPUQueue.prototype.submit=function(buffers){queues.add(this);return submit.call(this,buffers)}
+    }
+    Object.defineProperty(window,'waitForLivingGpu',{value:()=>Promise.all([...queues].map(queue=>queue.onSubmittedWorkDone()))})
+  })
+})
 
 async function expectVolumeChangesPixels(page: Page) {
   const canvas=page.locator('.nc-living-canvas canvas')
   const mode=page.getByRole('group',{name:/Mikroklimato vaizdavimas|Climate visualization/})
-  await mode.getByRole('button',{name:/^(Mikroklimatas|Microclimate)$/}).click()
-  await page.waitForTimeout(250)
-  const volume=(await canvas.screenshot()).toString('base64')
-  await mode.getByRole('button',{name:/^(Matavimai|Measurements)$/}).click()
-  await page.waitForTimeout(250)
-  const floor=(await canvas.screenshot()).toString('base64')
-  const changed=await page.evaluate(async images=>{
+  const capture=async()=>{
+    await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
+    await page.evaluate(async()=>{const state=window as typeof window & {waitForLivingGpu?:()=>Promise<unknown>};await state.waitForLivingGpu?.()})
+    await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
+    return canvas.screenshot({animations:'disabled',style:'.nc-living-pin, .nc-living-scene-caption, .nc-living-legend, .nc-living-point-key, .nc-living-view-controls { visibility: hidden !important; }'})
+  }
+  const compare=async(before:Buffer,after:Buffer)=>page.evaluate(async images=>{
     const decode=async(data:string)=>{
       const img=new Image();img.src=`data:image/png;base64,${data}`;await img.decode()
       const c=document.createElement('canvas');c.width=img.width;c.height=img.height
       const ctx=c.getContext('2d')!;ctx.drawImage(img,0,0)
-      return ctx.getImageData(0,0,c.width,c.height).data
+      return {pixels:ctx.getImageData(0,0,c.width,c.height).data,width:c.width,height:c.height}
     }
-    const [a,b]=await Promise.all(images.map(decode));let different=0
-    for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>15)different++
-    return different/(a.length/4)
-  },[volume,floor])
-  expect(changed).toBeGreaterThan(.01)
+    const [a,b]=await Promise.all(images.map(decode))
+    let modelPixels=0,changed=0,totalError=0
+    // The most frequent color is the empty scene background. A corner pixel
+    // can include an antialiased rounded border at fractional CSS coordinates.
+    const colors=new Map<number,number>();let dominant=0,largest=0
+    for(let i=0;i<a.pixels.length;i+=16){
+      const rgb=(a.pixels[i]<<16)|(a.pixels[i+1]<<8)|a.pixels[i+2]
+      const count=(colors.get(rgb)||0)+1;colors.set(rgb,count)
+      if(count>largest){dominant=rgb;largest=count}
+    }
+    const background=[dominant>>16,(dominant>>8)&255,dominant&255]
+    for(let i=0;i<a.pixels.length;i+=4){
+      const model=Math.abs(a.pixels[i]-background[0])+Math.abs(a.pixels[i+1]-background[1])+Math.abs(a.pixels[i+2]-background[2])>30
+      if(!model)continue
+      modelPixels++
+      const error=Math.abs(a.pixels[i]-b.pixels[i])+Math.abs(a.pixels[i+1]-b.pixels[i+1])+Math.abs(a.pixels[i+2]-b.pixels[i+2])
+      totalError+=error
+      if(error>15)changed++
+    }
+    return {background:Array.from(background),backgroundBrightness:background[0]+background[1]+background[2],modelFraction:modelPixels/(a.width*a.height),changedFraction:changed/Math.max(1,modelPixels),meanColorError:totalError/(Math.max(1,modelPixels)*765),modelPixels,changed,width:a.width,height:a.height}
+  },[before.toString('base64'),after.toString('base64')])
+
+  await mode.getByRole('button',{name:/^(Matavimai|Measurements)$/}).click()
+  const points=await capture()
+  const baseline=await compare(points,points)
+  // A white compositor placeholder and an empty dark canvas must both fail.
+  expect(baseline.backgroundBrightness).toBeLessThan(250)
+  expect(baseline.modelFraction).toBeGreaterThan(.03)
+  await mode.getByRole('button',{name:/^(Mikroklimatas|Microclimate)$/}).click()
+  let volume=points,metrics=baseline
+  await expect.poll(async()=>{
+    volume=await capture();metrics=await compare(points,volume)
+    return metrics.changedFraction
+  },{message:'The climate field must visibly change the rendered greenhouse, not just its labels',timeout:10000}).toBeGreaterThan(.01)
+  await mode.getByRole('button',{name:/^(Matavimai|Measurements)$/}).click()
+  let restored=baseline
+  // Repeated GPU captures can vary at geometry edges. Removing the field must
+  // eliminate at least 75% of its color difference.
+  await expect.poll(async()=>{restored=await compare(points,await capture());return restored.meanColorError/metrics.meanColorError},{message:'Removing the field must remove its visible color contribution',timeout:10000}).toBeLessThan(.25)
+  await test.info().attach('rendered-climate-check',{body:JSON.stringify({engine:await page.locator('.nc-living-engine').innerText(),...metrics,restoredColorError:restored.meanColorError},null,2),contentType:'application/json'})
 }
 
 test('3D demonstration renders, selects sensors and plays recorded intervals without requesting private data', async ({ page }) => {
@@ -33,23 +82,12 @@ test('3D demonstration renders, selects sensors and plays recorded intervals wit
   page.on('request', r=>{ if (/\/areas|\/readings|\/nodes|\/auth\/me/.test(r.url())) requests.push(r.url()) })
   await page.addInitScript(()=>localStorage.setItem('neurocrop-interface-language-v1','lt'))
   await page.setViewportSize({width:1600,height:1050})
+  await page.clock.setFixedTime(new Date('2026-10-20T12:00:00Z'))
   await page.goto('/greenhouse-live/demo')
   await expect(page.locator('.nc-living-source')).toContainText('Demonstraciniai duomenys')
   await expect(page.locator('.nc-living-engine')).toHaveText(/WebGPU|WebGL/,{timeout:20000})
   await expect(page.locator('.nc-living-empty')).toHaveCount(0)
   await expect(page.locator('.nc-living-pin')).toHaveCount(6)
-  await page.waitForTimeout(1700)
-  const canvasImage=(await page.locator('.nc-living-canvas canvas').screenshot()).toString('base64')
-  const visibleModel=await page.evaluate(async data=>{
-    const img=new Image(); img.src=`data:image/png;base64,${data}`; await img.decode()
-    const c=document.createElement('canvas'); c.width=img.width; c.height=img.height
-    const ctx=c.getContext('2d')!; ctx.drawImage(img,0,0)
-    const pixels=ctx.getImageData(0,0,c.width,c.height).data
-    let count=0
-    for(let i=0;i<pixels.length;i+=4) if(pixels[i]+pixels[i+1]+pixels[i+2]>160)count++
-    return count/(c.width*c.height)
-  },canvasImage)
-  expect(visibleModel).toBeGreaterThan(.03)
   await expect(page.getByRole('button',{name:/^(Mikroklimatas|Microclimate)$/})).toHaveAttribute('aria-pressed','true')
   await expectVolumeChangesPixels(page)
   await expect(page.getByRole('button',{name:'Matavimai',exact:true})).toHaveAttribute('aria-pressed','true')
@@ -82,11 +120,11 @@ test('3D demonstration renders, selects sensors and plays recorded intervals wit
 
 test('WebGL fallback works when WebGPU is unavailable', async ({ page }) => {
   await page.addInitScript(()=>Object.defineProperty(navigator,'gpu',{value:undefined,configurable:true}))
+  await page.clock.setFixedTime(new Date('2026-10-20T12:00:00Z'))
   await page.goto('/greenhouse-live/demo')
   await expect(page.locator('.nc-living-engine')).toHaveText('WebGL',{timeout:20000})
   await expect(page.locator('.nc-living-empty')).toHaveCount(0)
   await expect(page.locator('.nc-living-pin').first()).toBeVisible()
-  await page.waitForTimeout(1700)
   await expectVolumeChangesPixels(page)
 })
 
@@ -99,6 +137,7 @@ test('unavailable graphics shows a useful error and a retry control', async ({ p
       return original.call(this,type,options)
     } as typeof original
   })
+  await page.clock.setFixedTime(new Date('2026-10-20T12:00:00Z'))
   await page.goto('/greenhouse-live/demo')
   await expect(page.locator('.nc-living-empty')).toBeVisible()
   await expect(page.locator('.nc-living-empty button')).toBeVisible()
