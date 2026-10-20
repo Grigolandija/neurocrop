@@ -62,6 +62,8 @@ async function expectVolumeChangesPixels(page: Page) {
 }
 
 test('3D demonstration renders, selects sensors and plays recorded intervals without requesting private data', async ({ page }) => {
+  // A cold software Vulkan renderer in Linux CI also captures desktop/mobile frames.
+  test.setTimeout(process.platform === 'linux' ? 60_000 : 30_000)
   const errors: string[] = [], requests: string[] = []
   page.on('pageerror', e=>errors.push(e.message))
   page.on('request', r=>{ if (/\/areas|\/readings|\/nodes|\/auth\/me/.test(r.url())) requests.push(r.url()) })
