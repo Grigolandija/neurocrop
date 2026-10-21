@@ -64,6 +64,46 @@ async function expectVolumeChangesPixels(page: Page) {
   await test.info().attach('rendered-climate-check',{body:JSON.stringify({engine:await page.locator('.nc-living-engine').innerText(),...metrics,restoredColorError:restored.meanColorError},null,2),contentType:'application/json'})
 }
 
+// Normal workspace button transitions must never interpolate a projected XYZ
+// marker. Compare its visible center with the current camera projection while
+// a real pointer drag is moving the scene, rather than after it has settled.
+async function expectMarkersFollowOrbit(page: Page) {
+  await page.emulateMedia({reducedMotion:'no-preference'})
+  const tracking=page.evaluate(()=>new Promise<{maxError:number;travel:number;frames:number;transition:string}>(resolve=>{
+    const host=document.querySelector<HTMLElement>('.nc-living-canvas')!
+    const pins=[...host.querySelectorAll<HTMLElement>('.nc-living-pin')]
+    const initial=new Map<HTMLElement,{x:number;y:number}>()
+    let maxError=0,travel=0,frames=0
+    const start=performance.now()
+    const sample=()=>{
+      const bounds=host.getBoundingClientRect()
+      for(const pin of pins){
+        const target=pin.style.transform.match(/translate\(([-\d.e+]+)px,\s*([-\d.e+]+)px\)/)
+        if(!target || getComputedStyle(pin).visibility==='hidden')continue
+        const x=Number(target[1]),y=Number(target[2]),box=pin.getBoundingClientRect()
+        const first=initial.get(pin) || {x,y};initial.set(pin,first)
+        maxError=Math.max(maxError,Math.hypot(box.left+box.width/2-bounds.left-x,box.top+box.height/2-bounds.top-y))
+        travel=Math.max(travel,Math.hypot(x-first.x,y-first.y))
+      }
+      frames++
+      if(performance.now()-start<2200)requestAnimationFrame(sample)
+      else resolve({maxError,travel,frames,transition:getComputedStyle(pins[0]).transition})
+    }
+    requestAnimationFrame(sample)
+  }))
+  const host=(await page.locator('.nc-living-canvas').boundingBox())!
+  await page.mouse.move(host.x+40,host.y+host.height*.55)
+  await page.mouse.down()
+  await page.mouse.move(host.x+200,host.y+host.height*.55-45,{steps:12})
+  await page.mouse.up()
+  const metrics=await tracking
+  await page.emulateMedia({reducedMotion:'reduce'})
+  await test.info().attach('sensor-orbit-tracking',{body:JSON.stringify(metrics,null,2),contentType:'application/json'})
+  expect(metrics.frames).toBeGreaterThan(2)
+  expect(metrics.travel).toBeGreaterThan(30)
+  expect(metrics.maxError,JSON.stringify(metrics)).toBeLessThan(1)
+}
+
 test('3D demonstration renders, selects sensors and plays recorded intervals without requesting private data', async ({ page }) => {
   // A cold software Vulkan renderer in Linux CI also captures desktop/mobile frames.
   test.setTimeout(process.platform === 'linux' ? 60_000 : 30_000)
@@ -159,6 +199,7 @@ test('unavailable graphics shows a useful error and a retry control', async ({ p
 })
 
 test('authenticated view uses only saved sensor positions and does not apply today’s layout to missing history', async ({ page }) => {
+  test.setTimeout(60000)
   const now=new Date().toISOString()
   const nodes=Array.from({length:4},(_,i)=>({ devEui:`000000000000000${i}`,status:'online',sensors:['Air temperature'],lastSeenAt:now,measurements:{airTemperatureC:22+i,measuredAt:now} }))
   const context={ area:{id:'actual',name:'Actual saved greenhouse'},mapEnabled:true,nodes,revision:1,updatedAt:now,sections:[],profiles:[],permissions:{canEdit:false},map:{
@@ -199,6 +240,7 @@ test('authenticated view uses only saved sensor positions and does not apply tod
   await expect(page.locator('.nc-living-scene-caption')).toContainText('sensorių aukštis nenurodytas')
   await page.waitForTimeout(1500)
   await page.screenshot({path:'/tmp/neurocrop-living-saved-plan.png',fullPage:true})
+  await expectMarkersFollowOrbit(page)
   await page.locator('#dashboardSidebar [data-sidebar-action="sites"]').click()
   await expect(page.locator('.nc-area-row')).toHaveCount(1)
   await page.getByRole('button',{name:'3D mikroklimatas: Actual saved greenhouse',exact:true}).click()
