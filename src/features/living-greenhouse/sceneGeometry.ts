@@ -4,9 +4,10 @@ import { measuredSensors } from './livingData'
 import { planToScene, type Vec3 } from './sceneMath'
 import type { LivingView } from './spatialEvidence'
 import { createVolumeGrid } from './volumeGrid'
+import { climateContours, type ClimateContour } from './climateContours'
 
 type Color = [number, number, number]
-export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[] }
+export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[]; contours: ClimateContour[] }
 export function climateColor(value: number, min: number, max: number): Color {
   const stops: Color[] = [[.10, .42, .90], [.06, .78, .86], [.89, .89, .45], [1, .57, .18], [.94, .22, .25]]
   const t = Math.max(0, Math.min(.99999, (value - min) / (max - min || 1))) * 4
@@ -14,7 +15,7 @@ export function climateColor(value: number, min: number, max: number): Color {
   return stops[i].map((c, j) => c + (stops[i + 1][j] - c) * (t - i)) as Color
 }
 
-export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number, scaleOverride?: { min: number; max: number }, options: {view:LivingView; attentionIds?:Set<string>} = {view:'volume'}) {
+export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number, scaleOverride?: { min: number; max: number }, options: {view:LivingView; attentionIds?:Set<string>;topography?:boolean} = {view:'volume'}) {
   const data: number[] = []
   const w = map.dimensions.widthM, l = map.dimensions.lengthM, size = Math.max(w, l)
   const sensors = measuredSensors(map, metric, at)
@@ -62,13 +63,16 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   for(let i=0;i<grid.values.length;i++) {
     if(!grid.mask[i])continue
     const normalized=Math.max(0,Math.min(1,(grid.values[i]-scale.min)/(scale.max-scale.min || 1)))
-    pixels.set([Math.round(normalized*255),Math.round(grid.confidence[i]*255),grid.extrapolated[i]*255,255],i*4)
+    if(options.topography){
+      const scalar=Math.round(normalized*65535)
+      pixels.set([scalar>>8,scalar&255,Math.round(grid.confidence[i]*255),255],i*4)
+    }else pixels.set([Math.round(normalized*255),Math.round(grid.confidence[i]*255),grid.extrapolated[i]*255,255],i*4)
   }
   // Show actual measured levels automatically, never a user-selected height.
   const heights=sensors.filter(s=>s.value!==null && s.heightM!==null && s.heightM<=h).map(s=>s.heightM!).sort((a,b)=>a-b)
   const levels=heights.filter((height,i)=>!i || height-heights[i-1]>.15)
   const shownLevels=levels.length<=8 ? levels : Array.from({length:8},(_,i)=>levels[Math.round(i*(levels.length-1)/7)])
-  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,bounds:[w,l,h],levels:shownLevels}
+  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,bounds:[w,l,h],levels:shownLevels,contours:options.topography ? climateContours(grid,[w,l,h],scale) : []}
   // Footprints and rotations come from the saved plan; plant forms are illustrative.
   for (const object of map.objects) {
     const { type, widthM: ow, lengthM: ol, xM, yM, rotationDeg } = object

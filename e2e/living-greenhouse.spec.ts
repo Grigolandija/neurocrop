@@ -306,3 +306,58 @@ test('delayed Node readings stay visible with their age and never enter the curr
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   await page.screenshot({path:'/tmp/neurocrop-living-contours-mobile.png',fullPage:true,animations:'disabled'})
 })
+
+for(const engine of ['WebGPU','WebGL'] as const){
+  test(`local topography comparison shows numeric 3D regions in ${engine}`,async({page})=>{
+    test.setTimeout(60000)
+    const errors:string[]=[]
+    page.on('pageerror',e=>errors.push(e.message))
+    if(engine==='WebGL')await page.addInitScript(()=>Object.defineProperty(navigator,'gpu',{value:undefined,configurable:true}))
+    await page.clock.setFixedTime(new Date('2026-10-20T12:00:00Z'))
+    await page.addInitScript(()=>localStorage.setItem('neurocrop-interface-language-v1','lt'))
+    await page.setViewportSize({width:1600,height:1050})
+    await page.goto('/greenhouse-live/demo?visual=topography')
+    await expect(page.locator('.nc-living-engine')).toHaveText(engine,{timeout:20000})
+    await expect(page.locator('.nc-living-isovalue')).toHaveText(['26 °C','28 °C'])
+    await expect(page.locator('.nc-living-zone-legend')).toContainText('≤ 26 °C')
+    await expect(page.locator('.nc-living-zone-legend')).toContainText('≥ 28 °C')
+    await expect(page.locator('.nc-living-pin-label:visible')).toHaveCount(0)
+    await expectVolumeChangesPixels(page)
+    await page.getByRole('button',{name:'Mikroklimatas',exact:true}).click()
+    const png=await page.locator('.nc-living-canvas canvas').screenshot()
+    const colors=await page.evaluate(async data=>{
+      const img=new Image();img.src=`data:image/png;base64,${data}`;await img.decode()
+      const c=document.createElement('canvas');c.width=img.width;c.height=img.height
+      const ctx=c.getContext('2d')!;ctx.drawImage(img,0,0)
+      const rgba=ctx.getImageData(0,0,c.width,c.height).data
+      let cool=0,warm=0
+      for(let i=0;i<rgba.length;i+=4){
+        const [r,g,b]=[rgba[i],rgba[i+1],rgba[i+2]]
+        if(b>r*1.25 && b>g*1.02)cool++
+        if(r>g*1.3 && r>b*1.5)warm++
+      }
+      return {cool,warm}
+    },png.toString('base64'))
+    expect(colors.cool).toBeGreaterThan(400)
+    expect(colors.warm).toBeGreaterThan(400)
+    await test.info().attach('topography-regions',{body:JSON.stringify({engine,...colors}),contentType:'application/json'})
+    await page.getByRole('button',{name:'Dabartinis tūris',exact:true}).click()
+    await expect(page.locator('.nc-living')).toHaveAttribute('data-visual','glass')
+    await expect(page.locator('.nc-living-isovalue')).toHaveCount(0)
+    await page.getByRole('button',{name:'Topografija',exact:true}).click()
+    await expect(page.locator('.nc-living-isovalue:visible')).toHaveCount(2)
+    await page.setViewportSize({width:390,height:844})
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+    // ResizeObserver schedules projection on the next rendered frame. Observe
+    // the final positions, not the previous desktop coordinates during resize.
+    await expect.poll(()=>page.locator('.nc-living-canvas').evaluate(host=>{
+      const bounds=host.getBoundingClientRect()
+      return [...host.querySelectorAll<HTMLElement>('.nc-living-isovalue')].every(label=>{
+        if(getComputedStyle(label).visibility==='hidden')return true
+        const box=label.getBoundingClientRect()
+        return box.left>=bounds.left && box.right<=bounds.right
+      })
+    })).toBe(true)
+    expect(errors).toEqual([])
+  })
+}

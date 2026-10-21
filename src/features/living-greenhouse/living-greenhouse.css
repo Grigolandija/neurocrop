@@ -228,3 +228,26 @@
   .nc-living-toolbar .nc-living-volume-mode { flex: 0 0 auto; margin-left: 0; }
   .nc-living-toolbar .nc-living-volume-mode button { padding-inline: 8px; font-size: 10px; }
 }
+
+/* Local topography study: three compact value captions, no permanent Node cards. */
+.nc-living-visual-review { display: flex; align-items: center; gap: 6px; margin: 0 0 16px; color: var(--living-mute); font-size: 12px; }
+.nc-living-visual-review > span { margin-right: auto; }
+.nc-living-visual-review button { border: 1px solid var(--living-line); padding: 9px 14px; border-radius: 6px; background: #fff; color: var(--living-mute); font-size: 12px; }
+.nc-living-visual-review button[aria-pressed="true"] { background: #e1ece3; color: #224f3a; border-color: #b9cdbd; }
+.nc-living-isovalue { position: absolute; top: 0; left: 0; visibility: hidden; z-index: 1; padding: 4px 7px; border: 1px solid; border-left-width: 3px; border-radius: 4px; background: #fffffff0; color: #2a3c32; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.nc-living-isovalue small { font-size: 9px; font-weight: 400; color: #586c60; }
+@media (max-width: 720px) {
+  .nc-living-visual-review { flex-wrap: wrap; font-size: 10px; }
+  .nc-living-visual-review > span { flex-basis: 100%; }
+  .nc-living-visual-review button { padding: 8px 12px; font-size: 11px; }
+  .nc-living-isovalue { font-size: 10px; padding: 3px 5px; }
+}
+
+.nc-living-zone-legend > div { display: flex; gap: 6px; height: auto; margin: 8px 0; }
+.nc-living-zone-legend > div > span { flex: 1; padding: 5px 7px; border-left: 3px solid; border-radius: 3px; background: #ffffffd9; color: #344e3d; font-size: 11px; white-space: nowrap; }
+.nc-living-zone-legend > p { display: block; line-height: 1.5; font-size: 9px; }
+@media (max-width: 720px) {
+  .nc-living-zone-legend { width: 160px; }
+  .nc-living-zone-legend > div > span { padding: 3px 4px; font-size: 9px; }
+  .nc-living-zone-legend > p { font-size: 8px; }
+}
