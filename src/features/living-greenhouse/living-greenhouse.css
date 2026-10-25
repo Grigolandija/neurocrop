@@ -105,6 +105,9 @@
 .nc-living-view-controls > button { width: 34px; height: 34px; border: 0; border-radius: 4px; color: #405e4b; background: transparent; font-size: 12px; }
 .nc-living-view-controls > button:hover { background: #e8efe7; color: var(--living-mint); }
 .nc-living-view-controls > span { height: 16px; border-left: 1px solid var(--living-line); margin: 0 4px; }
+.nc-living-zoom-hint { display: grid; gap: 1px; padding: 0 8px; color: var(--living-mute); font-size: 11px; line-height: 1.4; }
+.nc-living-zoom-hint > span { color: var(--living-ink); }
+@media (hover: none) and (pointer: coarse) { .nc-living-zoom-hint { display: none; } }
 .nc-living-timeline { display: flex; align-items: center; gap: 20px; min-height: 98px; padding: 20px 25px; border-top: 1px solid var(--living-line); background: #f3f6f0; }
 .nc-living-play { display: grid; place-items: center; flex: 0 0 43px; height: 43px; border: 0; border-radius: 50%; background: var(--living-mint); color: #ffffff; font-size: 13px !important; }
 .nc-living-timeline-label { display: grid; min-width: 78px; gap: 4px; }
