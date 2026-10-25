@@ -179,7 +179,12 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
     dirty=true
   }
   const up=(e:PointerEvent) => { pointers.delete(e.pointerId); pinch=0 }
-  const wheel=(e:WheelEvent) => { e.preventDefault(); zoom=Math.max(.65,Math.min(3,zoom*Math.exp(e.deltaY*.001))); dirty=true }
+  const wheel=(e:WheelEvent) => {
+    if (!e.altKey) return
+    e.preventDefault()
+    zoom=Math.max(.65,Math.min(3,zoom*Math.exp(e.deltaY*.001)))
+    dirty=true
+  }
   const lost=(e:Event) => { e.preventDefault(); if (!disposed) onLost() }
   canvas.addEventListener('pointerdown',down); canvas.addEventListener('pointermove',move); canvas.addEventListener('pointerup',up); canvas.addEventListener('pointercancel',up); canvas.addEventListener('wheel',wheel,{passive:false}); canvas.addEventListener('webglcontextlost',lost)
   const draw=(time:number) => {
