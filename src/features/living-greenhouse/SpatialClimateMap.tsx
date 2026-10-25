@@ -9,6 +9,7 @@ import { livingMap, measuredSensors, spatialClimateMetrics } from './livingData'
 import { sceneGeometry } from './sceneGeometry'
 import { planToScene, project } from './sceneMath'
 import { liveTarget, verticalComparisons } from './spatialEvidence'
+import { colorLegend } from './colorLegend'
 import './living-greenhouse.css'
 
 type Props = {
@@ -114,6 +115,9 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
 
   const closePanel = () => { setPanelOpen(false); setSelected(null); measurementsToggle.current?.focus() }
   const valueText=(s:typeof readings[number])=>displayValue(s)===null ? '—' : `${number(displayValue(s)!)} ${METRICS[metric].unit}`
+  const legend = geometry ? colorLegend(geometry.scale.min, geometry.scale.max, METRICS[metric].decimals) : null
+  const legendFormatter = new Intl.NumberFormat(lt ? 'lt-LT' : 'en-GB', { minimumFractionDigits: legend?.decimals, maximumFractionDigits: legend?.decimals })
+  const legendTicks = legend?.ticks.map(tick => ({ ...tick, label: legendFormatter.format(tick.value) })) || []
   return <>
       {map && !loading && !error && !geometry?.volumeReady ? <div className="nc-living-field-status" role="status">
         <i className={`fa-solid ${geometry?.volumeReady ? 'fa-cube' : 'fa-circle-info'}`} />
@@ -132,7 +136,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
             <span className="nc-living-scale-unit" aria-hidden="true">{METRICS[metric].unit}</span>
             <div className="nc-living-scale-ruler" aria-hidden="true">
               <div className="nc-living-scale" style={{background:scaleGradient(geometry.scale.min,geometry.scale.max,METRICS[metric],observedRange,colorMode,'vertical')}} />
-              <div className="nc-living-scale-ticks">{[0,.25,.5,.75,1].map(fraction=><span key={fraction} style={{top:`${fraction*100}%`}}>{number(geometry.scale.max-(geometry.scale.max-geometry.scale.min)*fraction)}</span>)}</div>
+              <div className="nc-living-scale-ticks" style={{width:`${Math.max(3,...legendTicks.map(tick=>tick.label.length))}ch`}}>{legendTicks.map(tick=><span key={tick.value} style={{top:`${tick.position*100}%`}}>{tick.label}</span>)}</div>
             </div>
           </div> : null}
           {map ? visibleReadings.map(s=><button type="button" key={s.object.id} ref={el=>{if(el){pins.current.set(s.object.id,el);renderer.current?.invalidate()}else pins.current.delete(s.object.id)}} className="nc-living-pin" data-selected={selected===s.object.id} data-missing={displayValue(s)===null} data-delayed={s.delayed} data-attention={attentionIds.has(s.object.id)} data-height-unknown={s.heightM===null} aria-pressed={selected===s.object.id} onClick={()=>setSelected(previous=>previous===s.object.id ? null : s.object.id)} aria-label={`${s.object.name}: ${valueText(s)} · ${readingLabel(s)} · ${heightText(s.heightM)} · ${ageText(s)}`}>
