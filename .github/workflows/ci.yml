@@ -169,9 +169,24 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Configure bounded Ubuntu package downloads
+        run: |
+          # The Azure mirror can stall while downloading Mesa. This runner is
+          # disposable; use the official Ubuntu archive and bound idle retries.
+          printf 'Acquire::Retries "2";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\n' | sudo tee /etc/apt/apt.conf.d/99-neurocrop-ci >/dev/null
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf 'http://archive.ubuntu.com/ubuntu/\n' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            sudo sed -i 's#azure.archive.ubuntu.com#archive.ubuntu.com#g' /etc/apt/sources.list.d/ubuntu.sources
+          fi
+      - name: Install Chromium and browser dependencies
+        timeout-minutes: 5
+        run: pnpm exec playwright install --with-deps chromium
       - name: Install software Vulkan and virtual display
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers xvfb xauth
+        timeout-minutes: 3
+        # Playwright has just refreshed the package index; do not update it twice.
+        run: sudo apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers xvfb xauth
       - name: Prepare backend
         working-directory: backend
         run: npm ci --ignore-scripts && npm run migrate && node scripts/seed-ci-tenants.mjs
