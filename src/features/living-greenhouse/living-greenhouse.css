@@ -218,3 +218,19 @@
 
 .nc-living .nc-living-heading .nc-living-description { margin: 10px 0 0; font-size: 14px; letter-spacing: 0; font-weight: 400; line-height: 1.5; }
 .nc-living .nc-living-inspector > .nc-living-range { position: static; width: auto; }
+
+/* Overview owns the area/metric/time controls; only the scene is embedded. */
+.nc-living.nc-living-embedded { min-height: 0; padding: 0; }
+.nc-living-field-status { display: flex; align-items: center; gap: 9px; border-bottom: 1px solid var(--living-line); padding: 12px 20px; background: #f3f6f0; color: #52675a; font-size: 12px; line-height: 1.6; }
+.nc-living-field-status > i { flex: 0 0 auto; color: var(--living-mint); }
+.nc-living-field-status a { color: var(--living-mint); text-decoration: underline; text-underline-offset: 3px; }
+.nc-living-field-legend { display: grid; grid-template-columns: minmax(230px, 1fr) minmax(200px, 1.5fr); align-items: center; gap: 24px; border-top: 1px solid var(--living-line); padding: 16px 20px; background: #fff; font-size: 11px; color: var(--living-mute); }
+.nc-living-field-legend strong { display: block; color: var(--living-ink); font-size: 12px; }
+.nc-living-scale { height: 9px; margin: 10px 0 6px; border-radius: 5px; }
+.nc-living-field-legend > div > span { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.nc-living-field-legend b { font-weight: 400; }
+.nc-living-field-legend p { margin: 0; line-height: 1.65; }
+@media (max-width: 720px) {
+  .nc-living-field-legend { grid-template-columns: 1fr; gap: 12px; }
+  .nc-living-field-status { padding: 10px 15px; }
+}

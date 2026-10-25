@@ -3,6 +3,8 @@ import { getMetricMeasurementTime, getMetricMeasurementValue } from '../greenhou
 import { METRICS, type GreenhouseMap, type GreenhouseObject, type MetricKey } from '../greenhouse-map/model'
 import type { AreaMapContext, AreaMapHistory } from '../greenhouse-map/services/areaMapRepository'
 
+export const spatialClimateMetrics: ReadonlySet<MetricKey> = new Set(['air-temperature', 'relative-humidity', 'co2', 'vpd', 'illuminance'])
+
 export const livingMetrics = Object.keys(METRICS) as MetricKey[]
 
 // A rendering prototype must never invent positions for unplaced live nodes.
@@ -38,17 +40,17 @@ export function livingMap(context: AreaMapContext, history: AreaMapHistory | nul
   }) }
 }
 
-export function measuredSensors(map: GreenhouseMap, metric: MetricKey, at: number) {
+export function measuredSensors(map: GreenhouseMap, metric: MetricKey, at: number, soilEcDepthCm?: number) {
   return map.objects.filter(o => o.type === 'sensor-node' && o.xM >= 0 && o.yM >= 0 && o.xM+o.widthM/2 <= map.dimensions.widthM && o.yM+o.lengthM/2 <= map.dimensions.lengthM).map(object => {
     const sensor = object.metadata.sensor
-    const raw = getMetricMeasurementValue(sensor?.measurements, metric)
+    const raw = getMetricMeasurementValue(sensor?.measurements, metric, soilEcDepthCm)
     const timestamp = getMetricMeasurementTime(sensor?.measurements, metric) || sensor?.lastSeenAt
     const age = timestamp ? at - Date.parse(timestamp) : NaN
     const valid = sensor && !['offline', 'stale', 'unassigned'].includes(sensor.status)
       && typeof raw === 'number' && Number.isFinite(raw)
       && Number.isFinite(age) && age >= -60_000 && age <= map.heatmapSettings.maxReadingAgeMinutes * 60_000
     const previous = sensor?.lastMeasurements ?? sensor?.measurements
-    const lastRaw = getMetricMeasurementValue(previous, metric)
+    const lastRaw = getMetricMeasurementValue(previous, metric, soilEcDepthCm)
     const lastTimestamp = getMetricMeasurementTime(previous, metric)
     const lastAge = lastTimestamp ? at - Date.parse(lastTimestamp) : NaN
     const lastValue = typeof lastRaw === 'number' && Number.isFinite(lastRaw) && Number.isFinite(lastAge) && lastAge >= -60_000 ? lastRaw : null

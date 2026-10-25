@@ -1,5 +1,5 @@
 import { translateInterfaceText as tx } from '../../i18n'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { getMetricIdByHeatmapKey } from '../../domain/metricRegistry'
 import { useInterfaceLanguage } from '../../i18n'
@@ -15,6 +15,8 @@ import {
 import { historyFrameEndIso, latestCompletedHistoryFrameIndex } from '../greenhouse-map/services/historyFrameSelection'
 import { prepareReadOnlyClimateMap } from './prepareReadOnlyClimateMap'
 import '../../styles/climate-map.css'
+
+const SpatialClimateMap = lazy(() => import('../living-greenhouse/SpatialClimateMap'))
 
 const heatmapMetrics = Object.keys(METRICS) as MetricKey[]
 const soilEcDepthStorageKey = 'neurocrop-soil-ec-depth-cm-v1'
@@ -35,6 +37,8 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const locale = lithuanian ? 'lt-LT' : 'en-GB'
   const [context, setContext] = useState<AreaMapContext | null>(null)
   const [history, setHistory] = useState<AreaMapHistory | null>(null)
+  const [observedNow, setObservedNow] = useState(() => Date.now())
+  const [mapView, setMapView] = useState<'2d' | '3d'>('2d')
   const [timeMode, setTimeMode] = useState<ClimateTimeMode>('live')
   const [historyIndex, setHistoryIndex] = useState(0)
   const [historyError, setHistoryError] = useState('')
@@ -102,6 +106,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
           setHistoryError(historyResult.reason instanceof Error ? historyResult.reason.message : 'Historical climate data could not be loaded.')
         }
         contextRef.current = next
+        setObservedNow(Date.now())
         setContext(next)
         setStatus('ready')
       })
@@ -121,6 +126,12 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       })
     return () => { cancelled = true }
   }, [areaId, refreshToken])
+
+  useEffect(() => {
+    if (mapView !== '3d' || timeMode !== 'live') return
+    const timer = window.setInterval(() => setObservedNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [mapView, timeMode])
 
   const historyFrame = timeMode === 'history' ? history?.frames[historyIndex] : null
   const historyFrameEnd = historyFrame && history
@@ -293,6 +304,13 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       {overviewPresentation ? <div className="nc-climate-area-navigation">{areaNavigation}</div> : null}
       <div className="nc-climate-map-filters">
         <div className="nc-climate-filter-control">
+          <span>{lithuanian ? 'Vaizdas' : 'View'}</span>
+          <div className="nc-climate-view-mode" role="group" aria-label={lithuanian ? 'Žemėlapio vaizdas' : 'Map view'}>
+            <button type="button" className={mapView === '2d' ? 'active' : ''} aria-pressed={mapView === '2d'} onClick={() => setMapView('2d')}>2D</button>
+            <button type="button" className={mapView === '3d' ? 'active' : ''} aria-pressed={mapView === '3d'} onClick={() => { setObservedNow(Date.now()); setMapView('3d') }}>3D</button>
+          </div>
+        </div>
+        <div className="nc-climate-filter-control">
           <span>{lithuanian ? 'Laikas' : 'Time'}</span>
           <div className="nc-climate-time-mode" aria-label={lithuanian ? 'Klimato žemėlapio laikas' : 'Climate map time'}>
             <button type="button" className={timeMode === 'live' ? 'active' : ''} aria-pressed={timeMode === 'live'} onClick={() => selectTimeMode('live')}>{lithuanian ? 'Dabar' :tx("Live")}</button>
@@ -337,7 +355,9 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
       : historyError
         ? <div className="nc-climate-history-warning"><i className="fa-solid fa-triangle-exclamation" /> {lithuanian ? 'Istorinis klimato žemėlapis nepasiekiamas:' :tx("Historical climate map unavailable:")} {historyError}</div>
         : null}
-    <div className="nc-climate-map-canvas">
+    {mapView === '3d' ? <Suspense fallback={<div className="nc-climate-map-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{lithuanian ? 'Atveriamas erdvinis žemėlapis…' : 'Opening spatial map…'}</strong></div>}>
+      <SpatialClimateMap key={context.area.id} context={context} history={history} index={timeMode === 'history' ? historyIndex : null} historyTime={historyFrame?.observedAt} metric={selectedMetric} colorMode={colorMode} soilEcDepthCm={selectedSoilEcDepthCm} at={historyFrameEnd ? Date.parse(historyFrameEnd) : observedNow} onReady={handleCanvasRenderReady} onFallback={() => setMapView('2d')} />
+    </Suspense> : <div className="nc-climate-map-canvas">
       <GreenhouseCanvas
         map={map}
         mode="environment"
@@ -358,7 +378,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         target={target}
         colorMode={colorMode}
       />
-    </div>
+    </div>}
     <div className="nc-climate-soil-section-slot" ref={setSoilProfileHost} />
     <div className="nc-climate-map-legend-slot" ref={setLegendHost} />
   </section>

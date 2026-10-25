@@ -10,10 +10,10 @@
 .nc-climate-map-filters { display: flex; flex-wrap: wrap; align-items: end; justify-content: flex-end; gap: var(--space-12); }
 .nc-climate-filter-control { display: grid; align-content: end; gap: 6px; }
 .nc-climate-filter-control > span { color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-medium); line-height: 1; }
-.nc-climate-time-mode, .nc-climate-color-mode { display: inline-flex; min-height: var(--control-height-sm); overflow: hidden; border: 1px solid var(--color-border); border-radius: .55rem; background: var(--color-surface-subtle); }
-.nc-climate-time-mode button, .nc-climate-color-mode button { min-width: 4.7rem; min-height: calc(var(--control-height-sm) - 2px); border: 0; padding: 0 var(--space-12); background: transparent; color: var(--color-text-tertiary); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
-.nc-climate-time-mode button + button, .nc-climate-color-mode button + button { border-left: 1px solid var(--color-border); }
-.nc-climate-time-mode button.active, .nc-climate-color-mode button.active { background: var(--color-secondary); color: #fff; }
+.nc-climate-time-mode, .nc-climate-color-mode, .nc-climate-view-mode { display: inline-flex; min-height: var(--control-height-sm); overflow: hidden; border: 1px solid var(--color-border); border-radius: .55rem; background: var(--color-surface-subtle); }
+.nc-climate-time-mode button, .nc-climate-color-mode button, .nc-climate-view-mode button { min-width: 4.7rem; min-height: calc(var(--control-height-sm) - 2px); border: 0; padding: 0 var(--space-12); background: transparent; color: var(--color-text-tertiary); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
+.nc-climate-time-mode button + button, .nc-climate-color-mode button + button, .nc-climate-view-mode button + button { border-left: 1px solid var(--color-border); }
+.nc-climate-time-mode button.active, .nc-climate-color-mode button.active, .nc-climate-view-mode button.active { background: var(--color-secondary); color: #fff; }
 .nc-climate-time-mode button:disabled { cursor: not-allowed; opacity: .45; }
 .nc-climate-map-filters label { min-width: 12rem; }
 .nc-climate-map-filters label.nc-climate-depth { min-width: 6.5rem; }
@@ -114,8 +114,8 @@
   .nc-area-tabs { width: 100%; }
   .nc-live-climate-map > header, .nc-climate-map-filters { align-items: stretch; flex-direction: column; }
   .nc-climate-filter-control { width: 100%; }
-  .nc-climate-time-mode, .nc-climate-color-mode { width: 100%; }
-  .nc-climate-time-mode button, .nc-climate-color-mode button { flex: 1; }
+  .nc-climate-time-mode, .nc-climate-color-mode, .nc-climate-view-mode { width: 100%; }
+  .nc-climate-time-mode button, .nc-climate-color-mode button, .nc-climate-view-mode button { flex: 1; }
   .nc-climate-map-filters select { width: 100%; }
   .nc-climate-lock { align-self: flex-start; }
   .nc-climate-history-controls { grid-template-columns: auto 1fr; gap: var(--space-12); }
@@ -128,3 +128,5 @@
   .nc-climate-map-legend-slot .gh-heatmap-legend { grid-template-columns: 1fr; gap: var(--space-12); }
   .nc-climate-map-legend-slot :is(.gh-legend-scale,.gh-legend-meta) { grid-column: auto; border-top: 1px solid var(--color-border); border-left: 0; margin: 0; padding: var(--space-12) 0 0; }
 }
+
+.nc-climate-view-mode button { min-width: 2.75rem; }
