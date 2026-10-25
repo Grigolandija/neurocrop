@@ -26,13 +26,23 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop-chromium',
-      testIgnore: /mobile\.spec\.ts/,
+      testIgnore: /(?:mobile|living-greenhouse|node-height)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'mobile-chromium',
       testMatch: /mobile\.spec\.ts/,
       use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'graphics-chromium',
+      testMatch: /(?:living-greenhouse|node-height)\.spec\.ts/,
+      // Software Vulkan shares the runner's CPU. Finish ordinary UI tests first
+      // and keep only one graphics browser active, including during retries.
+      dependencies: ['desktop-chromium', 'mobile-chromium'],
+      workers: 1,
+      timeout: process.platform === 'linux' ? 60_000 : 30_000,
+      use: { ...devices['Desktop Chrome'] },
     },
   ]
 })

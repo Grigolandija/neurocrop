@@ -69,19 +69,18 @@ async function expectVolumeChangesPixels(page: Page) {
 // a real pointer drag is moving the scene, rather than after it has settled.
 async function expectMarkersFollowOrbit(page: Page) {
   await page.emulateMedia({reducedMotion:'no-preference'})
-  // Sample after each real pointer movement, rather than assuming software GPU
-  // rendering delivers several frames within a fixed 2.2-second window.
-  const sample=()=>page.locator('.nc-living-canvas').evaluate(host=>new Promise<Array<{id:string;x:number;y:number;error:number;transition:string}>>(resolve=>{
-    requestAnimationFrame(()=>{
-      const bounds=host.getBoundingClientRect()
-      resolve([...host.querySelectorAll<HTMLElement>('.nc-living-pin')].flatMap(pin=>{
-        const target=pin.style.transform.match(/translate\(([-\d.e+]+)px,\s*([-\d.e+]+)px\)/)
-        if(!target || getComputedStyle(pin).visibility==='hidden')return []
-        const x=Number(target[1]),y=Number(target[2]),box=pin.getBoundingClientRect()
-        return [{id:pin.getAttribute('aria-label')!,x,y,error:Math.hypot(box.left+box.width/2-bounds.left-x,box.top+box.height/2-bounds.top-y),transition:getComputedStyle(pin).transitionProperty}]
-      }))
+  // Wait for projected coordinates to change after each real pointer move.
+  // A requestAnimationFrame callback alone does not guarantee a GPU redraw.
+  const sample=()=>page.locator('.nc-living-canvas').evaluate(host=>{
+    const bounds=host.getBoundingClientRect()
+    return [...host.querySelectorAll<HTMLElement>('.nc-living-pin')].flatMap(pin=>{
+      const target=pin.style.transform.match(/translate\(([-\d.e+]+)px,\s*([-\d.e+]+)px\)/)
+      if(!target || getComputedStyle(pin).visibility==='hidden')return []
+      const x=Number(target[1]),y=Number(target[2]),box=pin.getBoundingClientRect()
+      return [{id:pin.getAttribute('aria-label')!,x,y,error:Math.hypot(box.left+box.width/2-bounds.left-x,box.top+box.height/2-bounds.top-y),transition:getComputedStyle(pin).transitionProperty}]
     })
-  }))
+  })
+  await expect(page.locator('.nc-living-pin').first()).toBeVisible()
   const initial=new Map((await sample()).map(pin=>[pin.id,pin]))
   const host=(await page.locator('.nc-living-canvas').boundingBox())!
   await page.mouse.move(host.x+40,host.y+host.height*.55)
@@ -90,7 +89,13 @@ async function expectMarkersFollowOrbit(page: Page) {
   try {
     for(let step=1;step<=5;step++){
       await page.mouse.move(host.x+40+step*32,host.y+host.height*.55-step*9)
-      samples.push(await sample())
+      const previous=new Map((samples.at(-1) || [...initial.values()]).map(pin=>[pin.id,pin]))
+      let projected:Awaited<ReturnType<typeof sample>>=[]
+      await expect.poll(async()=>{
+        projected=await sample()
+        return projected.some(pin=>{const old=previous.get(pin.id);return old && Math.hypot(pin.x-old.x,pin.y-old.y)>.5})
+      },{message:'Dragging must update the projected sensor positions',timeout:10000,intervals:[50,100,250]}).toBe(true)
+      samples.push(projected)
     }
   } finally {
     await page.mouse.up()
@@ -297,7 +302,9 @@ test('delayed Node readings stay visible with their age and are excluded from th
   await expect(page.getByRole('combobox',{name:'Metric'}).locator('option[value="illuminance"]')).toHaveCount(1)
   await expect(page.getByRole('combobox',{name:'Metric'}).getByRole('option',{name:'Substrate temperature',exact:true})).toHaveCount(1)
   await page.setViewportSize({width:390,height:844})
+  // Let ResizeObserver and the next rendering frame apply the mobile canvas size.
   await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
+  await expect.poll(()=>page.locator('.nc-living-canvas').evaluate(host=>host.clientWidth)).toBeGreaterThan(0)
   await expect.poll(()=>page.locator('.nc-living-pin:visible').count()).toBe(6)
 
   await expect.poll(()=>page.locator('.nc-living-canvas').evaluate(host=>{
@@ -331,12 +338,11 @@ for(const engine of ['WebGPU','WebGL'] as const){
     await page.getByRole('slider',{name:'Durų angos plotis',exact:true}).fill('3')
     await expect(page.getByRole('combobox',{name:'Durų tipas',exact:true})).toHaveValue('single')
     await expect(page.locator('.nep-title')).toContainText('3 ×')
-    const resized=await capture()
-    expect(resized.equals(before),'Widening a door must update the actual rendered model').toBe(false)
+    let resized=before
+    await expect.poll(async()=>{resized=await capture();return resized.equals(before)},{message:'Widening a door must update the actual rendered model',timeout:10000}).toBe(false)
     await page.getByRole('combobox',{name:'Durų tipas',exact:true}).selectOption('double')
     await expect(page.getByRole('combobox',{name:'Durų tipas',exact:true})).toHaveValue('double')
-    const double=await capture()
-    expect(double.equals(resized),'Double doors must have different geometry from single doors').toBe(false)
+    await expect.poll(async()=>(await capture()).equals(resized),{message:'Double doors must have different geometry from single doors',timeout:10000}).toBe(false)
     await page.getByRole('combobox',{name:'Durų tipas',exact:true}).selectOption('sliding')
     await page.getByRole('slider',{name:'Durų aukštis',exact:true}).fill('2.4')
     await expect(page.getByRole('slider',{name:'Durų aukštis',exact:true})).toHaveValue('2.4')
