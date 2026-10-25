@@ -4,7 +4,7 @@ import { graphicsOptions } from './support/graphics'
 
 test.use(graphicsOptions)
 
-test('Node height is entered in Nodes, saved, and used automatically by the 3D climate view',async({page})=>{
+test('Node height is entered in Nodes, saved, and used automatically by the 3D layout',async({page})=>{
   const devEui='0011223344556677',api='http://node-height.test',now=new Date().toISOString()
   const node={id:devEui,devEui,name:'NSN-000001',areaId:'a',sectionId:'s',transportStatus:'live',lastReceivedAt:now,source:'physical',installationHeightCm:null as number|null}
   const writes:Record<string,unknown>[]=[]
@@ -42,13 +42,15 @@ test('Node height is entered in Nodes, saved, and used automatically by the 3D c
   await expect(dialog.getByLabel('Node height above floor, cm')).toHaveValue('175')
   await expect(dialog.getByLabel('Node height above floor, cm')).toBeInViewport()
   await expect.poll(()=>dialog.evaluate(el=>getComputedStyle(el).opacity)).toBe('1')
-  await page.screenshot({path:'/tmp/neurocrop-node-height.png',fullPage:true,animations:'disabled'})
   await dialog.getByRole('button',{name:'Cancel',exact:true}).click()
-  await page.locator('#dashboardSidebar [data-sidebar-action="climate-3d"]').click()
+  await page.locator('#dashboardSidebar [data-sidebar-action="sites"]').click()
+  await page.getByRole('button',{name:'3D layout: Greenhouse',exact:true}).click()
   await expect(page).toHaveURL(/greenhouse-live/)
   await expect(page.locator('.nc-living-engine')).toHaveText(/WebGPU|WebGL/,{timeout:20000})
   await page.locator('.nc-living-sensor-list button').click()
   await expect(page.locator('.nc-living-sensor-detail')).toContainText('1.75 m')
   await expect(page.getByRole('combobox',{name:'Height above floor'})).toHaveCount(0)
-  await expect(page.getByRole('button',{name:'Microclimate',exact:true})).toHaveAttribute('aria-pressed','true')
+  await expect(page.getByRole('heading',{name:'3D layout',exact:true})).toBeVisible()
+  await expect(page.locator('.nc-living-pin')).toHaveCount(1)
+  await expect(page.locator('.nc-living-pin')).toHaveAttribute('data-height-unknown','false')
 })

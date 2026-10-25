@@ -8,12 +8,12 @@ async function expectVolumeChangesPixels(page: Page) {
   // This must be a context option: an ignored test option lets the camera intro
   // change the baseline while the software renderer is taking its first frame.
   expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true)
-  const canvas=page.locator('.nc-living-canvas canvas')
-  const mode=page.getByRole('group',{name:/Mikroklimato vaizdavimas|Climate visualization/})
+  const canvas=page.locator('.nsd-scene canvas')
+  const mode=page.locator('.nsd-segments')
   const capture=async()=>{
     await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
     await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
-    return canvas.screenshot({animations:'disabled',style:'.nc-living-pin, .nc-living-scene-caption, .nc-living-legend, .nc-living-point-key, .nc-living-view-controls { visibility: hidden !important; }'})
+    return canvas.screenshot({animations:'disabled',style:'.nsd-pins, .nsd-scene-info, .nsd-legend, .nsd-camera { visibility: hidden !important; }'})
   }
   const compare=async(before:Buffer,after:Buffer)=>page.evaluate(async images=>{
     const decode=async(data:string)=>{
@@ -44,24 +44,24 @@ async function expectVolumeChangesPixels(page: Page) {
     return {background:Array.from(background),backgroundBrightness:background[0]+background[1]+background[2],modelFraction:modelPixels/(a.width*a.height),changedFraction:changed/Math.max(1,modelPixels),meanColorError:totalError/(Math.max(1,modelPixels)*765),modelPixels,changed,width:a.width,height:a.height}
   },[before.toString('base64'),after.toString('base64')])
 
-  await mode.getByRole('button',{name:/^(Matavimai|Measurements)$/}).click()
+  await mode.getByRole('button',{name:'Taškai',exact:true}).click()
   const points=await capture()
   const baseline=await compare(points,points)
   // A light canvas must contain actual geometry, not an empty compositor placeholder.
   expect(baseline.backgroundBrightness).toBeGreaterThan(650)
   expect(baseline.modelFraction).toBeGreaterThan(.03)
-  await mode.getByRole('button',{name:/^(Mikroklimatas|Microclimate)$/}).click()
+  await mode.getByRole('button',{name:'Mikroklimatas',exact:true}).click()
   let volume=points,metrics=baseline
   await expect.poll(async()=>{
     volume=await capture();metrics=await compare(points,volume)
     return metrics.changedFraction
   },{message:'The climate field must visibly change the rendered greenhouse, not just its labels',timeout:10000}).toBeGreaterThan(.01)
-  await mode.getByRole('button',{name:/^(Matavimai|Measurements)$/}).click()
+  await mode.getByRole('button',{name:'Taškai',exact:true}).click()
   let restored=baseline
   // Repeated GPU captures can vary at geometry edges. Removing the field must
   // eliminate at least 75% of its color difference.
   await expect.poll(async()=>{restored=await compare(points,await capture());return restored.meanColorError/metrics.meanColorError},{message:'Removing the field must remove its visible color contribution',timeout:10000}).toBeLessThan(.25)
-  await test.info().attach('rendered-climate-check',{body:JSON.stringify({engine:await page.locator('.nc-living-engine').innerText(),...metrics,restoredColorError:restored.meanColorError},null,2),contentType:'application/json'})
+  await test.info().attach('rendered-climate-check',{body:JSON.stringify({engine:await page.locator('.nsd-explanation small').innerText(),...metrics,restoredColorError:restored.meanColorError},null,2),contentType:'application/json'})
 }
 
 // Normal workspace button transitions must never interpolate a projected XYZ
@@ -69,133 +69,139 @@ async function expectVolumeChangesPixels(page: Page) {
 // a real pointer drag is moving the scene, rather than after it has settled.
 async function expectMarkersFollowOrbit(page: Page) {
   await page.emulateMedia({reducedMotion:'no-preference'})
-  const tracking=page.evaluate(()=>new Promise<{maxError:number;travel:number;frames:number;transition:string}>(resolve=>{
-    const host=document.querySelector<HTMLElement>('.nc-living-canvas')!
-    const pins=[...host.querySelectorAll<HTMLElement>('.nc-living-pin')]
-    const initial=new Map<HTMLElement,{x:number;y:number}>()
-    let maxError=0,travel=0,frames=0
-    const start=performance.now()
-    const sample=()=>{
+  // Sample after each real pointer movement, rather than assuming software GPU
+  // rendering delivers several frames within a fixed 2.2-second window.
+  const sample=()=>page.locator('.nc-living-canvas').evaluate(host=>new Promise<Array<{id:string;x:number;y:number;error:number;transition:string}>>(resolve=>{
+    requestAnimationFrame(()=>{
       const bounds=host.getBoundingClientRect()
-      for(const pin of pins){
+      resolve([...host.querySelectorAll<HTMLElement>('.nc-living-pin')].flatMap(pin=>{
         const target=pin.style.transform.match(/translate\(([-\d.e+]+)px,\s*([-\d.e+]+)px\)/)
-        if(!target || getComputedStyle(pin).visibility==='hidden')continue
+        if(!target || getComputedStyle(pin).visibility==='hidden')return []
         const x=Number(target[1]),y=Number(target[2]),box=pin.getBoundingClientRect()
-        const first=initial.get(pin) || {x,y};initial.set(pin,first)
-        maxError=Math.max(maxError,Math.hypot(box.left+box.width/2-bounds.left-x,box.top+box.height/2-bounds.top-y))
-        travel=Math.max(travel,Math.hypot(x-first.x,y-first.y))
-      }
-      frames++
-      if(performance.now()-start<2200)requestAnimationFrame(sample)
-      else resolve({maxError,travel,frames,transition:getComputedStyle(pins[0]).transition})
-    }
-    requestAnimationFrame(sample)
+        return [{id:pin.getAttribute('aria-label')!,x,y,error:Math.hypot(box.left+box.width/2-bounds.left-x,box.top+box.height/2-bounds.top-y),transition:getComputedStyle(pin).transitionProperty}]
+      }))
+    })
   }))
+  const initial=new Map((await sample()).map(pin=>[pin.id,pin]))
   const host=(await page.locator('.nc-living-canvas').boundingBox())!
   await page.mouse.move(host.x+40,host.y+host.height*.55)
   await page.mouse.down()
-  await page.mouse.move(host.x+200,host.y+host.height*.55-45,{steps:12})
-  await page.mouse.up()
-  const metrics=await tracking
-  await page.emulateMedia({reducedMotion:'reduce'})
+  const samples:Awaited<ReturnType<typeof sample>>[]=[]
+  try {
+    for(let step=1;step<=5;step++){
+      await page.mouse.move(host.x+40+step*32,host.y+host.height*.55-step*9)
+      samples.push(await sample())
+    }
+  } finally {
+    await page.mouse.up()
+    await page.emulateMedia({reducedMotion:'reduce'})
+  }
+  const points=samples.flat()
+  const metrics={frames:samples.length,maxError:Math.max(...points.map(p=>p.error)),travel:Math.max(...points.map(p=>{const first=initial.get(p.id);return first ? Math.hypot(p.x-first.x,p.y-first.y) : 0}))}
   await test.info().attach('sensor-orbit-tracking',{body:JSON.stringify(metrics,null,2),contentType:'application/json'})
+  expect(initial.size).toBeGreaterThan(0)
+  expect(points.length).toBeGreaterThan(0)
+  expect(points.every(p=>p.transition==='none')).toBe(true)
   expect(metrics.frames).toBeGreaterThan(2)
   expect(metrics.travel).toBeGreaterThan(30)
   expect(metrics.maxError,JSON.stringify(metrics)).toBeLessThan(1)
 }
 
-test('3D demonstration renders, selects sensors and plays recorded intervals without requesting private data', async ({ page }) => {
-  // A cold software Vulkan renderer in Linux CI also captures desktop/mobile frames.
+test('3D demonstration renders, selects sensors and plays synthetic intervals without requesting private data', async ({ page }) => {
   test.setTimeout(process.platform === 'linux' ? 60_000 : 30_000)
   const errors: string[] = [], requests: string[] = []
   page.on('pageerror', e=>errors.push(e.message))
   page.on('request', r=>{ if (/\/areas|\/readings|\/nodes|\/auth\/me/.test(r.url())) requests.push(r.url()) })
-  await page.addInitScript(()=>localStorage.setItem('neurocrop-interface-language-v1','lt'))
   await page.setViewportSize({width:1600,height:1050})
   await page.clock.setFixedTime(new Date('2026-10-20T12:00:00Z'))
   await page.goto('/greenhouse-live/demo')
-  await expect(page.locator('.nc-living-source')).toContainText('Demonstraciniai duomenys')
-  await expect(page.locator('.nc-living-engine')).toHaveText('WebGPU',{timeout:20000})
-  await expect(page.locator('.nc-living-empty')).toHaveCount(0)
-  await expect(page.locator('.nc-living-pin')).toHaveCount(6)
-  await expect(page.locator('.nc-living-scene-caption')).toContainText('Visas tūris: 0–4,2 m')
-  await expect(page.getByRole('button',{name:/^(Mikroklimatas|Microclimate)$/})).toHaveAttribute('aria-pressed','true')
+  await expect(page.locator('.nsd-notice')).toContainText('Pavyzdinis planas ir sintetiniai matavimai')
+  await expect(page.locator('.nsd-explanation small')).toHaveText('WebGPU',{timeout:20000})
+  await expect(page.locator('.nsd-render-error')).toHaveCount(0)
+  await expect(page.locator('.nsd-pin')).toHaveCount(6)
+  await expect(page.locator('.nsd-scene-info')).toContainText('6 sensoriai · 0,6–2,7 m aukštyje')
+  await expect(page.getByRole('button',{name:'Mikroklimatas',exact:true})).toHaveAttribute('aria-pressed','true')
   await expectVolumeChangesPixels(page)
-  await expect(page.getByRole('button',{name:'Matavimai',exact:true})).toHaveAttribute('aria-pressed','true')
-  await expect(page.locator('.nc-living-comparison')).toContainText('2,8 m − 1,2 m')
-  await expect(page.getByRole('button',{name:'Aukščio pjūvis',exact:true})).toHaveCount(0)
-  await expect(page.getByRole('combobox',{name:/Height above floor|Aukštis nuo grindų/})).toHaveCount(0)
-  await page.getByRole('button',{name:'Mikroklimatas',exact:true}).click()
-  await expect(page.locator('.nc-living-pin')).toHaveCount(6)
-  await expect(page.locator('.nc-living-pin-label:visible')).toHaveCount(0)
-  await page.screenshot({path:'/tmp/neurocrop-living-xyz-volume.png',fullPage:true})
-  const firstPoint=page.getByRole('button',{name:/NSN-DEMO-01:/})
-  await firstPoint.hover()
-  await expect(firstPoint.locator('.nc-living-pin-label')).toBeVisible()
-  await expect(page.locator('.nc-living-pin-label:visible')).toHaveCount(1)
-  await page.mouse.move(0,0)
-  await expect(page.locator('.nc-living-pin-label:visible')).toHaveCount(0)
-  await firstPoint.focus()
+  const firstPoint=page.locator('.nsd-pin').filter({hasText:'0,6 m'})
+  const nextPoint=page.locator('.nsd-pin').filter({hasText:'1,1 m'})
+  await expect(page.locator('.nsd-pin > span:visible')).toHaveCount(6)
+  await page.getByTitle('Matavimų etiketės',{exact:true}).click()
+  await expect(page.locator('.nsd-pin > span:visible')).toHaveCount(1)
+  await nextPoint.click()
+  await expect(nextPoint).toHaveClass(/is-selected/)
+  await expect(firstPoint).not.toHaveClass(/is-selected/)
+  const inspector=page.getByRole('complementary',{name:'Pasirinkto objekto duomenys'})
+  await expect(inspector.getByRole('heading',{name:'NSN-000006',exact:true})).toBeVisible()
+  await expect(inspector.locator('.nsd-properties').first()).toContainText('1,1 m')
+  await nextPoint.focus()
   await page.keyboard.press('Tab')
-  const nextPoint=page.getByRole('button',{name:/NSN-DEMO-02:/})
-  await expect(nextPoint).toBeFocused()
-  await expect(nextPoint.locator('.nc-living-pin-label')).toBeVisible()
-  await page.getByRole('button',{name:'Mikroklimatas',exact:true}).focus()
-  await expect(page.locator('.nc-living-pin-label:visible')).toHaveCount(0)
-  await firstPoint.click()
-  await expect(firstPoint).toHaveAttribute('aria-pressed','true')
-  await expect(firstPoint.locator('.nc-living-pin-label')).toBeVisible()
-  await expect(page.locator('.nc-living-inspector-head')).toContainText('PASIRINKTAS SENSORIUS')
-  await page.screenshot({path:'/tmp/neurocrop-living-point-tooltip.png',fullPage:true})
-  await page.getByRole('button',{name:'Uždaryti sensorių'}).click()
-  await expect(page.locator('.nc-living-pin-label:visible')).toHaveCount(0)
-  await page.locator('#living-time').fill('20')
-  const before=await page.locator('.nc-living-timeline-label strong').innerText()
-  await page.getByRole('button',{name:'Paleisti istoriją'}).click()
-  await expect(page.locator('.nc-living-timeline-label strong')).not.toHaveText(before)
-  await page.getByRole('button',{name:'Pristabdyti'}).click()
-  await page.locator('#living-time').fill('64')
+  await expect(page.locator('.nsd-pin').nth(2)).toBeFocused()
+  await expect(page.getByRole('combobox',{name:'Aukštis nuo grindų'})).toHaveCount(0)
+  await page.getByRole('button',{name:'+ Pridėti sensoriaus patikrą',exact:true}).click()
+  const navigation=page.getByRole('navigation',{name:'Demonstracijos navigacija'})
+  await navigation.getByRole('button',{name:/^Veiksmai/}).click()
+  await expect(inspector).toContainText('Patikrinti NSN-000006')
+  await inspector.getByRole('button',{name:'Pažymėti atlikta ✓'}).click()
+  await expect(inspector).toContainText('Pasirinkite sensorių ir pridėkite jo patikrą')
+  await navigation.getByRole('button',{name:'Matavimai',exact:true}).click()
+  await expect(inspector.locator('.nsd-result')).toHaveCount(6)
+  await navigation.getByRole('button',{name:'Ataskaita',exact:true}).click()
+  await expect(inspector).toContainText('negalima atskirai nustatyti vertikalaus temperatūros gradiento')
+  await page.getByRole('combobox',{name:'Rodiklis',exact:true}).selectOption('co2')
+  await expect(page.locator('.nsd-legend')).toContainText('CO₂ · ppm')
+  await page.getByRole('combobox',{name:'Rodiklis',exact:true}).selectOption('air-temperature')
+  const timeline=page.getByRole('slider',{name:'Pavyzdinės paros laikas'})
+  await timeline.fill('20')
+  const before=await page.locator('.nsd-time-value b').innerText()
+  await page.getByRole('button',{name:'Paleisti istoriją',exact:true}).click()
+  await expect(page.locator('.nsd-time-value b')).not.toHaveText(before)
+  await page.getByRole('button',{name:'Sustabdyti istoriją',exact:true}).click()
+  await page.getByRole('button',{name:'Dabar',exact:true}).click()
+  await expect(timeline).toHaveValue('96')
   await page.getByRole('button',{name:'Vaizdas iš viršaus',exact:true}).click()
-  // The saved plan uses Cartesian Y: DEMO-03 at Y=9 must stay above
-  // DEMO-01 at Y=2; increasing plan X must still move to the right.
-  const pin=(id:string)=>page.getByRole('button',{name:new RegExp(`NSN-DEMO-${id}:`)})
-  await expect.poll(async()=>((await pin('03').boundingBox())?.y || 0)-((await pin('01').boundingBox())?.y || 0)).toBeLessThan(-20)
-  expect((await pin('02').boundingBox())!.x).toBeGreaterThan((await pin('01').boundingBox())!.x)
+  // Increasing saved plan Y must move upward, and increasing X to the right.
+  const pin=(id:string)=>page.locator('.nsd-pin').and(page.getByRole('button',{name:new RegExp(`^NSN-${id},`)}))
+  await expect.poll(async()=>((await pin('000006').boundingBox())?.y || 0)-((await pin('000003').boundingBox())?.y || 0)).toBeLessThan(-20)
+  expect((await pin('000002').boundingBox())!.x).toBeGreaterThan((await pin('000003').boundingBox())!.x)
   await page.getByRole('button',{name:'Pradinis vaizdas',exact:true}).click()
-  await page.waitForTimeout(300)
-  await page.screenshot({path:'/tmp/neurocrop-living-desktop.png',fullPage:true})
   await page.setViewportSize({width:390,height:844})
-  await expect(page.locator('.nc-living-inspector')).toBeVisible()
-  await expect(page.locator('.nc-living-pin-label:visible')).toHaveCount(0)
+  await expect(inspector).toBeVisible()
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  await page.screenshot({path:'/tmp/neurocrop-living-mobile.png',fullPage:true})
   expect(requests).toEqual([])
   expect(errors).toEqual([])
 })
 
-test('WebGL fallback works when WebGPU is unavailable', async ({ page }) => {
+test('WebGL fallback renders the spatial demo when WebGPU is unavailable', async ({ page }) => {
   await page.addInitScript(()=>Object.defineProperty(navigator,'gpu',{value:undefined,configurable:true}))
   await page.clock.setFixedTime(new Date('2026-10-20T12:00:00Z'))
   await page.goto('/greenhouse-live/demo')
-  await expect(page.locator('.nc-living-engine')).toHaveText('WebGL',{timeout:20000})
-  await expect(page.locator('.nc-living-empty')).toHaveCount(0)
-  await expect(page.locator('.nc-living-pin').first()).toBeVisible()
+  await expect(page.locator('.nsd-explanation small')).toHaveText('WebGL',{timeout:20000})
+  await expect(page.locator('.nsd-render-error')).toHaveCount(0)
+  await expect(page.locator('.nsd-pin').first()).toBeVisible()
   await expectVolumeChangesPixels(page)
 })
 
-test('unavailable graphics shows a useful error and a retry control', async ({ page }) => {
+test('unavailable graphics explains the failure and leaves demo readings and history accessible', async ({ page }) => {
   await page.addInitScript(()=>{
     Object.defineProperty(navigator,'gpu',{value:undefined,configurable:true})
     const original=HTMLCanvasElement.prototype.getContext
-    HTMLCanvasElement.prototype.getContext = function(type: string, options?: unknown) {
+    HTMLCanvasElement.prototype.getContext = function(this: HTMLCanvasElement, type: string, options?: unknown) {
       if (type==='webgl2') return null
       return original.call(this,type,options)
     } as typeof original
   })
   await page.clock.setFixedTime(new Date('2026-10-20T12:00:00Z'))
   await page.goto('/greenhouse-live/demo')
-  await expect(page.locator('.nc-living-empty')).toBeVisible()
-  await expect(page.locator('.nc-living-empty button')).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('Nepavyko paleisti 3D')
+  await expect(page.locator('.nsd-loading')).toHaveCount(0)
+  const navigation=page.getByRole('navigation',{name:'Demonstracijos navigacija'})
+  await navigation.getByRole('button',{name:'Matavimai',exact:true}).click()
+  await expect(page.locator('.nsd-result')).toHaveCount(6)
+  await page.getByRole('slider',{name:'Pavyzdinės paros laikas'}).fill('20')
+  await expect(page.locator('.nsd-scene-info')).toContainText('ISTORIJA')
+  await page.locator('.nsd-result').nth(1).click()
+  await expect(page.locator('.nsd-inspector h2')).toHaveText('NSN-000006')
+  await expect(page.locator('.nsd-big-value')).not.toHaveText('')
 })
 
 test('authenticated view uses only saved sensor positions and does not apply today’s layout to missing history', async ({ page }) => {
@@ -230,22 +236,19 @@ test('authenticated view uses only saved sensor positions and does not apply tod
   await expect(page.locator('.nc-living-engine')).toHaveText(/WebGPU|WebGL/,{timeout:20000})
   await expect(page.locator('.nc-living-pin')).toHaveCount(3)
   await expect(page.locator('#dashboardShell')).toBeVisible()
-  await expect(page.locator('#dashboardSidebar [data-sidebar-action="climate-3d"]')).toHaveAttribute('aria-current','page')
-  await expect(page.getByRole('heading',{name:'3D mikroklimatas',exact:true})).toBeVisible()
+  await expect(page.locator('#dashboardSidebar [data-sidebar-action="climate-3d"]')).toHaveCount(0)
+  await expect(page.getByRole('heading',{name:'3D išdėstymas',exact:true})).toBeVisible()
   await expect(page.locator('.nc-living-prototype')).toHaveCount(0)
-  await expect(page.getByRole('link',{name:'Mazgų aukščiai',exact:true})).toHaveAttribute('href','/nodes')
-  await expect(page.locator('.nc-living-source')).toContainText('Jūsų duomenys')
-  await expect(page.locator('.nc-living-notice')).toContainText('Aukštį įveskite Mazgai')
+  await expect(page.getByRole('link',{name:'Mazgai ir jų aukščiai',exact:true})).toHaveAttribute('href','/nodes')
+  await expect(page.locator('.nc-living')).toHaveAttribute('data-integrated','true')
   await expect(page.getByRole('combobox',{name:/Height above floor|Aukštis nuo grindų/})).toHaveCount(0)
   await expect(page.locator('.nc-living-scene-caption')).toContainText('sensorių aukštis nenurodytas')
-  await page.waitForTimeout(1500)
-  await page.screenshot({path:'/tmp/neurocrop-living-saved-plan.png',fullPage:true})
   await expectMarkersFollowOrbit(page)
   await page.locator('#dashboardSidebar [data-sidebar-action="sites"]').click()
   await expect(page.locator('.nc-area-row')).toHaveCount(1)
-  await page.getByRole('button',{name:'3D mikroklimatas: Actual saved greenhouse',exact:true}).click()
+  await page.getByRole('button',{name:'3D išdėstymas: Actual saved greenhouse',exact:true}).click()
   await expect(page).toHaveURL(/greenhouse-live\?area=actual/)
-  await expect(page.locator('#dashboardSidebar [data-sidebar-action="climate-3d"]')).toHaveAttribute('aria-current','page')
+  await expect(page.locator('#dashboardSidebar [data-sidebar-action="climate-3d"]')).toHaveCount(0)
   await expect(page.locator('.nc-living-pin')).toHaveCount(3)
   await page.getByRole('button',{name:'24 valandos',exact:true}).click()
   await expect(page.locator('.nc-living-empty')).toContainText('Šiam laikui nėra užfiksuoto plano')
@@ -255,13 +258,14 @@ test('authenticated view uses only saved sensor positions and does not apply tod
   await page.setViewportSize({width:390,height:844})
   await expect(page.locator('.nc-living-pin').first()).toBeVisible()
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
-  await page.screenshot({path:'/tmp/neurocrop-living-saved-plan-mobile.png',fullPage:true})
   expect(errors).toEqual([])
 })
 
-test('delayed Node readings stay visible with their age and never enter the current heatmap',async({page})=>{
-  const now='2026-10-20T16:00:00Z',old='2026-10-20T15:20:00Z'
-  await page.clock.setFixedTime(new Date(now))
+test('delayed Node readings stay visible with their age and are excluded from the current range',async({page})=>{
+  await page.addInitScript(()=>localStorage.setItem('neurocrop-interface-language-v1','en'))
+  // Use relative timestamps without a virtual clock: resizing this GPU page
+  // must let Chromium update native media-query styles and animation frames.
+  const now=new Date().toISOString(),old=new Date(Date.now()-40*60_000).toISOString()
   const positions=[[.2,.2],[3.3,.2],[7.3,.2],[3.3,2.2],[.2,4.3],[7.3,4.3]]
   const nodes=positions.map((_,i)=>({devEui:`000000000000000${i}`,displayName:`NSN-00000${i+2}`,status:i===3 ? 'stale' : 'online',sensors:['sht45'],sectionId:'s',lastSeenAt:i===3 ? old : now,measurementHeightsM:{'air-temperature':i===3 ? 2.5 : 1.5},measurements:{airTemperatureC:i===3 ? null : 19+i*.4,rootTemperatureC:i===3 ? null : 18,illuminanceLux:i===3 ? null : 3000,measuredAt:now},lastMeasurements:{airTemperatureC:i===3 ? 29.4 : 19+i*.4,measuredAtByMetric:{airTemperatureC:i===3 ? old : now}}}))
   const context={area:{id:'test',name:'Greenhouse'},mapEnabled:true,nodes,sections:[],profiles:[],permissions:{canEdit:true},map:{
@@ -292,72 +296,58 @@ test('delayed Node readings stay visible with their age and never enter the curr
   await expect(page.locator('.nc-living-range')).toContainText('5/6')
   await expect(page.getByRole('combobox',{name:'Metric'}).locator('option[value="illuminance"]')).toHaveCount(1)
   await expect(page.getByRole('combobox',{name:'Metric'}).getByRole('option',{name:'Substrate temperature',exact:true})).toHaveCount(1)
-  await page.screenshot({path:'/tmp/neurocrop-living-contours.png',fullPage:true,animations:'disabled'})
   await page.setViewportSize({width:390,height:844})
   await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
   await expect.poll(()=>page.locator('.nc-living-pin:visible').count()).toBe(6)
+
   await expect.poll(()=>page.locator('.nc-living-canvas').evaluate(host=>{
     const bounds=host.getBoundingClientRect()
-    return [...host.querySelectorAll('.nc-living-pin')].every(pin=>{
+    return [...host.querySelectorAll('.nc-living-pin')].flatMap(pin=>{
       const box=pin.getBoundingClientRect(),x=box.left+box.width/2,y=box.top+box.height/2
-      return x>=bounds.left && x<=bounds.right && y>=bounds.top && y<=bounds.bottom
+      return x>=bounds.left && x<=bounds.right && y>=bounds.top && y<=bounds.bottom ? [] : [{sensor:pin.getAttribute('aria-label'),x,y,canvas:bounds.toJSON()}]
     })
-  })).toBe(true)
+  })).toEqual([])
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
-  await page.screenshot({path:'/tmp/neurocrop-living-contours-mobile.png',fullPage:true,animations:'disabled'})
 })
 
+// The old topography experiment was replaced by the public model library.
+// Keep real rendering coverage on both backends, including door resizing.
 for(const engine of ['WebGPU','WebGL'] as const){
-  test(`local topography comparison shows numeric 3D regions in ${engine}`,async({page})=>{
+  test(`equipment models render and door settings update geometry in ${engine}`,async({page})=>{
     test.setTimeout(60000)
     const errors:string[]=[]
     page.on('pageerror',e=>errors.push(e.message))
     if(engine==='WebGL')await page.addInitScript(()=>Object.defineProperty(navigator,'gpu',{value:undefined,configurable:true}))
-    await page.clock.setFixedTime(new Date('2026-10-20T12:00:00Z'))
-    await page.addInitScript(()=>localStorage.setItem('neurocrop-interface-language-v1','lt'))
     await page.setViewportSize({width:1600,height:1050})
-    await page.goto('/greenhouse-live/demo?visual=topography')
-    await expect(page.locator('.nc-living-engine')).toHaveText(engine,{timeout:20000})
-    await expect(page.locator('.nc-living-isovalue')).toHaveText(['26 °C','28 °C'])
-    await expect(page.locator('.nc-living-zone-legend')).toContainText('≤ 26 °C')
-    await expect(page.locator('.nc-living-zone-legend')).toContainText('≥ 28 °C')
-    await expect(page.locator('.nc-living-pin-label:visible')).toHaveCount(0)
-    await expectVolumeChangesPixels(page)
-    await page.getByRole('button',{name:'Mikroklimatas',exact:true}).click()
-    const png=await page.locator('.nc-living-canvas canvas').screenshot()
-    const colors=await page.evaluate(async data=>{
-      const img=new Image();img.src=`data:image/png;base64,${data}`;await img.decode()
-      const c=document.createElement('canvas');c.width=img.width;c.height=img.height
-      const ctx=c.getContext('2d')!;ctx.drawImage(img,0,0)
-      const rgba=ctx.getImageData(0,0,c.width,c.height).data
-      let cool=0,warm=0
-      for(let i=0;i<rgba.length;i+=4){
-        const [r,g,b]=[rgba[i],rgba[i+1],rgba[i+2]]
-        if(b>r*1.25 && b>g*1.02)cool++
-        if(r>g*1.3 && r>b*1.5)warm++
-      }
-      return {cool,warm}
-    },png.toString('base64'))
-    expect(colors.cool).toBeGreaterThan(400)
-    expect(colors.warm).toBeGreaterThan(400)
-    await test.info().attach('topography-regions',{body:JSON.stringify({engine,...colors}),contentType:'application/json'})
-    await page.getByRole('button',{name:'Dabartinis tūris',exact:true}).click()
-    await expect(page.locator('.nc-living')).toHaveAttribute('data-visual','glass')
-    await expect(page.locator('.nc-living-isovalue')).toHaveCount(0)
-    await page.getByRole('button',{name:'Topografija',exact:true}).click()
-    await expect(page.locator('.nc-living-isovalue:visible')).toHaveCount(2)
+    await page.goto('/greenhouse-live/models')
+    await expect(page.locator('.nep-engine')).toContainText(engine,{timeout:20000})
+    const canvas=page.locator('.nep-scene canvas')
+    await expect(canvas).toBeVisible()
+    const capture=async()=>{
+      await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
+      return canvas.screenshot()
+    }
+    const before=await capture()
+    await page.getByRole('slider',{name:'Durų angos plotis',exact:true}).fill('3')
+    await expect(page.getByRole('combobox',{name:'Durų tipas',exact:true})).toHaveValue('single')
+    await expect(page.locator('.nep-title')).toContainText('3 ×')
+    const resized=await capture()
+    expect(resized.equals(before),'Widening a door must update the actual rendered model').toBe(false)
+    await page.getByRole('combobox',{name:'Durų tipas',exact:true}).selectOption('double')
+    await expect(page.getByRole('combobox',{name:'Durų tipas',exact:true})).toHaveValue('double')
+    const double=await capture()
+    expect(double.equals(resized),'Double doors must have different geometry from single doors').toBe(false)
+    await page.getByRole('combobox',{name:'Durų tipas',exact:true}).selectOption('sliding')
+    await page.getByRole('slider',{name:'Durų aukštis',exact:true}).fill('2.4')
+    await expect(page.getByRole('slider',{name:'Durų aukštis',exact:true})).toHaveValue('2.4')
+    await page.getByRole('combobox',{name:'Pasukimas išplanavime',exact:true}).selectOption('90')
+    await expect(page.getByRole('combobox',{name:'Pasukimas išplanavime',exact:true})).toHaveValue('90')
+    await page.locator('.nep-workspace aside').getByRole('button',{name:'Ventiliatorius',exact:true}).click()
+    await expect(page.locator('.nep-title h2')).toHaveText('Ventiliatorius')
+    await expect(page.locator('.nep-scene canvas')).toBeVisible()
+    await expect(page.locator('.nep-scene [role="alert"]')).toHaveCount(0)
     await page.setViewportSize({width:390,height:844})
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
-    // ResizeObserver schedules projection on the next rendered frame. Observe
-    // the final positions, not the previous desktop coordinates during resize.
-    await expect.poll(()=>page.locator('.nc-living-canvas').evaluate(host=>{
-      const bounds=host.getBoundingClientRect()
-      return [...host.querySelectorAll<HTMLElement>('.nc-living-isovalue')].every(label=>{
-        if(getComputedStyle(label).visibility==='hidden')return true
-        const box=label.getBoundingClientRect()
-        return box.left>=bounds.left && box.right<=bounds.right
-      })
-    })).toBe(true)
     expect(errors).toEqual([])
   })
 }
