@@ -32,6 +32,19 @@ test('greenhouse map validation accepts a bounded typed map', () => {
   assert.deepEqual(validateGreenhouseMap(validMap()), { valid: true });
 });
 
+test('explicit door configurations survive serialization and fit inside the greenhouse', () => {
+  for (const type of ['single','double','sliding']) {
+    const map=validMap();
+    map.objects=[{id:'door',type:'door',name:'Door',xM:1,yM:0,widthM:3,lengthM:.2,rotationDeg:0,layerId:'sensors',visible:true,locked:false,metadata:{door:{type,heightM:2.5}}}];
+    assert.deepEqual(validateGreenhouseMap(JSON.parse(JSON.stringify(map))),{valid:true});
+    assert.deepEqual(map.objects[0].metadata.door,{type,heightM:2.5});
+    for(const config of [null,[],{type:'auto'},{type,heightM:0},{type,heightM:4.1},{type,heightM:'2.5'}]) {
+      const invalid=structuredClone(map);invalid.objects[0].metadata.door=config;
+      assert.match(validateGreenhouseMap(invalid).message,/door configuration/i);
+    }
+  }
+});
+
 test('sensor enclosure height can be unknown or zero but must fit the greenhouse', () => {
   for (const height of [undefined, null, 0, 1.5, 4]) {
     const map = validMap();

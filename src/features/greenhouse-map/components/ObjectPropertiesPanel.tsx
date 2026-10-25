@@ -1,6 +1,7 @@
 import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type SensorNodeMetadata } from '../model'
 import { isWallMountedType } from '../geometry'
 import NumericInput from './NumericInput'
+import { DOOR_TYPES, doorConfiguration, doorOpening, type DoorType } from '../doorConfiguration'
 
 type Props = {
   map: GreenhouseMap
@@ -25,6 +26,8 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
   const object = selected[0]
   const wallMounted = isWallMountedType(object.type)
   const sensor = object.metadata.sensor
+  const door = object.type === 'door' ? doorConfiguration(object, map.dimensions.heightM) : null
+  const opening = doorOpening(object, map.dimensions)
   const layerLocked = map.layers.find((layer) => layer.id === object.layerId)?.locked === true
   const placementLocked = object.locked || layerLocked
   const patchMetadata = (metadata: Partial<GreenhouseObject['metadata']>) => onUpdate(object.id, { metadata: { ...object.metadata, ...metadata } })
@@ -40,7 +43,14 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
         <label className="gh-field"><span>X <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0, map.dimensions.widthM - object.widthM)} step={map.gridSizeM} value={Number(object.xM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { xM: value ?? object.xM })} /></label>
         <label className="gh-field"><span>Y <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0, map.dimensions.lengthM - object.lengthM)} step={map.gridSizeM} value={Number(object.yM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { yM: value ?? object.yM })} /></label>
       </div></div>
-      {!sensor ? <div className="gh-field-row">
+      {door ? <>
+        <div className="gh-field-row">
+          <label className="gh-field"><span>{tr('Opening width', 'Angos plotis')} <em>m</em></span><NumericInput aria-label={tr('Door opening width', 'Durų angos plotis')} disabled={placementLocked} min=".1" max={opening.maximumM} step=".05" value={Number(opening.widthM.toFixed(3))} onCommit={value => onUpdate(object.id, { [opening.axis]: value ?? opening.widthM })} /></label>
+          <label className="gh-field"><span>{tr('Height', 'Aukštis')} <em>m</em></span><NumericInput aria-label={tr('Door height', 'Durų aukštis')} disabled={placementLocked} min=".1" max={map.dimensions.heightM || 100} step=".05" value={door.heightM} onCommit={value => patchMetadata({ door: { ...door, heightM: value ?? door.heightM } })} /></label>
+        </div>
+        <label className="gh-field wide"><span>{tr('Door type', 'Durų tipas')}</span><select aria-label={tr('Door type', 'Durų tipas')} disabled={placementLocked} value={door.type} onChange={event => patchMetadata({ door: { ...door, type: event.target.value as DoorType } })}>{DOOR_TYPES.map(type => <option key={type} value={type}>{type === 'single' ? tr('Single-leaf', 'Vienvėrės') : type === 'double' ? tr('Double-leaf', 'Dvivėrės') : tr('Sliding', 'Stumdomos')}</option>)}</select></label>
+        <p className="gh-muted">{tr('The 3D model follows these dimensions and type. Resizing the opening keeps the chosen door type.', '3D modelis prisitaiko prie šių matmenų ir tipo. Keičiant angos plotį pasirinktas durų tipas išlieka.')}</p>
+      </> : !sensor ? <div className="gh-field-row">
         <label className="gh-field"><span>{tr('Width', 'Plotis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".05" max={map.dimensions.widthM} step=".05" value={Number(object.widthM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { widthM: value ?? object.widthM })} /></label>
         <label className="gh-field"><span>{tr('Length', 'Ilgis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".05" max={map.dimensions.lengthM} step=".05" value={Number(object.lengthM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { lengthM: value ?? object.lengthM })} /></label>
       </div> : null}
@@ -60,7 +70,7 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
         <div><dt>{tr('Section', 'Sekcija')}</dt><dd>{sensor.sectionName || tr('Unassigned', 'Nepriskirta')}</dd></div>
         <div><dt>{tr('Status', 'Būsena')}</dt><dd>{sensor.status}{sensor.batteryPercent !== undefined ? ` · ${sensor.batteryPercent}%` : ''}</dd></div>
       </dl>
-      <p className="gh-muted">{tr('Node height is set in Nodes → Edit node. The 3D climate map uses it automatically.', 'Mazgo aukštis įvedamas Mazgai → Redaguoti mazgą. 3D mikroklimato žemėlapis jį naudoja automatiškai.')}</p>
+      <p className="gh-muted">{tr('Node height is set in Nodes → Edit node. The 3D layout shows it automatically.', 'Mazgo aukštis įvedamas Mazgai → Redaguoti mazgą. 3D išdėstyme jis rodomas automatiškai.')}</p>
       <label className="gh-field"><span>{tr('Planned coverage', 'Planuojama aprėptis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".1" step=".1" value={sensor.coverageRadiusM ?? 3} onCommit={value=>patchSensor({coverageRadiusM:value ?? sensor.coverageRadiusM ?? 3})} /></label>
       <div className="gh-radio-row"><span><small>RSSI</small><strong>{sensor.rssi ?? '—'} dBm</strong></span><span><small>SNR</small><strong>{sensor.snr ?? '—'} dB</strong></span><span><small>{tr('Last uplink', 'Paskutinis ryšys')}</small><strong>{sensor.lastSeenAt ? new Date(sensor.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></span></div>
     </section> : null}

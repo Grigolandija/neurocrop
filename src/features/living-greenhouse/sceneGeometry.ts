@@ -1,10 +1,11 @@
 import { getStableScale } from '../greenhouse-map/heatmap/heatmapMetrics'
 import type { GreenhouseMap, MetricKey } from '../greenhouse-map/model'
 import { measuredSensors } from './livingData'
-import { planToScene, type Vec3 } from './sceneMath'
+import type { Vec3 } from './sceneMath'
 import type { LivingView } from './spatialEvidence'
 import { createVolumeGrid } from './volumeGrid'
 import { climateContours, type ClimateContour } from './climateContours'
+import { objectGeometry } from './objectGeometry'
 
 type Color = [number, number, number]
 export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[]; contours: ClimateContour[] }
@@ -15,7 +16,7 @@ export function climateColor(value: number, min: number, max: number): Color {
   return stops[i].map((c, j) => c + (stops[i + 1][j] - c) * (t - i)) as Color
 }
 
-export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number, scaleOverride?: { min: number; max: number }, options: {view:LivingView; attentionIds?:Set<string>;topography?:boolean} = {view:'volume'}) {
+export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number, scaleOverride?: { min: number; max: number }, options: {view:LivingView; attentionIds?:Set<string>;topography?:boolean;schematic?:boolean} = {view:'volume'}) {
   const data: number[] = []
   const w = map.dimensions.widthM, l = map.dimensions.lengthM, size = Math.max(w, l)
   const sensors = measuredSensors(map, metric, at)
@@ -23,7 +24,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   // A configured greenhouse height remains authoritative.
   const nodeEnvelope = sensors.reduce((height,s)=>s.heightM===null ? height : Math.max(height,(s.heightM+.3)/(1-.32*Math.min(1,Math.abs(s.object.yM+s.object.lengthM/2-l/2)/(l/2)))),0)
   const h = map.dimensions.heightM || Math.max(Math.min(5, Math.max(2.5, size * .17)),nodeEnvelope)
-  const white: Color = [.39, .55, .50], steel: Color = [.25, .37, .34], green: Color = [.52, .63, .48]
+  const white: Color = [.39, .55, .50], steel: Color = [.25, .37, .34]
   const triangle = (a: Vec3, b: Vec3, c: Vec3, color: Color, shade = 1) => {
     for (const p of [a, b, c]) data.push(...p, ...color.map(n => n * shade))
   }
@@ -50,14 +51,14 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     quad(p(a,-1,1),p(a,-1,-1),p(b,-1,-1),p(b,-1,1),color,.85)
   }
   // Floating architectural plinth and recessed floor grid.
-  box(0,-.30,0,w + .8,.5,l + .8,[.73,.79,.73])
+  box(0,options.schematic ? -.12 : -.30,0,w + (options.schematic ? .35 : .8),options.schematic ? .18 : .5,l + (options.schematic ? .35 : .8),options.schematic ? [.79,.83,.78] : [.73,.79,.73])
   box(0,-.04,0,w,.06,l,[.84,.87,.82])
   const step = Math.max(1, Math.ceil(size / 35))
   for (let x = 0; x <= w; x += step) box(x-w/2,0,0,.012,.012,l,[.76,.81,.75])
   for (let z = 0; z <= l; z += step) box(0,0,z-l/2,w,.012,.012,[.76,.81,.75])
   const values = sensors.flatMap(s => s.value === null ? [] : [s.value])
   const scale = scaleOverride || getStableScale(values, metric)
-  const grid = createVolumeGrid(map, options.view==='volume' ? sensors : [], h)
+  const grid = createVolumeGrid(map, options.view==='volume' ? sensors : [], h, options.schematic ? 0 : .32)
   // Layers are stored in a 2D atlas for identical WebGPU and WebGL rendering.
   const pixels = new Uint8Array(grid.width*grid.depth*grid.layers*4)
   for(let i=0;i<grid.values.length;i++) {
@@ -73,29 +74,30 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   const levels=heights.filter((height,i)=>!i || height-heights[i-1]>.15)
   const shownLevels=levels.length<=8 ? levels : Array.from({length:8},(_,i)=>levels[Math.round(i*(levels.length-1)/7)])
   const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,bounds:[w,l,h],levels:shownLevels,contours:options.topography ? climateContours(grid,[w,l,h],scale) : []}
-  // Footprints and rotations come from the saved plan; plant forms are illustrative.
+  // All saved equipment types share the same detailed mesh library in live and demo views.
+  const visibleLayers = new Set(map.layers.filter(layer => layer.visible).map(layer => layer.id))
   for (const object of map.objects) {
-    const { type, widthM: ow, lengthM: ol, xM, yM, rotationDeg } = object
-    const angle = rotationDeg * Math.PI / 180
-    const rot = -angle
-    const pos = (x: number, y: number): [number,number] => {
-      const [sx,,sz]=planToScene(xM+x*Math.cos(angle)-y*Math.sin(angle),yM+x*Math.sin(angle)+y*Math.cos(angle),0,map.dimensions)
-      return [sx,sz]
-    }
-    const [x,z] = pos(ow/2,ol/2)
-    if (['growing-table','rack','growing-bed','hydroponic-channel'].includes(type)) {
-      const level = type === 'growing-bed' ? .16 : .72
-      box(x,level,z,ow,.18,ol,[.66,.74,.65],rot)
-      for (const px of [.1,ow-.1]) for (const pz of [.1,ol-.1]) { const [a,b]=pos(px,pz); box(a,level/2,b,.06,level,.06,steel) }
-      // A neutral canopy surface keeps the saved layout legible through the volume.
-      box(x,level+.12,z,Math.max(.05,ow-.1),.06,Math.max(.05,ol-.1),green,rot)
-    } else if (type==='partition') box(x,h*.32,z,ow,h*.64,Math.max(.05,ol),[.74,.79,.73],rot)
-    else if (type==='door') { box(x,1.05,z,ow,2.1,Math.max(.07,ol),[.25,.63,.56],rot); box(x,2.14,z,ow+.1,.07,Math.max(.1,ol),white,rot) }
-    else if (type==='walkway') box(x,.018,z,ow,.02,ol,[.88,.90,.86],rot)
-    else if (type==='reservoir') box(x,.5,z,ow,1,ol,[.41,.63,.65],rot)
-    else if (['heater','cooling-unit','electrical-cabinet','irrigation-unit'].includes(type)) box(x,.45,z,ow,.9,ol,steel,rot)
-    else if (['fan','lamp','window','ventilation-opening'].includes(type)) box(x,h*.55,z,ow,.18,ol,white,rot)
+    if (!object.visible || !visibleLayers.has(object.layerId)) continue
+    const mesh = objectGeometry(object, map.dimensions, h)
+    // Avoid argument-count limits on large layouts.
+    for (const value of mesh) data.push(value)
   }
+  if(options.schematic){
+    // A generic room boundary, not an invented architectural greenhouse roof.
+    const line:Color=[.72,.77,.71],r=.008
+    for(const z of [-l/2,l/2]){
+      box(0,.10,z,w,.20,.035,[.82,.85,.80])
+      beam([-w/2,h,z],[w/2,h,z],r,line)
+    }
+    for(const x of [-w/2,w/2]){
+      box(x,.10,0,.035,.20,l,[.82,.85,.80])
+      beam([x,h,-l/2],[x,h,l/2],r,line)
+      for(const z of [-l/2,l/2])beam([x,0,z],[x,h,z],r*.65,line)
+    }
+    const axis:Vec3=[-w/2-.35,0,l/2]
+    beam(axis,[axis[0],h,axis[2]],r,[.42,.52,.45])
+    for(let y=0;y<=h;y++)beam([axis[0]-.07,y,axis[2]],[axis[0]+.07,y,axis[2]],r,[.42,.52,.45])
+  }else{
   const eave = h*.68, r = Math.max(.015, Math.min(.04,size*.0015))
   const frames = Math.min(14,Math.max(3,Math.ceil(w/3)))
   for (let i=0;i<=frames;i++) {
@@ -105,5 +107,6 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     if (i===0 || i===frames) beam([x,eave,-l/2],[x,eave,l/2],r*.6,steel)
   }
   for (const [y,z] of [[eave,-l/2],[h,0],[eave,l/2],[eave+(h-eave)*.5,-l/4],[eave+(h-eave)*.5,l/4]]) beam([-w/2,y,z],[w/2,y,z],r*.7,white)
+  }
   return { vertices: new Float32Array(data), volume, sensors, scale, height: h, volumeReady: grid.mask.some(Boolean), knownHeights: grid.knownCount, heightRange: grid.heightRange, coverage: grid.mask.filter(Boolean).length / Math.max(1,grid.mask.length), modeledFraction:grid.extrapolated.filter(Boolean).length/Math.max(1,grid.mask.filter(Boolean).length) }
 }

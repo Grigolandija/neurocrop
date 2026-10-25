@@ -1,5 +1,8 @@
 // Copy introduced by the React workspaces after the original interface glossary.
 export const additionalLtTranslations: Readonly<Record<string, string>> = Object.freeze({
+  '3D layout': '3D išdėstymas',
+  'Enter where this Node is installed. The 3D layout shows this height automatically. Leave empty if unknown.': 'Įveskite, kokiame aukštyje įrengtas mazgas. 3D išdėstyme šis aukštis rodomas automatiškai. Jei nežinote, palikite tuščią.',
+  'Leave empty if unknown. An unknown height is not guessed in the 3D layout.': 'Jei nežinote, palikite tuščią. Nežinomas aukštis 3D išdėstyme nėra spėjamas.',
   'Node height above floor, cm': 'Mazgo aukštis nuo grindų, cm',
   'Enter where this Node is installed. The 3D climate map uses this height automatically. Leave empty if unknown.': 'Įveskite, kokiame aukštyje įrengtas mazgas. 3D mikroklimato žemėlapis jį naudos automatiškai. Jei nežinote, palikite tuščią.',
   'Enter a valid Node height between 0 and 10000 cm.': 'Įveskite tinkamą mazgo aukštį nuo 0 iki 10000 cm.',

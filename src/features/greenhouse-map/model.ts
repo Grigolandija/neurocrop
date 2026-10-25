@@ -66,6 +66,10 @@ export type ObjectMetadata = {
   status?: string
   notes?: string
   color?: string
+  door?: {
+    type: 'single' | 'double' | 'sliding'
+    heightM?: number
+  }
   wallMount?: {
     wall: 'south' | 'north' | 'west' | 'east'
     offsetM: number

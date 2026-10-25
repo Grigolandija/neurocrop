@@ -36,7 +36,8 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const GreenhouseMapTestPage = lazy(() => import('./features/greenhouse-map/GreenhouseMapTestPage'))
-const LivingGreenhouse = lazy(() => import('./features/living-greenhouse/LivingGreenhouse'))
+const SpatialWorkspaceDemo = lazy(() => import('./features/living-greenhouse/SpatialWorkspaceDemo'))
+const EquipmentModelPreview = lazy(() => import('./features/living-greenhouse/EquipmentModelPreview'))
 const clerkConfigured = Boolean(String(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '').trim())
 
 function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?: string; onClerkSignOut?: () => Promise<void> }) {
@@ -155,7 +156,8 @@ export default function App() {
         <Route path="/forgot-password" element={clerkConfigured ? <ClerkLoginScreen mode="recovery" /> : <Suspense fallback={null}><ForgotPasswordPage /></Suspense>} />
         <Route path="/reset-password" element={clerkConfigured ? <Navigate to="/" replace /> : <Suspense fallback={null}><ResetPasswordPage /></Suspense>} />
         <Route path="/greenhouse-map-test" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />
-        <Route path="/greenhouse-live/demo" element={<Suspense fallback={<SessionLoading />}><LivingGreenhouse demoOnly /></Suspense>} />
+        <Route path="/greenhouse-live/models" element={<Suspense fallback={<SessionLoading />}><EquipmentModelPreview /></Suspense>} />
+        <Route path="/greenhouse-live/demo" element={<Suspense fallback={<SessionLoading />}><SpatialWorkspaceDemo /></Suspense>} />
         <Route path="*" element={<MainRoute />} />
       </Routes>
     </BrowserRouter>

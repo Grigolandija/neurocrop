@@ -251,3 +251,6 @@
   .nc-living-zone-legend > div > span { padding: 3px 4px; font-size: 9px; }
   .nc-living-zone-legend > p { font-size: 8px; }
 }
+
+.nc-living .nc-living-heading .nc-living-description { margin: 10px 0 0; font-size: 14px; letter-spacing: 0; font-weight: 400; line-height: 1.5; }
+.nc-living .nc-living-inspector > .nc-living-range { position: static; width: auto; }

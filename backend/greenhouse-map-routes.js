@@ -69,6 +69,9 @@ export function validateGreenhouseMap(value) {
     const wallMount = object.metadata?.wallMount;
     const height=object.metadata?.sensor?.installationHeightM;
     if(height!==undefined && height!==null && (!finite(height) || height<0 || height>100 || (value.dimensions.heightM>0 && height>value.dimensions.heightM)))return validationError(`Object ${object.id} has an invalid sensor height`);
+    const door = object.metadata?.door;
+    if (door !== undefined && (object.type !== 'door' || !door || typeof door !== 'object' || Array.isArray(door) || !['single','double','sliding'].includes(door.type)
+      || (door.heightM !== undefined && (!finite(door.heightM) || door.heightM <= 0 || door.heightM > 100 || (value.dimensions.heightM > 0 && door.heightM > value.dimensions.heightM))))) return validationError(`Object ${object.id} has an invalid door configuration`);
     if (wallMount !== undefined) {
       if (!wallMountedTypes.has(object.type) || !wallMount || typeof wallMount !== 'object' || Array.isArray(wallMount) || !perimeterWalls.has(wallMount.wall) || !finite(wallMount.offsetM) || wallMount.offsetM < 0) {
         return validationError(`Object ${object.id} has an invalid wall mount`);

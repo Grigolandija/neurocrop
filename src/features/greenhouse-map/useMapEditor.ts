@@ -3,6 +3,7 @@ import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type ObjectT
 import { clampObjectPosition, isWallMountedType, sensorMarkerSizeM, snapRectanglePosition, snapSectionToWalls, snapWallMountedObject } from './geometry'
 import { mapRepository } from './services/mapRepository'
 import { createDemoMap } from './demo'
+import { defaultDoorHeight } from './doorConfiguration'
 
 type History = { past: GreenhouseMap[]; present: GreenhouseMap; future: GreenhouseMap[] }
 const clone = (map: GreenhouseMap): GreenhouseMap => structuredClone(map)
@@ -48,7 +49,7 @@ function createObject(type: ObjectType, map: GreenhouseMap, xM?: number, yM?: nu
         status: 'unassigned', batteryPercent: 100, coverageRadiusM: 3, model: 'NeuroSense S4',
         measurements: { airTemperatureC: 24, relativeHumidityPercent: 68, co2Ppm: 800, vpdKpa: 1, rootTemperatureC: 22, pressureHpa: 1013, measuredAt: new Date().toISOString() },
       },
-    } : {},
+    } : type === 'door' ? { door: { type: 'single', heightM: defaultDoorHeight(map.dimensions.heightM) } } : {},
   }
   return isWallMountedType(type) ? snapWallMountedObject(object, map.dimensions) : object
 }

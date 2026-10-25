@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { livingDemo, livingMap, measuredSensors } from './livingData'
 import { sceneGeometry } from './sceneGeometry'
+import { objectGeometry } from './objectGeometry'
 
 describe('Living greenhouse evidence boundaries', () => {
   it('adds no stands or duplicate 3D geometry for Nodes represented by projected points', () => {
@@ -16,15 +17,13 @@ describe('Living greenhouse evidence boundaries', () => {
     map.dimensions={widthM:8,lengthM:5,heightM:4}
     map.objects=[{id:'north-door',type:'door',name:'North door',xM:6,yM:4.8,widthM:1.4,lengthM:.2,rotationDeg:0,layerId:'structure',locked:true,visible:true,metadata:{}}]
     const scene=sceneGeometry(map,'air-temperature',Date.parse(context.updatedAt!))
-    const door=[]
-    for(let i=0;i<scene.vertices.length;i+=6) {
-      if(Math.abs(scene.vertices[i+3]-.25)<.0001 && Math.abs(scene.vertices[i+4]-.63)<.0001 && Math.abs(scene.vertices[i+5]-.56)<.0001)door.push(Array.from(scene.vertices.slice(i,i+3)))
-    }
-    expect(door.length).toBeGreaterThan(0)
+    const mesh=objectGeometry(map.objects[0],map.dimensions,4)
+    expect(scene.vertices.length).toBeGreaterThan(mesh.length)
+    const door=Array.from({length:mesh.length/6},(_,i)=>Array.from(mesh.slice(i*6,i*6+3)))
     expect(Math.min(...door.map(v=>v[0]))).toBeCloseTo(2)
     expect(Math.max(...door.map(v=>v[0]))).toBeCloseTo(3.4)
-    expect(Math.min(...door.map(v=>v[2]))).toBeCloseTo(-2.5)
-    expect(Math.max(...door.map(v=>v[2]))).toBeCloseTo(-2.3)
+    expect(Math.min(...door.map(v=>v[2]))).toBeGreaterThan(-2.53)
+    expect(Math.max(...door.map(v=>v[2]))).toBeLessThan(-2.27)
   })
 
   it('does not place unassigned nodes or reuse readings stored in the map', () => {

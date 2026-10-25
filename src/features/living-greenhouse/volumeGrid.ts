@@ -6,7 +6,7 @@ export const VOLUME_LAYERS = 24
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
 
 /** A full-envelope XYZ estimate. Measurements remain separate from modeled voxels. */
-export function createVolumeGrid(map: GreenhouseMap, readings: SensorReading[], roofHeightM: number) {
+export function createVolumeGrid(map: GreenhouseMap, readings: SensorReading[], roofHeightM: number, roofSlope = .32) {
   const w = map.dimensions.widthM, d = map.dimensions.lengthM
   const cell = Math.max(w, d) / 56
   const width = Math.max(2, Math.ceil(w / cell)), depth = Math.max(2, Math.ceil(d / cell)), layers = VOLUME_LAYERS
@@ -46,7 +46,7 @@ export function createVolumeGrid(map: GreenhouseMap, readings: SensorReading[], 
     const hull=footprintHull(candidates.map(c=>c.source))
     const bounded=insideHull(position.xM,position.yM,hull)
     const low=Math.min(...candidates.map(s=>s.source.heightM!)), high=Math.max(...candidates.map(s=>s.source.heightM!))
-    const roof=roofHeightM*(1-.32*Math.abs(position.yM-d/2)/(d/2))
+    const roof=roofHeightM*(1-roofSlope*Math.abs(position.yM-d/2)/(d/2))
     for(let y=0;y<layers;y++) {
       const height=(y+.5)*roofHeightM/layers
       if(height>roof)continue

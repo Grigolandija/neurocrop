@@ -18,7 +18,7 @@ fn colorAt(t: f32) -> vec3f {
   let x=clamp(t,0.0,.99999)*4;let i=u32(floor(x));return mix(stops[i],stops[i+1u],fract(x));
 }
 fn sampleField(p: vec3f) -> vec4f {
-  if(abs(p.x)>u.bounds.x/2 || abs(p.z)>u.bounds.y/2 || p.y<0 || p.y>u.bounds.z*(1-.32*abs(p.z)/(u.bounds.y/2))){return vec4f(0);}
+  if(abs(p.x)>u.bounds.x/2 || abs(p.z)>u.bounds.y/2 || p.y<0 || p.y>u.bounds.z*(1-select(.32,0.0,u.bounds.w>2.5)*abs(p.z)/(u.bounds.y/2))){return vec4f(0);}
   let size=vec2f(textureDimensions(field));let rows=size.y/f32(${VOLUME_LAYERS});
   let cell=clamp(vec2f(p.x/u.bounds.x+.5,.5-p.z/u.bounds.y),vec2f(.5)/vec2f(size.x,rows),vec2f(1)-vec2f(.5)/vec2f(size.x,rows));
   let y=clamp(p.y/u.bounds.z*f32(${VOLUME_LAYERS})-.5,0.0,f32(${VOLUME_LAYERS}-1));
@@ -26,7 +26,7 @@ fn sampleField(p: vec3f) -> vec4f {
   let a=textureSampleLevel(field,fieldSampler,vec2f(cell.x,(lower+cell.y)/f32(${VOLUME_LAYERS})),0);
   let b=textureSampleLevel(field,fieldSampler,vec2f(cell.x,(upper+cell.y)/f32(${VOLUME_LAYERS})),0);
   let s=mix(a,b,fract(y));let v=s.rgb/max(s.a,.00001);
-  if(u.bounds.w>1.5){return vec4f((v.r*256+v.g)/257,v.b,0,s.a);}
+  if(u.bounds.w>1.5 && u.bounds.w<2.5){return vec4f((v.r*256+v.g)/257,v.b,0,s.a);}
   return vec4f(v,s.a);
 }
 fn fieldColor(s: vec4f) -> vec3f {
@@ -95,11 +95,24 @@ fn topography(origin: vec3f, direction: vec3f, start: f32, end: f32, base: vec3f
   let near=min(t0,t1);let far=max(t0,t1);
   let start=max(0.0,max(near.x,max(near.y,near.z)));let end=min(opaque,min(far.x,min(far.y,far.z)));
   if(end<=start){return vec4f(base,1);}
-  if(u.bounds.w>1.5){return vec4f(topography(origin,direction,start,end,base),1);}
+  if(u.bounds.w>1.5 && u.bounds.w<2.5){return vec4f(topography(origin,direction,start,end,base),1);}
+  if(u.bounds.w>2.5){
+    let ds=(end-start)/96;var rgb=vec3f(0);var opacity=0.0;
+    for(var i=0u;i<96u;i++){
+      let s=sampleField(origin+direction*(start+(f32(i)+.5)*ds));
+      let support=.10+.90*s.g;
+      let band=1-smoothstep(.0,.07,min(fract(s.r*7),1-fract(s.r*7)));
+      let a=(1-exp(-ds*(1.55+.40*band)*support/u.bounds.z))*s.a;
+      let color=mix(colorAt(s.r),vec3f(.94,.96,.92),(1-s.g)*.15);
+      rgb+=(1-opacity)*a*color;opacity+=(1-opacity)*a;
+    }
+    let limit=select(.68,.43,opaque<min(far.x,min(far.y,far.z))-.02);
+    return vec4f(mix(base,rgb/max(opacity,.00001),min(opacity,limit)),1);
+  }
   let ds=(end-start)/96;var rgb=vec3f(0);var opacity=0.0;
   for(var iteration=0u;iteration<96u;iteration++){
     let p=origin+direction*(start+(f32(iteration)+.5)*ds);let s=sampleField(p);
-    let edge=min(min(u.bounds.x/2-abs(p.x),u.bounds.y/2-abs(p.z)),u.bounds.z*(1-.32*abs(p.z)/(u.bounds.y/2))-p.y);
+    let edge=min(min(u.bounds.x/2-abs(p.x),u.bounds.y/2-abs(p.z)),u.bounds.z*(1-select(.32,0.0,u.bounds.w>2.5)*abs(p.z)/(u.bounds.y/2))-p.y);
     let a=((1-exp(-ds*.22/u.bounds.z))+.07*(1-smoothstep(.0,ds*1.4,edge)))*s.a;
     rgb+=(1-opacity)*a*fieldColor(s);opacity+=(1-opacity)*a;
   }
@@ -124,14 +137,14 @@ vec3 colorAt(float t){
   float x=clamp(t,0.,.99999)*4.;int i=int(floor(x));return mix(stops[i],stops[i+1],fract(x));
 }
 vec4 sampleField(vec3 p){
-  if(abs(p.x)>bounds.x/2. || abs(p.z)>bounds.y/2. || p.y<0. || p.y>bounds.z*(1.-.32*abs(p.z)/(bounds.y/2.)))return vec4(0.);
+  if(abs(p.x)>bounds.x/2. || abs(p.z)>bounds.y/2. || p.y<0. || p.y>bounds.z*(1.-(bounds.w>2.5 ? 0. : .32)*abs(p.z)/(bounds.y/2.)))return vec4(0.);
   vec2 size=vec2(textureSize(field,0));float rows=size.y/float(${VOLUME_LAYERS});
   vec2 cell=clamp(vec2(p.x/bounds.x+.5,.5-p.z/bounds.y),vec2(.5)/vec2(size.x,rows),vec2(1.)-vec2(.5)/vec2(size.x,rows));
   float y=clamp(p.y/bounds.z*float(${VOLUME_LAYERS})-.5,0.,float(${VOLUME_LAYERS}-1));
   float lower=floor(y),upper=min(lower+1.,float(${VOLUME_LAYERS}-1));
   vec4 a=texture(field,vec2(cell.x,(lower+cell.y)/float(${VOLUME_LAYERS}))),b=texture(field,vec2(cell.x,(upper+cell.y)/float(${VOLUME_LAYERS})));
   vec4 s=mix(a,b,fract(y));vec3 v=s.rgb/max(s.a,.00001);
-  if(bounds.w>1.5)return vec4((v.r*256.+v.g)/257.,v.b,0.,s.a);
+  if(bounds.w>1.5 && bounds.w<2.5)return vec4((v.r*256.+v.g)/257.,v.b,0.,s.a);
   return vec4(v,s.a);
 }
 vec3 fieldColor(vec4 s){vec3 rgb=colorAt(s.r);return mix(rgb,vec3(dot(rgb,vec3(.25,.55,.2))),(.12+.16*s.b)*(1.-s.g));}
@@ -186,11 +199,24 @@ void main(){
   vec3 inv=1./(direction+vec3(.000001));vec3 t0=(vec3(-bounds.x/2.,0.,-bounds.y/2.)-origin)*inv,t1=(vec3(bounds.x/2.,bounds.z,bounds.y/2.)-origin)*inv;
   vec3 near=min(t0,t1),far=max(t0,t1);float start=max(0.,max(near.x,max(near.y,near.z))),end=min(opaque,min(far.x,min(far.y,far.z)));
   if(end<=start){outputColor=vec4(base,1.);return;}
-  if(bounds.w>1.5){outputColor=vec4(topography(origin,direction,start,end,base),1.);return;}
+  if(bounds.w>1.5 && bounds.w<2.5){outputColor=vec4(topography(origin,direction,start,end,base),1.);return;}
+  if(bounds.w>2.5){
+    float ds=(end-start)/96.,opacity=0.;vec3 rgb=vec3(0.);
+    for(int i=0;i<96;i++){
+      vec4 s=sampleField(origin+direction*(start+(float(i)+.5)*ds));
+      float support=.10+.90*s.g;
+      float band=1.-smoothstep(0.,.07,min(fract(s.r*7.),1.-fract(s.r*7.)));
+      float a=(1.-exp(-ds*(1.55+.40*band)*support/bounds.z))*s.a;
+      vec3 color=mix(colorAt(s.r),vec3(.94,.96,.92),(1.-s.g)*.15);
+      rgb+=(1.-opacity)*a*color;opacity+=(1.-opacity)*a;
+    }
+    float limit=opaque<min(far.x,min(far.y,far.z))-.02 ? .43 : .68;
+    outputColor=vec4(mix(base,rgb/max(opacity,.00001),min(opacity,limit)),1.);return;
+  }
   float ds=(end-start)/96.,opacity=0.;vec3 rgb=vec3(0.);
   for(int iteration=0;iteration<96;iteration++){
     vec3 p=origin+direction*(start+(float(iteration)+.5)*ds);vec4 s=sampleField(p);
-    float edge=min(min(bounds.x/2.-abs(p.x),bounds.y/2.-abs(p.z)),bounds.z*(1.-.32*abs(p.z)/(bounds.y/2.))-p.y);
+    float edge=min(min(bounds.x/2.-abs(p.x),bounds.y/2.-abs(p.z)),bounds.z*(1.-(bounds.w>2.5 ? 0. : .32)*abs(p.z)/(bounds.y/2.))-p.y);
     float a=((1.-exp(-ds*.22/bounds.z))+.07*(1.-smoothstep(0.,ds*1.4,edge)))*s.a;
     rgb+=(1.-opacity)*a*fieldColor(s);opacity+=(1.-opacity)*a;
   }

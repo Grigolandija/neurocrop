@@ -346,14 +346,14 @@ export default function AreasWorkspace() {
               {greenhouseMapBeta ? <button type="button" disabled={mapBusyId === area.id || !workspaceReady} title={!workspaceReady ? tx("Create a Section first") : undefined} onClick={() => area.mapEnabled
                 ? navigate(`/area-map?area=${encodeURIComponent(area.id)}`)
                 : void setAreaMapStatus(area, true, true)}>{mapBusyId === area.id ? tx("Saving…") : !area.mapEnabled ? tx("Enable") : area.mapConfigured ? tx("Open") : tx("Set up")}</button> : null}
-              {area.mapEnabled && area.mapConfigured ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/greenhouse-live?area=${encodeURIComponent(area.id)}`)} aria-label={`${tx('3D microclimate')}: ${area.name}`}><i className="fa-solid fa-cube" /> 3D</button> : null}
+              {area.mapEnabled && area.mapConfigured ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/greenhouse-live?area=${encodeURIComponent(area.id)}`)} aria-label={`${tx('3D layout')}: ${area.name}`}><i className="fa-solid fa-cube" /> 3D</button> : null}
             </div>
             <div className="nc-area-actions">
               <button type="button" onClick={(event) => { event.stopPropagation(); setMenuId(menuId === area.id ? null : area.id) }} aria-label={`Actions for ${area.name}`} aria-expanded={menuId === area.id}><i className="fa-solid fa-ellipsis-vertical" /></button>
               {menuId === area.id ? <div onClick={(event) => event.stopPropagation()}>
                 <button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button>
                 <button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add section")}</button>
-                {area.mapEnabled && area.mapConfigured ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/greenhouse-live?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-cube" />{tx('3D microclimate')}</button> : null}
+                {area.mapEnabled && area.mapConfigured ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/greenhouse-live?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-cube" />{tx('3D layout')}</button> : null}
                 {greenhouseMapBeta && area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/area-map?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-draw-polygon" />{area.mapConfigured ? tx("Open Area Map") : tx("Set up Area Map")} <small>{tx("Beta")}</small></button> : null}
                 {greenhouseMapBeta && !area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => void setAreaMapStatus(area, true, true)}><i className="fa-solid fa-toggle-on" />{tx("Enable Area Map")}</button> : null}
                 {greenhouseMapBeta && area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => void setAreaMapStatus(area, false)}><i className="fa-solid fa-toggle-off" />{tx("Disable Area Map")}</button> : null}

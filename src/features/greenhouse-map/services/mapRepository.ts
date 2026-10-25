@@ -28,6 +28,9 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
     if (!layerIds.has(object.layerId)) return { ok: false, error: `Object ${object.id} references an unknown layer.` }
     const height=object.metadata?.sensor?.installationHeightM
     if(height!=null && (!finite(height) || height<0 || height>100 || (map.dimensions.heightM && height>map.dimensions.heightM)))return {ok:false,error:'Sensor height must be inside the greenhouse.'}
+    const door = object.metadata?.door
+    if (door !== undefined && (object.type !== 'door' || !door || typeof door !== 'object' || Array.isArray(door) || !['single','double','sliding'].includes(door.type)
+      || (door.heightM !== undefined && (!finite(door.heightM) || door.heightM <= 0 || door.heightM > 100 || (map.dimensions.heightM && door.heightM > map.dimensions.heightM))))) return { ok: false, error: `Object ${object.id} has an invalid door configuration.` }
     const wallMount = object.metadata?.wallMount
     if (wallMount !== undefined) {
       if (!wallMountedTypes.has(object.type) || !perimeterWalls.has(wallMount.wall) || !finite(wallMount.offsetM) || wallMount.offsetM < 0) return { ok: false, error: `Object ${object.id} has an invalid wall mount.` }

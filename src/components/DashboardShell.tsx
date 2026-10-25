@@ -31,7 +31,6 @@ const navigation = [
   { route: '/sections', action: 'zones', label: 'Sections', icon: 'fa-border-all' },
   { route: '/nodes', action: 'nodes', label: 'Nodes', icon: 'fa-microchip' },
   { route: '/readings', action: 'readings', label: 'Readings', icon: 'fa-wave-square' },
-  { route: '/greenhouse-live', action: 'climate-3d', label: '3D microclimate', icon: 'fa-cube' },
   { route: '/history', action: 'history', label: 'Trends', icon: 'fa-chart-line' },
   { route: '/alerts', action: 'alerts', label: 'Alerts', icon: 'fa-bell' },
   { route: '/actions', action: 'actions', label: 'Actions', icon: 'fa-list-check' },
