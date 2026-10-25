@@ -213,15 +213,21 @@
 .nc-living-field-status { display: flex; align-items: center; gap: 9px; border-bottom: 1px solid var(--living-line); padding: 12px 20px; background: #f3f6f0; color: #52675a; font-size: 12px; line-height: 1.6; }
 .nc-living-field-status > i { flex: 0 0 auto; color: var(--living-mint); }
 .nc-living-field-status a { color: var(--living-mint); text-decoration: underline; text-underline-offset: 3px; }
-.nc-living-field-legend { display: grid; grid-template-columns: minmax(230px, 1fr) minmax(200px, 1.5fr); align-items: center; gap: 24px; border-top: 1px solid var(--living-line); padding: 16px 20px; background: #fff; font-size: 11px; color: var(--living-mute); }
-.nc-living-field-legend strong { display: block; color: var(--living-ink); font-size: 12px; }
-.nc-living-scale { height: 9px; margin: 10px 0 6px; border-radius: 5px; }
-.nc-living-field-legend > div > span { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
-.nc-living-field-legend b { font-weight: 400; }
-.nc-living-field-legend p { margin: 0; line-height: 1.65; }
+.nc-living-field-legend { display: flex; justify-content: flex-end; border-top: 1px solid var(--living-line); padding: 8px 20px; background: #fff; color: var(--living-mute); }
+.nc-living-vertical-scale { position: absolute; z-index: 3; top: 50%; right: 24px; transform: translateY(-50%); border: 1px solid var(--living-line); border-radius: 12px; padding: 14px 16px 22px; background: #fffffff2; color: var(--living-ink); pointer-events: none; }
+.nc-living-scale-unit { display: block; margin-bottom: 16px; font-size: 13px; font-weight: 600; }
+.nc-living-scale-ruler { display: flex; gap: 10px; height: 240px; }
+.nc-living-scale { flex: 0 0 26px; height: 100%; border-radius: 6px; box-shadow: inset 0 0 0 1px #24382f14; }
+.nc-living-scale-ticks { position: relative; min-width: 4ch; font-size: 13px; font-variant-numeric: tabular-nums; }
+.nc-living-scale-ticks > span { position: absolute; left: 0; transform: translateY(-50%); white-space: nowrap; }
+.nc-living-scale-ticks > span::before { content: ''; position: absolute; top: 50%; right: calc(100% + 3px); width: 7px; border-top: 1px solid #62736b; }
 @media (max-width: 720px) {
-  .nc-living-field-legend { grid-template-columns: 1fr; gap: 12px; }
   .nc-living-field-status { padding: 10px 15px; }
+  .nc-living-vertical-scale { right: 12px; padding: 10px 10px 18px; }
+  .nc-living-scale-unit { margin-bottom: 12px; font-size: 12px; }
+  .nc-living-scale-ruler { height: 180px; }
+  .nc-living-scale { flex-basis: 22px; }
+  .nc-living-scale-ticks { font-size: 12px; }
 }
 
 /* The map leads; measurements expand only when requested. */
@@ -231,10 +237,6 @@
 .nc-living-map-actions > .nc-living-status-chip { color: #875b19; border-color: #e7d6b1; background: #fff7e8f2; }
 .nc-living-measurements-toggle > span { color: var(--living-mute); font-variant-numeric: tabular-nums; }
 .nc-living-measurements-toggle[aria-expanded="true"] { border-color: #28694f; color: #28694f; }
-.nc-living-field-legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding: 10px 20px; }
-.nc-living-compact-scale { display: flex; flex: 0 1 360px; align-items: center; gap: 10px; min-width: min(250px, 100%); }
-.nc-living-compact-scale > span { flex: 0 0 auto; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.nc-living-compact-scale .nc-living-scale { flex: 1; height: 7px; margin: 0; }
 .nc-living-map-info { position: relative; margin-left: auto; }
 .nc-living-map-info > summary { display: flex; align-items: center; gap: 7px; min-height: 32px; font-size: 11px; cursor: pointer; list-style: none; }
 .nc-living-map-info > summary::-webkit-details-marker { display: none; }

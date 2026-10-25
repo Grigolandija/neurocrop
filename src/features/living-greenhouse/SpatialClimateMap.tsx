@@ -128,6 +128,13 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
             {missing.length > 0 ? <button type="button" className="nc-living-status-chip" onClick={()=>{setSelected(null);setPanelOpen(true)}}>{text('Matavimai','Readings')}: {measured.length}/{readings.length}</button> : null}
             <button type="button" className="nc-living-measurements-toggle" ref={measurementsToggle} aria-expanded={panelOpen} aria-controls={panelOpen ? panelId : undefined} onClick={()=>{setSelected(null);setPanelOpen(value=>!value)}}><i className="fa-solid fa-list" />{text('Matavimai','Measurements')} <span>{readings.length}</span></button>
           </div> : null}
+          {map && geometry && !renderError ? <div className="nc-living-vertical-scale" role="img" aria-label={`${lt ? METRICS[metric].labelLt : METRICS[metric].label}, ${number(geometry.scale.min)}–${number(geometry.scale.max)} ${METRICS[metric].unit}`}>
+            <span className="nc-living-scale-unit" aria-hidden="true">{METRICS[metric].unit}</span>
+            <div className="nc-living-scale-ruler" aria-hidden="true">
+              <div className="nc-living-scale" style={{background:scaleGradient(geometry.scale.min,geometry.scale.max,METRICS[metric],observedRange,colorMode,'vertical')}} />
+              <div className="nc-living-scale-ticks">{[0,.25,.5,.75,1].map(fraction=><span key={fraction} style={{top:`${fraction*100}%`}}>{number(geometry.scale.max-(geometry.scale.max-geometry.scale.min)*fraction)}</span>)}</div>
+            </div>
+          </div> : null}
           {map ? visibleReadings.map(s=><button type="button" key={s.object.id} ref={el=>{if(el){pins.current.set(s.object.id,el);renderer.current?.invalidate()}else pins.current.delete(s.object.id)}} className="nc-living-pin" data-selected={selected===s.object.id} data-missing={displayValue(s)===null} data-delayed={s.delayed} data-attention={attentionIds.has(s.object.id)} data-height-unknown={s.heightM===null} aria-pressed={selected===s.object.id} onClick={()=>setSelected(previous=>previous===s.object.id ? null : s.object.id)} aria-label={`${s.object.name}: ${valueText(s)} · ${readingLabel(s)} · ${heightText(s.heightM)} · ${ageText(s)}`}>
             <i aria-hidden="true" style={{backgroundColor:pointColor(s)}} /><span className="nc-living-pin-label" aria-hidden="true"><strong>{s.object.name}</strong><span>{valueText(s)}</span><small>{heightText(s.heightM)} · {ageText(s)}</small></span>
           </button>) : null}
@@ -148,9 +155,6 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
         </> : null}
       </div>
       {map && geometry && !renderError ? <div className="nc-living-field-legend">
-        <div className="nc-living-compact-scale" aria-label={`${lt ? METRICS[metric].labelLt : METRICS[metric].label}, ${geometry.scale.min}–${geometry.scale.max} ${METRICS[metric].unit}`}>
-          <span>{number(geometry.scale.min)}</span><div className="nc-living-scale" style={{background:scaleGradient(geometry.scale.min,geometry.scale.max,METRICS[metric],observedRange,colorMode)}} /><span>{number(geometry.scale.max)} {METRICS[metric].unit}</span>
-        </div>
         <details className="nc-living-map-info" onKeyDown={event=>{if(event.key==='Escape'){event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus()}}}><summary><i className="fa-solid fa-circle-info" />{geometry.volumeReady ? text('Erdvinis įvertis','Spatial estimate') : text('Matavimo taškai','Measurement points')}</summary><div>
           <p>{geometry.volumeReady ? text('Taškai — tikri matavimai. Spalvos tarp jų — apskaičiuotas įvertis; už matavimo aukščių ribų jis mažiau pagrįstas.','Points are measurements. Colours between them are estimates; beyond measured heights they have less support.') : text('Taškas rodo sensoriaus vietą. Paspauskite, kad matytumėte reikšmę, aukštį ir laiką.','Each point marks a sensor. Select it to see the value, height and reading time.')}</p>
           <dl><div><dt>{text('Matavimai su aukščiu','Readings with height')}</dt><dd>{geometry.knownHeights}/{readings.length}</dd></div>{geometry.heightRange ? <div><dt>{text('Matavimo aukščiai','Measured heights')}</dt><dd>{geometry.heightRange.map(heightText).join('–')}</dd></div> : null}{unknownHeights ? <div><dt>{text('Nenurodytas aukštis','Unknown height')}</dt><dd>{unknownHeights}</dd></div> : null}<div><dt>{text('Laikas','Time')}</dt><dd>{clock(historyTime || new Date(at).toISOString())}</dd></div></dl>

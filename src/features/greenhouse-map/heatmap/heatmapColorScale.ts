@@ -63,7 +63,7 @@ export function heatmapColorAt(value: number, definition: SemanticScaleDefinitio
     : semanticColorAt(value, definition)
 }
 
-export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number], mode: HeatmapColorMode = 'condition'): string {
+export function scaleGradient(displayMin: number, displayMax: number, definition: SemanticScaleDefinition, observedRange?: [number, number], mode: HeatmapColorMode = 'condition', orientation: 'horizontal' | 'vertical' = 'horizontal'): string {
   const range = Math.max(displayMax - displayMin, 1e-6)
   const sampleCount = 32
   const stops = Array.from({ length: sampleCount + 1 }, (_, index) => {
@@ -71,7 +71,7 @@ export function scaleGradient(displayMin: number, displayMax: number, definition
     const [red, green, blue] = heatmapColorAt(value, definition, observedRange, mode)
     return `rgb(${red} ${green} ${blue}) ${index / sampleCount * 100}%`
   })
-  return `linear-gradient(90deg, ${stops.join(', ')})`
+  return `linear-gradient(${orientation === 'vertical' ? '0deg' : '90deg'}, ${stops.join(', ')})`
 }
 
 type EsriTemperatureStop = {
