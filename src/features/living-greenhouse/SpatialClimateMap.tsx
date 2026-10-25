@@ -75,7 +75,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
   const readingLabel=(s:typeof readings[number])=>s.delayed ? text('Vėluoja · paskutinis matavimas','Delayed · last reading') : s.value===null ? text('Matavimo nėra','No reading') : index === null ? text('Naujas matavimas','Current reading') : text('Istorinis matavimas','Historical reading')
   const clock = (stamp: string) => new Date(stamp).toLocaleTimeString(lt ? 'lt-LT' : 'en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Vilnius' })
   useEffect(() => {
-    if (!host.current || !map) return
+    if (!host.current) return
     let cancelled = false
     const element = host.current
     createLivingScene(element, (matrix, width, height) => {
@@ -90,7 +90,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
         button.dataset.labelBelow=String(p.y<90)
         button.style.visibility = p.visible && p.x>0 && p.x<width && p.y>0 && p.y<height ? 'visible' : 'hidden'
       }
-    }, () => { if (!cancelled) { setRenderError(true); ready.current?.() } }).then(scene => {
+    }, () => { if (!cancelled) { setRenderError(true); ready.current?.() } }, { animateIntro: false }).then(scene => {
       if (cancelled) { scene.dispose(); return }
       renderer.current = scene; setEngine(scene.name); engineReady.current?.(scene.name)
       const g = currentGeometry.current
@@ -98,9 +98,10 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
       scene.setPresentation(currentGeometry.current?.volumeReady ? 'volume' : 'points')
     }).catch(() => { if (!cancelled) { setRenderError(true); ready.current?.() } })
     return () => { cancelled = true; renderer.current?.dispose(); renderer.current = null }
-    // Scene lifetime follows availability, not playback or metric changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Boolean(map)])
+    // The parent keys this component by Area. Keep its camera and renderer
+    // alive across historical frames, including gaps with no recorded layout.
+    // The missing-layout overlay hides the previous scene until data returns.
+  }, [])
   useEffect(() => {
     renderNotified.current = false
     currentGeometry.current = geometry

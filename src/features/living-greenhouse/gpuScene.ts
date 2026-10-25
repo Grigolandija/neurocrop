@@ -156,7 +156,7 @@ function webgl(): Backend {
   }
 }
 
-export async function createLivingScene(host: HTMLElement, onProject: (matrix: Float32Array, width: number, height: number) => void, onLost: () => void, camera: {targetHeight?:number;elevation?:number;zoom?:number} = {}) {
+export async function createLivingScene(host: HTMLElement, onProject: (matrix: Float32Array, width: number, height: number) => void, onLost: () => void, camera: {targetHeight?:number;elevation?:number;zoom?:number;animateIntro?:boolean} = {}) {
   let backend: Backend
   try { backend = await webgpu(onLost) } catch { backend = webgl() }
   const { canvas } = backend
@@ -165,7 +165,7 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
   let presentation=0
   let size=20, elevation=camera.elevation ?? .70, azimuth=.67, zoom=camera.zoom ?? 1, dirty=true, disposed=false, width=1, height=1, raf=0
   let introStart=performance.now()
-  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reducedMotion=camera.animateIntro===false || matchMedia('(prefers-reduced-motion: reduce)').matches
   const pointers=new Map<number,{ x:number; y:number }>()
   let pinch=0
   const resize=() => { width=host.clientWidth; height=host.clientHeight; const dpr=Math.min(2,devicePixelRatio || 1); canvas.width=Math.max(1,Math.round(width*dpr)); canvas.height=Math.max(1,Math.round(height*dpr)); backend.resize(); dirty=true }
