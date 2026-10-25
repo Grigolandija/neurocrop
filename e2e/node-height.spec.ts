@@ -47,6 +47,7 @@ test('Node height is entered in Nodes, saved, and used automatically by the 3D l
   await page.getByRole('button',{name:'3D layout: Greenhouse',exact:true}).click()
   await expect(page).toHaveURL(/greenhouse-live/)
   await expect(page.locator('.nc-living-engine')).toHaveText(/WebGPU|WebGL/,{timeout:20000})
+  await page.getByRole('button',{name:'Measurements 1',exact:true}).click()
   await page.locator('.nc-living-sensor-list button').click()
   await expect(page.locator('.nc-living-sensor-detail')).toContainText('1.75 m')
   await expect(page.getByRole('combobox',{name:'Height above floor'})).toHaveCount(0)

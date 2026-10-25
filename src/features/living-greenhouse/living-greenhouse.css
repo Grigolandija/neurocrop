@@ -34,7 +34,6 @@
 .nc-living-time-mode { display: flex; padding: 3px; border: 1px solid #dce4dc; border-radius: 7px; background: #f0f3ee; }
 .nc-living-time-mode button { min-height: 33px; padding: 0 15px; border: 0; border-radius: 4px; background: transparent; color: var(--living-mute); font-size: 12px; }
 .nc-living-time-mode button[aria-pressed="true"] { background: #e1ece3; color: #224f3a; box-shadow: 0 1px 4px #1b3f2b0a; }
-.nc-living-volume-note { display: block; margin-top: 10px; max-width: 350px; color: #62736b; font-size: 10px; line-height: 1.5; }
 .nc-living-big-number[data-range="true"] { font-size: 31px; letter-spacing: -1px; }
 .nc-living-comparison { margin: 15px 0; border: 1px solid #cfdfce; border-radius: 7px; padding: 12px; background: #eef5ee; }
 .nc-living-comparison > span { display: block; color: var(--living-mute); font-size: 8px; letter-spacing: 1.2px; }
@@ -47,18 +46,11 @@
 .nc-living-sensor-list > button > span > span { display: block; }
 .nc-living-sensor-list > button small { display: block; margin-top: 3px; font-size: 9px !important; color: var(--living-mute); }
 .nc-living-sensor-list > button[data-attention="true"] i { background: #9a651a; }
-.nc-living-point-key { display: grid; gap: 7px; position: absolute; right: 320px; bottom: 28px; font-size: 10px; color: var(--living-mute); pointer-events: none; }
-.nc-living-point-key > span { display: flex; align-items: center; gap: 8px; }
-.nc-living-point-key i { width: 5px; height: 5px; background: var(--living-mint); border-radius: 50%; }
-.nc-living-point-key i[data-attention="true"] { background: #9a651a; }
 .nc-living-notice { padding: 12px 25px; border-bottom: 1px solid #e7d6b1; color: #875b19; font-size: 13px; }
 .nc-living-stage { position: relative; min-height: 540px; height: clamp(540px, 65vh, 850px); isolation: isolate; }
 .nc-living-canvas { position: absolute; inset: 0 290px 0 0; overflow: hidden; }
 .nc-living-canvas > canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 .nc-living-canvas > canvas:active { cursor: grabbing; }
-.nc-living-scene-caption { position: absolute; top: 28px; left: 28px; pointer-events: none; }
-.nc-living-scene-caption > span { display: flex; align-items: center; gap: 7px; font-size: 9px; color: var(--living-mute); letter-spacing: 1.5px; }
-.nc-living-scene-caption p { margin: 9px 0 0; color: #40594c; font-size: 14px; font-weight: 300; }
 /* One screen-sized point at the saved XYZ position; details are on demand. */
 .nc-living-pin { position: absolute; z-index: 2; top: 0; left: 0; visibility: hidden; display: grid; place-items: center; width: 28px; height: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--living-ink); touch-action: manipulation; }
 /* Camera projection updates every rendered frame. Override workspace button
@@ -160,8 +152,6 @@
   .nc-living-time-mode button { padding: 0 10px; font-size: 11px; }
   .nc-living-time-mode { width: 100%; }
   .nc-living-time-mode > button { flex: 1; }
-  .nc-living-volume-note { max-width: 270px; font-size: 9px; }
-  .nc-living-point-key { right: 18px; top: 350px; bottom: auto; font-size: 8px; }
   .nc-living-comparison { margin-top: 16px; }
   .nc-living-inspector:has(.nc-living-comparison) > .nc-living-range { position: static; width: auto; margin: 15px 0; padding-bottom: 10px; }
   .nc-living-stage { height: auto; min-height: 0; padding-top: 410px; }
@@ -171,7 +161,6 @@
   .nc-living-range { position: absolute; right: 20px; top: 60px; width: 145px; padding-bottom: 0; border-bottom: 0; gap: 12px; }
   .nc-living-sensor-list { grid-template-columns: 1fr 1fr; gap: 3px 15px; } .nc-living-sensor-list > button { gap: 5px; font-size: 9px; } .nc-living-sensor-list b { font-size: 9px; }
   .nc-living-inspector > footer { margin-top: 15px; padding-top: 12px; }
-  .nc-living-scene-caption { top: 20px; left: 18px; } .nc-living-scene-caption p { font-size: 12px; }
   .nc-living-view-controls { top: 348px; bottom: auto; left: 15px; gap: 0; padding: 2px; } .nc-living-view-controls > button { width: 28px; height: 32px; }
   .nc-living-timeline { gap: 12px; padding: 16px 15px; min-height: 90px; } .nc-living-play { flex-basis: 35px; height: 35px; }
   .nc-living-timeline-label { min-width: 48px; max-width: 60px; } .nc-living-timeline-label strong { font-size: 17px; } .nc-living-timeline-label span { font-size: 8px; }
@@ -233,4 +222,33 @@
 @media (max-width: 720px) {
   .nc-living-field-legend { grid-template-columns: 1fr; gap: 12px; }
   .nc-living-field-status { padding: 10px 15px; }
+}
+
+/* The map leads; measurements expand only when requested. */
+.nc-living-stage[data-panel-open="false"] .nc-living-canvas { inset: 0; }
+.nc-living-map-actions { position: absolute; z-index: 3; top: 16px; right: 16px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: calc(100% - 32px); }
+.nc-living-map-actions > button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; border: 1px solid #dce4dc; border-radius: 8px; padding: 0 11px; background: #fffffff2; color: var(--living-ink); font-size: 12px; }
+.nc-living-map-actions > .nc-living-status-chip { color: #875b19; border-color: #e7d6b1; background: #fff7e8f2; }
+.nc-living-measurements-toggle > span { color: var(--living-mute); font-variant-numeric: tabular-nums; }
+.nc-living-measurements-toggle[aria-expanded="true"] { border-color: #28694f; color: #28694f; }
+.nc-living-field-legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding: 10px 20px; }
+.nc-living-compact-scale { display: flex; flex: 0 1 360px; align-items: center; gap: 10px; min-width: min(250px, 100%); }
+.nc-living-compact-scale > span { flex: 0 0 auto; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nc-living-compact-scale .nc-living-scale { flex: 1; height: 7px; margin: 0; }
+.nc-living-map-info { position: relative; margin-left: auto; }
+.nc-living-map-info > summary { display: flex; align-items: center; gap: 7px; min-height: 32px; font-size: 11px; cursor: pointer; list-style: none; }
+.nc-living-map-info > summary::-webkit-details-marker { display: none; }
+.nc-living-map-info > div { position: absolute; z-index: 8; right: 0; bottom: calc(100% + 10px); width: min(340px, calc(100vw - 48px)); border: 1px solid var(--living-line); border-radius: 10px; padding: 16px; background: #fff; box-shadow: 0 8px 28px #233b281c; font-size: 12px; line-height: 1.65; }
+.nc-living-map-info p { margin: 0; }
+.nc-living-map-info dl { display: grid; gap: 8px; margin: 14px 0; }
+.nc-living-map-info dl > div { display: flex; justify-content: space-between; gap: 12px; }
+.nc-living-map-info dd { margin: 0; color: var(--living-ink); text-align: right; }
+.nc-living-map-info > summary:focus-visible { outline: 2px solid var(--living-mint); outline-offset: 3px; }
+@media (max-width: 720px) {
+  .nc-living-stage[data-panel-open="false"] { height: clamp(380px, 60vh, 560px); min-height: 380px; padding-top: 0; }
+  .nc-living-stage[data-panel-open="false"] .nc-living-canvas { height: 100%; }
+  .nc-living-stage[data-panel-open="false"] .nc-living-view-controls { top: auto; bottom: 16px; }
+  .nc-living-map-actions { top: 12px; right: 12px; gap: 6px; }
+  .nc-living-map-actions > button { min-height: 34px; font-size: 11px; padding-inline: 9px; }
+  .nc-living-field-legend { padding-inline: 14px; }
 }

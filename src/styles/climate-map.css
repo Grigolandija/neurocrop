@@ -4,9 +4,6 @@
 .nc-live-climate-map > header h3 { margin: 0; font-size: var(--type-h2); letter-spacing: var(--tracking-heading); }
 .nc-live-climate-map > header > div:first-child > span { display: flex; align-items: center; gap: var(--space-8); margin-top: var(--space-4); color: var(--color-text-tertiary); font-size: var(--type-caption); }
 .nc-live-climate-map > header > div:first-child > span i { color: var(--color-success); font-size: .5rem; }
-.nc-climate-refresh { display: inline-flex; align-items: center; gap: var(--space-4); margin-left: var(--space-4); color: var(--color-text-tertiary); font-size: var(--type-micro); font-style: normal; }
-.nc-climate-refresh i { color: var(--color-secondary) !important; font-size: var(--type-micro) !important; }
-.nc-climate-refresh[data-state="warning"], .nc-climate-refresh[data-state="warning"] i { color: var(--color-warning) !important; }
 .nc-climate-map-filters { display: flex; flex-wrap: wrap; align-items: end; justify-content: flex-end; gap: var(--space-12); }
 .nc-climate-filter-control { display: grid; align-content: end; gap: 6px; }
 .nc-climate-filter-control > span { color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-medium); line-height: 1; }
@@ -14,13 +11,10 @@
 .nc-climate-time-mode button, .nc-climate-color-mode button, .nc-climate-view-mode button { min-width: 4.7rem; min-height: calc(var(--control-height-sm) - 2px); border: 0; padding: 0 var(--space-12); background: transparent; color: var(--color-text-tertiary); font-size: var(--type-caption); font-weight: var(--weight-semibold); }
 .nc-climate-time-mode button + button, .nc-climate-color-mode button + button, .nc-climate-view-mode button + button { border-left: 1px solid var(--color-border); }
 .nc-climate-time-mode button.active, .nc-climate-color-mode button.active, .nc-climate-view-mode button.active { background: var(--color-secondary); color: #fff; }
-.nc-climate-time-mode button:disabled { cursor: not-allowed; opacity: .45; }
 .nc-climate-map-filters label { min-width: 12rem; }
 .nc-climate-map-filters label.nc-climate-depth { min-width: 6.5rem; }
 .nc-climate-map-filters select { min-width: 11rem; min-height: var(--control-height-sm); border: 1px solid var(--color-border); border-radius: .5rem; padding: 0 2rem 0 var(--space-8); background: var(--color-surface); color: var(--color-text); font-size: var(--type-caption); }
 .nc-climate-map-filters .nc-climate-depth select { min-width: 6.5rem; }
-.nc-climate-lock { display: inline-flex; min-height: 1.8rem; align-items: center; gap: 6px; border: 1px solid var(--color-border); border-radius: 99px; padding: 0 var(--space-8); background: color-mix(in srgb,var(--color-surface-subtle) 72%,transparent); color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-medium); white-space: nowrap; }
-.nc-climate-lock i { color: var(--color-secondary); font-size: .65rem; }
 .nc-climate-history-controls { display: grid; grid-template-columns: auto minmax(16rem,1fr) auto auto; align-items: center; gap: var(--space-16); border-bottom: 1px solid var(--color-border); padding: var(--space-12) var(--space-20); background: color-mix(in srgb,var(--color-info-soft) 42%,var(--color-surface)); }
 .nc-climate-history-controls label { display: grid; grid-template-columns: auto minmax(10rem,1fr); align-items: center; gap: var(--space-12); color: var(--color-text-tertiary); font-size: var(--type-micro); font-weight: var(--weight-semibold); white-space: nowrap; }
 .nc-climate-history-controls input[type="range"] { width: 100%; accent-color: var(--color-secondary); cursor: pointer; }
@@ -117,7 +111,6 @@
   .nc-climate-time-mode, .nc-climate-color-mode, .nc-climate-view-mode { width: 100%; }
   .nc-climate-time-mode button, .nc-climate-color-mode button, .nc-climate-view-mode button { flex: 1; }
   .nc-climate-map-filters select { width: 100%; }
-  .nc-climate-lock { align-self: flex-start; }
   .nc-climate-history-controls { grid-template-columns: auto 1fr; gap: var(--space-12); }
   .nc-climate-history-controls label { grid-column: 1 / -1; grid-row: 2; grid-template-columns: 1fr; gap: var(--space-4); }
   .nc-climate-history-controls > strong { justify-self: end; text-align: right; }
@@ -130,3 +123,36 @@
 }
 
 .nc-climate-view-mode button { min-width: 2.75rem; }
+
+/* One toolbar; colour and coverage controls are available on demand. */
+.nc-live-climate-map > header.nc-climate-toolbar,
+.nc-overview-climate-card .nc-overview-presentation > header.nc-climate-toolbar { position: relative; z-index: 6; display: flex; flex-wrap: wrap; min-height: 64px; gap: 12px 24px; padding: 12px 20px; }
+.nc-climate-toolbar > .nc-climate-area-navigation, .nc-climate-toolbar > strong { min-width: 0; margin-right: auto; }
+.nc-climate-toolbar .nc-area-tabs b { display: none; }
+.nc-climate-toolbar .nc-climate-map-filters { flex-direction: row; align-items: center; gap: 10px; }
+.nc-climate-history-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; border: 1px solid var(--color-border); border-radius: 10px; padding: 0 14px; background: var(--color-surface); color: var(--color-text-secondary); font-size: var(--type-caption); white-space: nowrap; }
+.nc-climate-history-toggle[aria-pressed="true"] { border-color: var(--color-secondary); color: var(--color-secondary); background: var(--color-info-soft); }
+.nc-climate-history-toggle:disabled { opacity: .45; cursor: default; }
+.nc-climate-options { position: relative; }
+.nc-climate-options > summary { display: grid; width: 42px; min-height: 42px; place-items: center; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text-secondary); cursor: pointer; list-style: none; }
+.nc-climate-options > summary::-webkit-details-marker { display: none; }
+.nc-climate-options[open] > summary { background: var(--color-surface-subtle); }
+.nc-climate-options-panel { position: absolute; z-index: 10; top: calc(100% + 10px); right: 0; display: grid; width: min(290px, calc(100vw - 40px)); gap: 12px; border: 1px solid var(--color-border); border-radius: 12px; padding: 16px; background: var(--color-surface); box-shadow: 0 8px 28px #233b281c; font-size: var(--type-caption); color: var(--color-text-secondary); }
+.nc-climate-options-panel > strong { color: var(--color-text); }
+.nc-climate-options-panel p { margin: 0; line-height: 1.6; }
+.nc-climate-options-panel > span { font-size: var(--type-micro); }
+.nc-climate-options-panel .nc-climate-color-mode button { flex: 1; }
+.nc-climate-update-icon { color: var(--color-text-tertiary); font-size: 12px; }
+.nc-climate-update-warning { display: inline-flex; align-items: center; gap: 6px; color: var(--color-warning); font-size: var(--type-micro); }
+.nc-climate-toolbar :is(button,summary):focus-visible { outline: 2px solid var(--color-secondary); outline-offset: 3px; }
+@media (max-width: 600px) {
+  .nc-live-climate-map > header.nc-climate-toolbar,
+  .nc-overview-climate-card .nc-overview-presentation > header.nc-climate-toolbar { padding: 10px 14px; gap: 8px; }
+  .nc-climate-toolbar > .nc-climate-area-navigation { width: 100%; }
+  .nc-climate-toolbar .nc-climate-map-filters { width: 100%; flex-wrap: wrap; gap: 8px; }
+  .nc-climate-toolbar .nc-climate-metric-control { flex: 1; width: auto; min-width: 140px; }
+  .nc-climate-toolbar .nc-climate-metric-control select { min-width: 0; }
+  .nc-climate-toolbar .nc-climate-view-mode { flex: 0 0 auto; width: auto; }
+  .nc-climate-toolbar .nc-climate-view-mode button { min-width: 42px; padding-inline: 10px; }
+  .nc-climate-history-toggle { flex: 1; }
+}

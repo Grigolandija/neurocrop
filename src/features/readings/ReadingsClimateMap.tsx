@@ -295,38 +295,31 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
     Math.max(0, Math.min((history?.frames.length ?? 1) - 1, current + direction)))
 
   return <section className={`nc-live-climate-map ${overviewPresentation ? 'nc-overview-presentation' : ''}`} data-overview-heatmap-settled={overviewPresentation && canvasReady ? 'true' : undefined} aria-label={`${context.area.name} live climate map`}>
-    <header>
-      <div className="nc-climate-map-summary">
-        <p className="nc-overline">{timeMode === 'history' ? lithuanian ? 'Istorinis klimato žemėlapis' :tx("Historical climate map") : overviewPresentation ? lithuanian ? 'Klimato žemėlapis' : 'Climate map' :tx("Live climate map")}</p>
-        {!overviewPresentation ? <h3>{context.area.name}</h3> : null}
-        <span><i className={`fa-solid ${timeMode === 'history' ? 'fa-clock-rotate-left' : 'fa-circle'}`} /> {timeMode === 'history' ? lithuanian ? 'Istorija' :tx("History") : lithuanian ? 'Dabar' :tx("Live")}{!overviewPresentation ? <> · {validNodes} {lithuanian ? 'sensorių šalt.' : `sensor source${validNodes === 1 ? '' : 's'}`}</> : null} · {updatedLabel}{updating ? <em className="nc-climate-refresh"><i className="fa-solid fa-rotate fa-spin" /> {tx("Updating…")}</em> : error ? <em className="nc-climate-refresh" data-state="warning" title={error}><i className="fa-solid fa-triangle-exclamation" /> {tx("Update delayed")}</em> : null}</span>
-      </div>
-      {overviewPresentation ? <div className="nc-climate-area-navigation">{areaNavigation}</div> : null}
+    <header className="nc-climate-toolbar">
+      {overviewPresentation ? <div className="nc-climate-area-navigation">{areaNavigation}</div> : <strong>{context.area.name}</strong>}
       <div className="nc-climate-map-filters">
-        <div className="nc-climate-filter-control">
-          <span>{lithuanian ? 'Vaizdas' : 'View'}</span>
-          <div className="nc-climate-view-mode" role="group" aria-label={lithuanian ? 'Žemėlapio vaizdas' : 'Map view'}>
-            <button type="button" className={mapView === '2d' ? 'active' : ''} aria-pressed={mapView === '2d'} onClick={() => setMapView('2d')}>2D</button>
-            <button type="button" className={mapView === '3d' ? 'active' : ''} aria-pressed={mapView === '3d'} onClick={() => { setObservedNow(Date.now()); setMapView('3d') }}>3D</button>
-          </div>
+        <label className="nc-climate-filter-control nc-climate-metric-control"><span className="sr-only">{tx("Metric")}</span><select value={selectedMetric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{heatmapMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>)}</select></label>
+        {selectedMetric === 'soil-ec' && availableSoilEcDepths.length ? <label className="nc-climate-filter-control nc-climate-depth"><span className="sr-only">{lithuanian ? 'Gylis' : 'Depth'}</span><select value={selectedSoilEcDepthCm} onChange={(event) => selectSoilEcDepth(Number(event.target.value))}>{availableSoilEcDepths.map((depthCm) => <option value={depthCm} key={depthCm}>{depthCm} cm</option>)}</select></label> : null}
+        <div className="nc-climate-view-mode" role="group" aria-label={lithuanian ? 'Žemėlapio vaizdas' : 'Map view'}>
+          <button type="button" className={mapView === '2d' ? 'active' : ''} aria-pressed={mapView === '2d'} onClick={() => setMapView('2d')}>2D</button>
+          <button type="button" className={mapView === '3d' ? 'active' : ''} aria-pressed={mapView === '3d'} onClick={() => { setObservedNow(Date.now()); setMapView('3d') }}>3D</button>
         </div>
-        <div className="nc-climate-filter-control">
-          <span>{lithuanian ? 'Laikas' : 'Time'}</span>
-          <div className="nc-climate-time-mode" aria-label={lithuanian ? 'Klimato žemėlapio laikas' : 'Climate map time'}>
-            <button type="button" className={timeMode === 'live' ? 'active' : ''} aria-pressed={timeMode === 'live'} onClick={() => selectTimeMode('live')}>{lithuanian ? 'Dabar' :tx("Live")}</button>
-            <button type="button" className={timeMode === 'history' ? 'active' : ''} aria-pressed={timeMode === 'history'} disabled={!historyAvailable} title={historyError || undefined} onClick={() => selectTimeMode('history')}>{lithuanian ? 'Istorija' :tx("History")}</button>
+        <button type="button" className="nc-climate-history-toggle" aria-pressed={timeMode === 'history'} disabled={!historyAvailable} title={historyError || undefined} onClick={() => selectTimeMode(timeMode === 'history' ? 'live' : 'history')}><i className={`fa-solid ${timeMode === 'history' ? 'fa-xmark' : 'fa-clock-rotate-left'}`} />{timeMode === 'history' ? lithuanian ? 'Grįžti į dabar' : 'Back to live' : lithuanian ? 'Istorija' : 'History'}</button>
+        <details className="nc-climate-options" onKeyDown={event=>{if(event.key==='Escape'){event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus()}}}>
+          <summary aria-label={lithuanian ? 'Žemėlapio nustatymai ir duomenys' : 'Map settings and data'} title={lithuanian ? 'Nustatymai ir duomenys' : 'Settings and data'}><i className="fa-solid fa-ellipsis" /></summary>
+          <div className="nc-climate-options-panel">
+            <strong>{lithuanian ? 'Spalvos' : 'Colours'}</strong>
+            <div className="nc-climate-color-mode" role="group" aria-label={lithuanian ? 'Žemėlapio spalvų režimas' : 'Map colour mode'}>
+              <button type="button" className={colorMode === 'condition' ? 'active' : ''} aria-pressed={colorMode === 'condition'} onClick={() => selectColorMode('condition')}>{lithuanian ? 'Būklė' : 'Condition'}</button>
+              <button type="button" className={colorMode === 'contrast' ? 'active' : ''} aria-pressed={colorMode === 'contrast'} onClick={() => selectColorMode('contrast')}>{lithuanian ? 'Kontrastas' : 'Contrast'}</button>
+            </div>
+            <p>{colorMode === 'condition' ? lithuanian ? 'Ta pati reikšmė išlaiko tą pačią spalvą.' : 'A value keeps the same colour over time.' : lithuanian ? 'Išryškinami skirtumai pasirinktame kadre. Spalvos nerodo augalo būklės.' : 'Highlights differences in this frame. Colours do not indicate crop health.'}</p>
+            <span>{updatedLabel}</span>
+            {timeMode === 'history' ? <span title={layoutTitle}>{lithuanian ? 'Duomenų padengimas' : 'Data coverage'}: {validNodes}/{expectedNodes} · {coveragePercent}% · {layoutLabel}</span> : null}
+            {historyError ? <span>{lithuanian ? 'Istorija nepasiekiama.' : 'History unavailable.'}</span> : null}
           </div>
-        </div>
-        <div className="nc-climate-filter-control nc-climate-color-control">
-          <span>{lithuanian ? 'Spalvos' : 'Colours'}</span>
-          <div className="nc-climate-color-mode" role="group" aria-label={lithuanian ? 'Žemėlapio spalvų režimas' : 'Map colour mode'}>
-            <button type="button" className={colorMode === 'condition' ? 'active' : ''} aria-pressed={colorMode === 'condition'} title={lithuanian ? 'Stabilios spalvos pagal absoliučią reikšmę ir augalo būklę' : 'Stable colours based on the absolute value and crop condition'} onClick={() => selectColorMode('condition')}>{lithuanian ? 'Būklė' : 'Condition'}</button>
-            <button type="button" className={colorMode === 'contrast' ? 'active' : ''} aria-pressed={colorMode === 'contrast'} title={lithuanian ? 'Maksimalus skirtumas tarp šio kadro minimumo ir maksimumo' : 'Maximum contrast between this frame minimum and maximum'} onClick={() => selectColorMode('contrast')}>{lithuanian ? 'Kontrastas' : 'Contrast'}</button>
-          </div>
-        </div>
-        <label className="nc-climate-filter-control nc-climate-metric-control"><span>{tx("Metric")}</span><select value={selectedMetric} onChange={(event) => setMetric(event.target.value as MetricKey)}>{heatmapMetrics.map((key) => <option value={key} key={key}>{lithuanian ? METRICS[key].labelLt : METRICS[key].label}</option>)}</select></label>
-        {selectedMetric === 'soil-ec' && availableSoilEcDepths.length ? <label className="nc-climate-filter-control nc-climate-depth"><span>{lithuanian ? 'Gylis' : 'Depth'}</span><select value={selectedSoilEcDepthCm} onChange={(event) => selectSoilEcDepth(Number(event.target.value))}>{availableSoilEcDepths.map((depthCm) => <option value={depthCm} key={depthCm}>{depthCm} cm</option>)}</select></label> : null}
-        {!overviewPresentation ? <span className="nc-climate-lock"><i className="fa-solid fa-lock" />{tx("Read only")}</span> : null}
+        </details>
+        {updating ? <i className="fa-solid fa-rotate fa-spin nc-climate-update-icon" aria-label={lithuanian ? 'Atnaujinama' : 'Updating'} /> : error ? <span className="nc-climate-update-warning" title={error}><i className="fa-solid fa-triangle-exclamation" />{tx("Update delayed")}</span> : null}
       </div>
     </header>
     {timeMode === 'history' && history?.frames.length
@@ -350,9 +343,9 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
             />
           </label>
           <strong>{new Date(history.frames[historyIndex].observedAt).toLocaleString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong>
-          <span className="nc-climate-coverage" title={layoutTitle}><i className="fa-solid fa-signal" /> {lithuanian ? 'Duomenų padengimas' :tx("Data coverage")} {validNodes}/{expectedNodes} · {coveragePercent}% · {layoutLabel}</span>
+          {historyLayout?.source !== 'recorded' ? <span className="nc-climate-coverage" title={layoutTitle}><i className="fa-solid fa-circle-info" />{layoutLabel}</span> : null}
         </div>
-      : historyError
+      : timeMode === 'history' && historyError
         ? <div className="nc-climate-history-warning"><i className="fa-solid fa-triangle-exclamation" /> {lithuanian ? 'Istorinis klimato žemėlapis nepasiekiamas:' :tx("Historical climate map unavailable:")} {historyError}</div>
         : null}
     {mapView === '3d' ? <Suspense fallback={<div className="nc-climate-map-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{lithuanian ? 'Atveriamas erdvinis žemėlapis…' : 'Opening spatial map…'}</strong></div>}>
