@@ -9,7 +9,7 @@ export function prepareReadOnlyClimateMap(context: AreaMapContext, metric: Metri
   const source = context.map
     ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections)
     : createAreaMap(context.area, context.nodes, context.sections)
-  const visibleLayerIds = new Set(['structure', 'cultivation', 'irrigation', 'climate', 'lighting', 'environment', 'labels'])
+  const visibleLayerIds = new Set(['structure', 'cultivation', 'irrigation', 'climate', 'environment', 'labels'])
   return {
     ...source,
     layers: source.layers.map((layer) => ({
@@ -19,7 +19,8 @@ export function prepareReadOnlyClimateMap(context: AreaMapContext, metric: Metri
       opacity: layer.id === 'environment' ? 1 : layer.opacity,
     })),
     objects: source.objects.flatMap((object) => {
-      if (object.type === 'section-zone') return []
+      // Keep lighting in the saved plan and 3D scene, not in the 2D climate projection.
+      if (object.type === 'section-zone' || object.type === 'lamp') return []
       return [{ ...object, locked: true }]
     }),
     heatmapSettings: {

@@ -16,6 +16,7 @@ type Props = {
   map: GreenhouseMap
   mode: MapMode
   readOnly?: boolean
+  showObjectNames?: boolean
   legendHost?: HTMLElement | null
   soilProfileHost?: HTMLElement | null
   compactLegend?: boolean
@@ -275,8 +276,8 @@ function SoilEcCrossSection({ profile, map, language, colorMode, leftInsetPx, ri
   </section>
 }
 
-function ObjectShape({ object, map, selected, editable, environmentView, viewScale, snap, onSelect, onMove, onUpdate }: {
-  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; environmentView: boolean; viewScale: number; snap: boolean
+function ObjectShape({ object, map, selected, editable, environmentView, viewScale, snap, showObjectNames, onSelect, onMove, onUpdate }: {
+  object: GreenhouseObject; map: GreenhouseMap; selected: boolean; editable: boolean; environmentView: boolean; viewScale: number; snap: boolean; showObjectNames: boolean
   onSelect: (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void
   onMove: (position: { id: string; xM: number; yM: number }, record?: boolean) => void
   onUpdate: Props['onUpdate']
@@ -304,7 +305,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, viewSca
       : wall === 'north'
         ? { x: object.widthM / 2 - wallLabelWidthPx / viewScale / 2, y: object.lengthM + 7 / viewScale }
         : { x: object.widthM / 2 - wallLabelWidthPx / viewScale / 2, y: -25 / viewScale }
-  const mapObjectLabel = wallMounted
+  const mapObjectLabel = !showObjectNames ? null : wallMounted
     ? <Text {...wallLabelPosition} width={wallLabelWidthPx / viewScale} height={18 / viewScale} text={objectLabel} align="center" verticalAlign="middle" fontFamily="IBM Plex Sans" fontSize={10 / viewScale} fontStyle="bold" fill="#203b33" stroke="rgba(247,249,246,.92)" strokeWidth={2.4 / viewScale} fillAfterStrokeEnabled ellipsis wrap="none" />
     : <Text x={8 / viewScale} y={0} width={Math.max(4, objectWidthPx - 16) / viewScale} height={object.lengthM} text={objectLabel} align="center" verticalAlign="middle" fontFamily="IBM Plex Sans" fontSize={mapLabelFontPx / viewScale} fontStyle="bold" fill="#203b33" stroke="rgba(247,249,246,.78)" strokeWidth={2.2 / viewScale} fillAfterStrokeEnabled opacity={environmentView ? .78 : .94} ellipsis wrap="none" />
   return <Group
@@ -372,7 +373,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, viewSca
       <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorVisualRadius} fill="#173e35" stroke={selected ? '#f0bd4f' : '#fff'} strokeWidth={(selected ? 1.25 : .8) / viewScale} hitStrokeWidth={18 / viewScale} shadowColor="#10251f" shadowBlur={2 / viewScale} shadowOpacity={.28} />
       <Circle x={object.widthM / 2} y={object.lengthM / 2} radius={sensorVisualRadius * .38} fill={statusColors[sensor?.status ?? 'unassigned']} />
       <Circle x={object.widthM / 2 + sensorVisualRadius * .66} y={object.lengthM / 2 - sensorVisualRadius * .66} radius={sensorVisualRadius * .24} fill={statusColors[sensor?.status ?? 'unassigned']} stroke="#fff" strokeWidth={.7 / viewScale} />
-      <Text x={object.widthM + 6 / viewScale} y={-1 / viewScale} width={Math.max(2.8, 150 / viewScale)} text={object.name} fontFamily="IBM Plex Sans" fontSize={labelFontSize} fontStyle="bold" fill="#183a31" />
+      {showObjectNames ? <Text x={object.widthM + 6 / viewScale} y={-1 / viewScale} width={Math.max(2.8, 150 / viewScale)} text={object.name} fontFamily="IBM Plex Sans" fontSize={labelFontSize} fontStyle="bold" fill="#183a31" /> : null}
     </> : <>
       <Rect width={object.widthM} height={object.lengthM} fill={environmentView ? 'rgba(0,0,0,.2)' : object.metadata.color ?? colors.fill} stroke={selected ? '#d89a2b' : environmentView ? 'rgba(0,0,0,.48)' : colors.stroke} strokeWidth={(selected ? 1.15 : .75) / viewScale} dash={environmentView ? [6 / viewScale, 4 / viewScale] : object.type === 'walkway' || object.type === 'technical-zone' ? [.16, .1] : undefined} cornerRadius={Math.min(.12, object.lengthM * .15)} />
       {object.type === 'fan' ? <Text width={object.widthM} height={object.lengthM} text="✣" align="center" verticalAlign="middle" fontSize={object.lengthM * .65} fill={colors.stroke} opacity={environmentView ? .68 : 1} /> : null}
@@ -383,7 +384,7 @@ function ObjectShape({ object, map, selected, editable, environmentView, viewSca
   </Group>
 }
 
-export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHost, soilProfileHost, compactLegend = false, soilEcDepthCm, target, colorMode = 'condition', language = 'en', selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
+export default function GreenhouseCanvas({ map, mode, readOnly = false, showObjectNames = true, legendHost, soilProfileHost, compactLegend = false, soilEcDepthCm, target, colorMode = 'condition', language = 'en', selectedIds, snap, onSelect, onMove, onUpdate, onAdd, onRenderReady, referenceTime }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -884,8 +885,8 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, legendHo
       <Layer>
         {orderedObjects.map((object) => {
           const layer = visibleLayers.get(object.layerId)
-          if (!object.visible || !layer?.visible) return null
-          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} environmentView={mode === 'environment'} viewScale={view.scale} snap={snap}
+          if (!object.visible || !layer?.visible || (!showObjectNames && object.type === 'text-label')) return null
+          return <ObjectShape key={object.id} object={object} map={map} selected={selectedIds.includes(object.id)} editable={editable && !layer.locked} environmentView={mode === 'environment'} showObjectNames={showObjectNames} viewScale={view.scale} snap={snap}
             onSelect={(event) => {
               event.cancelBubble = true
               const shift = event.evt.shiftKey

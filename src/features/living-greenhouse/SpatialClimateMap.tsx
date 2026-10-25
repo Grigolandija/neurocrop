@@ -45,6 +45,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
   const currentGeometry = useRef<ReturnType<typeof sceneGeometry> | null>(null)
   const engineReady = useRef(onRendererReady)
   useEffect(() => { engineReady.current = onRendererReady }, [onRendererReady])
+  const renderNotified = useRef(false)
   const ready = useRef(onReady)
   useEffect(() => { ready.current = onReady }, [onReady])
   const dimensions = useRef({ widthM: 20, lengthM: 12 })
@@ -75,10 +76,10 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
   const clock = (stamp: string) => new Date(stamp).toLocaleTimeString(lt ? 'lt-LT' : 'en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Vilnius' })
   useEffect(() => {
     if (!host.current || !map) return
-    let cancelled = false, notified = false
+    let cancelled = false
     const element = host.current
     createLivingScene(element, (matrix, width, height) => {
-      if (!notified) { notified = true; ready.current?.() }
+      if (!renderNotified.current) { renderNotified.current = true; ready.current?.() }
       const d = dimensions.current
       for (const s of currentGeometry.current?.sensors || []) {
         const button = pins.current.get(s.object.id)
@@ -89,18 +90,19 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
         button.dataset.labelBelow=String(p.y<90)
         button.style.visibility = p.visible && p.x>0 && p.x<width && p.y>0 && p.y<height ? 'visible' : 'hidden'
       }
-    }, () => { if (!cancelled) setRenderError(true) }).then(scene => {
+    }, () => { if (!cancelled) { setRenderError(true); ready.current?.() } }).then(scene => {
       if (cancelled) { scene.dispose(); return }
       renderer.current = scene; setEngine(scene.name); engineReady.current?.(scene.name)
       const g = currentGeometry.current
       if (g) scene.update(g.vertices, Math.max(dimensions.current.widthM, dimensions.current.lengthM), g.volume)
       scene.setPresentation(currentGeometry.current?.volumeReady ? 'volume' : 'points')
-    }).catch(() => { if (!cancelled) setRenderError(true) })
+    }).catch(() => { if (!cancelled) { setRenderError(true); ready.current?.() } })
     return () => { cancelled = true; renderer.current?.dispose(); renderer.current = null }
     // Scene lifetime follows availability, not playback or metric changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Boolean(map)])
   useEffect(() => {
+    renderNotified.current = false
     currentGeometry.current = geometry
     if (map && geometry) { renderer.current?.setPresentation(geometry.volumeReady ? 'volume' : 'points'); dimensions.current = map.dimensions; renderer.current?.update(geometry.vertices, Math.max(map.dimensions.widthM,map.dimensions.lengthM), geometry.volume) }
   }, [geometry, map])
