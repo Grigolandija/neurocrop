@@ -71,7 +71,10 @@
 .nfa-next button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 6px; background: #e7f0e1; color: #3d713b; font-size: 12px; }
 .nfa-next small { color: var(--color-text-secondary,#748572); font-size: 11px; line-height: 1.6; }
 .nfa-remove { margin-top: 14px; padding: 5px 0; color: #9a5b46; background: transparent; font-size: 12px; }
-.nfa-editor :is(button,input,select):focus-visible, .nfa-canvas [role="button"]:focus-visible { outline: 2px solid #397c4e; outline-offset: 2px; }
+.nfa-editor :is(button,input,select):focus-visible { outline: 2px solid #397c4e; outline-offset: 2px; }
+/* SVG coordinates are metres: a CSS outline scales with the drawing, unlike this screen-pixel stroke. */
+.nfa-canvas:focus, .nfa-canvas :focus { outline: none; box-shadow: none; }
+.nfa-canvas [role="button"]:focus-visible { stroke: #397c4e; stroke-width: 2.5px; vector-effect: non-scaling-stroke; }
 @media(max-width:1050px) { .nfa-workbench { grid-template-columns: minmax(0,1fr) 290px; } .nfa-properties { padding-inline: 12px; } }
 @media(max-width:800px) {
   .nfa-workbench { grid-template-columns: minmax(0,1fr); }

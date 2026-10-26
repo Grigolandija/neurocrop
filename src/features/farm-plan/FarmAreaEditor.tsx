@@ -192,7 +192,14 @@ export default function FarmAreaEditor({plan,layouts,onChange,areas,scene,nodeCo
         active.changed=true;onChange(result.plan,reconcileFarmMaps(active.plan,result.plan,active.layouts));setMessage(position?.snapped ? (lt ? 'Priglausta prie gretimos Area.' : 'Snapped to the neighbouring Area.') : '')
       }} onPointerUp={event=>{
         if(gearDrag.current?.pointerId===event.pointerId){const gear=gearDrag.current;gearDrag.current=null;if(gear.changed)remember(gear.plan,gear.layouts);return}
-        if(pan.current?.pointerId===event.pointerId){if(!pan.current.moved)setSelected(null);pan.current=null;return}
+        if(pan.current?.pointerId===event.pointerId){
+          if(!pan.current.moved){
+            setSelected(null)
+            const focused=document.activeElement
+            if(focused instanceof SVGElement && svg.current?.contains(focused))focused.blur()
+          }
+          pan.current=null;return
+        }
         const active=drag.current;if(!active || active.pointerId!==event.pointerId)return;drag.current=null;if(active.changed)remember(active.plan,active.layouts)
       }} onPointerCancel={()=>{const active=gearDrag.current || drag.current;if(active)onChange(active.plan,active.layouts);gearDrag.current=null;drag.current=null;pan.current=null}}>
       <defs><pattern id={pattern} width={gridStep} height={gridStep} patternUnits="userSpaceOnUse"><path d={`M${gridStep} 0H0V${gridStep}`} fill="none" stroke="#e1e8e0" strokeWidth={unit*.5} /></pattern></defs>
