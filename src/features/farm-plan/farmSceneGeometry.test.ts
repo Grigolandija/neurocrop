@@ -23,6 +23,14 @@ function fixture(){
 }
 
 describe('whole-farm hover presentation',()=>{
+  it('tints only Area floors for comparison without changing equipment, positions or stored plans',()=>{
+    const {plan,maps}=fixture(),snapshot=JSON.stringify({plan,maps}),original=wholeFarmSceneMesh(plan,maps),tinted=wholeFarmSceneMesh(plan,maps,{a:[.2,.4,.6]})
+    expect(tinted.vertices.length).toBe(original.vertices.length)
+    for(let i=0;i<original.vertices.length;i+=6)expect([...tinted.vertices.subarray(i,i+3)]).toEqual([...original.vertices.subarray(i,i+3)])
+    expect([...tinted.vertices.subarray(3,6)]).toEqual([expect.closeTo(.2),expect.closeTo(.4),expect.closeTo(.6)])
+    expect(contains(tinted.vertices,objectGeometry(maps.a.objects[0],plan.dimensions,3))).toBe(true)
+    expect(JSON.stringify({plan,maps})).toBe(snapshot)
+  })
   it('keeps the hovered Area equipment solid and moves other equipment into the transparent pass',()=>{
     const {plan,maps}=fixture(),mesh=wholeFarmSceneMesh(plan,maps),hover=highlightFarmArea(mesh,'a')
     const table=objectGeometry(maps.a.objects[0],plan.dimensions,3)

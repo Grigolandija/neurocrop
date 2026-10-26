@@ -33,7 +33,7 @@ export function farmWalls(plan:FarmPlanDocument,maps:FarmMaps={}):Wall[]{
 export type FarmSceneMesh={vertices:Float32Array;ranges:Array<{start:number;end:number;areaIds:string[]}>}
 
 /** Retain ownership once, so hovering never rebuilds detailed equipment meshes. */
-export function wholeFarmSceneMesh(plan:FarmPlanDocument,maps:FarmMaps={}):FarmSceneMesh{
+export function wholeFarmSceneMesh(plan:FarmPlanDocument,maps:FarmMaps={},areaColors:Record<string,Vec3>={}):FarmSceneMesh{
   const data:number[]=[],d=plan.dimensions,openings=farmOpenings(plan,maps)
   const ranges:FarmSceneMesh['ranges']=[],walls=farmWalls(plan,maps)
   const own=(areaIds:string[])=>{const previous=ranges.at(-1);if(previous)previous.end=data.length;ranges.push({start:data.length,end:data.length,areaIds})}
@@ -47,7 +47,7 @@ export function wholeFarmSceneMesh(plan:FarmPlanDocument,maps:FarmMaps={}):FarmS
     const at=(center:Vec3,x:number,y:number)=>center.map((n,i)=>n+u[i]*x+v[i]*y) as Vec3
     for(const [x,y,nx,ny] of [[-1,-1,1,-1],[1,-1,1,1],[1,1,-1,1],[-1,1,-1,-1]])quad(at(a,x,y),at(a,nx,ny),at(b,nx,ny),at(b,x,y),color)
   }
-  for(const area of plan.areas){own([area.id]);for(const [a,b,c] of triangulateSitePolygon(area.polygon))tri(p(a,.01),p(b,.01),p(c,.01),area.kind==='greenhouse' ? [.84,.89,.82] : [.87,.88,.85])}
+  for(const area of plan.areas){own([area.id]);for(const [a,b,c] of triangulateSitePolygon(area.polygon))tri(p(a,.01),p(b,.01),p(c,.01),areaColors[area.id] || (area.kind==='greenhouse' ? [.84,.89,.82] : [.87,.88,.85]))}
   for(const wall of walls){own(wall.areaIds);for(const value of perimeterWallGeometry([wall],openings,d))data.push(value)}
   const corners=new Map<string,{point:SitePoint;height:number;areaIds:string[]}>()
   for(const wall of walls){

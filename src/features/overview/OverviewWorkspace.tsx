@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { openTrend, setDashboardContext, useDashboardState } from '../../state/dashboardStore'
 import { metricDefinitions } from '../../domain/metricRegistry'
+import type { MetricKey } from '../greenhouse-map/model'
 import { buildActionMetricPresentation, type ActionMetricPresentation } from './actionPresentation'
 import { normalizeTrendPoints } from '../trends/trendData'
 import '../../styles/overview-workspace.css'
@@ -788,6 +789,7 @@ export default function OverviewWorkspace() {
   const [dashboard, setDashboard] = useState<JsonRecord | null>(null)
   const [actions, setActions] = useState<JsonRecord | null>(null)
   const [actionSummary, setActionSummary] = useState<JsonRecord>(demoActionSummary)
+  const [mapMetric, setMapMetric] = useState<MetricKey>('air-temperature')
   const selectedAreaId = dashboardState.context.areaId
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [error, setError] = useState('')
@@ -1096,11 +1098,13 @@ export default function OverviewWorkspace() {
     <section className="nc-overview-insights" aria-label={tx("Operational overview")}>
       <article className="nc-overview-climate-card">
         <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong></div>}>
-          <OverviewFarmPlan enabled={neurocropApi.isConnected()} areaId={model.areaId} refreshToken={refreshKey} onAreaSelect={changeArea}>
+          <OverviewFarmPlan enabled={neurocropApi.isConnected()} areaId={model.areaId} refreshToken={refreshKey} onAreaSelect={changeArea} metric={mapMetric} onMetricChange={setMapMetric} signalReady={!!activeAreaOption?.mapEnabled}>
           {activeAreaOption?.mapEnabled ? <ReadingsClimateMap
             areaId={model.areaId}
             refreshToken={refreshKey}
             presentation="overview"
+            metric={mapMetric}
+            onMetricChange={setMapMetric}
             areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label={tx("Choose Area for climate snapshot")}>{areaOptions.filter((area) => area.mapEnabled).map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
           /> : null}
           </OverviewFarmPlan>

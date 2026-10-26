@@ -28,9 +28,11 @@ type Props = {
   refreshToken: number
   presentation?: 'readings' | 'overview'
   areaNavigation?: ReactNode
+  metric?: MetricKey
+  onMetricChange?: (metric: MetricKey) => void
 }
 
-export default function ReadingsClimateMap({ areaId, refreshToken, presentation = 'readings', areaNavigation }: Props) {
+export default function ReadingsClimateMap({ areaId, refreshToken, presentation = 'readings', areaNavigation, metric: controlledMetric, onMetricChange }: Props) {
   const navigate = useNavigate()
   const { language } = useInterfaceLanguage()
   const lithuanian = language === 'lt'
@@ -42,7 +44,9 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const [timeMode, setTimeMode] = useState<ClimateTimeMode>('live')
   const [historyIndex, setHistoryIndex] = useState(0)
   const [historyError, setHistoryError] = useState('')
-  const [metric, setMetric] = useState<MetricKey>('air-temperature')
+  const [ownMetric, setOwnMetric] = useState<MetricKey>('air-temperature')
+  const metric = controlledMetric ?? ownMetric
+  const setMetric = onMetricChange ?? setOwnMetric
   const [colorMode, setColorMode] = useState<HeatmapColorMode>(() => {
     try {
       return window.localStorage.getItem(colorModeStorageKey) === 'contrast' ? 'contrast' : 'condition'
@@ -92,7 +96,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
         const next = contextResult.value
         if (!hasCurrentArea) {
           const savedMetric = next.map?.heatmapSettings.metric
-          setMetric(savedMetric && Object.hasOwn(METRICS, savedMetric) ? savedMetric : 'air-temperature')
+          setOwnMetric(savedMetric && Object.hasOwn(METRICS, savedMetric) ? savedMetric : 'air-temperature')
           setTimeMode('live')
         }
         if (historyResult.status === 'fulfilled') {
