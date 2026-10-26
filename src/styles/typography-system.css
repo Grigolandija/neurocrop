@@ -457,7 +457,9 @@ small {
   line-height: 1.4 !important;
 }
 
-.designer-app svg text {
+/* Plan labels use metres in the SVG viewBox. A rem-based font here would be
+   scaled with the plan and turn small ruler values into oversized text. */
+.designer-app svg:not(.nce-canvas) text {
   font-size: var(--nc-type-micro) !important;
 }
 
