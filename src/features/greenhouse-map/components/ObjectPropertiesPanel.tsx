@@ -44,7 +44,10 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
   const settings=<div className="gh-inspector-general-fields">
     {inspector && <label className="gh-field"><span>{tr('Name','Pavadinimas')}</span><input disabled={placementLocked} value={object.name} onChange={event=>onUpdate(object.id,{name:event.target.value})} /></label>}
     <label className="gh-field"><span>{tr('Notes','Pastabos')}</span><textarea disabled={placementLocked} value={object.metadata.notes ?? ''} placeholder={tr('Installation or planning notes…','Montavimo arba planavimo pastabos…')} onChange={event=>patchMetadata({notes:event.target.value})} /></label>
-    <div className="gh-toggle-row"><label><input disabled={layerLocked} type="checkbox" checked={object.locked} onChange={event=>onUpdate(object.id,{locked:event.target.checked})} /><span>{tr('Lock placement','Užrakinti vietą')}</span></label></div>
+    <div className="gh-toggle-row"><label className={inspector ? 'gh-field gh-placement-lock' : undefined}>
+      {inspector && <span>{tr('Placement','Vieta')}</span>}
+      <span className="gh-placement-lock-control"><input disabled={layerLocked} type="checkbox" checked={object.locked} onChange={event=>onUpdate(object.id,{locked:event.target.checked})} /><span>{tr('Lock placement','Užrakinti vietą')}</span></span>
+    </label></div>
   </div>
 
 

@@ -26,3 +26,5 @@
 .nfa-editor .gh-inspector-tabs > button[aria-selected="true"]::after { background: #28694f; }
 .nfa-editor .gh-inspector-tabs > button:hover { color: #355d48; background: #f7f9f7; }
 .nfa-editor .gh-inspector-tabs > button:focus-visible { outline-offset: -3px; }
+
+.gh-placement-lock-control { display: inline-flex; align-items: center; gap: 6px; }
