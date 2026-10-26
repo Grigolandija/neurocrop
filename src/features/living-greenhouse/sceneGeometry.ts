@@ -1,3 +1,5 @@
+import { objectInsideOutline } from '../../../backend/area-map-outline.js'
+import { siteGeometry } from './siteDemoGeometry'
 import { heatmapColorAt, type HeatmapColorMode } from '../greenhouse-map/heatmap/heatmapColorScale'
 import { METRICS } from '../greenhouse-map/model'
 import { getStableScale } from '../greenhouse-map/heatmap/heatmapMetrics'
@@ -52,12 +54,18 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     quad(p(a,1,1),p(a,-1,1),p(b,-1,1),p(b,1,1),color,.68)
     quad(p(a,-1,1),p(a,-1,-1),p(b,-1,-1),p(b,-1,1),color,.85)
   }
+  const polygonal=map.shape.type==='polygon'
+  if(map.shape.type==='polygon'){
+    const shell=siteGeometry(null,'temperature',{version:1,dimensions:map.dimensions,rooms:[],zones:[],buildings:[{id:'area',name:map.name,height:h,greenhouse:map.farmPlanGeometry?.kind==='greenhouse',open:map.farmPlanGeometry?.kind==='zone',polygon:map.shape.points}]},{illustrateEquipment:false,showGround:false})
+    for(const value of shell)data.push(value)
+  }else{
   // Floating architectural plinth and recessed floor grid.
   box(0,options.schematic ? -.12 : -.30,0,w + (options.schematic ? .35 : .8),options.schematic ? .18 : .5,l + (options.schematic ? .35 : .8),options.schematic ? [.79,.83,.78] : [.73,.79,.73])
   box(0,-.04,0,w,.06,l,[.84,.87,.82])
   const step = Math.max(1, Math.ceil(size / 35))
   for (let x = 0; x <= w; x += step) box(x-w/2,0,0,.012,.012,l,[.76,.81,.75])
   for (let z = 0; z <= l; z += step) box(0,0,z-l/2,w,.012,.012,[.76,.81,.75])
+  }
   const values = sensors.flatMap(s => s.value === null ? [] : [s.value])
   const stableScale = scaleOverride || getStableScale(values, metric)
   const observedRange: [number, number] = values.length ? [Math.min(...values), Math.max(...values)] : [stableScale.min, stableScale.max]
@@ -70,7 +78,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     const color = options.colorMode ? heatmapColorAt(value, METRICS[metric], observedRange, options.colorMode).map(v=>v/255) : climateColor(value,scale.min,scale.max)
     return [...color, 1]
   }).flat())
-  const grid = createVolumeGrid(map, options.view==='volume' && spatialClimateMetrics.has(metric) ? sensors : [], h, options.schematic ? 0 : .32)
+  const grid = createVolumeGrid(map, options.view==='volume' && spatialClimateMetrics.has(metric) ? sensors : [], h, options.schematic || (polygonal && map.farmPlanGeometry?.kind!=='greenhouse') ? 0 : .32)
   // Layers are stored in a 2D atlas for identical WebGPU and WebGL rendering.
   const pixels = new Uint8Array(grid.width*grid.depth*grid.layers*4)
   for(let i=0;i<grid.values.length;i++) {
@@ -89,11 +97,12 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   // All saved equipment types share the same detailed mesh library in live and demo views.
   const visibleLayers = new Set(map.layers.filter(layer => layer.visible).map(layer => layer.id))
   for (const object of map.objects) {
-    if (!object.visible || !visibleLayers.has(object.layerId)) continue
+    if (!object.visible || !visibleLayers.has(object.layerId) || (polygonal && !objectInsideOutline(object,map))) continue
     const mesh = objectGeometry(object, map.dimensions, h)
     // Avoid argument-count limits on large layouts.
     for (const value of mesh) data.push(value)
   }
+  if(!polygonal){
   if(options.schematic){
     // A generic room boundary, not an invented architectural greenhouse roof.
     const line:Color=[.72,.77,.71],r=.008
@@ -119,6 +128,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     if (i===0 || i===frames) beam([x,eave,-l/2],[x,eave,l/2],r*.6,steel)
   }
   for (const [y,z] of [[eave,-l/2],[h,0],[eave,l/2],[eave+(h-eave)*.5,-l/4],[eave+(h-eave)*.5,l/4]]) beam([-w/2,y,z],[w/2,y,z],r*.7,white)
+  }
   }
   return { vertices: new Float32Array(data), volume, sensors, scale, height: h, volumeReady: grid.mask.some(Boolean), knownHeights: grid.knownCount, heightRange: grid.heightRange, coverage: grid.mask.filter(Boolean).length / Math.max(1,grid.mask.length), modeledFraction:grid.extrapolated.filter(Boolean).length/Math.max(1,grid.mask.filter(Boolean).length) }
 }

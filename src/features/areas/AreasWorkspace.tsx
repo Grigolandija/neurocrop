@@ -268,7 +268,7 @@ export default function AreasWorkspace() {
           ? `Area Map enabled for ${area.name}.`
           : `Area Map disabled for ${area.name}. The saved plan was preserved.`,
       })
-      if (enabled && openAfter) navigate(`/area-map?area=${encodeURIComponent(area.id)}`)
+      if (enabled && openAfter) navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)
     } catch (mapError) {
       setFeedback({ tone: 'warning', message: errorMessage(mapError, 'Area Map status could not be changed.') })
     } finally {
@@ -317,7 +317,7 @@ export default function AreasWorkspace() {
             <div className="nc-area-map-state" data-state={!area.mapEnabled ? 'off' : area.mapConfigured ? 'active' : 'setup'}>
               <span><i />{!area.mapEnabled ? tx("Off") : area.mapConfigured ? tx("Active") : tx("Setup required")}</span>
               {greenhouseMapBeta ? <button type="button" disabled={mapBusyId === area.id || !workspaceReady} title={!workspaceReady ? tx("Create a Section first") : undefined} onClick={() => area.mapEnabled
-                ? navigate(`/area-map?area=${encodeURIComponent(area.id)}`)
+                ? navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)
                 : void setAreaMapStatus(area, true, true)}>{mapBusyId === area.id ? tx("Saving…") : !area.mapEnabled ? tx("Enable") : area.mapConfigured ? tx("Open") : tx("Set up")}</button> : null}
               {area.mapEnabled && area.mapConfigured ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/greenhouse-live?area=${encodeURIComponent(area.id)}`)} aria-label={`${tx('3D layout')}: ${area.name}`}><i className="fa-solid fa-cube" /> 3D</button> : null}
             </div>
@@ -327,7 +327,7 @@ export default function AreasWorkspace() {
                 <button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button>
                 <button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add section")}</button>
                 {area.mapEnabled && area.mapConfigured ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/greenhouse-live?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-cube" />{tx('3D layout')}</button> : null}
-                {greenhouseMapBeta && area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/area-map?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-draw-polygon" />{area.mapConfigured ? tx("Open Area Map") : tx("Set up Area Map")} <small>{tx("Beta")}</small></button> : null}
+                {greenhouseMapBeta && area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}><i className="fa-solid fa-draw-polygon" />{area.mapConfigured ? tx("Open Area Map") : tx("Set up Area Map")} <small>{tx("Beta")}</small></button> : null}
                 {greenhouseMapBeta && !area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => void setAreaMapStatus(area, true, true)}><i className="fa-solid fa-toggle-on" />{tx("Enable Area Map")}</button> : null}
                 {greenhouseMapBeta && area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => void setAreaMapStatus(area, false)}><i className="fa-solid fa-toggle-off" />{tx("Disable Area Map")}</button> : null}
                 <button type="button" disabled={!workspaceReady} onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />{tx("Manage nodes")}</button>
@@ -339,7 +339,7 @@ export default function AreasWorkspace() {
             <div><p>{tx("Environment")}</p><strong>{area.kind}</strong><span>{area.location ||tx("No location details added")}</span></div>
             <div><p>{tx("Coverage")}</p><strong>{area.sectionCount} {tx("sections ·")} {area.nodeCount} {tx("nodes")}</strong><span>{area.nodeCount ? `${area.reportingCount} of ${area.nodeCount} nodes currently reporting` :tx("No hardware assigned yet")}</span></div>
             <div><p>{tx("Health")}</p><strong>{healthCopy(area.health)}{area.score !== null ? ` · ${area.score}/100` : ''}</strong><span>{area.health === 'stable' ?tx("All available signals are within expected state.") : area.health === 'unconfigured' ?tx("Add a section to begin monitoring.") :tx("Review sections and reporting hardware.")}</span></div>
-            <nav><button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add section")}</button>{greenhouseMapBeta ? area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/area-map?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-draw-polygon" />{area.mapConfigured ? tx("Open Area Map") : tx("Set up Area Map")} <small>{tx("Beta")}</small></button> : <button type="button" disabled={!workspaceReady} onClick={() => void setAreaMapStatus(area, true, true)}><i className="fa-solid fa-toggle-on" />{tx("Enable Area Map")}</button> : null}<button type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-layer-group" />{tx("Open sections")}</button><button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button></nav>
+            <nav><button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add section")}</button>{greenhouseMapBeta ? area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}><i className="fa-solid fa-draw-polygon" />{area.mapConfigured ? tx("Open Area Map") : tx("Set up Area Map")} <small>{tx("Beta")}</small></button> : <button type="button" disabled={!workspaceReady} onClick={() => void setAreaMapStatus(area, true, true)}><i className="fa-solid fa-toggle-on" />{tx("Enable Area Map")}</button> : null}<button type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-layer-group" />{tx("Open sections")}</button><button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button></nav>
           </div> : null}
         </article>)}
       </div> : null}

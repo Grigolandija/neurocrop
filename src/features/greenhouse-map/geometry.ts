@@ -1,4 +1,5 @@
-import type { GreenhouseObject, ObjectType } from './model'
+import { insideOutline, objectInsideOutline, outlinePoints } from '../../../backend/area-map-outline.js'
+import type { GreenhouseMap, GreenhouseObject, ObjectType } from './model'
 
 export type ViewTransform = { scale: number; offsetX: number; offsetY: number }
 export type PerimeterWall = 'south' | 'north' | 'west' | 'east'
@@ -154,4 +155,33 @@ export function snapSectionToWalls<T extends Rectangle>(section: T, dimensions: 
   if (dimensions.widthM - xM - section.widthM <= thresholdM) xM = dimensions.widthM - section.widthM
   if (dimensions.lengthM - yM - section.lengthM <= thresholdM) yM = dimensions.lengthM - section.lengthM
   return { ...section, xM: Math.max(0, xM), yM: Math.max(0, yM) }
+}
+
+/** Mount against the actual polygon edge, including internal L-shaped and angled walls. */
+export function snapObjectToMapWall<T extends GreenhouseObject>(object:T,map:GreenhouseMap,preferred?:number):T {
+  if(map.shape.type!=='polygon')return snapWallMountedObject(object,map.dimensions)
+  const points=outlinePoints(map),area=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p.xM*q.yM-q.xM*p.yM},0)
+  const rotation=object.rotationDeg*Math.PI/180
+  const cx=object.xM+object.widthM/2*Math.cos(rotation)-object.lengthM/2*Math.sin(rotation),cy=object.yM+object.widthM/2*Math.sin(rotation)+object.lengthM/2*Math.cos(rotation)
+  const edges=points.map((p,i)=>{
+    const q=points[(i+1)%points.length],a=area>0 ? p : q,b=area>0 ? q : p,length=Math.hypot(b.xM-a.xM,b.yM-a.yM),ux=(b.xM-a.xM)/length,uy=(b.yM-a.yM)/length
+    const t=Math.max(0,Math.min(length,(cx-a.xM)*ux+(cy-a.yM)*uy))
+    return {i,a,length,ux,uy,t,distance:Math.hypot(cx-a.xM-ux*t,cy-a.yM-uy*t)}
+  })
+  const edge=edges.find(e=>e.i===preferred) ?? edges.reduce((a,b)=>a.distance<b.distance ? a : b)
+  const span=Math.min(edge.length,Math.max(object.widthM,object.lengthM)),thickness=Math.min(.2,Math.min(object.widthM,object.lengthM)),offset=Math.max(0,Math.min(edge.length-span,edge.t-span/2))
+  const result={...object,xM:edge.a.xM+edge.ux*offset,yM:edge.a.yM+edge.uy*offset,widthM:span,lengthM:thickness,rotationDeg:Math.atan2(edge.uy,edge.ux)*180/Math.PI,metadata:{...object.metadata,wallMount:{edgeIndex:edge.i,offsetM:offset}}}
+  return result
+}
+
+/** New objects start in actual usable space. Existing objects are never relocated on load. */
+export function placeObjectInside<T extends GreenhouseObject>(object:T,map:GreenhouseMap):T {
+  if(map.shape.type!=='polygon' || objectInsideOutline(object,map))return object
+  const points=outlinePoints(map)
+  // Prefer the vicinity requested by the user, then a bounded sampling of the actual footprint.
+  const candidates=points.flatMap(p=>[{xM:p.xM+.03,yM:p.yM+.03},{xM:p.xM-object.widthM-.03,yM:p.yM-object.lengthM-.03}])
+  for(let y=0;y<=40;y++)for(let x=0;x<=40;x++)candidates.push({xM:(map.dimensions.widthM-object.widthM)*x/40,yM:(map.dimensions.lengthM-object.lengthM)*y/40})
+  candidates.sort((a,b)=>Math.hypot(a.xM-object.xM,a.yM-object.yM)-Math.hypot(b.xM-object.xM,b.yM-object.yM))
+  const found=candidates.find(p=>p.xM>=0 && p.yM>=0 && insideOutline({xM:p.xM+object.widthM/2,yM:p.yM+object.lengthM/2},points) && objectInsideOutline({...object,...p},map))
+  return found ? {...object,...found} : object
 }

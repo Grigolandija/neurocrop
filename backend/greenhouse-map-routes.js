@@ -1,3 +1,4 @@
+import { applyAreaGeometry, loadAreaGeometry, outlineError, objectInsideOutline, validOutlineMount } from './area-map-outline.js';
 import { pool, query } from './db.js';
 import { requireRole, requireUserAuth } from './auth-users.js';
 import { calcVPD } from './calculations.js';
@@ -39,11 +40,11 @@ function validationError(message) {
 export function validateGreenhouseMap(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return validationError('Map must be a JSON object');
   if (value.schemaVersion !== 1) return validationError('Unsupported greenhouse map schemaVersion');
-  if (value.shape?.type !== 'rectangle') return validationError('Only rectangular greenhouse maps are supported');
   if (typeof value.name !== 'string' || !value.name.trim() || value.name.length > 160) return validationError('Map name is required and must not exceed 160 characters');
   if (!value.dimensions || !finite(value.dimensions.widthM) || !finite(value.dimensions.lengthM)) return validationError('Map dimensions must be finite numbers');
   if (value.dimensions.widthM <= 0 || value.dimensions.lengthM <= 0 || value.dimensions.widthM > 10000 || value.dimensions.lengthM > 10000) return validationError('Map dimensions are outside supported limits');
   if (value.dimensions.heightM !== undefined && (!finite(value.dimensions.heightM) || value.dimensions.heightM < 0 || value.dimensions.heightM > 1000)) return validationError('Map height is invalid');
+  const shapeError=outlineError(value);if(shapeError)return validationError(shapeError);
   if (!finite(value.gridSizeM) || value.gridSizeM <= 0 || value.gridSizeM > 100) return validationError('Grid size is invalid');
   if (!finite(value.orientationDeg) || !finite(value.wallThicknessM) || value.wallThicknessM <= 0) return validationError('Orientation or wall thickness is invalid');
   if (!Array.isArray(value.layers) || value.layers.length > MAX_LAYERS) return validationError(`Map must contain at most ${MAX_LAYERS} layers`);
@@ -62,8 +63,8 @@ export function validateGreenhouseMap(value) {
     objectIds.add(object.id);
     if (typeof object.type !== 'string' || typeof object.name !== 'string' || object.name.length > 200) return validationError(`Object ${object.id} has invalid identity fields`);
     if (![object.xM, object.yM, object.widthM, object.lengthM, object.rotationDeg].every(finite)) return validationError(`Object ${object.id} contains an invalid number`);
-    if (object.xM < 0 || object.yM < 0 || object.widthM <= 0 || object.lengthM <= 0) return validationError(`Object ${object.id} has negative coordinates or dimensions`);
-    if (object.xM + object.widthM > value.dimensions.widthM + 1e-6 || object.yM + object.lengthM > value.dimensions.lengthM + 1e-6) return validationError(`Object ${object.id} is outside the greenhouse`);
+    if ((value.shape.type!=='polygon' && (object.xM < 0 || object.yM < 0)) || object.widthM <= 0 || object.lengthM <= 0) return validationError(`Object ${object.id} has negative coordinates or dimensions`);
+    if (value.shape.type==='polygon' ? !objectInsideOutline(object,value) : object.xM + object.widthM > value.dimensions.widthM + 1e-6 || object.yM + object.lengthM > value.dimensions.lengthM + 1e-6) return validationError(`Object ${object.id} is outside the greenhouse`);
     if (!layerIds.has(object.layerId) || typeof object.visible !== 'boolean' || typeof object.locked !== 'boolean') return validationError(`Object ${object.id} has invalid layer or visibility state`);
     if (object.metadata !== undefined && (!object.metadata || typeof object.metadata !== 'object' || Array.isArray(object.metadata))) return validationError(`Object ${object.id} metadata must be an object`);
     const wallMount = object.metadata?.wallMount;
@@ -72,7 +73,9 @@ export function validateGreenhouseMap(value) {
     const door = object.metadata?.door;
     if (door !== undefined && (object.type !== 'door' || !door || typeof door !== 'object' || Array.isArray(door) || !['single','double','sliding'].includes(door.type)
       || (door.heightM !== undefined && (!finite(door.heightM) || door.heightM <= 0 || door.heightM > 100 || (value.dimensions.heightM > 0 && door.heightM > value.dimensions.heightM))))) return validationError(`Object ${object.id} has an invalid door configuration`);
-    if (wallMount !== undefined) {
+    if (wallMount !== undefined && value.shape.type==='polygon') {
+      if(!wallMountedTypes.has(object.type) || !finite(wallMount.offsetM) || wallMount.offsetM<0 || !validOutlineMount(object,value))return validationError(`Object ${object.id} is detached from its Area wall`);
+    } else if (wallMount !== undefined) {
       if (!wallMountedTypes.has(object.type) || !wallMount || typeof wallMount !== 'object' || Array.isArray(wallMount) || !perimeterWalls.has(wallMount.wall) || !finite(wallMount.offsetM) || wallMount.offsetM < 0) {
         return validationError(`Object ${object.id} has an invalid wall mount`);
       }
@@ -453,20 +456,22 @@ export function registerGreenhouseMapRoutes(app) {
     try {
       const area = await getArea(organizationId, areaId);
       if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
-      const [mapResult, nodes] = await Promise.all([
+      const [mapResult, nodes, geometry] = await Promise.all([
         query(
           `SELECT map_data, revision, updated_at
            FROM greenhouse_maps
            WHERE organization_id=$1 AND area_id=$2`,
           [organizationId, areaId]
         ),
-        getAreaNodes(organizationId, areaId)
+        getAreaNodes(organizationId, areaId),
+        loadAreaGeometry({query},organizationId,areaId)
       ]);
       const stored = mapResult.rows[0] || null;
       res.json({
         area: { id: area.id, name: area.name, kind: area.kind, location: area.location },
         mapEnabled: Boolean(area.map_enabled),
-        map: stored?.map_data ? { ...stored.map_data, wallThicknessM: GREENHOUSE_WALL_THICKNESS_M } : null,
+        geometry,
+        map: stored?.map_data ? applyAreaGeometry({ ...stored.map_data, wallThicknessM: GREENHOUSE_WALL_THICKNESS_M },geometry) : null,
         revision: stored?.revision || 0,
         updatedAt: stored?.updated_at || null,
         nodes,
@@ -555,7 +560,7 @@ export function registerGreenhouseMapRoutes(app) {
       const area = await getArea(organizationId, areaId);
       if (!area) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
       if (!area.map_enabled) return res.status(409).json({ error: { code: 'AREA_MAP_DISABLED', message: 'Enable Area Map before saving a plan' } });
-      const sanitizedMap = sanitizeMapForStorage(req.body.map, areaId);
+      let sanitizedMap = sanitizeMapForStorage(req.body.map, areaId);
       const sensorDevEuis = [...new Set(sanitizedMap.objects
         .map((object) => String(object.metadata?.sensor?.devEui || '').trim().toLowerCase())
         .filter(Boolean))];
@@ -574,6 +579,13 @@ export function registerGreenhouseMapRoutes(app) {
 
       client = await pool.connect();
       await client.query('BEGIN');
+      const geometry=await loadAreaGeometry(client,organizationId,areaId,true);
+      if(geometry){
+        if(req.body.map.farmPlanGeometry?.revision!==geometry.revision){await client.query('ROLLBACK');return res.status(409).json({error:{code:'FARM_GEOMETRY_CONFLICT',message:'The farm plan changed. Reload this Area before saving its layout.'}});}
+        sanitizedMap=applyAreaGeometry(sanitizedMap,geometry);
+        const canonicalValidation=validateGreenhouseMap(sanitizedMap);
+        if(!canonicalValidation.valid){await client.query('ROLLBACK');return res.status(400).json({error:{code:'OUTSIDE_AREA_OUTLINE',message:canonicalValidation.message}});}
+      }else if(req.body.map.farmPlanGeometry){await client.query('ROLLBACK');return res.status(409).json({error:{code:'FARM_GEOMETRY_CONFLICT',message:'This Area was removed from the farm plan. Reload before saving.'}});}
       let result;
       if (expectedRevision === 0) {
         result = await client.query(

@@ -1,3 +1,5 @@
+import { applyAreaGeometry, type AreaGeometry } from '../../../../backend/area-map-outline.js'
+import { placeObjectInside } from '../geometry'
 import { neurocropApi } from '../../../services/api/neurocropApi'
 import { createDemoMap, DEFAULT_LAYERS } from '../demo'
 import { sensorMarkerSizeM } from '../geometry'
@@ -20,6 +22,7 @@ export type AreaMapProfile = {
 export type AreaMapNode = SensorNodeMetadata & { sectionId?: string; sectionName?: string }
 export type AreaMapContext = {
   area: AreaSummary
+  geometry?: AreaGeometry | null
   mapEnabled: boolean
   map: GreenhouseMap | null
   revision: number
@@ -148,10 +151,10 @@ function sensorObject(node: AreaMapNode, index: number, map: GreenhouseMap): Gre
   }
 }
 
-export function createAreaMap(area: AreaSummary, nodes: AreaMapNode[], sections: AreaMapSection[] = []): GreenhouseMap {
+export function createAreaMap(area: AreaSummary, nodes: AreaMapNode[], sections: AreaMapSection[] = [], geometry?:AreaGeometry|null): GreenhouseMap {
   void sections
   const timestamp = new Date().toISOString()
-  const map: GreenhouseMap = {
+  const map: GreenhouseMap = applyAreaGeometry({
     ...createDemoMap(),
     id: `area-map-${area.id}`,
     areaId: area.id,
@@ -160,14 +163,15 @@ export function createAreaMap(area: AreaSummary, nodes: AreaMapNode[], sections:
     objects: [],
     createdAt: timestamp,
     updatedAt: timestamp,
-  }
+  },geometry)
   const normalizedNodes = nodes.map(normalizeNode)
-  map.objects = normalizedNodes.map((node, index) => sensorObject(node, index, map))
+  map.objects = normalizedNodes.map((node, index) => placeObjectInside(sensorObject(node, index, map),map))
   return map
 }
 
-export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes: AreaMapNode[], sections: AreaMapSection[] = []): GreenhouseMap {
+export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes: AreaMapNode[], sections: AreaMapSection[] = [], geometry?:AreaGeometry|null): GreenhouseMap {
   void sections
+  map=applyAreaGeometry(map,geometry)
   const layers = map.layers.filter((layer) => !['sections', 'signal', 'confidence'].includes(layer.id))
   const layerIds = new Set(layers.map((layer) => layer.id))
   DEFAULT_LAYERS.filter((layer) => layer.id !== 'sections' && !layerIds.has(layer.id)).forEach((layer) => layers.push({ ...layer }))
@@ -185,10 +189,10 @@ export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes
     const markerSize = sensorMarkerSizeM(map.dimensions)
     return [{
       ...object,
-      xM: Math.min(object.xM, Math.max(0, map.dimensions.widthM - markerSize)),
-      yM: Math.min(object.yM, Math.max(0, map.dimensions.lengthM - markerSize)),
-      widthM: markerSize,
-      lengthM: markerSize,
+      xM: map.shape.type==='polygon' ? object.xM : Math.min(object.xM, Math.max(0, map.dimensions.widthM - markerSize)),
+      yM: map.shape.type==='polygon' ? object.yM : Math.min(object.yM, Math.max(0, map.dimensions.lengthM - markerSize)),
+      widthM: map.shape.type==='polygon' ? object.widthM : markerSize,
+      lengthM: map.shape.type==='polygon' ? object.lengthM : markerSize,
       name: live.displayName || object.name,
       metadata: {
         ...object.metadata,
@@ -204,7 +208,7 @@ export function mergeAreaMapContext(map: GreenhouseMap, area: AreaSummary, nodes
   })
   const next: GreenhouseMap = { ...map, id: `area-map-${area.id}`, areaId: area.id, name: area.name, wallThicknessM: GREENHOUSE_WALL_THICKNESS_M, heatmapSettings: normalizeHeatmapSettings(map.heatmapSettings), layers, objects }
   normalizedNodes.filter((node) => node.devEui && !placed.has(node.devEui.toLowerCase())).forEach((node, index) => {
-    next.objects.push(sensorObject(node, index, next))
+    next.objects.push(placeObjectInside(sensorObject(node, index, next),next))
   })
   return next
 }

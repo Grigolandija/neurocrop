@@ -1,3 +1,4 @@
+import { objectInsideOutline } from '../../../../backend/area-map-outline.js'
 import { METRICS, type GreenhouseMap, type MetricKey, type SensorMeasurements } from '../model'
 import type { MeasurementPoint } from './heatmapTypes'
 
@@ -17,6 +18,7 @@ export function getValidMeasurementPoints(map: GreenhouseMap, metric: MetricKey,
   return map.objects.flatMap((object) => {
     const sensor = object.metadata.sensor
     const value = getMetricMeasurementValue(sensor?.measurements, metric, soilEcDepthCm)
+    if (!objectInsideOutline(object,map))return []
     if (object.type !== 'sensor-node' || !sensor || sensor.status === 'offline' || sensor.status === 'stale' || sensor.status === 'unassigned') return []
     if (sectionId && sensor.sectionId !== sectionId) return []
     if (object.xM < 0 || object.yM < 0 || object.xM > map.dimensions.widthM || object.yM > map.dimensions.lengthM) return []

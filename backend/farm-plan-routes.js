@@ -1,3 +1,4 @@
+import { syncFarmAreaMaps } from './area-map-outline.js';
 import { pool, query } from './db.js';
 import { requireRole, requireUserAuth } from './auth-users.js';
 import { validateFarmPlan } from './farm-plan-validation.js';
@@ -81,6 +82,7 @@ export function registerFarmPlanRoutes(app,{database={pool,query}}={}){
       await client.query('INSERT INTO farm_plan_history (organization_id,revision,plan_data,saved_by) VALUES ($1,$2,$3::jsonb,$4)',[organizationId,row.revision,serialized,req.user.id]);
       await client.query('DELETE FROM farm_plan_history WHERE organization_id=$1 AND revision<=$2',[organizationId,row.revision-50]);
       const areas=validation.createsAreas ? publicAreas((await areaRows(client,organizationId)).rows) : undefined;
+      if(validation.createsAreas)await syncFarmAreaMaps(client,organizationId,validation.plan,row.revision,req.user.id);
       await client.query('COMMIT');
       res.json({plan:row.plan_data,revision:row.revision,updatedAt:row.updated_at,...(areas ? {areas} : {})});
     }catch(error){if(client)await client.query('ROLLBACK').catch(()=>{});next(error);}

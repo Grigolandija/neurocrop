@@ -188,6 +188,21 @@ pasirinkimu. Kitoje sesijoje ištrinta Area negali tyliai atgyti iš seno juodra
 naudoja tos Area jutiklių ir įrangos žemėlapį. Šis redaktorius nesukuria jutiklių,
 pavyzdinių matavimų ar automatiškai parinktų kultūros profilių.
 
+Pasirinktos Area mygtukas **Įranga ir jutikliai / Equipment and Nodes** atidaro
+išdėstymo redaktorių tame pačiame „Farm plan“ puslapyje. Jei reikia, planas pirmiausia
+išsaugomas ir Area žemėlapis įjungiamas automatiškai. Įėjimas iš „Areas“ atidaro tą
+patį redaktorių. Kontūras ir aukštis gaunami iš „Farm plan“; jų antrą kartą įvesti
+nereikia. Įranga ir Nodes turi vietines Area koordinates metrais.
+
+Area žemėlapio `shape` palaiko `polygon`; L ir kiti paprasti kontūrai naudojami
+braižyklėje, 2D heatmap ir 3D scenos grindims, sienoms bei tūrio riboms. Durys ir
+kitos angos tvirtinamos prie kontūro kraštinės (`wallMount.edgeIndex`). Serveris
+tikrina tikrą, organizacijai priklausantį kontūrą ir saugo nuo senos „Farm plan“
+versijos perrašymo. Išsaugant pakeistą kontūrą atnaujinama ir esamo Area žemėlapio
+geometrija bei jo istorija. Įrangos pozicijos automatiškai nekeičiamos; už naujo
+kontūro likę objektai parodomi redaktoriuje ir turi būti pataisyti prieš išsaugant
+įrangos išdėstymą. Naujos DB migracijos šiam sujungimui nereikia.
+
 API: autentifikuoti `GET /farm-plan` ir `PATCH /farm-plan`; v2 planų rašymui reikia
 `owner`, `admin` arba `grower` rolės. PATCH priima `plan` ir `expectedRevision`.
 Geometrija ir Area įrašai izoliuoti pagal organizaciją; saugomos iki 50 naujausių

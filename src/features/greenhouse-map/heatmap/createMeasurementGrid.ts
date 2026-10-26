@@ -1,3 +1,4 @@
+import { outlinePoints } from '../../../../backend/area-map-outline.js'
 import { METRICS, type GreenhouseMap, type GreenhouseObject, type MetricKey } from '../model'
 import { buildRasterGrid, rasterDimensions, type RasterBarrier, type RasterPoint, type RasterZone } from './rasterInterpolation'
 import type { HeatmapGrid, MeasurementPoint } from './heatmapTypes'
@@ -54,12 +55,7 @@ export function createMeasurementGrid(
     maxInfluenceDistanceM: settings.maxInfluenceDistanceM,
     maxReadingAgeMs: settings.maxReadingAgeMinutes * 60_000,
     nowMs,
-    boundary: [
-      { xM: 0, yM: 0 },
-      { xM: map.dimensions.widthM, yM: 0 },
-      { xM: map.dimensions.widthM, yM: map.dimensions.lengthM },
-      { xM: 0, yM: map.dimensions.lengthM },
-    ],
+    boundary: outlinePoints(map),
     zones: rasterZones(map),
     barriers: rasterBarriers(map),
     valueBounds: METRICS[metric].bounds,

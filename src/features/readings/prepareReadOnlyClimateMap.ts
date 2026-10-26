@@ -7,8 +7,8 @@ import {
 
 export function prepareReadOnlyClimateMap(context: AreaMapContext, metric: MetricKey): GreenhouseMap {
   const source = context.map
-    ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections)
-    : createAreaMap(context.area, context.nodes, context.sections)
+    ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections, context.geometry)
+    : createAreaMap(context.area, context.nodes, context.sections, context.geometry)
   const visibleLayerIds = new Set(['structure', 'cultivation', 'irrigation', 'climate', 'environment', 'labels'])
   return {
     ...source,

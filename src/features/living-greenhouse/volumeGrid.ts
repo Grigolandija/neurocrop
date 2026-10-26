@@ -1,3 +1,4 @@
+import { insideOutline, outlinePoints, objectInsideOutline } from '../../../backend/area-map-outline.js'
 import type { GreenhouseMap } from '../greenhouse-map/model'
 import { pointInPolygon, segmentCrossesPolygon } from '../greenhouse-map/heatmap/rasterInterpolation'
 import { footprintHull, insideHull, type SensorReading } from './spatialEvidence'
@@ -24,7 +25,7 @@ export function createVolumeGrid(map: GreenhouseMap, readings: SensorReading[], 
   }
   const barriers = map.objects.filter(o=>o.type==='partition' && o.visible).map(polygon)
   const zones = map.objects.filter(o=>o.type==='section-zone' && o.visible).map(o=>({id:o.metadata.section?.sectionId || o.id,polygon:polygon(o)}))
-  const sources = readings.filter(r=>r.value!==null && r.heightM!==null && r.heightM <= roofHeightM).map(r=>({
+  const sources = readings.filter(r=>objectInsideOutline(r.object,map) && r.value!==null && r.heightM!==null && r.heightM <= roofHeightM).map(r=>({
     ...r, x:r.object.xM+r.object.widthM/2, z:r.object.yM+r.object.lengthM/2,
     zone:r.object.metadata.sensor?.sectionId,
   }))
@@ -32,7 +33,7 @@ export function createVolumeGrid(map: GreenhouseMap, readings: SensorReading[], 
   if (sources.length < 2) return {width,depth,layers,values,confidence,mask,extrapolated,knownCount:sources.length,heightRange}
   for(let z=0;z<depth;z++) for(let x=0;x<width;x++) {
     const position={xM:(x+.5)*w/width,yM:(z+.5)*d/depth}
-    if(barriers.some(p=>pointInPolygon(position,p)))continue
+    if(!insideOutline(position,outlinePoints(map)) || barriers.some(p=>pointInPolygon(position,p)))continue
     const zone=zones.find(zone=>pointInPolygon(position,zone.polygon))?.id
     const horizontal=sources.flatMap(s=>{
       if(zone && s.zone!==zone)return []

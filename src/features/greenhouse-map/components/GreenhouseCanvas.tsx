@@ -1,3 +1,4 @@
+import { outlinePoints } from '../../../../backend/area-map-outline.js'
 import Konva from 'konva'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -9,7 +10,7 @@ import { heatmapColorAt, scaleGradient, type HeatmapColorMode } from '../heatmap
 import { getMetricMeasurementTime, getMetricMeasurementValue, getStableScale, getValidMeasurementPoints } from '../heatmap/heatmapMetrics'
 import type { HeatmapGrid } from '../heatmap/heatmapTypes'
 import { renderHeatmapCanvas } from '../heatmap/renderHeatmapCanvas'
-import { isWallMountedType, snapRectangleBounds, snapRectanglePosition, snapWallMountedObject } from '../geometry'
+import { isWallMountedType, snapRectangleBounds, snapRectanglePosition, snapObjectToMapWall } from '../geometry'
 import { METRICS, OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type MapMode, type ObjectType } from '../model'
 
 type Props = {
@@ -288,7 +289,8 @@ function ObjectShape({ object, map, selected, editable, environmentView, viewSca
   const wallMounted = isWallMountedType(object.type)
   const sensor = object.metadata.sensor
   const colors = objectColors[object.layerId] ?? objectColors.structure
-  const topY = map.dimensions.lengthM - object.yM - object.lengthM
+  const polygonal=map.shape.type==='polygon',angle=polygonal ? object.rotationDeg*Math.PI/180 : 0
+  const topX=object.xM-object.lengthM*Math.sin(angle),topY = map.dimensions.lengthM - object.yM - object.lengthM*Math.cos(angle)
   const sensorSize = Math.max(object.widthM, object.lengthM)
   const sensorVisualRadius = Math.min(sensorSize * .36, 11 / viewScale)
   const labelFontSize = Math.max(sensorSize * .3, 11 / viewScale)
@@ -309,19 +311,19 @@ function ObjectShape({ object, map, selected, editable, environmentView, viewSca
     ? <Text {...wallLabelPosition} width={wallLabelWidthPx / viewScale} height={18 / viewScale} text={objectLabel} align="center" verticalAlign="middle" fontFamily="IBM Plex Sans" fontSize={10 / viewScale} fontStyle="bold" fill="#203b33" stroke="rgba(247,249,246,.92)" strokeWidth={2.4 / viewScale} fillAfterStrokeEnabled ellipsis wrap="none" />
     : <Text x={8 / viewScale} y={0} width={Math.max(4, objectWidthPx - 16) / viewScale} height={object.lengthM} text={objectLabel} align="center" verticalAlign="middle" fontFamily="IBM Plex Sans" fontSize={mapLabelFontPx / viewScale} fontStyle="bold" fill="#203b33" stroke="rgba(247,249,246,.78)" strokeWidth={2.2 / viewScale} fillAfterStrokeEnabled opacity={environmentView ? .78 : .94} ellipsis wrap="none" />
   return <Group
-    id={`gh-object-${object.id}`} name="map-object" x={object.xM} y={topY} rotation={object.rotationDeg}
+    id={`gh-object-${object.id}`} name="map-object" x={topX} y={topY} rotation={polygonal ? -object.rotationDeg : object.rotationDeg}
     draggable={editable && !object.locked}
     onClick={onSelect} onTap={onSelect}
     onDragMove={(event) => {
       const rawPosition = {
-        xM: event.target.x(),
-        yM: map.dimensions.lengthM - event.target.y() - object.lengthM,
+        xM: event.target.x()+object.lengthM*Math.sin(angle),
+        yM: map.dimensions.lengthM - event.target.y() - object.lengthM*Math.cos(angle),
       }
       if (wallMounted) {
-        const mounted = snapWallMountedObject({ ...object, ...rawPosition }, map.dimensions)
+        const mounted = snapObjectToMapWall({ ...object, ...rawPosition }, map)
         event.target.position({
-          x: mounted.xM,
-          y: map.dimensions.lengthM - mounted.yM - mounted.lengthM,
+          x: mounted.xM-mounted.lengthM*Math.sin(polygonal ? mounted.rotationDeg*Math.PI/180 : 0),
+          y: map.dimensions.lengthM - mounted.yM - mounted.lengthM*Math.cos(polygonal ? mounted.rotationDeg*Math.PI/180 : 0),
         })
         return
       }
@@ -329,23 +331,23 @@ function ObjectShape({ object, map, selected, editable, environmentView, viewSca
       const toleranceM = Math.min(map.gridSizeM * 0.35, 8 / viewScale)
       const position = snapRectanglePosition(rawPosition, object, map.gridSizeM, true, toleranceM)
       event.target.position({
-        x: position.xM,
-        y: map.dimensions.lengthM - position.yM - object.lengthM,
+        x: position.xM-object.lengthM*Math.sin(angle),
+        y: map.dimensions.lengthM - position.yM - object.lengthM*Math.cos(angle),
       })
     }}
     onDragEnd={(event) => {
       const rawPosition = {
-        xM: event.target.x(),
-        yM: map.dimensions.lengthM - event.target.y() - object.lengthM,
+        xM: event.target.x()+object.lengthM*Math.sin(angle),
+        yM: map.dimensions.lengthM - event.target.y() - object.lengthM*Math.cos(angle),
       }
       if (!wallMounted) {
         onMove({ id: object.id, ...rawPosition }, true)
         return
       }
-      const mounted = snapWallMountedObject({ ...object, ...rawPosition }, map.dimensions)
+      const mounted = snapObjectToMapWall({ ...object, ...rawPosition }, map)
       event.target.position({
-        x: mounted.xM,
-        y: map.dimensions.lengthM - mounted.yM - mounted.lengthM,
+        x: mounted.xM-mounted.lengthM*Math.sin(polygonal ? mounted.rotationDeg*Math.PI/180 : 0),
+        y: map.dimensions.lengthM - mounted.yM - mounted.lengthM*Math.cos(polygonal ? mounted.rotationDeg*Math.PI/180 : 0),
       })
       onMove({ id: object.id, xM: mounted.xM, yM: mounted.yM }, true)
     }}
@@ -353,10 +355,11 @@ function ObjectShape({ object, map, selected, editable, environmentView, viewSca
       const node = event.target
       const widthM = Math.max(.05, object.widthM * node.scaleX())
       const lengthM = Math.max(.05, object.lengthM * node.scaleY())
-      const rotationDeg = node.rotation()
+      const rotationDeg = polygonal ? -node.rotation() : node.rotation()
+      const nextAngle=polygonal ? rotationDeg*Math.PI/180 : 0
       const rawBounds = {
-        xM: node.x(),
-        yM: map.dimensions.lengthM - node.y() - lengthM,
+        xM: node.x()+lengthM*Math.sin(nextAngle),
+        yM: map.dimensions.lengthM - node.y() - lengthM*Math.cos(nextAngle),
         widthM,
         lengthM,
       }
@@ -415,7 +418,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, showObje
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
-    const observer = new ResizeObserver(([entry]) => setSize({ width: Math.max(readOnly ? 1 : 500, entry.contentRect.width), height: Math.max(readOnly ? 1 : 420, entry.contentRect.height) }))
+    const observer = new ResizeObserver(([entry]) => setSize({ width: Math.max(1, entry.contentRect.width), height: Math.max(readOnly ? 1 : 420, entry.contentRect.height) }))
     observer.observe(host)
     return () => observer.disconnect()
   }, [readOnly])
@@ -870,6 +873,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, showObje
       }}
     >
       <Layer listening={false} imageSmoothingEnabled>
+        <Group clipFunc={context=>{context.beginPath();outlinePoints(map).forEach((p,i)=>{if(i)context.lineTo(p.xM,map.dimensions.lengthM-p.yM);else context.moveTo(p.xM,map.dimensions.lengthM-p.yM)});context.closePath()}}>
         <Rect x={0} y={0} width={map.dimensions.widthM} height={map.dimensions.lengthM} fill="#f7f7f2" shadowColor="#152c25" shadowBlur={.35} shadowOpacity={.18} />
         {gridLines.map((line, index) => <Line key={index} points={line.points} stroke={line.major ? '#b5bcb4' : '#d9ddd7'} strokeWidth={(line.major ? 1.2 : .65) / view.scale} />)}
         {mode === 'environment' && heatmap && visibleLayers.get('environment')?.visible
@@ -881,6 +885,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, showObje
           </Group>)}
         </Group> : null}
         {mode === 'coverage' && visibleLayers.get('coverage')?.visible ? map.objects.filter((object) => object.metadata.sensor).map((object) => <Circle key={object.id} x={object.xM + object.widthM / 2} y={map.dimensions.lengthM - object.yM - object.lengthM / 2} radius={object.metadata.sensor?.coverageRadiusM ?? 3} fill="#4d8d78" stroke="#2f715d" strokeWidth={.04} dash={[.16, .12]} opacity={(visibleLayers.get('coverage')?.opacity ?? 1) * .18} />) : null}
+        </Group>
       </Layer>
       <Layer>
         {orderedObjects.map((object) => {
@@ -1006,7 +1011,7 @@ export default function GreenhouseCanvas({ map, mode, readOnly = false, showObje
         </Group>})}
       </Layer> : null}
       <Layer listening={false}>
-        <Rect width={map.dimensions.widthM} height={map.dimensions.lengthM} stroke="#30483f" strokeWidth={Math.max(map.wallThicknessM * .5, 1.2 / view.scale)} />
+        <Line points={outlinePoints(map).flatMap(p=>[p.xM,map.dimensions.lengthM-p.yM])} closed stroke="#30483f" strokeWidth={Math.max(map.wallThicknessM * .5, 1.2 / view.scale)} />
         {!readOnly ? <Text x={0} y={map.dimensions.lengthM + 12 / view.scale} text={`0                                        X  ${map.dimensions.widthM} m →`} width={map.dimensions.widthM} align="center" fontSize={11 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
         {!readOnly ? <Text x={-34 / view.scale} y={map.dimensions.lengthM / 2} text={`Y\n${map.dimensions.lengthM} m\n↑`} align="center" fontSize={10 / view.scale} fontFamily="IBM Plex Mono" fill="#466158" /> : null}
       </Layer>

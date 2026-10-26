@@ -1,3 +1,4 @@
+import { outlineError, objectInsideOutline, validOutlineMount } from '../../../../backend/area-map-outline.js'
 import { createDemoMap } from '../demo'
 import { GREENHOUSE_WALL_THICKNESS_M, METRICS, normalizeHeatmapSettings, type GreenhouseMap, type GreenhouseObject, type MapLayer } from '../model'
 
@@ -15,7 +16,7 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
   if (!map.dimensions || !finite(map.dimensions.widthM) || !finite(map.dimensions.lengthM) || map.dimensions.widthM <= 0 || map.dimensions.lengthM <= 0) {
     return { ok: false, error: 'Greenhouse width and length must be positive finite numbers.' }
   }
-  if (map.shape?.type !== 'rectangle') return { ok: false, error: 'Only rectangular greenhouse maps are supported.' }
+  const shapeError=outlineError(map as GreenhouseMap);if(shapeError)return {ok:false,error:shapeError}
   if (map.dimensions.widthM > 10000 || map.dimensions.lengthM > 10000) return { ok: false, error: 'Greenhouse dimensions exceed the supported limit.' }
   if (!finite(map.gridSizeM) || map.gridSizeM <= 0) return { ok: false, error: 'Grid size must be positive.' }
   if (!Array.isArray(map.layers) || !Array.isArray(map.objects)) return { ok: false, error: 'Layers and objects must be arrays.' }
@@ -23,8 +24,8 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
   for (const [index, object] of (map.objects as GreenhouseObject[]).entries()) {
     if (!object || typeof object !== 'object' || typeof object.id !== 'string' || typeof object.type !== 'string') return { ok: false, error: `Object ${index + 1} is invalid.` }
     if (![object.xM, object.yM, object.widthM, object.lengthM, object.rotationDeg].every(finite)) return { ok: false, error: `Object ${object.id} contains an invalid number.` }
-    if (object.widthM <= 0 || object.lengthM <= 0 || object.xM < 0 || object.yM < 0) return { ok: false, error: `Object ${object.id} has negative coordinates or invalid dimensions.` }
-    if (object.xM + object.widthM > map.dimensions.widthM + 1e-6 || object.yM + object.lengthM > map.dimensions.lengthM + 1e-6) return { ok: false, error: `Object ${object.id} is outside the greenhouse.` }
+    if (object.widthM <= 0 || object.lengthM <= 0 || (map.shape?.type!=='polygon' && (object.xM < 0 || object.yM < 0))) return { ok: false, error: `Object ${object.id} has negative coordinates or invalid dimensions.` }
+    if (map.shape?.type==='polygon' ? !objectInsideOutline(object,map as GreenhouseMap) : object.xM + object.widthM > map.dimensions.widthM + 1e-6 || object.yM + object.lengthM > map.dimensions.lengthM + 1e-6) return { ok: false, error: `Object ${object.id} is outside the greenhouse.` }
     if (!layerIds.has(object.layerId)) return { ok: false, error: `Object ${object.id} references an unknown layer.` }
     const height=object.metadata?.sensor?.installationHeightM
     if(height!=null && (!finite(height) || height<0 || height>100 || (map.dimensions.heightM && height>map.dimensions.heightM)))return {ok:false,error:'Sensor height must be inside the greenhouse.'}
@@ -32,8 +33,10 @@ export function validateMap(value: unknown): { ok: true; map: GreenhouseMap } | 
     if (door !== undefined && (object.type !== 'door' || !door || typeof door !== 'object' || Array.isArray(door) || !['single','double','sliding'].includes(door.type)
       || (door.heightM !== undefined && (!finite(door.heightM) || door.heightM <= 0 || door.heightM > 100 || (map.dimensions.heightM && door.heightM > map.dimensions.heightM))))) return { ok: false, error: `Object ${object.id} has an invalid door configuration.` }
     const wallMount = object.metadata?.wallMount
-    if (wallMount !== undefined) {
-      if (!wallMountedTypes.has(object.type) || !perimeterWalls.has(wallMount.wall) || !finite(wallMount.offsetM) || wallMount.offsetM < 0) return { ok: false, error: `Object ${object.id} has an invalid wall mount.` }
+    if(wallMount !== undefined && map.shape?.type==='polygon'){
+      if(!wallMountedTypes.has(object.type) || !finite(wallMount.offsetM) || wallMount.offsetM<0 || !validOutlineMount(object,map as GreenhouseMap))return {ok:false,error:`${object.name || object.id}: opening must sit on an Area wall.`}
+    } else if (wallMount !== undefined) {
+      if (!wallMountedTypes.has(object.type) || !perimeterWalls.has(wallMount.wall || '') || !finite(wallMount.offsetM) || wallMount.offsetM < 0) return { ok: false, error: `Object ${object.id} has an invalid wall mount.` }
       const touchesWall = wallMount.wall === 'south' ? Math.abs(object.yM) <= 1e-6
         : wallMount.wall === 'north' ? Math.abs(object.yM + object.lengthM - map.dimensions.lengthM) <= 1e-6
           : wallMount.wall === 'west' ? Math.abs(object.xM) <= 1e-6

@@ -1,3 +1,4 @@
+import { objectInsideOutline } from '../../../backend/area-map-outline.js'
 import { createDemoMap } from '../greenhouse-map/demo'
 import { getMetricMeasurementTime, getMetricMeasurementValue } from '../greenhouse-map/heatmap/heatmapMetrics'
 import { METRICS, type GreenhouseMap, type GreenhouseObject, type MetricKey } from '../greenhouse-map/model'
@@ -41,7 +42,7 @@ export function livingMap(context: AreaMapContext, history: AreaMapHistory | nul
 }
 
 export function measuredSensors(map: GreenhouseMap, metric: MetricKey, at: number, soilEcDepthCm?: number) {
-  return map.objects.filter(o => o.type === 'sensor-node' && o.xM >= 0 && o.yM >= 0 && o.xM+o.widthM/2 <= map.dimensions.widthM && o.yM+o.lengthM/2 <= map.dimensions.lengthM).map(object => {
+  return map.objects.filter(o => objectInsideOutline(o,map) && o.type === 'sensor-node' && o.xM >= 0 && o.yM >= 0 && o.xM+o.widthM/2 <= map.dimensions.widthM && o.yM+o.lengthM/2 <= map.dimensions.lengthM).map(object => {
     const sensor = object.metadata.sensor
     const raw = getMetricMeasurementValue(sensor?.measurements, metric, soilEcDepthCm)
     const timestamp = getMetricMeasurementTime(sensor?.measurements, metric) || sensor?.lastSeenAt

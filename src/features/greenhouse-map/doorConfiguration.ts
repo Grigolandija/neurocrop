@@ -19,7 +19,12 @@ export function doorConfiguration(object: GreenhouseObject, roomHeight?: number)
 }
 
 /** Opening width follows the mounted wall; east/west use plan Y. */
-export function doorOpening(object: GreenhouseObject, dimensions: GreenhouseMap['dimensions']) {
+export function doorOpening(object: GreenhouseObject, dimensions: GreenhouseMap['dimensions'],outline?:Array<{xM:number;yM:number}>) {
+  const edge=object.metadata.wallMount?.edgeIndex
+  if(outline && edge!==undefined && outline[edge]){
+    const a=outline[edge],b=outline[(edge+1)%outline.length]
+    return {axis:'widthM' as const,widthM:object.widthM,maximumM:Math.hypot(b.xM-a.xM,b.yM-a.yM)}
+  }
   const wall = object.metadata.wallMount?.wall
   const vertical = wall ? wall === 'east' || wall === 'west' : object.lengthM > object.widthM
   return { axis: vertical ? 'lengthM' as const : 'widthM' as const,

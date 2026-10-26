@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { lazy, Suspense, useEffect, useState, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
 import { setDashboardContext } from '../../state/dashboardStore'
@@ -6,11 +6,15 @@ import FarmAreaEditor from './FarmAreaEditor'
 import { useWorkspaceAccess } from '../../state/workspaceAccess'
 import { editableFarmPlan, validateFarmAreaPlan, insertFarmArea, farmPlanDocument, farmPlanSignature, farmPlanRepository, type FarmPlanDocument, type FarmPlanContext } from './farmPlanData'
 import FarmPlanScene from './FarmPlanScene'
+import { neurocropApi } from '../../services/api/neurocropApi'
 import './farm-plan.css'
+const AreaLayoutEditor=lazy(()=>import('../greenhouse-map/GreenhouseMapTestPage'))
 
 export default function FarmPlanWorkspace(){
   const {language}=useInterfaceLanguage(),lt=language==='lt',navigate=useNavigate(),location=useLocation(),workspaceAccess=useWorkspaceAccess()
   const [context,setContext]=useState<FarmPlanContext|null>(null),[plan,setPlan]=useState<FarmPlanDocument|null>(null)
+  const [layoutAreaId,setLayoutAreaId]=useState<string|null>(()=>new URLSearchParams(location.search).get('layout')==='1' ? new URLSearchParams(location.search).get('area') : null)
+  const [openingLayout,setOpeningLayout]=useState(false)
   const [selectedAreaId,setSelectedAreaId]=useState<string|null>(null)
   const [expectedRevision,setExpectedRevision]=useState(0)
   const [baseline,setBaseline]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState('')
@@ -51,9 +55,9 @@ export default function FarmPlanWorkspace(){
   }
   const inspect=(areaId:string)=>{setDashboardContext({areaId,sectionId:''});navigate('/?farmArea='+encodeURIComponent(areaId))}
   async function save(){
-    if(!plan || !context || !context.permissions.canEdit || saving || expectedRevision!==context.revision)return
+    if(!plan || !context || !context.permissions.canEdit || saving || expectedRevision!==context.revision)return false
     const validation=validateFarmAreaPlan(plan)
-    if(validation){setError(validation);return}
+    if(validation){setError(validation);return false}
     const snapshot=plan
     setSaving(true);setError('');setNotice('')
     try{
@@ -64,15 +68,27 @@ export default function FarmPlanWorkspace(){
       setPlan(current=>current===snapshot ? editableFarmPlan(result.plan) : current)
       setNotice(lt ? 'Planas išsaugotas. Erdvės sukurtos ir prieinamos Areas sąraše.' : 'Plan saved. Your Areas are now available in the Areas list.')
       await workspaceAccess.refresh()
-    }catch(reason){setError(reason instanceof Error ? reason.message : 'Farm plan could not be saved.')}
+      return true
+    }catch(reason){setError(reason instanceof Error ? reason.message : 'Farm plan could not be saved.');return false}
     finally{setSaving(false)}
   }
+  async function openLayout(id:string){
+    if(openingLayout || saving || !context?.permissions.canEdit)return
+    setOpeningLayout(true);setError('')
+    try{
+      if(dirty && !await save())return
+      await neurocropApi.setAreaMapEnabled(id,true)
+      setLayoutAreaId(id)
+    }catch(reason){setError(reason instanceof Error ? reason.message : 'Area layout could not be opened.')}
+    finally{setOpeningLayout(false)}
+  }
+  if(layoutAreaId)return <div className="nc-farm-plan" data-nc-react-workspace="farm-plan"><header className="nc-farm-heading"><div><p>FARM PLAN → {plan?.areas.find(a=>a.id===layoutAreaId)?.name}</p><h1>{lt ? 'Įranga ir jutikliai' : 'Equipment and Nodes'}</h1><span>{lt ? 'Tas pats Area kontūras. Išdėstymo pakeitimai išsaugomi automatiškai.' : 'The same Area outline. Layout changes save automatically.'}</span></div></header><Suspense fallback={<p>{lt ? 'Kraunamas redaktorius…' : 'Loading editor…'}</p>}><AreaLayoutEditor key={layoutAreaId} embeddedAreaId={layoutAreaId} onExit={()=>{setLayoutAreaId(null);navigate(`/farm-plan?area=${encodeURIComponent(layoutAreaId)}`,{replace:true})}} /></Suspense></div>
   return <div className="nc-farm-plan" data-nc-react-workspace="farm-plan"><header className="nc-farm-heading"><div><p>{lt ? 'ŪKIO STRUKTŪRA' : 'FARM STRUCTURE'}</p><h1>{lt ? 'Bendras ūkio planas' : 'Farm plan'}</h1><span>{lt ? 'Pridėkite erdvę, pritaikykite jos kontūrą ir išsaugokite planą.' : 'Add an Area, shape it to match your space, then save the plan.'}</span></div><div><button type="button" onClick={()=>navigate('/areas')}>{lt ? 'Grįžti į Areas' : 'Back to Areas'}</button>{context?.permissions.canEdit && <button type="button" className="nc-farm-save" disabled={!dirty || saving || loading || expectedRevision!==context.revision} onClick={()=>void save()}>{saving ? (lt ? 'Saugoma…' : 'Saving…') : (lt ? 'Išsaugoti planą' : 'Save plan')}</button>}</div></header>
     {error && <div className="nc-farm-feedback" role="alert"><span>{error}</span>{plan && <button type="button" onClick={downloadDraft}>{lt ? 'Atsisiųsti savo brėžinį' : 'Download your draft'}</button>}<button type="button" onClick={()=>{if(context)try{sessionStorage.removeItem(`neurocrop-farm-draft:${context.draftScope}`)}catch{/* Storage may be unavailable. */}setLoading(true);setPlan(null);setContext(null);setNotice('');setRetry(value=>value+1)}}>{lt ? 'Atverti serverio versiją' : 'Load server version'}</button><small>{lt ? 'Prieš atverdami serverio versiją atsisiųskite savo brėžinį: serverio versija pakeis dabartinius neišsaugotus pakeitimus.' : 'Download your draft before loading the server version: it will replace your unsaved changes.'}</small></div>}
     {notice && <p className="nc-farm-notice" role="status">{notice}</p>}
     {loading ? <div className="nc-farm-loading" role="status">{lt ? 'Kraunamas planas…' : 'Loading plan…'}</div> : context && plan ? <>
       <div className="nc-farm-save-status"><span data-dirty={dirty}>{dirty ? (lt ? 'Yra neišsaugotų pakeitimų' : 'Unsaved changes') : (context.revision===0 ? (lt ? 'Naujas planas' : 'New plan') : (lt ? 'Išsaugota serveryje' : 'Saved on server'))}</span><span>{context.revision>0 ? `${lt ? 'Versija' : 'Revision'} ${context.revision}` : ''}</span></div>
-      <div className="nc-farm-layout" data-readonly={!context.permissions.canEdit}>{context.permissions.canEdit && <div inert={saving}><FarmAreaEditor plan={plan} onChange={setPlan} areas={context.areas} selectedId={selectedAreaId} onSelect={setSelectedAreaId} onSections={(id,create)=>navigate(`/sections?area=${encodeURIComponent(id)}${create ? '&create=1' : ''}`)} /></div>}<section className="nc-farm-preview"><div className="nc-farm-preview-heading"><strong>{lt ? 'Gyva 3D peržiūra' : 'Live 3D preview'}</strong><span>{lt ? 'Tikras pastatų išsidėstymas' : 'Your building layout'}</span></div><FarmPlanScene plan={plan} areas={previewAreas} selectedAreaId={selectedAreaId} onAreaSelect={context.permissions.canEdit ? setSelectedAreaId : inspect} /></section></div>
+      <div className="nc-farm-layout" data-readonly={!context.permissions.canEdit}>{context.permissions.canEdit && <div inert={saving || openingLayout}><FarmAreaEditor plan={plan} onChange={setPlan} areas={context.areas} onConfigure={window.NEUROCROP_CONFIG?.greenhouseMapBeta ? id=>void openLayout(id) : undefined} selectedId={selectedAreaId} onSelect={setSelectedAreaId} onSections={(id,create)=>navigate(`/sections?area=${encodeURIComponent(id)}${create ? '&create=1' : ''}`)} /></div>}<section className="nc-farm-preview"><div className="nc-farm-preview-heading"><strong>{lt ? 'Gyva 3D peržiūra' : 'Live 3D preview'}</strong><span>{lt ? 'Tikras pastatų išsidėstymas' : 'Your building layout'}</span></div><FarmPlanScene plan={plan} areas={previewAreas} selectedAreaId={selectedAreaId} onAreaSelect={context.permissions.canEdit ? setSelectedAreaId : inspect} /></section></div>
       <p className="nc-farm-help">{lt ? 'Farm plan → Areas → Sections. Kiekviena įterpta forma yra Area. Išsaugoję planą pasirinktoje erdvėje galite kurti Sections.' : 'Farm plan → Areas → Sections. Each inserted shape is an Area. Save the plan, then create Sections inside the selected Area.'}</p>
     </> : null}
   </div>

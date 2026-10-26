@@ -27,7 +27,7 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
   const wallMounted = isWallMountedType(object.type)
   const sensor = object.metadata.sensor
   const door = object.type === 'door' ? doorConfiguration(object, map.dimensions.heightM) : null
-  const opening = doorOpening(object, map.dimensions)
+  const opening = doorOpening(object, map.dimensions,map.shape.type==='polygon' ? map.shape.points : undefined)
   const layerLocked = map.layers.find((layer) => layer.id === object.layerId)?.locked === true
   const placementLocked = object.locked || layerLocked
   const patchMetadata = (metadata: Partial<GreenhouseObject['metadata']>) => onUpdate(object.id, { metadata: { ...object.metadata, ...metadata } })
@@ -55,7 +55,7 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
         <label className="gh-field"><span>{tr('Length', 'Ilgis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".05" max={map.dimensions.lengthM} step=".05" value={Number(object.lengthM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { lengthM: value ?? object.lengthM })} /></label>
       </div> : null}
       {!sensor ? <label className="gh-field wide"><span>{wallMounted ? tr('Mounted wall', 'Tvirtinimo siena') : `${tr('Rotation', 'Pasukimas')} °`}</span>{wallMounted
-        ? <input value={object.metadata.wallMount?.wall ?? tr('Automatic', 'Automatinė')} readOnly />
+        ? <input value={object.metadata.wallMount?.edgeIndex!==undefined ? `${tr('Wall','Siena')} ${object.metadata.wallMount.edgeIndex+1}` : object.metadata.wallMount?.wall ?? tr('Automatic', 'Automatinė')} readOnly />
         : <NumericInput disabled={placementLocked} value={Number(object.rotationDeg.toFixed(1))} onCommit={(value) => onUpdate(object.id, { rotationDeg: value ?? object.rotationDeg })} />}</label> : null}
       {wallMounted ? <p className="gh-muted"><i className="fa-solid fa-magnet" /> {tr('Drag toward another perimeter wall to remount it.', 'Nutempkite prie kitos sienos, kad pakeistumėte tvirtinimą.')}</p> : null}
       <div className="gh-toggle-row"><label><input disabled={layerLocked} type="checkbox" checked={object.locked} onChange={(event) => onUpdate(object.id, { locked: event.target.checked })} /><span>{tr('Lock placement', 'Užrakinti vietą')}</span></label></div>

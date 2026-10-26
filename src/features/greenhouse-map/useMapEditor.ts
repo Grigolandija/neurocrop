@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type ObjectType } from './model'
-import { clampObjectPosition, isWallMountedType, sensorMarkerSizeM, snapRectanglePosition, snapSectionToWalls, snapWallMountedObject } from './geometry'
+import { clampObjectPosition, isWallMountedType, sensorMarkerSizeM, snapRectanglePosition, snapSectionToWalls, snapWallMountedObject, snapObjectToMapWall, placeObjectInside } from './geometry'
 import { mapRepository } from './services/mapRepository'
 import { createDemoMap } from './demo'
 import { defaultDoorHeight } from './doorConfiguration'
@@ -51,7 +51,7 @@ function createObject(type: ObjectType, map: GreenhouseMap, xM?: number, yM?: nu
       },
     } : type === 'door' ? { door: { type: 'single', heightM: defaultDoorHeight(map.dimensions.heightM) } } : {},
   }
-  return isWallMountedType(type) ? snapWallMountedObject(object, map.dimensions) : object
+  return isWallMountedType(type) ? snapObjectToMapWall(object,map) : placeObjectInside(object,map)
 }
 
 export function normalizeMapGeometry(map: GreenhouseMap): GreenhouseMap {
@@ -60,6 +60,7 @@ export function normalizeMapGeometry(map: GreenhouseMap): GreenhouseMap {
     ...map,
     objects: map.objects.map((source) => {
       const object = { ...source, visible: true }
+      if(map.shape.type==='polygon')return object
       if (object.type === 'sensor-node') {
         const position = clampObjectPosition(object.xM, object.yM, markerSize, markerSize, map.dimensions.widthM, map.dimensions.lengthM)
         return { ...object, ...position, widthM: markerSize, lengthM: markerSize }
@@ -120,7 +121,7 @@ export function useMapEditor({ persistLocal = true, protectSensorNodes = false }
       const updated = { ...object, ...patch }
       if (!isWallMountedType(updated.type)) return updated
       const positionChanged = patch.xM !== undefined || patch.yM !== undefined || patch.type !== undefined
-      return snapWallMountedObject(updated, current.dimensions, positionChanged ? undefined : object.metadata.wallMount?.wall)
+      return current.shape.type==='polygon' ? snapObjectToMapWall(updated,current,positionChanged ? undefined : object.metadata.wallMount?.edgeIndex) : snapWallMountedObject(updated,current.dimensions,positionChanged ? undefined : object.metadata.wallMount?.wall)
     }) }), record)
   }, [commit])
 
@@ -158,7 +159,7 @@ export function useMapEditor({ persistLocal = true, protectSensorNodes = false }
       const position = duplicatePosition(object, map)
       copies.push({
         ...clone({ ...map, objects: [object] }).objects[0],
-        ...position,
+        ...placeObjectInside({...object,...position},map),
         id,
         name: duplicateName(object, [...map.objects, ...copies]),
         locked: false,
@@ -179,7 +180,8 @@ export function useMapEditor({ persistLocal = true, protectSensorNodes = false }
         if (!position || object.locked || layerLocked) return object
         const snappedPosition = snapRectanglePosition(position, object, current.gridSizeM, snap)
         const snapped = { ...object, ...snappedPosition }
-        if (isWallMountedType(object.type)) return snapWallMountedObject(snapped, current.dimensions)
+        if (isWallMountedType(object.type)) return snapObjectToMapWall(snapped,current)
+        if(current.shape.type==='polygon')return snapped
         const clamped = clampObjectPosition(snapped.xM, snapped.yM, object.widthM, object.lengthM, current.dimensions.widthM, current.dimensions.lengthM)
         return object.type === 'section-zone'
           ? snapSectionToWalls({ ...object, ...clamped }, current.dimensions, current.gridSizeM)

@@ -305,10 +305,6 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-integrated-loading span { margin-top: 8px; color: #68766f; font-size: 11px; line-height: 1.5; }
 .gh-integrated-loading button { margin-top: 18px; height: 34px; padding: 0 14px; color: #fff; background: #245b48; font-size: 11px; font-weight: 700; }
 .gh-integrated-loading .gh-create-area { width: min(460px, 92vw); }
-.gh-create-area input { width: 100%; height: 37px; margin-top: 8px; border: 1px solid #cbd6ce; padding: 0 10px; color: #29443a; background: #fbfcfa; font-size: 11px; }
-.gh-create-area button { width: 100%; }
-.gh-create-area button:disabled { opacity: .45; }
-.gh-create-area small { margin-top: 9px; color: #a35242; font-size: 9px; }
 .gh-section-health p.good i { color: #2d805d; }
 .gh-section-health p.warning { color: #7b5430; background: #fff6e8; }
 .gh-section-health p.warning i { color: #b27731; }
@@ -363,3 +359,18 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   .gh-view-controls button { width: 42px; height: 40px; }
   .gh-view-controls { height: 42px; }
 }
+
+.gh-app.gh-embedded { min-width: 0; height: auto; border: 1px solid var(--gh-line); border-radius: 12px; }
+.gh-embedded .gh-toolbar { flex-wrap: wrap; height: auto; min-height: 58px; padding-block: 8px; }
+.gh-embedded .gh-action-strip { flex-wrap: wrap; height: auto; min-height: 50px; padding-block: 8px; }
+.gh-embedded .gh-workspace { grid-template-columns: 230px minmax(0,1fr) 260px; height: 72vh; min-height: 520px; }
+.gh-embedded.gh-without-left-panel .gh-workspace { grid-template-columns: minmax(0,1fr) 260px; }
+.gh-embedded.gh-without-right-panel .gh-workspace { grid-template-columns: 230px minmax(0,1fr); }
+.gh-embedded.gh-without-left-panel.gh-without-right-panel .gh-workspace { grid-template-columns: minmax(0,1fr); }
+.gh-outline-source { display: grid; gap: 10px; margin-bottom: 16px; font-size: 12px; color: var(--gh-muted); }
+.gh-outline-source p { margin: 0; line-height: 1.6; }
+.gh-outline-source button { padding: 8px; border: 1px solid var(--gh-line); border-radius: 6px; background: #fff; color: var(--gh-pine); }
+.gh-outline-warning { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 18px; background: #fff3dc; color: #8c622e; font-size: 12px; }
+.gh-outline-warning span { flex-basis: 100%; }
+.gh-outline-warning button { padding: 5px 8px; border: 1px solid #d9b884; border-radius: 5px; background: #fff; color: inherit; }
+@media(max-width:1000px) { .gh-embedded .gh-workspace, .gh-embedded.gh-without-left-panel .gh-workspace, .gh-embedded.gh-without-right-panel .gh-workspace { grid-template-columns: minmax(0,1fr); } }

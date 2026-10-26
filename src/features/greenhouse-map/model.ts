@@ -71,7 +71,8 @@ export type ObjectMetadata = {
     heightM?: number
   }
   wallMount?: {
-    wall: 'south' | 'north' | 'west' | 'east'
+    wall?: 'south' | 'north' | 'west' | 'east'
+    edgeIndex?: number
     offsetM: number
   }
   sensor?: SensorNodeMetadata
@@ -165,7 +166,8 @@ export type GreenhouseMap = {
   id: string
   areaId?: string
   name: string
-  shape: { type: 'rectangle' }
+  shape: { type: 'rectangle' } | { type: 'polygon'; points: Array<{xM:number;yM:number}> }
+  farmPlanGeometry?: { areaId:string; revision:number; kind:'room'|'greenhouse'|'zone' }
   dimensions: { widthM: number; lengthM: number; heightM?: number }
   gridSizeM: number
   orientationDeg: number

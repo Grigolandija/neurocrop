@@ -1,6 +1,6 @@
+import { objectInsideOutline, validOutlineMount } from '../../../backend/area-map-outline.js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
-import { neurocropApi } from '../../services/api/neurocropApi'
 import GreenhouseCanvas from './components/GreenhouseCanvas'
 import GreenhouseMapToolbar from './components/GreenhouseMapToolbar'
 import GreenhouseSettingsPanel from './components/GreenhouseSettingsPanel'
@@ -14,11 +14,11 @@ import { validateMap } from './services/mapRepository'
 import { useMapEditor } from './useMapEditor'
 import { getInterfaceLanguage, setInterfaceLanguage } from '../../i18n'
 
-export default function GreenhouseMapTestPage() {
+export default function GreenhouseMapTestPage({embeddedAreaId,onExit}:{embeddedAreaId?:string;onExit?:()=>void}={}) {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const integrated = location.pathname === '/area-map'
+  const integrated = !!embeddedAreaId || location.pathname === '/area-map'
   const betaEnabled = window.NEUROCROP_CONFIG?.greenhouseMapBeta === true
   const editor = useMapEditor({ persistLocal: !integrated, protectSensorNodes: integrated })
   const [mode, setMode] = useState<MapMode>('layout')
@@ -26,11 +26,9 @@ export default function GreenhouseMapTestPage() {
   const [showSetupGuide, setShowSetupGuide] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'none' | 'left' | 'right'>('none')
   const [language, setLanguage] = useState<'en' | 'lt'>(getInterfaceLanguage)
-  const [newArea, setNewArea] = useState({ name: '', kind: 'Greenhouse', location: '' })
-  const [creatingArea, setCreatingArea] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [areas, setAreas] = useState<AreaSummary[]>([])
-  const [activeAreaId, setActiveAreaId] = useState('')
+  const [activeAreaId, setActiveAreaId] = useState(embeddedAreaId || '')
   const [areaMenuOpen, setAreaMenuOpen] = useState(false)
   const [syncState, setSyncState] = useState<'local' | 'initializing' | 'loading' | 'saved' | 'saving' | 'error' | 'conflict' | 'readonly'>(integrated ? 'initializing' : 'local')
   const [syncMessage, setSyncMessage] = useState('')
@@ -72,9 +70,10 @@ export default function GreenhouseMapTestPage() {
   }
 
   useEffect(() => {
+    if(embeddedAreaId)return
     document.body.classList.add('gh-map-active')
     return () => document.body.classList.remove('gh-map-active')
-  }, [])
+  }, [embeddedAreaId])
   useEffect(() => {
     const closeMenu = (event: PointerEvent) => {
       const menu = moreMenuRef.current
@@ -98,7 +97,7 @@ export default function GreenhouseMapTestPage() {
     areaMapRepository.listAreas()
       .then((nextAreas) => {
         if (cancelled) return
-        const requested = searchParams.get('area')
+        const requested = embeddedAreaId || searchParams.get('area')
         const requestedArea = nextAreas.find((area) => area.id === requested)
         if (requestedArea && !requestedArea.mapEnabled) {
           navigate('/areas', { replace: true })
@@ -107,7 +106,7 @@ export default function GreenhouseMapTestPage() {
         const enabledAreas = nextAreas.filter((area) => area.mapEnabled)
         setAreas(enabledAreas)
         const selected = enabledAreas.find((area) => area.id === requested)?.id || enabledAreas[0]?.id || ''
-        if (activeAreaIdRef.current && selected && selected !== activeAreaIdRef.current) {
+        if (!embeddedAreaId && activeAreaIdRef.current && selected && selected !== activeAreaIdRef.current) {
           setSearchParams({ area: activeAreaIdRef.current }, { replace: true })
           return
         }
@@ -127,7 +126,7 @@ export default function GreenhouseMapTestPage() {
         }
       })
     return () => { cancelled = true }
-  }, [betaEnabled, integrated, navigate, searchParams, setSearchParams, tr])
+  }, [betaEnabled, integrated, navigate, searchParams, setSearchParams, tr, embeddedAreaId])
 
   useEffect(() => {
     if (!integrated || !activeAreaId) return
@@ -143,11 +142,11 @@ export default function GreenhouseMapTestPage() {
         setAreaContext(context)
         revisionRef.current = context.revision
         const next = context.map
-          ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections)
-          : createAreaMap(context.area, context.nodes, context.sections)
+          ? mergeAreaMapContext(context.map, context.area, context.nodes, context.sections, context.geometry)
+          : createAreaMap(context.area, context.nodes, context.sections, context.geometry)
         editor.hydrate(next)
-        setEditing(context.permissions.canEdit && !context.map)
-        setShowSetupGuide(context.permissions.canEdit && !context.map)
+        setEditing(context.permissions.canEdit && (!context.map || !!embeddedAreaId))
+        setShowSetupGuide(context.permissions.canEdit && !context.map && !context.geometry)
         lastSyncedRef.current = JSON.stringify(next)
         setLastSyncedSnapshot(lastSyncedRef.current)
         setCanEdit(context.permissions.canEdit)
@@ -326,7 +325,7 @@ export default function GreenhouseMapTestPage() {
       const result = validateMap(JSON.parse(await file.text()))
       if (!result.ok) throw new Error(result.error)
       const imported = integrated && areaContextRef.current
-        ? mergeAreaMapContext({ ...result.map, areaId: activeAreaId }, areaContextRef.current.area, areaContextRef.current.nodes, areaContextRef.current.sections)
+        ? mergeAreaMapContext({ ...result.map, areaId: activeAreaId }, areaContextRef.current.area, areaContextRef.current.nodes, areaContextRef.current.sections, areaContextRef.current.geometry)
         : result.map
       const mergedResult = validateMap(imported)
       if (!mergedResult.ok) throw new Error(mergedResult.error)
@@ -346,7 +345,7 @@ export default function GreenhouseMapTestPage() {
       : tr('Reset this plan to the NeuroCrop demo? Your local changes will be replaced.', 'Atkurti „NeuroCrop“ demonstracinį planą? Vietiniai pakeitimai bus pakeisti.')
     if (!window.confirm(prompt)) return
     if (integrated && areaContextRef.current) {
-      const fresh = createAreaMap(areaContextRef.current.area, [], areaContextRef.current.sections)
+      const fresh = createAreaMap(areaContextRef.current.area, [], areaContextRef.current.sections, areaContextRef.current.geometry)
       const base: GreenhouseMap = {
         ...fresh,
         dimensions: { ...editor.map.dimensions },
@@ -355,37 +354,12 @@ export default function GreenhouseMapTestPage() {
         heatmapSettings: { ...editor.map.heatmapSettings },
         objects: [],
       }
-      editor.replace(mergeAreaMapContext(base, areaContextRef.current.area, areaContextRef.current.nodes, areaContextRef.current.sections))
+      editor.replace(mergeAreaMapContext(base, areaContextRef.current.area, areaContextRef.current.nodes, areaContextRef.current.sections, areaContextRef.current.geometry))
       setNotice({ tone: 'success', text: tr('Layout cleared. Area dimensions were kept; Undo is available.', 'Išdėstymas išvalytas. Erdvės matmenys išsaugoti; veiksmą galima atšaukti.') })
     } else {
       editor.reset()
       setNotice({ tone: 'success', text: tr('Demo plan restored.', 'Demonstracinis planas atkurtas.') })
     }
-  }
-
-  const createFirstArea = () => {
-    if (!newArea.name.trim() || creatingArea) return
-    setCreatingArea(true)
-    void neurocropApi.createArea(newArea)
-      .then(async (payload) => {
-        const record = payload as { area?: Record<string, unknown> }
-        const area = {
-          id: String(record.area?.id || ''),
-          name: String(record.area?.name || newArea.name),
-          kind: String(record.area?.kind || newArea.kind),
-          location: String(record.area?.location || newArea.location),
-        }
-        if (!area.id) throw new Error(tr('Area was created without an id.', 'Erdvė sukurta be ID.'))
-        await neurocropApi.setAreaMapEnabled(area.id, true)
-        setAreas([area])
-        activeAreaIdRef.current = area.id
-        setActiveAreaId(area.id)
-        setSearchParams({ area: area.id }, { replace: true })
-        setSyncState('loading')
-        setSyncMessage('')
-      })
-      .catch((error) => setSyncMessage(error instanceof Error ? error.message : tr('Area could not be created.', 'Erdvės sukurti nepavyko.')))
-      .finally(() => setCreatingArea(false))
   }
 
   const moveOnCanvas = (positions: Array<{ id: string; xM: number; yM: number }>, record = true) => {
@@ -399,7 +373,8 @@ export default function GreenhouseMapTestPage() {
     if (!await flushRemoteChanges()) return
     // Area Map and the approved dashboard use separate page shells. A document
     // navigation guarantees the dashboard runtime starts from a clean DOM.
-    window.location.assign('/areas')
+    if(onExit){onExit();return}
+    window.location.assign(`/farm-plan?area=${encodeURIComponent(activeAreaId)}`)
   }
 
   const openNodes = async () => {
@@ -422,7 +397,7 @@ export default function GreenhouseMapTestPage() {
   }
 
   if (integrated && syncState === 'error' && !activeAreaId) {
-    return <div className="gh-app gh-integrated-loading"><div className="gh-create-area"><i className="fa-solid fa-seedling" /><strong>{tr('Create your first greenhouse', 'Sukurkite pirmąjį šiltnamį')}</strong><span>{tr('Create the Area first, then assign nodes and arrange their real positions on the plan.', 'Pirmiausia sukurkite erdvę, tada priskirkite mazgus ir plane nurodykite tikrąsias jų vietas.')}</span><input value={newArea.name} onChange={(event) => setNewArea({ ...newArea, name: event.target.value })} placeholder={tr('Greenhouse name', 'Šiltnamio pavadinimas')} /><input value={newArea.location} onChange={(event) => setNewArea({ ...newArea, location: event.target.value })} placeholder={tr('Location (optional)', 'Vieta (nebūtina)')} /><button disabled={!newArea.name.trim() || creatingArea} onClick={createFirstArea}>{creatingArea ? tr('Creating…', 'Kuriama…') : tr('Create greenhouse', 'Sukurti šiltnamį')}</button>{syncMessage ? <small>{syncMessage}</small> : null}</div></div>
+    return <div className="gh-app gh-integrated-loading"><div><strong>{tr('Open an Area from your farm plan','Pasirinkite Area ūkio plane')}</strong><p>{syncMessage}</p><button type="button" onClick={()=>onExit ? onExit() : navigate('/farm-plan')}>{tr('Farm plan','Ūkio planas')}</button></div></div>
   }
 
   const permissionReadOnly = integrated && !canEdit
@@ -434,15 +409,16 @@ export default function GreenhouseMapTestPage() {
   const hasUnsavedChanges = integrated && canEdit && Boolean(lastSyncedSnapshot) && JSON.stringify(editor.map) !== lastSyncedSnapshot
   const displayedSyncState = syncState === 'saved' && hasUnsavedChanges ? 'dirty' : syncState
   const displayedSyncMessage = displayedSyncState === 'dirty' ? tr('Unsaved changes', 'Neišsaugoti pakeitimai') : syncMessage
+  const outsideObjects=editor.map.shape.type==='polygon' ? editor.map.objects.filter(o=>!objectInsideOutline(o,editor.map) || (o.metadata.wallMount && !validOutlineMount(o,editor.map))) : []
   const deletableSelectedCount = editor.selected.filter((object) => object.type !== 'sensor-node' && object.type !== 'section-zone' && !object.locked && !editor.map.layers.find((layer) => layer.id === object.layerId)?.locked).length
-  return <div className={`gh-app ${integrated ? 'gh-integrated' : ''} ${inspectorReadOnly ? 'gh-readonly' : ''} ${showLeftPanel ? '' : 'gh-without-left-panel'} ${showRightPanel ? '' : 'gh-without-right-panel'} gh-mobile-${mobilePanel}`}>
+  return <div className={`gh-app ${embeddedAreaId ? 'gh-embedded' : ''} ${integrated ? 'gh-integrated' : ''} ${inspectorReadOnly ? 'gh-readonly' : ''} ${showLeftPanel ? '' : 'gh-without-left-panel'} ${showRightPanel ? '' : 'gh-without-right-panel'} gh-mobile-${mobilePanel}`}>
     <GreenhouseMapToolbar mode={mode} metric={editor.map.heatmapSettings.metric} snap={editor.snap} editing={layoutEditable} language={language} canUndo={layoutEditable && editor.canUndo} canRedo={layoutEditable && editor.canRedo} selectedCount={layoutEditable ? deletableSelectedCount : 0} duplicableSelectedCount={layoutEditable ? editor.duplicableSelectedCount : 0} canPaste={layoutEditable && editor.canPaste}
       onMode={(nextMode) => { setMode(nextMode); setMobilePanel('none') }} onMetric={updateMetric} onSnap={editor.setSnap} onUndo={layoutEditable ? editor.undo : () => undefined} onRedo={layoutEditable ? editor.redo : () => undefined} onCopy={layoutEditable ? editor.copySelected : () => undefined} onPaste={layoutEditable ? editor.pasteCopied : () => undefined} onDelete={layoutEditable ? editor.deleteSelected : () => undefined}
     />
     <div className="gh-action-strip">
-      <button onClick={() => void leaveMap()}><i className="fa-solid fa-arrow-left" /> {integrated ? tr('Back to Areas', 'Grįžti į erdves') : tr('Exit test lab', 'Uždaryti testą')}</button>
+      <button onClick={() => void leaveMap()}><i className="fa-solid fa-arrow-left" /> {integrated ? tr('Farm plan', 'Ūkio planas') : tr('Exit test lab', 'Uždaryti testą')}</button>
       <span />
-      {integrated ? <div ref={areaMenuRef} className="gh-area-selector"><span>{tr('Area', 'Erdvė')}</span><div className="gh-area-picker">
+      {integrated && !embeddedAreaId ? <div ref={areaMenuRef} className="gh-area-selector"><span>{tr('Area', 'Erdvė')}</span><div className="gh-area-picker">
         <button type="button" className="gh-area-trigger" disabled={syncState === 'saving' || syncState === 'loading'} aria-haspopup="listbox" aria-expanded={areaMenuOpen} onClick={() => { moreMenuRef.current?.removeAttribute('open'); setAreaMenuOpen((current) => !current) }}><strong>{activeArea?.name || tr('Select Area', 'Pasirinkite erdvę')}</strong><i className={`fa-solid fa-chevron-${areaMenuOpen ? 'up' : 'down'}`} /></button>
         {areaMenuOpen ? <div className="gh-area-menu" role="listbox" aria-label={tr('Area', 'Erdvė')}>{areas.map((area) => <button type="button" role="option" aria-selected={area.id === activeAreaId} className={area.id === activeAreaId ? 'active' : ''} key={area.id} onClick={() => { setAreaMenuOpen(false); void switchArea(area.id) }}><i className={`fa-solid ${area.id === activeAreaId ? 'fa-check' : 'fa-location-dot'}`} /><span>{area.name}</span></button>)}</div> : null}
       </div></div> : null}
@@ -461,10 +437,11 @@ export default function GreenhouseMapTestPage() {
       </div></details>
       <input ref={inputRef} hidden type="file" accept="application/json,.json" onChange={(event) => void importFile(event.target.files?.[0])} />
     </div>
+    {outsideObjects.length>0 && <div className="gh-outline-warning" role="alert"><strong>{tr('Check placement after the Area outline changed','Patikrinkite išdėstymą pakeitus Area kontūrą')}</strong><span>{tr('These objects need to be moved inside the contour or mounted on its walls before saving. Their saved positions have been preserved.','Prieš išsaugant perkelkite šiuos objektus į kontūrą arba pritvirtinkite prie jo sienų. Jų ankstesnės pozicijos išsaugotos.')}</span>{outsideObjects.map(o=><button type="button" key={o.id} onClick={()=>editor.setSelectedIds([o.id])}>{o.name}</button>)}</div>}
     <div className="gh-workspace">
       {mobilePanel !== 'none' ? <button type="button" className="gh-mobile-panel-scrim" aria-label={tr('Close map panel', 'Uždaryti žemėlapio skydelį')} onClick={() => setMobilePanel('none')} /> : null}
       {showLeftPanel ? <aside className="gh-left-panel">
-        <GreenhouseSettingsPanel map={editor.map} language={language} onChange={(next) => editor.commit(() => next)} />
+        <GreenhouseSettingsPanel map={editor.map} language={language} onChange={(next) => editor.commit(() => next)} onEditOutline={async()=>{if(!await flushRemoteChanges())return;if(onExit)onExit();else window.location.assign(`/farm-plan?area=${encodeURIComponent(activeAreaId)}`)}} />
         <ObjectLibraryPanel language={language} allowDraftNode={!integrated} onAdd={editor.addObject} />
         <details className="gh-advanced-panel"><summary><i className="fa-solid fa-layer-group" /> {tr('Layer controls', 'Sluoksnių valdymas')}</summary><LayersPanel layers={editor.map.layers} language={language} onChange={(layers) => editor.commit((map) => ({ ...map, layers }))} /></details>
       </aside> : null}
