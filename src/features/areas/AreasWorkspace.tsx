@@ -306,7 +306,7 @@ export default function AreasWorkspace() {
   return <div className="nc-areas-page nc-structure-page">
     <StructureHeader className="nc-areas-head" title={tx('Areas')}
       description={tx('Top-level monitored environments: greenhouses, fields, rooms, and trial facilities.')}
-      action={<button type="button" className="nc-areas-button primary" onClick={openCreate}><i className="fa-solid fa-plus" aria-hidden="true" />{tx('Create area')}</button>} />
+      action={<div className="nc-areas-head-actions"><button type="button" className="nc-areas-button" onClick={()=>navigate('/farm-plan')}><i className="fa-solid fa-draw-polygon" />{tx('Farm plan')}</button><button type="button" className="nc-areas-button primary" onClick={openCreate}><i className="fa-solid fa-plus" aria-hidden="true" />{tx('Create area')}</button></div>} />
 
     {feedback ? <div className={`nc-areas-feedback ${feedback.tone}`} role="status"><i className={`fa-solid ${feedback.tone === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation'}`} /><span>{feedback.message}</span><button type="button" onClick={() => setFeedback(null)} aria-label={tx("Dismiss")}><i className="fa-solid fa-xmark" /></button></div> : null}
 

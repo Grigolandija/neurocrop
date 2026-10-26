@@ -164,6 +164,7 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
   host.prepend(canvas)
   let presentation=0
   let size=20, elevation=camera.elevation ?? .70, azimuth=.67, zoom=camera.zoom ?? 1, dirty=true, disposed=false, width=1, height=1, raf=0
+  let focusTarget: Vec3 | null = null, focusSize: number | null = null
   let introStart=performance.now()
   const reducedMotion=camera.animateIntro===false || matchMedia('(prefers-reduced-motion: reduce)').matches
   const pointers=new Map<number,{ x:number; y:number }>()
@@ -191,10 +192,10 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
     if (disposed) return
     const progress=reducedMotion ? 1 : Math.min(1,(time-introStart)/1400)
     if ((dirty || progress<1) && !document.hidden && width>0 && height>0) {
-      const aspect=width/height, distance=size*(aspect<1 ? 2.45 : 1.8)*zoom*(1+.1*(1-progress))
+      const aspect=width/height, distance=(focusSize ?? size)*(aspect<1 ? 2.45 : 1.8)*zoom*(1+.1*(1-progress))
       const a=azimuth+.08*(1-progress)
-      const eye:Vec3=[Math.sin(a)*Math.cos(elevation)*distance,Math.sin(elevation)*distance+(camera.targetHeight ?? 0),Math.cos(a)*Math.cos(elevation)*distance]
-      const matrix=cameraMatrix(eye,[0,camera.targetHeight ?? size*.035,0],aspect)
+      const eye:Vec3=[(focusTarget?.[0] ?? 0)+Math.sin(a)*Math.cos(elevation)*distance,Math.sin(elevation)*distance+(focusTarget?.[1] ?? camera.targetHeight ?? 0),(focusTarget?.[2] ?? 0)+Math.cos(a)*Math.cos(elevation)*distance]
+      const matrix=cameraMatrix(eye,focusTarget ?? [0,camera.targetHeight ?? size*.035,0],aspect)
       backend.draw(matrix,presentation); onProject(matrix,width,height); dirty=false
     }
     raf=requestAnimationFrame(draw)
@@ -206,6 +207,7 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
     setPresentation(view:LivingView, topography=false, spatialField=false) { presentation=view==='volume' ? spatialField ? 3 : topography ? 2 : 1 : 0; dirty=true },
     reset(top=false) { elevation=top ? 1.47 : camera.elevation ?? .70; azimuth=top ? 0 : .67; zoom=camera.zoom ?? 1; dirty=true },
     zoom(delta:number) { zoom=Math.max(.65,Math.min(3,zoom*delta)); dirty=true },
+    focus(target:Vec3 | null,extent?:number) { focusTarget=target; focusSize=extent ?? null; zoom=camera.zoom ?? 1; dirty=true },
     dispose() { disposed=true; cancelAnimationFrame(raf); observer.disconnect(); canvas.removeEventListener('pointerdown',down); canvas.removeEventListener('pointermove',move); canvas.removeEventListener('pointerup',up); canvas.removeEventListener('pointercancel',up); canvas.removeEventListener('wheel',wheel); canvas.removeEventListener('webglcontextlost',lost); backend.dispose(); canvas.remove() },
     restartIntro() { introStart=performance.now(); dirty=true },
   }

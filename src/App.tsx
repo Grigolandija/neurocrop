@@ -38,6 +38,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const GreenhouseMapTestPage = lazy(() => import('./features/greenhouse-map/GreenhouseMapTestPage'))
 const SpatialWorkspaceDemo = lazy(() => import('./features/living-greenhouse/SpatialWorkspaceDemo'))
 const EquipmentModelPreview = lazy(() => import('./features/living-greenhouse/EquipmentModelPreview'))
+const SitePlanDemo = lazy(() => import('./features/living-greenhouse/SitePlanDemo'))
 const clerkConfigured = Boolean(String(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '').trim())
 
 function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?: string; onClerkSignOut?: () => Promise<void> }) {
@@ -158,6 +159,7 @@ export default function App() {
         <Route path="/greenhouse-map-test" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />
         <Route path="/greenhouse-live/models" element={<Suspense fallback={<SessionLoading />}><EquipmentModelPreview /></Suspense>} />
         <Route path="/greenhouse-live/demo" element={<Suspense fallback={<SessionLoading />}><SpatialWorkspaceDemo /></Suspense>} />
+        <Route path="/greenhouse-live/site-demo" element={<Suspense fallback={<SessionLoading />}><SitePlanDemo /></Suspense>} />
         <Route path="*" element={<MainRoute />} />
       </Routes>
     </BrowserRouter>

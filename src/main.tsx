@@ -21,7 +21,7 @@ window.addEventListener('vite:preloadError', (event) => {
 
 const publishableKey = String(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '').trim()
 // The public synthetic demo does not need an identity session or live APIs.
-const publicSpatialDemo = ['/greenhouse-live/demo', '/greenhouse-live/models'].includes(window.location.pathname)
+const publicSpatialDemo = ['/greenhouse-live/demo', '/greenhouse-live/models', '/greenhouse-live/site-demo'].includes(window.location.pathname)
 const application = <App />
 
 // Remove registrations and caches left by the retired PWA experiment. This

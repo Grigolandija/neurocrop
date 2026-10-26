@@ -102,6 +102,8 @@ export const neurocropApi = {
   getSiteComparison: (params: Payload) => request(`/analytics/site-comparison${queryString(params)}`),
   downloadMeasurementsCsv: (params: Payload) => downloadFile(`/exports/measurements.csv${queryString(params)}`, 'neurocrop-measurements.csv'),
   getAreas: () => request('/areas'),
+  getFarmPlan: () => request('/farm-plan', { cache: 'no-store' }),
+  saveFarmPlan: (payload: Payload) => structuralMutation('/farm-plan', { method: 'PATCH', body: json(payload) }),
   getGreenhouseMap: (areaId: string) => request(`/areas/${encoded(areaId)}/map`, { cache: 'no-store' }),
   getGreenhouseMapHistory: (areaId: string, params: Payload = {}) => request(`/areas/${encoded(areaId)}/map/history${queryString(params)}`),
   saveGreenhouseMap: (areaId: string, payload: Payload) => request(`/areas/${encoded(areaId)}/map`, { method: 'PATCH', body: json(payload) }),

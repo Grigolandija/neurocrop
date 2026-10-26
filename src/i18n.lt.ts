@@ -209,6 +209,7 @@ export const ltTranslations: Readonly<Record<string, string>> = Object.freeze({
   "Create a password": "Sukurti slaptažodį",
   "Create account": "Sukurti paskyrą",
   "Create account and request workspace": "Sukurti paskyrą ir paprašyti darbo aplinkos",
+  "Farm plan": "Ūkio planas",
   "Create area": "Sukurti erdvę",
   "Create crop profile": "Sukurti kultūros profilį",
   "Create customer organization": "Sukurti kliento organizaciją",

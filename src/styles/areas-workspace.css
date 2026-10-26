@@ -122,3 +122,5 @@
   .nc-areas-modal > :is(header,footer), .nc-areas-form, .nc-area-delete-choice { padding: var(--space-16); }
 }
 @media (prefers-reduced-motion: reduce) { .nc-areas-loading span { animation: none; } }
+
+.nc-areas-head-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }

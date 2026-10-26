@@ -1,0 +1,69 @@
+.nce-editor { min-width: 0; border-right: 1px solid #e0e7dc; background: #fff; }
+.nce-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 66px; padding: 12px 18px; border-bottom: 1px solid #e4e9e0; }
+.nce-header > strong { font-size: 13px; font-weight: 500; }
+.nce-header > div { display: flex; gap: 4px; }
+.nce-header button { width: 32px; height: 32px; border: 1px solid #e0e6db; border-radius: 6px; background: #fff; font-size: 11px; }
+.nce-editor button:disabled { opacity: .35; cursor: default; }
+.nce-layers { display: flex; gap: 4px; padding: 12px 14px 8px; }
+.nce-layers > button { flex: 1; border: 1px solid transparent; border-radius: 6px; padding: 8px; background: #f4f6f0; color: #73806b; font-size: 12px; }
+.nce-layers > button[aria-pressed="true"] { background: #e5f0e3; color: #326c47; border-color: #cddfc7; }
+.nce-layers small { margin-left: 4px; opacity: .65; font-size: 10px; }
+.nce-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; }
+.nce-tools > button, .nce-tools select { border: 1px solid #dce5d6; border-radius: 6px; padding: 7px 9px; background: #fff; font-size: 11px; }
+.nce-tools > button[aria-pressed="true"] { border-color: #8aaf7b; color: #326c47; }
+.nce-tools i { margin-right: 4px; font-size: 10px; }
+.nce-snap { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; color: #7d8976; font-size: 10px; white-space: nowrap; }
+.nce-snap input { accent-color: #4f8655; }
+.nce-canvas { display: block; width: 100%; max-height: 420px; aspect-ratio: 53 / 36.4; background: #fbfcf8; touch-action: none; outline-offset: -3px !important; }
+.nce-canvas[data-drawing="true"] { cursor: crosshair; }
+.nce-ruler { fill: #93a28a; font-size: .6px; text-anchor: middle; pointer-events: none; }
+.nce-layer polygon { vector-effect: non-scaling-stroke; stroke-width: 1.5px; pointer-events: none; }
+.nce-buildings polygon { fill: #e9eee3; stroke: #74866b; }
+.nce-rooms polygon { fill: #ffffffbf; stroke: #97a58f; }
+.nce-zones polygon { fill: #47919c12; stroke: #6d9da3; stroke-dasharray: 5 4; }
+.nce-layer[data-active="true"] polygon { pointer-events: all; cursor: move; }
+.nce-canvas[data-drawing="true"] .nce-layer polygon { pointer-events: none; }
+.nce-layer polygon[data-selected="true"] { stroke: #367f4c; stroke-width: 2px; fill: #82b97925; }
+.nce-object-label { fill: #6c8062; font-size: .85px; pointer-events: none; }
+.nce-layer:not([data-active="true"]) .nce-object-label { display: none; }
+.nce-handles circle { stroke: #367f4c; stroke-width: 1.5px; vector-effect: non-scaling-stroke; fill: #fff; cursor: grab; }
+.nce-handles circle[data-active="true"] { fill: #367f4c; }
+.nce-handles circle:active { cursor: grabbing; }
+.nce-handles .nce-midpoint { fill: #fff; stroke: #8eaa80; cursor: copy; }
+.nce-edge-hit { stroke: transparent; stroke-width: .45px; cursor: copy; }
+.nce-sensor { fill: #387d93; stroke: #fff; stroke-width: 1.5px; vector-effect: non-scaling-stroke; cursor: move; }
+.nce-draft polyline { fill: #74a45b0c; stroke: #589a5a; stroke-width: 1.5px; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+.nce-draft circle { fill: #fff; stroke: #589a5a; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.nce-draft circle:first-of-type { fill: #589a5a; cursor: pointer; }
+.nce-message { display: grid; gap: 8px; min-height: 50px; padding: 10px 16px; border-block: 1px solid #e5ebdf; color: #7b8972; font-size: 11px; line-height: 1.6; }
+.nce-message > span { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.nce-message button, .nce-bottom button { border: 1px solid #dce5d6; border-radius: 5px; padding: 4px 8px; background: #fff; color: #567b4a; font-size: 10px; }
+.nce-message button:first-child { background: #eaf2e4; }
+.nce-properties { padding: 12px 16px 16px; }
+.nce-property-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
+.nce-property-title strong { font-size: 11px; font-weight: 500; color: #6d7c63; }
+.nce-delete { padding: 4px 0; border: 0; background: transparent; font-size: 10px !important; color: #9d6656 !important; }
+.nce-delete i { margin-right: 4px; }
+.nce-property-row { display: grid; grid-template-columns: minmax(0,1fr) 100px; gap: 10px; }
+.nce-properties label { display: grid; gap: 4px; color: #7b8972; font-size: 10px; }
+.nce-properties input, .nce-properties select { width: 100%; min-width: 0; border: 1px solid #dce5d6; border-radius: 5px; padding: 7px 8px; background: #fff; color: #3d5a32; font: inherit; font-size: 12px; }
+.nce-vertex-row { display: grid; grid-template-columns: 65px minmax(0,1fr) minmax(0,1fr) auto 28px; align-items: end; gap: 7px; margin-top: 12px; }
+.nce-vertex-row > button { min-height: 32px; border: 1px solid #dce5d6; border-radius: 5px; padding: 4px 6px; background: #fff; font-size: 10px; }
+.nce-heatmap { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; border: 1px solid #d4e1cc; border-radius: 6px; margin-top: 12px; padding: 8px; background: #eef4e8; color: #4c7e3d !important; font-size: 11px !important; }
+.nce-sensors { margin-top: 14px; font-size: 11px; }
+.nce-sensors > summary { color: #6f8066; cursor: pointer; }
+.nce-sensors p { color: #8b987f; font-size: 10px; }
+.nce-sensors > label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 7px; }
+.nce-sensors > label > span { display: flex; align-items: center; gap: 6px; }
+.nce-sensors input { width: 70px; }
+.nce-bottom { display: grid; gap: 9px; padding: 12px 16px; border-top: 1px solid #e5ebdf; }
+.nce-bottom > span { color: #8c9a80; font-size: 10px; }
+.nce-bottom > span[data-error="true"] { color: #a26848; }
+.nce-bottom > div { display: flex; gap: 8px; }
+@media (max-width: 760px) {
+  .nce-editor { border-right: 0; border-bottom: 1px solid #e0e7dc; }
+  .nce-canvas { min-height: 280px; }
+  .nce-tools { gap: 5px; }
+  .nce-property-row { grid-template-columns: minmax(0,1fr) 85px; }
+  .nce-vertex-row { grid-template-columns: 52px minmax(0,1fr) minmax(0,1fr) auto 26px; gap: 5px; }
+}

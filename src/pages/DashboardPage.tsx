@@ -91,6 +91,9 @@ const loadSimulatorWorkspace = recoverWorkspaceImport('simulator', () => import(
 const loadActionsWorkspace = recoverWorkspaceImport('actions', () => import('../features/actions/ActionsWorkspace'))
 const loadAlertsWorkspace = recoverWorkspaceImport('alerts', () => import('../features/alerts/AlertsWorkspace'))
 const loadTrendsWorkspace = recoverWorkspaceImport('trends', () => import('../features/trends/TrendsWorkspace'))
+const loadFarmPlanWorkspace = recoverWorkspaceImport('farm-plan', () => import('../features/farm-plan/FarmPlanWorkspace'))
+const farmPlanWorkspace = createPreloadableWorkspace(loadFarmPlanWorkspace)
+const FarmPlanWorkspace = farmPlanWorkspace.Component
 const loadClimate3DWorkspace = recoverWorkspaceImport('climate-3d', () => import('../features/living-greenhouse/LivingGreenhouse'))
 const loadNodesWorkspace = recoverWorkspaceImport('nodes', () => import('../features/nodes/NodesWorkspace'))
 const loadCropProfilesWorkspace = recoverWorkspaceImport('crop-profiles', () => import('../features/settings/CropProfilesWorkspace'))
@@ -131,6 +134,7 @@ const workspaceModuleLoadersByRoute: Record<string, () => Promise<WorkspaceModul
   '/': overviewWorkspace.preload,
   '/diagnostics': diagnosticsWorkspace.preload,
   '/areas': areasWorkspace.preload,
+  '/farm-plan': farmPlanWorkspace.preload,
   '/sections': sectionsWorkspace.preload,
   '/nodes': nodesWorkspace.preload,
   '/readings': readingsWorkspace.preload,
@@ -215,7 +219,7 @@ function warmWorkspaceModules(loaders: Array<() => Promise<WorkspaceModule>>) {
 const supportedRoutes = new Set([
   '/', '/areas', '/sections', '/nodes', '/readings', '/alerts', '/actions',
   '/history', '/settings', '/organization', '/crop-profiles', '/admin',
-  '/admin/integrations', '/simulator', '/diagnostics', '/greenhouse-live',
+  '/admin/integrations', '/simulator', '/diagnostics', '/greenhouse-live', '/farm-plan',
 ])
 
 const workspaceHostIds: Partial<Record<string, string>> = {
@@ -257,6 +261,7 @@ function Workspaces({ pathname, includeAdmin, routePending }: { pathname: string
     { route: '/', content: <OverviewWorkspace /> },
     { route: '/diagnostics', content: <DiagnosticsWorkspace /> },
     { route: '/areas', content: <AreasWorkspace /> },
+    { route: '/farm-plan', content: <FarmPlanWorkspace /> },
     { route: '/sections', content: <SectionsWorkspace /> },
     { route: '/nodes', content: <NodesWorkspace /> },
     { route: '/readings', content: <ReadingsWorkspace /> },

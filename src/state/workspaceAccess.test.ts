@@ -12,7 +12,8 @@ describe('workspace onboarding access', () => {
     expect(deriveWorkspaceStage({ areas: [{ id: 'area-1' }] }, { sections: [{ id: 'section-1' }] })).toBe('ready')
   })
 
-  it('allows only Areas and Settings before the first Area exists', () => {
+  it('allows the farm editor before Areas are created while keeping monitoring locked', () => {
+    expect(canAccessWorkspaceRoute('needs-area', '/farm-plan')).toBe(true)
     expect(canAccessWorkspaceRoute('needs-area', '/areas')).toBe(true)
     expect(canAccessWorkspaceRoute('needs-area', '/settings')).toBe(true)
     for (const route of ['/', '/sections', '/nodes', '/readings', '/area-map', '/organization']) {
@@ -22,6 +23,7 @@ describe('workspace onboarding access', () => {
   })
 
   it('adds Sections after the first Area and unlocks everything after the first Section', () => {
+    expect(canAccessWorkspaceRoute('needs-section', '/farm-plan')).toBe(true)
     expect(canAccessWorkspaceRoute('needs-section', '/areas')).toBe(true)
     expect(canAccessWorkspaceRoute('needs-section', '/sections')).toBe(true)
     expect(canAccessWorkspaceRoute('needs-section', '/settings')).toBe(true)

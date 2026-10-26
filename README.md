@@ -144,6 +144,38 @@ matomas.
 
 API ir DB naudoti pavadinimus `areas`, `sections`, `nodes`, `cropProfiles`.
 
+## Bendras ūkio planas — pirmas integracijos etapas
+
+„Areas“ puslapyje pasirinkite **Ūkio planas / Farm plan** (`/farm-plan`).
+Redaktoriuje nustatykite bendrus plano matmenis, nubrėžkite pastatus, jų patalpas ir
+nepriklausomus zonų kontūrus. Galima braižyti ir L ar kitokią ne stačiakampę formą.
+Patalpų kontūrai kuria sienas, zonų kontūrai sienų nekuria. Pakeitimai iškart matomi
+šalia esančioje 3D peržiūroje.
+
+Pasirinkę zoną susiekite ją su jau egzistuojančia **Area**. Vienai Area šiame etape
+skirtas vienas kontūras; zoną galima palikti ir nesusietą. Paspauskite **Išsaugoti
+planą**: planas saugomas serverio duomenų bazėje ir prieinamas kituose kompiuteriuose.
+Šios naršyklės sesijos juodraštis yra tik pagalbinė apsauga iki išsaugojimo.
+Jei kitas naudotojas išsaugo naujesnę versiją, senas juodraštis negali jos perrašyti.
+
+„Overview“ puslapyje atsiranda **Visas ūkis / Whole farm**. Užvedus pelę paryškinamas
+susietos zonos kontūras. Paspaudus zoną arba jos pavadinimą atveriamas tos Area
+esamas matavimų žemėlapis. Į bendrą vaizdą grįžtama tuo pačiu „Visas ūkis“ mygtuku.
+Kol bendro plano nėra, rodomas įprastas Area heatmap.
+
+Šiame etape esami Area išplanavimai, jutiklių koordinatės, jų aukščiai ir matavimai
+neperkeliami į bendras koordinates. Bendrame plane nekuriami pavyzdiniai matavimai
+ar automatiškai pridedama įranga. Tai navigacija į tikrus, jau veikiančius Area
+žemėlapius; naujų daugiakampių heatmap skaičiavimas nėra šio etapo dalis.
+
+Diegimui reikia **backend ir frontend atnaujinimo**, įskaitant backend migraciją
+`0044_farm_plans.sql` (įprastas release migracijų paleidimas). Vien frontend ZIP
+nepakanka. API: autentifikuoti `GET /farm-plan` ir `PATCH /farm-plan`; rašymui
+reikia `owner`, `admin`, `grower` arba `technician` rolės. PATCH priima `plan` ir
+`expectedRevision`. Planas ir Area susiejimai izoliuoti pagal organizaciją;
+kiekvienas išsaugojimas atomiškai pakeičia planą bei susiejimus ir išlaiko iki
+50 naujausių plano versijų duomenų bazėje.
+
 ## Frontend API konfigūracija
 
 Development metu:

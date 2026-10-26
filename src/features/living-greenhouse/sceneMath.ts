@@ -13,7 +13,7 @@ const unit = (a: Vec3): Vec3 => { const l = Math.hypot(...a) || 1; return a.map(
 export function cameraMatrix(eye: Vec3, target: Vec3, aspect: number) {
   const z = unit(sub(eye, target)), x = unit(cross([0, 1, 0], z)), y = cross(z, x)
   const view = [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, eye), -dot(y, eye), -dot(z, eye), 1]
-  const near = .1, far = 4000, f = 1 / Math.tan(.65 / 2)
+  const near = .1, far = Math.max(4000, Math.hypot(...sub(eye, target)) * 4), f = 1 / Math.tan(.65 / 2)
   const p = [f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, far / (near - far), -1, 0, 0, near * far / (near - far), 0]
   return new Float32Array(Array.from({ length: 16 }, (_, i) => {
     const row = i % 4, col = Math.floor(i / 4)

@@ -152,7 +152,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
   const displayName = user.name || user.email.split('@')[0] || 'NeuroCrop user'
   const pathIsActive = (route: string) => route === '/nodes'
     ? location.pathname === route || location.pathname.startsWith('/nodes/')
-    : location.pathname === route
+    : location.pathname === route || (route === '/areas' && location.pathname === '/farm-plan')
 
   async function go(route: string) {
     if (!canAccessWorkspaceRoute(workspaceAccess.stage, route) || route === location.pathname || preparingRoute) return

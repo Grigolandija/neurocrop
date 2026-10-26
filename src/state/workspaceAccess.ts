@@ -38,7 +38,7 @@ function normalizedRoute(pathname: string) {
 export function canAccessWorkspaceRoute(stage: WorkspaceStage, pathname: string) {
   if (stage === 'ready') return true
   const route = normalizedRoute(pathname)
-  if (route === '/settings' || route === '/areas') return true
+  if (route === '/settings' || route === '/areas' || route === '/farm-plan') return true
   return stage === 'needs-section' && route === '/sections'
 }
 
