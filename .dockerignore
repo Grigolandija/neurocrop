@@ -7,5 +7,7 @@ test-results
 REACT-DOMENUI.zip
 backend/*
 !backend/metric-registry.json
+!backend/area-map-outline.js
+!backend/area-map-outline.d.ts
 e2e
 *.log
