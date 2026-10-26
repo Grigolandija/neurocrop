@@ -13,7 +13,7 @@ import { areaWallSurfaces,equipmentMountCeiling } from './wallSurfaces'
 import { objectGeometry } from './objectGeometry'
 
 type Color = [number, number, number]
-export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[]; contours: ClimateContour[]; palette?: Float32Array; roofSlope?: number; surfaces?: Float32Array }
+export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[]; contours: ClimateContour[]; palette?: Float32Array; roofSlope?: number; surfaces?: Float32Array; surfaceOpacity?: number }
 export function climateColor(value: number, min: number, max: number): Color {
   const stops: Color[] = [[.10, .42, .90], [.06, .78, .86], [.89, .89, .45], [1, .57, .18], [.94, .22, .25]]
   const t = Math.max(0, Math.min(.99999, (value - min) / (max - min || 1))) * 4

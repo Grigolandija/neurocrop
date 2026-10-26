@@ -28,27 +28,27 @@ async function webgpu(onLost: () => void): Promise<Backend> {
     const format = navigator.gpu.getPreferredCanvasFormat()
     context.configure({ device, format, alphaMode: 'opaque' })
     const shader = device.createShaderModule({ code: `
-      struct Uniforms { matrix: mat4x4f }
+      struct Uniforms { matrix: mat4x4f, material: vec4f }
       @group(0) @binding(0) var<uniform> uniforms: Uniforms;
       struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
       @vertex fn vertexMain(@location(0) position: vec3f, @location(1) color: vec3f) -> Vertex {
         var output: Vertex; output.position = uniforms.matrix * vec4f(position, 1.0); output.color = color; return output;
       }
       @fragment fn fragmentMain(input: Vertex) -> @location(0) vec4f { return vec4f(input.color, 1.0); }
-      @fragment fn fragmentWall(input: Vertex) -> @location(0) vec4f { return vec4f(input.color, ${WALL_OPACITY}); }
+      @fragment fn fragmentWall(input: Vertex) -> @location(0) vec4f { return vec4f(input.color, uniforms.material.x); }
     ` })
-    const matrixLayout=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX,buffer:{type:'uniform'}}]})
+    const matrixLayout=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:'uniform'}}]})
     const meshLayout=device.createPipelineLayout({bindGroupLayouts:[matrixLayout]})
     const pipeline = await device.createRenderPipelineAsync({ layout: meshLayout, vertex: { module: shader, entryPoint: 'vertexMain', buffers: [{ arrayStride: 24, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x3' }] }] }, fragment: { module: shader, entryPoint: 'fragmentMain', targets: [{ format }] }, primitive: { topology: 'triangle-list', cullMode: 'none' }, depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' } })
     const wallPipeline=await device.createRenderPipelineAsync({layout:meshLayout,vertex:{module:shader,entryPoint:'vertexMain',buffers:[{arrayStride:24,attributes:[{shaderLocation:0,offset:0,format:'float32x3'},{shaderLocation:1,offset:12,format:'float32x3'}]}]},fragment:{module:shader,entryPoint:'fragmentWall',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:false,depthCompare:'less-equal'}})
     const volumeShader = device.createShaderModule({ code: volumeWgsl })
     const fieldSampler = device.createSampler({minFilter:'linear',magFilter:'linear'})
     const volumePipeline = await device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: volumeShader, entryPoint: 'vertexMain' }, fragment: { module: volumeShader, entryPoint: 'fragmentMain', targets: [{ format }] } })
-    const uniform = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
+    const uniform = device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
     const volumeUniform = device.createBuffer({ size: 656, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
     const bindGroup = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniform } }] })
     let buffer: GPUBuffer | null = null, depth: GPUTexture | null = null, color: GPUTexture | null = null, fieldTexture: GPUTexture | null = null
-    let wallBuffer:GPUBuffer|null=null, surfaces=new Float32Array()
+    let wallBuffer:GPUBuffer|null=null, surfaces=new Float32Array(),surfaceOpacity=WALL_OPACITY
     let volumeGroup: GPUBindGroup | null = null, count = 0, bounds = [1, 1, 1], contours = Array(8).fill(-1), palette = new Float32Array(132), roofSlope = .32
     const bindVolume = () => {
       if (!depth || !color || !fieldTexture) return
@@ -70,7 +70,7 @@ async function webgpu(onLost: () => void): Promise<Backend> {
       },
       upload(data, field) {
         buffer?.destroy(); fieldTexture?.destroy();wallBuffer?.destroy()
-        surfaces=field.surfaces ? new Float32Array(field.surfaces) : new Float32Array()
+        surfaces=field.surfaces ? new Float32Array(field.surfaces) : new Float32Array();surfaceOpacity=field.surfaceOpacity ?? WALL_OPACITY
         wallBuffer=surfaces.length ? device.createBuffer({size:surfaces.byteLength,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}) : null
         buffer = device.createBuffer({ size: Math.max(24, data.byteLength), usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST })
         device.queue.writeBuffer(buffer, 0, data.buffer as ArrayBuffer, data.byteOffset, data.byteLength)
@@ -80,7 +80,7 @@ async function webgpu(onLost: () => void): Promise<Backend> {
       },
       draw(matrix, presentation) {
         if (!depth || !color || !buffer || !volumeGroup) return
-        device.queue.writeBuffer(uniform, 0, matrix.buffer as ArrayBuffer, matrix.byteOffset, matrix.byteLength)
+        device.queue.writeBuffer(uniform,0,new Float32Array([...matrix,surfaceOpacity,0,0,0]).buffer)
         const params = new Float32Array([...inverseMatrix(matrix), ...bounds, presentation, ...contours, ...palette, roofSlope, 0, 0, 0])
         device.queue.writeBuffer(volumeUniform, 0, params.buffer)
         const encoder = device.createCommandEncoder()
@@ -125,7 +125,7 @@ function webgl(): Backend {
   const wallBuffer=gl.createBuffer()!,wallVao=gl.createVertexArray()!
   gl.bindVertexArray(wallVao);gl.bindBuffer(gl.ARRAY_BUFFER,wallBuffer)
   for(const [name,offset] of [['position',0],['color',12]] as const){const location=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,3,gl.FLOAT,false,24,offset)}
-  let surfaces=new Float32Array()
+  let surfaces=new Float32Array(),surfaceOpacity=WALL_OPACITY
   const opacityLocation=gl.getUniformLocation(program,'opacity')
   const matrixLocation = gl.getUniformLocation(program, 'matrix')
   const inverseLocation = gl.getUniformLocation(volumeProgram, 'inverseCamera'), boundsLocation = gl.getUniformLocation(volumeProgram, 'bounds')
@@ -155,7 +155,7 @@ function webgl(): Backend {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     },
     upload(data, field) {
-      surfaces=field.surfaces ? new Float32Array(field.surfaces) : new Float32Array()
+      surfaces=field.surfaces ? new Float32Array(field.surfaces) : new Float32Array();surfaceOpacity=field.surfaceOpacity ?? WALL_OPACITY
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); count = data.length / 6
       gl.bindTexture(gl.TEXTURE_2D, fieldTexture); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, field.width, field.height * field.layers, 0, gl.RGBA, gl.UNSIGNED_BYTE, field.pixels)
       bounds = field.bounds; roofSlope = field.roofSlope ?? .32; palette = field.palette ? new Float32Array(field.palette) : new Float32Array(132); contours=Array.from({length:8},(_,i)=>field.contours[i]?.normalized ?? -1)
@@ -165,7 +165,7 @@ function webgl(): Backend {
       gl.useProgram(program); gl.bindVertexArray(vao); gl.uniformMatrix4fv(matrixLocation, false, matrix);gl.uniform1f(opacityLocation,1);gl.drawArrays(gl.TRIANGLES, 0, count)
       if(surfaces.length){
         gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false)
-        gl.bindVertexArray(wallVao);gl.bindBuffer(gl.ARRAY_BUFFER,wallBuffer);gl.bufferData(gl.ARRAY_BUFFER,sortWallSurfaces(surfaces,matrix),gl.DYNAMIC_DRAW);gl.uniform1f(opacityLocation,WALL_OPACITY);gl.drawArrays(gl.TRIANGLES,0,surfaces.length/6)
+        gl.bindVertexArray(wallVao);gl.bindBuffer(gl.ARRAY_BUFFER,wallBuffer);gl.bufferData(gl.ARRAY_BUFFER,sortWallSurfaces(surfaces,matrix),gl.DYNAMIC_DRAW);gl.uniform1f(opacityLocation,surfaceOpacity);gl.drawArrays(gl.TRIANGLES,0,surfaces.length/6)
         gl.depthMask(true);gl.disable(gl.BLEND)
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.disable(gl.DEPTH_TEST); gl.useProgram(volumeProgram); gl.bindVertexArray(screenVao)

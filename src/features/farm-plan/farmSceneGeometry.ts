@@ -30,8 +30,13 @@ export function farmWalls(plan:FarmPlanDocument,maps:FarmMaps={}):Wall[]{
   return [...unique.values()]
 }
 
-export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
+export type FarmSceneMesh={vertices:Float32Array;ranges:Array<{start:number;end:number;areaIds:string[]}>}
+
+/** Retain ownership once, so hovering never rebuilds detailed equipment meshes. */
+export function wholeFarmSceneMesh(plan:FarmPlanDocument,maps:FarmMaps={}):FarmSceneMesh{
   const data:number[]=[],d=plan.dimensions,openings=farmOpenings(plan,maps)
+  const ranges:FarmSceneMesh['ranges']=[],walls=farmWalls(plan,maps)
+  const own=(areaIds:string[])=>{const previous=ranges.at(-1);if(previous)previous.end=data.length;ranges.push({start:data.length,end:data.length,areaIds})}
   const p=(a:SitePoint,h:number)=>planToScene(a.xM,a.yM,h,d)
   const tri=(a:Vec3,b:Vec3,c:Vec3,color:Vec3)=>{for(const point of [a,b,c])data.push(...point,...color)}
   const quad=(a:Vec3,b:Vec3,c:Vec3,e:Vec3,color:Vec3)=>{tri(a,b,c,color);tri(a,c,e,color)}
@@ -42,19 +47,21 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
     const at=(center:Vec3,x:number,y:number)=>center.map((n,i)=>n+u[i]*x+v[i]*y) as Vec3
     for(const [x,y,nx,ny] of [[-1,-1,1,-1],[1,-1,1,1],[1,1,-1,1],[-1,1,-1,-1]])quad(at(a,x,y),at(a,nx,ny),at(b,nx,ny),at(b,x,y),color)
   }
-  for(const area of plan.areas)for(const [a,b,c] of triangulateSitePolygon(area.polygon))tri(p(a,.01),p(b,.01),p(c,.01),area.kind==='greenhouse' ? [.84,.89,.82] : [.87,.88,.85])
-  for(const value of perimeterWallGeometry(farmWalls(plan,maps),openings,d))data.push(value)
-  const corners=new Map<string,{point:SitePoint;height:number}>()
-  for(const wall of farmWalls(plan,maps)){
+  for(const area of plan.areas){own([area.id]);for(const [a,b,c] of triangulateSitePolygon(area.polygon))tri(p(a,.01),p(b,.01),p(c,.01),area.kind==='greenhouse' ? [.84,.89,.82] : [.87,.88,.85])}
+  for(const wall of walls){own(wall.areaIds);for(const value of perimeterWallGeometry([wall],openings,d))data.push(value)}
+  const corners=new Map<string,{point:SitePoint;height:number;areaIds:string[]}>()
+  for(const wall of walls){
+    own(wall.areaIds)
     beam(p(wall.a,wall.height),p(wall.b,wall.height),.028,[.42,.55,.48])
     for(const a of [wall.a,wall.b]){
       const insideDoor=openings.some(o=>o.sill===0 && collinear(o.a,o.b,a) && along(o.a,o.b,a)>1e-6 && along(o.a,o.b,a)<1-1e-6)
       if(insideDoor)continue
-      const key=pointKey(a),old=corners.get(key);corners.set(key,{point:a,height:Math.max(old?.height || 0,wall.height)})
+      const key=pointKey(a),old=corners.get(key);corners.set(key,{point:a,height:Math.max(old?.height || 0,wall.height),areaIds:[...new Set([...(old?.areaIds || []),...wall.areaIds])]})
     }
   }
-  for(const corner of corners.values())beam(p(corner.point,0),p(corner.point,corner.height),.025,[.42,.55,.48])
+  for(const corner of corners.values()){own(corner.areaIds);beam(p(corner.point,0),p(corner.point,corner.height),.025,[.42,.55,.48])}
   for(const area of plan.areas){
+    own([area.id])
     if(area.kind==='greenhouse'){
       const b=zoneBounds(area),count=Math.min(128,Math.max(2,Math.ceil((b.maxX-b.minX)/4))),h=area.height
       const roof=(y:number)=>h*(1-.32*Math.abs(y-(b.minY+b.maxY)/2)/((b.maxY-b.minY)/2))
@@ -70,6 +77,8 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
       if(!object.visible || !visible.has(object.layerId) || !objectInsideOutline(object,map))continue
       const opening=openings.find(o=>o.areaId===area.id && o.object.id===object.id)
       if(['door','window','ventilation-opening'].includes(object.type) && !opening)continue
+      const shared=opening ? walls.filter(w=>collinear(opening.a,opening.b,w.a) && collinear(opening.a,opening.b,w.b) && along(opening.a,opening.b,at(w.a,w.b,.5))>=-1e-6 && along(opening.a,opening.b,at(w.a,w.b,.5))<=1+1e-6).flatMap(w=>w.areaIds) : []
+      own(shared.length ? [...new Set(shared)] : [area.id])
       const global={...object,xM:object.xM+origin.minX,yM:object.yM+origin.minY}
       if(object.type==='sensor-node'){
         const height=object.metadata.sensor?.installationHeightM,point={xM:global.xM+object.widthM/2,yM:global.yM+object.lengthM/2},center=p(point,typeof height==='number' ? height : .06),r=Math.max(.045,Math.min(.12,Math.max(d.widthM,d.lengthM)*.002))
@@ -80,7 +89,25 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
       for(const value of objectGeometry(global,d,area.height,equipmentMountCeiling(object,map.dimensions,area.height,area.kind==='greenhouse' ? .32 : 0)))data.push(value)
     }
   }
-  return new Float32Array(data)
+  const last=ranges.at(-1);if(last)last.end=data.length
+  return {vertices:new Float32Array(data),ranges:ranges.filter(r=>r.end>r.start)}
+}
+
+export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
+  return wholeFarmSceneMesh(plan,maps).vertices
+}
+
+/** Shared walls and openings remain solid when either adjoining Area is highlighted. */
+export function highlightFarmArea(mesh:FarmSceneMesh,areaId:string|null){
+  if(!areaId || !mesh.ranges.some(r=>r.areaIds.includes(areaId)))return {vertices:mesh.vertices,surfaces:new Float32Array()}
+  const solidLength=mesh.ranges.filter(r=>r.areaIds.includes(areaId)).reduce((sum,r)=>sum+r.end-r.start,0)
+  const vertices=new Float32Array(solidLength),surfaces=new Float32Array(mesh.vertices.length-solidLength)
+  let solid=0,faded=0
+  for(const range of mesh.ranges){
+    const data=mesh.vertices.subarray(range.start,range.end)
+    if(range.areaIds.includes(areaId)){vertices.set(data,solid);solid+=data.length}else{surfaces.set(data,faded);faded+=data.length}
+  }
+  return {vertices,surfaces}
 }
 
 /** Shared wall contacts are tinted once, with the same openings as the solid models. */
