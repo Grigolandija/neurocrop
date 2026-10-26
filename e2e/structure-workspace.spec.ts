@@ -13,6 +13,7 @@ async function setup(page: Page) {
     { id: 'cucumber', name: 'Cucumber zone', areaId: 'south', profileId: 'cucumber', reportingCount: 0, lastReceivedAt: new Date(Date.now() - 86400000).toISOString() },
     { id: 'trial-zone', name: 'Trial zone', areaId: 'trial', profileId: 'missing', reportingCount: 0 },
   ]
+  const farmAreas = areas.map((area,index)=>({id:area.id,name:area.name,kind:'room',height:3,polygon:[{xM:index*10,yM:0},{xM:index*10+8,yM:0},{xM:index*10+8,yM:5},{xM:index*10,yM:5}]}))
   const nodes = [
     { devEui: '0011223344556677', areaId: 'north', sectionId: 'tomato', name: 'NSN-000001', lastReceivedAt: now, transportStatus: 'live' },
     { devEui: '0011223344556688', areaId: 'south', sectionId: 'cucumber', name: 'NSN-000002', transportStatus: 'offline' },
@@ -23,7 +24,11 @@ async function setup(page: Page) {
     let data: unknown = {}
     if (path === '/auth/me') data = { user: { id: 'structure-user', email: 'test@example.test', name: 'Test', role: 'owner', organizationId: 'test' } }
     if (path === '/areas') data = { areas }
-    if (path === '/sections') data = { sections }
+    if (path === '/farm-plan') data = {draftScope:'test:structure-user',revision:1,updatedAt:now,plan:{version:2,name:'Test farm',dimensions:{widthM:50,lengthM:34},areas:farmAreas},areas,layouts:[],permissions:{canEdit:true}}
+    if (path === '/sections') data = {sections:[...areas.map(area=>({id:`scope-${area.id}`,area_id:area.id,name:area.name,is_area_default:true,nodes:0})),...sections.map(group=>({...group,area_id:group.areaId,crop_profile:group.profileId}))]}
+    const area=areas.find(area=>path.startsWith(`/areas/${area.id}/`))
+    if(area && path.endsWith('/cultivation'))data={areaId:area.id,defaultSectionId:`scope-${area.id}`,cropProfile:sections.find(group=>group.areaId===area.id)?.profileId}
+    if(area && path.endsWith('/map'))data={area,mapEnabled:true,map:null,nodes:nodes.filter(node=>node.areaId===area.id),revision:0,updatedAt:null,permissions:{canEdit:true}}
     if (path === '/nodes') data = { nodes }
     if (path === '/dashboard') data = { sites: areas.map((a, i) => ({ ...a, zones: [{ ...sections[i], overall: { state: ['optimal', 'critical', 'warning'][i], score: [95, 32, 68][i] } }] })) }
     if (path === '/crop-profiles') data = { profiles: [{ id: 'tomato', name: 'Tomatoes', crop: 'Tomato', stage: 'Vegetative' }, { id: 'cucumber', name: 'Cucumbers', crop: 'Cucumber' }] }
@@ -34,7 +39,7 @@ async function setup(page: Page) {
   await expect(page.locator('.nc-area-row')).toHaveCount(3)
 }
 
-test('Areas and Sections use consistent controls and reveal relevant records without extra clicks', async ({ page }) => {
+test('Areas retain responsive controls and old Sections links open optional cultivation groups in the Farm plan', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
   await page.setViewportSize({ width: 1440, height: 1000 })
@@ -50,28 +55,21 @@ test('Areas and Sections use consistent controls and reveal relevant records wit
   await page.locator('.nc-areas-search input').fill('missing')
   await expect(page.getByRole('heading', { name: 'No matching areas' })).toBeVisible()
   await page.locator('.nc-structure-footer').getByRole('button', { name: 'Clear filters' }).click()
-  await page.getByRole('button', { name: 'Sections', exact: true }).click()
-  await expect(page.locator('.nc-section-row')).toHaveCount(3)
-  await expect(page.locator('.nc-section-name').first()).toBeVisible()
-  await page.screenshot({ path: '/tmp/neurocrop-sections-redesign.png', animations: 'disabled' })
-  await page.locator('.nc-structure-summary').getByRole('button', { name: /Require attention/ }).click()
-  await expect(page.locator('.nc-section-row')).toHaveCount(1)
-  await expect(page.locator('.nc-section-row')).toContainText('Cucumber zone')
-  await page.locator('.nc-structure-footer').getByRole('button', { name: 'Clear filters' }).click()
-  await expect(page.locator('.nc-section-row')).toHaveCount(3)
-  await page.locator('.nc-section-name').first().click()
-  await expect(page.locator('.nc-section-detail')).toBeVisible()
-  await page.getByRole('button', { name: 'LT', exact: true }).click()
-  await expect(page.locator('.nc-structure-summary')).toContainText('Paruošta')
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.locator('.nc-section-row').first().scrollIntoViewIfNeeded()
-  await expect(page.locator('.nc-section-profile').first()).toBeVisible()
-  await expect(page.locator('.nc-section-nodes').first()).toBeVisible()
-  await expect(page.locator('.nc-section-freshness').first()).toBeVisible()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  await page.screenshot({ path: '/tmp/neurocrop-sections-redesign-mobile.png', animations: 'disabled' })
-  await page.setViewportSize({ width: 1440, height: 1000 })
-  await page.getByRole('button', { name: 'Erdvės', exact: true }).click()
+  await expect(page.locator('[data-sidebar-action="zones"]')).toHaveCount(0)
+  await page.goto('/sections?area=north')
+  await expect(page).toHaveURL(/\/farm-plan\?cultivation=1&area=north$/)
+  await expect(page.locator('.nfa-editor')).toBeVisible()
+  const cultivation=page.getByRole('region',{name:'Cultivation',exact:true})
+  await expect(cultivation).toBeVisible()
+  await expect(cultivation.getByLabel('Area crop profile',{exact:true})).toHaveValue('tomato')
+  await cultivation.locator('.nfa-growing-groups > summary').click()
+  await expect(cultivation.getByLabel('Group',{exact:true})).toHaveValue('Tomato zone')
+  await expect(cultivation.getByLabel('Crop profile',{exact:true}).first()).toHaveValue('tomato')
+  await page.setViewportSize({width:390,height:844})
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  await expect(cultivation.getByLabel('Area crop profile',{exact:true})).toBeVisible()
+  await page.setViewportSize({width:1440,height:1000})
+  await page.locator('[data-sidebar-action="sites"]:visible').click()
   await expect(page.locator('.nc-area-row')).toHaveCount(3)
   for (const width of [768, 390, 320]) {
     await page.setViewportSize({ width, height: 844 })

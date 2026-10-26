@@ -479,6 +479,8 @@ test('database connection acquisition stays inside route error boundaries', () =
       ? 'buildLatestReadings'
       : routeName === '/readings/latest-batch'
         ? 'mapLatestReadings'
+        : routeName === '/nodes/register'
+          ? 'resolveNodeAssignment'
         : 'getSectionById';
     assert.ok(route.indexOf('try {') >= 0 && route.indexOf('try {') < route.indexOf(databaseCall), `${routeName} must guard its first database query`);
   }

@@ -37,7 +37,7 @@ test('Node height is entered in Nodes, saved, and used automatically by the 3D l
   await dialog.getByLabel('Node height above floor, cm').fill('175')
   await dialog.getByRole('button',{name:'Save changes',exact:true}).click()
   await expect(dialog).toHaveCount(0)
-  expect(writes[0]).toEqual({name:'NSN-000001',sectionId:'s',installationHeightCm:175})
+  expect(writes[0]).toEqual({name:'NSN-000001',areaId:'a',sectionId:'s',installationHeightCm:175})
   await page.getByRole('button',{name:'Edit node',exact:true}).click()
   await expect(dialog.getByLabel('Node height above floor, cm')).toHaveValue('175')
   await expect(dialog.getByLabel('Node height above floor, cm')).toBeInViewport()

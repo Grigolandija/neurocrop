@@ -188,3 +188,45 @@ test('deleting an Area leaves its Nodes registered and unassigned', { skip: !con
     if (areaId) await request(cookie, `/areas/${areaId}`, 'DELETE');
   }
 });
+
+test('an Area works without a user-created group and profile inheritance preserves Node identity and height', { skip: !configured }, async () => {
+  const login = await request('', '/auth/login', 'POST', { email, password });
+  assert.equal(login.status, 200);
+  const cookie = (login.headers.getSetCookie?.()[0] || login.headers.get('set-cookie')).split(';', 1)[0];
+  const devEui = randomBytes(8).toString('hex');
+  let areaId;
+  try {
+    const area = await json(cookie, '/areas', 'POST', { name: `Direct Area ${Date.now()}` }, 201);
+    areaId = area.area.id;
+    const initial = await json(cookie, `/areas/${areaId}/cultivation`);
+    assert.equal(initial.cropProfile, null);
+    assert.ok(initial.defaultSectionId);
+    const directory = await json(cookie, `/sections?areaId=${areaId}`);
+    assert.equal(directory.sections.length, 1);
+    assert.equal(directory.sections[0].is_area_default, true);
+    await json(cookie, '/nodes/register', 'POST', { devEui, areaId }, 201);
+    await json(cookie, `/nodes/${devEui}`, 'PATCH', { installationHeightCm: 175 });
+    let node = (await json(cookie, '/nodes')).nodes.find(item=>item.devEui===devEui);
+    assert.equal(node.areaId, areaId);
+    assert.equal(node.sectionId, initial.defaultSectionId);
+    assert.equal(node.installationHeightCm, 175);
+    const inherited = await json(cookie, '/sections', 'POST', {areaId,name:'Inheriting group'}, 201);
+    const explicit = await json(cookie, '/sections', 'POST', {areaId,name:'Own profile',cropProfile:'default'}, 201);
+    await json(cookie, `/areas/${areaId}/cultivation`, 'PATCH', {cropProfile:'default'});
+    let groups = (await json(cookie, `/sections?areaId=${areaId}`)).sections;
+    assert.equal(groups.find(group=>group.id===inherited.section.id).crop_profile, 'default');
+    await json(cookie, `/areas/${areaId}/cultivation`, 'PATCH', {cropProfile:null});
+    groups = (await json(cookie, `/sections?areaId=${areaId}`)).sections;
+    assert.equal(groups.find(group=>group.id===inherited.section.id).crop_profile, null);
+    assert.equal(groups.find(group=>group.id===explicit.section.id).crop_profile, 'default');
+    await json(cookie, `/nodes/${devEui}`, 'PATCH', {areaId,sectionId:inherited.section.id});
+    await json(cookie, `/nodes/${devEui}`, 'PATCH', {areaId,sectionId:null});
+    node = (await json(cookie, '/nodes')).nodes.find(item=>item.devEui===devEui);
+    assert.equal(node.sectionId, initial.defaultSectionId);
+    assert.equal(node.installationHeightCm, 175);
+    assert.equal((await request(cookie, `/sections/${initial.defaultSectionId}`, 'DELETE')).status, 409);
+  } finally {
+    await request(cookie, `/nodes/${devEui}`, 'DELETE');
+    if(areaId)await request(cookie, `/areas/${areaId}`, 'DELETE');
+  }
+});

@@ -66,13 +66,13 @@ test('password recovery requests only the account email', async ({ page }) => {
   await expect(page.locator('input[type="password"]')).toHaveCount(0)
 })
 
-test('workspace navigation follows Farm plan, Area and Section stages', async ({ page }) => {
+test('workspace navigation requires a Farm plan and Area, without a mandatory growing group', async ({ page }) => {
   await authenticate(page, 'tenant-empty@ci.neurocrop.test')
   await expect(page).toHaveURL(/\/farm-plan$/)
   await expect(navigation(page, 'farm-plan')).toBeEnabled()
   await expect(navigation(page, 'sites')).toBeEnabled()
   await expect(navigation(page, 'settings')).toBeEnabled()
-  await expect(navigation(page, 'zones')).toBeDisabled()
+  await expect(navigation(page, 'zones')).toHaveCount(0)
   await expect(navigation(page, 'overview')).toBeDisabled()
   await page.goto('/nodes')
   await expect(page).toHaveURL(/\/farm-plan$/)
@@ -82,13 +82,15 @@ test('workspace navigation follows Farm plan, Area and Section stages', async ({
   })
   expect(response.ok(), await response.text()).toBeTruthy()
   await page.goto('/')
-  await expect(page).toHaveURL(/\/farm-plan$/)
+  await expect(page).toHaveURL(/\/$/)
   await expect(navigation(page, 'farm-plan')).toBeEnabled()
   await expect(navigation(page, 'sites')).toBeEnabled()
-  await expect(navigation(page, 'zones')).toBeEnabled()
+  await expect(navigation(page, 'zones')).toHaveCount(0)
   await expect(navigation(page, 'settings')).toBeEnabled()
-  await expect(navigation(page, 'nodes')).toBeDisabled()
-  await expect(navigation(page, 'overview')).toBeDisabled()
+  await expect(navigation(page, 'nodes')).toBeEnabled()
+  await expect(navigation(page, 'overview')).toBeEnabled()
+  await navigation(page, 'nodes').click()
+  await expect(page.locator('.node-fleet-page')).toBeVisible()
 })
 
 test('React shell renders only the active primary workspace during navigation', async ({ page }) => {
@@ -100,7 +102,7 @@ test('React shell renders only the active primary workspace during navigation', 
 
   const routes = [
     ['sites', '/areas', '.nc-areas-page'],
-    ['zones', '/sections', '.nc-sections-page'],
+    ['farm-plan', '/farm-plan', '.nfa-editor'],
     ['nodes', '/nodes', '.node-fleet-page'],
     ['readings', '/readings', '.nc-readings-workspace'],
     ['history', '/history', '.nc-trends-page'],
@@ -206,7 +208,7 @@ test('LT/EN belongs to React state, persists, and no legacy runtime is loaded', 
 
   const localizedRoutes = [
     ['sites', '.nc-areas-page', 'Erdvės'],
-    ['zones', '.nc-sections-page', 'Sekcijos'],
+    ['farm-plan', '.nfa-editor', 'Area'],
     ['nodes', '.node-fleet-page', 'Sensorių mazgai'],
     ['readings', '.nc-readings-workspace', 'Visi dabartiniai rodmenys vienoje vietoje'],
     ['alerts', '.nc-alerts-page', 'Perspėjimai'],
