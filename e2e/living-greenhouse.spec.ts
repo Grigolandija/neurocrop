@@ -68,7 +68,7 @@ async function expectVolumeChangesPixels(page: Page) {
 // marker. Compare its visible center with the current camera projection while
 // a real pointer drag is moving the scene, rather than after it has settled.
 async function expectMarkersFollowOrbit(page: Page) {
-  await page.emulateMedia({reducedMotion:'no-preference'})
+  expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(false)
   // Wait for projected coordinates to change after each real pointer move.
   // A requestAnimationFrame callback alone does not guarantee a GPU redraw.
   const sample=()=>page.locator('.nc-living-canvas').evaluate(host=>{
@@ -84,6 +84,7 @@ async function expectMarkersFollowOrbit(page: Page) {
   const initial=new Map((await sample()).map(pin=>[pin.id,pin]))
   const canvas=page.locator('.nc-living-canvas > canvas')
   await expect(canvas).toBeVisible()
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
   // The host also contains interactive overlays. Start on the actual canvas,
   // inside the visible viewport, rather than assuming a host offset hits it.
   const start=await canvas.evaluate(element=>{
@@ -109,7 +110,7 @@ async function expectMarkersFollowOrbit(page: Page) {
       samples.push(projected)
     }
   } catch(reason) {
-    const diagnostic=await canvas.evaluate(element=>({canvas:element.getBoundingClientRect().toJSON(),captured:element.hasPointerCapture(1),renderer:element.closest('[data-renderer]')?.getAttribute('data-renderer')}))
+    const diagnostic=await canvas.evaluate(element=>({canvas:element.getBoundingClientRect().toJSON(),captured:element.hasPointerCapture(1),renderer:element.closest('[data-renderer]')?.getAttribute('data-renderer'),visibility:document.visibilityState}))
     throw new Error(`Orbit tracking failed: ${JSON.stringify({start,diagnostic,initial:[...initial.values()],current:await sample()})}`,{cause:reason})
   } finally {
     await page.mouse.up()
@@ -225,6 +226,9 @@ test('unavailable graphics explains the failure and leaves demo readings and his
 
 test('authenticated view uses only saved sensor positions and does not apply today’s layout to missing history', async ({ page }) => {
   test.setTimeout(60000)
+  // Exercise ordinary CSS transitions from startup. Changing native media
+  // preferences while a software GPU frame is pending can lose its device.
+  await page.emulateMedia({reducedMotion:'no-preference'})
   const now=new Date().toISOString()
   const nodes=Array.from({length:4},(_,i)=>({ devEui:`000000000000000${i}`,status:'online',sensors:['Air temperature'],lastSeenAt:now,measurements:{airTemperatureC:22+i,measuredAt:now} }))
   const context={ area:{id:'actual',name:'Actual saved greenhouse'},mapEnabled:true,nodes,revision:1,updatedAt:now,sections:[],profiles:[],permissions:{canEdit:false},map:{
