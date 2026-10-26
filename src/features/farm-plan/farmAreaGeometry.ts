@@ -57,3 +57,28 @@ export function fitFarmDrawing(areas:FarmPlanArea[],aspect:number):DrawingView {
   const width=Math.max(maxX-minX+margin*2,(maxY-minY+margin*2)*aspect,4),height=width/aspect
   return {x:(minX+maxX-width)/2,y:(minY+maxY-height)/2,width,height}
 }
+
+/** Magnetic contact takes priority over the drafting grid, including imported off-grid walls. */
+export function snapFarmAreaPosition(plan:FarmPlanDocument,id:string,x:number,y:number,tolerance:number){
+  const area=plan.areas.find(a=>a.id===id)
+  if(!area)return {xM:x,yM:y,snapped:false}
+  const minX=Math.min(...area.polygon.map(p=>p.xM)),minY=Math.min(...area.polygon.map(p=>p.yM))
+  const moved=area.polygon.map(p=>({xM:p.xM+x-minX,yM:p.yM+y-minY}))
+  const candidates:Array<{dx:number;dy:number;distance:number}>=[]
+  const add=(dx:number,dy:number)=>{const distance=Math.hypot(dx,dy);if(distance<=tolerance)candidates.push({dx,dy,distance})}
+  for(const other of plan.areas.filter(a=>a.id!==id && a.kind!=='zone')){
+    for(const p of moved)for(let j=0;j<other.polygon.length;j++){
+      const a=other.polygon[j],b=other.polygon[(j+1)%other.polygon.length],dx=b.xM-a.xM,dy=b.yM-a.yM,len2=dx*dx+dy*dy
+      add(a.xM-p.xM,a.yM-p.yM)
+      const t=((p.xM-a.xM)*dx+(p.yM-a.yM)*dy)/len2
+      if(t>=0 && t<=1)add(a.xM+t*dx-p.xM,a.yM+t*dy-p.yM)
+    }
+    for(const p of other.polygon)for(let j=0;j<moved.length;j++){
+      const a=moved[j],b=moved[(j+1)%moved.length],dx=b.xM-a.xM,dy=b.yM-a.yM,t=((p.xM-a.xM)*dx+(p.yM-a.yM)*dy)/(dx*dx+dy*dy)
+      if(t>=0 && t<=1)add(p.xM-a.xM-t*dx,p.yM-a.yM-t*dy)
+    }
+  }
+  candidates.sort((a,b)=>a.distance-b.distance)
+  for(const c of candidates){const xM=clean(x+c.dx),yM=clean(y+c.dy);if(!editFarmArea(plan,id,{polygon:area.polygon.map(p=>({xM:p.xM+xM-minX,yM:p.yM+yM-minY}))}).error)return {xM,yM,snapped:true}}
+  return {xM:x,yM:y,snapped:false}
+}

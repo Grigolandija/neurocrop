@@ -18,11 +18,12 @@ export default function OverviewFarmPlan({areaId,refreshToken,onAreaSelect,enabl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[refreshToken,retry,enabled])
   const plan=useMemo(()=>context ? editableFarmPlan(context.plan) : null,[context])
+  const maps=useMemo(()=>Object.fromEntries((context?.layouts || []).map(l=>[l.areaId,l.map])),[context])
   if(!enabled || !context?.revision || !plan?.areas.length)return <>{error && <div className="nc-farm-overview-error" role="status">{error}<button type="button" onClick={()=>setRetry(n=>n+1)}>{lt ? 'Bandyti dar kartą' : 'Retry'}</button></div>}{children}</>
   const showFarm=view.mode==='auto' || (view.areaId===areaId && view.mode==='farm')
   const choose=(id:string)=>{setView({areaId:id,mode:'area'});onAreaSelect(id)}
   return <div className="nc-farm-overview"><div className="nc-farm-overview-nav"><button type="button" aria-pressed={showFarm} onClick={()=>setView({areaId,mode:'farm'})}><i className="fa-solid fa-cubes" />{lt ? 'Visas ūkis' : 'Whole farm'}</button><button type="button" aria-pressed={!showFarm} onClick={()=>setView({areaId,mode:'area'})}>{context.areas.find(a=>a.id===areaId)?.name || (lt ? 'Area matavimai' : 'Area measurements')}</button>{context.permissions.canEdit && <button type="button" className="nc-farm-overview-edit" onClick={()=>navigate('/farm-plan')}><i className="fa-solid fa-pen-ruler" />{lt ? 'Redaguoti planą' : 'Edit farm plan'}</button>}</div>
-    <div className="nc-farm-map-panel" hidden={!showFarm}><FarmPlanScene plan={plan} areas={context.areas} onAreaSelect={choose} /></div>
+    <div className="nc-farm-map-panel" hidden={!showFarm}><FarmPlanScene plan={plan} maps={maps} areas={context.areas} onAreaSelect={choose} /></div>
     <div className="nc-farm-map-panel" hidden={showFarm}>{children || <div className="nc-farm-help">{lt ? 'Pradėkite nuo šios Area sekcijų ir jutiklių.' : 'Set up Sections and Nodes inside this Area to start monitoring.'}<button type="button" onClick={()=>navigate(`/sections?area=${encodeURIComponent(areaId)}&create=1`)}>{lt ? 'Kurti Section' : 'Create Section'}</button></div>}</div>
   </div>
 }

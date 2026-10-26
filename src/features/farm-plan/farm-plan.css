@@ -13,9 +13,6 @@
 .nc-farm-layout > div, .nc-farm-preview { min-width: 0; }
 .nc-farm-layout .nc-farm-preview { border-top: 1px solid #dce5d6; }
 .nc-farm-layout .nc-farm-scene { height: 420px; }
-.nc-farm-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 66px; border-bottom: 1px solid #e2e9dc; padding: 14px 18px; }
-.nc-farm-preview-heading strong { font-size: 12px; font-weight: 500; }
-.nc-farm-preview-heading span { color: #8a987f; font-size: 10px; }
 .nc-farm-help { margin: 0; padding: 14px 18px; color: #7d8d75; font-size: 11px; line-height: 1.8; }
 .nc-farm-feedback, .nc-farm-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; border-radius: 7px; margin: 12px 0; padding: 12px 14px; background: #fff2dc; color: #92703e; font-size: 12px; }
 .nc-farm-feedback button, .nc-farm-overview-error button { border: 1px solid #ddceb6; border-radius: 5px; padding: 5px 9px; background: #fff; color: inherit; font-size: 11px; cursor: pointer; }
@@ -66,7 +63,6 @@
 @media (max-width: 800px) {
   .nc-farm-plan { padding: 20px 12px; }
   .nc-farm-layout { display: block; }
-  .nc-farm-preview-heading span { display: none; }
   .nc-farm-heading h1 { font-size: 25px; }
   .nc-farm-scene { height: 480px; }
   .nc-farm-overview-nav { padding-inline: 10px; }

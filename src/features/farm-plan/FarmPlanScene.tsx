@@ -3,17 +3,20 @@ import { useInterfaceLanguage } from '../../i18n'
 import { pointInPolygon } from '../greenhouse-map/heatmap/rasterInterpolation'
 import { createLivingScene, type LivingScene } from '../living-greenhouse/gpuScene'
 import { planToScene, project } from '../living-greenhouse/sceneMath'
-import { siteGeometry, siteVolume } from '../living-greenhouse/siteDemoGeometry'
+import { siteVolume } from '../living-greenhouse/siteDemoGeometry'
 import { pickSitePoint, siteDimensions, zoneBounds } from '../living-greenhouse/siteDemoModel'
 import { farmPlanScene, type FarmPlanDocument, type FarmArea } from './farmPlanData'
+import { wholeFarmGeometry } from './farmSceneGeometry'
+import type { FarmMaps } from './farmLayoutData'
 import './farm-plan.css'
+const EMPTY_MAPS:FarmMaps={}
 
-export default function FarmPlanScene({plan:document,areas,onAreaSelect,selectedAreaId}:{plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null}){
+export default function FarmPlanScene({plan:document,areas,onAreaSelect,selectedAreaId,maps=EMPTY_MAPS}:{maps?:FarmMaps;plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null}){
   const plan=useMemo(()=>farmPlanScene(document),[document])
   const {language}=useInterfaceLanguage(),lt=language==='lt'
   const [hovered,setHovered]=useState<string|null>(null)
   const [ready,setReady]=useState(false),[failed,setFailed]=useState(false)
-  const geometry=useMemo(()=>siteGeometry(null,'temperature',plan,{illustrateEquipment:false,showGround:false}),[plan])
+  const geometry=useMemo(()=>wholeFarmGeometry(document,maps),[document,maps])
   const field=useMemo(()=>siteVolume(null,'temperature',plan),[plan])
   const dimensions=siteDimensions(plan)
   const host=useRef<HTMLDivElement>(null),scene=useRef<LivingScene|null>(null)

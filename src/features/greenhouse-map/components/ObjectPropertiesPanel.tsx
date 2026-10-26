@@ -40,8 +40,8 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
       {placementLocked ? <p className="gh-lock-notice"><i className="fa-solid fa-lock" />{layerLocked ? tr('This layer is locked.', 'Šis sluoksnis užrakintas.') : tr('Placement is locked.', 'Objekto vieta užrakinta.')}</p> : null}
       {!sensor ? <label className="gh-field wide"><span>{tr('Name', 'Pavadinimas')}</span><input disabled={placementLocked} value={object.name} onChange={(event) => onUpdate(object.id, { name: event.target.value })} /></label> : null}
       <div className="gh-coordinate-box"><span>{tr('POSITION', 'PADĖTIS')}</span><div className="gh-field-row">
-        <label className="gh-field"><span>X <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0, map.dimensions.widthM - object.widthM)} step={map.gridSizeM} value={Number(object.xM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { xM: value ?? object.xM })} /></label>
-        <label className="gh-field"><span>Y <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0, map.dimensions.lengthM - object.lengthM)} step={map.gridSizeM} value={Number(object.yM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { yM: value ?? object.yM })} /></label>
+        <label className="gh-field"><span>X <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0, map.dimensions.widthM - (map.shape.type==='polygon' ? 0 : object.widthM))} step={map.gridSizeM} value={Number(object.xM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { xM: value ?? object.xM })} /></label>
+        <label className="gh-field"><span>Y <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0, map.dimensions.lengthM - (map.shape.type==='polygon' ? 0 : object.lengthM))} step={map.gridSizeM} value={Number(object.yM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { yM: value ?? object.yM })} /></label>
       </div></div>
       {door ? <>
         <div className="gh-field-row">

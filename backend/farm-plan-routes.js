@@ -1,4 +1,4 @@
-import { syncFarmAreaMaps } from './area-map-outline.js';
+import { syncFarmAreaMaps,areaGeometry,applyAreaGeometry } from './area-map-outline.js';
 import { pool, query } from './db.js';
 import { requireRole, requireUserAuth } from './auth-users.js';
 import { validateFarmPlan } from './farm-plan-validation.js';
@@ -12,6 +12,20 @@ const areaRows=(database,organizationId)=>database.query(`SELECT a.id, a.name, a
   FROM areas a LEFT JOIN greenhouse_maps gm ON gm.organization_id=a.organization_id AND gm.area_id=a.id
   WHERE a.organization_id=$1 ORDER BY a.name,a.id`,[organizationId]);
 const publicAreas=rows=>rows.map(a=>({id:a.id,name:a.name,kind:a.kind,mapEnabled:!!a.map_enabled,mapConfigured:!!a.map_configured,sectionCount:a.section_count || 0,nodeCount:a.node_count || 0,mapDimensions:a.map_dimensions}));
+const farmLayouts=async(database,organizationId,plan,revision)=>{
+  const {rows}=await database.query(`SELECT gm.area_id,gm.map_data,gm.revision,gm.updated_at,l.zone_id FROM greenhouse_maps gm JOIN farm_plan_area_links l ON l.organization_id=gm.organization_id AND l.area_id=gm.area_id WHERE gm.organization_id=$1 ORDER BY gm.area_id`,[organizationId]);
+  if(!rows.length)return [];
+  const nodes=await database.query(`SELECT n.area_id,n.dev_eui,n.installation_height_cm,n.installation_height_recorded_at FROM nodes n JOIN farm_plan_area_links l ON l.organization_id=n.organization_id AND l.area_id=n.area_id WHERE n.organization_id=$1 AND n.archived_at IS NULL`,[organizationId]);
+  const heights=new Map(nodes.rows.map(n=>[`${n.area_id}:${n.dev_eui.toLowerCase()}`,n]));
+  return rows.map(row=>{
+    const map=applyAreaGeometry(row.map_data,areaGeometry(plan,revision,row.area_id,row.zone_id));
+    return {areaId:row.area_id,map:{...map,objects:map.objects.map(o=>{
+      if(o.type!=='sensor-node' || !o.metadata?.sensor)return o;
+      const node=heights.get(`${row.area_id}:${o.metadata.sensor.devEui?.toLowerCase()}`);
+      return {...o,metadata:{...o.metadata,sensor:{...o.metadata.sensor,installationHeightM:node?.installation_height_cm == null ? null : node.installation_height_cm/100,installationConfirmedAt:node?.installation_height_recorded_at || null}}};
+    })},revision:row.revision,updatedAt:row.updated_at};
+  });
+};
 const emptyPlan=()=>({version:1,dimensions:{widthM:50,lengthM:34},buildings:[],rooms:[],zones:[]});
 export function registerFarmPlanRoutes(app,{database={pool,query}}={}){
   app.get('/farm-plan',requireUserAuth,async(req,res,next)=>{
@@ -25,9 +39,10 @@ export function registerFarmPlanRoutes(app,{database={pool,query}}={}){
       ]);
       const row=stored.rows[0],areaLinks=row?.area_links || {};
       const plan=row?.plan_data || emptyPlan();
+      const layouts=await farmLayouts(database,organizationId,plan,row?.revision || 0);
       res.set('Cache-Control','private, no-store');
       res.json({draftScope:`${organizationId}:${req.user.id}`,plan:plan.version===2 ? {...plan,areas:plan.areas.filter(area=>Object.hasOwn(areaLinks,area.id))} : {...plan,zones:plan.zones.map(zone=>({...zone,areaId:Object.hasOwn(areaLinks,zone.id) ? areaLinks[zone.id] : undefined}))},revision:row?.revision || 0,updatedAt:row?.updated_at || null,
-        areas:publicAreas(areas.rows),permissions:{canEdit:['owner','admin','grower'].includes(req.user.role)},capabilities:{areaAuthoring:true}});
+        layouts,areas:publicAreas(areas.rows),permissions:{canEdit:['owner','admin','grower'].includes(req.user.role)},capabilities:{areaAuthoring:true}});
     }catch(error){next(error);}
   });
 
@@ -83,8 +98,9 @@ export function registerFarmPlanRoutes(app,{database={pool,query}}={}){
       await client.query('DELETE FROM farm_plan_history WHERE organization_id=$1 AND revision<=$2',[organizationId,row.revision-50]);
       const areas=validation.createsAreas ? publicAreas((await areaRows(client,organizationId)).rows) : undefined;
       if(validation.createsAreas)await syncFarmAreaMaps(client,organizationId,validation.plan,row.revision,req.user.id);
+      const layouts=await farmLayouts(client,organizationId,validation.plan,row.revision);
       await client.query('COMMIT');
-      res.json({plan:row.plan_data,revision:row.revision,updatedAt:row.updated_at,...(areas ? {areas} : {})});
+      res.json({layouts,plan:row.plan_data,revision:row.revision,updatedAt:row.updated_at,...(areas ? {areas} : {})});
     }catch(error){if(client)await client.query('ROLLBACK').catch(()=>{});next(error);}
     finally{client?.release();}
   });

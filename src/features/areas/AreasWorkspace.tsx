@@ -132,7 +132,6 @@ export default function AreasWorkspace() {
   const [menuId, setMenuId] = useState<string | null>(null)
   const [deleteState, setDeleteState] = useState<DeleteState | null>(null)
   const [busy, setBusy] = useState(false)
-  const [mapBusyId, setMapBusyId] = useState('')
   const workspaceReady = workspaceAccess.stage === 'ready'
 
   useEffect(() => {
@@ -255,26 +254,6 @@ export default function AreasWorkspace() {
     navigate(`/sections?area=${encodeURIComponent(area.id)}&create=1`)
   }
 
-  async function setAreaMapStatus(area: AreaRow, enabled: boolean, openAfter = false) {
-    if (mapBusyId || !workspaceReady) return
-    setMenuId(null)
-    setMapBusyId(area.id)
-    try {
-      await neurocropApi.setAreaMapEnabled(area.id, enabled)
-      setAreas((current) => current.map((item) => item.id === area.id ? { ...item, mapEnabled: enabled } : item))
-      setFeedback({
-        tone: 'success',
-        message: enabled
-          ? `Area Map enabled for ${area.name}.`
-          : `Area Map disabled for ${area.name}. The saved plan was preserved.`,
-      })
-      if (enabled && openAfter) navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)
-    } catch (mapError) {
-      setFeedback({ tone: 'warning', message: errorMessage(mapError, 'Area Map status could not be changed.') })
-    } finally {
-      setMapBusyId('')
-    }
-  }
 
   return <div className="nc-areas-page nc-structure-page">
     <StructureHeader className="nc-areas-head" title={tx('Areas')}
@@ -314,11 +293,9 @@ export default function AreasWorkspace() {
             <span className="nc-area-kind">{area.kind}</span>
             <span className="nc-area-coverage"><strong>{area.sectionCount} {tx("sections")}</strong><small>{area.nodeCount} {tx("nodes ·")} {area.reportingCount} {tx("reporting")}</small></span>
             <span className="nc-area-health">{area.score !== null ? <b>{area.score}</b> : <b>—</b>}<i data-health={area.health}>{healthCopy(area.health)}</i></span>
-            <div className="nc-area-map-state" data-state={!area.mapEnabled ? 'off' : area.mapConfigured ? 'active' : 'setup'}>
-              <span><i />{!area.mapEnabled ? tx("Off") : area.mapConfigured ? tx("Active") : tx("Setup required")}</span>
-              {greenhouseMapBeta ? <button type="button" disabled={mapBusyId === area.id || !workspaceReady} title={!workspaceReady ? tx("Create a Section first") : undefined} onClick={() => area.mapEnabled
-                ? navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)
-                : void setAreaMapStatus(area, true, true)}>{mapBusyId === area.id ? tx("Saving…") : !area.mapEnabled ? tx("Enable") : area.mapConfigured ? tx("Open") : tx("Set up")}</button> : null}
+            <div className="nc-area-map-state" data-state={area.mapConfigured ? 'active' : 'setup'}>
+              <span><i />{area.mapConfigured ? tx("Active") : tx("Setup required")}</span>
+              {greenhouseMapBeta ? <button type="button" onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}>{tx("Open Area Map")}</button> : null}
               {area.mapEnabled && area.mapConfigured ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/greenhouse-live?area=${encodeURIComponent(area.id)}`)} aria-label={`${tx('3D layout')}: ${area.name}`}><i className="fa-solid fa-cube" /> 3D</button> : null}
             </div>
             <div className="nc-area-actions">
@@ -327,9 +304,7 @@ export default function AreasWorkspace() {
                 <button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button>
                 <button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add section")}</button>
                 {area.mapEnabled && area.mapConfigured ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/greenhouse-live?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-cube" />{tx('3D layout')}</button> : null}
-                {greenhouseMapBeta && area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}><i className="fa-solid fa-draw-polygon" />{area.mapConfigured ? tx("Open Area Map") : tx("Set up Area Map")} <small>{tx("Beta")}</small></button> : null}
-                {greenhouseMapBeta && !area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => void setAreaMapStatus(area, true, true)}><i className="fa-solid fa-toggle-on" />{tx("Enable Area Map")}</button> : null}
-                {greenhouseMapBeta && area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => void setAreaMapStatus(area, false)}><i className="fa-solid fa-toggle-off" />{tx("Disable Area Map")}</button> : null}
+                {greenhouseMapBeta ? <button type="button" onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}><i className="fa-solid fa-draw-polygon" />{tx("Open Area Map")}</button> : null}
                 <button type="button" disabled={!workspaceReady} onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />{tx("Manage nodes")}</button>
                 <button type="button" className="danger" onClick={() => { setMenuId(null); setModalError(''); setDeleteState({ id: area.id, name: area.name, sectionCount: area.sectionCount, keepSections: true }) }}><i className="fa-solid fa-trash" />{tx("Delete area")}</button>
               </div> : null}
@@ -339,7 +314,7 @@ export default function AreasWorkspace() {
             <div><p>{tx("Environment")}</p><strong>{area.kind}</strong><span>{area.location ||tx("No location details added")}</span></div>
             <div><p>{tx("Coverage")}</p><strong>{area.sectionCount} {tx("sections ·")} {area.nodeCount} {tx("nodes")}</strong><span>{area.nodeCount ? `${area.reportingCount} of ${area.nodeCount} nodes currently reporting` :tx("No hardware assigned yet")}</span></div>
             <div><p>{tx("Health")}</p><strong>{healthCopy(area.health)}{area.score !== null ? ` · ${area.score}/100` : ''}</strong><span>{area.health === 'stable' ?tx("All available signals are within expected state.") : area.health === 'unconfigured' ?tx("Add a section to begin monitoring.") :tx("Review sections and reporting hardware.")}</span></div>
-            <nav><button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add section")}</button>{greenhouseMapBeta ? area.mapEnabled ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}><i className="fa-solid fa-draw-polygon" />{area.mapConfigured ? tx("Open Area Map") : tx("Set up Area Map")} <small>{tx("Beta")}</small></button> : <button type="button" disabled={!workspaceReady} onClick={() => void setAreaMapStatus(area, true, true)}><i className="fa-solid fa-toggle-on" />{tx("Enable Area Map")}</button> : null}<button type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-layer-group" />{tx("Open sections")}</button><button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button></nav>
+            <nav><button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add section")}</button>{greenhouseMapBeta ? <button type="button" onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}><i className="fa-solid fa-draw-polygon" />{tx("Open Area Map")}</button> : null}<button type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-layer-group" />{tx("Open sections")}</button><button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button></nav>
           </div> : null}
         </article>)}
       </div> : null}

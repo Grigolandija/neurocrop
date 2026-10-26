@@ -1,3 +1,4 @@
+import type { GreenhouseMap } from '../greenhouse-map/model'
 import { neurocropApi } from '../../services/api/neurocropApi'
 import { insideLabel, polygonError, polygonsOverlap } from '../living-greenhouse/sitePlanEditing'
 import { rectangle, zoneBounds, type SitePlan, type SitePoint } from '../living-greenhouse/siteDemoModel'
@@ -6,8 +7,9 @@ export type FarmAreaKind='greenhouse'|'room'|'zone'
 export type FarmPlanArea={id:string;name:string;kind:FarmAreaKind;height:number;polygon:SitePoint[]}
 export type FarmPlanDocument={version:2;name:string;dimensions:{widthM:number;lengthM:number};areas:FarmPlanArea[]}
 export type FarmArea={id:string;name:string;kind?:string;mapEnabled:boolean;mapConfigured:boolean;sectionCount?:number;nodeCount?:number}
-export type FarmPlanContext={draftScope:string;plan:FarmPlanDocument;revision:number;updatedAt:string|null;areas:FarmArea[];permissions:{canEdit:boolean};capabilities?:{areaAuthoring:boolean}}
-export type FarmPlanSaved=Pick<FarmPlanContext,'plan'|'revision'|'updatedAt'|'areas'>
+export type FarmLayout={areaId:string;map:GreenhouseMap;revision:number;updatedAt?:string|null}
+export type FarmPlanContext={draftScope:string;layouts?:FarmLayout[];plan:FarmPlanDocument;revision:number;updatedAt:string|null;areas:FarmArea[];permissions:{canEdit:boolean};capabilities?:{areaAuthoring:boolean}}
+export type FarmPlanSaved=Pick<FarmPlanContext,'plan'|'revision'|'updatedAt'|'areas'|'layouts'>
 
 export const emptyFarmPlan=():FarmPlanDocument=>({version:2,name:'',dimensions:{widthM:50,lengthM:34},areas:[]})
 

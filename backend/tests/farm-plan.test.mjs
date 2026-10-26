@@ -59,12 +59,14 @@ test('invalid shape, out-of-bounds points, duplicate bindings and parent referen
 });
 
 // Exercise the actual route handlers and auth middleware without an external server or database.
-function harness({owned=['area-a'],conflict=false,failLinks=false,links={zone:'area-a'},savedPlan=null,previous=null,denyArea=false,blocked=false}={}){
+function harness({owned=['area-a'],conflict=false,failLinks=false,links={zone:'area-a'},savedPlan=null,previous=null,denyArea=false,blocked=false,layouts=[],nodes=[]}={}){
   const calls=[],routes=new Map();let released=false;
   const row={plan_data:savedPlan || validateFarmPlan(plan()).plan,revision:2,updated_at:'2026-10-26T12:00:00Z'};
   const database={query:async(sql,params)=>{
     calls.push({sql,params});
     assert.equal(params[0],'org-a');
+    if(sql.startsWith('SELECT gm.area_id'))return {rows:layouts};
+    if(sql.startsWith('SELECT n.area_id'))return {rows:nodes};
     return {rows:sql.includes('FROM farm_plans') ? [{...row,area_links:links}] : [{id:'area-a',name:'Existing Area',map_enabled:true,map_configured:true}]};
   },pool:{connect:async()=>({query:async(sql,params)=>{
     calls.push({sql,params});
@@ -93,7 +95,7 @@ test('loading a farm plan scopes both geometry and Areas to the authenticated or
   assert.equal(response.body.permissions.canEdit,false);
   assert.equal(response.body.plan.zones[0].areaId,'area-a');
   assert.equal(response.headers['Cache-Control'],'private, no-store');
-  assert.equal(h.calls.length,2);
+  assert.equal(h.calls.length,3);
   assert.ok(h.calls.every(call=>call.sql.includes('organization_id=$1')));
 });
 
@@ -237,4 +239,22 @@ test('a stale draft cannot recreate an Area deleted from another view',async()=>
   const result=await h.invoke('PATCH',{body:{plan:input,expectedRevision:1}});
   assert.equal(result.statusCode,409);assert.equal(result.body.error.code,'AREA_REMOVED');
   assert.equal(h.calls.some(c=>c.sql.startsWith('INSERT INTO areas')),false);
+});
+
+
+test('Whole farm receives real linked layouts, canonical outlines and authoritative Node heights',async()=>{
+  const savedPlan=authoredPlan(),map={name:'Old',shape:{type:'rectangle'},dimensions:{widthM:20,lengthM:20},objects:[{id:'node',type:'sensor-node',metadata:{sensor:{devEui:'AA11223344556677',installationHeightM:1}}},{id:'rack',type:'rack',xM:2,yM:1}]};
+  const h=harness({savedPlan,links:{'area-a':'area-a','area-b':'area-b'},layouts:[{area_id:'area-a',zone_id:'area-a',map_data:map,revision:5,updated_at:'now'}],nodes:[{area_id:'area-a',dev_eui:'aa11223344556677',installation_height_cm:250,installation_height_recorded_at:'2026-10-26'}]});
+  const res=await h.invoke('GET',{role:'viewer'}),layout=res.body.layouts[0];
+  assert.equal(layout.areaId,'area-a');assert.equal(layout.revision,5);assert.equal(layout.map.dimensions.widthM,8);assert.equal(layout.map.shape.type,'polygon');assert.equal(layout.map.name,'Room A');
+  assert.equal(layout.map.objects[0].metadata.sensor.installationHeightM,2.5);assert.deepEqual(layout.map.objects[1],map.objects[1]);assert.equal(map.objects[0].metadata.sensor.installationHeightM,1);
+  const lookup=h.calls.find(c=>c.sql.startsWith('SELECT gm.area_id'));
+  assert.match(lookup.sql,/JOIN farm_plan_area_links/);assert.match(lookup.sql,/l.organization_id=gm.organization_id/);assert.deepEqual(lookup.params,['org-a']);
+  assert.ok(h.calls.every(c=>c.sql.includes('organization_id=$1')));
+});
+
+test('legacy linked zones keep the correct local footprint in Whole farm',async()=>{
+  const h=harness({layouts:[{area_id:'area-a',zone_id:'zone',map_data:{objects:[]},revision:1}]});
+  const layout=(await h.invoke('GET')).body.layouts[0];
+  assert.equal(layout.map.dimensions.widthM,5);assert.equal(layout.map.dimensions.lengthM,5);
 });
