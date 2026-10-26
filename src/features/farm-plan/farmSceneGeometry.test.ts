@@ -4,7 +4,7 @@ import { objectGeometry } from '../living-greenhouse/objectGeometry'
 import { snapObjectToMapWall } from '../greenhouse-map/geometry'
 import { emptyFarmPlan } from './farmPlanData'
 import { farmEditorMap,newFarmObject } from './farmLayoutData'
-import { highlightFarmArea,wholeFarmGeometry,wholeFarmSceneMesh } from './farmSceneGeometry'
+import { farmSceneEmphasis,highlightFarmArea,wholeFarmGeometry,wholeFarmSceneMesh } from './farmSceneGeometry'
 
 const contains=(haystack:Float32Array,needle:Float32Array)=>{
   for(let i=0;i<=haystack.length-needle.length;i+=6){
@@ -23,6 +23,23 @@ function fixture(){
 }
 
 describe('whole-farm hover presentation',()=>{
+  it('keeps the selected monitoring Area in focus even when hovering another Area',()=>{
+    expect(farmSceneEmphasis('a','b',true)).toEqual({areaId:'a',opacity:.06,fade:.88})
+    expect(farmSceneEmphasis('a',null,true)).toEqual({areaId:'a',opacity:.06,fade:.88})
+    expect(farmSceneEmphasis(null,'b',true)).toEqual({areaId:'b',opacity:.4,fade:0})
+    expect(farmSceneEmphasis('a','b',false)).toEqual({areaId:'b',opacity:.4,fade:0})
+  })
+  it('makes neighbouring equipment barely visible without bleaching the selected Area or saved mesh',()=>{
+    const {plan,maps}=fixture(),mesh=wholeFarmSceneMesh(plan,maps),snapshot=new Float32Array(mesh.vertices)
+    const hovered=highlightFarmArea(mesh,'a'),selected=highlightFarmArea(mesh,'a',.88)
+    expect(selected.vertices).toEqual(hovered.vertices)
+    const background=[.965,.973,.953]
+    for(let i=0;i<selected.surfaces.length;i+=6){
+      expect(selected.surfaces.subarray(i,i+3)).toEqual(hovered.surfaces.subarray(i,i+3))
+      for(let c=0;c<3;c++)expect(Math.abs(selected.surfaces[i+3+c]-background[c])).toBeLessThan(.121)
+    }
+    expect(mesh.vertices).toEqual(snapshot)
+  })
   it('tints only Area floors for comparison without changing equipment, positions or stored plans',()=>{
     const {plan,maps}=fixture(),snapshot=JSON.stringify({plan,maps}),original=wholeFarmSceneMesh(plan,maps),tinted=wholeFarmSceneMesh(plan,maps,{a:[.2,.4,.6]})
     expect(tinted.vertices.length).toBe(original.vertices.length)

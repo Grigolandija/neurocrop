@@ -1,10 +1,30 @@
 import { describe,expect,it,vi } from 'vitest'
+import { emptyFarmPlan,farmPlanScene } from './farmPlanData'
+import { rectangle } from '../living-greenhouse/siteDemoModel'
+import { planToScene } from '../living-greenhouse/sceneMath'
 import type { LivingSceneCamera } from '../living-greenhouse/gpuScene'
-import { createFarmViewMemory,farmViewKey,rememberFarmScene,restoreFarmScene } from './farmViewMemory'
+import { createFarmViewMemory,focusFarmSceneArea,farmViewKey,rememberFarmScene,restoreFarmScene } from './farmViewMemory'
 
 describe('farm drawing and 3D view navigation',()=>{
   const dimensions={widthM:50,lengthM:34}
   const camera:LivingSceneCamera={azimuth:1.3,elevation:.9,zoom:1.7,target:[-12,2,5],extent:9}
+  it('fits the selected Area rather than its neighbours or the farm storage bounds',()=>{
+    const document={...emptyFarmPlan(),areas:[
+      {id:'a',name:'Small room',kind:'room' as const,height:3,polygon:rectangle(2,4,8,5)},
+      {id:'b',name:'Distant room',kind:'room' as const,height:4,polygon:rectangle(30,20,12,10)}
+    ]}
+    const plan=farmPlanScene(document),scene={focus:vi.fn()}
+    focusFarmSceneArea(scene,plan,'a',1.05)
+    const target=planToScene(6,6.5,3*.3,document.dimensions)
+    expect(scene.focus).toHaveBeenLastCalledWith(target,8*1.05)
+    focusFarmSceneArea(scene,plan,'b',1.05)
+    expect(scene.focus).toHaveBeenLastCalledWith(planToScene(36,25,4*.3,document.dimensions),12*1.05)
+  })
+  it('resets the focus for an empty farm',()=>{
+    const scene={focus:vi.fn()}
+    focusFarmSceneArea(scene,farmPlanScene(emptyFarmPlan()))
+    expect(scene.focus).toHaveBeenCalledWith(null)
+  })
   it('retains separate cameras for the whole farm and each Area across a scene remount',()=>{
     const memory=createFarmViewMemory('account-a')
     rememberFarmScene(memory.scene,farmViewKey(),{getCamera:()=>camera},dimensions)
