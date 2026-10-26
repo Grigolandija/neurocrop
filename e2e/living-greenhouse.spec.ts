@@ -377,3 +377,88 @@ for(const engine of ['WebGPU','WebGL'] as const){
     expect(errors).toEqual([])
   })
 }
+
+for (const engine of ['WebGPU', 'WebGL'] as const) {
+  test(`farm selection preserves the viewport and detailed heatmap renders a movable section in ${engine}`, async ({ page }) => {
+    test.setTimeout(90000)
+    const errors: string[] = []
+    page.on('pageerror', error => errors.push(error.message))
+    page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
+    if (engine === 'WebGL') await page.addInitScript(() => Object.defineProperty(navigator, 'gpu', { value: undefined, configurable: true }))
+    await page.addInitScript(() => localStorage.setItem('neurocrop-interface-language-v1', 'en'))
+    const now = new Date().toISOString(), api = 'http://farm-section.test'
+    const areas = ['a', 'b'].map((id, i) => ({ id, name: `Room ${i + 1}`, kind: 'room', mapEnabled: true, mapConfigured: true, sectionCount: 1 }))
+    const positions = [[1, 1, .8, 18], [6, 3, 2.4, 25], [2, 3.5, 1.5, 21]]
+    const nodes = positions.map(([x, y, height, value], i) => ({ devEui: `001122334455660${i}`, displayName: `Section sensor ${i + 1}`, nodeId: `Section sensor ${i + 1}`, areaId: 'a', sectionId: 's', status: 'online', sensors: ['sht45'], installationHeightM: height, lastSeenAt: now, measurementHeightsM: { 'air-temperature': height }, measurements: { airTemperatureC: value, measuredAt: now }, x, y }))
+    const map = { schemaVersion: 1, id: 'a-map', areaId: 'a', name: 'Room 1', dimensions: { widthM: 8, lengthM: 5, heightM: 3 }, shape: { type: 'rectangle' }, gridSizeM: .25, orientationDeg: 0, wallThicknessM: .01, createdAt: now, updatedAt: now,
+      layers: [{ id: 'sensors', visible: true, opacity: 1 }, { id: 'cultivation', visible: true, opacity: 1 }],
+      heatmapSettings: { enabled: true, metric: 'air-temperature', interpolationMethod: 'idw', idwPower: 2, cellSizeM: .25, nearestSensorCount: 5, minimumSensorCount: 2, maxInfluenceDistanceM: 15, maxReadingAgeMinutes: 30, opacity: .88, scaleMode: 'auto', showConfidence: true },
+      objects: [...nodes.map(node => ({ id: node.devEui, type: 'sensor-node', name: node.displayName, xM: node.x, yM: node.y, widthM: .2, lengthM: .2, rotationDeg: 0, visible: true, layerId: 'sensors', metadata: { sensor: node } })), { id: 'table', type: 'growing-table', name: 'Growing table', xM: 1, yM: 2, widthM: 5, lengthM: 1, rotationDeg: 0, visible: true, layerId: 'cultivation', metadata: {} }],
+    }
+    const otherMap = { ...map, id: 'b-map', areaId: 'b', name: 'Room 2', objects: [] }
+    const rectangle = (x: number) => [{ xM: x, yM: 0 }, { xM: x + 8, yM: 0 }, { xM: x + 8, yM: 5 }, { xM: x, yM: 5 }]
+    const contexts = Object.fromEntries(areas.map((area, i) => [area.id, { area, mapEnabled: true, nodes: i ? [] : nodes, revision: 1, updatedAt: now, sections: [], profiles: [], permissions: { canEdit: true }, map: i ? otherMap : map }]))
+    await page.route('**/runtime-config.js*', route => route.fulfill({ contentType: 'application/javascript', body: `window.NEUROCROP_CONFIG={apiBaseUrl:'${api}'};` }))
+    await page.route(`${api}/**`, async route => {
+      const path = new URL(route.request().url()).pathname
+      let data: unknown = {}
+      if (path === '/auth/me') data = { user: { id: 'farm-section', email: 'farm@example.test', name: 'Farm', role: 'owner', organizationId: 'test' } }
+      if (path === '/areas') data = { areas }
+      if (path === '/sections') data = { sections: [{ id: 's', areaId: 'a', name: 'Room 1', isAreaDefault: true }] }
+      if (path === '/nodes') data = { nodes }
+      if (path === '/crop-profiles') data = { profiles: [] }
+      if (path === '/dashboard') data = { sites: areas.map(area => ({ ...area, zones: area.id === 'a' ? [{ id: 's', name: 'Room 1', sensorCount: 3, conditionStatus: 'optimal', score: 90 }] : [] })) }
+      if (path === '/farm-plan') data = { draftScope: 'test', revision: 1, updatedAt: now, areas, permissions: { canEdit: true }, plan: { version: 2, name: 'Test farm', dimensions: { widthM: 20, lengthM: 10 }, areas: areas.map((area, i) => ({ ...area, height: 3, polygon: rectangle(i * 9) })) }, layouts: areas.map(area => ({ areaId: area.id, map: contexts[area.id].map, revision: 1 })) }
+      if (path === '/areas/a/map') data = contexts.a
+      if (path === '/areas/b/map') data = contexts.b
+      if (path.endsWith('/map/history')) data = { from: now, to: now, stepMinutes: 15, frames: [], layouts: [] }
+      await route.fulfill({ json: data })
+    })
+    await page.setViewportSize({ width: 1600, height: 1050 })
+    await page.goto('/')
+    await page.locator('[data-product-choice="greenhouse"]').click()
+    const farm = page.locator('.nc-farm-scene'), farmCanvas = farm.locator('canvas')
+    await farm.scrollIntoViewIfNeeded()
+    await expect(farmCanvas).toBeVisible()
+    await expect(page.locator('.nc-farm-comparison-legend')).toHaveCount(0)
+    const before = await farmCanvas.boundingBox()
+    const other = farm.getByRole('button', { name: 'Room 2', exact: true })
+    await expect(other).toBeVisible()
+    const transform = await other.evaluate(element => element.style.transform)
+    await farm.getByRole('button', { name: 'Room 1', exact: true }).click()
+    await expect(page.locator('.nc-farm-area-summary')).toBeVisible()
+    expect(await farmCanvas.boundingBox()).toEqual(before)
+    await expect.poll(() => other.evaluate(element => element.style.transform)).toBe(transform)
+    await page.getByRole('button', { name: 'Open detailed heatmap', exact: true }).click()
+    const detail = page.locator('.nc-farm-detail-map')
+    await expect(detail.getByRole('button', { name: '2D', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(detail.locator('.gh-canvas-shell')).toBeVisible()
+    await detail.getByRole('button', { name: '3D', exact: true }).click()
+    await expect(detail.locator('.nc-living-stage')).toHaveAttribute('data-renderer', engine, { timeout: 20000 })
+    const controls = detail.getByRole('group', { name: 'Section direction', exact: true })
+    await expect(controls.getByRole('button', { name: 'Vertical', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    const canvas = detail.locator('.nc-living-canvas > canvas')
+    const capture = async () => {
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+      return canvas.screenshot({ animations: 'disabled' })
+    }
+    const section = await capture()
+    await controls.getByRole('button', { name: 'Horizontal', exact: true }).click()
+    await expect(controls.getByRole('button', { name: 'Horizontal', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    const slider = detail.locator('.nc-living-slice-controls input[type="range"]')
+    await slider.fill('0.6')
+    await expect.poll(async () => (await capture()).equals(section), { message: 'Moving the section must change actual rendered pixels', timeout: 10000 }).toBe(false)
+    await slider.fill('2.4')
+    await expect(detail.locator('.nc-living-slice-controls output')).toContainText('2.4 m')
+    await detail.getByRole('button', { name: 'Auto', exact: true }).click()
+    await expect(controls.getByRole('button', { name: 'Vertical', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(detail.locator('.nc-living-pin')).toHaveCount(3)
+    await detail.getByRole('button', { name: 'Back to Area overview', exact: true }).click()
+    await expect(page.locator('.nc-farm-area-summary')).toBeVisible()
+    const restored = await farmCanvas.boundingBox()
+    expect(restored?.width).toBe(before?.width)
+    expect(restored?.height).toBe(before?.height)
+    expect(await other.evaluate(element => element.style.transform)).toBe(transform)
+    expect(errors).toEqual([])
+  })
+}
