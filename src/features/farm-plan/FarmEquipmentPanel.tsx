@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { GreenhouseMap,GreenhouseObject,ObjectType } from '../greenhouse-map/model'
 import ObjectLibraryPanel from '../greenhouse-map/components/ObjectLibraryPanel'
 import ObjectPropertiesPanel from '../greenhouse-map/components/ObjectPropertiesPanel'
+import EquipmentCollisionNotice from '../greenhouse-map/components/EquipmentCollisionNotice'
 import type { AreaMapContext,AreaMapNode } from '../greenhouse-map/services/areaMapRepository'
 import FarmNodeInspector from './FarmNodeInspector'
 
@@ -17,8 +18,9 @@ export default function FarmEquipmentPanel({tab,map,selectedId,selectedIds,conte
   const available=(context?.nodes || []).filter(n=>n.devEui && !placed.has(n.devEui.toLowerCase()))
   return <section className="nfa-equipment-panel" aria-label={tab==='nodes' ? 'Nodes' : tab==='sections' ? 'Sections' : (lt ? 'Įranga' : 'Equipment')}>
     {contextError && <p className="nfa-message" role="alert">{contextError}</p>}
+    {tab==='equipment' && (!object || selectedIds.length>1) && <EquipmentCollisionNotice map={map} selectedIds={selectedIds} language={language} onSelect={onSelect} />}
     {selectedIds.length>1 ? <p className="nfa-hint">{lt ? 'Tempkite pasirinktą įrangą kartu. Vieną objektą pasirinkite matmenims keisti.' : 'Drag the selected equipment together. Select one object to resize it.'}</p> : object ? <>
-      {object.metadata.sensor?.devEui ? <FarmNodeInspector key={`${object.id}-${context?.nodes.find(n=>n.devEui===object.metadata.sensor?.devEui)?.installationConfirmedAt || ''}`} object={object} map={map} context={context} lt={lt} onUpdate={onUpdate} onHeight={onNodeHeight} onSection={onAssignSection} /> : <ObjectPropertiesPanel map={map} selected={[object]} onUpdate={onUpdate} onAlign={()=>{}} language={language} />}
+      {object.metadata.sensor?.devEui ? <FarmNodeInspector key={`${object.id}-${context?.nodes.find(n=>n.devEui===object.metadata.sensor?.devEui)?.installationConfirmedAt || ''}`} object={object} map={map} context={context} lt={lt} onUpdate={onUpdate} onHeight={onNodeHeight} onSection={onAssignSection} /> : <ObjectPropertiesPanel map={map} selected={[object]} onUpdate={onUpdate} onAlign={()=>{}} language={language} onSelect={onSelect} />}
     </> : tab==='nodes' ? <>
       {loading ? <p role="status">{lt ? 'Kraunami jutikliai…' : 'Loading Nodes…'}</p> : <div className="nfa-node-tray">{placedNodes.map(o=><button key={o.id} type="button" onClick={()=>onSelect(o.id)}><i className="fa-solid fa-microchip" /><span>{o.name}<small>{o.metadata.sensor?.installationHeightM==null ? (lt ? 'Nurodyti aukštį' : 'Set height') : `${o.metadata.sensor.installationHeightM} m`}</small></span><i className="fa-solid fa-pen" /></button>)}{available.map(node=><button key={node.devEui} type="button" onClick={()=>onAdd('sensor-node',node)}><i className="fa-solid fa-microchip" /><span>{node.displayName || node.nodeId}<small>{lt ? 'Pridėti į brėžinį' : 'Place in drawing'}</small></span><i className="fa-solid fa-plus" /></button>)}</div>}
       {!loading && !available.length && !placedNodes.length && <p className="nfa-hint">{!context ? (lt ? 'Išsaugokite Area, kad galėtumėte priskirti jutiklius.' : 'Save this Area to assign Nodes.') : (lt ? 'Šiai Area dar nepriskirta jutiklių.' : 'No Nodes assigned to this Area yet.')}</p>}

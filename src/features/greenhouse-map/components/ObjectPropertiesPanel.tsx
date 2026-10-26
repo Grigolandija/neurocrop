@@ -1,6 +1,8 @@
 import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type SensorNodeMetadata } from '../model'
 import { isWallMountedType } from '../geometry'
 import NumericInput from './NumericInput'
+import EquipmentPlacementFields from './EquipmentPlacementFields'
+import EquipmentCollisionNotice from './EquipmentCollisionNotice'
 import { DOOR_TYPES, doorConfiguration, doorOpening, type DoorType } from '../doorConfiguration'
 
 type Props = {
@@ -9,9 +11,10 @@ type Props = {
   onUpdate: (id: string, patch: Partial<GreenhouseObject>) => void
   onAlign: (edge: 'left' | 'center' | 'right' | 'bottom' | 'middle' | 'top') => void
   language?: 'en' | 'lt'
+  onSelect?: (id:string)=>void
 }
 
-export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign, language = 'en' }: Props) {
+export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign, language = 'en',onSelect }: Props) {
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
   if (!selected.length) return <aside className="gh-right-panel"><div className="gh-empty-selection"><span><i className="fa-solid fa-arrow-pointer" /></span><h2>{tr('No object selected', 'Objektas nepasirinktas')}</h2><p>{tr('Select an object to edit its placement and dimensions.', 'Pasirinkite objektą, kad pakeistumėte jo vietą ir matmenis.')}</p><small>{tr('Shift-click selects multiple objects.', 'Shift + paspaudimas pasirenka kelis objektus.')}</small></div></aside>
 
@@ -57,6 +60,8 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
       {!sensor ? <label className="gh-field wide"><span>{wallMounted ? tr('Mounted wall', 'Tvirtinimo siena') : `${tr('Rotation', 'Pasukimas')} °`}</span>{wallMounted
         ? <input value={object.metadata.wallMount?.edgeIndex!==undefined ? `${tr('Wall','Siena')} ${object.metadata.wallMount.edgeIndex+1}` : object.metadata.wallMount?.wall ?? tr('Automatic', 'Automatinė')} readOnly />
         : <NumericInput disabled={placementLocked} value={Number(object.rotationDeg.toFixed(1))} onCommit={(value) => onUpdate(object.id, { rotationDeg: value ?? object.rotationDeg })} />}</label> : null}
+      {!sensor && <EquipmentPlacementFields object={object} map={map} disabled={placementLocked} language={language} onChange={equipmentPlacement=>patchMetadata({equipmentPlacement})} />}
+      {!sensor && <EquipmentCollisionNotice map={map} selectedIds={[object.id]} language={language} onSelect={onSelect} />}
       {wallMounted ? <p className="gh-muted"><i className="fa-solid fa-magnet" /> {tr('Drag toward another perimeter wall to remount it.', 'Nutempkite prie kitos sienos, kad pakeistumėte tvirtinimą.')}</p> : null}
       <div className="gh-toggle-row"><label><input disabled={layerLocked} type="checkbox" checked={object.locked} onChange={(event) => onUpdate(object.id, { locked: event.target.checked })} /><span>{tr('Lock placement', 'Užrakinti vietą')}</span></label></div>
       <label className="gh-field wide"><span>{tr('Notes', 'Pastabos')}</span><textarea disabled={placementLocked} value={object.metadata.notes ?? ''} placeholder={tr('Installation or planning notes…', 'Montavimo arba planavimo pastabos…')} onChange={(event) => patchMetadata({ notes: event.target.value })} /></label>

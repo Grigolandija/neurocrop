@@ -1,7 +1,7 @@
 import type { GreenhouseMap } from '../greenhouse-map/model'
 import type { AreaMapSaveResult } from '../greenhouse-map/services/areaMapRepository'
 import { farmPlanSignature,type FarmPlanDocument,type FarmPlanSaved } from './farmPlanData'
-import { farmEditorMap,invalidFarmObjects,layoutSignature,storedFarmMap,type FarmMaps } from './farmLayoutData'
+import { farmEditorMap,invalidFarmObjects,invalidFarmEquipmentHeights,layoutSignature,storedFarmMap,type FarmMaps } from './farmLayoutData'
 export type LayoutBase={revision:number;signature:string}
 export type LayoutBases=Record<string,LayoutBase>
 export const changedFarmLayouts=(plan:FarmPlanDocument,maps:FarmMaps,bases:LayoutBases)=>plan.areas.filter(a=>maps[a.id] && layoutSignature(maps[a.id])!==(bases[a.id]?.signature || '')).map(a=>a.id)
@@ -18,6 +18,8 @@ export async function persistFarmWorkspace(input:{plan:FarmPlanDocument;maps:Far
   const {plan,maps,bases}=input
   const invalid=invalidFarmObjects(plan,maps)
   if(invalid.length)throw new Error(`Objects outside the Area or not mounted on a wall: ${invalid.slice(0,5).map(o=>o.name).join(', ')}. Adjust them in Equipment & Nodes before saving.`)
+  const invalidHeights=invalidFarmEquipmentHeights(plan,maps)
+  if(invalidHeights.length)throw new Error(`Equipment does not fit between the floor and ceiling: ${invalidHeights.slice(0,5).map(o=>o.name).join(', ')}. Adjust its height or mounting offset in Properties before saving.`)
   const dirtyIds=changedFarmLayouts(plan,maps,bases)
   let fresh:FarmPlanSaved|undefined
   if(farmPlanSignature(plan)!==input.baseline){fresh=await input.savePlan(plan,input.revision);input.onPlanSaved(fresh,dirtyIds)}

@@ -10,6 +10,12 @@ const setup=()=>{
 }
 
 describe('unified farm saving',()=>{
+  it('rejects equipment above the ceiling before any plan or equipment writes',async()=>{
+    const {plan,id,edited,bases}=setup(),savePlan=vi.fn(),saveMap=vi.fn(),enableMap=vi.fn()
+    edited.objects[0].metadata.equipmentPlacement={mount:'wall',heightM:1,offsetM:2.5}
+    await expect(persistFarmWorkspace({plan,maps:{[id]:edited},bases,baseline:'old',revision:1,savePlan,saveMap,enableMap,onPlanSaved:()=>{},onMapSaved:()=>{}})).rejects.toThrow(/floor and ceiling/)
+    expect(savePlan).not.toHaveBeenCalled();expect(saveMap).not.toHaveBeenCalled();expect(enableMap).not.toHaveBeenCalled()
+  })
   it('adopts the new map revision after a geometry-only synchronization, never a competing equipment edit',()=>{
     const {id,map,edited,bases,fresh}=setup()
     expect(expectedLayoutRevision(id,bases,fresh)).toBe(4)

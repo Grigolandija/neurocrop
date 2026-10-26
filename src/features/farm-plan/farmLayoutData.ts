@@ -2,6 +2,7 @@ import { applyAreaGeometry,areaGeometry,objectFootprint,objectInsideOutline,vali
 import { createAreaMap,type AreaMapNode } from '../greenhouse-map/services/areaMapRepository'
 import { OBJECT_LIBRARY,type GreenhouseMap,type GreenhouseObject,type ObjectType } from '../greenhouse-map/model'
 import { isWallMountedType,placeObjectInside,sensorMarkerSizeM,snapObjectToMapWall } from '../greenhouse-map/geometry'
+import { equipmentPlacementModel,withDefaultEquipmentPlacement } from '../greenhouse-map/equipmentPlacementModel'
 import { defaultDoorHeight } from '../greenhouse-map/doorConfiguration'
 import type { FarmPlanDocument } from './farmPlanData'
 import { zoneBounds } from '../living-greenhouse/siteDemoModel'
@@ -43,7 +44,8 @@ export function newFarmObject(type:ObjectType,map:GreenhouseMap,position?:{xM:nu
   const entry=OBJECT_LIBRARY.find(e=>e.type===type)!,marker=sensorMarkerSizeM(map.dimensions)
   const [widthM,lengthM]=type==='sensor-node' ? [marker,marker] : entry.size.map(n=>Math.min(n,Math.min(map.dimensions.widthM,map.dimensions.lengthM)))
   const object:GreenhouseObject={id:crypto.randomUUID(),type,name:node?.displayName || node?.nodeId || `${entry.label} ${map.objects.filter(o=>o.type===type).length+1}`,xM:position?.xM ?? (map.dimensions.widthM-widthM)/2,yM:position?.yM ?? (map.dimensions.lengthM-lengthM)/2,widthM,lengthM,rotationDeg:0,layerId:entry.layerId,visible:true,locked:false,metadata:node ? {sensor:{...node}} : type==='door' ? {door:{type:'single',heightM:defaultDoorHeight(map.dimensions.heightM)}} : {}}
-  return isWallMountedType(type) ? snapObjectToMapWall(object,map) : placeObjectInside(object,map)
+  const placed=isWallMountedType(type) ? snapObjectToMapWall(object,map) : placeObjectInside(object,map)
+  return withDefaultEquipmentPlacement(placed,map)
 }
 export type FarmOpening={key:string;areaId:string;object:GreenhouseObject;a:{xM:number;yM:number};b:{xM:number;yM:number};sill:number;height:number}
 export function farmOpenings(plan:FarmPlanDocument,maps:FarmMaps):FarmOpening[]{
@@ -76,5 +78,12 @@ export function invalidFarmObjects(plan:FarmPlanDocument,maps:FarmMaps){
   return plan.areas.flatMap(area=>{
     const map=farmEditorMap(plan,area.id,maps)
     return map.objects.filter(o=>!objectInsideOutline(o,map) || (isWallMountedType(o.type) && !validOutlineMount(o,map))).map(o=>({areaId:area.id,id:o.id,name:o.name}))
+  })
+}
+
+export function invalidFarmEquipmentHeights(plan:FarmPlanDocument,maps:FarmMaps){
+  return plan.areas.flatMap(area=>{
+    const map=farmEditorMap(plan,area.id,maps)
+    return map.objects.filter(o=>o.metadata.equipmentPlacement && equipmentPlacementModel(o,map)?.fits===false).map(o=>({areaId:area.id,id:o.id,name:o.name}))
   })
 }

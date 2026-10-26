@@ -1,5 +1,6 @@
 import type { GreenhouseMap, GreenhouseObject } from '../greenhouse-map/model'
 import { planToScene, type Vec3 } from './sceneMath'
+import { equipmentPlacementBounds,equipmentVerticalBounds,resolveEquipmentPlacement,supportsEquipmentPlacement } from '../greenhouse-map/equipmentPlacement'
 import { doorConfiguration } from '../greenhouse-map/doorConfiguration'
 
 type Color = [number, number, number]
@@ -17,10 +18,15 @@ const tau = Math.PI * 2
  * Glazing is represented by open frames and fine reflection lines so that
  * equipment inside remains visible in the depth-based climate composite.
  */
-export function objectGeometry(object: GreenhouseObject, dimensions: GreenhouseMap['dimensions'], roomHeight: number, ceilingHeight = roomHeight): Float32Array {
+export function objectGeometry(object: GreenhouseObject, dimensions: GreenhouseMap['dimensions'], roomHeight: number, ceilingHeight = roomHeight, options:{bodyOnly?:boolean;ignorePlacement?:boolean}={}): Float32Array {
   if (!object.visible || ['sensor-node', 'section-zone', 'technical-zone', 'text-label'].includes(object.type)) return new Float32Array()
   const { widthM: ow, lengthM: od, type } = object
   if (![ow, od, object.xM, object.yM, object.rotationDeg, roomHeight].every(Number.isFinite) || ow <= 0 || od <= 0 || roomHeight <= 0 || !Number.isFinite(ceilingHeight) || ceilingHeight <= 0) return new Float32Array()
+  const configured=supportsEquipmentPlacement(object) && !!object.metadata.equipmentPlacement && !options.ignorePlacement
+  const mountingCeiling=ceilingHeight
+  // A saved physical size must not change when its room is resized. Build a
+  // room-independent template, then apply the recorded body height and anchor.
+  if(configured){roomHeight=Math.max(10,ow*4,od*4);ceilingHeight=roomHeight}
   const orientAlongLongSide = ['door', 'window', 'ventilation-opening', 'rack', 'growing-table', 'hydroponic-channel', 'growing-bed', 'lamp'].includes(type) && od > ow
   const w = orientAlongLongSide ? od : ow, d = orientAlongLongSide ? ow : od
   const angle = object.rotationDeg * Math.PI / 180
@@ -222,7 +228,7 @@ export function objectGeometry(object: GreenhouseObject, dimensions: GreenhouseM
     }
     for(const x of [-w*.35,w*.35]) {
       box(x,y+.05,0,.035,.035,d,metal)
-      tube([x,y+.07,0],[x,Math.max(y+.07,ceilingHeight-.04),0],.005,dark,6)
+      if(!configured && !options.bodyOnly)tube([x,y+.07,0],[x,Math.max(y+.07,ceilingHeight-.04),0],.005,dark,6)
     }
   } else if (type === 'ibc-tank') {
     const h=Math.min(1.18,roomHeight*.92), rail=Math.min(.018,w*.018,d*.018)
@@ -343,6 +349,15 @@ export function objectGeometry(object: GreenhouseObject, dimensions: GreenhouseM
     box(0,.012,0,w,.022,d,[.88,.90,.86])
   } else if (type === 'rectangle') {
     box(0,.015,0,w,.025,d,[.73,.79,.70])
+  }
+  if(configured && vertices.length){
+    const bounds=equipmentVerticalBounds(vertices),placement=resolveEquipmentPlacement(object,bounds,mountingCeiling),target=equipmentPlacementBounds(placement,mountingCeiling)
+    const scale=placement.heightM/Math.max(.00001,bounds.top-bounds.bottom)
+    for(let i=1;i<vertices.length;i+=6)vertices[i]=target.bottom+(vertices[i]-bounds.bottom)*scale
+    // Cables are mounting hardware, not part of the user-entered fixture height.
+    if(type==='lamp' && placement.mount==='ceiling' && !options.bodyOnly && target.top<mountingCeiling-.04){
+      for(const x of [-w*.35,w*.35])tube([x,target.top,0],[x,mountingCeiling-.04,0],.005,dark,6)
+    }
   }
   return new Float32Array(vertices)
 }

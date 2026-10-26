@@ -221,3 +221,16 @@
   .nfa-header-start .nfa-location > select { max-width: 95px; }
   .nfa-location > i { display: none; }
 }
+
+.nfa-equipment-panel .gh-equipment-placement { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(160px,1fr) minmax(280px,2fr); gap: 10px 16px; padding-top: 12px; border-top: 1px solid #e4eae1; }
+.nfa-equipment-panel .gh-equipment-placement > p { grid-column: 1 / -1; margin: 0; }
+.nfa-equipment-panel .gh-equipment-placement [role="alert"] { color: #a36336; }
+@media(max-width:650px) { .nfa-equipment-panel .gh-equipment-placement { grid-template-columns: 1fr; } }
+
+.nfa-alignment-guides { pointer-events: none; }
+.nfa-alignment-guides line { stroke: #397fa2; stroke-width: 1px; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+
+.nfa-gear [data-collision="true"]:not([data-invalid="true"]) > polygon { stroke: #b47727; stroke-width: 2px; }
+.nfa-equipment-panel .gh-equipment-collisions { margin-bottom: 12px; border-color: #ecd8ad; }
+.nfa-equipment-panel .gh-equipment-collisions :is(summary,small,p) { color: #885f25; }
+.nfa-equipment-panel .gh-equipment-collisions strong { font-size: 12px; }

@@ -63,10 +63,12 @@ export type SensorNodeMetadata = {
   lastMeasurements?: SensorMeasurements
 }
 
+export type EquipmentPlacement={mount:'floor'|'wall'|'ceiling';heightM:number;offsetM:number}
 export type ObjectMetadata = {
   status?: string
   notes?: string
   color?: string
+  equipmentPlacement?: EquipmentPlacement
   door?: {
     type: 'single' | 'double' | 'sliding'
     heightM?: number

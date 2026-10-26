@@ -3,6 +3,7 @@ import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type ObjectT
 import { clampObjectPosition, isWallMountedType, sensorMarkerSizeM, snapRectanglePosition, snapSectionToWalls, snapWallMountedObject, snapObjectToMapWall, placeObjectInside } from './geometry'
 import { mapRepository } from './services/mapRepository'
 import { createDemoMap } from './demo'
+import { withDefaultEquipmentPlacement } from './equipmentPlacementModel'
 import { defaultDoorHeight } from './doorConfiguration'
 
 type History = { past: GreenhouseMap[]; present: GreenhouseMap; future: GreenhouseMap[] }
@@ -51,7 +52,7 @@ function createObject(type: ObjectType, map: GreenhouseMap, xM?: number, yM?: nu
       },
     } : type === 'door' ? { door: { type: 'single', heightM: defaultDoorHeight(map.dimensions.heightM) } } : {},
   }
-  return isWallMountedType(type) ? snapObjectToMapWall(object,map) : placeObjectInside(object,map)
+  return withDefaultEquipmentPlacement(isWallMountedType(type) ? snapObjectToMapWall(object,map) : placeObjectInside(object,map),map)
 }
 
 export function normalizeMapGeometry(map: GreenhouseMap): GreenhouseMap {
