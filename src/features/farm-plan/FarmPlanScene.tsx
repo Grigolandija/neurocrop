@@ -11,7 +11,9 @@ import type { FarmMaps } from './farmLayoutData'
 import './farm-plan.css'
 const EMPTY_MAPS:FarmMaps={}
 
-export default function FarmPlanScene({plan:document,areas,onAreaSelect,selectedAreaId,maps=EMPTY_MAPS}:{maps?:FarmMaps;plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null}){
+export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAreaId,isolatedAreaId,maps=EMPTY_MAPS}:{maps?:FarmMaps;plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null;isolatedAreaId?:string|null}){
+  // Scope only the rendered document; retain original coordinates and all persisted layouts.
+  const document=useMemo(()=>isolatedAreaId ? {...source,areas:source.areas.filter(a=>a.id===isolatedAreaId)} : source,[source,isolatedAreaId])
   const plan=useMemo(()=>farmPlanScene(document),[document])
   const {language}=useInterfaceLanguage(),lt=language==='lt'
   const [hovered,setHovered]=useState<string|null>(null)
@@ -69,7 +71,7 @@ export default function FarmPlanScene({plan:document,areas,onAreaSelect,selected
       onPointerLeave={()=>setHovered(null)} onPointerCancel={()=>{down.current=null}}
       onPointerUp={event=>{const start=down.current;down.current=null;if(!start || start.id!==event.pointerId || start.moved || interactive(event) || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)return;select(hit(event)?.areaId)}}>
       <svg className="nc-farm-zone-outlines" aria-hidden="true">{plan.zones.map(zone=><polygon key={zone.id} data-active={zone.id===hovered || zone.id===selectedAreaId} ref={el=>{if(el)polygons.current.set(zone.id,el);else polygons.current.delete(zone.id)}} />)}</svg>
-      {plan.zones.map(zone=>{
+      {!isolatedAreaId && plan.zones.map(zone=>{
         const area=areas.find(a=>a.id===zone.areaId),name=area?.name || zone.name
         return <button type="button" key={zone.id} className="nc-farm-zone-label" title={area ? name : `${name} · ${lt ? 'Neišsaugota' : 'Unsaved'}`} ref={el=>{if(el)labels.current.set(zone.id,el);else labels.current.delete(zone.id)}} disabled={!area || !onAreaSelect} data-hovered={zone.id===hovered} data-selected={zone.id===selectedAreaId} aria-pressed={selectedAreaId===undefined ? undefined : zone.id===selectedAreaId} onPointerEnter={()=>setHovered(zone.id)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(zone.id)} onBlur={()=>setHovered(null)} onClick={()=>select(area?.id)}><span>{name}</span></button>
       })}
@@ -78,7 +80,7 @@ export default function FarmPlanScene({plan:document,areas,onAreaSelect,selected
       {!ready && !failed && <div className="nc-farm-scene-status" role="status">{lt ? 'Kraunamas ūkio planas…' : 'Loading farm plan…'}</div>}
       {failed && <div className="nc-farm-scene-status" role="status"><p>{lt ? 'Šioje naršyklėje 3D vaizdas nepasiekiamas. Zonas galite pasirinkti sąraše.' : '3D is unavailable in this browser. Select an Area below.'}</p><div>{plan.zones.filter(z=>z.areaId).map(z=><button type="button" key={z.id} onClick={()=>select(z.areaId)}>{areas.find(a=>a.id===z.areaId)?.name || z.name}</button>)}</div></div>}
     </div>
-    {onAreaSelect && <nav className="nc-farm-zone-list" aria-label={lt ? 'Plano erdvės' : 'Plan Areas'}>{plan.zones.filter(z=>z.areaId && areas.some(a=>a.id===z.areaId)).map(z=><button type="button" key={z.id} onClick={()=>select(z.areaId)}>{areas.find(a=>a.id===z.areaId)!.name}<i className="fa-solid fa-arrow-right" /></button>)}</nav>}
+    {onAreaSelect && !isolatedAreaId && <nav className="nc-farm-zone-list" aria-label={lt ? 'Plano erdvės' : 'Plan Areas'}>{plan.zones.filter(z=>z.areaId && areas.some(a=>a.id===z.areaId)).map(z=><button type="button" key={z.id} onClick={()=>select(z.areaId)}>{areas.find(a=>a.id===z.areaId)!.name}<i className="fa-solid fa-arrow-right" /></button>)}</nav>}
   </div>
 }
 
