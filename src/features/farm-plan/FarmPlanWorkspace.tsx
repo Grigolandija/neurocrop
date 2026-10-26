@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useCallback,useLayoutEffect,useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
 import { getDashboardState, setDashboardContext } from '../../state/dashboardStore'
@@ -11,6 +11,10 @@ import { areaMapRepository,type AreaMapContext,type AreaMapNode } from '../green
 import { farmEditorMap,layoutSignature,storedFarmMap,type FarmMaps } from './farmLayoutData'
 import { changedFarmLayouts,persistFarmWorkspace,type LayoutBases } from './farmPlanPersistence'
 import { nodeHeightCentimetres,refreshFarmNodeMetadata,unassignedFarmNodes } from './farmNodes'
+import FarmNavigationGuard from './FarmNavigationGuard'
+import FarmUnsavedDialog from './FarmUnsavedDialog'
+import { readFarmDraft,writeFarmDraft } from './farmDraftStorage'
+import { createFarmViewMemory } from './farmViewMemory'
 import './farm-plan.css'
 
 export default function FarmPlanWorkspace(){
@@ -24,6 +28,7 @@ export default function FarmPlanWorkspace(){
   const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[retry,setRetry]=useState(0)
   const [unassignedNodes,setUnassignedNodes]=useState<AreaMapNode[]>([]),[inventoryError,setInventoryError]=useState('')
   const savingRef=useRef(false)
+  const [draftError,setDraftError]=useState(''),[reloadRequested,setReloadRequested]=useState(false),[saveFailed,setSaveFailed]=useState(false),[pendingField,setPendingField]=useState(false)
   const cultivationRequest=location.pathname==='/farm-plan' && new URLSearchParams(location.search).get('cultivation')==='1' ? location.key : undefined
   const openedCultivation=useRef<string|undefined>(undefined)
   useEffect(()=>{
@@ -33,22 +38,23 @@ export default function FarmPlanWorkspace(){
     const frame=requestAnimationFrame(()=>{openedCultivation.current=cultivationRequest;if(areaId)setSelectedAreaId(areaId)})
     return ()=>cancelAnimationFrame(frame)
   },[cultivationRequest,location.search,plan])
-  const dirty=!!plan && (farmPlanSignature(plan)!==baseline || changedFarmLayouts(plan,maps,bases).length>0)
+  const viewMemory=useMemo(()=>createFarmViewMemory(context?.draftScope),[context?.draftScope])
+  const dirty=!!plan && (pendingField || farmPlanSignature(plan)!==baseline || changedFarmLayouts(plan,maps,bases).length>0)
   const previewAreas=useMemo(()=>plan?.areas.map(area=>({...context?.areas.find(a=>a.id===area.id),id:area.id,name:area.name,mapEnabled:context?.areas.find(a=>a.id===area.id)?.mapEnabled || false,mapConfigured:context?.areas.find(a=>a.id===area.id)?.mapConfigured || false})) || [],[plan,context])
-  const latest=useRef({maps,bases,plan});useEffect(()=>{latest.current={maps,bases,plan}},[maps,bases,plan])
+  const latest=useRef({maps,bases,plan});useLayoutEffect(()=>{latest.current={maps,bases,plan}},[maps,bases,plan])
   useEffect(()=>{
     let active=true
     farmPlanRepository.load().then(value=>{
       if(!active)return
-      let next=editableFarmPlan(value.plan),draftRevision=value.revision
+      let next=editableFarmPlan(value.plan),draftRevision=value.revision,restoredSelection:string|null=null
       let loadedMaps:FarmMaps=Object.fromEntries((value.layouts || []).map(l=>[l.areaId,l.map]))
       let loadedBases:LayoutBases=Object.fromEntries((value.layouts || []).map(l=>[l.areaId,{revision:l.revision,signature:layoutSignature(l.map)}]))
       if(value.permissions.canEdit)try{
-        const draft=JSON.parse(sessionStorage.getItem(`neurocrop-farm-draft:${value.draftScope}`) || 'null')
-        if(Number.isInteger(draft?.revision) && draft.revision>=0 && draft.plan){next=editableFarmPlan(draft.plan);draftRevision=draft.revision;if(draft.layouts && draft.layoutBases){loadedMaps={...loadedMaps,...draft.layouts};loadedBases={...loadedBases,...draft.layoutBases}}setNotice(lt ? 'Atkurtas neišsaugotas šios sesijos brėžinys.' : 'Restored your unsaved drawing.')}
-      }catch{/* A damaged draft never replaces the server plan. */}
+        const draft=readFarmDraft(sessionStorage,value.draftScope)
+        if(draft){next=draft.plan;draftRevision=draft.revision;restoredSelection=draft.selectedAreaId;loadedMaps={...loadedMaps,...draft.layouts};loadedBases={...loadedBases,...draft.layoutBases};setNotice(lt ? 'Atkurtas neišsaugotas šios sesijos brėžinys.' : 'Restored your unsaved drawing.')}
+      }catch{setNotice(lt ? 'Vietinio juodraščio atkurti nepavyko. Atverta serverio versija.' : 'The local draft could not be restored. Opened the server version.')}
       const params=new URLSearchParams(location.search)
-      if(value.permissions.canEdit && params.get('add')==='1'){const inserted=insertFarmArea(next,!lt);next=inserted.plan;setSelectedAreaId(inserted.id)}else{const requested=params.get('area');setSelectedAreaId(requested ? (next.areas.some(a=>a.id===requested) ? requested : null) : null)}
+      if(value.permissions.canEdit && params.get('add')==='1'){const inserted=insertFarmArea(next,!lt);next=inserted.plan;setSelectedAreaId(inserted.id)}else{const requested=params.get('area');setSelectedAreaId(requested ? (next.areas.some(a=>a.id===requested) ? requested : null) : restoredSelection)}
       setContext(value);setExpectedRevision(draftRevision);setMaps(loadedMaps);setBases(loadedBases);setPlan(next);setBaseline(farmPlanSignature(value.plan));setError(draftRevision!==value.revision ? (lt ? 'Serveryje yra naujesnis planas. Juodraštis išsaugotas šioje sesijoje; prieš atverdami serverio versiją atsisiųskite jį.' : 'The server has a newer plan. Download your preserved draft before loading the server version.') : '')
     }).catch(reason=>{if(active)setError(reason instanceof Error ? reason.message : 'Farm plan could not be loaded.')}).finally(()=>{if(active)setLoading(false)})
     return ()=>{active=false}
@@ -85,15 +91,29 @@ export default function FarmPlanWorkspace(){
     }).catch(reason=>{if(active)setContextError(reason instanceof Error ? reason.message : 'Area data could not be loaded.')}).finally(()=>{if(active)setContextLoading(false)})
     return ()=>{active=false}
   },[savedSelectedId,contextRetry])
-  useEffect(()=>{
+  const preserveDraft=useCallback(()=>{
     if(!context?.permissions.canEdit || !plan)return
-    try{const key=`neurocrop-farm-draft:${context.draftScope}`;if(dirty)sessionStorage.setItem(key,JSON.stringify({revision:expectedRevision,plan:farmPlanDocument(plan),layouts:Object.fromEntries(Object.entries(maps).map(([id,map])=>[id,storedFarmMap(map)])),layoutBases:bases}));else sessionStorage.removeItem(key)}catch{/* Server save remains available if session storage is blocked. */}
-  },[plan,maps,bases,context,dirty,expectedRevision])
+    try{
+      writeFarmDraft(sessionStorage,context.draftScope,dirty ? {revision:expectedRevision,plan,layouts:maps,layoutBases:bases,selectedAreaId} : null)
+      setDraftError('')
+    }catch{setDraftError(lt ? 'Vietinio juodraščio išsaugoti nepavyko. Prieš uždarydami išsaugokite serveryje arba atsisiųskite brėžinį.' : 'The local draft could not be saved. Save to the server or download your drawing before closing.')}
+  },[context,plan,dirty,expectedRevision,maps,bases,selectedAreaId,lt])
   useEffect(()=>{
-    if(!dirty)return
-    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=''}
-    window.addEventListener('beforeunload',warn);return ()=>window.removeEventListener('beforeunload',warn)
-  },[dirty])
+    let active=true
+    queueMicrotask(()=>{if(active)preserveDraft()})
+    return ()=>{active=false}
+  },[preserveDraft])
+  useEffect(()=>{
+    if(!dirty && !saving)return
+    const warn=(event:BeforeUnloadEvent)=>{preserveDraft();event.preventDefault();event.returnValue=''}
+    const hide=()=>{if(document.visibilityState==='hidden')preserveDraft()}
+    window.addEventListener('beforeunload',warn);document.addEventListener('visibilitychange',hide)
+    return ()=>{window.removeEventListener('beforeunload',warn);document.removeEventListener('visibilitychange',hide)}
+  },[dirty,saving,preserveDraft])
+  function reloadServer(){
+    if(context)try{writeFarmDraft(sessionStorage,context.draftScope,null)}catch{/* Loading the server is still possible when storage is blocked. */}
+    setPendingField(false);setReloadRequested(false);setLoading(true);setPlan(null);setContext(null);setMaps({});setBases({});setNodeContext(undefined);setNotice('');setError('');setSaveFailed(false);setDraftError('');setRetry(value=>value+1)
+  }
   function downloadDraft(){
     if(!plan)return
     const url=URL.createObjectURL(new Blob([JSON.stringify({plan:farmPlanDocument(plan),layouts:Object.fromEntries(Object.entries(maps).map(([id,map])=>[id,storedFarmMap(map)]))},null,2)],{type:'application/json'}))
@@ -102,8 +122,9 @@ export default function FarmPlanWorkspace(){
   const inspect=(areaId:string)=>{setDashboardContext({areaId,sectionId:''});navigate('/?farmArea='+encodeURIComponent(areaId))}
   async function save(){
     if(!plan || !context?.permissions.canEdit || savingRef.current || expectedRevision!==context.revision)return false
-    const validation=validateFarmAreaPlan(plan);if(validation){setError(validation);return false}
-    savingRef.current=true;setSaving(true);setError('');setNotice('')
+    if(!dirty)return true
+    const validation=validateFarmAreaPlan(plan);if(validation){setError(validation);setSaveFailed(true);return false}
+    savingRef.current=true;setSaving(true);setError('');setNotice('');setSaveFailed(false)
     try{
       await persistFarmWorkspace({plan,maps,bases,baseline,revision:expectedRevision,
         onBaseConfirmed:(id,revision)=>setBases(current=>({...current,[id]:{revision,signature:bases[id]?.signature || ''}})),
@@ -116,8 +137,9 @@ export default function FarmPlanWorkspace(){
         },onMapSaved:(id,result)=>{setMaps(current=>({...current,[id]:result.map}));setBases(current=>({...current,[id]:{revision:result.revision,signature:layoutSignature(result.map)}}))},
       })
       setNotice(lt ? 'Planas ir įrangos išdėstymas išsaugoti.' : 'Plan and equipment layout saved.');setContextRetry(n=>n+1)
-      await workspaceAccess.refresh();return true
-    }catch(reason){setError(reason instanceof Error ? reason.message : 'The drawing could not be saved.');return false}
+      try{await workspaceAccess.refresh()}catch{setNotice(lt ? 'Planas ir įranga išsaugoti. Paskyros būsenos atnaujinti nepavyko; prireikus perkraukite puslapį.' : 'Plan and equipment saved. Workspace status could not be refreshed; reload if needed.')}
+      return true
+    }catch(reason){setSaveFailed(true);setError(reason instanceof Error ? reason.message : 'The drawing could not be saved.');return false}
     finally{savingRef.current=false;setSaving(false)}
   }
   async function deleteArea(id:string){
@@ -193,12 +215,17 @@ export default function FarmPlanWorkspace(){
     savingRef.current=true;setSaving(true)
     try{await neurocropApi.updateSection(id,{areaId:selectedAreaId,name:name.trim(),cropProfile:profile});setContextRetry(n=>n+1);setNotice(lt ? 'Auginimo grupė išsaugota.' : 'Growing group saved.')}finally{savingRef.current=false;setSaving(false)}
   }
+  const saveState=saving ? 'saving' : context && expectedRevision!==context.revision ? 'conflict' : saveFailed && dirty ? 'error' : dirty ? 'dirty' : 'saved'
+  const saveLabel=saveState==='saving' ? (lt ? 'Saugoma…' : 'Saving…') : saveState==='conflict' ? (lt ? 'Versijų konfliktas' : 'Version conflict') : saveState==='error' ? (lt ? 'Išsaugoti nepavyko' : 'Save failed') : saveState==='dirty' ? (lt ? 'Neišsaugota' : 'Unsaved') : (lt ? 'Išsaugota' : 'Saved')
   const scene=plan && <FarmPlanScene plan={plan} maps={maps} areas={previewAreas} selectedAreaId={selectedAreaId} onAreaSelect={context?.permissions.canEdit ? setSelectedAreaId : inspect} />
-  return <div className="nc-farm-plan" data-nc-react-workspace="farm-plan"><header className="nc-farm-heading"><div><h1>{lt ? 'Ūkio planas' : 'Farm plan'}</h1><span className="nc-farm-inline-status" data-dirty={dirty}>{loading ? (lt ? 'Kraunama…' : 'Loading…') : dirty ? (lt ? 'Neišsaugoti pakeitimai' : 'Unsaved changes') : (lt ? 'Išsaugota' : 'Saved')}</span></div><div><button type="button" onClick={()=>navigate('/areas')}>{lt ? 'Grįžti į Areas' : 'Back to Areas'}</button></div></header>
-    {error && <div className="nc-farm-feedback" role="alert"><span>{error}</span>{plan && <button type="button" onClick={downloadDraft}>{lt ? 'Atsisiųsti savo brėžinį' : 'Download your draft'}</button>}<button type="button" disabled={saving} onClick={()=>{if(context)try{sessionStorage.removeItem(`neurocrop-farm-draft:${context.draftScope}`)}catch{/* Storage may be unavailable. */}setLoading(true);setPlan(null);setContext(null);setMaps({});setBases({});setNodeContext(undefined);setNotice('');setRetry(value=>value+1)}}>{lt ? 'Atverti serverio versiją' : 'Load server version'}</button><small>{lt ? 'Pirmiausia atsisiųskite juodraštį: serverio versija pakeis neišsaugotus pakeitimus.' : 'Download your draft first: loading the server version replaces unsaved changes.'}</small></div>}
+  return <div className="nc-farm-plan" data-nc-react-workspace="farm-plan"><header className="nc-farm-heading"><div><h1>{lt ? 'Ūkio planas' : 'Farm plan'}</h1><span className="nc-farm-inline-status" data-dirty={dirty}>{loading ? (lt ? 'Kraunama…' : 'Loading…') : !plan ? (lt ? 'Plano įkelti nepavyko' : 'Could not load plan') : saveLabel}</span></div><div><button type="button" onClick={()=>navigate('/areas')}>{lt ? 'Grįžti į Areas' : 'Back to Areas'}</button></div></header>
+    {error && <div className="nc-farm-feedback" role="alert"><span>{error}</span>{plan && <button type="button" onClick={downloadDraft}>{lt ? 'Atsisiųsti savo brėžinį' : 'Download your draft'}</button>}<button type="button" disabled={saving} onClick={()=>dirty ? setReloadRequested(true) : reloadServer()}>{lt ? 'Atverti serverio versiją' : 'Load server version'}</button><small>{lt ? 'Pirmiausia atsisiųskite juodraštį: serverio versija pakeis neišsaugotus pakeitimus.' : 'Download your draft first: loading the server version replaces unsaved changes.'}</small></div>}
+    {draftError && <div className="nc-farm-feedback" role="alert"><span>{draftError}</span><button type="button" onClick={downloadDraft}>{lt ? 'Atsisiųsti juodraštį' : 'Download draft'}</button></div>}
+    <FarmNavigationGuard dirty={dirty} saving={saving} canSave={!!context?.permissions.canEdit && expectedRevision===context.revision} lt={lt} onSave={save} onPreserve={preserveDraft} onDownload={downloadDraft} />
+    {reloadRequested && <FarmUnsavedDialog lt={lt} mode="reload" busy={saving} canSave={false} onStay={()=>setReloadRequested(false)} onLeave={reloadServer} onSave={save} onDownload={downloadDraft} />}
     {notice && <p className="nc-farm-notice" role="status">{notice}<button type="button" onClick={()=>setNotice('')} aria-label={lt ? 'Uždaryti pranešimą' : 'Dismiss notification'}><i className="fa-solid fa-xmark" /></button></p>}
     {loading ? <div className="nc-farm-loading" role="status">{lt ? 'Kraunamas planas…' : 'Loading plan…'}</div> : context && plan ? <>
-      <div className="nc-farm-layout" data-readonly={!context.permissions.canEdit}>{context.permissions.canEdit ? <div inert={saving}><FarmAreaEditor plan={plan} layouts={maps} onChange={(next,layouts)=>{setPlan(next);setMaps(refreshFarmNodeMetadata(layouts,nodeContext?.nodes || []))}} areas={context.areas} selectedId={selectedAreaId} onSelect={setSelectedAreaId} renderScene={isolatedAreaId=><FarmPlanScene plan={plan} maps={maps} areas={previewAreas} selectedAreaId={selectedAreaId} isolatedAreaId={isolatedAreaId} onAreaSelect={setSelectedAreaId} />} saveError={error} saveAction={<button type="button" className="nc-farm-save" disabled={saving || loading || expectedRevision!==context.revision} onClick={()=>void save()} title={!dirty ? (lt ? 'Visi pakeitimai išsaugoti' : 'All changes saved') : (lt ? 'Išsaugoti planą ir įrangą' : 'Save plan and equipment')}><i className={`fa-solid ${saving ? 'fa-spinner fa-spin' : !dirty ? 'fa-check' : 'fa-floppy-disk'}`} /><span>{saving ? (lt ? 'Saugoma…' : 'Saving…') : (lt ? 'Išsaugoti' : 'Save')}</span></button>} cultivationRequest={cultivationRequest} initialCultivation={new URLSearchParams(location.search).get('cultivation')==='1'} initialEquipment={new URLSearchParams(location.search).get('layout')==='1'} nodeContext={nodeContext} contextLoading={!!savedSelectedId && contextLoading} contextError={savedSelectedId ? contextError : ''} onCreateSection={createSection} onCultivation={saveCultivation} onEditGroup={editGrowingGroup} onAssignSection={assignSection} onNodeHeight={setNodeHeight} unassignedNodes={unassignedNodes} inventoryError={inventoryError} onConnectNode={connectNode} onDeleteArea={deleteArea} /></div> : scene}</div>
+      <div className="nc-farm-layout" data-readonly={!context.permissions.canEdit}>{context.permissions.canEdit ? <div inert={saving} onInputCapture={event=>{if(event.target instanceof HTMLElement && event.target.closest('.gh-properties,.nfa-properties,.nfa-plan-settings,.nfa-context-tools'))setPendingField(true)}} onBlurCapture={()=>setPendingField(false)}><FarmAreaEditor viewMemory={viewMemory} plan={plan} layouts={maps} onChange={(next,layouts)=>{setPlan(next);setMaps(refreshFarmNodeMetadata(layouts,nodeContext?.nodes || []))}} areas={context.areas} selectedId={selectedAreaId} onSelect={setSelectedAreaId} renderScene={(isolatedAreaId,onAreaSelect)=><FarmPlanScene cameraMemory={viewMemory.scene} plan={plan} maps={maps} areas={previewAreas} selectedAreaId={selectedAreaId} isolatedAreaId={isolatedAreaId} onAreaSelect={onAreaSelect} />} saveError={error} saveStatus={<span className="nc-farm-save-status" data-state={saveState} title={saveLabel} role="status">{saveLabel}</span>} saveAction={<button type="button" className="nc-farm-save" disabled={saving || loading || expectedRevision!==context.revision} onClick={()=>void save()} title={!dirty ? (lt ? 'Visi pakeitimai išsaugoti' : 'All changes saved') : (lt ? 'Išsaugoti planą ir įrangą' : 'Save plan and equipment')}><i className={`fa-solid ${saving ? 'fa-spinner fa-spin' : !dirty ? 'fa-check' : 'fa-floppy-disk'}`} /><span>{saving ? (lt ? 'Saugoma…' : 'Saving…') : !dirty ? (lt ? 'Išsaugota' : 'Saved') : (lt ? 'Išsaugoti' : 'Save')}</span></button>} cultivationRequest={cultivationRequest} initialCultivation={new URLSearchParams(location.search).get('cultivation')==='1'} initialEquipment={new URLSearchParams(location.search).get('layout')==='1'} nodeContext={nodeContext} contextLoading={!!savedSelectedId && contextLoading} contextError={savedSelectedId ? contextError : ''} onCreateSection={createSection} onCultivation={saveCultivation} onEditGroup={editGrowingGroup} onAssignSection={assignSection} onNodeHeight={setNodeHeight} unassignedNodes={unassignedNodes} inventoryError={inventoryError} onConnectNode={connectNode} onDeleteArea={deleteArea} /></div> : scene}</div>
     </> : null}
   </div>
 }

@@ -19,10 +19,11 @@ import FarmObjectHandles from './FarmObjectHandles'
 import FarmEquipmentFootprint from './FarmEquipmentFootprint'
 import { equipmentUnlocked,equipmentDuplicable,equipmentRotatable,pasteFarmEquipment,resizeFarmEquipment,rotateFarmEquipment,type EquipmentHandle } from './farmEquipmentEditing'
 import { moveFarmEquipment,type EquipmentGuide } from './farmEquipmentSnapping'
+import { farmViewKey,type FarmViewMemory } from './farmViewMemory'
 import '../living-greenhouse/site-plan-editor.css'
 import './farm-area-editor.css'
 
-type Props={plan:FarmPlanDocument;layouts:FarmMaps;onChange:(plan:FarmPlanDocument,layouts:FarmMaps)=>void;areas:FarmArea[];renderScene:(isolatedAreaId:string|null)=>ReactNode;saveAction?:ReactNode;saveError?:string;nodeContext?:AreaMapContext;contextLoading:boolean;contextError?:string;onCreateSection:(name:string,profile:string)=>Promise<boolean>;onCultivation:(profile:string|null)=>Promise<void>;onEditGroup:(id:string,name:string,profile:string|null)=>Promise<void>;onAssignSection:(devEui:string,sectionId:string)=>Promise<void>;onNodeHeight:(devEui:string,heightM:number|null)=>Promise<void>;unassignedNodes:AreaMapNode[];inventoryError?:string;onConnectNode:(devEui:string,sectionId:string)=>Promise<AreaMapNode>;onDeleteArea:(id:string)=>Promise<void>;initialEquipment?:boolean;initialCultivation?:boolean;cultivationRequest?:string;disabled?:boolean;selectedId?:string|null;onSelect?:(id:string|null)=>void}
+type Props={viewMemory:FarmViewMemory;plan:FarmPlanDocument;layouts:FarmMaps;onChange:(plan:FarmPlanDocument,layouts:FarmMaps)=>void;areas:FarmArea[];renderScene:(isolatedAreaId:string|null,onAreaSelect:(id:string)=>void)=>ReactNode;saveAction?:ReactNode;saveStatus?:ReactNode;saveError?:string;nodeContext?:AreaMapContext;contextLoading:boolean;contextError?:string;onCreateSection:(name:string,profile:string)=>Promise<boolean>;onCultivation:(profile:string|null)=>Promise<void>;onEditGroup:(id:string,name:string,profile:string|null)=>Promise<void>;onAssignSection:(devEui:string,sectionId:string)=>Promise<void>;onNodeHeight:(devEui:string,heightM:number|null)=>Promise<void>;unassignedNodes:AreaMapNode[];inventoryError?:string;onConnectNode:(devEui:string,sectionId:string)=>Promise<AreaMapNode>;onDeleteArea:(id:string)=>Promise<void>;initialEquipment?:boolean;initialCultivation?:boolean;cultivationRequest?:string;disabled?:boolean;selectedId?:string|null;onSelect?:(id:string|null)=>void}
 type EditorPanel='area'|'object'|'equipment'|'nodes'|'sections'|'settings'
 type Snapshot={plan:FarmPlanDocument;layouts:FarmMaps}
 type Drag=Snapshot & {id:string;start:SitePoint;vertex?:number;edge?:number;pointerId:number;changed:boolean}
@@ -34,13 +35,12 @@ function NumberField({label,value,onCommit,min=0,max=10000,step=.25}:{label:stri
   return <label>{label}<input type="number" min={min} max={max} step={step} value={text} onChange={e=>{changed.current=true;setText(e.target.value)}} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}} /></label>
 }
 
-export default function FarmAreaEditor({plan,layouts,onChange,areas,renderScene,saveAction,saveError,nodeContext,contextLoading,contextError,onCreateSection,onCultivation,onEditGroup,onAssignSection,onNodeHeight,unassignedNodes,inventoryError,onConnectNode,onDeleteArea,initialEquipment=false,initialCultivation=false,cultivationRequest,disabled=false,selectedId,onSelect}:Props){
+export default function FarmAreaEditor({viewMemory,plan,layouts,onChange,areas,renderScene,saveAction,saveStatus,saveError,nodeContext,contextLoading,contextError,onCreateSection,onCultivation,onEditGroup,onAssignSection,onNodeHeight,unassignedNodes,inventoryError,onConnectNode,onDeleteArea,initialEquipment=false,initialCultivation=false,cultivationRequest,disabled=false,selectedId,onSelect}:Props){
   const {language}=useInterfaceLanguage(),lt=language==='lt',t=(value:string)=>siteEditorText(value,!lt)
   const [ownSelected,setOwnSelected]=useState<string|null>(null)
   const selected=selectedId===undefined ? ownSelected : selectedId
   const setSelected=(id:string|null)=>{setOwnSelected(id);onSelect?.(id)}
   const [arranging,setArranging]=useState(false)
-  const farmCamera=useRef<DrawingView|null>(null)
   const [mode,setMode]=useState<'contour'|'equipment'>('equipment'),[display,setDisplay]=useState<'2d'|'3d'>('2d'),[selectedObject,setSelectedObject]=useState<{areaId:string;id:string;ids?:string[]}|null>(null)
   const [deleteTarget,setDeleteTarget]=useState<{id:string;name:string;saved:boolean;objects:number;sections:number;nodes:number}|null>(null)
   const [panel,setPanel]=useState<EditorPanel|null>(initialCultivation ? 'sections' : initialEquipment ? 'equipment' : null)
@@ -60,7 +60,7 @@ export default function FarmAreaEditor({plan,layouts,onChange,areas,renderScene,
   const [message,setMessage]=useState(''),[undo,setUndo]=useState<Snapshot[]>([]),[redo,setRedo]=useState<Snapshot[]>([])
   const svg=useRef<SVGSVGElement>(null),drag=useRef<Drag|null>(null),pattern=useId().replaceAll(':','')
   const [size,setSize]=useState({width:900,height:650})
-  const [camera,setCamera]=useState<{selection:string|null;view:DrawingView;fit?:'plan'|'area'}|null>(null)
+  const [camera,setCamera]=useState<{selection:string|null;view:DrawingView;fit?:'plan'|'area'}|null>(()=>{const stored=viewMemory.drawing.get(farmViewKey(selected));return stored ? {selection:selected,view:stored} : null})
   const pan=useRef<{pointerId:number;x:number;y:number;view:DrawingView;moved:boolean}|null>(null)
   const editor=useRef<HTMLElement>(null)
   const expandButton=useRef<HTMLButtonElement>(null)
@@ -68,7 +68,7 @@ export default function FarmAreaEditor({plan,layouts,onChange,areas,renderScene,
   useEffect(()=>{
     if(!expanded)return
     const previous=document.body.style.overflow;document.body.style.overflow='hidden'
-    const escape=(event:KeyboardEvent)=>{if(event.key==='Escape' && !event.defaultPrevented && !document.querySelector('.nfa-delete-dialog[open]')){event.preventDefault();setExpanded(false);expandButton.current?.focus()}}
+    const escape=(event:KeyboardEvent)=>{if(event.key==='Escape' && !event.defaultPrevented && !document.querySelector('.nfa-delete-dialog[open],.nc-farm-unsaved-dialog[open]')){event.preventDefault();setExpanded(false);expandButton.current?.focus()}}
     document.addEventListener('keydown',escape)
     return ()=>{document.body.style.overflow=previous;document.removeEventListener('keydown',escape)}
   },[expanded])
@@ -86,9 +86,10 @@ export default function FarmAreaEditor({plan,layouts,onChange,areas,renderScene,
   const zoom=(factor:number)=>{const width=Math.min(20000,Math.max(2,view.width*factor)),height=width/aspect;setView({x:view.x+(view.width-width)/2,y:view.y+(view.height-height)/2,width,height})}
   const fit=(all=false)=>setCamera({selection:selected,view:fitFarmDrawing(isolated || (!all && area) ? [area!] : plan.areas,aspect),fit:isolated || (!all && area) ? 'area' : 'plan'})
   const chooseArea=(id:string|null)=>{
-    if(id && !isolated)farmCamera.current=view
-    const target=plan.areas.find(a=>a.id===id)
-    setCamera(target ? {selection:id,view:fitFarmDrawing([target],aspect),fit:'area'} : {selection:null,view:farmCamera.current || fitFarmDrawing(plan.areas,aspect)})
+    if(id===selected && isolated)return
+    viewMemory.drawing.set(farmViewKey(isolated ? area?.id : null),{...view})
+    const target=plan.areas.find(a=>a.id===id),remembered=viewMemory.drawing.get(farmViewKey(target?.id))
+    setCamera(remembered ? {selection:target?.id || null,view:remembered} : {selection:target?.id || null,view:fitFarmDrawing(target ? [target] : plan.areas,aspect),fit:target ? 'area' : 'plan'})
     setAlignmentGuides([]);setArranging(false);setSelected(id);setSelectedObject(null);setWall(null);setVertex(0);setMessage('');setPanel(null);setMode('equipment')
   }
   useEffect(()=>{
@@ -102,7 +103,7 @@ export default function FarmAreaEditor({plan,layouts,onChange,areas,renderScene,
     remember(plan);onChange(result.plan,reconcileFarmMaps(plan,result.plan,layouts));setMessage('');return true
   }
   const add=()=>{
-    try{const next=insertFarmArea(plan,!lt);remember(plan);onChange(next.plan,layouts);farmCamera.current=view;setArranging(false);setSelected(next.id);setMode('contour');setSelectedObject(null);setDisplay('2d');setVertex(0);setWall(null);setPanel('area');setCamera({selection:next.id,view:fitFarmDrawing([next.plan.areas.find(a=>a.id===next.id)!],aspect),fit:'area'});setMessage('')}
+    try{const next=insertFarmArea(plan,!lt);remember(plan);onChange(next.plan,layouts);viewMemory.drawing.set(farmViewKey(isolated ? area?.id : null),{...view});setArranging(false);setSelected(next.id);setMode('contour');setSelectedObject(null);setDisplay('2d');setVertex(0);setWall(null);setPanel('area');setCamera({selection:next.id,view:fitFarmDrawing([next.plan.areas.find(a=>a.id===next.id)!],aspect),fit:'area'});setMessage('')}
     catch(error){setMessage(error instanceof Error ? t(error.message) : 'Area could not be added.')}
   }
   const revert=(forward=false)=>{
@@ -236,7 +237,7 @@ export default function FarmAreaEditor({plan,layouts,onChange,areas,renderScene,
     if(event.key==='Escape' && !expanded){setSelectedObject(null);setMessage('')}
     if(event.key==='Tab' && expanded){const candidates=editor.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),summary,[tabindex="0"]');const controls=Array.from(candidates || []).filter(el=>el.getClientRects().length>0);if(controls.length){const first=controls[0],last=controls[controls.length-1];if(event.shiftKey && event.target===first){event.preventDefault();last.focus()}else if(!event.shiftKey && event.target===last){event.preventDefault();first.focus()}}}
   }}>
-    <header className="nfa-header"><div className="nfa-header-start">{isolated && <button type="button" className="nfa-back" onClick={()=>chooseArea(null)} aria-label={lt ? 'Grįžti į ūkio planą' : 'Back to farm plan'} title={lt ? 'Grįžti į ūkio planą' : 'Back to farm plan'}><i className="fa-solid fa-arrow-left" /><span>{lt ? 'Grįžti atgal' : 'Back to farm plan'}</span></button>}{saveAction}<div className="nfa-location"><i className="fa-solid fa-layer-group" aria-hidden="true" /><select aria-label={lt ? 'Pasirinkta Area' : 'Selected Area'} value={area?.id || ''} onChange={e=>chooseArea(e.target.value || null)}><option value="">{lt ? 'Visas ūkis' : 'Whole farm'}</option>{plan.areas.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select>{!isolated && <span>{plan.areas.length} {lt ? 'erdvės' : 'Areas'}</span>}</div></div><div className="nfa-header-actions">
+    <header className="nfa-header"><div className="nfa-header-start">{isolated && <button type="button" className="nfa-back" onClick={()=>chooseArea(null)} aria-label={lt ? 'Grįžti į ūkio planą' : 'Back to farm plan'} title={lt ? 'Grįžti į ūkio planą' : 'Back to farm plan'}><i className="fa-solid fa-arrow-left" /><span>{lt ? 'Grįžti atgal' : 'Back to farm plan'}</span></button>}{saveAction}{saveStatus}<div className="nfa-location"><i className="fa-solid fa-layer-group" aria-hidden="true" /><select aria-label={lt ? 'Pasirinkta Area' : 'Selected Area'} value={area?.id || ''} onChange={e=>chooseArea(e.target.value || null)}><option value="">{lt ? 'Visas ūkis' : 'Whole farm'}</option>{plan.areas.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select>{!isolated && <span>{plan.areas.length} {lt ? 'erdvės' : 'Areas'}</span>}</div></div><div className="nfa-header-actions">
       <div className="nfa-display" role="group" aria-label={lt ? 'Vaizdas' : 'View'}>{(['2d','3d'] as const).map(v=><button key={v} type="button" aria-pressed={display===v} onClick={()=>{if(v==='3d' && arranging){setSelected(null);setArranging(false)}setDisplay(v)}}>{v.toUpperCase()}</button>)}</div>
       <button type="button" title={lt ? 'Atšaukti' : 'Undo'} aria-label={lt ? 'Atšaukti' : 'Undo'} disabled={!undo.length} onClick={()=>revert()}><i className="fa-solid fa-rotate-left" /></button><button type="button" title={lt ? 'Pakartoti' : 'Redo'} aria-label={lt ? 'Pakartoti' : 'Redo'} disabled={!redo.length} onClick={()=>revert(true)}><i className="fa-solid fa-rotate-right" /></button>
       <button ref={expandButton} type="button" title={expanded ? (lt ? 'Sumažinti brėžinį' : 'Exit expanded drawing') : (lt ? 'Išplėsti brėžinį' : 'Expand drawing')} aria-label={expanded ? (lt ? 'Sumažinti brėžinį' : 'Exit expanded drawing') : (lt ? 'Išplėsti brėžinį' : 'Expand drawing')} aria-pressed={expanded} onClick={()=>expanded ? closeExpanded() : setExpanded(true)}><i className={`fa-solid ${expanded ? 'fa-compress' : 'fa-expand'}`} /></button>
@@ -320,7 +321,7 @@ export default function FarmAreaEditor({plan,layouts,onChange,areas,renderScene,
         if(shifts[e.key]){e.preventDefault();e.stopPropagation();alterVertex(i,{xM:p.xM+shifts[e.key].xM,yM:p.yM+shifts[e.key].yM})}
       }} />)}</g>}
     </svg>
-    <div className="nfa-3d-view" hidden={display!=='3d'}>{display==='3d' && renderScene(isolated ? area!.id : null)}</div>
+    <div className="nfa-3d-view" hidden={display!=='3d'}>{display==='3d' && renderScene(isolated ? area!.id : null,chooseArea)}</div>
     <div className="nfa-view-controls" hidden={display!=='2d'} role="group" aria-label={lt ? 'Brėžinio mastelis' : 'Drawing zoom'}><button type="button" onClick={()=>fit(true)} title={isolated ? (lt ? 'Sutalpinti Area' : 'Fit Area') : (lt ? 'Sutalpinti visą planą' : 'Fit whole plan')} aria-label={isolated ? (lt ? 'Sutalpinti Area' : 'Fit Area') : (lt ? 'Sutalpinti visą planą' : 'Fit whole plan')}><i className="fa-solid fa-expand" /></button>{area && !isolated && <button type="button" onClick={()=>fit()} title={lt ? 'Priartinti pasirinktą Area' : 'Fit selected Area'} aria-label={lt ? 'Priartinti pasirinktą Area' : 'Fit selected Area'}><i className="fa-solid fa-vector-square" /></button>}<span /><button type="button" aria-label={lt ? 'Priartinti' : 'Zoom in'} onClick={()=>zoom(.75)}>+</button><button type="button" aria-label={lt ? 'Atitolinti' : 'Zoom out'} onClick={()=>zoom(1.333)}>−</button></div>
     {!!plan.areas.length && <small className="nfa-canvas-hint" hidden={display!=='2d'}>{mode==='contour' ? (lt ? 'Pasirinkite sieną jos ilgiui keisti' : 'Select a wall to edit its length') : (lt ? 'Tempkite foną · Option / Alt + ratukas priartina' : 'Drag background to pan · Option / Alt + scroll to zoom')}</small>}
     {!plan.areas.length && <div className="nfa-empty-canvas"><i className="fa-solid fa-draw-polygon" /><strong>{lt ? 'Pradėkite nuo pirmos Area' : 'Start with your first Area'}</strong><span>{lt ? 'Pridėkite patalpą, pritaikykite jos kontūrą, tada sudėkite įrangą.' : 'Add a growing space, shape its outline, then place equipment.'}</span><button type="button" onClick={add}><i className="fa-solid fa-plus" />{lt ? 'Pridėti Area' : 'Add Area'}</button></div>}

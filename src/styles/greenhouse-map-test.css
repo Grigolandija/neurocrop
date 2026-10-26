@@ -231,8 +231,6 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-empty-selection p { margin: 0 0 12px; color: #6b7973; font-size: 11px; line-height: 1.5; }
 .gh-empty-selection small { color: #88938e; font: 500 9px 'IBM Plex Mono'; }
 .gh-type-badge { display: grid; place-items: center; width: 31px; height: 31px; color: #fff; background: #285a49; }
-.gh-coordinate-box { margin: 3px -5px 9px; padding: 8px 5px 0; border: 1px solid #d7ddd8; background: #f3f6f2; }
-.gh-coordinate-box > span { display: block; margin-bottom: 7px; color: #728078; font: 600 8px 'IBM Plex Mono'; letter-spacing: .08em; }
 .gh-muted { color: #6b7973; font-size: 11px; line-height: 1.45; }
 .gh-align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
 .gh-align-grid button { height: 34px; border: 1px solid #d6ddd7; color: #4b6158; background: #fafbf9; font-size: 9px; text-transform: capitalize; }

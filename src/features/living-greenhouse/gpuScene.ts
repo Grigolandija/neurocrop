@@ -177,6 +177,8 @@ function webgl(): Backend {
   }
 }
 
+export type LivingSceneCamera={azimuth:number;elevation:number;zoom:number;target:Vec3|null;extent:number|null}
+
 export async function createLivingScene(host: HTMLElement, onProject: (matrix: Float32Array, width: number, height: number) => void, onLost: () => void, camera: {targetHeight?:number;elevation?:number;zoom?:number;animateIntro?:boolean;backend?:'webgl'} = {}) {
   let backend: Backend
   if(camera.backend==='webgl')backend=webgl()
@@ -224,6 +226,11 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
   }
   raf=requestAnimationFrame(draw)
   return { name:backend.name,
+    getCamera():LivingSceneCamera { return {azimuth,elevation,zoom,target:focusTarget ? [...focusTarget] : null,extent:focusSize} },
+    restoreCamera(view:LivingSceneCamera) {
+      if(![view.azimuth,view.elevation,view.zoom].every(Number.isFinite) || (view.target!==null && (view.target.length!==3 || !view.target.every(Number.isFinite))) || (view.extent!==null && (!Number.isFinite(view.extent) || view.extent<=0)))return
+      azimuth=view.azimuth;elevation=Math.max(.2,Math.min(1.48,view.elevation));zoom=Math.max(.65,Math.min(3,view.zoom));focusTarget=view.target ? [...view.target] : null;focusSize=view.extent;dirty=true
+    },
     invalidate() { dirty=true },
     update(vertices:Float32Array,nextSize:number,field:VolumeField) { backend.upload(vertices,field); size=nextSize; dirty=true },
     setPresentation(view:LivingView, topography=false, spatialField=false) { presentation=view==='volume' ? spatialField ? 3 : topography ? 2 : 1 : 0; dirty=true },

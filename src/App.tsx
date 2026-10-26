@@ -1,6 +1,7 @@
 import { useAuth } from '@clerk/react'
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
+import { createBrowserRouter, createRoutesFromElements, Navigate, Route, useLocation } from 'react-router'
+import { RouterProvider } from 'react-router/dom'
 import LoginScreen from './components/LoginScreen'
 import ClerkLoginScreen from './components/ClerkLoginScreen'
 import WorkspaceLoading from './components/WorkspaceLoading'
@@ -147,21 +148,18 @@ function AuthenticatedWorkspace({ user, pathname, onSignedOut, showWorkspacePrep
 }
 
 export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/es-finansuojamas-projektas" element={<EuFundedProjectPage />} />
-        <Route path="/sign-up" element={<RegistrationRoute />} />
-        <Route path="/register" element={<RegistrationRoute />} />
-        <Route path="/accept-invite" element={<Suspense fallback={null}><AcceptInvitePage clerkEnabled={clerkConfigured} /></Suspense>} />
-        <Route path="/forgot-password" element={clerkConfigured ? <ClerkLoginScreen mode="recovery" /> : <Suspense fallback={null}><ForgotPasswordPage /></Suspense>} />
-        <Route path="/reset-password" element={clerkConfigured ? <Navigate to="/" replace /> : <Suspense fallback={null}><ResetPasswordPage /></Suspense>} />
-        <Route path="/greenhouse-map-test" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />
-        <Route path="/greenhouse-live/models" element={<Suspense fallback={<SessionLoading />}><EquipmentModelPreview /></Suspense>} />
-        <Route path="/greenhouse-live/demo" element={<Suspense fallback={<SessionLoading />}><SpatialWorkspaceDemo /></Suspense>} />
-        <Route path="/greenhouse-live/site-demo" element={<Suspense fallback={<SessionLoading />}><SitePlanDemo /></Suspense>} />
-        <Route path="*" element={<MainRoute />} />
-      </Routes>
-    </BrowserRouter>
-  )
+  const [router] = useState(() => createBrowserRouter(createRoutesFromElements(<>
+    <Route path="/es-finansuojamas-projektas" element={<EuFundedProjectPage />} />
+    <Route path="/sign-up" element={<RegistrationRoute />} />
+    <Route path="/register" element={<RegistrationRoute />} />
+    <Route path="/accept-invite" element={<Suspense fallback={null}><AcceptInvitePage clerkEnabled={clerkConfigured} /></Suspense>} />
+    <Route path="/forgot-password" element={clerkConfigured ? <ClerkLoginScreen mode="recovery" /> : <Suspense fallback={null}><ForgotPasswordPage /></Suspense>} />
+    <Route path="/reset-password" element={clerkConfigured ? <Navigate to="/" replace /> : <Suspense fallback={null}><ResetPasswordPage /></Suspense>} />
+    <Route path="/greenhouse-map-test" element={<Suspense fallback={null}><GreenhouseMapTestPage /></Suspense>} />
+    <Route path="/greenhouse-live/models" element={<Suspense fallback={<SessionLoading />}><EquipmentModelPreview /></Suspense>} />
+    <Route path="/greenhouse-live/demo" element={<Suspense fallback={<SessionLoading />}><SpatialWorkspaceDemo /></Suspense>} />
+    <Route path="/greenhouse-live/site-demo" element={<Suspense fallback={<SessionLoading />}><SitePlanDemo /></Suspense>} />
+    <Route path="*" element={<MainRoute />} />
+  </>)))
+  return <RouterProvider router={router} />
 }

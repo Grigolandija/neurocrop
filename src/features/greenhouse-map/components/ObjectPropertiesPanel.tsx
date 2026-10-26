@@ -3,6 +3,7 @@ import { isWallMountedType } from '../geometry'
 import NumericInput from './NumericInput'
 import EquipmentPlacementFields from './EquipmentPlacementFields'
 import EquipmentCollisionNotice from './EquipmentCollisionNotice'
+import './object-inspector.css'
 import { DOOR_TYPES, doorConfiguration, doorOpening, type DoorType } from '../doorConfiguration'
 
 type Props = {
@@ -38,33 +39,41 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
   const icon = OBJECT_LIBRARY.find((item) => item.type === object.type)?.icon || 'fa-vector-square'
 
   return <aside className="gh-right-panel">
-    <section className="gh-properties">
+    <section className="gh-properties gh-object-inspector">
       <header><div><small>{sensor ? tr('NODE PLACEMENT', 'MAZGO VIETA') : tr('OBJECT', 'OBJEKTAS')}</small><h2>{object.name}</h2></div><span className="gh-type-badge"><i className={`fa-solid ${icon}`} /></span></header>
       {placementLocked ? <p className="gh-lock-notice"><i className="fa-solid fa-lock" />{layerLocked ? tr('This layer is locked.', 'Šis sluoksnis užrakintas.') : tr('Placement is locked.', 'Objekto vieta užrakinta.')}</p> : null}
-      {!sensor ? <label className="gh-field wide"><span>{tr('Name', 'Pavadinimas')}</span><input disabled={placementLocked} value={object.name} onChange={(event) => onUpdate(object.id, { name: event.target.value })} /></label> : null}
-      <div className="gh-coordinate-box"><span>{tr('POSITION', 'PADĖTIS')}</span><div className="gh-field-row">
-        <label className="gh-field"><span>X <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0, map.dimensions.widthM - (map.shape.type==='polygon' ? 0 : object.widthM))} step={map.gridSizeM} value={Number(object.xM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { xM: value ?? object.xM })} /></label>
-        <label className="gh-field"><span>Y <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0, map.dimensions.lengthM - (map.shape.type==='polygon' ? 0 : object.lengthM))} step={map.gridSizeM} value={Number(object.yM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { yM: value ?? object.yM })} /></label>
-      </div></div>
-      {door ? <>
-        <div className="gh-field-row">
-          <label className="gh-field"><span>{tr('Opening width', 'Angos plotis')} <em>m</em></span><NumericInput aria-label={tr('Door opening width', 'Durų angos plotis')} disabled={placementLocked} min=".1" max={opening.maximumM} step=".05" value={Number(opening.widthM.toFixed(3))} onCommit={value => onUpdate(object.id, { [opening.axis]: value ?? opening.widthM })} /></label>
-          <label className="gh-field"><span>{tr('Height', 'Aukštis')} <em>m</em></span><NumericInput aria-label={tr('Door height', 'Durų aukštis')} disabled={placementLocked} min=".1" max={map.dimensions.heightM || 100} step=".05" value={door.heightM} onCommit={value => patchMetadata({ door: { ...door, heightM: value ?? door.heightM } })} /></label>
-        </div>
-        <label className="gh-field wide"><span>{tr('Door type', 'Durų tipas')}</span><select aria-label={tr('Door type', 'Durų tipas')} disabled={placementLocked} value={door.type} onChange={event => patchMetadata({ door: { ...door, type: event.target.value as DoorType } })}>{DOOR_TYPES.map(type => <option key={type} value={type}>{type === 'single' ? tr('Single-leaf', 'Vienvėrės') : type === 'double' ? tr('Double-leaf', 'Dvivėrės') : tr('Sliding', 'Stumdomos')}</option>)}</select></label>
-        <p className="gh-muted">{tr('The 3D model follows these dimensions and type. Resizing the opening keeps the chosen door type.', '3D modelis prisitaiko prie šių matmenų ir tipo. Keičiant angos plotį pasirinktas durų tipas išlieka.')}</p>
-      </> : !sensor ? <div className="gh-field-row">
-        <label className="gh-field"><span>{tr('Width', 'Plotis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".05" max={map.dimensions.widthM} step=".05" value={Number(object.widthM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { widthM: value ?? object.widthM })} /></label>
-        <label className="gh-field"><span>{tr('Length', 'Ilgis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".05" max={map.dimensions.lengthM} step=".05" value={Number(object.lengthM.toFixed(3))} onCommit={(value) => onUpdate(object.id, { lengthM: value ?? object.lengthM })} /></label>
-      </div> : null}
-      {!sensor ? <label className="gh-field wide"><span>{wallMounted ? tr('Mounted wall', 'Tvirtinimo siena') : `${tr('Rotation', 'Pasukimas')} °`}</span>{wallMounted
-        ? <input value={object.metadata.wallMount?.edgeIndex!==undefined ? `${tr('Wall','Siena')} ${object.metadata.wallMount.edgeIndex+1}` : object.metadata.wallMount?.wall ?? tr('Automatic', 'Automatinė')} readOnly />
-        : <NumericInput disabled={placementLocked} value={Number(object.rotationDeg.toFixed(1))} onCommit={(value) => onUpdate(object.id, { rotationDeg: value ?? object.rotationDeg })} />}</label> : null}
-      {!sensor && <EquipmentPlacementFields object={object} map={map} disabled={placementLocked} language={language} onChange={equipmentPlacement=>patchMetadata({equipmentPlacement})} />}
+      <div className="gh-property-groups">
+        {!sensor && <fieldset className="gh-property-group"><legend>{tr('Equipment', 'Įranga')}</legend><div className="gh-property-fields">
+          <label className="gh-field"><span>{tr('Name', 'Pavadinimas')}</span><input disabled={placementLocked} value={object.name} onChange={event=>onUpdate(object.id,{name:event.target.value})} /></label>
+          {door ? <div className="gh-field-row">
+            <label className="gh-field"><span>{tr('Opening width', 'Angos plotis')} <em>m</em></span><NumericInput aria-label={tr('Door opening width', 'Durų angos plotis')} disabled={placementLocked} min=".1" max={opening.maximumM} step=".05" value={Number(opening.widthM.toFixed(3))} onCommit={value=>onUpdate(object.id,{[opening.axis]:value ?? opening.widthM})} /></label>
+            <label className="gh-field"><span>{tr('Height', 'Aukštis')} <em>m</em></span><NumericInput aria-label={tr('Door height', 'Durų aukštis')} disabled={placementLocked} min=".1" max={map.dimensions.heightM || 100} step=".05" value={door.heightM} onCommit={value=>patchMetadata({door:{...door,heightM:value ?? door.heightM}})} /></label>
+          </div> : <div className="gh-field-row">
+            <label className="gh-field"><span>{tr('Width', 'Plotis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".05" max={map.dimensions.widthM} step=".05" value={Number(object.widthM.toFixed(3))} onCommit={value=>onUpdate(object.id,{widthM:value ?? object.widthM})} /></label>
+            <label className="gh-field"><span>{tr('Length', 'Ilgis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".05" max={map.dimensions.lengthM} step=".05" value={Number(object.lengthM.toFixed(3))} onCommit={value=>onUpdate(object.id,{lengthM:value ?? object.lengthM})} /></label>
+          </div>}
+        </div></fieldset>}
+        <fieldset className="gh-property-group"><legend>{tr('Position', 'Padėtis')}</legend><div className="gh-property-fields">
+          <div className="gh-field-row">
+            <label className="gh-field"><span>X <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0,map.dimensions.widthM-(map.shape.type==='polygon' ? 0 : object.widthM))} step={map.gridSizeM} value={Number(object.xM.toFixed(3))} onCommit={value=>onUpdate(object.id,{xM:value ?? object.xM})} /></label>
+            <label className="gh-field"><span>Y <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0,map.dimensions.lengthM-(map.shape.type==='polygon' ? 0 : object.lengthM))} step={map.gridSizeM} value={Number(object.yM.toFixed(3))} onCommit={value=>onUpdate(object.id,{yM:value ?? object.yM})} /></label>
+          </div>
+          {!sensor && <div className="gh-field-row"><label className="gh-field"><span>{wallMounted ? tr('Mounted wall', 'Tvirtinimo siena') : tr('Rotation', 'Pasukimas')} {!wallMounted && <em>°</em>}</span>{wallMounted
+            ? <input value={object.metadata.wallMount?.edgeIndex!==undefined ? `${tr('Wall','Siena')} ${object.metadata.wallMount.edgeIndex+1}` : object.metadata.wallMount?.wall ?? tr('Automatic','Automatinė')} readOnly />
+            : <NumericInput disabled={placementLocked} value={Number(object.rotationDeg.toFixed(1))} onCommit={value=>onUpdate(object.id,{rotationDeg:value ?? object.rotationDeg})} />}</label></div>}
+          {wallMounted && <p className="gh-placement-summary">{tr('Drag to another wall to remount.', 'Nutempkite prie kitos sienos tvirtinimui pakeisti.')}</p>}
+        </div></fieldset>
+        {!sensor && <EquipmentPlacementFields object={object} map={map} disabled={placementLocked} language={language} onChange={equipmentPlacement=>patchMetadata({equipmentPlacement})} />}
+        {door && <fieldset className="gh-property-group"><legend>{tr('Door', 'Durys')}</legend><div className="gh-property-fields">
+          <label className="gh-field"><span>{tr('Door type', 'Durų tipas')}</span><select aria-label={tr('Door type', 'Durų tipas')} disabled={placementLocked} value={door.type} onChange={event=>patchMetadata({door:{...door,type:event.target.value as DoorType}})}>{DOOR_TYPES.map(type=><option key={type} value={type}>{type==='single' ? tr('Single-leaf','Vienvėrės') : type==='double' ? tr('Double-leaf','Dvivėrės') : tr('Sliding','Stumdomos')}</option>)}</select></label>
+          <p className="gh-placement-summary">{tr('The 3D model follows the opening dimensions.', '3D modelis prisitaiko prie angos matmenų.')}</p>
+        </div></fieldset>}
+      </div>
       {!sensor && <EquipmentCollisionNotice map={map} selectedIds={[object.id]} language={language} onSelect={onSelect} />}
-      {wallMounted ? <p className="gh-muted"><i className="fa-solid fa-magnet" /> {tr('Drag toward another perimeter wall to remount it.', 'Nutempkite prie kitos sienos, kad pakeistumėte tvirtinimą.')}</p> : null}
-      <div className="gh-toggle-row"><label><input disabled={layerLocked} type="checkbox" checked={object.locked} onChange={(event) => onUpdate(object.id, { locked: event.target.checked })} /><span>{tr('Lock placement', 'Užrakinti vietą')}</span></label></div>
-      <label className="gh-field wide"><span>{tr('Notes', 'Pastabos')}</span><textarea disabled={placementLocked} value={object.metadata.notes ?? ''} placeholder={tr('Installation or planning notes…', 'Montavimo arba planavimo pastabos…')} onChange={(event) => patchMetadata({ notes: event.target.value })} /></label>
+      <details className="gh-object-options"><summary>{tr('Notes and locking', 'Pastabos ir užrakinimas')}</summary><div>
+        <label className="gh-field"><span>{tr('Notes','Pastabos')}</span><textarea disabled={placementLocked} value={object.metadata.notes ?? ''} placeholder={tr('Installation or planning notes…','Montavimo arba planavimo pastabos…')} onChange={event=>patchMetadata({notes:event.target.value})} /></label>
+        <div className="gh-toggle-row"><label><input disabled={layerLocked} type="checkbox" checked={object.locked} onChange={event=>onUpdate(object.id,{locked:event.target.checked})} /><span>{tr('Lock placement','Užrakinti vietą')}</span></label></div>
+      </div></details>
     </section>
 
     {sensor ? <section className="gh-properties gh-sensor-properties">

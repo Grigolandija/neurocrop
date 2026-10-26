@@ -8,10 +8,11 @@ import { pickSitePoint, siteDimensions, zoneBounds } from '../living-greenhouse/
 import { farmPlanScene, type FarmPlanDocument, type FarmArea } from './farmPlanData'
 import { highlightFarmArea,wholeFarmSceneMesh } from './farmSceneGeometry'
 import type { FarmMaps } from './farmLayoutData'
+import { farmViewKey,rememberFarmScene,restoreFarmScene,type FarmSceneMemory } from './farmViewMemory'
 import './farm-plan.css'
 const EMPTY_MAPS:FarmMaps={}
 
-export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAreaId,isolatedAreaId,maps=EMPTY_MAPS}:{maps?:FarmMaps;plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null;isolatedAreaId?:string|null}){
+export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAreaId,isolatedAreaId,maps=EMPTY_MAPS,cameraMemory}:{cameraMemory?:FarmSceneMemory;maps?:FarmMaps;plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null;isolatedAreaId?:string|null}){
   // Scope only the rendered document; retain original coordinates and all persisted layouts.
   const document=useMemo(()=>isolatedAreaId ? {...source,areas:source.areas.filter(a=>a.id===isolatedAreaId)} : source,[source,isolatedAreaId])
   const plan=useMemo(()=>farmPlanScene(document),[document])
@@ -23,20 +24,23 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   const geometry=useMemo(()=>highlightFarmArea(mesh,hoverAreaId),[mesh,hoverAreaId])
   const climateField=useMemo(()=>siteVolume(null,'temperature',plan),[plan])
   const field=useMemo(()=>({...climateField,surfaces:geometry.surfaces,surfaceOpacity:.40}),[climateField,geometry])
-  const dimensions=siteDimensions(plan)
+  const dimensions=useMemo(()=>siteDimensions(plan),[plan])
   const host=useRef<HTMLDivElement>(null),scene=useRef<LivingScene|null>(null)
-  const latest=useRef({plan,geometry,field,selectedAreaId})
+  const [ownMemory]=useState<FarmSceneMemory>(()=>new Map()),memory=cameraMemory || ownMemory
+  const viewKey=farmViewKey(isolatedAreaId || selectedAreaId)
+  const latest=useRef({plan,geometry,field,selectedAreaId,viewKey})
   const projection=useRef<{matrix:Float32Array;width:number;height:number}|null>(null)
   const polygons=useRef(new Map<string,SVGPolygonElement>()),labels=useRef(new Map<string,HTMLButtonElement>())
   const down=useRef<{x:number;y:number;id:number;moved:boolean}|null>(null)
   useEffect(()=>{
-    const previous=siteDimensions(latest.current.plan)
+    const previous=siteDimensions(latest.current.plan),changedView=latest.current.viewKey!==viewKey
+    if(changedView && scene.current)rememberFarmScene(memory,latest.current.viewKey,scene.current,previous)
     // Growing storage bounds changes the scene origin; keep the camera attached to the same space.
     if(previous.widthM!==dimensions.widthM || previous.lengthM!==dimensions.lengthM)scene.current?.shiftOrigin([(previous.widthM-dimensions.widthM)/2,0,(dimensions.lengthM-previous.lengthM)/2])
-    latest.current={plan,geometry,field,selectedAreaId}
+    latest.current={plan,geometry,field,selectedAreaId,viewKey}
     scene.current?.update(geometry.vertices,Math.max(dimensions.widthM,dimensions.lengthM),field)
-  },[plan,geometry,field,dimensions.widthM,dimensions.lengthM,selectedAreaId])
-  useEffect(()=>{if(scene.current)focusArea(scene.current,latest.current.plan,selectedAreaId)},[selectedAreaId])
+    if(changedView && scene.current && !restoreFarmScene(memory,viewKey,scene.current,dimensions))focusArea(scene.current,plan,selectedAreaId)
+  },[plan,geometry,field,dimensions,selectedAreaId,viewKey,memory])
   useEffect(()=>{
     if(!host.current)return
     let cancelled=false
@@ -54,11 +58,11 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
       const current=latest.current,d=siteDimensions(current.plan)
       renderer.update(current.geometry.vertices,Math.max(d.widthM,d.lengthM),current.field)
       renderer.setPresentation('points')
-      focusArea(renderer,current.plan,current.selectedAreaId)
+      if(!restoreFarmScene(memory,current.viewKey,renderer,d))focusArea(renderer,current.plan,current.selectedAreaId)
       setReady(true)
     }).catch(()=>{if(!cancelled)setFailed(true)})
-    return ()=>{cancelled=true;scene.current?.dispose();scene.current=null}
-  },[])
+    return ()=>{cancelled=true;if(scene.current){rememberFarmScene(memory,latest.current.viewKey,scene.current,siteDimensions(latest.current.plan));scene.current.dispose();scene.current=null}}
+  },[memory])
   const hit=(event:ReactPointerEvent<HTMLDivElement>)=>{
     if(!projection.current || !host.current)return null
     const rect=host.current.getBoundingClientRect(),view=projection.current

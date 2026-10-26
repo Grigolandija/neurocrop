@@ -165,7 +165,10 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
     })
     await onPrefetchRoute?.(route)
-    startNavigationTransition(() => navigate(route, { viewTransition: true }))
+    startNavigationTransition(async () => {
+      try { await navigate(route, { viewTransition: true }) }
+      finally { setPreparingRoute(current => current === route ? null : current) }
+    })
   }
 
   async function signOut() {

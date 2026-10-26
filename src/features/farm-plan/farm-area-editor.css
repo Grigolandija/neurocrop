@@ -51,6 +51,7 @@
 .nfa-editor input[type="checkbox"] { accent-color: #28694f; }
 .nfa-editor input:not([type="checkbox"]), .nfa-editor select { width: 100%; min-width: 0; min-height: 34px; border: 1px solid #dce5da; border-radius: 5px; padding: 6px 9px; background: #fff; color: #294135; font: inherit; font-size: 12px; }
 .nfa-properties, .nfa-equipment-panel { min-width: 0; padding: 14px 18px 16px; }
+.nfa-equipment-panel { container-type: inline-size; container-name: nc-properties; }
 .nfa-area-basics { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 24px; max-width: 1000px; }
 .nfa-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .nfa-measurements { grid-template-columns: repeat(3,minmax(0,1fr)); }
@@ -113,11 +114,11 @@
 .nfa-equipment-panel .gh-library-more .gh-library-grid { margin-top: 12px; }
 /* Property controls share the legacy editor component, but never its fixed sidebar positioning. */
 .nfa-equipment-panel .gh-right-panel { position: static; inset: auto; z-index: auto; width: auto; height: auto; overflow: visible; border: 0; box-shadow: none; transform: none; transition: none; background: transparent; }
-.nfa-equipment-panel .gh-properties { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); align-items: start; gap: 16px; margin-bottom: 12px; }
+.nfa-equipment-panel .gh-properties { display: block; margin-bottom: 12px; }
+.nfa-equipment-panel .gh-object-inspector { max-width: 1120px; margin: 0; padding: 0; border: 0; }
 .nfa-equipment-panel .gh-properties > header { display: none; }
 .nfa-equipment-panel .gh-field { margin: 0; }
 .nfa-equipment-panel .gh-field-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
-.nfa-equipment-panel .gh-coordinate-box > span { display: block; margin-bottom: 6px; color: #8a9981; font-size: 10px; }
 .nfa-equipment-panel textarea { min-height: 58px; width: 100%; resize: vertical; border: 1px solid #dde5d8; border-radius: 6px; padding: 8px; background: #fff; color: #35543d; font: inherit; }
 .nfa-equipment-panel .gh-toggle-row label, .nfa-layer-list label { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
 .nfa-object-list > div, .nfa-node-tray { display: grid; grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); gap: 8px; }
@@ -222,10 +223,6 @@
   .nfa-location > i { display: none; }
 }
 
-.nfa-equipment-panel .gh-equipment-placement { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(160px,1fr) minmax(280px,2fr); gap: 10px 16px; padding-top: 12px; border-top: 1px solid #e4eae1; }
-.nfa-equipment-panel .gh-equipment-placement > p { grid-column: 1 / -1; margin: 0; }
-.nfa-equipment-panel .gh-equipment-placement [role="alert"] { color: #a36336; }
-@media(max-width:650px) { .nfa-equipment-panel .gh-equipment-placement { grid-template-columns: 1fr; } }
 
 .nfa-alignment-guides { pointer-events: none; }
 .nfa-alignment-guides line { stroke: #397fa2; stroke-width: 1px; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
@@ -234,3 +231,24 @@
 .nfa-equipment-panel .gh-equipment-collisions { margin-bottom: 12px; border-color: #ecd8ad; }
 .nfa-equipment-panel .gh-equipment-collisions :is(summary,small,p) { color: #885f25; }
 .nfa-equipment-panel .gh-equipment-collisions strong { font-size: 12px; }
+
+.nc-farm-save-status { color: #708374; font-size: 11px; white-space: nowrap; }
+.nc-farm-save-status[data-state="dirty"] { color: #a47730; }
+.nc-farm-save-status:is([data-state="error"],[data-state="conflict"]) { color: #a45c35; }
+@media(max-width:650px) { .nc-farm-save-status { max-width: 95px; overflow: hidden; text-overflow: ellipsis; } }
+
+.nfa-equipment-panel .gh-object-inspector .gh-property-groups { grid-template-columns: minmax(0,1fr); gap: 18px; }
+.nfa-equipment-panel .gh-object-inspector .gh-placement-summary { margin: 7px 0 0; color: #8a978d; font-size: 11px; line-height: 1.6; }
+.nfa-equipment-panel .gh-object-inspector .gh-placement-summary[role="alert"] { color: #a36336; }
+.nfa-equipment-panel .gh-object-options { margin-top: 10px; padding: 0; border-bottom: 0; }
+.nfa-equipment-panel .gh-object-options > div { grid-template-columns: minmax(180px,480px) auto; align-items: end; justify-content: start; gap: 20px; }
+@container nc-properties (min-width:620px) {
+  .nfa-equipment-panel .gh-object-inspector .gh-property-groups { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 24px; }
+}
+@container nc-properties (min-width:960px) {
+  .nfa-equipment-panel .gh-object-inspector .gh-property-groups { grid-template-columns: minmax(0,1fr) minmax(0,.9fr) minmax(0,1.25fr); gap: 24px; }
+  .nfa-equipment-panel .gh-property-group + .gh-property-group { padding-left: 24px; border-left: 1px solid #edf1ec; }
+}
+@container nc-properties (max-width:480px) {
+  .nfa-equipment-panel .gh-object-options > div { grid-template-columns: minmax(0,1fr); gap: 10px; }
+}

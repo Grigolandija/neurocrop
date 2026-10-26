@@ -62,4 +62,18 @@ describe('unified farm saving',()=>{
     await expect(persistFarmWorkspace({plan,maps:{[id]:broken},bases,baseline:'old',revision:1,savePlan,saveMap:vi.fn(),enableMap,onPlanSaved:()=>{},onMapSaved:()=>{}})).rejects.toThrow(/outside/)
     expect(savePlan).not.toHaveBeenCalled();expect(enableMap).not.toHaveBeenCalled()
   })
+  it('retries only the remaining Areas after a partially successful save',async()=>{
+    const first=setup(),second=insertFarmArea(first.plan),id2=second.id,map2=farmEditorMap(second.plan,id2,{})
+    const maps={[first.id]:first.edited,[id2]:{...map2,objects:[newFarmObject('rack',map2)]}},bases={...first.bases}
+    let offline=true
+    const saveMap=vi.fn(async(id,map,revision)=>{if(id===id2 && offline)throw new Error('Offline');return {map,revision:revision+1,updatedAt:'now'}})
+    const input={plan:second.plan,maps,bases,baseline:farmPlanSignature(second.plan),revision:2,savePlan:vi.fn(),saveMap,enableMap:async()=>{},onPlanSaved:()=>{},onMapSaved:(id:string,result:{map:typeof map2;revision:number})=>{maps[id]=result.map;bases[id]={revision:result.revision,signature:layoutSignature(result.map)}}}
+    await expect(persistFarmWorkspace(input)).rejects.toThrow('Offline')
+    expect(bases[first.id].revision).toBe(4)
+    offline=false;saveMap.mockClear()
+    await persistFarmWorkspace(input)
+    expect(saveMap).toHaveBeenCalledTimes(1)
+    expect(saveMap.mock.calls[0][0]).toBe(id2)
+    expect(bases[id2].signature).toBe(layoutSignature(maps[id2]))
+  })
 })
