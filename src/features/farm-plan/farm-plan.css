@@ -1,12 +1,11 @@
-.nc-farm-plan { padding: 24px 26px 36px; color: #293e32; }
-.nc-farm-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px; margin-bottom: 22px; }
+.nc-farm-plan { padding: 16px 20px; color: #293e32; }
+.nc-farm-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; }
 .nc-farm-heading p { margin: 0 0 7px; color: #7c8c79; font-size: 11px; letter-spacing: 1.4px; }
-.nc-farm-heading h1 { margin: 0 0 7px; font-size: 29px; line-height: 1.2; font-weight: 600; letter-spacing: -.7px; }
+.nc-farm-heading h1 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 600; letter-spacing: -.7px; }
 .nc-farm-heading > div > span { color: #788774; font-size: 13px; }
 .nc-farm-heading > div:last-child { display: flex; align-items: center; gap: 9px; }
 .nc-farm-plan button, .nc-farm-plan input, .nc-farm-plan select { font-family: inherit; }
 .nc-farm-heading button { border: 1px solid #d8e2d2; border-radius: 7px; padding: 10px 14px; background: #fff; color: #506b44; font-size: 12px; cursor: pointer; }
-.nc-farm-heading .nc-farm-save { border-color: #28694f; background: #28694f; color: #fff; }
 .nc-farm-heading button:disabled { opacity: .45; cursor: default; }
 .nc-farm-layout { display: block; overflow: hidden; border: 1px solid #dce5d6; border-radius: 12px; background: #fff; }
 .nc-farm-layout[data-readonly="true"] { grid-template-columns: minmax(0,1fr); }
@@ -18,8 +17,6 @@
 .nc-farm-feedback button, .nc-farm-overview-error button { border: 1px solid #ddceb6; border-radius: 5px; padding: 5px 9px; background: #fff; color: inherit; font-size: 11px; cursor: pointer; }
 .nc-farm-feedback small { flex-basis: 100%; font-size: 10px; }
 .nc-farm-notice { background: #eaf3e3; color: #56774b; }
-.nc-farm-save-status { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; color: #8a9980; font-size: 11px; }
-.nc-farm-save-status [data-dirty="true"] { color: #a18048; }
 .nc-farm-loading { padding: 50px 20px; color: #89997e; text-align: center; }
 .nc-farm-scene { position: relative; height: clamp(470px,65vh,760px); overflow: hidden; isolation: isolate; background: #f6f8f3; }
 .nc-farm-scene > canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
@@ -81,3 +78,10 @@
   .nc-farm-overview-nav button { padding: 7px 8px; font-size: 11px; }
 }
 @media (hover:none) and (pointer:coarse) { .nc-farm-camera small { display: none; } }
+
+.nc-farm-heading > div:first-child { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 14px; }
+.nc-farm-inline-status { font-size: 11px; color: #8d9c88; }
+.nc-farm-inline-status[data-dirty="true"] { color: #a0834b; }
+
+.nc-farm-notice { position: fixed; z-index: 11000; right: 24px; bottom: 24px; max-width: min(480px,calc(100vw - 48px)); margin: 0; padding: 12px 16px; border: 1px solid #d4e2cd; box-shadow: 0 6px 24px #29413512; font-size: 12px; line-height: 1.6; }
+.nc-farm-notice > button { flex: 0 0 auto; margin-left: auto; padding: 3px; background: transparent; color: #6d8462; cursor: pointer; }

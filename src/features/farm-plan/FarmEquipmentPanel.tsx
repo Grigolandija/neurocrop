@@ -15,7 +15,6 @@ export default function FarmEquipmentPanel({tab,onTab,map,selectedId,selectedIds
   const placed=new Set(placedNodes.flatMap(o=>o.metadata.sensor?.devEui?.toLowerCase() || []))
   const available=(context?.nodes || []).filter(n=>n.devEui && !placed.has(n.devEui.toLowerCase()))
   return <section className="nfa-equipment-panel" aria-label={tab==='nodes' ? 'Nodes' : tab==='sections' ? 'Sections' : (lt ? 'Įranga' : 'Equipment')}>
-    <header className="nfa-property-heading"><strong>{selectedIds.length>1 ? `${lt ? 'Pasirinkti objektai' : 'Selected objects'}: ${selectedIds.length}` : object?.name || (tab==='nodes' ? `Nodes · ${map.name}` : tab==='sections' ? `Sections · ${map.name}` : (lt ? 'Įranga' : 'Equipment'))}</strong>{object && <button type="button" onClick={()=>onSelect(null)}>{lt ? 'Baigti' : 'Done'}</button>}</header>
     {contextError && <p className="nfa-message" role="alert">{contextError}</p>}
     {selectedIds.length>1 ? <p className="nfa-hint">{lt ? 'Tempkite pasirinktą įrangą kartu. Vieną objektą pasirinkite matmenims keisti.' : 'Drag the selected equipment together. Select one object to resize it.'}</p> : object ? <>
       {object.metadata.sensor?.devEui ? <FarmNodeInspector key={`${object.id}-${context?.nodes.find(n=>n.devEui===object.metadata.sensor?.devEui)?.installationConfirmedAt || ''}`} object={object} map={map} context={context} lt={lt} onUpdate={onUpdate} onHeight={onNodeHeight} onSection={onAssignSection} /> : <ObjectPropertiesPanel map={map} selected={[object]} onUpdate={onUpdate} onAlign={()=>{}} language={language} />}
