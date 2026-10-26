@@ -40,7 +40,7 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const [context, setContext] = useState<AreaMapContext | null>(null)
   const [history, setHistory] = useState<AreaMapHistory | null>(null)
   const [observedNow, setObservedNow] = useState(() => Date.now())
-  const [mapView, setMapView] = useState<'2d' | '3d'>('3d')
+  const [mapView, setMapView] = useState<'2d' | '3d'>(presentation === 'overview' ? '2d' : '3d')
   const [timeMode, setTimeMode] = useState<ClimateTimeMode>('live')
   const [historyIndex, setHistoryIndex] = useState(0)
   const [historyError, setHistoryError] = useState('')
