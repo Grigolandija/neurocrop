@@ -3,6 +3,7 @@ import { OBJECT_LIBRARY, type GreenhouseObject } from '../greenhouse-map/model'
 import { createDemoMap } from '../greenhouse-map/demo'
 import { objectGeometry } from './objectGeometry'
 import { sceneGeometry } from './sceneGeometry'
+import { equipmentMountCeiling } from './wallSurfaces'
 
 const dimensions = { widthM: 12, lengthM: 8, heightM: 4 }
 function object(type: GreenhouseObject['type'], widthM = 1.4, lengthM = .2): GreenhouseObject {
@@ -16,6 +17,26 @@ function bounds(mesh: Float32Array) {
   return [0,1,2].map(axis => [Math.min(...p.map(v => v[axis])), Math.max(...p.map(v => v[axis]))])
 }
 describe('equipment models on the saved layout', () => {
+  it('moves hanging equipment with the ceiling without stretching its model or moving floor equipment',()=>{
+    for(const type of ['lamp','fan'] as const){
+      const original=object(type,1,.35),low=points(objectGeometry(original,dimensions,3)),high=points(objectGeometry(original,dimensions,5))
+      expect(high.length).toBe(low.length)
+      // Ceiling attachments move exactly the same two metres as the room height.
+      for(let i=0;i<low.length;i++){
+        expect(high[i][0]).toBeCloseTo(low[i][0]);expect(high[i][2]).toBeCloseTo(low[i][2])
+        expect(high[i][1]-low[i][1]).toBeCloseTo(2,5)
+      }
+    }
+    expect(objectGeometry(object('growing-table',3,1),dimensions,3)).toEqual(objectGeometry(object('growing-table',3,1),dimensions,5))
+  })
+  it('keeps hanging equipment below the lowest pitched roof point over its rotated footprint',()=>{
+    for(const rotationDeg of [0,35,90])for(const type of ['lamp','fan'] as const){
+      const original={...object(type,1,.35),rotationDeg},ceiling=equipmentMountCeiling(original,dimensions,4,.32)
+      const mesh=objectGeometry(original,dimensions,4,ceiling)
+      expect(bounds(mesh)[1][1]).toBeLessThan(ceiling)
+      expect(bounds(mesh)[1][0]).toBeGreaterThan(0)
+    }
+  })
   it('uses the configured door height and type, keeping a wide single door single', () => {
     const single = objectGeometry({...object('door',3,.2),metadata:{door:{type:'single',heightM:2.6}}},dimensions,4)
     const narrow = objectGeometry({...object('door',1.2,.2),metadata:{door:{type:'single',heightM:2.6}}},dimensions,4)

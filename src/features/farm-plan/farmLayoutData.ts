@@ -22,7 +22,11 @@ export function reconcileFarmMaps(before:FarmPlanDocument,after:FarmPlanDocument
   const next={...maps}
   for(const area of after.areas){
     const old=before.areas.find(a=>a.id===area.id),map=maps[area.id]
-    if(!old || !map || JSON.stringify(old.polygon)===JSON.stringify(area.polygon))continue
+    if(!old || !map)continue
+    if(JSON.stringify(old.polygon)===JSON.stringify(area.polygon)){
+      if(old.height!==area.height || old.kind!==area.kind || old.name!==area.name)next[area.id]=farmEditorMap(after,area.id,maps)
+      continue
+    }
     const b=zoneBounds(old),a=zoneBounds(area),dx=b.minX-a.minX,dy=b.minY-a.minY
     const rigid=old.polygon.length===area.polygon.length && old.polygon.every((p,i)=>Math.abs(p.xM-area.polygon[i].xM-dx)<1e-7 && Math.abs(p.yM-area.polygon[i].yM-dy)<1e-7)
     if(rigid)continue
@@ -52,7 +56,7 @@ export function farmOpenings(plan:FarmPlanDocument,maps:FarmMaps):FarmOpening[]{
       const [p,q]=objectFootprint(o),a={xM:p.xM+origin.minX,yM:p.yM+origin.minY},b={xM:q.xM+origin.minX,yM:q.yM+origin.minY}
       const key=[a,b].map(p=>`${Math.round(p.xM*10000)},${Math.round(p.yM*10000)}`).sort().join(':')+':'+o.type
       if(seen.has(key))continue
-      seen.add(key);openings.push({key,areaId:area.id,object:o,a,b,sill:o.type==='door' ? 0 : Math.min(1.2,area.height*.4),height:o.type==='door' ? Math.min(area.height,o.metadata.door?.heightM || defaultDoorHeight(area.height)) : Math.min(.9,area.height*.4)})
+      seen.add(key);openings.push({key,areaId:area.id,object:o,a,b,sill:o.type==='door' ? 0 : Math.min(1.15,area.height*.4),height:o.type==='door' ? Math.min(area.height,o.metadata.door?.heightM || defaultDoorHeight(area.height)) : Math.min(o.type==='window' ? .95 : .58,area.height*.32)})
     }
   }
   return openings

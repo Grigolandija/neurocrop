@@ -17,10 +17,10 @@ const tau = Math.PI * 2
  * Glazing is represented by open frames and fine reflection lines so that
  * equipment inside remains visible in the depth-based climate composite.
  */
-export function objectGeometry(object: GreenhouseObject, dimensions: GreenhouseMap['dimensions'], roomHeight: number): Float32Array {
+export function objectGeometry(object: GreenhouseObject, dimensions: GreenhouseMap['dimensions'], roomHeight: number, ceilingHeight = roomHeight): Float32Array {
   if (!object.visible || ['sensor-node', 'section-zone', 'technical-zone', 'text-label'].includes(object.type)) return new Float32Array()
   const { widthM: ow, lengthM: od, type } = object
-  if (![ow, od, object.xM, object.yM, object.rotationDeg, roomHeight].every(Number.isFinite) || ow <= 0 || od <= 0 || roomHeight <= 0) return new Float32Array()
+  if (![ow, od, object.xM, object.yM, object.rotationDeg, roomHeight].every(Number.isFinite) || ow <= 0 || od <= 0 || roomHeight <= 0 || !Number.isFinite(ceilingHeight) || ceilingHeight <= 0) return new Float32Array()
   const orientAlongLongSide = ['door', 'window', 'ventilation-opening', 'rack', 'growing-table', 'hydroponic-channel', 'growing-bed', 'lamp'].includes(type) && od > ow
   const w = orientAlongLongSide ? od : ow, d = orientAlongLongSide ? ow : od
   const angle = object.rotationDeg * Math.PI / 180
@@ -208,12 +208,12 @@ export function objectGeometry(object: GreenhouseObject, dimensions: GreenhouseM
       for(let i=0;i<holes;i++)tube([-w/2+(i+.5)*w/holes,height+.05,z],[-w/2+(i+.5)*w/holes,height+.054,z],Math.min(.035,width*.24),rubber,12)
     }
   } else if (type === 'fan') {
-    const radius=Math.min(w*.46,roomHeight*.15), y=Math.min(roomHeight*.56,roomHeight-radius-.12), depth=Math.min(d*.55,.28)
+    const radius=Math.min(w*.46,(ceilingHeight-.20)/2), y=Math.max(radius+.04,ceilingHeight-radius-.20), depth=Math.min(d*.55,.28)
     fan(0,y,0,radius,depth)
-    for(const x of [-radius*.6,radius*.6])tube([x,y+radius*.75,0],[x,y+radius+Math.min(.16,roomHeight*.06),0],.013,dark,8)
+    for(const x of [-radius*.6,radius*.6])tube([x,y+radius*.75,0],[x,y+radius+Math.min(.16,ceilingHeight*.06),0],.013,dark,8)
     box(0,y+radius+.10,0,radius*1.5,.035,Math.min(d,.14),metal)
   } else if (type === 'lamp') {
-    const y=Math.min(roomHeight*.64,roomHeight-.18), bars=Math.min(5,Math.max(1,Math.round(d/.18)))
+    const y=Math.max(.09,ceilingHeight-.35), bars=Math.min(5,Math.max(1,Math.round(d/.18)))
     for(let i=0;i<bars;i++) {
       const z=-d/2+(i+.5)*d/bars, depth=d/bars*.62
       box(0,y,z,w,.055,depth,metal)
@@ -222,7 +222,7 @@ export function objectGeometry(object: GreenhouseObject, dimensions: GreenhouseM
     }
     for(const x of [-w*.35,w*.35]) {
       box(x,y+.05,0,.035,.035,d,metal)
-      tube([x,y+.07,0],[x,Math.min(roomHeight-.05,y+.35),0],.005,dark,6)
+      tube([x,y+.07,0],[x,Math.max(y+.07,ceilingHeight-.04),0],.005,dark,6)
     }
   } else if (type === 'reservoir') {
     const height=Math.min(1.15,roomHeight*.5), radius=Math.min(w,d)*.45, segments=40

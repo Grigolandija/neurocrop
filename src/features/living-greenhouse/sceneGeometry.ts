@@ -9,10 +9,11 @@ import type { Vec3 } from './sceneMath'
 import type { LivingView } from './spatialEvidence'
 import { createVolumeGrid } from './volumeGrid'
 import { climateContours, type ClimateContour } from './climateContours'
+import { areaWallSurfaces,equipmentMountCeiling } from './wallSurfaces'
 import { objectGeometry } from './objectGeometry'
 
 type Color = [number, number, number]
-export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[]; contours: ClimateContour[]; palette?: Float32Array; roofSlope?: number }
+export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[]; contours: ClimateContour[]; palette?: Float32Array; roofSlope?: number; surfaces?: Float32Array }
 export function climateColor(value: number, min: number, max: number): Color {
   const stops: Color[] = [[.10, .42, .90], [.06, .78, .86], [.89, .89, .45], [1, .57, .18], [.94, .22, .25]]
   const t = Math.max(0, Math.min(.99999, (value - min) / (max - min || 1))) * 4
@@ -94,12 +95,12 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   const heights=sensors.filter(s=>s.value!==null && s.heightM!==null && s.heightM<=h).map(s=>s.heightM!).sort((a,b)=>a-b)
   const levels=heights.filter((height,i)=>!i || height-heights[i-1]>.15)
   const shownLevels=levels.length<=8 ? levels : Array.from({length:8},(_,i)=>levels[Math.round(i*(levels.length-1)/7)])
-  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,palette,bounds:[w,l,h],roofSlope,levels:shownLevels,contours:options.topography ? climateContours(grid,[w,l,h],scale) : []}
+  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,palette,bounds:[w,l,h],roofSlope,surfaces:areaWallSurfaces(map,h,roofSlope),levels:shownLevels,contours:options.topography ? climateContours(grid,[w,l,h],scale) : []}
   // All saved equipment types share the same detailed mesh library in live and demo views.
   const visibleLayers = new Set(map.layers.filter(layer => layer.visible).map(layer => layer.id))
   for (const object of map.objects) {
     if (!object.visible || !visibleLayers.has(object.layerId) || (polygonal && !objectInsideOutline(object,map))) continue
-    const mesh = objectGeometry(object, map.dimensions, h)
+    const mesh = objectGeometry(object, map.dimensions, h, equipmentMountCeiling(object,map.dimensions,h,roofSlope))
     // Avoid argument-count limits on large layouts.
     for (const value of mesh) data.push(value)
   }

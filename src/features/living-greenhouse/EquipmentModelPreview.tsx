@@ -49,8 +49,10 @@ export default function EquipmentModelPreview() {
   useEffect(() => {
     if (!host.current) return
     let cancelled = false
-    const suspended = ['fan', 'lamp', 'window', 'ventilation-opening'].includes(type)
-    const targetHeight = suspended ? type === 'lamp' ? 2.10 : 1.7 : type === 'growing-bed' ? .15 : type === 'growing-table' || type === 'hydroponic-channel' ? .5 : .95
+    // Frame the generated model, including equipment that follows the ceiling.
+    let low=Infinity,high=-Infinity
+    for(let i=1;i<current.current.length;i+=6){low=Math.min(low,current.current[i]);high=Math.max(high,current.current[i])}
+    const targetHeight=Number.isFinite(low+high) ? (low+high)/2 : .95
     createLivingScene(host.current, () => {}, () => { if (!cancelled) setError(true) }, { targetHeight, elevation: .38, zoom: 1 }).then(scene => {
       if (cancelled) { scene.dispose(); return }
       renderer.current = scene

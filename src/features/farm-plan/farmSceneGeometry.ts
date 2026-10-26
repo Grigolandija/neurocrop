@@ -1,4 +1,5 @@
 import { objectInsideOutline } from '../../../backend/area-map-outline.js'
+import { equipmentMountCeiling,wallSurfaceGeometry } from '../living-greenhouse/wallSurfaces'
 import { objectGeometry } from '../living-greenhouse/objectGeometry'
 import { planToScene,type Vec3 } from '../living-greenhouse/sceneMath'
 import { triangulateSitePolygon } from '../living-greenhouse/sitePlanEditing'
@@ -75,8 +76,13 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
         const color:Vec3=typeof height==='number' ? [.12,.52,.37] : [.52,.57,.53]
         for(let i=0;i<4;i++){tri(top,ring[i],ring[(i+1)%4],color);tri(bottom,ring[(i+1)%4],ring[i],color)}continue
       }
-      for(const value of objectGeometry(global,d,area.height))data.push(value)
+      for(const value of objectGeometry(global,d,area.height,equipmentMountCeiling(object,map.dimensions,area.height,area.kind==='greenhouse' ? .32 : 0)))data.push(value)
     }
   }
   return new Float32Array(data)
+}
+
+/** Shared wall contacts are tinted once, with the same openings as the solid models. */
+export function wholeFarmSurfaces(plan:FarmPlanDocument,maps:FarmMaps={}){
+  return wallSurfaceGeometry(farmWalls(plan,maps),farmOpenings(plan,maps),plan.dimensions)
 }

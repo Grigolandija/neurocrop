@@ -12,6 +12,15 @@ const plan=():FarmPlanDocument=>({...emptyFarmPlan(),areas:[{id:'a',name:'Left',
 const mapWithTable=(p=plan())=>{const m=farmEditorMap(p,'a',{});return {...m,objects:[newFarmObject('growing-table',m,{xM:1,yM:1})]}}
 
 describe('one farm coordinate system',()=>{
+  it('refreshes the canonical map height immediately while preserving equipment footprints and measured Node heights',()=>{
+    const p=plan(),map=mapWithTable(p),node=newFarmObject('sensor-node',map,undefined,{devEui:'0011223344556677',status:'online',sensors:[],installationHeightM:1.5})
+    map.objects.push(newFarmObject('lamp',map),newFarmObject('fan',map),node)
+    const changed=editFarmArea(p,'a',{height:5}).plan,next=reconcileFarmMaps(p,changed,{a:map})
+    expect(next.a.dimensions.heightM).toBe(5)
+    expect(next.a.objects).toEqual(map.objects)
+    expect(next.a.objects.at(-1)?.metadata.sensor?.installationHeightM).toBe(1.5)
+    expect(map.dimensions.heightM).toBe(3)
+  })
   it('creates empty real Area layouts without demo equipment or fabricated Nodes',()=>{
     const p=plan(),m=farmEditorMap(p,'a',{})
     expect(m.objects).toEqual([]);expect(m.areaId).toBe('a');expect(m.shape).toEqual({type:'polygon',points:areaGeometry(p,0,'a')!.polygon})
