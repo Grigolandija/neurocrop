@@ -6,7 +6,7 @@ import { planToScene, project } from '../living-greenhouse/sceneMath'
 import { siteVolume } from '../living-greenhouse/siteDemoGeometry'
 import { pickSitePoint, siteDimensions, zoneBounds } from '../living-greenhouse/siteDemoModel'
 import { farmPlanScene, type FarmPlanDocument, type FarmArea } from './farmPlanData'
-import { wholeFarmGeometry,wholeFarmSurfaces } from './farmSceneGeometry'
+import { wholeFarmGeometry } from './farmSceneGeometry'
 import type { FarmMaps } from './farmLayoutData'
 import './farm-plan.css'
 const EMPTY_MAPS:FarmMaps={}
@@ -19,7 +19,7 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   const [hovered,setHovered]=useState<string|null>(null)
   const [ready,setReady]=useState(false),[failed,setFailed]=useState(false)
   const geometry=useMemo(()=>wholeFarmGeometry(document,maps),[document,maps])
-  const field=useMemo(()=>({...siteVolume(null,'temperature',plan),surfaces:wholeFarmSurfaces(document,maps)}),[plan,document,maps])
+  const field=useMemo(()=>siteVolume(null,'temperature',plan),[plan])
   const dimensions=siteDimensions(plan)
   const host=useRef<HTMLDivElement>(null),scene=useRef<LivingScene|null>(null)
   const latest=useRef({plan,geometry,field,selectedAreaId})

@@ -224,6 +224,73 @@ export function objectGeometry(object: GreenhouseObject, dimensions: GreenhouseM
       box(x,y+.05,0,.035,.035,d,metal)
       tube([x,y+.07,0],[x,Math.max(y+.07,ceilingHeight-.04),0],.005,dark,6)
     }
+  } else if (type === 'ibc-tank') {
+    const h=Math.min(1.18,roomHeight*.92), rail=Math.min(.018,w*.018,d*.018)
+    // Pallet runners and a pale, chamfered plastic vessel inside the steel cage.
+    for(const x of [-w*.36,0,w*.36])box(x,h*.055,0,w*.12,h*.11,d*.94,rubber)
+    for(const z of [-d*.34,d*.34])box(0,h*.12,z,w,h*.035,d*.13,metal)
+    const a=w*.44,b=d*.44,chamfer=Math.min(w,d)*.065,bottom=h*.15,top=h*.91
+    const outline=[[-a+chamfer,-b],[a-chamfer,-b],[a,-b+chamfer],[a,b-chamfer],[a-chamfer,b],[-a+chamfer,b],[-a,b-chamfer],[-a,-b+chamfer]]
+    for(let i=0;i<outline.length;i++){
+      const [x,z]=outline[i],[nx,nz]=outline[(i+1)%outline.length]
+      quad([x,bottom,z],[nx,bottom,nz],[nx,top,nz],[x,top,z],[.87,.89,.82])
+      triangle([0,top,0],[x,top,z],[nx,top,nz],pale)
+    }
+    const x=w*.48,z=d*.48
+    for(const y of [h*.18,h*.44,h*.70,h*.94]){
+      tube([-x,y,-z],[x,y,-z],rail,metal,8);tube([-x,y,z],[x,y,z],rail,metal,8)
+      tube([-x,y,-z],[-x,y,z],rail,metal,8);tube([x,y,-z],[x,y,z],rail,metal,8)
+    }
+    const across=Math.min(8,Math.max(2,Math.ceil(w/.24))),along=Math.min(8,Math.max(2,Math.ceil(d/.24)))
+    for(let i=0;i<=across;i++)for(const side of [-1,1])tube([-x+2*x*i/across,h*.16,side*z],[-x+2*x*i/across,h*.94,side*z],rail*.75,metal,6)
+    for(let i=1;i<along;i++)for(const side of [-1,1])tube([side*x,h*.16,-z+2*z*i/along],[side*x,h*.94,-z+2*z*i/along],rail*.75,metal,6)
+    tube([0,top,0],[0,h*.97,0],Math.min(w,d)*.105,dark,24)
+    tube([0,h*.23,-d*.42],[0,h*.23,-d*.49],Math.min(w,d)*.04,dark,16)
+    box(0,h*.28,-d*.48,w*.12,h*.018,d*.035,[.75,.31,.19])
+  } else if (type === 'water-tank') {
+    const radius=Math.min(w,d)*.46,h=Math.min(1.85,roomHeight*.90)
+    tube([0,.035,0],[0,h*.91,0],radius,[.28,.48,.48],40)
+    for(const y of [.12,.28,.46,.64,.82])tube([0,h*y,0],[0,h*y+.018,0],radius*1.025,[.36,.56,.54],40)
+    for(let i=0;i<40;i++){
+      const a=i/40*tau,b=(i+1)/40*tau
+      quad([Math.cos(a)*radius,h*.91,Math.sin(a)*radius],[Math.cos(b)*radius,h*.91,Math.sin(b)*radius],[Math.cos(b)*radius*.25,h*.97,Math.sin(b)*radius*.25],[Math.cos(a)*radius*.25,h*.97,Math.sin(a)*radius*.25],green)
+    }
+    tube([0,h*.965,0],[0,h,0],radius*.25,dark,28)
+    tube([0,h*.11,-radius*.9],[0,h*.11,-Math.min(d*.49,radius*1.07)],Math.min(.035,radius*.08),metal,16)
+    box(0,h*.16,-radius*1.02,radius*.22,.018,.018,[.72,.29,.18])
+  } else if (type === 'water-pump') {
+    const h=Math.min(.45,roomHeight*.65),radius=Math.min(d*.30,h*.29)
+    box(0,h*.07,0,w,h*.14,d,metal)
+    box(w*.12,h*.22,0,w*.44,h*.22,d*.55,dark)
+    tube([-w*.10,h*.56,0],[w*.40,h*.56,0],radius,blue,24)
+    for(let i=0;i<7;i++)tube([w*(-.08+i*.065),h*.56,0],[w*(-.06+i*.065),h*.56,0],radius*1.08,dark,20)
+    tube([-w*.36,h*.56,-d*.28],[-w*.36,h*.56,d*.28],Math.min(h*.40,w*.14),green,28)
+    tube([-w*.49,h*.56,0],[-w*.36,h*.56,0],radius*.5,metal,16)
+    tube([-w*.30,h*.72,0],[-w*.30,h*.96,0],radius*.5,metal,16)
+    box(w*.16,h*.90,0,w*.18,h*.12,d*.27,dark)
+  } else if (type === 'filter-unit') {
+    const h=Math.min(1.05,roomHeight*.85),radius=Math.min(w*.16,d*.30)
+    box(0,h*.045,0,w,h*.09,d,metal)
+    frame(0,h*.09,d*.35,w*.85,h*.78,.026,.035,dark)
+    for(const x of [-w*.24,w*.24]){
+      tube([x,h*.20,0],[x,h*.76,0],radius,[.48,.65,.68],28)
+      tube([x,h*.74,0],[x,h*.82,0],radius*1.08,dark,28)
+      tube([x,h*.13,0],[x,h*.20,0],radius*.45,metal,16)
+      tube([x,h*.82,0],[x,h*.93,0],radius*.30,blue,12)
+    }
+    tube([-w*.46,h*.90,0],[w*.46,h*.90,0],.022,blue,12)
+    ring(0,h*.89,-d*.24,.045,.058,.024,metal,24)
+    tube([0,h*.89,-d*.22],[0,h*.89,-d*.255],.044,pale,24)
+    tube([0,h*.89,-d*.26],[.018,h*.91,-d*.26],.003,dark,6)
+  } else if (type === 'dehumidifier') {
+    const h=Math.min(1.05,roomHeight*.86),radius=Math.min(.045,w*.06,d*.08)
+    for(const x of [-w*.35,w*.35])for(const z of [-d*.32,d*.32])tube([x-radius,h*.045,z],[x+radius,h*.045,z],h*.045,rubber,12)
+    box(0,h*.51,0,w,h*.86,d*.93,pale)
+    box(0,h*.63,-d*.47,w*.80,h*.42,.014,dark)
+    for(let i=0;i<9;i++)box(0,h*(.45+i*.045),-d*.485,w*.77,h*.016,.014,metal)
+    box(w*.22,h*.89,-d*.48,w*.17,h*.045,.015,blue)
+    box(0,h*.95,0,w*.65,h*.035,d*.38,dark)
+    tube([w*.45,h*.16,d*.30],[w*.49,h*.16,d*.30],.014,blue,10)
   } else if (type === 'reservoir') {
     const height=Math.min(1.15,roomHeight*.5), radius=Math.min(w,d)*.45, segments=40
     const at=(a:number,y:number):Vec3=>[Math.cos(a)*w*.46,y,Math.sin(a)*d*.46]

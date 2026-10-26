@@ -1,5 +1,5 @@
 import { describe,expect,it } from 'vitest'
-import { areaWallSurfaces,sortWallSurfaces,wallSurfaceGeometry } from './wallSurfaces'
+import { areaWallSurfaces,perimeterWallGeometry,sortWallSurfaces,wallSurfaceGeometry } from './wallSurfaces'
 import { emptyFarmPlan } from '../farm-plan/farmPlanData'
 import { farmEditorMap } from '../farm-plan/farmLayoutData'
 import { wholeFarmSurfaces } from '../farm-plan/farmSceneGeometry'
@@ -8,6 +8,13 @@ describe('unobtrusive architectural wall surfaces',()=>{
   const dimensions={widthM:10,lengthM:8}
   const wall={a:{xM:0,yM:0},b:{xM:10,yM:0},height:3}
   const points=(mesh:Float32Array)=>Array.from({length:mesh.length/6},(_,i)=>Array.from(mesh.slice(i*6,i*6+3)))
+  it('caps the opaque perimeter at 30 cm, with real thickness and a clear door opening',()=>{
+    const surfaces=perimeterWallGeometry([{...wall,height:12}],[{a:{xM:2,yM:0},b:{xM:4,yM:0},sill:0,height:2.2}],dimensions),p=points(surfaces)
+    expect(Math.max(...p.map(v=>v[1]))).toBeCloseTo(.30,6)
+    expect(Math.min(...p.map(v=>v[1]))).toBe(0)
+    expect(Math.max(...p.map(v=>v[2]))-Math.min(...p.map(v=>v[2]))).toBeCloseTo(.06,6)
+    for(let i=0;i<p.length;i+=3){const x=(p[i][0]+p[i+1][0]+p[i+2][0])/3+5;expect(x>2+1e-5 && x<4-1e-5).toBe(false)}
+  })
   it('cuts true door and window openings through full-height walls',()=>{
     const surfaces=wallSurfaceGeometry([wall],[{a:{xM:2,yM:0},b:{xM:4,yM:0},sill:0,height:2.2},{a:{xM:6,yM:0},b:{xM:8,yM:0},sill:1,height:1}],dimensions)
     let area=0

@@ -198,7 +198,8 @@
 .nfa-gear [data-type="fan"] .nfa-equipment-detail { stroke: #58756b; }
 .nfa-gear [data-type="rack"] > polygon { fill: #dae0e3; stroke: #8c9ca1; }
 .nfa-gear [data-type="growing-bed"] > polygon { fill: #e1dfc8; stroke: #a4a080; }
-.nfa-gear [data-type="reservoir"] > polygon { fill: #dbe9ee; stroke: #91adb8; }
+.nfa-gear :is([data-type="reservoir"],[data-type="water-tank"],[data-type="water-pump"],[data-type="filter-unit"]) > polygon { fill: #dbe9ee; stroke: #91adb8; }
+.nfa-gear [data-type="ibc-tank"] > polygon { fill: #f0f0e6; stroke: #919c95; }
 .nfa-rotation-handle line { stroke: #bd8527; stroke-width: 1px; vector-effect: non-scaling-stroke; pointer-events: none; }
 .nfa-rotation-handle circle { fill: #fff; stroke: #bd8527; stroke-width: 1.5px; vector-effect: non-scaling-stroke; cursor: grab; }
 .nfa-rotation-handle circle:hover, .nfa-rotation-handle circle:focus-visible { fill: #fff1ce; }

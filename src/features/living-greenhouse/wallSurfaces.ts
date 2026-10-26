@@ -50,12 +50,30 @@ export function wallSurfaceGeometry(walls:WallSurface[],openings:WallOpening[],d
   return new Float32Array(data)
 }
 
+/** A solid, six-centimetre-thick skirting wall, never taller than 30 cm. */
+export function perimeterWallGeometry(walls:WallSurface[],openings:WallOpening[],dimensions:GreenhouseMap['dimensions']){
+  const faces=wallSurfaceGeometry(walls.map(w=>({...w,height:Math.min(.30,w.height),topA:Math.min(.30,w.topA ?? w.height),topB:Math.min(.30,w.topB ?? w.height)})),openings,dimensions),data:number[]=[]
+  const quad=(a:number[],b:number[],c:number[],d:number[],shade=1)=>{for(const p of [a,b,c,a,c,d])data.push(...p,.74*shade,.78*shade,.73*shade)}
+  for(let i=0;i<faces.length;i+=36){
+    const a=Array.from(faces.slice(i,i+3)),b=Array.from(faces.slice(i+6,i+9)),c=Array.from(faces.slice(i+12,i+15)),d=Array.from(faces.slice(i+30,i+33))
+    const dx=b[0]-a[0],dz=b[2]-a[2],length=Math.hypot(dx,dz)
+    if(length<1e-6)continue
+    const offset=(p:number[],side:number)=>[p[0]-dz/length*.03*side,p[1],p[2]+dx/length*.03*side]
+    quad(offset(a,1),offset(b,1),offset(c,1),offset(d,1),.90)
+    quad(offset(b,-1),offset(a,-1),offset(d,-1),offset(c,-1),.86)
+    quad(offset(d,1),offset(c,1),offset(c,-1),offset(d,-1))
+    quad(offset(a,-1),offset(a,1),offset(d,1),offset(d,-1),.85)
+    quad(offset(b,1),offset(b,-1),offset(c,-1),offset(c,1),.85)
+  }
+  return new Float32Array(data)
+}
+
 /** The lowest roof point over an equipment footprint is its usable mounting ceiling. */
 export function equipmentMountCeiling(object:GreenhouseObject,dimensions:GreenhouseMap['dimensions'],height:number,roofSlope=0){
   return Math.min(...objectFootprint(object).map(p=>height*(1-roofSlope*Math.min(1,Math.abs(p.yM-dimensions.lengthM/2)/(dimensions.lengthM/2)))))
 }
 
-export function areaWallSurfaces(map:GreenhouseMap,height:number,roofSlope:number){
+export function areaWallSurfaces(map:GreenhouseMap,height:number,roofSlope:number,baseOnly=false){
   if(map.farmPlanGeometry?.kind==='zone')return new Float32Array()
   const outline=outlinePoints(map),ridge=map.dimensions.lengthM/2,roof=(p:SitePoint)=>height*(1-roofSlope*Math.abs(p.yM-ridge)/ridge)
   const walls=outline.flatMap((a,i)=>{
@@ -68,5 +86,5 @@ export function areaWallSurfaces(map:GreenhouseMap,height:number,roofSlope:numbe
     const [a,b]=objectFootprint(o)
     return {a,b,sill:o.type==='door' ? 0 : Math.min(1.15,height*.4),height:o.type==='door' ? doorConfiguration(o,height).heightM : Math.min(o.type==='window' ? .95 : .58,height*.32)}
   })
-  return wallSurfaceGeometry(walls,openings,map.dimensions)
+  return baseOnly ? perimeterWallGeometry(walls,openings,map.dimensions) : wallSurfaceGeometry(walls,openings,map.dimensions)
 }

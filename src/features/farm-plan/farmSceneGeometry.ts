@@ -1,5 +1,5 @@
 import { objectInsideOutline } from '../../../backend/area-map-outline.js'
-import { equipmentMountCeiling,wallSurfaceGeometry } from '../living-greenhouse/wallSurfaces'
+import { equipmentMountCeiling,perimeterWallGeometry,wallSurfaceGeometry } from '../living-greenhouse/wallSurfaces'
 import { objectGeometry } from '../living-greenhouse/objectGeometry'
 import { planToScene,type Vec3 } from '../living-greenhouse/sceneMath'
 import { triangulateSitePolygon } from '../living-greenhouse/sitePlanEditing'
@@ -43,6 +43,7 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
     for(const [x,y,nx,ny] of [[-1,-1,1,-1],[1,-1,1,1],[1,1,-1,1],[-1,1,-1,-1]])quad(at(a,x,y),at(a,nx,ny),at(b,nx,ny),at(b,x,y),color)
   }
   for(const area of plan.areas)for(const [a,b,c] of triangulateSitePolygon(area.polygon))tri(p(a,.01),p(b,.01),p(c,.01),area.kind==='greenhouse' ? [.84,.89,.82] : [.87,.88,.85])
+  for(const value of perimeterWallGeometry(farmWalls(plan,maps),openings,d))data.push(value)
   const corners=new Map<string,{point:SitePoint;height:number}>()
   for(const wall of farmWalls(plan,maps)){
     beam(p(wall.a,wall.height),p(wall.b,wall.height),.028,[.42,.55,.48])

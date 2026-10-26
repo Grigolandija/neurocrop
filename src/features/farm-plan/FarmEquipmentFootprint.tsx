@@ -17,9 +17,15 @@ export default function FarmEquipmentFootprint({object,origin}:{object:Greenhous
   }else if(object.type==='fan'){
     const r=Math.min(w,h)*.38
     detail=<g transform={`translate(${w/2} ${h/2})`}><circle r={r} /><circle r={r*.14} />{[0,90,180,270].map(a=><path key={a} transform={`rotate(${a})`} d={`M0 ${-r*.14} Q${-r*.85} ${-r*.95} ${-r*.72} ${-r*.15} Q${-r*.4} ${r*.18} 0 ${r*.14}Z`} />)}</g>
-  }else if(object.type==='reservoir'){
+  }else if(object.type==='ibc-tank'){
+    detail=<><rect x={inset} y={inset} width={w-2*inset} height={h-2*inset} rx={inset*.5} />{[.25,.5,.75].map(t=><g key={t}><line x1={w*t} y1={inset} x2={w*t} y2={h-inset} /><line x1={inset} y1={h*t} x2={w-inset} y2={h*t} /></g>)}<circle cx={w/2} cy={h/2} r={Math.min(w,h)*.1} /></>
+  }else if(object.type==='reservoir' || object.type==='water-tank'){
     detail=<><ellipse cx={w/2} cy={h/2} rx={w*.38} ry={h*.38} /><ellipse cx={w/2} cy={h/2} rx={w*.1} ry={h*.1} /></>
-  }else if(['heater','cooling-unit','electrical-cabinet','irrigation-unit'].includes(object.type)){
+  }else if(object.type==='water-pump'){
+    detail=<><rect x={w*.36} y={h*.2} width={w*.5} height={h*.6} /><circle cx={w*.22} cy={h/2} r={Math.min(w*.15,h*.34)} />{[.45,.55,.65,.75].map(x=><line key={x} x1={w*x} y1={h*.22} x2={w*x} y2={h*.78} />)}</>
+  }else if(object.type==='filter-unit'){
+    detail=<>{[.25,.75].map(x=><g key={x}><ellipse cx={w*x} cy={h/2} rx={w*.16} ry={h*.30} /><ellipse cx={w*x} cy={h/2} rx={w*.06} ry={h*.12} /></g>)}<line x1={w*.1} y1={h*.12} x2={w*.9} y2={h*.12} /></>
+  }else if(['heater','cooling-unit','electrical-cabinet','irrigation-unit','dehumidifier'].includes(object.type)){
     detail=<>{[.25,.4,.55,.7].map(y=><line key={y} x1={w*.2} y1={h*y} x2={w*.8} y2={h*y} />)}</>
   }else if(['door','window','ventilation-opening'].includes(object.type)){
     detail=<line x1={inset} y1={h/2} x2={w-inset} y2={h/2} />

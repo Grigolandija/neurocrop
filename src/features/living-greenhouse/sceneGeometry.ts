@@ -68,6 +68,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   for (let x = 0; x <= w; x += step) box(x-w/2,0,0,.012,.012,l,[.76,.81,.75])
   for (let z = 0; z <= l; z += step) box(0,0,z-l/2,w,.012,.012,[.76,.81,.75])
   }
+  for(const value of areaWallSurfaces(map,h,roofSlope,true))data.push(value)
   const values = sensors.flatMap(s => s.value === null ? [] : [s.value])
   const stableScale = scaleOverride || getStableScale(values, metric)
   const observedRange: [number, number] = values.length ? [Math.min(...values), Math.max(...values)] : [stableScale.min, stableScale.max]
@@ -95,7 +96,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   const heights=sensors.filter(s=>s.value!==null && s.heightM!==null && s.heightM<=h).map(s=>s.heightM!).sort((a,b)=>a-b)
   const levels=heights.filter((height,i)=>!i || height-heights[i-1]>.15)
   const shownLevels=levels.length<=8 ? levels : Array.from({length:8},(_,i)=>levels[Math.round(i*(levels.length-1)/7)])
-  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,palette,bounds:[w,l,h],roofSlope,surfaces:areaWallSurfaces(map,h,roofSlope),levels:shownLevels,contours:options.topography ? climateContours(grid,[w,l,h],scale) : []}
+  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,palette,bounds:[w,l,h],roofSlope,levels:shownLevels,contours:options.topography ? climateContours(grid,[w,l,h],scale) : []}
   // All saved equipment types share the same detailed mesh library in live and demo views.
   const visibleLayers = new Set(map.layers.filter(layer => layer.visible).map(layer => layer.id))
   for (const object of map.objects) {

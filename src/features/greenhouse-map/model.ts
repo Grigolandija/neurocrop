@@ -18,6 +18,7 @@ export type NodeStatus = 'online' | 'warning' | 'offline' | 'unassigned' | 'low-
 export type ObjectType =
   | 'sensor-node' | 'section-zone' | 'growing-table' | 'hydroponic-channel' | 'growing-bed' | 'rack'
   | 'reservoir' | 'irrigation-unit' | 'fan' | 'heater' | 'cooling-unit' | 'lamp'
+  | 'ibc-tank' | 'water-tank' | 'water-pump' | 'filter-unit' | 'dehumidifier'
   | 'door' | 'window' | 'ventilation-opening' | 'electrical-cabinet' | 'technical-zone'
   | 'walkway' | 'partition' | 'text-label' | 'rectangle'
 
@@ -186,10 +187,15 @@ export const OBJECT_LIBRARY: Array<{ type: ObjectType; label: string; icon: stri
   { type: 'growing-bed', label: 'Growing bed', icon: 'fa-leaf', layerId: 'cultivation', size: [3, 1.2] },
   { type: 'rack', label: 'Shelf / rack', icon: 'fa-layer-group', layerId: 'cultivation', size: [2, 0.8] },
   { type: 'reservoir', label: 'Reservoir', icon: 'fa-droplet', layerId: 'irrigation', size: [1.2, 1.2] },
+  { type: 'ibc-tank', label: 'IBC tank', icon: 'fa-cube', layerId: 'irrigation', size: [1.2, 1] },
+  { type: 'water-tank', label: 'Round water tank', icon: 'fa-droplet', layerId: 'irrigation', size: [1.5, 1.5] },
+  { type: 'water-pump', label: 'Water pump', icon: 'fa-gears', layerId: 'irrigation', size: [.8, .45] },
+  { type: 'filter-unit', label: 'Filtration unit', icon: 'fa-filter', layerId: 'irrigation', size: [1, .6] },
   { type: 'irrigation-unit', label: 'Irrigation unit', icon: 'fa-faucet-drip', layerId: 'irrigation', size: [1, 0.8] },
   { type: 'fan', label: 'Fan', icon: 'fa-fan', layerId: 'climate', size: [0.8, 0.8] },
   { type: 'heater', label: 'Heater', icon: 'fa-temperature-arrow-up', layerId: 'climate', size: [1, 0.6] },
   { type: 'cooling-unit', label: 'Cooling unit', icon: 'fa-snowflake', layerId: 'climate', size: [1.2, 0.7] },
+  { type: 'dehumidifier', label: 'Dehumidifier', icon: 'fa-droplet-slash', layerId: 'climate', size: [.65, .55] },
   { type: 'lamp', label: 'Lamp', icon: 'fa-lightbulb', layerId: 'lighting', size: [1.5, 0.4] },
   { type: 'door', label: 'Door', icon: 'fa-door-open', layerId: 'structure', size: [1.2, 0.2] },
   { type: 'window', label: 'Window', icon: 'fa-table-cells-large', layerId: 'structure', size: [1.5, 0.15] },

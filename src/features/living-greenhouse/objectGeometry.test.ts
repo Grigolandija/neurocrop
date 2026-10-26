@@ -17,6 +17,19 @@ function bounds(mesh: Float32Array) {
   return [0,1,2].map(axis => [Math.min(...p.map(v => v[axis])), Math.max(...p.map(v => v[axis]))])
 }
 describe('equipment models on the saved layout', () => {
+  it('offers distinct physical water-handling and dehumidification equipment in the library',()=>{
+    const types=['ibc-tank','water-tank','water-pump','filter-unit','dehumidifier'] as const,meshes=[]
+    for(const type of types){
+      const entry=OBJECT_LIBRARY.find(e=>e.type===type)!
+      expect(entry,type).toBeDefined()
+      const mesh=objectGeometry(object(type,...entry.size),dimensions,4)
+      expect(mesh.length,type).toBeGreaterThan(0)
+      expect(bounds(mesh)[1][0],type).toBeGreaterThanOrEqual(-.001)
+      expect(bounds(mesh)[1][1],type).toBeLessThan(4)
+      meshes.push(mesh.length)
+    }
+    expect(new Set(meshes).size).toBe(types.length)
+  })
   it('moves hanging equipment with the ceiling without stretching its model or moving floor equipment',()=>{
     for(const type of ['lamp','fan'] as const){
       const original=object(type,1,.35),low=points(objectGeometry(original,dimensions,3)),high=points(objectGeometry(original,dimensions,5))

@@ -4,7 +4,7 @@ import { ltObjectLabels } from './objectLabels'
 import './object-library-panel.css'
 
 const advancedTypes = new Set<ObjectType>([
-  'irrigation-unit', 'heater', 'cooling-unit', 'electrical-cabinet',
+  'irrigation-unit', 'filter-unit', 'dehumidifier', 'heater', 'cooling-unit', 'electrical-cabinet',
   'technical-zone', 'walkway', 'partition', 'text-label', 'rectangle',
 ])
 
