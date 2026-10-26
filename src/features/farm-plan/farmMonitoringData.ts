@@ -1,6 +1,6 @@
 import { getMetricIdByHeatmapKey } from '../../domain/metricRegistry'
 import { getMetricMeasurementTime, getMetricMeasurementValue, getStableScale } from '../greenhouse-map/heatmap/heatmapMetrics'
-import { semanticColorAt } from '../greenhouse-map/heatmap/heatmapColorScale'
+import { semanticColorAt, spatialContrastColorAt } from '../greenhouse-map/heatmap/heatmapColorScale'
 import { METRICS, type MetricKey } from '../greenhouse-map/model'
 import type { AreaMapContext, AreaMapHistory, AreaMapNode } from '../greenhouse-map/services/areaMapRepository'
 
@@ -49,6 +49,15 @@ export function summarizeFarmArea(areaId: string, context: AreaMapContext | unde
 
 export function farmComparisonScale(areas: FarmAreaComparison[], metric: MetricKey) {
   return getStableScale(areas.flatMap(area => area.readings.filter(reading => reading.fresh).map(reading => reading.value!)), metric)
+}
+
+/** One fresh-reading scale for all Areas; missing readings remain neutral, never a cold extreme. */
+export function contrastFarmAreas(areas: FarmAreaComparison[], metric: MetricKey): FarmAreaComparison[] {
+  const scale = farmComparisonScale(areas, metric)
+  return areas.map(area => {
+    const colorRgb = area.mean === null ? area.colorRgb : spatialContrastColorAt(area.mean, [scale.min, scale.max])
+    return { ...area, colorRgb, color: `rgb(${colorRgb.join(' ')})` }
+  })
 }
 
 /** Preserve gaps: a time bucket with no measurements is not bridged by a fabricated line. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AreaMapContext, AreaMapHistory, AreaMapNode } from '../greenhouse-map/services/areaMapRepository'
-import { farmAreaTrend, farmComparisonScale, summarizeFarmArea } from './farmMonitoringData'
+import { contrastFarmAreas, farmAreaTrend, farmComparisonScale, summarizeFarmArea } from './farmMonitoringData'
 
 const now = Date.parse('2026-10-26T12:00:00Z')
 const stamp = (minutes = 0) => new Date(now - minutes * 60000).toISOString()
@@ -52,6 +52,26 @@ describe('farm comparison evidence', () => {
     expect(a.color).toBe(b.color)
     expect(farmComparisonScale([a, b, delayed], 'air-temperature')).toEqual(farmComparisonScale([a], 'air-temperature'))
     expect(a.color).not.toBe(delayed.color)
+  })
+  it('makes nearby values distinguishable on one scale without assigning stale data an extreme colour', () => {
+    const a = summarizeFarmArea('a', context([node('a', 20)]), 'air-temperature', now)
+    const b = summarizeFarmArea('b', context([node('b', 21)]), 'air-temperature', now)
+    const same = summarizeFarmArea('same', context([node('same', 20)]), 'air-temperature', now)
+    const delayed = summarizeFarmArea('old', context([node('old', 99, 90)]), 'air-temperature', now)
+    const snapshot = structuredClone([a, b, same, delayed])
+    const [cold, warm, equal, missing] = contrastFarmAreas([a, b, same, delayed], 'air-temperature')
+    const distance = (x: number[], y: number[]) => Math.hypot(...x.map((v, i) => v - y[i]))
+    expect(distance(cold.colorRgb, warm.colorRgb)).toBeGreaterThan(distance(a.colorRgb, b.colorRgb) * 2)
+    expect(cold.color).toBe(equal.color)
+    expect(missing.color).toBe(delayed.color)
+    expect(contrastFarmAreas([a, b, same], 'air-temperature').map(item => item.color)).toEqual([cold.color, warm.color, equal.color])
+    expect([a, b, same, delayed]).toEqual(snapshot)
+  })
+  it('does not stretch a tiny temperature change across the full contrast palette', () => {
+    const a = summarizeFarmArea('a', context([node('a', 20)]), 'air-temperature', now)
+    const b = summarizeFarmArea('b', context([node('b', 20.01)]), 'air-temperature', now)
+    const colors = contrastFarmAreas([a, b], 'air-temperature').map(item => item.colorRgb)
+    expect(Math.hypot(...colors[0].map((v, i) => v - colors[1][i]))).toBeLessThan(10)
   })
   it('preserves missing history buckets and selects the requested parameter', () => {
     const history = { frames: [

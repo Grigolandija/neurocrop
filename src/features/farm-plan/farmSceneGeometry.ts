@@ -97,13 +97,13 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
   return wholeFarmSceneMesh(plan,maps).vertices
 }
 
-/** Shared walls and openings remain solid when either adjoining Area is highlighted. */
-export function farmSceneEmphasis(selectedAreaId:string|null|undefined,hoveredAreaId:string|null,monitoring:boolean){
-  const selected=monitoring && selectedAreaId
-  return {areaId:selected || hoveredAreaId,opacity:selected ? .06 : .40,fade:selected ? .88 : 0}
+/** Monitoring selection opens a summary; keep every Area visible for comparison. */
+export function farmSceneEmphasis(hoveredAreaId:string|null,monitoring:boolean){
+  return {areaId:monitoring ? null : hoveredAreaId,opacity:.40}
 }
 
-export function highlightFarmArea(mesh:FarmSceneMesh,areaId:string|null,fade=0){
+/** Shared walls and openings remain solid when either adjoining Area is highlighted. */
+export function highlightFarmArea(mesh:FarmSceneMesh,areaId:string|null){
   if(!areaId || !mesh.ranges.some(r=>r.areaIds.includes(areaId)))return {vertices:mesh.vertices,surfaces:new Float32Array()}
   const solidLength=mesh.ranges.filter(r=>r.areaIds.includes(areaId)).reduce((sum,r)=>sum+r.end-r.start,0)
   const vertices=new Float32Array(solidLength),surfaces=new Float32Array(mesh.vertices.length-solidLength)
@@ -111,10 +111,6 @@ export function highlightFarmArea(mesh:FarmSceneMesh,areaId:string|null,fade=0){
   for(const range of mesh.ranges){
     const data=mesh.vertices.subarray(range.start,range.end)
     if(range.areaIds.includes(areaId)){vertices.set(data,solid);solid+=data.length}else{surfaces.set(data,faded);faded+=data.length}
-  }
-  if(fade>0){
-    const background=[.965,.973,.953],amount=Math.max(0,Math.min(1,fade))
-    for(let i=0;i<surfaces.length;i+=6)for(let channel=0;channel<3;channel++)surfaces[i+3+channel]=surfaces[i+3+channel]*(1-amount)+background[channel]*amount
   }
   return {vertices,surfaces}
 }

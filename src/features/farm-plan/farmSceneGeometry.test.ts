@@ -23,22 +23,15 @@ function fixture(){
 }
 
 describe('whole-farm hover presentation',()=>{
-  it('keeps the selected monitoring Area in focus even when hovering another Area',()=>{
-    expect(farmSceneEmphasis('a','b',true)).toEqual({areaId:'a',opacity:.06,fade:.88})
-    expect(farmSceneEmphasis('a',null,true)).toEqual({areaId:'a',opacity:.06,fade:.88})
-    expect(farmSceneEmphasis(null,'b',true)).toEqual({areaId:'b',opacity:.4,fade:0})
-    expect(farmSceneEmphasis('a','b',false)).toEqual({areaId:'b',opacity:.4,fade:0})
-  })
-  it('makes neighbouring equipment barely visible without bleaching the selected Area or saved mesh',()=>{
-    const {plan,maps}=fixture(),mesh=wholeFarmSceneMesh(plan,maps),snapshot=new Float32Array(mesh.vertices)
-    const hovered=highlightFarmArea(mesh,'a'),selected=highlightFarmArea(mesh,'a',.88)
-    expect(selected.vertices).toEqual(hovered.vertices)
-    const background=[.965,.973,.953]
-    for(let i=0;i<selected.surfaces.length;i+=6){
-      expect(selected.surfaces.subarray(i,i+3)).toEqual(hovered.surfaces.subarray(i,i+3))
-      for(let c=0;c<3;c++)expect(Math.abs(selected.surfaces[i+3+c]-background[c])).toBeLessThan(.121)
+  it('keeps the entire monitoring scene solid while an Area summary is open or hovered',()=>{
+    const {plan,maps}=fixture(),mesh=wholeFarmSceneMesh(plan,maps)
+    for(const hovered of ['a','b',null]){
+      const emphasis=farmSceneEmphasis(hovered,true),geometry=highlightFarmArea(mesh,emphasis.areaId)
+      expect(geometry.vertices).toBe(mesh.vertices)
+      expect(geometry.surfaces).toHaveLength(0)
     }
-    expect(mesh.vertices).toEqual(snapshot)
+    const editing=farmSceneEmphasis('a',false)
+    expect(highlightFarmArea(mesh,editing.areaId).surfaces.length).toBeGreaterThan(0)
   })
   it('tints only Area floors for comparison without changing equipment, positions or stored plans',()=>{
     const {plan,maps}=fixture(),snapshot=JSON.stringify({plan,maps}),original=wholeFarmSceneMesh(plan,maps),tinted=wholeFarmSceneMesh(plan,maps,{a:[.2,.4,.6]})

@@ -13,7 +13,7 @@ import { focusFarmSceneArea as focusArea,farmViewKey,rememberFarmScene,restoreFa
 import './farm-plan.css'
 const EMPTY_MAPS:FarmMaps={}
 
-export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAreaId,isolatedAreaId,maps=EMPTY_MAPS,cameraMemory,comparison,monitoringActive=true,focusRequest=0}:{cameraMemory?:FarmSceneMemory;maps?:FarmMaps;plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null;isolatedAreaId?:string|null;comparison?:Record<string,FarmAreaComparison>;monitoringActive?:boolean;focusRequest?:number}){
+export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAreaId,isolatedAreaId,maps=EMPTY_MAPS,cameraMemory,comparison,monitoringActive=true}:{cameraMemory?:FarmSceneMemory;maps?:FarmMaps;plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null;isolatedAreaId?:string|null;comparison?:Record<string,FarmAreaComparison>;monitoringActive?:boolean}){
   // Scope only the rendered document; retain original coordinates and all persisted layouts.
   const document=useMemo(()=>isolatedAreaId ? {...source,areas:source.areas.filter(a=>a.id===isolatedAreaId)} : source,[source,isolatedAreaId])
   const plan=useMemo(()=>farmPlanScene(document),[document])
@@ -21,32 +21,30 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   const [hovered,setHovered]=useState<string|null>(null)
   const [ready,setReady]=useState(false),[failed,setFailed]=useState(false)
   const hoverAreaId=!isolatedAreaId && onAreaSelect && document.areas.some(a=>a.id===hovered) ? hovered : null
-  const colors=useMemo(()=>Object.fromEntries(Object.entries(comparison || {}).map(([id,summary])=>[id,summary.colorRgb.map(channel=>.52*(channel/255)+.48*.96) as Vec3])),[comparison])
+  const colors=useMemo(()=>Object.fromEntries(Object.entries(comparison || {}).map(([id,summary])=>[id,summary.colorRgb.map(channel=>.86*(channel/255)+.14*.96) as Vec3])),[comparison])
   const mesh=useMemo(()=>wholeFarmSceneMesh(document,maps,colors),[document,maps,colors])
-  const emphasis=farmSceneEmphasis(selectedAreaId,hoverAreaId,!!comparison)
-  const geometry=useMemo(()=>highlightFarmArea(mesh,emphasis.areaId,emphasis.fade),[mesh,emphasis.areaId,emphasis.fade])
+  const emphasis=farmSceneEmphasis(hoverAreaId,!!comparison)
+  const geometry=useMemo(()=>highlightFarmArea(mesh,emphasis.areaId),[mesh,emphasis.areaId])
   const climateField=useMemo(()=>siteVolume(null,'temperature',plan),[plan])
   const field=useMemo(()=>({...climateField,surfaces:geometry.surfaces,surfaceOpacity:emphasis.opacity}),[climateField,geometry,emphasis.opacity])
   const dimensions=useMemo(()=>siteDimensions(plan),[plan])
   const host=useRef<HTMLDivElement>(null),scene=useRef<LivingScene|null>(null)
   const [ownMemory]=useState<FarmSceneMemory>(()=>new Map()),memory=cameraMemory || ownMemory
-  const viewKey=farmViewKey(isolatedAreaId || selectedAreaId)
-  const latest=useRef({plan,geometry,field,selectedAreaId,viewKey,comparing:!!comparison,focusRequest})
+  const cameraAreaId=isolatedAreaId || (comparison ? null : selectedAreaId)
+  const viewKey=farmViewKey(cameraAreaId)
+  const latest=useRef({plan,geometry,field,cameraAreaId,viewKey,comparing:!!comparison})
   const projection=useRef<{matrix:Float32Array;width:number;height:number}|null>(null)
   const polygons=useRef(new Map<string,SVGPolygonElement>()),labels=useRef(new Map<string,HTMLButtonElement>())
   const down=useRef<{x:number;y:number;id:number;moved:boolean}|null>(null)
   useEffect(()=>{
-    const previous=siteDimensions(latest.current.plan),changedView=latest.current.viewKey!==viewKey,refocus=latest.current.focusRequest!==focusRequest
+    const previous=siteDimensions(latest.current.plan),changedView=latest.current.viewKey!==viewKey
     if(changedView && scene.current)rememberFarmScene(memory,latest.current.viewKey,scene.current,previous)
     // Growing storage bounds changes the scene origin; keep the camera attached to the same space.
     if(previous.widthM!==dimensions.widthM || previous.lengthM!==dimensions.lengthM)scene.current?.shiftOrigin([(previous.widthM-dimensions.widthM)/2,0,(dimensions.lengthM-previous.lengthM)/2])
-    latest.current={plan,geometry,field,selectedAreaId,viewKey,comparing:!!comparison,focusRequest}
+    latest.current={plan,geometry,field,cameraAreaId,viewKey,comparing:!!comparison}
     scene.current?.update(geometry.vertices,Math.max(dimensions.widthM,dimensions.lengthM),field)
-    if(scene.current && (changedView || refocus)){
-      if(comparison && selectedAreaId)focusArea(scene.current,plan,selectedAreaId,1.05)
-      else if(!restoreFarmScene(memory,viewKey,scene.current,dimensions))focusArea(scene.current,plan,selectedAreaId)
-    }
-  },[plan,geometry,field,dimensions,selectedAreaId,viewKey,memory,comparison,focusRequest])
+    if(scene.current && changedView && !restoreFarmScene(memory,viewKey,scene.current,dimensions))focusArea(scene.current,plan,cameraAreaId)
+  },[plan,geometry,field,dimensions,cameraAreaId,viewKey,memory,comparison])
   useEffect(()=>{
     if(!host.current)return
     let cancelled=false
@@ -79,8 +77,7 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
       const current=latest.current,d=siteDimensions(current.plan)
       renderer.update(current.geometry.vertices,Math.max(d.widthM,d.lengthM),current.field)
       renderer.setPresentation('points')
-      if(current.comparing && current.selectedAreaId)focusArea(renderer,current.plan,current.selectedAreaId,1.05)
-      else if(!restoreFarmScene(memory,current.viewKey,renderer,d))focusArea(renderer,current.plan,current.selectedAreaId)
+      if(!restoreFarmScene(memory,current.viewKey,renderer,d))focusArea(renderer,current.plan,current.cameraAreaId)
       setReady(true)
     }).catch(()=>{if(!cancelled)setFailed(true)})
     return ()=>{cancelled=true;if(scene.current){rememberFarmScene(memory,latest.current.viewKey,scene.current,siteDimensions(latest.current.plan));scene.current.dispose();scene.current=null}}
@@ -94,17 +91,17 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   const select=(id?:string)=>{if(id && onAreaSelect){setHovered(null);onAreaSelect(id)}}
   const interactive=(event:ReactPointerEvent<HTMLDivElement>)=>(event.target as Element).closest('button')
   return <div className="nc-farm-scene-shell" data-overview-heatmap-settled={monitoringActive && comparison && (ready || failed) && Object.values(comparison).every(summary=>summary.state!=='loading') ? 'true' : undefined}>
-    <div className="nc-farm-scene" ref={host} role="group" aria-label={lt ? 'Bendras 3D ūkio planas. Pasirinkite Area.' : 'Farm 3D plan. Select an Area.'} data-hovered={!!hoverAreaId} data-comparing={!!comparison} data-focused={!!comparison && !!selectedAreaId}
+    <div className="nc-farm-scene" ref={host} role="group" aria-label={lt ? 'Bendras 3D ūkio planas. Pasirinkite Area.' : 'Farm 3D plan. Select an Area.'} data-hovered={!!hoverAreaId} data-comparing={!!comparison}
       onPointerDown={event=>{if(event.button!==0 || interactive(event))return;down.current={x:event.clientX,y:event.clientY,id:event.pointerId,moved:false};setHovered(null)}}
       onPointerMove={event=>{const start=down.current;if(start && (start.id!==event.pointerId || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6))start.moved=true;if(event.buttons || interactive(event))return;setHovered(hit(event)?.id || null)}}
       onPointerLeave={()=>setHovered(null)} onPointerCancel={()=>{down.current=null;setHovered(null)}}
       onPointerUp={event=>{const start=down.current;down.current=null;if(!start || start.id!==event.pointerId || start.moved || interactive(event) || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)return;select(hit(event)?.areaId)}}>
-      <svg className="nc-farm-zone-outlines" aria-hidden="true">{plan.zones.map(zone=><polygon key={zone.id} data-active={zone.id===emphasis.areaId} ref={el=>{if(el)polygons.current.set(zone.id,el);else polygons.current.delete(zone.id)}} />)}</svg>
+      <svg className="nc-farm-zone-outlines" aria-hidden="true">{plan.zones.map(zone=><polygon key={zone.id} data-active={zone.id===(comparison ? selectedAreaId || hoverAreaId : hoverAreaId)} ref={el=>{if(el)polygons.current.set(zone.id,el);else polygons.current.delete(zone.id)}} />)}</svg>
       {!isolatedAreaId && plan.zones.map(zone=>{
         const area=areas.find(a=>a.id===zone.areaId),name=area?.name || zone.name
-        return <button type="button" key={zone.id} className="nc-farm-zone-label" title={area ? name : `${name} · ${lt ? 'Neišsaugota' : 'Unsaved'}`} ref={el=>{if(el)labels.current.set(zone.id,el);else labels.current.delete(zone.id)}} disabled={!area || !onAreaSelect} data-hovered={zone.id===hoverAreaId} data-muted={!!hoverAreaId && zone.id!==hoverAreaId} data-selected={zone.id===selectedAreaId} aria-pressed={selectedAreaId===undefined ? undefined : zone.id===selectedAreaId} onPointerEnter={()=>setHovered(zone.id)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(zone.id)} onBlur={()=>setHovered(null)} onClick={()=>select(area?.id)}><span>{name}</span></button>
+        return <button type="button" key={zone.id} className="nc-farm-zone-label" title={area ? name : `${name} · ${lt ? 'Neišsaugota' : 'Unsaved'}`} ref={el=>{if(el)labels.current.set(zone.id,el);else labels.current.delete(zone.id)}} disabled={!area || !onAreaSelect} data-hovered={zone.id===hoverAreaId} data-muted={!comparison && !!hoverAreaId && zone.id!==hoverAreaId} data-selected={zone.id===selectedAreaId} aria-pressed={selectedAreaId===undefined ? undefined : zone.id===selectedAreaId} onPointerEnter={()=>setHovered(zone.id)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(zone.id)} onBlur={()=>setHovered(null)} onClick={()=>select(area?.id)}><span>{name}</span></button>
       })}
-      <div className="nc-farm-camera" onPointerEnter={()=>setHovered(null)}><button type="button" aria-label={comparison && selectedAreaId ? (lt ? 'Sutalpinti pasirinktą Area' : 'Fit selected Area') : (lt ? 'Visas ūkis' : 'Fit farm')} onClick={()=>{if(scene.current){scene.current.reset();focusArea(scene.current,latest.current.plan,comparison ? latest.current.selectedAreaId : null,comparison && latest.current.selectedAreaId ? 1.05 : 1.3)}}}><i className="fa-solid fa-cube" /></button><button type="button" aria-label={lt ? 'Priartinti' : 'Zoom in'} onClick={()=>scene.current?.zoom(.85)}>+</button><button type="button" aria-label={lt ? 'Atitolinti' : 'Zoom out'} onClick={()=>scene.current?.zoom(1.18)}>−</button><small>{lt ? 'Option / Alt + ratukas' : 'Option / Alt + scroll'}</small></div>
+      <div className="nc-farm-camera" onPointerEnter={()=>setHovered(null)}><button type="button" aria-label={lt ? 'Visas ūkis' : 'Fit farm'} onClick={()=>{if(scene.current){scene.current.reset();focusArea(scene.current,latest.current.plan)}}}><i className="fa-solid fa-cube" /></button><button type="button" aria-label={lt ? 'Priartinti' : 'Zoom in'} onClick={()=>scene.current?.zoom(.85)}>+</button><button type="button" aria-label={lt ? 'Atitolinti' : 'Zoom out'} onClick={()=>scene.current?.zoom(1.18)}>−</button><small>{lt ? 'Option / Alt + ratukas' : 'Option / Alt + scroll'}</small></div>
       {!plan.buildings.length && ready && <p className="nc-farm-scene-empty">{lt ? 'Pridėkite pirmą Area plano redaktoriuje.' : 'Add the first Area in the plan editor.'}</p>}
       {!ready && !failed && <div className="nc-farm-scene-status" role="status">{lt ? 'Kraunamas ūkio planas…' : 'Loading farm plan…'}</div>}
       {failed && <div className="nc-farm-scene-status" role="status"><p>{lt ? 'Šioje naršyklėje 3D vaizdas nepasiekiamas. Zonas galite pasirinkti sąraše.' : '3D is unavailable in this browser. Select an Area below.'}</p><div>{plan.zones.filter(z=>z.areaId).map(z=><button type="button" key={z.id} onPointerEnter={()=>setHovered(z.id)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(z.id)} onBlur={()=>setHovered(null)} onClick={()=>select(z.areaId)}>{areas.find(a=>a.id===z.areaId)?.name || z.name}</button>)}</div></div>}
