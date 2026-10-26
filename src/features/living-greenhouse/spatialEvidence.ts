@@ -4,7 +4,7 @@ import type { measuredSensors } from './livingData'
 import { segmentCrossesPolygon } from '../greenhouse-map/heatmap/rasterInterpolation'
 
 export type SensorReading = ReturnType<typeof measuredSensors>[number]
-export type LivingView = 'points' | 'volume'
+export type LivingView = 'points' | 'volume' | 'slice'
 export function footprintHull(readings: SensorReading[]) {
   const points=readings.map(s=>({x:s.object.xM+s.object.widthM/2,z:s.object.yM+s.object.lengthM/2})).sort((a,b)=>a.x-b.x || a.z-b.z)
   const unique=points.filter((p,i)=>!i || Math.hypot(p.x-points[i-1].x,p.z-points[i-1].z)>.02)

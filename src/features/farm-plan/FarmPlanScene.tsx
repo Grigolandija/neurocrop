@@ -3,8 +3,6 @@ import { useInterfaceLanguage } from '../../i18n'
 import { pointInPolygon } from '../greenhouse-map/heatmap/rasterInterpolation'
 import { createLivingScene, type LivingScene } from '../living-greenhouse/gpuScene'
 import { planToScene, project } from '../living-greenhouse/sceneMath'
-import { farmClimateField, selectedFarmClimate } from './farmClimateField'
-import type { MetricKey } from '../greenhouse-map/model'
 import type { FarmAreaComparison } from './farmMonitoringData'
 import { siteVolume } from '../living-greenhouse/siteDemoGeometry'
 import { pickSitePoint, siteDimensions } from '../living-greenhouse/siteDemoModel'
@@ -15,7 +13,7 @@ import { focusFarmSceneArea as focusArea,farmViewKey,rememberFarmScene,restoreFa
 import './farm-plan.css'
 const EMPTY_MAPS:FarmMaps={}
 
-export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAreaId,isolatedAreaId,maps=EMPTY_MAPS,cameraMemory,comparison,comparisonMetric='air-temperature',observedAt=0,monitoringActive=true}:{cameraMemory?:FarmSceneMemory;maps?:FarmMaps;plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null;isolatedAreaId?:string|null;comparison?:Record<string,FarmAreaComparison>;monitoringActive?:boolean;comparisonMetric?:MetricKey;observedAt?:number}){
+export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAreaId,isolatedAreaId,maps=EMPTY_MAPS,cameraMemory,comparison,monitoringActive=true}:{cameraMemory?:FarmSceneMemory;maps?:FarmMaps;plan:FarmPlanDocument;areas:FarmArea[];onAreaSelect?:(areaId:string)=>void;selectedAreaId?:string|null;isolatedAreaId?:string|null;comparison?:Record<string,FarmAreaComparison>;monitoringActive?:boolean}){
   // Scope only the rendered document; retain original coordinates and all persisted layouts.
   const document=useMemo(()=>isolatedAreaId ? {...source,areas:source.areas.filter(a=>a.id===isolatedAreaId)} : source,[source,isolatedAreaId])
   const plan=useMemo(()=>farmPlanScene(document),[document])
@@ -26,17 +24,14 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   const mesh=useMemo(()=>wholeFarmSceneMesh(document,maps),[document,maps])
   const emphasis=farmSceneEmphasis(hoverAreaId,!!comparison,selectedAreaId)
   const geometry=useMemo(()=>highlightFarmArea(mesh,emphasis.areaId),[mesh,emphasis.areaId])
-  const climate=useMemo(()=>comparison ? farmClimateField(document,maps,comparison,comparisonMetric,observedAt) : null,[document,maps,comparison,comparisonMetric,observedAt])
-  const emptyField=useMemo(()=>siteVolume(null,'temperature',plan),[plan])
-  const climateField=useMemo(()=>climate ? selectedFarmClimate(climate,selectedAreaId) : emptyField,[climate,selectedAreaId,emptyField])
-  const volumeReady=!!climate?.ready
+  const climateField=useMemo(()=>siteVolume(null,'temperature',plan),[plan])
   const field=useMemo(()=>({...climateField,surfaces:geometry.surfaces,surfaceOpacity:emphasis.opacity}),[climateField,geometry,emphasis.opacity])
   const dimensions=useMemo(()=>siteDimensions(plan),[plan])
   const host=useRef<HTMLDivElement>(null),scene=useRef<LivingScene|null>(null)
   const [ownMemory]=useState<FarmSceneMemory>(()=>new Map()),memory=cameraMemory || ownMemory
   const cameraAreaId=isolatedAreaId || (comparison ? null : selectedAreaId)
   const viewKey=farmViewKey(cameraAreaId)
-  const latest=useRef({plan,geometry,field,cameraAreaId,viewKey,comparing:!!comparison,volumeReady})
+  const latest=useRef({plan,geometry,field,cameraAreaId,viewKey,comparing:!!comparison})
   const projection=useRef<{matrix:Float32Array;width:number;height:number}|null>(null)
   const polygons=useRef(new Map<string,SVGPolygonElement>()),labels=useRef(new Map<string,HTMLButtonElement>())
   const down=useRef<{x:number;y:number;id:number;moved:boolean}|null>(null)
@@ -45,11 +40,11 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
     if(changedView && scene.current)rememberFarmScene(memory,latest.current.viewKey,scene.current,previous)
     // Growing storage bounds changes the scene origin; keep the camera attached to the same space.
     if(previous.widthM!==dimensions.widthM || previous.lengthM!==dimensions.lengthM)scene.current?.shiftOrigin([(previous.widthM-dimensions.widthM)/2,0,(dimensions.lengthM-previous.lengthM)/2])
-    latest.current={plan,geometry,field,cameraAreaId,viewKey,comparing:!!comparison,volumeReady}
+    latest.current={plan,geometry,field,cameraAreaId,viewKey,comparing:!!comparison}
     scene.current?.update(geometry.vertices,Math.max(dimensions.widthM,dimensions.lengthM),field)
-    scene.current?.setPresentation(volumeReady ? 'volume' : 'points',false,true)
+    scene.current?.setPresentation('points')
     if(scene.current && changedView && !restoreFarmScene(memory,viewKey,scene.current,dimensions))focusArea(scene.current,plan,cameraAreaId)
-  },[plan,geometry,field,dimensions,cameraAreaId,viewKey,memory,comparison,volumeReady])
+  },[plan,geometry,field,dimensions,cameraAreaId,viewKey,memory,comparison])
   useEffect(()=>{
     if(!host.current)return
     let cancelled=false
@@ -81,7 +76,7 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
       scene.current=renderer
       const current=latest.current,d=siteDimensions(current.plan)
       renderer.update(current.geometry.vertices,Math.max(d.widthM,d.lengthM),current.field)
-      renderer.setPresentation(current.volumeReady ? 'volume' : 'points',false,true)
+      renderer.setPresentation('points')
       if(!restoreFarmScene(memory,current.viewKey,renderer,d))focusArea(renderer,current.plan,current.cameraAreaId)
       setReady(true)
     }).catch(()=>{if(!cancelled)setFailed(true)})

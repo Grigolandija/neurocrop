@@ -45,11 +45,11 @@ async function webgpu(onLost: () => void): Promise<Backend> {
     const fieldSampler = device.createSampler({minFilter:'linear',magFilter:'linear'})
     const volumePipeline = await device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: volumeShader, entryPoint: 'vertexMain' }, fragment: { module: volumeShader, entryPoint: 'fragmentMain', targets: [{ format }] } })
     const uniform = device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
-    const volumeUniform = device.createBuffer({ size: 656, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
+    const volumeUniform = device.createBuffer({ size: 672, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
     const bindGroup = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniform } }] })
     let buffer: GPUBuffer | null = null, depth: GPUTexture | null = null, color: GPUTexture | null = null, fieldTexture: GPUTexture | null = null
     let wallBuffer:GPUBuffer|null=null, surfaces=new Float32Array(),surfaceOpacity=WALL_OPACITY
-    let volumeGroup: GPUBindGroup | null = null, count = 0, bounds = [1, 1, 1], contours = Array(8).fill(-1), palette = new Float32Array(132), roofSlope = .32
+    let volumeGroup: GPUBindGroup | null = null, count = 0, bounds = [1, 1, 1], contours = Array(8).fill(-1), palette = new Float32Array(132), roofSlope = .32, slicePlane = [0,0,1,0]
     const bindVolume = () => {
       if (!depth || !color || !fieldTexture) return
       volumeGroup = device.createBindGroup({ layout: volumePipeline.getBindGroupLayout(0), entries: [
@@ -76,12 +76,12 @@ async function webgpu(onLost: () => void): Promise<Backend> {
         device.queue.writeBuffer(buffer, 0, data.buffer as ArrayBuffer, data.byteOffset, data.byteLength)
         fieldTexture = device.createTexture({ size: [field.width, field.height * field.layers], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST })
         device.queue.writeTexture({ texture: fieldTexture }, field.pixels.buffer as ArrayBuffer, { bytesPerRow: field.width * 4 }, { width: field.width, height: field.height * field.layers })
-        bounds = field.bounds; roofSlope = field.roofSlope ?? .32; palette = field.palette ? new Float32Array(field.palette) : new Float32Array(132); contours=Array.from({length:8},(_,i)=>field.contours[i]?.normalized ?? -1); count = data.length / 6; bindVolume()
+        bounds = field.bounds; roofSlope = field.roofSlope ?? .32; slicePlane = field.slicePlane || [0,0,1,0]; palette = field.palette ? new Float32Array(field.palette) : new Float32Array(132); contours=Array.from({length:8},(_,i)=>field.contours[i]?.normalized ?? -1); count = data.length / 6; bindVolume()
       },
       draw(matrix, presentation) {
         if (!depth || !color || !buffer || !volumeGroup) return
         device.queue.writeBuffer(uniform,0,new Float32Array([...matrix,surfaceOpacity,0,0,0]).buffer)
-        const params = new Float32Array([...inverseMatrix(matrix), ...bounds, presentation, ...contours, ...palette, roofSlope, 0, 0, 0])
+        const params = new Float32Array([...inverseMatrix(matrix), ...bounds, presentation, ...contours, ...palette, roofSlope, 0, 0, 0, ...slicePlane])
         device.queue.writeBuffer(volumeUniform, 0, params.buffer)
         const encoder = device.createCommandEncoder()
         const pass = encoder.beginRenderPass({ colorAttachments: [{ view: color.createView(), clearValue: clear, loadOp: 'clear', storeOp: 'store' }], depthStencilAttachment: { view: depth.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' } })
@@ -129,7 +129,7 @@ function webgl(): Backend {
   const opacityLocation=gl.getUniformLocation(program,'opacity')
   const matrixLocation = gl.getUniformLocation(program, 'matrix')
   const inverseLocation = gl.getUniformLocation(volumeProgram, 'inverseCamera'), boundsLocation = gl.getUniformLocation(volumeProgram, 'bounds')
-  const roofSlopeLocation=gl.getUniformLocation(volumeProgram,'roofSlope'), contoursLocation=gl.getUniformLocation(volumeProgram,'contours[0]'), paletteLocation=gl.getUniformLocation(volumeProgram,'palette[0]')
+  const slicePlaneLocation=gl.getUniformLocation(volumeProgram,'slicePlane'), roofSlopeLocation=gl.getUniformLocation(volumeProgram,'roofSlope'), contoursLocation=gl.getUniformLocation(volumeProgram,'contours[0]'), paletteLocation=gl.getUniformLocation(volumeProgram,'palette[0]')
   gl.useProgram(volumeProgram)
   for (const [i, name] of ['sceneColor', 'sceneDepth', 'field'].entries()) gl.uniform1i(gl.getUniformLocation(volumeProgram, name), i)
   const framebuffer = gl.createFramebuffer()!
@@ -141,7 +141,7 @@ function webgl(): Backend {
   }
   const color = texture(), depth = texture(), fieldTexture = texture()
   gl.bindTexture(gl.TEXTURE_2D,fieldTexture); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR)
-  let count = 0, bounds = [1, 1, 1], contours = Array(8).fill(-1), palette = new Float32Array(132), roofSlope = .32
+  let count = 0, bounds = [1, 1, 1], contours = Array(8).fill(-1), palette = new Float32Array(132), roofSlope = .32, slicePlane = [0,0,1,0]
   gl.clearColor(clear.r, clear.g, clear.b, 1)
   return {
     canvas, name: 'WebGL',
@@ -158,7 +158,7 @@ function webgl(): Backend {
       surfaces=field.surfaces ? new Float32Array(field.surfaces) : new Float32Array();surfaceOpacity=field.surfaceOpacity ?? WALL_OPACITY
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); count = data.length / 6
       gl.bindTexture(gl.TEXTURE_2D, fieldTexture); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, field.width, field.height * field.layers, 0, gl.RGBA, gl.UNSIGNED_BYTE, field.pixels)
-      bounds = field.bounds; roofSlope = field.roofSlope ?? .32; palette = field.palette ? new Float32Array(field.palette) : new Float32Array(132); contours=Array.from({length:8},(_,i)=>field.contours[i]?.normalized ?? -1)
+      bounds = field.bounds; roofSlope = field.roofSlope ?? .32; slicePlane = field.slicePlane || [0,0,1,0]; palette = field.palette ? new Float32Array(field.palette) : new Float32Array(132); contours=Array.from({length:8},(_,i)=>field.contours[i]?.normalized ?? -1)
     },
     draw(matrix, presentation) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer); gl.enable(gl.DEPTH_TEST); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -169,7 +169,7 @@ function webgl(): Backend {
         gl.depthMask(true);gl.disable(gl.BLEND)
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.disable(gl.DEPTH_TEST); gl.useProgram(volumeProgram); gl.bindVertexArray(screenVao)
-      gl.uniformMatrix4fv(inverseLocation, false, inverseMatrix(matrix)); gl.uniform4f(boundsLocation, ...bounds as [number,number,number], presentation); gl.uniform1fv(contoursLocation, contours); gl.uniform4fv(paletteLocation, palette); gl.uniform1f(roofSlopeLocation, roofSlope)
+      gl.uniformMatrix4fv(inverseLocation, false, inverseMatrix(matrix)); gl.uniform4f(boundsLocation, ...bounds as [number,number,number], presentation); gl.uniform1fv(contoursLocation, contours); gl.uniform4fv(paletteLocation, palette); gl.uniform1f(roofSlopeLocation, roofSlope); gl.uniform4fv(slicePlaneLocation, slicePlane)
       for (const [i,t] of [color, depth, fieldTexture].entries()) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t) }
       gl.drawArrays(gl.TRIANGLES, 0, 3)
     },
@@ -233,7 +233,7 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
     },
     invalidate() { dirty=true },
     update(vertices:Float32Array,nextSize:number,field:VolumeField) { backend.upload(vertices,field); size=nextSize; dirty=true },
-    setPresentation(view:LivingView, topography=false, spatialField=false) { presentation=view==='volume' ? spatialField ? 3 : topography ? 2 : 1 : 0; dirty=true },
+    setPresentation(view:LivingView, topography=false, spatialField=false) { presentation=view==='slice' ? 4 : view==='volume' ? spatialField ? 3 : topography ? 2 : 1 : 0; dirty=true },
     reset(top=false) { elevation=top ? 1.47 : camera.elevation ?? .70; azimuth=top ? 0 : .67; zoom=camera.zoom ?? 1; dirty=true },
     zoom(delta:number) { zoom=Math.max(.65,Math.min(3,zoom*delta)); dirty=true },
     focus(target:Vec3 | null,extent?:number) { focusTarget=target; focusSize=extent ?? null; zoom=camera.zoom ?? 1; dirty=true },

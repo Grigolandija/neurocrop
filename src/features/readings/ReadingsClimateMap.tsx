@@ -49,9 +49,9 @@ export default function ReadingsClimateMap({ areaId, refreshToken, presentation 
   const setMetric = onMetricChange ?? setOwnMetric
   const [colorMode, setColorMode] = useState<HeatmapColorMode>(() => {
     try {
-      return window.localStorage.getItem(colorModeStorageKey) === 'contrast' ? 'contrast' : 'condition'
+      return window.localStorage.getItem(colorModeStorageKey) === 'condition' ? 'condition' : 'contrast'
     } catch {
-      return 'condition'
+      return 'contrast'
     }
   })
   const [soilEcDepthCm, setSoilEcDepthCm] = useState<number | null>(() => {

@@ -255,3 +255,22 @@
   .nc-living-map-actions > button { min-height: 34px; font-size: 11px; padding-inline: 9px; }
   .nc-living-field-legend { padding-inline: 14px; }
 }
+
+/* One physical section, independent of the camera and the recorded timeline. */
+.nc-living-slice-caption { position: absolute; z-index: 2; left: 0; top: 0; visibility: hidden; padding: 2px 5px; border-radius: 3px; background: #fffffff0; color: #294537; font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.nc-living-slice-controls { position: absolute; z-index: 3; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 8px; border: 1px solid #dbe5da; border-radius: 9px; background: #fffffff5; box-shadow: 0 3px 14px #2845340a; }
+.nc-living-slice-controls > div { display: flex; gap: 2px; }
+.nc-living-slice-controls button { min-height: 30px; padding: 5px 8px; border: 0; border-radius: 5px; background: transparent; color: #647c6c; font: inherit; font-size: 11px; white-space: nowrap; }
+.nc-living-slice-controls button[aria-pressed="true"] { background: #e2eee5; color: #28634a; }
+.nc-living-slice-controls > label { display: flex; align-items: center; gap: 8px; color: #698071; font-size: 11px; white-space: nowrap; }
+.nc-living-slice-controls input[type="range"] { width: 140px; min-width: 70px; accent-color: #397d61; }
+.nc-living-slice-controls output { min-width: 48px; color: #3b5c48; font-variant-numeric: tabular-nums; }
+.nc-living-slice-controls .nc-living-slice-auto { border-left: 1px solid #e2e9df; border-radius: 0; }
+@media (max-width: 1000px) {
+  .nc-living-slice-controls { bottom: 86px; flex-wrap: wrap; justify-content: center; width: max-content; }
+}
+@media (max-width: 600px) {
+  .nc-living-slice-controls { gap: 6px; padding: 6px; }
+  .nc-living-slice-controls > label > span { display: none; }
+  .nc-living-slice-controls input[type="range"] { width: 95px; }
+}

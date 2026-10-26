@@ -3,7 +3,7 @@ import { VOLUME_LAYERS } from './volumeGrid'
 // Transparent XYZ volume across the greenhouse envelope. A subtle boundary
 // makes its extent visible without an opaque plane hiding the saved layout.
 export const volumeWgsl = `
-struct Uniforms { inverse: mat4x4f, bounds: vec4f, contours: array<vec4f,2>, palette: array<vec4f,33>, envelope: vec4f }
+struct Uniforms { inverse: mat4x4f, bounds: vec4f, contours: array<vec4f,2>, palette: array<vec4f,33>, envelope: vec4f, slicePlane: vec4f }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 @group(0) @binding(1) var sceneColor: texture_2d<f32>;
 @group(0) @binding(2) var sceneDepth: texture_depth_2d;
@@ -94,6 +94,23 @@ fn topography(origin: vec3f, direction: vec3f, start: f32, end: f32, base: vec3f
   let near=min(t0,t1);let far=max(t0,t1);
   let start=max(0.0,max(near.x,max(near.y,near.z)));let end=min(opaque,min(far.x,min(far.y,far.z)));
   if(end<=start){return vec4f(base,1);}
+  if(u.bounds.w>3.5){
+    // Keep equipment and architectural frames in their own material colours.
+    let opaquePoint=world(ndc,textureLoad(sceneDepth,xy,0));
+    if(opaquePoint.y>.08 && opaque<min(far.x,min(far.y,far.z))-.02){return vec4f(base,1);}
+    let denominator=dot(u.slicePlane.xyz,direction);
+    if(abs(denominator)<.00001){return vec4f(base,1);}
+    let t=(u.slicePlane.w-dot(u.slicePlane.xyz,origin))/denominator;
+    if(t<start || t>end){return vec4f(base,1);}
+    let s=sampleField(origin+direction*t);
+    if(s.a<.9){return vec4f(base,1);}
+    var distance=1.0;
+    for(var j=0u;j<8u;j++){let level=u.contours[j/4u][j%4u];if(level>=0){distance=min(distance,abs(s.r-level));}}
+    let line=1-smoothstep(.002,.006,distance);
+    let rgb=mix(colorAt(s.r),vec3f(.16,.25,.22),line*.65);
+    let opacity=(.12+.65*smoothstep(.0,.55,s.g))*s.a;
+    return vec4f(mix(base,rgb,opacity),1);
+  }
   if(u.bounds.w>1.5 && u.bounds.w<2.5){return vec4f(topography(origin,direction,start,end,base),1);}
   if(u.bounds.w>2.5){
     let ds=(end-start)/96;var rgb=vec3f(0);var opacity=0.0;
@@ -126,6 +143,7 @@ precision highp float;
 uniform mat4 inverseCamera;
 uniform vec4 bounds;
 uniform float roofSlope;
+uniform vec4 slicePlane;
 uniform float contours[8];
 uniform vec4 palette[33];
 uniform sampler2D sceneColor;
@@ -199,6 +217,22 @@ void main(){
   vec3 inv=1./(direction+vec3(.000001));vec3 t0=(vec3(-bounds.x/2.,0.,-bounds.y/2.)-origin)*inv,t1=(vec3(bounds.x/2.,bounds.z,bounds.y/2.)-origin)*inv;
   vec3 near=min(t0,t1),far=max(t0,t1);float start=max(0.,max(near.x,max(near.y,near.z))),end=min(opaque,min(far.x,min(far.y,far.z)));
   if(end<=start){outputColor=vec4(base,1.);return;}
+  if(bounds.w>3.5){
+    vec3 opaquePoint=world(ndc,texelFetch(sceneDepth,xy,0).r);
+    if(opaquePoint.y>.08 && opaque<min(far.x,min(far.y,far.z))-.02){outputColor=vec4(base,1.);return;}
+    float denominator=dot(slicePlane.xyz,direction);
+    if(abs(denominator)<.00001){outputColor=vec4(base,1.);return;}
+    float t=(slicePlane.w-dot(slicePlane.xyz,origin))/denominator;
+    if(t<start || t>end){outputColor=vec4(base,1.);return;}
+    vec4 s=sampleField(origin+direction*t);
+    if(s.a<.9){outputColor=vec4(base,1.);return;}
+    float distance=1.;
+    for(int j=0;j<8;j++)if(contours[j]>=0.)distance=min(distance,abs(s.r-contours[j]));
+    float line=1.-smoothstep(.002,.006,distance);
+    vec3 rgb=mix(colorAt(s.r),vec3(.16,.25,.22),line*.65);
+    float opacity=(.12+.65*smoothstep(0.,.55,s.g))*s.a;
+    outputColor=vec4(mix(base,rgb,opacity),1.);return;
+  }
   if(bounds.w>1.5 && bounds.w<2.5){outputColor=vec4(topography(origin,direction,start,end,base),1.);return;}
   if(bounds.w>2.5){
     float ds=(end-start)/96.,opacity=0.;vec3 rgb=vec3(0.);

@@ -9,6 +9,7 @@ import { livingMap, measuredSensors, spatialClimateMetrics } from './livingData'
 import { sceneGeometry } from './sceneGeometry'
 import { planToScene, project } from './sceneMath'
 import { liveTarget, verticalComparisons } from './spatialEvidence'
+import { climateSlice, type SliceSelection } from './climateSlice'
 import { colorLegend } from './colorLegend'
 import './living-greenhouse.css'
 
@@ -40,6 +41,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
   const panelId = useId()
   const [panelOpen, setPanelOpen] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
+  const [sliceSelection, setSliceSelection] = useState<SliceSelection | null>(null)
   const [engine, setEngine] = useState('')
   const [renderError, setRenderError] = useState(false)
   const [useWebGL, setUseWebGL] = useState(false)
@@ -47,6 +49,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
   const host = useRef<HTMLDivElement>(null)
   const renderer = useRef<LivingScene | null>(null)
   const pins = useRef(new Map<string, HTMLButtonElement>())
+  const contourLabels = useRef(new Map<number, HTMLSpanElement>())
   const currentGeometry = useRef<ReturnType<typeof sceneGeometry> | null>(null)
   const engineReady = useRef(onRendererReady)
   useEffect(() => { engineReady.current = onRendererReady }, [onRendererReady])
@@ -57,7 +60,15 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
   const readings=useMemo(()=>map ? measuredSensors(map,metric,at,soilEcDepthCm) : [],[map,metric,at,soilEcDepthCm])
   const targets=useMemo(()=>new Map(readings.map(r=>[r.object.id,index===null && context ? liveTarget(context,r,metric) : null])),[readings,index,context,metric])
   const attentionIds=useMemo(()=>new Set(readings.filter(r=>{const t=targets.get(r.object.id);return t && r.value!==null && (r.value<t[0] || r.value>t[1])}).map(r=>r.object.id)),[readings,targets])
-  const geometry = useMemo(() => map ? sceneGeometry(map, metric, at, scale, {view: atmospheric ? 'volume' : 'points',attentionIds,colorMode,soilEcDepthCm}) : null, [map, metric, at, scale, attentionIds, atmospheric, colorMode, soilEcDepthCm])
+  const baseGeometry = useMemo(() => map ? sceneGeometry(map, metric, at, scale, {view: atmospheric ? 'volume' : 'points',attentionIds,colorMode,soilEcDepthCm}) : null, [map, metric, at, scale, attentionIds, atmospheric, colorMode, soilEcDepthCm])
+  const sliceScope = `${currentArea}:${metric}`
+  const slice = useMemo(() => map && baseGeometry?.volumeReady ? climateSlice(map, readings, baseGeometry.volume, baseGeometry.scale, sliceSelection?.scope === sliceScope ? sliceSelection : null) : null, [map, readings, baseGeometry, sliceSelection, sliceScope])
+  const geometry = useMemo(() => baseGeometry && slice ? { ...baseGeometry, volume: { ...baseGeometry.volume, slicePlane: slice.plane, contours: slice.contours } } : baseGeometry, [baseGeometry, slice])
+  const selectSliceMode = (mode: SliceSelection['mode']) => {
+    if (!slice || !map || !geometry) return
+    const automatic = climateSlice(map, readings, geometry.volume, geometry.scale)
+    setSliceSelection({ scope: sliceScope, mode, normal: automatic.normal, position: mode === 'horizontal' ? geometry.heightRange ? (geometry.heightRange[0] + geometry.heightRange[1]) / 2 : geometry.height / 2 : automatic.position })
+  }
   const visibleReadings=readings.slice().sort((a,b)=>Number(attentionIds.has(b.object.id))-Number(attentionIds.has(a.object.id)))
   const measured=visibleReadings.filter(s=>s.value!==null)
   const delayed=visibleReadings.filter(s=>s.delayed)
@@ -96,6 +107,14 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
         button.dataset.labelBelow=String(p.y<90)
         button.style.visibility = p.visible && p.x>0 && p.x<width && p.y>0 && p.y<height ? 'visible' : 'hidden'
       }
+      const placed: Array<{ x: number; y: number }> = []
+      for (const contour of currentGeometry.current?.volume.contours || []) {
+        const label = contourLabels.current.get(contour.value)
+        if (!label) continue
+        const point = contour.anchors.map(anchor => project(anchor, matrix, width, height)).find(p => p.visible && p.x > 30 && p.x < width - 35 && p.y > 25 && p.y < height - 90 && placed.every(q => Math.hypot(q.x - p.x, q.y - p.y) > 65))
+        label.style.visibility = point ? 'visible' : 'hidden'
+        if (point) { label.style.transform = `translate(${point.x}px,${point.y}px) translate(-50%,-50%)`; placed.push(point) }
+      }
     }, () => {
       if(cancelled)return
       // A device may initialize successfully and then fail on its first frame.
@@ -107,7 +126,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
       renderer.current = scene; setEngine(scene.name); engineReady.current?.(scene.name)
       const g = currentGeometry.current
       if (g) scene.update(g.vertices, Math.max(dimensions.current.widthM, dimensions.current.lengthM), g.volume)
-      scene.setPresentation(currentGeometry.current?.volumeReady ? 'volume' : 'points')
+      scene.setPresentation(currentGeometry.current?.volumeReady ? 'slice' : 'points')
     }).catch(() => { if (!cancelled) { setRenderError(true); ready.current?.() } })
     return () => { cancelled = true; renderer.current?.dispose(); renderer.current = null }
     // The parent keys this component by Area. Keep its camera and renderer
@@ -117,7 +136,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
   useEffect(() => {
     renderNotified.current = false
     currentGeometry.current = geometry
-    if (map && geometry) { renderer.current?.setPresentation(geometry.volumeReady ? 'volume' : 'points'); dimensions.current = map.dimensions; renderer.current?.update(geometry.vertices, Math.max(map.dimensions.widthM,map.dimensions.lengthM), geometry.volume) }
+    if (map && geometry) { renderer.current?.setPresentation(geometry.volumeReady ? 'slice' : 'points'); dimensions.current = map.dimensions; renderer.current?.update(geometry.vertices, Math.max(map.dimensions.widthM,map.dimensions.lengthM), geometry.volume) }
   }, [geometry, map])
 
   const closePanel = () => { setPanelOpen(false); setSelected(null); measurementsToggle.current?.focus() }
@@ -146,6 +165,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
               <div className="nc-living-scale-ticks" style={{width:`${Math.max(3,...legendTicks.map(tick=>tick.label.length))}ch`}}>{legendTicks.map(tick=><span key={tick.value} style={{top:`${tick.position*100}%`}}>{tick.label}</span>)}</div>
             </div>
           </div> : null}
+          {slice && geometry?.volumeReady && slice.captions.map(contour => <span key={contour.value} className="nc-living-slice-caption" ref={el => { if (el) { contourLabels.current.set(contour.value, el); renderer.current?.invalidate() } else contourLabels.current.delete(contour.value) }}>{number(contour.value)} {METRICS[metric].unit}</span>)}
           {map ? visibleReadings.map(s=><button type="button" key={s.object.id} ref={el=>{if(el){pins.current.set(s.object.id,el);renderer.current?.invalidate()}else pins.current.delete(s.object.id)}} className="nc-living-pin" data-selected={selected===s.object.id} data-missing={displayValue(s)===null} data-delayed={s.delayed} data-attention={attentionIds.has(s.object.id)} data-height-unknown={s.heightM===null} aria-pressed={selected===s.object.id} onClick={()=>setSelected(previous=>previous===s.object.id ? null : s.object.id)} aria-label={`${s.object.name}: ${valueText(s)} · ${readingLabel(s)} · ${heightText(s.heightM)} · ${ageText(s)}`}>
             <i aria-hidden="true" style={{backgroundColor:pointColor(s)}} /><span className="nc-living-pin-label" aria-hidden="true"><strong>{s.object.name}</strong><span>{valueText(s)}</span><small>{heightText(s.heightM)} · {ageText(s)}</small></span>
           </button>) : null}
@@ -161,12 +181,20 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
             <div className="nc-living-sensor-list">{visibleReadings.map(s=><button type="button" key={s.object.id} data-selected={selected===s.object.id} data-attention={attentionIds.has(s.object.id)} data-delayed={s.delayed} onClick={()=>setSelected(s.object.id)}><span><i data-missing={displayValue(s)===null}/><span>{s.object.name}<small>{heightText(s.heightM)} · {ageText(s)}</small>{s.delayed ? <small className="nc-living-delay-label">{text('Vėluoja · paskutinis matavimas','Delayed · last reading')}</small> : null}</span></span><b>{valueText(s)}</b></button>)}</div>
             <footer><i className="fa-solid fa-circle-info" />{text('Rodomi tikri matavimai jų vietose. Įrangos aukščiai taikomi pagal išsaugotus nustatymus; nenurodyti aukščiai iliustraciniai. Nežinomas sensoriaus aukštis nespėjamas.','Measured values at their locations. Equipment uses saved height settings; unspecified heights are illustrative. Unknown sensor heights are not guessed.')}</footer>
           </aside> : null}
+          {slice && geometry?.volumeReady && <div className="nc-living-slice-controls" aria-label={text('Heatmap pjūvis','Heatmap section')}>
+            <div role="group" aria-label={text('Pjūvio kryptis','Section direction')}>
+              <button type="button" aria-pressed={slice.mode === 'vertical'} onClick={() => selectSliceMode('vertical')}>{text('Vertikalus','Vertical')}</button>
+              <button type="button" aria-pressed={slice.mode === 'horizontal'} onClick={() => selectSliceMode('horizontal')}>{text('Horizontalus','Horizontal')}</button>
+            </div>
+            <label><span>{slice.mode === 'horizontal' ? text('Aukštis','Height') : text('Pjūvio padėtis','Section position')}</span><input type="range" min={slice.min} max={slice.max} step={Math.max(.001,(slice.max-slice.min)/200)} value={slice.position} aria-valuetext={`${(slice.mode === 'horizontal' ? slice.position : slice.position-slice.min).toFixed(2)} m`} onChange={event => setSliceSelection({ scope: sliceScope, mode: slice.mode, normal: slice.normal, position: Number(event.target.value) })} /><output>{(slice.mode === 'horizontal' ? slice.position : slice.position-slice.min).toLocaleString(lt ? 'lt-LT' : 'en-GB',{maximumFractionDigits:2})} m</output></label>
+            <button type="button" className="nc-living-slice-auto" onClick={() => setSliceSelection(null)} title={text('Pjūvis per didžiausią matavimų skirtumą','Section through the largest measured difference')}>{text('Automatiškai','Auto')}</button>
+          </div>}
           <div className="nc-living-view-controls"><button type="button" onClick={()=>renderer.current?.reset()} aria-label={text('Pradinis vaizdas','Reset view')}><i className="fa-solid fa-cube" /></button><span /><button type="button" onClick={()=>renderer.current?.zoom(.85)} aria-label={text('Priartinti','Zoom in')}><i className="fa-solid fa-plus" /></button><button type="button" onClick={()=>renderer.current?.zoom(1.18)} aria-label={text('Atitolinti','Zoom out')}><i className="fa-solid fa-minus" /></button><small className="nc-living-zoom-hint"><span>Option / Alt + {text('ratukas','scroll')}</span>{text('Priartinti / atitolinti','Zoom in / out')}</small></div>
 
         </> : null}
       </div>
       {map && geometry && !renderError ? <div className="nc-living-field-legend">
-        <details className="nc-living-map-info" onKeyDown={event=>{if(event.key==='Escape'){event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus()}}}><summary><i className="fa-solid fa-circle-info" />{geometry.volumeReady ? text('Erdvinis įvertis','Spatial estimate') : text('Matavimo taškai','Measurement points')}</summary><div>
+        <details className="nc-living-map-info" onKeyDown={event=>{if(event.key==='Escape'){event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus()}}}><summary><i className="fa-solid fa-circle-info" />{geometry.volumeReady ? text('Pjūvio įvertis','Section estimate') : text('Matavimo taškai','Measurement points')}</summary><div>
           <p>{geometry.volumeReady ? text('Taškai — tikri matavimai. Spalvos tarp jų — apskaičiuotas įvertis; už matavimo aukščių ribų jis mažiau pagrįstas.','Points are measurements. Colours between them are estimates; beyond measured heights they have less support.') : text('Taškas rodo sensoriaus vietą. Paspauskite, kad matytumėte reikšmę, aukštį ir laiką.','Each point marks a sensor. Select it to see the value, height and reading time.')}</p>
           <dl><div><dt>{text('Matavimai su aukščiu','Readings with height')}</dt><dd>{geometry.knownHeights}/{readings.length}</dd></div>{geometry.heightRange ? <div><dt>{text('Matavimo aukščiai','Measured heights')}</dt><dd>{geometry.heightRange.map(heightText).join('–')}</dd></div> : null}{unknownHeights ? <div><dt>{text('Nenurodytas aukštis','Unknown height')}</dt><dd>{unknownHeights}</dd></div> : null}<div><dt>{text('Laikas','Time')}</dt><dd>{clock(historyTime || new Date(at).toISOString())}</dd></div></dl>
           <p>{colorMode === 'contrast' ? text('Spalvos išryškina skirtumus šiame kadre; jos nerodo augalo būklės.','Colours highlight differences in this frame; they do not indicate crop health.') : text('Tos pačios reikšmės išlaiko tą pačią spalvą.','The same values keep the same colours.')}</p>
