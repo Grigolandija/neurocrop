@@ -15,7 +15,7 @@
 .nfa-display button { min-width: 38px; min-height: 28px; padding: 4px 7px; font-size: 11px; }
 .nfa-workbench { position: relative; flex: 1 1 auto; min-height: 230px; min-width: 0; width: 100%; overflow: hidden; }
 .nfa-canvas-wrap { position: absolute; inset: 0; overflow: hidden; }
-.nfa-editor .nfa-canvas { display: block; width: 100%; height: 100%; max-height: none; min-height: 0; aspect-ratio: auto; background: #f7f9f5; cursor: grab; }
+.nfa-editor .nfa-canvas { display: block; width: 100%; height: 100%; max-height: none; min-height: 0; aspect-ratio: auto; background: #f5f7f6; cursor: grab; }
 .nfa-editor .nfa-canvas:active { cursor: grabbing; }
 .nfa-view-controls { position: absolute; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid #e1e8dd; border-radius: 8px; background: #ffffffed; box-shadow: 0 2px 8px #29413505; }
 .nfa-view-controls > span { width: 1px; height: 18px; margin: 0 5px; background: #e2e9df; }
@@ -78,12 +78,12 @@
 .nfa-3d-view { position: absolute; inset: 0; }
 .nfa-editor .nfa-3d-view .nc-farm-scene, .nfa-editor .nfa-3d-view .nc-farm-scene-shell { height: 100%; }
 .nfa-3d-view .nc-farm-zone-list { display: none; }
-.nfa-editor[data-mode="equipment"] .nfa-shape { cursor: pointer; fill-opacity: .5; }
+.nfa-editor[data-mode="equipment"] .nfa-shape { cursor: pointer; fill-opacity: .88; }
 .nfa-editor[data-mode="equipment"] .nfa-name { opacity: .8; }
-.nfa-shape { fill: #e8efe5; stroke: #7e9981; stroke-width: 1.5px; vector-effect: non-scaling-stroke; cursor: move; }
-.nfa-shape[data-selected="true"] { fill: #d9eade; stroke: #28694f; stroke-width: 2px; }
+.nfa-shape { fill: #fcfdfb; stroke: #8b9c93; stroke-width: 2px; vector-effect: non-scaling-stroke; cursor: move; }
+.nfa-shape[data-selected="true"] { fill: #eaf3ef; stroke: #28694f; stroke-width: 2.5px; }
 .nfa-shape[data-kind="zone"] { fill: #e6f1ee80; stroke-dasharray: 5 3; }
-.nfa-name { fill: #385842; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.nfa-name { fill: #536a60; font-weight: 600; letter-spacing: .01em; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
 .nfa-wall-hit { stroke: transparent; cursor: move; }
 .nfa-wall-hit[data-active="true"] { stroke: #28694f40; }
 .nfa-wall-label { fill: #28533c; text-anchor: middle; paint-order: stroke; stroke: #f9fbf7; stroke-width: 4px; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; font-weight: 600; }
@@ -91,13 +91,13 @@
 .nfa-handles circle[data-active="true"] { fill: #28694f; }
 .nfa-gear { pointer-events: none; }
 .nfa-gear[data-editable="true"] { pointer-events: auto; }
-.nfa-gear :is(polygon,circle) { fill: #b3c8ad; stroke: #6b8b72; stroke-width: 1px; vector-effect: non-scaling-stroke; cursor: grab; }
+.nfa-gear > g > :is(polygon,circle) { fill: #d5e0d6; stroke: #7e9789; stroke-width: 1px; vector-effect: non-scaling-stroke; cursor: grab; }
 .nfa-gear [data-type="sensor-node"] circle { fill: #2d8062; stroke: #fff; stroke-width: 2px; }
 .nfa-gear [data-type="door"] polygon { fill: #fff; stroke: #53947e; stroke-width: 2px; }
 .nfa-gear [data-type="window"] polygon, .nfa-gear [data-type="ventilation-opening"] polygon { fill: #a7d3dc; }
 .nfa-gear [data-type="lamp"] polygon { fill: #ead89e; fill-opacity: .6; stroke-dasharray: 4 3; }
-.nfa-gear [data-active="true"] :is(polygon,circle) { stroke: #215b3f; stroke-width: 2.5px; }
-.nfa-gear [data-invalid="true"] :is(polygon,circle) { fill: #f7b1a0; stroke: #b55d45; }
+.nfa-gear [data-active="true"] > :is(polygon,circle) { stroke: #215b3f; stroke-width: 2.5px; }
+.nfa-gear [data-invalid="true"] > :is(polygon,circle) { fill: #f7b1a0; stroke: #b55d45; }
 .nfa-gear text { fill: #28543b; stroke: #fff; stroke-width: 3px; paint-order: stroke; vector-effect: non-scaling-stroke; pointer-events: none; }
 
 .nfa-equipment-panel :is(h2,p) { margin: 0 0 10px; }
@@ -191,3 +191,18 @@
 .nfa-cultivation .nfa-inline-form { margin: 0 0 12px; }
 .nfa-growing-groups { margin-top: 10px; }
 .nfa-growing-groups > .nfa-inline-form { padding: 12px 0; border-top: 1px solid #edf1e9; }
+
+/* Quiet architectural linework gives the plan hierarchy without adding labels or controls. */
+.nfa-room-caption { pointer-events: none; }
+.nfa-room-area { fill: #91a098; text-anchor: middle; dominant-baseline: middle; font-variant-numeric: tabular-nums; }
+.nfa-equipment-detail { pointer-events: none; fill: none; stroke: #779084; stroke-width: .65px; }
+.nfa-equipment-detail :is(rect,line,path,circle,ellipse) { vector-effect: non-scaling-stroke; }
+.nfa-gear [data-type="lamp"] .nfa-equipment-detail { stroke: #b69b4b; }
+.nfa-gear [data-type="fan"] .nfa-equipment-detail { stroke: #58756b; }
+.nfa-gear [data-type="rack"] > polygon { fill: #dae0e3; stroke: #8c9ca1; }
+.nfa-gear [data-type="growing-bed"] > polygon { fill: #e1dfc8; stroke: #a4a080; }
+.nfa-gear [data-type="reservoir"] > polygon { fill: #dbe9ee; stroke: #91adb8; }
+.nfa-rotation-handle line { stroke: #bd8527; stroke-width: 1px; vector-effect: non-scaling-stroke; pointer-events: none; }
+.nfa-rotation-handle circle { fill: #fff; stroke: #bd8527; stroke-width: 1.5px; vector-effect: non-scaling-stroke; cursor: grab; }
+.nfa-rotation-handle circle:hover, .nfa-rotation-handle circle:focus-visible { fill: #fff1ce; }
+.nfa-rotation-handle path { fill: none; stroke: #9b6c20; stroke-width: 1px; vector-effect: non-scaling-stroke; pointer-events: none; }

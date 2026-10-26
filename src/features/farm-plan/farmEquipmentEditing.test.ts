@@ -3,7 +3,7 @@ import { objectFootprint,objectInsideOutline,validOutlineMount } from '../../../
 import { snapObjectToMapWall } from '../greenhouse-map/geometry'
 import { emptyFarmPlan } from './farmPlanData'
 import { farmEditorMap,newFarmObject } from './farmLayoutData'
-import { pasteFarmEquipment,resizeFarmEquipment } from './farmEquipmentEditing'
+import { pasteFarmEquipment,resizeFarmEquipment,rotateFarmEquipment } from './farmEquipmentEditing'
 
 function fixture(){
   const plan={...emptyFarmPlan(),areas:[{id:'a',name:'Room',kind:'room' as const,height:3,polygon:[{xM:0,yM:0},{xM:12,yM:0},{xM:12,yM:10},{xM:0,yM:10}]}]}
@@ -14,6 +14,27 @@ function fixture(){
 }
 
 describe('equipment editing in the farm drawing',()=>{
+  it('rotates around the centre through repeated quarter turns and normalizes angles',()=>{
+    const {map,object}=fixture(),center=(o:typeof object)=>{const [a,,b]=objectFootprint(o);return [(a.xM+b.xM)/2,(a.yM+b.yM)/2]}
+    let next=object
+    for(const angle of [90,180,270,360,-35,725]){
+      next=rotateFarmEquipment(next,angle,map)!
+      expect(next).not.toBeNull()
+      expect(center(next)[0]).toBeCloseTo(center(object)[0]);expect(center(next)[1]).toBeCloseTo(center(object)[1])
+      expect(next.widthM).toBe(object.widthM);expect(next.lengthM).toBe(object.lengthM)
+      expect(next.rotationDeg).toBeGreaterThanOrEqual(0);expect(next.rotationDeg).toBeLessThan(360)
+    }
+  })
+  it('rejects rotation through the outline or of locked equipment, Nodes and wall-mounted openings',()=>{
+    const {map,object}=fixture()
+    expect(rotateFarmEquipment({...object,xM:0,yM:0,widthM:4,lengthM:1},90,map)).toBeNull()
+    expect(rotateFarmEquipment({...object,locked:true},90,map)).toBeNull()
+    expect(rotateFarmEquipment({...object,type:'sensor-node'},90,map)).toBeNull()
+    expect(rotateFarmEquipment(newFarmObject('door',map),90,map)).toBeNull()
+    expect(rotateFarmEquipment(object,NaN,map)).toBeNull()
+    map.layers=map.layers.map(l=>l.id===object.layerId ? {...l,locked:true} : l)
+    expect(rotateFarmEquipment(object,90,map)).toBeNull()
+  })
   it('keeps the opposite corner fixed when resizing rotated equipment',()=>{
     const {map,object}=fixture()
     for(const rotationDeg of [0,35,90,180,275]){

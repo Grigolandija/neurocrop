@@ -6,7 +6,18 @@ import type { SitePoint } from '../living-greenhouse/siteDemoModel'
 export type EquipmentHandle='w'|'e'|'s'|'n'|'sw'|'se'|'ne'|'nw'
 export const equipmentUnlocked=(object:GreenhouseObject,map:GreenhouseMap)=>!object.locked && !map.layers.some(l=>l.id===object.layerId && l.locked)
 export const equipmentDuplicable=(object:GreenhouseObject)=>object.type!=='sensor-node' && object.type!=='section-zone'
+export const equipmentRotatable=(object:GreenhouseObject)=>object.type!=='sensor-node' && !isWallMountedType(object.type)
 const fits=(object:GreenhouseObject,map:GreenhouseMap)=>objectInsideOutline(object,map) && (!isWallMountedType(object.type) || validOutlineMount(object,map))
+
+/** Rotate about the visible centre, not the saved lower-left placement origin. */
+export function rotateFarmEquipment(object:GreenhouseObject,rotationDeg:number,map:GreenhouseMap):GreenhouseObject|null{
+  if(!equipmentUnlocked(object,map) || !equipmentRotatable(object) || !Number.isFinite(rotationDeg))return null
+  const before=object.rotationDeg*Math.PI/180,normalized=((rotationDeg%360)+360)%360,after=normalized*Math.PI/180
+  const cx=object.xM+(object.widthM*Math.cos(before)-object.lengthM*Math.sin(before))/2
+  const cy=object.yM+(object.widthM*Math.sin(before)+object.lengthM*Math.cos(before))/2
+  const rotated={...object,rotationDeg:normalized,xM:cx-(object.widthM*Math.cos(after)-object.lengthM*Math.sin(after))/2,yM:cy-(object.widthM*Math.sin(after)+object.lengthM*Math.cos(after))/2}
+  return fits(rotated,map) ? rotated : null
+}
 
 /** Resize in the object's own axes, keeping the opposite edge fixed, including on angled walls. */
 export function resizeFarmEquipment(object:GreenhouseObject,handle:EquipmentHandle,delta:SitePoint,map:GreenhouseMap,snap:boolean):GreenhouseObject|null{

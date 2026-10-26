@@ -39,7 +39,7 @@ export function siteVolume(zone: SiteZone | null, metric: SiteMetric, plan: Site
       }
     }
   }
-  return { width, height: depth, layers, pixels, bounds: [dimensions.widthM, dimensions.lengthM, fieldHeight], palette, levels: [], contours: [] }
+  return { width, height: depth, layers, pixels, bounds: [dimensions.widthM, dimensions.lengthM, fieldHeight], roofSlope: 0, palette, levels: [], contours: [] }
 }
 
 /** A cutaway campus built from physical structures, with independent zone polygons. */
@@ -91,8 +91,6 @@ export function siteGeometry(selectedId: string | null, metric: SiteMetric, plan
     for(const [a,b,c] of triangulateSitePolygon(polygon))draw(a,b,c)
   }
   const wall = (a:SitePoint,b:SitePoint,h:number,steel:Color) => {
-    quad(point(a.xM,a.yM,0),point(b.xM,b.yM,0),point(b.xM,b.yM,.58),point(a.xM,a.yM,.58),[.74,.78,.73])
-    beam(point(a.xM,a.yM,.58),point(b.xM,b.yM,.58),.045,[.7,.75,.7])
     beam(point(a.xM,a.yM,h),point(b.xM,b.yM,h),.035,steel)
     beam(point(a.xM,a.yM,0),point(a.xM,a.yM,h),.045,steel)
   }

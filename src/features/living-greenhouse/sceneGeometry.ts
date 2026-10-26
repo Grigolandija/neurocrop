@@ -12,7 +12,7 @@ import { climateContours, type ClimateContour } from './climateContours'
 import { objectGeometry } from './objectGeometry'
 
 type Color = [number, number, number]
-export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[]; contours: ClimateContour[]; palette?: Float32Array }
+export type VolumeField = { width: number; height: number; layers: number; pixels: Uint8Array; bounds: Vec3; levels: number[]; contours: ClimateContour[]; palette?: Float32Array; roofSlope?: number }
 export function climateColor(value: number, min: number, max: number): Color {
   const stops: Color[] = [[.10, .42, .90], [.06, .78, .86], [.89, .89, .45], [1, .57, .18], [.94, .22, .25]]
   const t = Math.max(0, Math.min(.99999, (value - min) / (max - min || 1))) * 4
@@ -24,9 +24,11 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   const data: number[] = []
   const w = map.dimensions.widthM, l = map.dimensions.lengthM, size = Math.max(w, l)
   const sensors = measuredSensors(map, metric, at, options.soilEcDepthCm)
+  const polygonal=map.shape.type==='polygon'
+  const roofSlope=options.schematic || (polygonal && map.farmPlanGeometry?.kind!=='greenhouse') ? 0 : .32
   // An illustrative roof must not cut off a Node whose measured height is known.
   // A configured greenhouse height remains authoritative.
-  const nodeEnvelope = sensors.reduce((height,s)=>s.heightM===null ? height : Math.max(height,(s.heightM+.3)/(1-.32*Math.min(1,Math.abs(s.object.yM+s.object.lengthM/2-l/2)/(l/2)))),0)
+  const nodeEnvelope = sensors.reduce((height,s)=>s.heightM===null ? height : Math.max(height,(s.heightM+.3)/(1-roofSlope*Math.min(1,Math.abs(s.object.yM+s.object.lengthM/2-l/2)/(l/2)))),0)
   const h = map.dimensions.heightM || Math.max(Math.min(5, Math.max(2.5, size * .17)),nodeEnvelope)
   const white: Color = [.39, .55, .50], steel: Color = [.25, .37, .34]
   const triangle = (a: Vec3, b: Vec3, c: Vec3, color: Color, shade = 1) => {
@@ -54,7 +56,6 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     quad(p(a,1,1),p(a,-1,1),p(b,-1,1),p(b,1,1),color,.68)
     quad(p(a,-1,1),p(a,-1,-1),p(b,-1,-1),p(b,-1,1),color,.85)
   }
-  const polygonal=map.shape.type==='polygon'
   if(map.shape.type==='polygon'){
     const shell=siteGeometry(null,'temperature',{version:1,dimensions:map.dimensions,rooms:[],zones:[],buildings:[{id:'area',name:map.name,height:h,greenhouse:map.farmPlanGeometry?.kind==='greenhouse',open:map.farmPlanGeometry?.kind==='zone',polygon:map.shape.points}]},{illustrateEquipment:false,showGround:false})
     for(const value of shell)data.push(value)
@@ -78,7 +79,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     const color = options.colorMode ? heatmapColorAt(value, METRICS[metric], observedRange, options.colorMode).map(v=>v/255) : climateColor(value,scale.min,scale.max)
     return [...color, 1]
   }).flat())
-  const grid = createVolumeGrid(map, options.view==='volume' && spatialClimateMetrics.has(metric) ? sensors : [], h, options.schematic || (polygonal && map.farmPlanGeometry?.kind!=='greenhouse') ? 0 : .32)
+  const grid = createVolumeGrid(map, options.view==='volume' && spatialClimateMetrics.has(metric) ? sensors : [], h, roofSlope)
   // Layers are stored in a 2D atlas for identical WebGPU and WebGL rendering.
   const pixels = new Uint8Array(grid.width*grid.depth*grid.layers*4)
   for(let i=0;i<grid.values.length;i++) {
@@ -93,7 +94,7 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
   const heights=sensors.filter(s=>s.value!==null && s.heightM!==null && s.heightM<=h).map(s=>s.heightM!).sort((a,b)=>a-b)
   const levels=heights.filter((height,i)=>!i || height-heights[i-1]>.15)
   const shownLevels=levels.length<=8 ? levels : Array.from({length:8},(_,i)=>levels[Math.round(i*(levels.length-1)/7)])
-  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,palette,bounds:[w,l,h],levels:shownLevels,contours:options.topography ? climateContours(grid,[w,l,h],scale) : []}
+  const volume: VolumeField = {width:grid.width,height:grid.depth,layers:grid.layers,pixels,palette,bounds:[w,l,h],roofSlope,levels:shownLevels,contours:options.topography ? climateContours(grid,[w,l,h],scale) : []}
   // All saved equipment types share the same detailed mesh library in live and demo views.
   const visibleLayers = new Set(map.layers.filter(layer => layer.visible).map(layer => layer.id))
   for (const object of map.objects) {
@@ -107,11 +108,9 @@ export function sceneGeometry(map: GreenhouseMap, metric: MetricKey, at: number,
     // A generic room boundary, not an invented architectural greenhouse roof.
     const line:Color=[.72,.77,.71],r=.008
     for(const z of [-l/2,l/2]){
-      box(0,.10,z,w,.20,.035,[.82,.85,.80])
       beam([-w/2,h,z],[w/2,h,z],r,line)
     }
     for(const x of [-w/2,w/2]){
-      box(x,.10,0,.035,.20,l,[.82,.85,.80])
       beam([x,h,-l/2],[x,h,l/2],r,line)
       for(const z of [-l/2,l/2])beam([x,0,z],[x,h,z],r*.65,line)
     }

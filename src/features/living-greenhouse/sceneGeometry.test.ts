@@ -10,6 +10,32 @@ function fixture() {
 }
 
 describe('shared 2D / 3D climate presentation', () => {
+  it('fills rooms to the ceiling at all four corners, while greenhouses keep their pitched envelope',()=>{
+    const {map,at}=fixture(),w=map.dimensions.widthM,d=map.dimensions.lengthM
+    map.shape={type:'polygon',points:[{xM:0,yM:0},{xM:w,yM:0},{xM:w,yM:d},{xM:0,yM:d}]}
+    map.farmPlanGeometry={areaId:'room',revision:1,kind:'room'}
+    map.dimensions.heightM=4.2
+    const room=sceneGeometry(map,'air-temperature',at),v=room.volume
+    expect(v.roofSlope).toBe(0)
+    for(const x of [0,v.width-1])for(const z of [0,v.height-1])for(const y of [0,v.layers-1]){
+      expect(v.pixels[((y*v.height+z)*v.width+x)*4+3]).toBe(255)
+    }
+    map.farmPlanGeometry.kind='greenhouse'
+    const greenhouse=sceneGeometry(map,'air-temperature',at).volume
+    expect(greenhouse.roofSlope).toBe(.32)
+    expect(greenhouse.pixels[((greenhouse.layers-1)*greenhouse.height*greenhouse.width)*4+3]).toBe(0)
+  })
+
+  it('keeps concave room cutouts empty at every height',()=>{
+    const {map,at}=fixture(),w=map.dimensions.widthM,d=map.dimensions.lengthM
+    map.shape={type:'polygon',points:[{xM:0,yM:0},{xM:w,yM:0},{xM:w,yM:d/2},{xM:w/2,yM:d/2},{xM:w/2,yM:d},{xM:0,yM:d}]}
+    map.farmPlanGeometry={areaId:'room',revision:1,kind:'room'}
+    const v=sceneGeometry(map,'air-temperature',at).volume
+    for(let y=0;y<v.layers;y++){
+      expect(v.pixels[((y*v.height+v.height-1)*v.width+v.width-1)*4+3]).toBe(0)
+      expect(v.pixels[((y*v.height)*v.width)*4+3]).toBe(255)
+    }
+  })
   it('fills a supported XYZ field and uses the 2D semantic colours in its GPU palette', () => {
     const { map, at } = fixture()
     const scene = sceneGeometry(map, 'air-temperature', at, { min: 15, max: 35 }, { view: 'volume', colorMode: 'condition' })

@@ -44,10 +44,6 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
   for(const area of plan.areas)for(const [a,b,c] of triangulateSitePolygon(area.polygon))tri(p(a,.01),p(b,.01),p(c,.01),area.kind==='greenhouse' ? [.84,.89,.82] : [.87,.88,.85])
   const corners=new Map<string,{point:SitePoint;height:number}>()
   for(const wall of farmWalls(plan,maps)){
-    const opening=openings.find(o=>collinear(wall.a,wall.b,o.a) && collinear(wall.a,wall.b,o.b) && along(o.a,o.b,at(wall.a,wall.b,.5))>=-1e-6 && along(o.a,o.b,at(wall.a,wall.b,.5))<=1+1e-6)
-    const band=Math.min(.58,wall.height),solid=opening?.sill===0 ? 0 : band
-    if(solid>0)quad(p(wall.a,0),p(wall.b,0),p(wall.b,solid),p(wall.a,solid),[.74,.78,.73])
-    if(!opening || opening.sill>band)beam(p(wall.a,band),p(wall.b,band),.025,[.65,.73,.66])
     beam(p(wall.a,wall.height),p(wall.b,wall.height),.028,[.42,.55,.48])
     for(const a of [wall.a,wall.b]){
       const insideDoor=openings.some(o=>o.sill===0 && collinear(o.a,o.b,a) && along(o.a,o.b,a)>1e-6 && along(o.a,o.b,a)<1-1e-6)

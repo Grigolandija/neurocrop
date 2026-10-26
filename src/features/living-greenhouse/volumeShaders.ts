@@ -3,7 +3,7 @@ import { VOLUME_LAYERS } from './volumeGrid'
 // Transparent XYZ volume across the greenhouse envelope. A subtle boundary
 // makes its extent visible without an opaque plane hiding the saved layout.
 export const volumeWgsl = `
-struct Uniforms { inverse: mat4x4f, bounds: vec4f, contours: array<vec4f,2>, palette: array<vec4f,33> }
+struct Uniforms { inverse: mat4x4f, bounds: vec4f, contours: array<vec4f,2>, palette: array<vec4f,33>, envelope: vec4f }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 @group(0) @binding(1) var sceneColor: texture_2d<f32>;
 @group(0) @binding(2) var sceneDepth: texture_depth_2d;
@@ -17,7 +17,7 @@ fn colorAt(t: f32) -> vec3f {
   let x=clamp(t,0.0,.99999)*32;let i=u32(floor(x));return mix(u.palette[i].rgb,u.palette[i+1u].rgb,fract(x));
 }
 fn sampleField(p: vec3f) -> vec4f {
-  if(abs(p.x)>u.bounds.x/2 || abs(p.z)>u.bounds.y/2 || p.y<0 || p.y>u.bounds.z*(1-select(.32,0.0,u.bounds.w>2.5)*abs(p.z)/(u.bounds.y/2))){return vec4f(0);}
+  if(abs(p.x)>u.bounds.x/2 || abs(p.z)>u.bounds.y/2 || p.y<0 || p.y>u.bounds.z*(1-u.envelope.x*abs(p.z)/(u.bounds.y/2))){return vec4f(0);}
   let size=vec2f(textureDimensions(field));let rows=size.y/f32(${VOLUME_LAYERS});
   let cell=clamp(vec2f(p.x/u.bounds.x+.5,.5-p.z/u.bounds.y),vec2f(.5)/vec2f(size.x,rows),vec2f(1)-vec2f(.5)/vec2f(size.x,rows));
   let y=clamp(p.y/u.bounds.z*f32(${VOLUME_LAYERS})-.5,0.0,f32(${VOLUME_LAYERS}-1));
@@ -111,7 +111,7 @@ fn topography(origin: vec3f, direction: vec3f, start: f32, end: f32, base: vec3f
   let ds=(end-start)/96;var rgb=vec3f(0);var opacity=0.0;
   for(var iteration=0u;iteration<96u;iteration++){
     let p=origin+direction*(start+(f32(iteration)+.5)*ds);let s=sampleField(p);
-    let edge=min(min(u.bounds.x/2-abs(p.x),u.bounds.y/2-abs(p.z)),u.bounds.z*(1-select(.32,0.0,u.bounds.w>2.5)*abs(p.z)/(u.bounds.y/2))-p.y);
+    let edge=min(min(u.bounds.x/2-abs(p.x),u.bounds.y/2-abs(p.z)),u.bounds.z*(1-u.envelope.x*abs(p.z)/(u.bounds.y/2))-p.y);
     let a=((1-exp(-ds*.85/u.bounds.z))+.035*(1-smoothstep(.0,ds*1.4,edge)))*(.25+.75*s.g)*s.a;
     rgb+=(1-opacity)*a*fieldColor(s);opacity+=(1-opacity)*a;
   }
@@ -125,6 +125,7 @@ export const volumeFragmentGl = `#version 300 es
 precision highp float;
 uniform mat4 inverseCamera;
 uniform vec4 bounds;
+uniform float roofSlope;
 uniform float contours[8];
 uniform vec4 palette[33];
 uniform sampler2D sceneColor;
@@ -136,7 +137,7 @@ vec3 colorAt(float t){
   float x=clamp(t,0.,.99999)*32.;int i=int(floor(x));return mix(palette[i].rgb,palette[i+1].rgb,fract(x));
 }
 vec4 sampleField(vec3 p){
-  if(abs(p.x)>bounds.x/2. || abs(p.z)>bounds.y/2. || p.y<0. || p.y>bounds.z*(1.-(bounds.w>2.5 ? 0. : .32)*abs(p.z)/(bounds.y/2.)))return vec4(0.);
+  if(abs(p.x)>bounds.x/2. || abs(p.z)>bounds.y/2. || p.y<0. || p.y>bounds.z*(1.-roofSlope*abs(p.z)/(bounds.y/2.)))return vec4(0.);
   vec2 size=vec2(textureSize(field,0));float rows=size.y/float(${VOLUME_LAYERS});
   vec2 cell=clamp(vec2(p.x/bounds.x+.5,.5-p.z/bounds.y),vec2(.5)/vec2(size.x,rows),vec2(1.)-vec2(.5)/vec2(size.x,rows));
   float y=clamp(p.y/bounds.z*float(${VOLUME_LAYERS})-.5,0.,float(${VOLUME_LAYERS}-1));
@@ -215,7 +216,7 @@ void main(){
   float ds=(end-start)/96.,opacity=0.;vec3 rgb=vec3(0.);
   for(int iteration=0;iteration<96;iteration++){
     vec3 p=origin+direction*(start+(float(iteration)+.5)*ds);vec4 s=sampleField(p);
-    float edge=min(min(bounds.x/2.-abs(p.x),bounds.y/2.-abs(p.z)),bounds.z*(1.-(bounds.w>2.5 ? 0. : .32)*abs(p.z)/(bounds.y/2.))-p.y);
+    float edge=min(min(bounds.x/2.-abs(p.x),bounds.y/2.-abs(p.z)),bounds.z*(1.-roofSlope*abs(p.z)/(bounds.y/2.))-p.y);
     float a=((1.-exp(-ds*.85/bounds.z))+.035*(1.-smoothstep(0.,ds*1.4,edge)))*(.25+.75*s.g)*s.a;
     rgb+=(1.-opacity)*a*fieldColor(s);opacity+=(1.-opacity)*a;
   }
