@@ -72,20 +72,10 @@ describe('drawing snap constraints',()=>{
     expect(wallAngle(result[0],result[1])).toBeCloseTo(wallAngle(area.polygon[0],area.polygon[1]),8)
     expect(wallLength(result[0],area.polygon[0])).toBeCloseTo(.5,8)
   })
-  it('holds corner directions to 10 degrees and radial lengths to 25 cm, including angles near 360',()=>{
-    const anchor={xM:1,yM:1}
-    for(const angle of [3,17,43,88,91,137,219,274,357]){
-      const point={xM:1+3.13*Math.cos(angle*Math.PI/180),yM:1+3.13*Math.sin(angle*Math.PI/180)}
-      const snapped=snapCorner(anchor,point,true,true)
-      expect(wallAngle(anchor,snapped)/10).toBeCloseTo(Math.round(wallAngle(anchor,snapped)/10),7)
-      expect(wallLength(anchor,snapped)).toBeCloseTo(3.25,7)
-    }
-  })
-  it('lets grid and angular constraints be disabled independently',()=>{
-    const a={xM:0,yM:0},p={xM:1.13,yM:2.36}
-    expect(snapCorner(a,p,false,false)).toEqual(p)
-    expect(snapCorner(a,p,true,false)).toEqual({xM:1.25,yM:2.25})
-    expect(wallLength(a,snapCorner(a,p,false,true))).toBeCloseTo(wallLength(a,p),7)
+  it('lets the grid be disabled for exact corner positioning',()=>{
+    const p={xM:1.13,yM:2.36}
+    expect(snapCorner(p,false)).toEqual(p)
+    expect(snapCorner(p,true)).toEqual({xM:1.25,yM:2.25})
   })
 })
 

@@ -2,18 +2,14 @@ import type { SitePoint } from '../living-greenhouse/siteDemoModel'
 import { editFarmArea, type FarmPlanArea, type FarmPlanDocument } from './farmPlanData'
 
 export const GRID_METRES = .25
-export const ANGLE_DEGREES = 10
 const clean = (n:number) => Math.round(n * 1e9) / 1e9
 export const snapValue = (n:number, step=GRID_METRES) => clean(Math.round(n / step) * step)
 export const wallLength = (a:SitePoint,b:SitePoint) => Math.hypot(b.xM-a.xM,b.yM-a.yM)
 export const wallAngle = (a:SitePoint,b:SitePoint) => (Math.atan2(b.yM-a.yM,b.xM-a.xM)*180/Math.PI+360)%360
 
-/** Corner angles take priority over Cartesian grid intersections. Length snaps to 25 cm. */
-export function snapCorner(anchor:SitePoint,point:SitePoint,grid:boolean,angles:boolean):SitePoint {
-  if(!angles)return grid ? {xM:snapValue(point.xM),yM:snapValue(point.yM)} : point
-  const length=grid ? snapValue(wallLength(anchor,point)) : wallLength(anchor,point)
-  const angle=Math.round(wallAngle(anchor,point)/ANGLE_DEGREES)*ANGLE_DEGREES*Math.PI/180
-  return {xM:clean(anchor.xM+Math.cos(angle)*length),yM:clean(anchor.yM+Math.sin(angle)*length)}
+/** Corner movement is free-angle; only the optional Cartesian grid rounds coordinates. */
+export function snapCorner(point:SitePoint,grid:boolean):SitePoint {
+  return grid ? {xM:snapValue(point.xM),yM:snapValue(point.yM)} : point
 }
 
 /** Translate a wall perpendicular to itself, keeping its direction and both corners together. */

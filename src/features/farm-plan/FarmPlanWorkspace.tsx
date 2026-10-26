@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router'
 import { useInterfaceLanguage } from '../../i18n'
-import { setDashboardContext } from '../../state/dashboardStore'
+import { getDashboardState, setDashboardContext } from '../../state/dashboardStore'
 import FarmAreaEditor from './FarmAreaEditor'
 import { useWorkspaceAccess } from '../../state/workspaceAccess'
 import { editableFarmPlan, validateFarmAreaPlan, insertFarmArea, farmPlanDocument, farmPlanSignature, farmPlanRepository, type FarmPlanDocument, type FarmPlanContext } from './farmPlanData'
@@ -103,6 +103,25 @@ export default function FarmPlanWorkspace(){
     }catch(reason){setError(reason instanceof Error ? reason.message : 'The drawing could not be saved.');return false}
     finally{savingRef.current=false;setSaving(false)}
   }
+  async function deleteArea(id:string){
+    if(!context?.permissions.canEdit || !plan || savingRef.current)throw new Error(lt ? 'Šiuo metu Area ištrinti negalima.' : 'This Area cannot be deleted right now.')
+    if(expectedRevision!==context.revision)throw new Error(lt ? 'Serveryje yra naujesnis planas. Prieš trindami Area atverkite serverio versiją; savo juodraštį galite atsisiųsti.' : 'The server has a newer plan. Download your draft, then load the server version before deleting an Area.')
+    savingRef.current=true;setSaving(true)
+    try{
+      // Use the existing deletion policy: retain Sections, Nodes and measurements.
+      await neurocropApi.deleteArea(id,{keepSections:true})
+      const withoutArea=(source:FarmPlanDocument)=>({...source,areas:source.areas.filter(a=>a.id!==id)})
+      setPlan(current=>current ? withoutArea(current) : current)
+      setMaps(current=>Object.fromEntries(Object.entries(current).filter(([areaId])=>areaId!==id)))
+      setBases(current=>Object.fromEntries(Object.entries(current).filter(([areaId])=>areaId!==id)))
+      setContext(current=>current ? {...current,plan:withoutArea(current.plan),areas:current.areas.filter(a=>a.id!==id),layouts:current.layouts?.filter(l=>l.areaId!==id)} : current)
+      setBaseline(farmPlanSignature(withoutArea(context.plan)))
+      setSelectedAreaId(null);setNodeContext(undefined);setContextError('');setError('')
+      if(getDashboardState().context.areaId===id)setDashboardContext({areaId:context.areas.find(a=>a.id!==id)?.id || '',sectionId:''})
+      setNotice(lt ? 'Area ištrinta. Sections, Nodes ir matavimai išsaugoti. Kiti neišsaugoti plano pakeitimai liko juodraštyje.' : 'Area deleted. Sections, Nodes and measurements were kept. Other unsaved plan edits remain in your draft.')
+      try{await workspaceAccess.refresh()}catch{setNotice(lt ? 'Area ištrinta. Kitų pakeitimų juodraštis išsaugotas; paskyros būklei atnaujinti perkraukite puslapį.' : 'Area deleted. Your other draft changes were kept; reload to refresh the workspace status.')}
+    }finally{savingRef.current=false;setSaving(false)}
+  }
   async function createSection(name:string,profile:string){
     if(!selectedAreaId || !context?.permissions.canEdit)return false
     if(dirty && !await save())return false
@@ -124,7 +143,7 @@ export default function FarmPlanWorkspace(){
     {notice && <p className="nc-farm-notice" role="status">{notice}</p>}
     {loading ? <div className="nc-farm-loading" role="status">{lt ? 'Kraunamas planas…' : 'Loading plan…'}</div> : context && plan ? <>
       <div className="nc-farm-save-status"><span data-dirty={dirty}>{dirty ? (lt ? 'Yra neišsaugotų pakeitimų' : 'Unsaved changes') : (context.revision===0 ? (lt ? 'Naujas planas' : 'New plan') : (lt ? 'Išsaugota serveryje' : 'Saved on server'))}</span><span>{context.revision>0 ? `${lt ? 'Versija' : 'Revision'} ${context.revision}` : ''}</span></div>
-      <div className="nc-farm-layout" data-readonly={!context.permissions.canEdit}>{context.permissions.canEdit ? <div inert={saving}><FarmAreaEditor plan={plan} layouts={maps} onChange={(next,layouts)=>{setPlan(next);setMaps(layouts)}} areas={context.areas} selectedId={selectedAreaId} onSelect={setSelectedAreaId} scene={scene} initialEquipment={new URLSearchParams(location.search).get('layout')==='1'} nodeContext={nodeContext} contextLoading={!!savedSelectedId && contextLoading} contextError={savedSelectedId ? contextError : ''} onCreateSection={createSection} onAssignSection={assignSection} /></div> : scene}</div>
+      <div className="nc-farm-layout" data-readonly={!context.permissions.canEdit}>{context.permissions.canEdit ? <div inert={saving}><FarmAreaEditor plan={plan} layouts={maps} onChange={(next,layouts)=>{setPlan(next);setMaps(layouts)}} areas={context.areas} selectedId={selectedAreaId} onSelect={setSelectedAreaId} scene={scene} initialEquipment={new URLSearchParams(location.search).get('layout')==='1'} nodeContext={nodeContext} contextLoading={!!savedSelectedId && contextLoading} contextError={savedSelectedId ? contextError : ''} onCreateSection={createSection} onAssignSection={assignSection} onDeleteArea={deleteArea} /></div> : scene}</div>
       <p className="nc-farm-help">{lt ? 'Farm plan → Areas → Sections. Įranga ir jutikliai priklauso pasirinktai Area. 2D ir 3D rodo tą patį išdėstymą.' : 'Farm plan → Areas → Sections. Equipment and Nodes belong to the selected Area. 2D and 3D show the same layout.'}</p>
     </> : null}
   </div>
