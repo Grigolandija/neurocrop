@@ -20,12 +20,12 @@ async function setup(page: Page) {
   ]
   await page.route('**/runtime-config.js*', r => r.fulfill({ contentType: 'application/javascript', body: `window.NEUROCROP_CONFIG={apiBaseUrl:'${api}'};` }))
   await page.route(`${api}/**`, async route => {
-    const path = new URL(route.request().url()).pathname
+    const url=new URL(route.request().url()),path=url.pathname
     let data: unknown = {}
     if (path === '/auth/me') data = { user: { id: 'structure-user', email: 'test@example.test', name: 'Test', role: 'owner', organizationId: 'test' } }
     if (path === '/areas') data = { areas }
     if (path === '/farm-plan') data = {draftScope:'test:structure-user',revision:1,updatedAt:now,plan:{version:2,name:'Test farm',dimensions:{widthM:50,lengthM:34},areas:farmAreas},areas,layouts:[],permissions:{canEdit:true}}
-    if (path === '/sections') data = {sections:[...areas.map(area=>({id:`scope-${area.id}`,area_id:area.id,name:area.name,is_area_default:true,nodes:0})),...sections.map(group=>({...group,area_id:group.areaId,crop_profile:group.profileId}))]}
+    if (path === '/sections') data = {sections:[...areas.map(area=>({id:`scope-${area.id}`,area_id:area.id,name:area.name,is_area_default:true,nodes:0})),...sections.map(group=>({...group,area_id:group.areaId,crop_profile:group.profileId}))].filter(group=>!url.searchParams.get('areaId') || group.area_id===url.searchParams.get('areaId'))}
     const area=areas.find(area=>path.startsWith(`/areas/${area.id}/`))
     if(area && path.endsWith('/cultivation'))data={areaId:area.id,defaultSectionId:`scope-${area.id}`,cropProfile:sections.find(group=>group.areaId===area.id)?.profileId}
     if(area && path.endsWith('/map'))data={area,mapEnabled:true,map:null,nodes:nodes.filter(node=>node.areaId===area.id),revision:0,updatedAt:null,permissions:{canEdit:true}}
@@ -61,13 +61,13 @@ test('Areas retain responsive controls and old Sections links open optional cult
   await expect(page.locator('.nfa-editor')).toBeVisible()
   const cultivation=page.getByRole('region',{name:'Cultivation',exact:true})
   await expect(cultivation).toBeVisible()
-  await expect(cultivation.getByLabel('Area crop profile',{exact:true})).toHaveValue('tomato')
+  await expect(cultivation.getByRole('combobox',{name:'Area crop profile',exact:true})).toHaveValue('tomato')
   await cultivation.locator('.nfa-growing-groups > summary').click()
   await expect(cultivation.getByLabel('Group',{exact:true})).toHaveValue('Tomato zone')
-  await expect(cultivation.getByLabel('Crop profile',{exact:true}).first()).toHaveValue('tomato')
+  await expect(cultivation.getByRole('combobox',{name:'Crop profile',exact:true}).first()).toHaveValue('tomato')
   await page.setViewportSize({width:390,height:844})
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
-  await expect(cultivation.getByLabel('Area crop profile',{exact:true})).toBeVisible()
+  await expect(cultivation.getByRole('combobox',{name:'Area crop profile',exact:true})).toBeVisible()
   await page.setViewportSize({width:1440,height:1000})
   await page.locator('[data-sidebar-action="sites"]:visible').click()
   await expect(page.locator('.nc-area-row')).toHaveCount(3)

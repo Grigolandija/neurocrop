@@ -41,8 +41,8 @@ test('prefetched route changes never flash the full workspace loader', async ({ 
     observer.observe(document.body, { childList: true, subtree: true })
   })
 
-  await page.locator('[data-sidebar-action="zones"]:visible').click()
-  await expect(page).toHaveURL(/\/sections$/)
-  await expect(page.locator('.nc-sections-page')).toBeVisible()
+  await page.locator('[data-sidebar-action="nodes"]:visible').click()
+  await expect(page).toHaveURL(/\/nodes$/)
+  await expect(page.locator('.node-fleet-page')).toBeVisible()
   expect(await page.evaluate(() => (window as Window & { __routeLoadingFlashed?: boolean }).__routeLoadingFlashed)).toBe(false)
 })

@@ -336,7 +336,7 @@ test('new customer can register and receives confirmation', async ({ page }) => 
 
 test('desktop pages do not overflow horizontally', async ({ page }) => {
   await authenticate(page)
-  for (const action of ['overview', 'sites', 'zones', 'nodes', 'readings', 'history', 'alerts', 'settings']) {
+  for (const action of ['overview', 'sites', 'farm-plan', 'nodes', 'readings', 'history', 'alerts', 'settings']) {
     await navigation(page, action).click()
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
   }

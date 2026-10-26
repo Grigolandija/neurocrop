@@ -930,8 +930,13 @@ export default function TrendsWorkspace() {
         const nextSections = sectionList(dashboardPayload, areaPayload, sectionPayload)
         const nextProfiles = arrays(profilePayload, ['profiles', 'items'])
         const nodePayload = nodeResult.status === 'fulfilled' ? nodeResult.value as JsonRecord : {}
-        applyWorkspaceContext(nextSections, nextProfiles)
-        setNodes(nodeList(nodePayload))
+        const nextNodes=nodeList(nodePayload)
+        const assignedScopes=new Set(nextNodes.map(node=>node.sectionId))
+        // Newly provisioned Area scopes can be empty while an optional group holds the Nodes.
+        // Prefer an assigned scope for automatic selection; explicit selections still win.
+        const preferredSections=[...nextSections].sort((left,right)=>Number(assignedScopes.has(right.id))-Number(assignedScopes.has(left.id)))
+        applyWorkspaceContext(preferredSections, nextProfiles)
+        setNodes(nextNodes)
       } catch (reason) {
         if (!active) return
         setError(reason instanceof Error ? reason.message : 'Workspace context could not be loaded.')
