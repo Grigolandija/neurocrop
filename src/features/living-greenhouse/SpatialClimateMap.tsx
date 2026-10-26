@@ -42,6 +42,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
   const [selected, setSelected] = useState<string | null>(null)
   const [engine, setEngine] = useState('')
   const [renderError, setRenderError] = useState(false)
+  const [useWebGL, setUseWebGL] = useState(false)
   const measurementsToggle = useRef<HTMLButtonElement>(null)
   const host = useRef<HTMLDivElement>(null)
   const renderer = useRef<LivingScene | null>(null)
@@ -95,7 +96,13 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
         button.dataset.labelBelow=String(p.y<90)
         button.style.visibility = p.visible && p.x>0 && p.x<width && p.y>0 && p.y<height ? 'visible' : 'hidden'
       }
-    }, () => { if (!cancelled) { setRenderError(true); ready.current?.() } }, { animateIntro: false }).then(scene => {
+    }, () => {
+      if(cancelled)return
+      // A device may initialize successfully and then fail on its first frame.
+      // Keep readings and controls available while recovering through WebGL.
+      if(!useWebGL && renderer.current?.name!=='WebGL')setUseWebGL(true)
+      else {setRenderError(true);ready.current?.()}
+    }, { animateIntro: false,backend:useWebGL ? 'webgl' : undefined }).then(scene => {
       if (cancelled) { scene.dispose(); return }
       renderer.current = scene; setEngine(scene.name); engineReady.current?.(scene.name)
       const g = currentGeometry.current
@@ -106,7 +113,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
     // The parent keys this component by Area. Keep its camera and renderer
     // alive across historical frames, including gaps with no recorded layout.
     // The missing-layout overlay hides the previous scene until data returns.
-  }, [])
+  }, [useWebGL])
   useEffect(() => {
     renderNotified.current = false
     currentGeometry.current = geometry

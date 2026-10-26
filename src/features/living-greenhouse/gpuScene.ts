@@ -156,9 +156,10 @@ function webgl(): Backend {
   }
 }
 
-export async function createLivingScene(host: HTMLElement, onProject: (matrix: Float32Array, width: number, height: number) => void, onLost: () => void, camera: {targetHeight?:number;elevation?:number;zoom?:number;animateIntro?:boolean} = {}) {
+export async function createLivingScene(host: HTMLElement, onProject: (matrix: Float32Array, width: number, height: number) => void, onLost: () => void, camera: {targetHeight?:number;elevation?:number;zoom?:number;animateIntro?:boolean;backend?:'webgl'} = {}) {
   let backend: Backend
-  try { backend = await webgpu(onLost) } catch { backend = webgl() }
+  if(camera.backend==='webgl')backend=webgl()
+  else try { backend = await webgpu(onLost) } catch { backend = webgl() }
   const { canvas } = backend
   canvas.setAttribute('aria-hidden','true')
   host.prepend(canvas)
