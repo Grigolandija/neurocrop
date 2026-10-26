@@ -1,7 +1,8 @@
 import { OBJECT_LIBRARY, type GreenhouseMap, type GreenhouseObject, type SensorNodeMetadata } from '../model'
 import { isWallMountedType } from '../geometry'
 import NumericInput from './NumericInput'
-import EquipmentPlacementFields from './EquipmentPlacementFields'
+import EquipmentPlacementFields,{ EquipmentBodyHeightField } from './EquipmentPlacementFields'
+import { activeEquipmentInspectorSection,type EquipmentInspector,type EquipmentInspectorSection } from '../equipmentInspector'
 import EquipmentCollisionNotice from './EquipmentCollisionNotice'
 import './object-inspector.css'
 import { DOOR_TYPES, doorConfiguration, doorOpening, type DoorType } from '../doorConfiguration'
@@ -13,9 +14,10 @@ type Props = {
   onAlign: (edge: 'left' | 'center' | 'right' | 'bottom' | 'middle' | 'top') => void
   language?: 'en' | 'lt'
   onSelect?: (id:string)=>void
+  inspector?: EquipmentInspector
 }
 
-export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign, language = 'en',onSelect }: Props) {
+export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign, language = 'en',onSelect,inspector }: Props) {
   const tr = (english: string, lithuanian: string) => language === 'lt' ? lithuanian : english
   if (!selected.length) return <aside className="gh-right-panel"><div className="gh-empty-selection"><span><i className="fa-solid fa-arrow-pointer" /></span><h2>{tr('No object selected', 'Objektas nepasirinktas')}</h2><p>{tr('Select an object to edit its placement and dimensions.', 'Pasirinkite objektą, kad pakeistumėte jo vietą ir matmenis.')}</p><small>{tr('Shift-click selects multiple objects.', 'Shift + paspaudimas pasirenka kelis objektus.')}</small></div></aside>
 
@@ -37,22 +39,34 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
   const patchMetadata = (metadata: Partial<GreenhouseObject['metadata']>) => onUpdate(object.id, { metadata: { ...object.metadata, ...metadata } })
   const patchSensor = (update: Partial<SensorNodeMetadata>) => patchMetadata({ sensor: { ...sensor!, ...update } })
   const icon = OBJECT_LIBRARY.find((item) => item.type === object.type)?.icon || 'fa-vector-square'
+  const active=inspector ? activeEquipmentInspectorSection(object,inspector.section) : null
+  const panelProps=(section:EquipmentInspectorSection)=>inspector ? {role:'tabpanel',id:`${inspector.idPrefix}-panel-${section}`,'aria-labelledby':`${inspector.idPrefix}-tab-${section}`,hidden:active!==section} : {}
+  const settings=<div className="gh-inspector-general-fields">
+    {inspector && <label className="gh-field"><span>{tr('Name','Pavadinimas')}</span><input disabled={placementLocked} value={object.name} onChange={event=>onUpdate(object.id,{name:event.target.value})} /></label>}
+    <label className="gh-field"><span>{tr('Notes','Pastabos')}</span><textarea disabled={placementLocked} value={object.metadata.notes ?? ''} placeholder={tr('Installation or planning notes…','Montavimo arba planavimo pastabos…')} onChange={event=>patchMetadata({notes:event.target.value})} /></label>
+    <div className="gh-toggle-row"><label><input disabled={layerLocked} type="checkbox" checked={object.locked} onChange={event=>onUpdate(object.id,{locked:event.target.checked})} /><span>{tr('Lock placement','Užrakinti vietą')}</span></label></div>
+  </div>
+
 
   return <aside className="gh-right-panel">
-    <section className="gh-properties gh-object-inspector">
+    <section className="gh-properties gh-object-inspector" data-docked={!!inspector}>
       <header><div><small>{sensor ? tr('NODE PLACEMENT', 'MAZGO VIETA') : tr('OBJECT', 'OBJEKTAS')}</small><h2>{object.name}</h2></div><span className="gh-type-badge"><i className={`fa-solid ${icon}`} /></span></header>
       {placementLocked ? <p className="gh-lock-notice"><i className="fa-solid fa-lock" />{layerLocked ? tr('This layer is locked.', 'Šis sluoksnis užrakintas.') : tr('Placement is locked.', 'Objekto vieta užrakinta.')}</p> : null}
       <div className="gh-property-groups">
+        <div className="gh-inspector-panel" {...panelProps('size')}>
         {!sensor && <fieldset className="gh-property-group"><legend>{tr('Equipment', 'Įranga')}</legend><div className="gh-property-fields">
-          <label className="gh-field"><span>{tr('Name', 'Pavadinimas')}</span><input disabled={placementLocked} value={object.name} onChange={event=>onUpdate(object.id,{name:event.target.value})} /></label>
+          {!inspector && <label className="gh-field"><span>{tr('Name', 'Pavadinimas')}</span><input disabled={placementLocked} value={object.name} onChange={event=>onUpdate(object.id,{name:event.target.value})} /></label>}
           {door ? <div className="gh-field-row">
             <label className="gh-field"><span>{tr('Opening width', 'Angos plotis')} <em>m</em></span><NumericInput aria-label={tr('Door opening width', 'Durų angos plotis')} disabled={placementLocked} min=".1" max={opening.maximumM} step=".05" value={Number(opening.widthM.toFixed(3))} onCommit={value=>onUpdate(object.id,{[opening.axis]:value ?? opening.widthM})} /></label>
             <label className="gh-field"><span>{tr('Height', 'Aukštis')} <em>m</em></span><NumericInput aria-label={tr('Door height', 'Durų aukštis')} disabled={placementLocked} min=".1" max={map.dimensions.heightM || 100} step=".05" value={door.heightM} onCommit={value=>patchMetadata({door:{...door,heightM:value ?? door.heightM}})} /></label>
           </div> : <div className="gh-field-row">
             <label className="gh-field"><span>{tr('Width', 'Plotis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".05" max={map.dimensions.widthM} step=".05" value={Number(object.widthM.toFixed(3))} onCommit={value=>onUpdate(object.id,{widthM:value ?? object.widthM})} /></label>
             <label className="gh-field"><span>{tr('Length', 'Ilgis')} <em>m</em></span><NumericInput disabled={placementLocked} min=".05" max={map.dimensions.lengthM} step=".05" value={Number(object.lengthM.toFixed(3))} onCommit={value=>onUpdate(object.id,{lengthM:value ?? object.lengthM})} /></label>
+            {inspector && <EquipmentBodyHeightField object={object} map={map} disabled={placementLocked} language={language} onChange={equipmentPlacement=>patchMetadata({equipmentPlacement})} />}
           </div>}
         </div></fieldset>}
+        </div>
+        <div className="gh-inspector-panel" {...panelProps('position')}>
         <fieldset className="gh-property-group"><legend>{tr('Position', 'Padėtis')}</legend><div className="gh-property-fields">
           <div className="gh-field-row">
             <label className="gh-field"><span>X <em>m</em></span><NumericInput disabled={placementLocked} min="0" max={Math.max(0,map.dimensions.widthM-(map.shape.type==='polygon' ? 0 : object.widthM))} step={map.gridSizeM} value={Number(object.xM.toFixed(3))} onCommit={value=>onUpdate(object.id,{xM:value ?? object.xM})} /></label>
@@ -63,17 +77,18 @@ export default function ObjectPropertiesPanel({ map, selected, onUpdate, onAlign
             : <NumericInput disabled={placementLocked} value={Number(object.rotationDeg.toFixed(1))} onCommit={value=>onUpdate(object.id,{rotationDeg:value ?? object.rotationDeg})} />}</label></div>}
           {wallMounted && <p className="gh-placement-summary">{tr('Drag to another wall to remount.', 'Nutempkite prie kitos sienos tvirtinimui pakeisti.')}</p>}
         </div></fieldset>
-        {!sensor && <EquipmentPlacementFields object={object} map={map} disabled={placementLocked} language={language} onChange={equipmentPlacement=>patchMetadata({equipmentPlacement})} />}
+        </div>
+        <div className="gh-inspector-panel" {...panelProps('mounting')}>
+        {!sensor && <EquipmentPlacementFields showBodyHeight={!inspector} object={object} map={map} disabled={placementLocked} language={language} onChange={equipmentPlacement=>patchMetadata({equipmentPlacement})} />}
         {door && <fieldset className="gh-property-group"><legend>{tr('Door', 'Durys')}</legend><div className="gh-property-fields">
           <label className="gh-field"><span>{tr('Door type', 'Durų tipas')}</span><select aria-label={tr('Door type', 'Durų tipas')} disabled={placementLocked} value={door.type} onChange={event=>patchMetadata({door:{...door,type:event.target.value as DoorType}})}>{DOOR_TYPES.map(type=><option key={type} value={type}>{type==='single' ? tr('Single-leaf','Vienvėrės') : type==='double' ? tr('Double-leaf','Dvivėrės') : tr('Sliding','Stumdomos')}</option>)}</select></label>
           <p className="gh-placement-summary">{tr('The 3D model follows the opening dimensions.', '3D modelis prisitaiko prie angos matmenų.')}</p>
         </div></fieldset>}
+        </div>
+        {inspector && <div className="gh-inspector-panel" {...panelProps('details')}>{settings}</div>}
       </div>
       {!sensor && <EquipmentCollisionNotice map={map} selectedIds={[object.id]} language={language} onSelect={onSelect} />}
-      <details className="gh-object-options"><summary>{tr('Notes and locking', 'Pastabos ir užrakinimas')}</summary><div>
-        <label className="gh-field"><span>{tr('Notes','Pastabos')}</span><textarea disabled={placementLocked} value={object.metadata.notes ?? ''} placeholder={tr('Installation or planning notes…','Montavimo arba planavimo pastabos…')} onChange={event=>patchMetadata({notes:event.target.value})} /></label>
-        <div className="gh-toggle-row"><label><input disabled={layerLocked} type="checkbox" checked={object.locked} onChange={event=>onUpdate(object.id,{locked:event.target.checked})} /><span>{tr('Lock placement','Užrakinti vietą')}</span></label></div>
-      </div></details>
+      {!inspector && <details className="gh-object-options"><summary>{tr('Notes and locking','Pastabos ir užrakinimas')}</summary>{settings}</details>}
     </section>
 
     {sensor ? <section className="gh-properties gh-sensor-properties">
