@@ -82,13 +82,24 @@ async function expectMarkersFollowOrbit(page: Page) {
   })
   await expect(page.locator('.nc-living-pin').first()).toBeVisible()
   const initial=new Map((await sample()).map(pin=>[pin.id,pin]))
-  const host=(await page.locator('.nc-living-canvas').boundingBox())!
-  await page.mouse.move(host.x+40,host.y+host.height*.55)
+  const canvas=page.locator('.nc-living-canvas > canvas')
+  await expect(canvas).toBeVisible()
+  // The host also contains interactive overlays. Start on the actual canvas,
+  // inside the visible viewport, rather than assuming a host offset hits it.
+  const start=await canvas.evaluate(element=>{
+    const box=element.getBoundingClientRect()
+    for(const yRatio of [.5,.4,.6])for(const xRatio of [.25,.4,.55]){
+      const x=box.left+box.width*xRatio,y=box.top+box.height*yRatio
+      if(x>0 && x+170<innerWidth && y>55 && y<innerHeight && document.elementFromPoint(x,y)===element)return {x,y}
+    }
+    throw new Error('No unobstructed canvas point is visible for orbiting')
+  })
+  await page.mouse.move(start.x,start.y)
   await page.mouse.down()
   const samples:Awaited<ReturnType<typeof sample>>[]=[]
   try {
     for(let step=1;step<=5;step++){
-      await page.mouse.move(host.x+40+step*32,host.y+host.height*.55-step*9)
+      await page.mouse.move(start.x+step*32,start.y-step*9)
       const previous=new Map((samples.at(-1) || [...initial.values()]).map(pin=>[pin.id,pin]))
       let projected:Awaited<ReturnType<typeof sample>>=[]
       await expect.poll(async()=>{
@@ -97,6 +108,9 @@ async function expectMarkersFollowOrbit(page: Page) {
       },{message:'Dragging must update the projected sensor positions',timeout:10000,intervals:[50,100,250]}).toBe(true)
       samples.push(projected)
     }
+  } catch(reason) {
+    const diagnostic=await canvas.evaluate(element=>({canvas:element.getBoundingClientRect().toJSON(),captured:element.hasPointerCapture(1),renderer:element.closest('[data-renderer]')?.getAttribute('data-renderer')}))
+    throw new Error(`Orbit tracking failed: ${JSON.stringify({start,diagnostic,initial:[...initial.values()],current:await sample()})}`,{cause:reason})
   } finally {
     await page.mouse.up()
     await page.emulateMedia({reducedMotion:'reduce'})
