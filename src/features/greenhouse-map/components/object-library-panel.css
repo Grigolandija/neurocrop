@@ -1,0 +1,44 @@
+/* One input owns the border; the label never creates a second, shorter frame. */
+.gh-library > .gh-library-search {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.gh-library .gh-library-search > i {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: #7e8b7d;
+  font-size: 13px;
+  pointer-events: none;
+}
+.gh-library .gh-library-search > input[type="search"] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+  border: 1px solid #dce5da;
+  border-radius: 7px;
+  padding: 8px 12px 8px 36px;
+  background: #fff;
+  color: #294135;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.gh-library .gh-library-search > input::placeholder { color: #839084; opacity: 1; }
+.gh-library .gh-library-search > input:focus-visible { outline: 2px solid #397c4e; outline-offset: 2px; }
+.gh-library .gh-library-search > input::-webkit-search-decoration { -webkit-appearance: none; }

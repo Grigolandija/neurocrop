@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { OBJECT_LIBRARY, type ObjectType } from '../model'
 import { ltObjectLabels } from './objectLabels'
+import './object-library-panel.css'
 
 const advancedTypes = new Set<ObjectType>([
   'irrigation-unit', 'heater', 'cooling-unit', 'electrical-cabinet',
@@ -22,7 +23,7 @@ export default function ObjectLibraryPanel({ language = 'en', allowDraftNode = f
   ><i className={`fa-solid ${entry.icon}`} /><span>{language === 'lt' ? ltObjectLabels[entry.type] || entry.label : entry.label}</span><b>+</b></button>
   return <section className="gh-panel-section gh-library">
     <header><div><small>{language === 'lt' ? 'PRIDĖTI Į PLANĄ' : 'ADD TO PLAN'}</small><h2>{language === 'lt' ? 'Objektai' : 'Objects'}</h2></div><span>{entries.length}</span></header>
-    <label className="gh-search"><i className="fa-solid fa-magnifying-glass" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={language === 'lt' ? 'Rasti objektą…' : 'Find an object…'} /></label>
+    <label className="gh-library-search"><i className="fa-solid fa-magnifying-glass" aria-hidden="true" /><input type="search" aria-label={language === 'lt' ? 'Rasti objektą' : 'Find an object'} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={language === 'lt' ? 'Rasti objektą…' : 'Find an object…'} /></label>
     <div className="gh-library-grid">{commonEntries.map(renderEntry)}</div>
     {advancedEntries.length ? <details className="gh-library-more"><summary>{language === 'lt' ? 'Daugiau objektų' : 'More objects'} <span>{advancedEntries.length}</span></summary><div className="gh-library-grid">{advancedEntries.map(renderEntry)}</div></details> : null}
     {!entries.length ? <p className="gh-library-empty">{language === 'lt' ? 'Objektų nerasta.' : 'No objects found.'}</p> : null}

@@ -81,7 +81,7 @@ const DiagnosticsWorkspace = diagnosticsWorkspace.Component
 
 const loadAreasWorkspace = recoverWorkspaceImport('areas', () => import('../features/areas/AreasWorkspace'))
 const loadReadingsWorkspace = recoverWorkspaceImport('readings', () => import('../features/readings/ReadingsWorkspace'))
-const loadSectionsWorkspace = recoverWorkspaceImport('sections', () => import('../features/sections/SectionsWorkspace'))
+const loadSectionsWorkspace = recoverWorkspaceImport('sections', () => import('../features/farm-plan/GrowingGroupRedirect'))
 const loadSettingsWorkspace = recoverWorkspaceImport('settings', () => import('../features/settings/SettingsWorkspace'))
 const loadOrganizationWorkspace = recoverWorkspaceImport('organization', () => import('../features/settings/OrganizationWorkspace'))
 const loadAdminWorkspace = recoverWorkspaceImport('admin', () => import('../features/settings/AdminWorkspace'))

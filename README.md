@@ -1,5 +1,13 @@
 # NeuroCrop integravimo instrukcija
 
+## Area ir pasirenkamos auginimo grupės
+
+Pagrindinė struktūra: **Farm plan → Area → Nodes ir įranga**. Area turi savo auginimo profilį. Papildomos auginimo grupės kuriamos tik prireikus ir gali paveldėti Area profilį arba naudoti atskirą.
+
+Šiam pakeitimui reikia backend atnaujinimo su migracija `0045_area_cultivation.sql`, tada naujo frontend ZIP. Vien frontend ZIP neužtenka. Migracijas įprastai pritaiko backend paleidimas per esamą migracijų vykdyklę.
+
+Esamos vienintelės Section ID ir jos profilis išsaugomi kaip Area vertinimo pagrindas; kelių grupių išdėstymas lieka pasirenkamomis grupėmis. Matavimai, ataskaitos ir įrangos išdėstymas nešalinami. Vidiniai Section ID lieka stabilūs istorijos ir vertinimo ryšiai. Naujos Area šį vidinį kontekstą gauna automatiškai; klientas jo nekuria.
+
 Komandos Andriui:
 
 ## Frontend ir backend atnaujinimas

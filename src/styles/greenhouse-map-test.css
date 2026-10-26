@@ -118,14 +118,12 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-field.wide { margin-bottom: 9px; }
 .gh-field > span { color: #53655e; font-size: 10px; font-weight: 600; }
 .gh-field > span em { color: #8b9691; font: normal 9px 'IBM Plex Mono'; }
-.gh-field input, .gh-field select, .gh-field textarea, .gh-search {
+.gh-field input, .gh-field select, .gh-field textarea {
   width: 100%; border: 1px solid #cfd7d1; border-radius: 2px; color: #21372f; background: #fbfcfa; outline: none;
 }
 .gh-field input, .gh-field select { height: 31px; padding: 0 8px; font: 500 11px 'IBM Plex Mono'; }
 .gh-field textarea { min-height: 60px; padding: 8px; resize: vertical; font-size: 11px; }
-.gh-field input:focus, .gh-field select:focus, .gh-field textarea:focus, .gh-search:focus-within { border-color: #438069; box-shadow: 0 0 0 2px rgba(67,128,105,.1); }
-.gh-search { display: flex; align-items: center; gap: 7px; height: 31px; margin-bottom: 10px; padding: 0 9px; color: #78857f; }
-.gh-search input { min-width: 0; border: 0; outline: 0; background: transparent; font-size: 11px; }
+.gh-field input:focus, .gh-field select:focus, .gh-field textarea:focus { border-color: #438069; box-shadow: 0 0 0 2px rgba(67,128,105,.1); }
 .gh-library-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .gh-library-grid button {
   position: relative; display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 6px; min-height: 40px;

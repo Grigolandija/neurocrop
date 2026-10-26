@@ -265,7 +265,7 @@ async function getAreaNodes(organizationId, areaId) {
     `SELECT n.dev_eui, n.name, n.node_type, n.area_id, n.section_id,
             n.last_seen, n.last_received_at, n.last_battery_percent, n.installation_height_cm, n.installation_height_recorded_at,
             n.last_rssi, n.last_snr, n.last_profile, n.last_sensor_presence,
-            s.name AS section_name,
+            CASE WHEN s.is_area_default THEN NULL ELSE s.name END AS section_name,
             COALESCE((
               SELECT jsonb_object_agg(
                 c.port,

@@ -856,7 +856,7 @@ export default function OverviewWorkspace() {
   )
   const activeAreaOption = model ? areaOptions.find((area) => area.id === model.areaId) : undefined
 
-  if (loadState === 'loading') return <section className="nc-overview-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><h1>{tx("Preparing your live overview")}</h1><p>{tx("Evaluating Sections against their active crop profiles.")}</p></section>
+  if (loadState === 'loading') return <section className="nc-overview-state" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><h1>{tx("Preparing your live overview")}</h1><p>{tx("Evaluating Areas and growing groups against their crop profiles.")}</p></section>
   if (loadState === 'error') return <section className="nc-overview-state" data-overview-heatmap-settled="true" role="alert"><i className="fa-solid fa-cloud-arrow-down" /><h1>{tx("Overview could not be loaded")}</h1><p>{error}</p><button type="button" onClick={() => setRefreshKey((value) => value + 1)}>{tx("Try again")}</button></section>
   if (loadState === 'empty' || !model) return <section className="nc-overview-state" data-overview-heatmap-settled="true"><i className="fa-solid fa-seedling" /><h1>{tx("Create your first Area")}</h1><p>{tx("Add its first Section to begin monitoring.")}</p></section>
 
@@ -1025,7 +1025,7 @@ export default function OverviewWorkspace() {
                 ? <div className="nc-overview-normal"><i className="fa-regular fa-circle-check" />{tx("No action required")}</div>
                 : effectiveWatchActions.length
                   ? <button className="nc-overview-action" type="button" onClick={() => setActionOpen(true)}>{primaryActionLabel}<i className="fa-solid fa-arrow-right" /></button>
-                  : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>{tx("Review Section setup")}<i className="fa-solid fa-arrow-right" /></button>}
+                  : <button className="nc-overview-action" type="button" onClick={() => navigate('/sections')}>{tx("Area settings")}<i className="fa-solid fa-arrow-right" /></button>}
             {(confirmedToday || awaitingToday || failedToday) ? <div className="nc-result-loop">
               <i className="fa-solid fa-rotate" />
               <p><strong>{isLt ? 'Šiandienos rezultatai' : "Today's results"}</strong><span>{confirmedToday} {isLt ? 'pagerėjo' : 'improved'} · {awaitingToday} {isLt ? 'tikrinama' : 'verifying'}{failedToday ? ` · ${failedToday} ${isLt ? 'nepadėjo' : 'need review'}` : ''}</span></p>

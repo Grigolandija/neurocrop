@@ -70,7 +70,6 @@
 .nfa-message { margin: 0; padding: 8px 12px; color: #8e6b35; background: #fff7e7; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
 .nfa-hint { margin: 8px 0; color: #8a9788; font-size: 11px; line-height: 1.65; }
 .nfa-hint a, .nfa-text-action { color: #28694f; }
-.nfa-text-action { padding: 8px 0; }
 .nfa-editor :is(button,input,select):focus-visible { outline: 2px solid #397c4e; outline-offset: 2px; }
 /* Coordinates are metres; native SVG outlines would scale to enormous rings. */
 .nfa-canvas:focus, .nfa-canvas :focus { outline: none; box-shadow: none; }
@@ -106,8 +105,6 @@
 .nfa-equipment-panel :is(small,p,summary) { font-size: 12px; line-height: 1.65; color: #788a78; }
 .nfa-equipment-panel details { padding-block: 12px; border-bottom: 1px solid #e3eadd; }
 .nfa-equipment-panel .gh-library header { display: none; }
-.nfa-equipment-panel .gh-search { display: block; max-width: 360px; margin-bottom: 14px; }
-.nfa-equipment-panel .gh-search i { display: none; }
 .nfa-equipment-panel .gh-library-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(170px,1fr)); gap: 8px; }
 .nfa-equipment-panel .gh-library-grid button { display: flex; align-items: center; gap: 8px; min-height: 40px; border: 1px solid #dde6d9; border-radius: 6px; padding: 8px 10px; background: #f8faf5; color: #567250; font-size: 12px; text-align: left; }
 .nfa-equipment-panel .gh-library-grid button span { flex: 1; }
@@ -188,3 +185,9 @@
 .nfa-header-actions .nc-farm-save { margin-left: 8px; padding: 7px 12px; background: #28694f; color: #fff; }
 .nfa-header-actions .nc-farm-save:disabled { background: #eef4ed; color: #7c947e; opacity: 1; }
 @media(max-width:600px) { .nfa-header-actions .nc-farm-save { margin-left: 3px; padding: 6px 8px; } .nfa-header-actions .nc-farm-save > span { display: none; } }
+
+.nfa-cultivation { padding: 12px 18px; }
+.nfa-properties > .nfa-cultivation { margin-top: 12px; padding: 10px 0; border-top: 1px solid #edf1e9; }
+.nfa-cultivation .nfa-inline-form { margin: 0 0 12px; }
+.nfa-growing-groups { margin-top: 10px; }
+.nfa-growing-groups > .nfa-inline-form { padding: 12px 0; border-top: 1px solid #edf1e9; }

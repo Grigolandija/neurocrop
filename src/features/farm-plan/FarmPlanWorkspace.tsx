@@ -24,6 +24,15 @@ export default function FarmPlanWorkspace(){
   const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[retry,setRetry]=useState(0)
   const [unassignedNodes,setUnassignedNodes]=useState<AreaMapNode[]>([]),[inventoryError,setInventoryError]=useState('')
   const savingRef=useRef(false)
+  const cultivationRequest=location.pathname==='/farm-plan' && new URLSearchParams(location.search).get('cultivation')==='1' ? location.key : undefined
+  const openedCultivation=useRef<string|undefined>(undefined)
+  useEffect(()=>{
+    if(!cultivationRequest || !plan || openedCultivation.current===cultivationRequest)return
+    const requested=new URLSearchParams(location.search).get('area')
+    const areaId=plan.areas.find(a=>a.id===requested)?.id
+    const frame=requestAnimationFrame(()=>{openedCultivation.current=cultivationRequest;if(areaId)setSelectedAreaId(areaId)})
+    return ()=>cancelAnimationFrame(frame)
+  },[cultivationRequest,location.search,plan])
   const dirty=!!plan && (farmPlanSignature(plan)!==baseline || changedFarmLayouts(plan,maps,bases).length>0)
   const previewAreas=useMemo(()=>plan?.areas.map(area=>({...context?.areas.find(a=>a.id===area.id),id:area.id,name:area.name,mapEnabled:context?.areas.find(a=>a.id===area.id)?.mapEnabled || false,mapConfigured:context?.areas.find(a=>a.id===area.id)?.mapConfigured || false})) || [],[plan,context])
   const latest=useRef({maps,bases,plan});useEffect(()=>{latest.current={maps,bases,plan}},[maps,bases,plan])
@@ -133,16 +142,18 @@ export default function FarmPlanWorkspace(){
   async function createSection(name:string,profile:string){
     if(!selectedAreaId || !context?.permissions.canEdit)return false
     if(dirty && !await save())return false
-    try{await areaMapRepository.createSection(selectedAreaId,name.trim(),profile);setContext(current=>current ? {...current,areas:current.areas.map(a=>a.id===selectedAreaId ? {...a,sectionCount:(a.sectionCount || 0)+1} : a)} : current);setContextRetry(n=>n+1);await workspaceAccess.refresh();setNotice(lt ? 'Section sukurta pasirinktoje Area.' : 'Section created in the selected Area.');return true}catch(reason){setError(reason instanceof Error ? reason.message : 'Section could not be created.');return false}
+    try{await areaMapRepository.createSection(selectedAreaId,name.trim(),profile);setContext(current=>current ? {...current,areas:current.areas.map(a=>a.id===selectedAreaId ? {...a,sectionCount:(a.sectionCount || 0)+1} : a)} : current);setContextRetry(n=>n+1);await workspaceAccess.refresh();setNotice(lt ? 'Auginimo grupė sukurta.' : 'Growing group created.');return true}catch(reason){setError(reason instanceof Error ? reason.message : 'Section could not be created.');return false}
   }
   async function assignSection(devEui:string,sectionId:string){
     if(!selectedAreaId || !nodeContext)return
+    const targetSectionId=sectionId || nodeContext.cultivation?.defaultSectionId
+    if(!targetSectionId)throw new Error('Area cultivation context is unavailable.')
     try{
       if(!nodeContext.mapEnabled)await neurocropApi.setAreaMapEnabled(selectedAreaId,true)
-      await areaMapRepository.assignNodeToSection(selectedAreaId,devEui,sectionId)
-      const section=nodeContext.sections.find(s=>s.id===sectionId)
-      setMaps(current=>{const map=current[selectedAreaId];return !map ? current : {...current,[selectedAreaId]:{...map,objects:map.objects.map(o=>o.metadata.sensor?.devEui?.toLowerCase()===devEui.toLowerCase() ? {...o,metadata:{...o.metadata,sensor:{...o.metadata.sensor,sectionId,sectionName:section?.name}}} : o)}}})
-      setContextRetry(n=>n+1);setNotice(lt ? 'Node priskirtas Section.' : 'Node assigned to Section.')
+      await areaMapRepository.assignNodeToSection(selectedAreaId,devEui,targetSectionId)
+      const section=nodeContext.sections.find(s=>s.id===targetSectionId)
+      setMaps(current=>{const map=current[selectedAreaId];return !map ? current : {...current,[selectedAreaId]:{...map,objects:map.objects.map(o=>o.metadata.sensor?.devEui?.toLowerCase()===devEui.toLowerCase() ? {...o,metadata:{...o.metadata,sensor:{...o.metadata.sensor,sectionId:targetSectionId,sectionName:section?.isAreaDefault ? undefined : section?.name}}} : o)}}})
+      setContextRetry(n=>n+1);setNotice(lt ? 'Node priskyrimas išsaugotas.' : 'Node assignment saved.')
     }catch(reason){setError(reason instanceof Error ? reason.message : 'Node assignment failed.');throw reason}
   }
   async function setNodeHeight(devEui:string,heightM:number|null){
@@ -160,24 +171,34 @@ export default function FarmPlanWorkspace(){
     }finally{savingRef.current=false;setSaving(false)}
   }
   async function connectNode(devEui:string,sectionId:string):Promise<AreaMapNode>{
-    const node=unassignedNodes.find(n=>n.devEui===devEui),section=nodeContext?.sections.find(s=>s.id===sectionId)
-    if(!node || !selectedAreaId || nodeContext?.area.id!==selectedAreaId || !section || savingRef.current)throw new Error(lt ? 'Pasirinkite laisvą Node ir šios Area Section.' : 'Choose an unassigned Node and a Section in this Area.')
+    const node=unassignedNodes.find(n=>n.devEui===devEui),targetId=sectionId || nodeContext?.cultivation?.defaultSectionId,section=nodeContext?.sections.find(s=>s.id===targetId)
+    if(!node || !selectedAreaId || nodeContext?.area.id!==selectedAreaId || !section || savingRef.current)throw new Error(lt ? 'Pasirinkite laisvą Node ir Area.' : 'Choose an unassigned Node and an Area.')
     savingRef.current=true;setSaving(true)
     try{
-      await neurocropApi.updateNode(devEui,{sectionId})
-      const connected:AreaMapNode={...node,areaId:selectedAreaId,sectionId,sectionName:section.name}
+      await neurocropApi.updateNode(devEui,{areaId:selectedAreaId,sectionId:sectionId || null})
+      const connected:AreaMapNode={...node,areaId:selectedAreaId,sectionId:section.id,sectionName:section.isAreaDefault ? undefined : section.name}
       setUnassignedNodes(current=>current.filter(n=>n.devEui!==devEui));setNodeContext(current=>current ? {...current,nodes:[...current.nodes,connected]} : current)
       setContext(current=>current ? {...current,areas:current.areas.map(a=>a.id===selectedAreaId ? {...a,nodeCount:(a.nodeCount || 0)+1} : a)} : current)
-      setNotice(lt ? 'Node priskirtas pasirinktai Section. Išsaugokite jo vietą plane.' : 'Node assigned to the selected Section. Save its position in the plan.')
+      setNotice(lt ? 'Node priskirtas Area. Išsaugokite jo vietą plane.' : 'Node assigned to Area. Save its position in the plan.')
       return connected
     }finally{savingRef.current=false;setSaving(false)}
+  }
+  async function saveCultivation(profile:string|null){
+    if(!selectedAreaId || !nodeContext || savingRef.current)throw new Error('Area is not ready.')
+    savingRef.current=true;setSaving(true)
+    try{await neurocropApi.saveAreaCultivation(selectedAreaId,profile);setNodeContext(current=>current?.cultivation ? {...current,cultivation:{...current.cultivation,cropProfile:profile}} : current);setContextRetry(n=>n+1);setNotice(lt ? 'Area auginimo profilis išsaugotas.' : 'Area crop profile saved.')}finally{savingRef.current=false;setSaving(false)}
+  }
+  async function editGrowingGroup(id:string,name:string,profile:string|null){
+    if(!selectedAreaId || !nodeContext?.sections.some(s=>s.id===id && !s.isAreaDefault) || savingRef.current)throw new Error('Choose a growing group in this Area.')
+    savingRef.current=true;setSaving(true)
+    try{await neurocropApi.updateSection(id,{areaId:selectedAreaId,name:name.trim(),cropProfile:profile});setContextRetry(n=>n+1);setNotice(lt ? 'Auginimo grupė išsaugota.' : 'Growing group saved.')}finally{savingRef.current=false;setSaving(false)}
   }
   const scene=plan && <FarmPlanScene plan={plan} maps={maps} areas={previewAreas} selectedAreaId={selectedAreaId} onAreaSelect={context?.permissions.canEdit ? setSelectedAreaId : inspect} />
   return <div className="nc-farm-plan" data-nc-react-workspace="farm-plan"><header className="nc-farm-heading"><div><h1>{lt ? 'Ūkio planas' : 'Farm plan'}</h1><span className="nc-farm-inline-status" data-dirty={dirty}>{loading ? (lt ? 'Kraunama…' : 'Loading…') : dirty ? (lt ? 'Neišsaugoti pakeitimai' : 'Unsaved changes') : (lt ? 'Išsaugota' : 'Saved')}</span></div><div><button type="button" onClick={()=>navigate('/areas')}>{lt ? 'Grįžti į Areas' : 'Back to Areas'}</button></div></header>
     {error && <div className="nc-farm-feedback" role="alert"><span>{error}</span>{plan && <button type="button" onClick={downloadDraft}>{lt ? 'Atsisiųsti savo brėžinį' : 'Download your draft'}</button>}<button type="button" disabled={saving} onClick={()=>{if(context)try{sessionStorage.removeItem(`neurocrop-farm-draft:${context.draftScope}`)}catch{/* Storage may be unavailable. */}setLoading(true);setPlan(null);setContext(null);setMaps({});setBases({});setNodeContext(undefined);setNotice('');setRetry(value=>value+1)}}>{lt ? 'Atverti serverio versiją' : 'Load server version'}</button><small>{lt ? 'Pirmiausia atsisiųskite juodraštį: serverio versija pakeis neišsaugotus pakeitimus.' : 'Download your draft first: loading the server version replaces unsaved changes.'}</small></div>}
     {notice && <p className="nc-farm-notice" role="status">{notice}<button type="button" onClick={()=>setNotice('')} aria-label={lt ? 'Uždaryti pranešimą' : 'Dismiss notification'}><i className="fa-solid fa-xmark" /></button></p>}
     {loading ? <div className="nc-farm-loading" role="status">{lt ? 'Kraunamas planas…' : 'Loading plan…'}</div> : context && plan ? <>
-      <div className="nc-farm-layout" data-readonly={!context.permissions.canEdit}>{context.permissions.canEdit ? <div inert={saving}><FarmAreaEditor plan={plan} layouts={maps} onChange={(next,layouts)=>{setPlan(next);setMaps(refreshFarmNodeMetadata(layouts,nodeContext?.nodes || []))}} areas={context.areas} selectedId={selectedAreaId} onSelect={setSelectedAreaId} scene={scene} saveError={error} saveAction={<button type="button" className="nc-farm-save" disabled={saving || loading || expectedRevision!==context.revision} onClick={()=>void save()} title={!dirty ? (lt ? 'Visi pakeitimai išsaugoti' : 'All changes saved') : (lt ? 'Išsaugoti planą ir įrangą' : 'Save plan and equipment')}><i className={`fa-solid ${saving ? 'fa-spinner fa-spin' : !dirty ? 'fa-check' : 'fa-floppy-disk'}`} /><span>{saving ? (lt ? 'Saugoma…' : 'Saving…') : (lt ? 'Išsaugoti planą' : 'Save plan')}</span></button>} initialEquipment={new URLSearchParams(location.search).get('layout')==='1'} nodeContext={nodeContext} contextLoading={!!savedSelectedId && contextLoading} contextError={savedSelectedId ? contextError : ''} onCreateSection={createSection} onAssignSection={assignSection} onNodeHeight={setNodeHeight} unassignedNodes={unassignedNodes} inventoryError={inventoryError} onConnectNode={connectNode} onDeleteArea={deleteArea} /></div> : scene}</div>
+      <div className="nc-farm-layout" data-readonly={!context.permissions.canEdit}>{context.permissions.canEdit ? <div inert={saving}><FarmAreaEditor plan={plan} layouts={maps} onChange={(next,layouts)=>{setPlan(next);setMaps(refreshFarmNodeMetadata(layouts,nodeContext?.nodes || []))}} areas={context.areas} selectedId={selectedAreaId} onSelect={setSelectedAreaId} scene={scene} saveError={error} saveAction={<button type="button" className="nc-farm-save" disabled={saving || loading || expectedRevision!==context.revision} onClick={()=>void save()} title={!dirty ? (lt ? 'Visi pakeitimai išsaugoti' : 'All changes saved') : (lt ? 'Išsaugoti planą ir įrangą' : 'Save plan and equipment')}><i className={`fa-solid ${saving ? 'fa-spinner fa-spin' : !dirty ? 'fa-check' : 'fa-floppy-disk'}`} /><span>{saving ? (lt ? 'Saugoma…' : 'Saving…') : (lt ? 'Išsaugoti planą' : 'Save plan')}</span></button>} cultivationRequest={cultivationRequest} initialCultivation={new URLSearchParams(location.search).get('cultivation')==='1'} initialEquipment={new URLSearchParams(location.search).get('layout')==='1'} nodeContext={nodeContext} contextLoading={!!savedSelectedId && contextLoading} contextError={savedSelectedId ? contextError : ''} onCreateSection={createSection} onCultivation={saveCultivation} onEditGroup={editGrowingGroup} onAssignSection={assignSection} onNodeHeight={setNodeHeight} unassignedNodes={unassignedNodes} inventoryError={inventoryError} onConnectNode={connectNode} onDeleteArea={deleteArea} /></div> : scene}</div>
     </> : null}
   </div>
 }

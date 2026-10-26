@@ -7,7 +7,7 @@ const writableRoles=['owner','admin','grower','technician'];
 const areaKinds={greenhouse:'Greenhouse',room:'Growing room',zone:'Growing area'};
 const areaRows=(database,organizationId)=>database.query(`SELECT a.id, a.name, a.kind, a.map_enabled,
   (gm.area_id IS NOT NULL) AS map_configured, gm.map_data->'dimensions' AS map_dimensions,
-  (SELECT count(*)::int FROM sections s WHERE s.organization_id=$1 AND s.area_id=a.id) AS section_count,
+  (SELECT count(*)::int FROM sections s WHERE s.organization_id=$1 AND s.area_id=a.id AND NOT s.is_area_default) AS section_count,
   (SELECT count(*)::int FROM nodes n WHERE n.organization_id=$1 AND n.area_id=a.id) AS node_count
   FROM areas a LEFT JOIN greenhouse_maps gm ON gm.organization_id=a.organization_id AND gm.area_id=a.id
   WHERE a.organization_id=$1 ORDER BY a.name,a.id`,[organizationId]);
@@ -85,7 +85,7 @@ export function registerFarmPlanRoutes(app,{database={pool,query}}={}){
         const removed=previous.areas.filter(area=>!validation.areaIds.includes(area.id)).map(area=>area.id);
         if(removed.length){
           const blocked=await client.query(`SELECT a.id FROM areas a WHERE a.organization_id=$1 AND a.id=ANY($2::text[])
-            AND (EXISTS (SELECT 1 FROM sections s WHERE s.organization_id=$1 AND s.area_id=a.id)
+            AND (EXISTS (SELECT 1 FROM sections s WHERE s.organization_id=$1 AND s.area_id=a.id AND NOT s.is_area_default)
               OR EXISTS (SELECT 1 FROM nodes n WHERE n.organization_id=$1 AND n.area_id=a.id)) FOR UPDATE`,[organizationId,removed]);
           if(blocked.rows.length){await client.query('ROLLBACK');return res.status(409).json({error:{code:'AREA_HAS_CHILDREN',message:'Remove Sections and Nodes through Areas before deleting this Area'}});}
           await client.query('DELETE FROM areas WHERE organization_id=$1 AND id=ANY($2::text[])',[organizationId,removed]);

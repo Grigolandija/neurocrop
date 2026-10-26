@@ -161,11 +161,11 @@ export default function AreasWorkspace() {
           const management = managementMap.get(id) || {}
           const dashboard = dashboardMap.get(id) || {}
           const dashboardSections = asArray(dashboard, ['zones', 'sections'])
-          const managedSections = sections.filter((section) => sectionAreaId(section) === id)
+          const managedSections = sections.filter((section) => sectionAreaId(section) === id && section.is_area_default!==true)
           const areaSections = managedSections.length ? managedSections : dashboardSections
           const sectionIds = new Set(areaSections.map(sectionId).filter(Boolean))
           const areaNodes = nodes.filter((node) => nodeAreaId(node) === id || sectionIds.has(nodeSectionId(node)))
-          const sectionCount = Number(management.sections ?? management.sectionCount ?? areaSections.length) || areaSections.length
+          const sectionCount = Number(management.sections ?? management.sectionCount ?? managedSections.length) || 0
           const nodeCount = Number(management.nodes ?? management.nodeCount ?? areaNodes.length) || areaNodes.length
           const reportingCount = areaNodes.filter(isReporting).length
           const health = dashboardHealth(dashboardSections, nodeCount, reportingCount)
@@ -240,7 +240,7 @@ export default function AreasWorkspace() {
     try {
       await neurocropApi.deleteArea(deleteState.id, { keepSections: deleteState.keepSections })
       await workspaceAccess.refresh()
-      setFeedback({ tone: 'success', message: deleteState.keepSections ? 'Area deleted. Its sections are now unassigned.' : 'Area and its sections were deleted.' })
+      setFeedback({ tone: 'success', message: deleteState.keepSections ? 'Area deleted. Its growing groups are now unassigned.' : 'Area and its growing groups were deleted.' })
       setDeleteState(null)
       setRefreshToken((value) => value + 1)
     } catch (deleteError) {
@@ -264,7 +264,7 @@ export default function AreasWorkspace() {
 
     <StructureSummary className="nc-areas-summary" label={tx('Area summary')} loading={status === 'loading'} items={[
       { label: tx('Active areas'), value: areas.length, active: healthFilter === 'all', onClick: () => setHealthFilter('all') },
-      { label: tx('Sections'), value: summary.sections },
+      { label: tx('Growing groups'), value: summary.sections },
       { label: tx('Sensor nodes'), value: summary.nodes },
       { label: tx('Need attention'), value: summary.attention, tone: 'attention', active: healthFilter === 'needs-attention', onClick: () => setHealthFilter(healthFilter === 'needs-attention' ? 'all' : 'needs-attention') },
     ]} />
@@ -273,7 +273,7 @@ export default function AreasWorkspace() {
       <div className="nc-areas-toolbar">
         <label className="nc-areas-search"><span>{tx("Search areas")}</span><i className="fa-solid fa-magnifying-glass" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tx("Name, environment, location…")} />{query ? <button type="button" onClick={() => setQuery('')} aria-label={tx("Clear search")}><i className="fa-solid fa-xmark" /></button> : null}</label>
         <label><span>{tx("Health")}</span><select value={healthFilter} onChange={(event) => setHealthFilter(event.target.value as HealthFilter)}><option value="all">{tx("All health states")}</option><option value="needs-attention">{tx("Need attention")}</option><option value="stable">{tx("Stable")}</option><option value="attention">{tx("Watch")}</option><option value="critical">{tx("Action required")}</option><option value="unconfigured">{tx("Not configured")}</option></select></label>
-        <label><span>{tx("Sort")}</span><select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="name">{tx("Name A–Z")}</option><option value="health">{tx("Health priority")}</option><option value="sections">{tx("Most sections")}</option><option value="nodes">{tx("Most nodes")}</option></select></label>
+        <label><span>{tx("Sort")}</span><select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="name">{tx("Name A–Z")}</option><option value="health">{tx("Health priority")}</option><option value="sections">{tx("Most growing groups")}</option><option value="nodes">{tx("Most nodes")}</option></select></label>
       </div>
 
       {status === 'loading' ? <div className="nc-areas-loading" aria-busy="true"><span /><span /><span /></div> : null}
@@ -291,7 +291,7 @@ export default function AreasWorkspace() {
               <i className={`fa-solid fa-chevron-${expandedId === area.id ? 'up' : 'down'}`} />
             </button>
             <span className="nc-area-kind">{area.kind}</span>
-            <span className="nc-area-coverage"><strong>{area.sectionCount} {tx("sections")}</strong><small>{area.nodeCount} {tx("nodes ·")} {area.reportingCount} {tx("reporting")}</small></span>
+            <span className="nc-area-coverage"><strong>{area.sectionCount} {tx("groups")}</strong><small>{area.nodeCount} {tx("nodes ·")} {area.reportingCount} {tx("reporting")}</small></span>
             <span className="nc-area-health">{area.score !== null ? <b>{area.score}</b> : <b>—</b>}<i data-health={area.health}>{healthCopy(area.health)}</i></span>
             <div className="nc-area-map-state" data-state={area.mapConfigured ? 'active' : 'setup'}>
               <span><i />{area.mapConfigured ? tx("Active") : tx("Setup required")}</span>
@@ -302,7 +302,7 @@ export default function AreasWorkspace() {
               <button type="button" onClick={(event) => { event.stopPropagation(); setMenuId(menuId === area.id ? null : area.id) }} aria-label={`Actions for ${area.name}`} aria-expanded={menuId === area.id}><i className="fa-solid fa-ellipsis-vertical" /></button>
               {menuId === area.id ? <div onClick={(event) => event.stopPropagation()}>
                 <button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button>
-                <button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add section")}</button>
+                <button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add growing group")}</button>
                 {area.mapEnabled && area.mapConfigured ? <button type="button" disabled={!workspaceReady} onClick={() => navigate(`/greenhouse-live?area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-cube" />{tx('3D layout')}</button> : null}
                 {greenhouseMapBeta ? <button type="button" onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}><i className="fa-solid fa-draw-polygon" />{tx("Open Area Map")}</button> : null}
                 <button type="button" disabled={!workspaceReady} onClick={() => navigate('/nodes')}><i className="fa-solid fa-microchip" />{tx("Manage nodes")}</button>
@@ -312,9 +312,9 @@ export default function AreasWorkspace() {
           </div>
           {expandedId === area.id ? <div className="nc-area-detail">
             <div><p>{tx("Environment")}</p><strong>{area.kind}</strong><span>{area.location ||tx("No location details added")}</span></div>
-            <div><p>{tx("Coverage")}</p><strong>{area.sectionCount} {tx("sections ·")} {area.nodeCount} {tx("nodes")}</strong><span>{area.nodeCount ? `${area.reportingCount} of ${area.nodeCount} nodes currently reporting` :tx("No hardware assigned yet")}</span></div>
-            <div><p>{tx("Health")}</p><strong>{healthCopy(area.health)}{area.score !== null ? ` · ${area.score}/100` : ''}</strong><span>{area.health === 'stable' ?tx("All available signals are within expected state.") : area.health === 'unconfigured' ?tx("Add a section to begin monitoring.") :tx("Review sections and reporting hardware.")}</span></div>
-            <nav><button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add section")}</button>{greenhouseMapBeta ? <button type="button" onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}><i className="fa-solid fa-draw-polygon" />{tx("Open Area Map")}</button> : null}<button type="button" onClick={() => navigate('/sections')}><i className="fa-solid fa-layer-group" />{tx("Open sections")}</button><button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button></nav>
+            <div><p>{tx("Coverage")}</p><strong>{area.sectionCount} {tx("groups ·")} {area.nodeCount} {tx("nodes")}</strong><span>{area.nodeCount ? `${area.reportingCount} of ${area.nodeCount} nodes currently reporting` :tx("No hardware assigned yet")}</span></div>
+            <div><p>{tx("Health")}</p><strong>{healthCopy(area.health)}{area.score !== null ? ` · ${area.score}/100` : ''}</strong><span>{area.health === 'stable' ?tx("All available signals are within expected state.") : area.health === 'unconfigured' ?tx("Assign Nodes and a crop profile to begin monitoring.") :tx("Review the Area profile and reporting hardware.")}</span></div>
+            <nav><button type="button" onClick={() => addSection(area)}><i className="fa-solid fa-plus" />{tx("Add growing group")}</button>{greenhouseMapBeta ? <button type="button" onClick={() => navigate(`/farm-plan?area=${encodeURIComponent(area.id)}&layout=1`)}><i className="fa-solid fa-draw-polygon" />{tx("Open Area Map")}</button> : null}<button type="button" onClick={() => navigate(`/farm-plan?cultivation=1&area=${encodeURIComponent(area.id)}`)}><i className="fa-solid fa-layer-group" />{tx("Growing groups")}</button><button type="button" onClick={() => openEdit(area)}><i className="fa-solid fa-pen" />{tx("Edit area")}</button></nav>
           </div> : null}
         </article>)}
       </div> : null}
@@ -326,7 +326,7 @@ export default function AreasWorkspace() {
       <header><div><p>{tx("Destructive action")}</p><h2 id="nc-area-delete-title">{tx("Delete “")}{deleteState.name}”?</h2><span>{tx("This removes the area from the workspace. Choose what happens to its sections.")}</span></div><button type="button" onClick={() => setDeleteState(null)} disabled={busy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>
       {modalError ? <div className="nc-areas-modal-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{modalError}</div> : null}
       <div className="nc-area-delete-choice">
-        {deleteState.sectionCount ? <><label><input type="radio" checked={deleteState.keepSections} onChange={() => setDeleteState({ ...deleteState, keepSections: true })} /><span><strong>{tx("Keep")} {deleteState.sectionCount} {tx("sections")}</strong><small>{tx("Sections become unassigned and can be moved to another area.")}</small></span></label><label><input type="radio" checked={!deleteState.keepSections} onChange={() => setDeleteState({ ...deleteState, keepSections: false })} /><span><strong>{tx("Delete area and sections")}</strong><small>{tx("This permanently removes all sections in the area.")}</small></span></label></> : <p>{tx("This area has no sections and can be safely removed.")}</p>}
+        {deleteState.sectionCount ? <><label><input type="radio" checked={deleteState.keepSections} onChange={() => setDeleteState({ ...deleteState, keepSections: true })} /><span><strong>{tx("Keep")} {deleteState.sectionCount} {tx("groups")}</strong><small>{tx("Growing groups become unassigned and can be moved to another Area.")}</small></span></label><label><input type="radio" checked={!deleteState.keepSections} onChange={() => setDeleteState({ ...deleteState, keepSections: false })} /><span><strong>{tx("Delete Area and growing groups")}</strong><small>{tx("This permanently removes all growing groups in the Area.")}</small></span></label></> : <p>{tx("This Area has no optional growing groups.")}</p>}
       </div>
       <footer><button type="button" className="nc-areas-button secondary" onClick={() => setDeleteState(null)} disabled={busy}>{tx("Cancel")}</button><button type="button" className="nc-areas-button danger" onClick={deleteArea} disabled={busy}>{busy ?tx("Deleting…") :tx("Delete area")}</button></footer>
     </section></div></ModalPortal> : null}

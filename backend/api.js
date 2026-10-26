@@ -1,3 +1,4 @@
+import { registerAreaCultivationRoutes,resolveNodeAssignment } from './area-cultivation.js';
 import { registerTelemetrySupportRoutes } from './telemetry-support-routes.js';
 import { loadRecentMeasurementsByNode } from './recent-measurements.js';
 import fs from 'fs';
@@ -112,6 +113,7 @@ app.use((req, res, next) => {
 app.use(resolveOptionalClerkAuth);
 
 registerDiagnosticRoutes(app);
+registerAreaCultivationRoutes(app);
 registerTeamRoutes(app);
 registerPlatformOrganizationRoutes(app);
 registerWorkflowRoutes(app);
@@ -452,7 +454,7 @@ function createEntityId(prefix) {
 
 async function getSectionById(sectionId, organizationId) {
   const { rows } = await query(
-    `SELECT s.id, s.organization_id, s.area_id, s.name, s.crop_profile, a.name AS area_name
+    `SELECT s.id, s.organization_id, s.area_id, CASE WHEN s.is_area_default THEN a.name ELSE s.name END AS name, s.crop_profile, a.name AS area_name
      FROM sections s
      LEFT JOIN areas a ON a.id=s.area_id
      WHERE s.id=$1 AND s.organization_id=$2`,
@@ -868,7 +870,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
         [organizationId]
       ),
       query(
-        `SELECT id, area_id, name, crop_profile FROM sections
+        `SELECT id, area_id, name, crop_profile, is_area_default FROM sections
          WHERE organization_id=$1 ORDER BY created_at ASC`,
         [organizationId]
       ),
@@ -923,7 +925,8 @@ app.get('/dashboard', requireAuth, async (req, res) => {
     const sensorConfigs = sensorConfigsByNode(sensorConfigsResult.rows);
 
     const sites = areasResult.rows.map((area) => {
-      const zones = (sectionsByArea.get(area.id) || []).map((section) => {
+      const areaSections=sectionsByArea.get(area.id) || [];
+      const zones = areaSections.filter(s=>!s.is_area_default || nodesBySection.has(s.id) || areaSections.length===1).map((section) => {
         const nodeRows = nodesBySection.get(section.id) || [];
         const latestMeasurements = nodeRows.map((node) => {
           const devEui = normalizeDevEui(node.dev_eui);
@@ -962,13 +965,14 @@ app.get('/dashboard', requireAuth, async (req, res) => {
         const sectionState = buildSectionDashboardState(nodeRows, latestMeasurements, profileMetrics);
         return {
           id: section.id,
-          name: section.name,
-          profile: section.crop_profile || 'tomatoes-vegetative',
-          score: sectionState.score,
-          conditionStatus: sectionState.conditionStatus,
-          mainDriver: sectionState.mainDriver,
-          mainCondition: sectionState.mainCondition,
-          scoreGroups: sectionState.scoreGroups,
+          name: section.is_area_default ? area.name : section.name,
+          isAreaDefault: !!section.is_area_default,
+          profile: section.crop_profile || null,
+          score: section.crop_profile ? sectionState.score : null,
+          conditionStatus: section.crop_profile ? sectionState.conditionStatus : 'unknown',
+          mainDriver: section.crop_profile ? sectionState.mainDriver : null,
+          mainCondition: section.crop_profile ? sectionState.mainCondition : null,
+          scoreGroups: section.crop_profile ? sectionState.scoreGroups : [],
           scoreModelVersion: sectionState.scoreModelVersion,
           coverage: sectionState.coverage,
           nodeSummary: sectionState.nodeSummary,
@@ -976,7 +980,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
           sensorCount: nodeRows.length,
           batteryNodes,
           availableMetrics: sectionState.availableMetrics,
-          configuredMetrics: sectionState.configuredMetrics
+          configuredMetrics: section.crop_profile ? sectionState.configuredMetrics : []
         };
       });
       return {
@@ -1005,7 +1009,8 @@ app.get('/areas', requireAuth, async (req, res) => {
           SELECT 1 FROM greenhouse_maps gm
           WHERE gm.organization_id=a.organization_id AND gm.area_id=a.id
         ) AS map_configured,
-        COUNT(DISTINCT s.id)::int AS sections,
+        COUNT(DISTINCT s.id) FILTER (WHERE NOT s.is_area_default)::int AS sections,
+        (SELECT d.crop_profile FROM sections d WHERE d.organization_id=a.organization_id AND d.area_id=a.id AND d.is_area_default) AS crop_profile,
         COUNT(DISTINCT n.dev_eui)::int AS nodes
        FROM areas a
        LEFT JOIN sections s ON s.area_id=a.id
@@ -1120,7 +1125,7 @@ app.delete('/areas/:areaId', requireAuth, requireRole('owner', 'admin', 'grower'
       }
 
       const { rows: childRows } = await client.query(
-      `SELECT COUNT(*)::int AS count FROM sections WHERE organization_id=$1 AND area_id=$2`,
+      `SELECT COUNT(*)::int AS count FROM sections WHERE organization_id=$1 AND area_id=$2 AND NOT is_area_default`,
       [organizationId, req.params.areaId]
       );
       const sectionCount = childRows[0]?.count || 0;
@@ -1183,7 +1188,7 @@ app.get('/sections', requireAuth, async (req, res) => {
     }
 
     const { rows } = await query(
-      `SELECT s.id, s.name, s.area_id, a.name AS area_name, s.crop_profile, s.created_at,
+      `SELECT s.id, CASE WHEN s.is_area_default THEN a.name ELSE s.name END AS name, s.area_id, a.name AS area_name, s.crop_profile, s.is_area_default, s.inherit_area_profile, s.created_at,
         COUNT(n.dev_eui)::int AS nodes
        FROM sections s
        LEFT JOIN areas a ON a.id=s.area_id AND a.organization_id=s.organization_id
@@ -1203,7 +1208,8 @@ app.get('/sections', requireAuth, async (req, res) => {
 app.post('/sections', requireAuth, requireRole('owner', 'admin', 'grower'), async (req, res) => {
   const areaId = String(req.body?.areaId || '').trim();
   const name = String(req.body?.name || '').trim();
-  const cropProfile = String(req.body?.cropProfile || 'default').trim();
+  const inheritAreaProfile=!req.body?.cropProfile;
+  let cropProfile=inheritAreaProfile ? null : String(req.body.cropProfile).trim();
 
   if (!areaId || !name) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Area and section name are required' } });
 
@@ -1213,16 +1219,17 @@ app.post('/sections', requireAuth, requireRole('owner', 'admin', 'grower'), asyn
       [areaId, getOrganizationId(req)]
     );
     if (!areaRows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Area not found' } });
-    if (!await cropProfileExists(cropProfile, getOrganizationId(req))) {
+    if(inheritAreaProfile)cropProfile=(await resolveNodeAssignment({query},getOrganizationId(req),{areaId}))?.crop_profile || null;
+    if (cropProfile && !await cropProfileExists(cropProfile, getOrganizationId(req))) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Unknown crop profile' } });
     }
 
     const id = createEntityId('section');
     const { rows } = await query(
-      `INSERT INTO sections (id, organization_id, area_id, name, crop_profile)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO sections (id, organization_id, area_id, name, crop_profile, inherit_area_profile)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, organization_id, area_id, name, crop_profile, created_at`,
-      [id, getOrganizationId(req), areaId, name, cropProfile]
+      [id, getOrganizationId(req), areaId, name, cropProfile, inheritAreaProfile]
     );
     res.status(201).json({ section: rows[0] });
   } catch (e) {
@@ -1234,7 +1241,9 @@ app.post('/sections', requireAuth, requireRole('owner', 'admin', 'grower'), asyn
 app.patch('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'grower'), async (req, res) => {
   const areaId = String(req.body?.areaId || '').trim();
   const name = String(req.body?.name || '').trim();
-  const cropProfile = String(req.body?.cropProfile || req.body?.profile || '').trim();
+  const profileProvided=Object.hasOwn(req.body || {},'cropProfile') || Object.hasOwn(req.body || {},'profile');
+  const inherit=profileProvided && !req.body.cropProfile && !req.body.profile;
+  let cropProfile=String(req.body?.cropProfile || req.body?.profile || '').trim() || null;
 
   if (!areaId || !name) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Area and section name are required' } });
 
@@ -1243,6 +1252,10 @@ app.patch('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'gr
   try {
     client = await pool.connect();
     await client.query('BEGIN');
+    const targetScope=await resolveNodeAssignment(client,organizationId,{areaId},{lock:'share'});
+    if(!targetScope){await client.query('ROLLBACK');return res.status(404).json({error:{code:'NOT_FOUND',message:'Area not found'}});}
+    const current=await client.query('SELECT is_area_default FROM sections WHERE organization_id=$1 AND id=$2 FOR UPDATE',[organizationId,req.params.sectionId]);
+    if(current.rows[0]?.is_area_default){await client.query('ROLLBACK');return res.status(409).json({error:{code:'AREA_SCOPE_PROTECTED',message:'Use Area settings to edit the Area profile'}});}
     const { rows: areaRows } = await client.query(
       `SELECT id FROM areas WHERE id=$1 AND organization_id=$2`,
       [areaId, organizationId]
@@ -1262,12 +1275,13 @@ app.patch('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'gr
       }
     }
 
+    if(inherit)cropProfile=(await resolveNodeAssignment(client,organizationId,{areaId}))?.crop_profile || null;
     const { rows } = await client.query(
       `UPDATE sections
-       SET area_id=$1, name=$2, crop_profile=COALESCE(NULLIF($3, ''), crop_profile)
+       SET area_id=$1, name=$2, crop_profile=CASE WHEN $6::boolean THEN $3::text ELSE crop_profile END, inherit_area_profile=CASE WHEN $6::boolean THEN $7::boolean ELSE inherit_area_profile END
        WHERE id=$4 AND organization_id=$5
        RETURNING id, organization_id, area_id, name, crop_profile, created_at`,
-      [areaId, name, cropProfile, req.params.sectionId, organizationId]
+      [areaId, name, cropProfile, req.params.sectionId, organizationId, profileProvided, inherit]
     );
     if (!rows[0]) {
       await client.query('ROLLBACK');
@@ -1290,6 +1304,8 @@ app.patch('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'gr
 
 app.delete('/sections/:sectionId', requireAuth, requireRole('owner', 'admin', 'grower'), async (req, res) => {
   try {
+    const scope=await query('SELECT is_area_default FROM sections WHERE organization_id=$1 AND id=$2',[getOrganizationId(req),req.params.sectionId]);
+    if(scope.rows[0]?.is_area_default)return res.status(409).json({error:{code:'AREA_SCOPE_PROTECTED',message:'The default Area scope cannot be deleted separately'}});
     const { rows: nodeRows } = await query(
       `SELECT COUNT(*)::int AS count FROM nodes WHERE organization_id=$1 AND section_id=$2 AND archived_at IS NULL`,
       [getOrganizationId(req), req.params.sectionId]
@@ -1509,7 +1525,7 @@ async function synchronizeCropRiskEpisodes(organizationId, risks, sectionIds) {
 async function evaluateCurrentCropRisks(organizationId, requestedSectionId = '', synchronize = false, timing = { mark() {} }) {
     const [sectionsResult, nodesResult, profilesResult, measurementsResult, recentMeasurementsResult, sensorConfigsResult] = await Promise.all([
       query(
-        `SELECT s.id, s.area_id, s.name, s.crop_profile, a.name AS area_name
+        `SELECT s.id, s.area_id, CASE WHEN s.is_area_default THEN a.name ELSE s.name END AS name, s.crop_profile, a.name AS area_name
          FROM sections s
          LEFT JOIN areas a ON a.id=s.area_id
          WHERE s.organization_id=$1
@@ -1614,7 +1630,7 @@ async function evaluateCurrentCropRisks(organizationId, requestedSectionId = '',
         nodeStatuses: current.statuses,
         profileMetrics,
         scoreRules: current.scoreRules,
-        evaluations: current.evaluations,
+        evaluations: section.crop_profile ? current.evaluations : [],
         observedAtByMetric,
         latestReceivedAt: measurements.map((measurement) => measurement?.time).filter(Boolean)
           .sort((left, right) => new Date(right) - new Date(left))[0] || null,
@@ -3730,7 +3746,7 @@ app.get('/nodes', requireAuth, async (req, res) => {
     const { rows } = await query(
       `SELECT
          n.dev_eui, n.name, n.node_type, n.organization_id, n.area_id, n.section_id,
-         a.name AS area_name, s.name AS section_name,
+         a.name AS area_name, CASE WHEN s.is_area_default THEN NULL ELSE s.name END AS section_name, s.is_area_default,
          n.created_at, n.last_seen, n.last_received_at,
          n.last_battery_mv, n.last_battery_percent, n.last_firmware_version,
          n.last_profile, n.last_uplink_interval_sec, n.last_rssi, n.last_snr, n.last_spreading_factor,
@@ -3787,6 +3803,7 @@ app.get('/nodes', requireAuth, async (req, res) => {
           areaName: row.area_name || null,
           sectionId: row.section_id,
           sectionName: row.section_name || null,
+          isAreaDefault:!!row.is_area_default,
           targetName: row.target_name || null,
           installationHeightCm: row.installation_height_cm ?? null,
           installationHeightRecordedAt: row.installation_height_recorded_at ?? null,
@@ -3969,7 +3986,7 @@ app.post('/nodes/register', requireAuth, requireRole('owner', 'admin', 'technici
   let createdChirpStackDevice = false;
   try {
     const organizationId = getOrganizationId(req);
-    const section = await getSectionById(req.body?.sectionId, organizationId);
+    const section = await resolveNodeAssignment({query},organizationId,req.body);
     if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
 
     const { rows: existingRows } = await query(
@@ -4030,7 +4047,7 @@ app.post('/nodes/claim', requireAuth, requireRole('owner', 'admin', 'technician'
   let client;
   try {
     const organizationId = getOrganizationId(req);
-    const section = await getSectionById(req.body?.sectionId, organizationId);
+    const section = await resolveNodeAssignment({query},organizationId,req.body);
     if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
 
     client = await pool.connect();
@@ -4123,6 +4140,9 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
   const sectionId = String(req.body?.sectionId || '').trim();
   const organizationId = getOrganizationId(req);
   const identityChanged = nextDevEui !== devEui;
+  const assignmentProvided=Object.hasOwn(req.body || {},'areaId') || Object.hasOwn(req.body || {},'sectionId');
+  if(assignmentProvided && ['areaId','sectionId'].some(key=>req.body[key]!=null && typeof req.body[key]!=='string'))return res.status(400).json({error:{code:'VALIDATION_ERROR',message:'Area and growing group must be identifiers or null'}});
+  if(assignmentProvided && !sectionId && !req.body.areaId && req.body.areaId!==null)return res.status(400).json({error:{code:'VALIDATION_ERROR',message:'Choose an Area, or explicitly use areaId: null to unassign'}});
   const heightProvided = Object.hasOwn(req.body || {}, 'installationHeightCm');
   const heightCm = req.body?.installationHeightCm;
   if (heightProvided && heightCm !== null && (typeof heightCm !== 'number' || !Number.isFinite(heightCm) || heightCm < 0 || heightCm > 10000)) {
@@ -4132,7 +4152,7 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
   if (!/^[0-9a-f]{16}$/.test(devEui) || !/^[0-9a-f]{16}$/.test(nextDevEui)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'DevEUI must be 16 hexadecimal characters' } });
   }
-  if (!name && !sectionId && !identityChanged && !heightProvided) {
+  if (!name && !assignmentProvided && !identityChanged && !heightProvided) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Nothing to update' } });
   }
   if (identityChanged) {
@@ -4149,21 +4169,21 @@ app.patch('/nodes/:devEui', requireAuth, requireRole('owner', 'admin', 'technici
     );
     if (!currentRows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });
     let section = null;
-    if (sectionId) {
-      section = await getSectionById(sectionId, organizationId);
-      if (!section) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown sectionId' } });
+    if (assignmentProvided && (sectionId || req.body.areaId)) {
+      section=await resolveNodeAssignment({query},organizationId,req.body);
+      if(!section)return res.status(404).json({error:{code:'NOT_FOUND',message:'Area or growing group not found'}});
     }
 
     const { rows } = await query(
       `UPDATE nodes
        SET name=COALESCE(NULLIF($1, ''), name),
-           section_id=COALESCE($2, section_id),
-           area_id=COALESCE($3, area_id),
+           section_id=CASE WHEN $8::boolean THEN $2::text ELSE section_id END,
+           area_id=CASE WHEN $8::boolean THEN $3::text ELSE area_id END,
            installation_height_cm=CASE WHEN $6::boolean THEN $7::real ELSE installation_height_cm END,
            installation_height_recorded_at=CASE WHEN $6::boolean THEN now() ELSE installation_height_recorded_at END
        WHERE lower(dev_eui)=$4 AND organization_id=$5 AND archived_at IS NULL
        RETURNING dev_eui, name, node_type, area_id, section_id, source, created_at, last_seen, installation_height_cm, installation_height_recorded_at`,
-      [name, section?.id || null, section?.area_id || null, devEui, organizationId, heightProvided, heightCm ?? null]
+      [name, section?.id || null, section?.area_id || null, devEui, organizationId, heightProvided, heightCm ?? null, assignmentProvided]
     );
 
     if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Node not found' } });

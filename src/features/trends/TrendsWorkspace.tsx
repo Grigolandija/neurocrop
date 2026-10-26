@@ -1495,10 +1495,10 @@ export default function TrendsWorkspace() {
           : <span className="nc-trends-select-skeleton" aria-label={tx("Preparing Area selection")} />}
       </label>
       <label>
-        <span>{tx("Section")}</span>
+        <span>{tx("Area / group")}</span>
         {displayedAreaSections.length
           ? <select
-              aria-label={tx("Select Section")}
+              aria-label={tx("Select Area or group")}
               value={displayedSectionId}
               onChange={(event) => changeSection(event.target.value)}
             >
@@ -1509,7 +1509,7 @@ export default function TrendsWorkspace() {
       <div className="nc-trends-range" role="group" aria-label={tx("Trend period")}>{(Object.keys(rangeConfig) as RangeKey[]).map((key) => <button type="button" className={range === key ? 'active' : ''} onClick={() => setRange(key)} key={key}>{key}</button>)}</div>
       <details className="nc-trends-node-select" ref={nodeSelectRef} onToggle={(event) => setNodeMenuOpen(event.currentTarget.open)}>
         <summary>
-          <span><small>{tx("Displayed data")}</small><strong>{selectedNodeIds.length ? showSectionAggregate ? `${tx("Section")} + ${selectedNodeIds.length} ${tx("Nodes")}` : `${selectedNodeIds.length} ${tx("Nodes")}` : tx("Section only")}</strong></span>
+          <span><small>{tx("Displayed data")}</small><strong>{selectedNodeIds.length ? showSectionAggregate ? `${tx("Area / group")} + ${selectedNodeIds.length} ${tx("Nodes")}` : `${selectedNodeIds.length} ${tx("Nodes")}` : tx("Section only")}</strong></span>
           <i className="fa-solid fa-chevron-down" />
         </summary>
         <div className="nc-trends-node-menu">
@@ -1547,7 +1547,7 @@ export default function TrendsWorkspace() {
                 <span><strong>{node.name}</strong></span>
                 <i className="fa-solid fa-check nc-trends-node-check" />
               </label>
-            }) : <p>{tx("No Nodes are assigned to this Section.")}</p>}
+            }) : <p>{tx("No Nodes assigned.")}</p>}
           </div>
         </div>
       </details>

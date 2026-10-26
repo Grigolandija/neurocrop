@@ -11,6 +11,8 @@ export type AreaMapSection = {
   name: string
   areaId: string
   cropProfile?: string
+  isAreaDefault?:boolean
+  inheritAreaProfile?:boolean
   nodes: number
 }
 export type AreaMapProfile = {
@@ -29,6 +31,7 @@ export type AreaMapContext = {
   updatedAt: string | null
   nodes: AreaMapNode[]
   sections: AreaMapSection[]
+  cultivation?:{areaId:string;defaultSectionId:string;cropProfile:string|null}
   profiles: AreaMapProfile[]
   permissions: { canEdit: boolean }
 }
@@ -226,16 +229,19 @@ export const areaMapRepository = {
     })).filter((area) => area.id)
   },
   async load(areaId: string): Promise<AreaMapContext> {
-    const [payload, sectionsPayload, profilesPayload] = await Promise.all([
+    const [payload, sectionsPayload, profilesPayload,cultivation] = await Promise.all([
       neurocropApi.getGreenhouseMap(areaId) as Promise<AreaMapContext>,
       neurocropApi.getSections(areaId) as Promise<{ sections?: Array<Record<string, unknown>> }>,
       neurocropApi.getCropProfiles() as Promise<{ profiles?: Array<Record<string, unknown>> }>,
+      neurocropApi.getAreaCultivation(areaId) as Promise<{areaId:string;defaultSectionId:string;cropProfile:string|null}>,
     ])
     const sections = (sectionsPayload.sections ?? []).map((section) => ({
       id: String(section.id || ''),
       name: String(section.name || 'Unnamed Section'),
       areaId: String(section.area_id || areaId),
       cropProfile: text(section.crop_profile),
+      isAreaDefault:section.is_area_default===true,
+      inheritAreaProfile:section.inherit_area_profile===true,
       nodes: Number(section.nodes) || 0,
     })).filter((section) => section.id)
     const profiles = (profilesPayload.profiles ?? []).map((profile) => ({
@@ -245,7 +251,7 @@ export const areaMapRepository = {
       metrics: profile.metrics && typeof profile.metrics === 'object' && !Array.isArray(profile.metrics)
         ? profile.metrics as AreaMapProfile['metrics'] : {},
     })).filter((profile) => profile.id)
-    return { ...payload, mapEnabled: payload.mapEnabled === true, nodes: Array.isArray(payload.nodes) ? payload.nodes : [], sections, profiles }
+    return { ...payload, mapEnabled: payload.mapEnabled === true, nodes: Array.isArray(payload.nodes) ? payload.nodes : [], sections, profiles,cultivation }
   },
   async loadHistory(areaId: string): Promise<AreaMapHistory> {
     const to = new Date()

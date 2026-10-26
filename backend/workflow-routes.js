@@ -108,7 +108,7 @@ function normalizedDevEui(value) {
 async function loadCanonicalAlerts(tenantId) {
   const [sectionsResult, nodesResult, profilesResult, measurementsResult] = await Promise.all([
     query(
-      `SELECT s.id, s.area_id, s.name, s.crop_profile, a.name AS area_name
+      `SELECT s.id, s.area_id, CASE WHEN s.is_area_default THEN a.name ELSE s.name END AS name, s.crop_profile, a.name AS area_name
        FROM sections s
        JOIN areas a ON a.organization_id=s.organization_id AND a.id=s.area_id
        WHERE s.organization_id=$1
@@ -166,7 +166,7 @@ async function loadCanonicalAlerts(tenantId) {
       nodeStatuses: current.statuses,
       profileMetrics,
       scoreRules: current.scoreRules,
-      evaluations: current.evaluations,
+      evaluations: section.crop_profile ? current.evaluations : [],
       observedAtByMetric,
       latestReceivedAt
     };

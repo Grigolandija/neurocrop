@@ -29,7 +29,6 @@ const navigation = [
   { route: '/diagnostics', action: 'diagnostics', label: 'Diagnostics', icon: 'fa-stethoscope' },
   { route: '/farm-plan', action: 'farm-plan', label: 'Farm plan', icon: 'fa-draw-polygon' },
   { route: '/areas', action: 'sites', label: 'Areas', icon: 'fa-map' },
-  { route: '/sections', action: 'zones', label: 'Sections', icon: 'fa-border-all' },
   { route: '/nodes', action: 'nodes', label: 'Nodes', icon: 'fa-microchip' },
   { route: '/readings', action: 'readings', label: 'Readings', icon: 'fa-wave-square' },
   { route: '/greenhouse-live', action: 'climate-3d', label: '3D view', icon: 'fa-cube' },
