@@ -6,6 +6,8 @@ const english:Record<string,string>={
   "Pasirinkite erdvės tipą.": "Choose an Area type.",
   "Patalpos ir šiltnamiai negali persidengti.": "Rooms and greenhouses cannot overlap.",
   "Erdvė nerasta.": "Area not found.",
+  "Sienos ilgis turi būti bent 0,1 m.": "Wall length must be at least 0.1 m.",
+  "Toks ilgis apverstų gretimą sieną. Pakeiskite kontūrą arba įveskite kitą ilgį.": "This length would reverse an adjoining wall. Adjust the outline or enter a different length.",
   "Matmenys turi būti didesni už nulį.": "Dimensions must be greater than zero.",
   "Plano redaktorius": "Plan editor",
   "Pastatai": "Buildings",

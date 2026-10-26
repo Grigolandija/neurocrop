@@ -8,9 +8,11 @@
 .nc-farm-heading button { border: 1px solid #d8e2d2; border-radius: 7px; padding: 10px 14px; background: #fff; color: #506b44; font-size: 12px; cursor: pointer; }
 .nc-farm-heading .nc-farm-save { border-color: #28694f; background: #28694f; color: #fff; }
 .nc-farm-heading button:disabled { opacity: .45; cursor: default; }
-.nc-farm-layout { display: grid; grid-template-columns: minmax(380px,.9fr) minmax(0,1.1fr); overflow: hidden; border: 1px solid #dce5d6; border-radius: 12px; background: #fff; }
+.nc-farm-layout { display: block; overflow: hidden; border: 1px solid #dce5d6; border-radius: 12px; background: #fff; }
 .nc-farm-layout[data-readonly="true"] { grid-template-columns: minmax(0,1fr); }
 .nc-farm-layout > div, .nc-farm-preview { min-width: 0; }
+.nc-farm-layout .nc-farm-preview { border-top: 1px solid #dce5d6; }
+.nc-farm-layout .nc-farm-scene { height: 420px; }
 .nc-farm-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 66px; border-bottom: 1px solid #e2e9dc; padding: 14px 18px; }
 .nc-farm-preview-heading strong { font-size: 12px; font-weight: 500; }
 .nc-farm-preview-heading span { color: #8a987f; font-size: 10px; }
@@ -61,7 +63,6 @@
 .nce-dimensions > div { display: flex; gap: 12px; margin-top: 9px; }
 .nce-dimensions label { display: grid; gap: 4px; }
 .nce-dimensions input { width: 105px; border: 1px solid #dce5d6; border-radius: 5px; padding: 6px 8px; background: #fff; color: #60824c; font: inherit; }
-@media (max-width: 1100px) { .nc-farm-layout { grid-template-columns: minmax(340px,1fr) minmax(0,1fr); } }
 @media (max-width: 800px) {
   .nc-farm-plan { padding: 20px 12px; }
   .nc-farm-layout { display: block; }

@@ -208,6 +208,7 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
     reset(top=false) { elevation=top ? 1.47 : camera.elevation ?? .70; azimuth=top ? 0 : .67; zoom=camera.zoom ?? 1; dirty=true },
     zoom(delta:number) { zoom=Math.max(.65,Math.min(3,zoom*delta)); dirty=true },
     focus(target:Vec3 | null,extent?:number) { focusTarget=target; focusSize=extent ?? null; zoom=camera.zoom ?? 1; dirty=true },
+    shiftOrigin(delta:Vec3) { const target=focusTarget ?? [0,camera.targetHeight ?? size*.035,0];focusTarget=target.map((n,i)=>n+delta[i]) as Vec3;dirty=true },
     dispose() { disposed=true; cancelAnimationFrame(raf); observer.disconnect(); canvas.removeEventListener('pointerdown',down); canvas.removeEventListener('pointermove',move); canvas.removeEventListener('pointerup',up); canvas.removeEventListener('pointercancel',up); canvas.removeEventListener('wheel',wheel); canvas.removeEventListener('webglcontextlost',lost); backend.dispose(); canvas.remove() },
     restartIntro() { introStart=performance.now(); dirty=true },
   }

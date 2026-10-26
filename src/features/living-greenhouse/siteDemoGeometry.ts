@@ -43,7 +43,7 @@ export function siteVolume(zone: SiteZone | null, metric: SiteMetric, plan: Site
 }
 
 /** A cutaway campus built from physical structures, with independent zone polygons. */
-export function siteGeometry(selectedId: string | null, metric: SiteMetric, plan: SitePlan = createSitePlan(), options:{illustrateEquipment?:boolean}={}) {
+export function siteGeometry(selectedId: string | null, metric: SiteMetric, plan: SitePlan = createSitePlan(), options:{illustrateEquipment?:boolean;showGround?:boolean}={}) {
   const dimensions=siteDimensions(plan)
   const vertices: number[] = []
   const point = (x: number, y: number, h: number) => planToScene(x, y, h, dimensions)
@@ -96,7 +96,7 @@ export function siteGeometry(selectedId: string | null, metric: SiteMetric, plan
     beam(point(a.xM,a.yM,h),point(b.xM,b.yM,h),.035,steel)
     beam(point(a.xM,a.yM,0),point(a.xM,a.yM,h),.045,steel)
   }
-  box(dimensions.widthM/2,dimensions.lengthM/2,-.25,dimensions.widthM,dimensions.lengthM,.4,[.87,.9,.85])
+  if(options.showGround!==false)box(dimensions.widthM/2,dimensions.lengthM/2,-.25,dimensions.widthM,dimensions.lengthM,.4,[.87,.9,.85])
   for(const building of plan.buildings){
     muted=!!selectedId && plan.zones.find(z=>z.id===selectedId)?.buildingId!==building.id
     floor(building.polygon,.01,building.greenhouse ? [.84,.89,.82] : [.87,.88,.85])

@@ -13,7 +13,7 @@ export default function FarmPlanScene({plan:document,areas,onAreaSelect,selected
   const {language}=useInterfaceLanguage(),lt=language==='lt'
   const [hovered,setHovered]=useState<string|null>(null)
   const [ready,setReady]=useState(false),[failed,setFailed]=useState(false)
-  const geometry=useMemo(()=>siteGeometry(null,'temperature',plan,{illustrateEquipment:false}),[plan])
+  const geometry=useMemo(()=>siteGeometry(null,'temperature',plan,{illustrateEquipment:false,showGround:false}),[plan])
   const field=useMemo(()=>siteVolume(null,'temperature',plan),[plan])
   const dimensions=siteDimensions(plan)
   const host=useRef<HTMLDivElement>(null),scene=useRef<LivingScene|null>(null)
@@ -22,6 +22,9 @@ export default function FarmPlanScene({plan:document,areas,onAreaSelect,selected
   const polygons=useRef(new Map<string,SVGPolygonElement>()),labels=useRef(new Map<string,HTMLButtonElement>())
   const down=useRef<{x:number;y:number;id:number;moved:boolean}|null>(null)
   useEffect(()=>{
+    const previous=siteDimensions(latest.current.plan)
+    // Growing storage bounds changes the scene origin; keep the camera attached to the same space.
+    if(previous.widthM!==dimensions.widthM || previous.lengthM!==dimensions.lengthM)scene.current?.shiftOrigin([(previous.widthM-dimensions.widthM)/2,0,(dimensions.lengthM-previous.lengthM)/2])
     latest.current={plan,geometry,field,selectedAreaId}
     scene.current?.update(geometry,Math.max(dimensions.widthM,dimensions.lengthM),field)
   },[plan,geometry,field,dimensions.widthM,dimensions.lengthM,selectedAreaId])
@@ -64,7 +67,7 @@ export default function FarmPlanScene({plan:document,areas,onAreaSelect,selected
       onPointerUp={event=>{const start=down.current;down.current=null;if(!start || start.id!==event.pointerId || start.moved || interactive(event) || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)return;select(hit(event)?.areaId)}}>
       <svg className="nc-farm-zone-outlines" aria-hidden="true">{plan.zones.map(zone=><polygon key={zone.id} data-active={zone.id===hovered || zone.id===selectedAreaId} ref={el=>{if(el)polygons.current.set(zone.id,el);else polygons.current.delete(zone.id)}} />)}</svg>
       {plan.zones.map(zone=>{const area=areas.find(a=>a.id===zone.areaId);return <button type="button" key={zone.id} className="nc-farm-zone-label" ref={el=>{if(el)labels.current.set(zone.id,el);else labels.current.delete(zone.id)}} disabled={!area || !onAreaSelect} data-hovered={zone.id===hovered || zone.id===selectedAreaId} onPointerEnter={()=>setHovered(zone.id)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(zone.id)} onBlur={()=>setHovered(null)} onClick={()=>select(area?.id)}><span>{area?.name || zone.name}</span>{!area ? <small>{lt ? 'Neišsaugota' : 'Unsaved'}</small> : onAreaSelect ? <i className="fa-solid fa-arrow-right" /> : null}</button>})}
-      <div className="nc-farm-camera"><button type="button" aria-label={lt ? 'Pradinis vaizdas' : 'Reset view'} onClick={()=>{scene.current?.focus(null);scene.current?.reset()}}><i className="fa-solid fa-cube" /></button><button type="button" aria-label={lt ? 'Priartinti' : 'Zoom in'} onClick={()=>scene.current?.zoom(.85)}>+</button><button type="button" aria-label={lt ? 'Atitolinti' : 'Zoom out'} onClick={()=>scene.current?.zoom(1.18)}>−</button><small>{lt ? 'Option / Alt + ratukas' : 'Option / Alt + scroll'}</small></div>
+      <div className="nc-farm-camera"><button type="button" aria-label={lt ? 'Visas ūkis' : 'Fit farm'} onClick={()=>{if(scene.current){scene.current.reset();focusArea(scene.current,latest.current.plan)}}}><i className="fa-solid fa-cube" /></button><button type="button" aria-label={lt ? 'Priartinti' : 'Zoom in'} onClick={()=>scene.current?.zoom(.85)}>+</button><button type="button" aria-label={lt ? 'Atitolinti' : 'Zoom out'} onClick={()=>scene.current?.zoom(1.18)}>−</button><small>{lt ? 'Option / Alt + ratukas' : 'Option / Alt + scroll'}</small></div>
       {!plan.buildings.length && ready && <p className="nc-farm-scene-empty">{lt ? 'Pridėkite pirmą Area plano redaktoriuje.' : 'Add the first Area in the plan editor.'}</p>}
       {!ready && !failed && <div className="nc-farm-scene-status" role="status">{lt ? 'Kraunamas ūkio planas…' : 'Loading farm plan…'}</div>}
       {failed && <div className="nc-farm-scene-status" role="status"><p>{lt ? 'Šioje naršyklėje 3D vaizdas nepasiekiamas. Zonas galite pasirinkti sąraše.' : '3D is unavailable in this browser. Select an Area below.'}</p><div>{plan.zones.filter(z=>z.areaId).map(z=><button type="button" key={z.id} onClick={()=>select(z.areaId)}>{areas.find(a=>a.id===z.areaId)?.name || z.name}</button>)}</div></div>}
@@ -76,7 +79,8 @@ export default function FarmPlanScene({plan:document,areas,onAreaSelect,selected
 
 function focusArea(scene:LivingScene,plan:ReturnType<typeof farmPlanScene>,id?:string|null){
   const area=plan.zones.find(a=>a.id===id)
-  if(!area){scene.focus(null);return}
-  const b=zoneBounds(area),d=siteDimensions(plan)
-  scene.focus(planToScene((b.minX+b.maxX)/2,(b.minY+b.maxY)/2,area.height*.3,d),Math.max(b.maxX-b.minX,b.maxY-b.minY,area.height)*1.3)
+  const shapes=area ? [area] : plan.zones
+  if(!shapes.length){scene.focus(null);return}
+  const b=zoneBounds({polygon:shapes.flatMap(a=>a.polygon)}),height=Math.max(...shapes.map(a=>a.height)),d=siteDimensions(plan)
+  scene.focus(planToScene((b.minX+b.maxX)/2,(b.minY+b.maxY)/2,height*.3,d),Math.max(b.maxX-b.minX,b.maxY-b.minY,height)*1.3)
 }

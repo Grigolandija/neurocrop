@@ -80,6 +80,11 @@ export function editFarmArea(plan:FarmPlanDocument,id:string,change:Partial<Omit
   const next=structuredClone(plan),area=next.areas.find(a=>a.id===id)
   if(!area)return {plan,error:'Erdvė nerasta.'}
   Object.assign(area,change)
+  // Working bounds are an internal storage detail, never a user-specified plot boundary.
+  if(change.polygon?.length && change.polygon.every(p=>Number.isFinite(p.xM) && Number.isFinite(p.yM))){
+    next.dimensions.widthM=Math.max(next.dimensions.widthM,Math.ceil(Math.max(...change.polygon.map(p=>p.xM))+1))
+    next.dimensions.lengthM=Math.max(next.dimensions.lengthM,Math.ceil(Math.max(...change.polygon.map(p=>p.yM))+1))
+  }
   const error=validateFarmAreaPlan(next)
   return {plan:error ? plan : next,error}
 }

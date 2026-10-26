@@ -162,6 +162,19 @@ mygtukai atidaro bendrą plano redaktorių.
 5. Pasirinktoje išsaugotoje Area spauskite **Kurti Section šioje Area**. Sekcijos
    kūrimo forma jau žino, kuriai erdvei ji priklauso; parenkamas kultūros profilis.
 
+Braižinys užima pagrindinę darbo erdvę; jį galima išplėsti, priartinti ir slinkti
+tempiant foną. „Visas planas“ ir „Pasirinkta Area“ pritaiko vaizdą pagal tikrus
+kontūrus. Ratukas slenka puslapį, Option / Alt + ratukas priartina brėžinį.
+Kiekviena siena sunumeruota ir turi atskirą ilgio lauką. Ilgio keitimas išlaiko
+pirmą sienos tašką ir perskaičiuoja gretimas sienas, kad kontūras liktų uždaras;
+neįmanomi ar persikertantys kontūrai atmetami. Sienų poslinkiai pritraukiami kas
+0,25 m, kampų kryptys — kas 10°. Įstrižoms sienoms pritraukiamas poslinkio atstumas,
+o kampams — kryptis ir atstumas nuo ankstesnio taško, kad nebūtų iškraipytas kampas.
+Rankiniu būdu įvesti matmenys neapvalinami pagal tinklelį. Abu pritraukimus galima
+išjungti. Bendro ūkio pločio ir ilgio įvesti nereikia: vidinės darbo ribos plečiasi
+automatiškai. 3D peržiūroje lieka atskirų Areas grindys ir sienos, be vientisos
+plokštumos po visu ūkiu.
+
 „Farm plan“ saugojimo formatas yra `version: 2`: ūkio pavadinimas, plano matmenys
 ir `areas` masyvas su ID, pavadinimu, tipu, aukščiu bei kontūro taškais. Atskiri
 klientui matomi pastato ir zonos susiejimo objektai nekuriami. Fizinių patalpų ir
