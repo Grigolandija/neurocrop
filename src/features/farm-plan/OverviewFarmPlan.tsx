@@ -4,8 +4,9 @@ import { useInterfaceLanguage } from '../../i18n'
 import { METRICS, type MetricKey } from '../greenhouse-map/model'
 import { scaleGradient } from '../greenhouse-map/heatmap/heatmapColorScale'
 import type { AreaMapContext } from '../greenhouse-map/services/areaMapRepository'
+import { livingMap } from '../living-greenhouse/livingData'
 import { editableFarmPlan, farmPlanRepository, type FarmPlanContext } from './farmPlanData'
-import { contrastFarmAreas, farmComparisonScale, summarizeFarmArea } from './farmMonitoringData'
+import { farmComparisonScale, summarizeFarmArea } from './farmMonitoringData'
 import { loadFarmMonitoring } from './farmMonitoringRepository'
 import FarmPlanScene from './FarmPlanScene'
 import FarmAreaSummary from './FarmAreaSummary'
@@ -50,8 +51,12 @@ export default function OverviewFarmPlan({ areaId, refreshToken, onAreaSelect, e
     return () => window.clearInterval(timer)
   }, [enabled])
   const activeMonitoring = monitoring?.key === key ? monitoring : null
-  const comparisons = useMemo(() => Object.fromEntries(contrastFarmAreas((plan?.areas || []).map(area => summarizeFarmArea(area.id, activeMonitoring?.contexts[area.id], metric, now, activeMonitoring?.failed.includes(area.id))), metric).map(summary => [summary.areaId, summary])), [plan, activeMonitoring, metric, now])
-  const maps = useMemo(() => Object.fromEntries((context?.layouts || []).map(layout => [layout.areaId, activeMonitoring?.contexts[layout.areaId]?.map || layout.map])), [context, activeMonitoring])
+  const comparisons = useMemo(() => Object.fromEntries((plan?.areas || []).map(area => [area.id, summarizeFarmArea(area.id, activeMonitoring?.contexts[area.id], metric, now, activeMonitoring?.failed.includes(area.id))])), [plan, activeMonitoring, metric, now])
+  const maps = useMemo(() => Object.fromEntries((context?.layouts || []).map(layout => {
+    const live = activeMonitoring?.contexts[layout.areaId]
+    const source = live?.map || layout.map
+    return [layout.areaId, live ? livingMap({ ...live, map: source, mapEnabled: true }, null, null) || source : source]
+  })), [context, activeMonitoring])
   const scale = useMemo(() => farmComparisonScale(Object.values(comparisons), metric), [comparisons, metric])
   if (!enabled || !context?.revision || !plan?.areas.length) return <>{error && <div className="nc-farm-overview-error" role="status">{error}<button type="button" onClick={() => setRetry(value => value + 1)}>{lt ? 'Bandyti dar kartą' : 'Retry'}</button></div>}{children}</>
   const focusedId = view.mode === 'farm' ? null : view.areaId
@@ -68,10 +73,10 @@ export default function OverviewFarmPlan({ areaId, refreshToken, onAreaSelect, e
     </header>
     {error && <div className="nc-farm-overview-error" role="status">{error}<button type="button" onClick={() => setRetry(value => value + 1)}>{lt ? 'Bandyti dar kartą' : 'Retry'}</button></div>}
     {!showDetail && <div className="nc-farm-monitor-body" data-focused={!!focused}>
-      <FarmPlanScene cameraMemory={cameraMemory} plan={plan} maps={maps} areas={context.areas} onAreaSelect={choose} selectedAreaId={focused?.id || null} comparison={comparisons} monitoringActive={signalReady} />
+      <FarmPlanScene cameraMemory={cameraMemory} plan={plan} maps={maps} areas={context.areas} onAreaSelect={choose} selectedAreaId={focused?.id || null} comparison={comparisons} comparisonMetric={metric} observedAt={now} monitoringActive={signalReady} />
       {focused && <FarmAreaSummary key={focused.id} name={focused.name} summary={comparisons[focused.id]} metric={metric} refreshToken={refreshToken + retry} lt={lt} targetsUnavailable={activeMonitoring?.targetsUnavailable || false} onClose={back} onRetry={() => setRetry(value => value + 1)} onMap={children && focused.id === areaId ? () => setView({ areaId: focused.id, mode: 'detail' }) : undefined} />}
     </div>}
-    {!showDetail && <footer className="nc-farm-comparison-legend"><span>{lt ? definition.labelLt : definition.label} · {definition.unit}</span><div><small>{number(scale.min)}</small><i style={{ background: scaleGradient(scale.min, scale.max, definition, [scale.min, scale.max], 'contrast') }} /><small>{number(scale.max)}</small></div><small title={lt ? 'Kontrastingos spalvos rodo Area vidurkių skirtumus bendroje dabartinių matavimų skalėje. Pilka – nėra naujų matavimų. Spalvos nevertina augalo būklės.' : 'Contrasting colours show differences between Area averages on a shared current measurement scale. Grey means no current readings. Colours do not indicate crop health.'}>{lt ? 'Dabartinių reikšmių kontrastas' : 'Current value contrast'}<i className="fa-solid fa-circle-info" /></small>{!!activeMonitoring?.failed.length && <button type="button" onClick={() => setRetry(value => value + 1)}>{lt ? 'Kai kuriuos matavimus atnaujinti nepavyko' : 'Some readings could not be updated'} · {lt ? 'Kartoti' : 'Retry'}</button>}</footer>}
+    {!showDetail && <footer className="nc-farm-comparison-legend"><span>{lt ? definition.labelLt : definition.label} · {definition.unit}</span><div><small>{number(scale.min)}</small><i style={{ background: scaleGradient(scale.min, scale.max, definition, [scale.min, scale.max], 'contrast') }} /><small>{number(scale.max)}</small></div><small title={lt ? 'Erdvinis įvertis iš jutiklių vietų ir aukščių. Kiekviena Area vertinama atskirai; reikia bent dviejų naujų matavimų su aukščiais. Už išmatuotų aukščių įvertis mažiau pagrįstas. Grindų spalva matavimų nerodo.' : 'Spatial estimate from sensor positions and heights. Each Area is modeled separately and needs at least two current readings with known heights. Estimates beyond measured heights have less support. Floor colour does not represent measurements.'}>{lt ? 'Erdvinis matavimų laukas' : 'Spatial measurement field'}<i className="fa-solid fa-circle-info" /></small>{!!activeMonitoring?.failed.length && <button type="button" onClick={() => setRetry(value => value + 1)}>{lt ? 'Kai kuriuos matavimus atnaujinti nepavyko' : 'Some readings could not be updated'} · {lt ? 'Kartoti' : 'Retry'}</button>}</footer>}
     {showDetail && <div className="nc-farm-detail-map"><button type="button" className="nc-farm-return-summary" onClick={() => choose(view.areaId)}><i className="fa-solid fa-arrow-left" />{lt ? 'Grįžti į Area peržiūrą' : 'Back to Area overview'}</button>{children || <div className="nc-farm-help">{lt ? 'Šiai Area žemėlapis dar neparuoštas.' : 'The map is not configured for this Area.'}</div>}</div>}
   </div>
 }

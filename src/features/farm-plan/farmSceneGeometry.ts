@@ -47,7 +47,7 @@ export function wholeFarmSceneMesh(plan:FarmPlanDocument,maps:FarmMaps={},areaCo
     const at=(center:Vec3,x:number,y:number)=>center.map((n,i)=>n+u[i]*x+v[i]*y) as Vec3
     for(const [x,y,nx,ny] of [[-1,-1,1,-1],[1,-1,1,1],[1,1,-1,1],[-1,1,-1,-1]])quad(at(a,x,y),at(a,nx,ny),at(b,nx,ny),at(b,x,y),color)
   }
-  for(const area of plan.areas){own([area.id]);for(const [a,b,c] of triangulateSitePolygon(area.polygon))tri(p(a,.01),p(b,.01),p(c,.01),areaColors[area.id] || (area.kind==='greenhouse' ? [.84,.89,.82] : [.87,.88,.85]))}
+  for(const area of plan.areas){own([area.id]);for(const [a,b,c] of triangulateSitePolygon(area.polygon))tri(p(a,.01),p(b,.01),p(c,.01),areaColors[area.id] || (area.kind==='greenhouse' ? [.91,.935,.88] : [.95,.945,.91]))}
   for(const wall of walls){own(wall.areaIds);for(const value of perimeterWallGeometry([wall],openings,d))data.push(value)}
   const corners=new Map<string,{point:SitePoint;height:number;areaIds:string[]}>()
   for(const wall of walls){
@@ -97,9 +97,9 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
   return wholeFarmSceneMesh(plan,maps).vertices
 }
 
-/** Monitoring selection opens a summary; keep every Area visible for comparison. */
-export function farmSceneEmphasis(hoveredAreaId:string|null,monitoring:boolean){
-  return {areaId:monitoring ? null : hoveredAreaId,opacity:.40}
+/** Selection keeps the camera still and preserves readable context around the active Area. */
+export function farmSceneEmphasis(hoveredAreaId:string|null,monitoring:boolean,selectedAreaId?:string|null){
+  return {areaId:monitoring ? selectedAreaId || null : hoveredAreaId,opacity:monitoring && selectedAreaId ? .30 : .40}
 }
 
 /** Shared walls and openings remain solid when either adjoining Area is highlighted. */

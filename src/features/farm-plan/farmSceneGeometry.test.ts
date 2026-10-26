@@ -23,13 +23,18 @@ function fixture(){
 }
 
 describe('whole-farm hover presentation',()=>{
-  it('keeps the entire monitoring scene solid while an Area summary is open or hovered',()=>{
+  it('keeps the farm solid when unselected, then moderately fades neighbours without a colour wash',()=>{
     const {plan,maps}=fixture(),mesh=wholeFarmSceneMesh(plan,maps)
     for(const hovered of ['a','b',null]){
       const emphasis=farmSceneEmphasis(hovered,true),geometry=highlightFarmArea(mesh,emphasis.areaId)
       expect(geometry.vertices).toBe(mesh.vertices)
       expect(geometry.surfaces).toHaveLength(0)
     }
+    const selected=farmSceneEmphasis('b',true,'a'),focused=highlightFarmArea(mesh,selected.areaId)
+    expect(selected.opacity).toBe(.3)
+    expect(contains(focused.vertices,objectGeometry(maps.a.objects[0],plan.dimensions,3))).toBe(true)
+    const tank=objectGeometry({...maps.b.objects[0],xM:maps.b.objects[0].xM+4},plan.dimensions,3)
+    expect(contains(focused.surfaces,tank)).toBe(true)
     const editing=farmSceneEmphasis('a',false)
     expect(highlightFarmArea(mesh,editing.areaId).surfaces.length).toBeGreaterThan(0)
   })

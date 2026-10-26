@@ -12,6 +12,7 @@
 .nc-farm-monitor-body[data-focused="true"] { grid-template-columns: minmax(0,1fr) 290px; }
 .nc-farm-monitor-body > .nc-farm-scene-shell { min-width: 0; }
 .nc-farm-monitor-body .nc-farm-scene { height: clamp(440px,60vh,680px); }
+.nc-farm-scene[data-selected-area="true"] .nc-farm-zone-label[data-selected="false"] { opacity: .55; }
 .nc-farm-comparison-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; padding: 10px 16px; border-top: 1px solid #e2e9df; color: #7d8c81; font-size: 11px; }
 .nc-farm-comparison-legend > div { display: flex; align-items: center; gap: 8px; }
 .nc-farm-comparison-legend > div > i { display: block; width: 150px; height: 8px; border-radius: 3px; }
