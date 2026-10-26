@@ -92,6 +92,7 @@ const authTranslations: Record<string, string> = {
   'Systems online': 'Sistemos veikia',
   'System attention': 'Reikia sistemos dėmesio',
   'Workspace member': 'Darbo aplinkos narys',
+  'Create a farm plan first': 'Pirmiausia sukurkite ūkio planą',
   'Create an Area first': 'Pirmiausia sukurkite erdvę',
   'Create a Section first': 'Pirmiausia sukurkite sekciją',
   'Open navigation': 'Atidaryti navigaciją',

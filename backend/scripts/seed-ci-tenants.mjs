@@ -12,6 +12,14 @@ const tenants = [
   { suffix: 'large', email: 'tenant-large@ci.neurocrop.test', large: true }
 ];
 
+async function seedFarmPlan(organizationId,userId,areaId,name){
+  const plan={version:2,name:'CI Farm',dimensions:{widthM:50,lengthM:34},areas:[{id:areaId,name,kind:'room',height:3,polygon:[{xM:1,yM:1},{xM:9,yM:1},{xM:9,yM:6},{xM:1,yM:6}]}]};
+  await query(`INSERT INTO farm_plans (organization_id,plan_data,revision,updated_by) VALUES ($1,$2::jsonb,1,$3)
+    ON CONFLICT (organization_id) DO UPDATE SET plan_data=EXCLUDED.plan_data,revision=farm_plans.revision+1,updated_by=EXCLUDED.updated_by`,[organizationId,JSON.stringify(plan),userId]);
+  await query('DELETE FROM farm_plan_area_links WHERE organization_id=$1',[organizationId]);
+  await query('INSERT INTO farm_plan_area_links (organization_id,zone_id,area_id) VALUES ($1,$2,$2)',[organizationId,areaId]);
+}
+
 for (const tenant of tenants) {
   const organizationId = `org-ci-${tenant.suffix}`;
   const userId = `user-ci-${tenant.suffix}`;
@@ -44,6 +52,7 @@ for (const tenant of tenants) {
         [`area-ci-large-${index}`, organizationId, `Scale Area ${String(index).padStart(3, '0')}`]
       );
     }
+    await seedFarmPlan(organizationId,userId,'area-ci-large-1','Scale Area 001');
     continue;
   }
 
@@ -58,6 +67,7 @@ for (const tenant of tenants) {
      ON CONFLICT (id) DO UPDATE SET organization_id=EXCLUDED.organization_id, name=EXCLUDED.name`,
     [areaId, organizationId, `CI Area ${tenant.suffix.toUpperCase()}`]
   );
+  await seedFarmPlan(organizationId,userId,areaId,`CI Area ${tenant.suffix.toUpperCase()}`);
   await query(
     `INSERT INTO sections (id, organization_id, area_id, name, crop_profile)
      VALUES ($1, $2, $3, $4, 'default')

@@ -51,7 +51,7 @@ export function insideLabel(polygon: SitePoint[]): SitePoint {
 export function containsPolygon(outer: SitePoint[],inner: SitePoint[]) {
   return inner.every((p,i)=>pointInPolygon(p,outer) && segmentInsideZone(p,inner[(i+1)%inner.length],outer))
 }
-function polygonsOverlap(a: SitePoint[],b: SitePoint[]) {
+export function polygonsOverlap(a: SitePoint[],b: SitePoint[]) {
   const strictInside=(p:SitePoint,polygon:SitePoint[])=>pointInPolygon(p,polygon) && !polygon.some((q,i)=>onEdge(p,q,polygon[(i+1)%polygon.length]))
   if(a.some(p=>strictInside(p,b)) || b.some(p=>strictInside(p,a)))return true
   for(const triangle of triangulateSitePolygon(a))if(strictInside(insideLabel(triangle),b))return true

@@ -66,22 +66,24 @@ test('password recovery requests only the account email', async ({ page }) => {
   await expect(page.locator('input[type="password"]')).toHaveCount(0)
 })
 
-test('workspace navigation unlocks in Area and Section stages', async ({ page }) => {
+test('workspace navigation follows Farm plan, Area and Section stages', async ({ page }) => {
   await authenticate(page, 'tenant-empty@ci.neurocrop.test')
-  await expect(page).toHaveURL(/\/areas$/)
+  await expect(page).toHaveURL(/\/farm-plan$/)
+  await expect(navigation(page, 'farm-plan')).toBeEnabled()
   await expect(navigation(page, 'sites')).toBeEnabled()
   await expect(navigation(page, 'settings')).toBeEnabled()
   await expect(navigation(page, 'zones')).toBeDisabled()
   await expect(navigation(page, 'overview')).toBeDisabled()
   await page.goto('/nodes')
-  await expect(page).toHaveURL(/\/areas$/)
+  await expect(page).toHaveURL(/\/farm-plan$/)
 
   const response = await page.request.post(`${apiBaseUrl}/auth/login`, {
     data: { email: 'tenant-large@ci.neurocrop.test', password },
   })
   expect(response.ok(), await response.text()).toBeTruthy()
   await page.goto('/')
-  await expect(page).toHaveURL(/\/sections$/)
+  await expect(page).toHaveURL(/\/farm-plan$/)
+  await expect(navigation(page, 'farm-plan')).toBeEnabled()
   await expect(navigation(page, 'sites')).toBeEnabled()
   await expect(navigation(page, 'zones')).toBeEnabled()
   await expect(navigation(page, 'settings')).toBeEnabled()

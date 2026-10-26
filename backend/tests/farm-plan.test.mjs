@@ -59,15 +59,18 @@ test('invalid shape, out-of-bounds points, duplicate bindings and parent referen
 });
 
 // Exercise the actual route handlers and auth middleware without an external server or database.
-function harness({owned=['area-a'],conflict=false,failLinks=false,links={zone:'area-a'}}={}){
+function harness({owned=['area-a'],conflict=false,failLinks=false,links={zone:'area-a'},savedPlan=null,previous=null,denyArea=false,blocked=false}={}){
   const calls=[],routes=new Map();let released=false;
-  const row={plan_data:validateFarmPlan(plan()).plan,revision:2,updated_at:'2026-10-26T12:00:00Z'};
+  const row={plan_data:savedPlan || validateFarmPlan(plan()).plan,revision:2,updated_at:'2026-10-26T12:00:00Z'};
   const database={query:async(sql,params)=>{
     calls.push({sql,params});
     assert.equal(params[0],'org-a');
     return {rows:sql.includes('FROM farm_plans') ? [{...row,area_links:links}] : [{id:'area-a',name:'Existing Area',map_enabled:true,map_configured:true}]};
   },pool:{connect:async()=>({query:async(sql,params)=>{
     calls.push({sql,params});
+    if(sql.startsWith('SELECT plan_data FROM farm_plans'))return {rows:previous ? [{plan_data:previous}] : []};
+    if(sql.startsWith('SELECT a.id FROM areas'))return {rows:blocked ? [{id:'area-a'}] : []};
+    if(sql.startsWith('INSERT INTO areas'))return {rows:denyArea ? [] : [{id:params[0]}]};
     if(sql.startsWith('SELECT id FROM areas'))return {rows:owned.map(id=>({id}))};
     if(sql.startsWith('INSERT INTO farm_plans') || sql.startsWith('UPDATE farm_plans'))return {rows:conflict ? [] : [row]};
     if(failLinks && sql.startsWith('INSERT INTO farm_plan_area_links'))throw new Error('link failed');
@@ -160,4 +163,78 @@ test('farm plan migration is discovered and enforces tenant-scoped Area relation
   assert.match(sql,/FOREIGN KEY \(organization_id, area_id\) REFERENCES areas\(organization_id, id\)/);
   assert.match(sql,/UNIQUE \(organization_id, area_id\)/);
   assert.match(sql,/PRIMARY KEY \(organization_id, revision\)/);
+});
+
+
+function authoredPlan(){return {version:2,name:'Farm',dimensions:{widthM:40,lengthM:30},areas:[
+  {id:'area-a',name:'Room A',kind:'room',height:3,polygon:rect(1,1,8,5)},
+  {id:'area-b',name:'Greenhouse B',kind:'greenhouse',height:4,polygon:rect(12,1,8,5)},
+]};}
+
+test('direct Area plans persist one entity per shape and strip client metadata',()=>{
+  const input=authoredPlan();input.areas[0].sensors=[{temperature:24}];
+  const result=validateFarmPlan(input);
+  assert.equal(result.valid,true);assert.equal(result.createsAreas,true);
+  assert.deepEqual(result.areaIds,['area-a','area-b']);assert.equal('sensors' in result.plan.areas[0],false);
+  assert.equal('zones' in result.plan,false);assert.equal('buildings' in result.plan,false);
+});
+
+test('direct Area validation rejects duplicate IDs and physical overlap but permits wall-free zones',()=>{
+  const duplicate=authoredPlan();duplicate.areas[1].id='area-a';assert.equal(validateFarmPlan(duplicate).valid,false);
+  const overlap=authoredPlan();overlap.areas[1].polygon=overlap.areas[0].polygon;
+  assert.equal(validateFarmPlan(overlap).valid,false);
+  overlap.areas[1].kind='zone';assert.equal(validateFarmPlan(overlap).valid,true);
+});
+
+test('saving direct Areas upserts real tenant-scoped Area records in the same transaction',async()=>{
+  const input=authoredPlan(),h=harness({savedPlan:input}),response=await h.invoke('PATCH',{body:{plan:input,expectedRevision:1}});
+  assert.equal(response.statusCode,200);assert.equal(response.body.plan.version,2);
+  const inserts=h.calls.filter(c=>c.sql.startsWith('INSERT INTO areas'));
+  assert.equal(inserts.length,2);
+  assert.match(inserts[0].sql,/ON CONFLICT \(id\) DO UPDATE/);
+  assert.match(inserts[0].sql,/WHERE areas.organization_id=EXCLUDED.organization_id/);
+  assert.deepEqual(inserts[0].params,['area-a','org-a','Room A','Growing room']);
+  assert.deepEqual(h.calls.filter(c=>c.sql.startsWith('INSERT INTO farm_plan_area_links')).map(c=>c.params),[['org-a','area-a','area-a'],['org-a','area-b','area-b']]);
+  assert.equal(h.calls.at(-1).sql,'COMMIT');assert.ok(Array.isArray(response.body.areas));
+});
+
+test('stale revisions cannot create orphan Areas',async()=>{
+  const input=authoredPlan(),h=harness({savedPlan:input,conflict:true});
+  assert.equal((await h.invoke('PATCH',{body:{plan:input,expectedRevision:1}})).statusCode,409);
+  assert.equal(h.calls.some(c=>c.sql.startsWith('INSERT INTO areas')),false);
+});
+
+test('foreign Area ID collisions roll back the complete plan save',async()=>{
+  const input=authoredPlan(),h=harness({savedPlan:input,denyArea:true});
+  assert.equal((await h.invoke('PATCH',{body:{plan:input,expectedRevision:1}})).statusCode,400);
+  assert.equal(h.calls.at(-1).sql,'ROLLBACK');assert.equal(h.released,true);
+  assert.equal(h.calls.some(c=>c.sql.startsWith('INSERT INTO farm_plan_area_links')),false);
+});
+
+test('technicians cannot create Areas through the layout endpoint',async()=>{
+  const h=harness(),res=await h.invoke('PATCH',{role:'technician',body:{plan:authoredPlan(),expectedRevision:0}});
+  assert.equal(res.statusCode,403);assert.equal(h.calls.length,0);
+});
+
+test('removing an empty authored Area removes its real record without touching unrelated Areas',async()=>{
+  const previous=authoredPlan(),input=structuredClone(previous);input.areas.pop();
+  const h=harness({savedPlan:input,previous,owned:['area-a','area-b']});
+  assert.equal((await h.invoke('PATCH',{body:{plan:input,expectedRevision:1}})).statusCode,200);
+  assert.deepEqual(h.calls.find(c=>c.sql.startsWith('DELETE FROM areas')).params,['org-a',['area-b']]);
+});
+
+test('Areas with Sections or Nodes cannot be silently deleted by changing a plan',async()=>{
+  const previous=authoredPlan(),input=structuredClone(previous);input.areas.pop();
+  const h=harness({savedPlan:input,previous,owned:['area-a','area-b'],blocked:true});
+  const result=await h.invoke('PATCH',{body:{plan:input,expectedRevision:1}});
+  assert.equal(result.statusCode,409);assert.equal(result.body.error.code,'AREA_HAS_CHILDREN');
+  assert.equal(h.calls.some(c=>c.sql.startsWith('DELETE FROM areas')),false);
+  assert.equal(h.calls.at(-1).sql,'ROLLBACK');
+});
+
+test('a stale draft cannot recreate an Area deleted from another view',async()=>{
+  const input=authoredPlan(),h=harness({savedPlan:input,previous:input,owned:['area-a']});
+  const result=await h.invoke('PATCH',{body:{plan:input,expectedRevision:1}});
+  assert.equal(result.statusCode,409);assert.equal(result.body.error.code,'AREA_REMOVED');
+  assert.equal(h.calls.some(c=>c.sql.startsWith('INSERT INTO areas')),false);
 });

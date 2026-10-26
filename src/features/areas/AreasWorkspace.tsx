@@ -1,5 +1,5 @@
 import { translateInterfaceText as tx } from '../../i18n'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { ModalPortal } from '../../components/ModalPortal'
 import { StructureHeader, StructureSummary, StructureFooter } from '../../components/StructureWorkspace'
@@ -13,7 +13,6 @@ type JsonRecord = Record<string, any>
 type Health = 'stable' | 'attention' | 'critical' | 'unconfigured'
 type HealthFilter = 'all' | 'needs-attention' | Health
 type SortMode = 'name' | 'health' | 'sections' | 'nodes'
-type Editor = { mode: 'create' | 'edit'; id?: string; name: string; kind: string; location: string }
 type DeleteState = { id: string; name: string; sectionCount: number; keepSections: boolean }
 type Feedback = { tone: 'success' | 'warning'; message: string } | null
 type AreaRow = {
@@ -33,7 +32,6 @@ type AreaRow = {
   health: Health
 }
 
-const areaKinds = ['Greenhouse', 'Field', 'Growing room', 'Laboratory', 'Trial facility', 'Other']
 const healthPriority: Record<Health, number> = { critical: 0, attention: 1, unconfigured: 2, stable: 3 }
 
 function asArray(payload: JsonRecord | null | undefined, keys: string[]) {
@@ -132,7 +130,6 @@ export default function AreasWorkspace() {
   const [sort, setSort] = useState<SortMode>('name')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [menuId, setMenuId] = useState<string | null>(null)
-  const [editor, setEditor] = useState<Editor | null>(null)
   const [deleteState, setDeleteState] = useState<DeleteState | null>(null)
   const [busy, setBusy] = useState(false)
   const [mapBusyId, setMapBusyId] = useState('')
@@ -229,36 +226,12 @@ export default function AreasWorkspace() {
   }, [areas, healthFilter, query, sort])
 
   function openCreate() {
-    setModalError('')
-    setEditor({ mode: 'create', name: '', kind: 'Greenhouse', location: '' })
+    navigate('/farm-plan?add=1')
   }
 
   function openEdit(area: AreaRow) {
     setMenuId(null)
-    setModalError('')
-    setEditor({ mode: 'edit', id: area.id, name: area.name, kind: area.kind, location: area.location })
-  }
-
-  async function saveArea(event: FormEvent) {
-    event.preventDefault()
-    if (!editor || !editor.name.trim()) return
-    setBusy(true)
-    setModalError('')
-    try {
-      const payload = { name: editor.name.trim(), kind: editor.kind, location: editor.location.trim() }
-      if (editor.mode === 'edit' && editor.id) await neurocropApi.updateArea(editor.id, payload)
-      else {
-        await neurocropApi.createArea(payload)
-        await workspaceAccess.refresh()
-      }
-      setFeedback({ tone: 'success', message: editor.mode === 'edit' ? 'Area updated.' : 'Area created.' })
-      setEditor(null)
-      setRefreshToken((value) => value + 1)
-    } catch (saveError) {
-      setModalError(errorMessage(saveError, 'Area could not be saved.'))
-    } finally {
-      setBusy(false)
-    }
+    navigate(`/farm-plan?area=${encodeURIComponent(area.id)}`)
   }
 
   async function deleteArea() {
@@ -373,17 +346,6 @@ export default function AreasWorkspace() {
       {status === 'ready' ? <StructureFooter visible={visibleAreas.length} total={areas.length} noun={tx('areas')}
         onReset={query || healthFilter !== 'all' ? () => { setQuery(''); setHealthFilter('all') } : undefined} /> : null}
     </section>
-
-    {editor ? <ModalPortal><div className="nc-areas-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setEditor(null) }}><form className="nc-areas-modal" onSubmit={saveArea} role="dialog" aria-modal="true" aria-labelledby="nc-area-editor-title">
-      <header><div><p>{editor.mode === 'create' ?tx("New environment") :tx("Area details")}</p><h2 id="nc-area-editor-title">{editor.mode === 'create' ?tx("Create area") :tx("Edit area")}</h2><span>{tx("Define the top-level location that will contain sections and sensor nodes.")}</span></div><button type="button" onClick={() => setEditor(null)} disabled={busy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>
-      {modalError ? <div className="nc-areas-modal-error" role="alert"><i className="fa-solid fa-triangle-exclamation" />{modalError}</div> : null}
-      <div className="nc-areas-form">
-        <label><span>{tx("Area name")}</span><input required maxLength={120} value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} placeholder="e.g. North greenhouse" /></label>
-        <label><span>{tx("Environment")}</span><select value={editor.kind} onChange={(event) => setEditor({ ...editor, kind: event.target.value })}>{areaKinds.map((kind) => <option value={kind} key={kind}>{kind}</option>)}</select></label>
-        <label><span>{tx("Location")}</span><input maxLength={180} value={editor.location} onChange={(event) => setEditor({ ...editor, location: event.target.value })} placeholder="e.g. Kaunas district · Building 2" /></label>
-      </div>
-      <footer><button type="button" className="nc-areas-button secondary" onClick={() => setEditor(null)} disabled={busy}>{tx("Cancel")}</button><button type="submit" className="nc-areas-button primary" disabled={busy || !editor.name.trim()}>{busy ?tx("Saving…") : editor.mode === 'create' ?tx("Create area") :tx("Save changes")}</button></footer>
-    </form></div></ModalPortal> : null}
 
     {deleteState ? <ModalPortal><div className="nc-areas-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setDeleteState(null) }}><section className="nc-areas-modal danger" role="dialog" aria-modal="true" aria-labelledby="nc-area-delete-title">
       <header><div><p>{tx("Destructive action")}</p><h2 id="nc-area-delete-title">{tx("Delete “")}{deleteState.name}”?</h2><span>{tx("This removes the area from the workspace. Choose what happens to its sections.")}</span></div><button type="button" onClick={() => setDeleteState(null)} disabled={busy} aria-label={tx("Close")}><i className="fa-solid fa-xmark" /></button></header>

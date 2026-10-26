@@ -1,48 +1,69 @@
 import { describe, expect, it } from 'vitest'
 import { cameraMatrix, project } from '../living-greenhouse/sceneMath'
-import { createSitePlan, siteDimensions, type SitePlan } from '../living-greenhouse/siteDemoModel'
-import { addSiteEntity, validateSitePlan } from '../living-greenhouse/sitePlanEditing'
-import { editableFarmPlan, farmBindingError, farmPlanDocument, farmPlanSignature, type FarmArea } from './farmPlanData'
+import { rectangle, zoneArea } from '../living-greenhouse/siteDemoModel'
+import { editFarmArea, editableFarmPlan, emptyFarmPlan, farmPlanDocument, farmPlanScene, farmPlanSignature, insertFarmArea, moveFarmArea, resizeFarmArea, validateFarmAreaPlan } from './farmPlanData'
 
-describe('production farm plan adapter',()=>{
-  const areas:FarmArea[]=[{id:'area-real',name:'Existing greenhouse',mapEnabled:true,mapConfigured:true}]
-  it('stores only geometry and links, never demo sensor measurements',()=>{
-    const example=createSitePlan();example.zones[0].areaId='area-real'
-    const saved=farmPlanDocument(example),restored=editableFarmPlan(saved)
-    expect(JSON.stringify(saved)).not.toMatch(/temperature|humidity|co2|sensors|DEMO/)
-    expect(restored.zones.every(z=>z.sensors.length===0)).toBe(true)
-    expect(restored.zones[0].areaId).toBe('area-real')
-    expect(restored.zones[0].polygon).toEqual(example.zones[0].polygon)
-    expect(example.zones.some(z=>z.sensors.length>0)).toBe(true)
+describe('direct Area authoring',()=>{
+  it('inserts independent rectangles in free positions with stable Area identities',()=>{
+    const first=insertFarmArea(emptyFarmPlan()),second=insertFarmArea(first.plan)
+    expect(second.plan.areas).toHaveLength(2)
+    expect(first.id).not.toBe(second.id)
+    expect(second.plan.areas[0]).toEqual(first.plan.areas[0])
+    expect(second.plan.areas[1].polygon).not.toEqual(first.plan.areas[0].polygon)
+    expect(validateFarmAreaPlan(second.plan)).toBeNull()
+    expect(second.plan.areas.every(a=>a.polygon.length===4)).toBe(true)
+    const third=insertFarmArea(second.plan).plan
+    const afterRemoval=insertFarmArea({...third,areas:third.areas.filter(a=>a.id!==second.id)}).plan
+    expect(new Set(afterRemoval.areas.map(a=>a.name)).size).toBe(afterRemoval.areas.length)
   })
-  it('starts empty and creates user zones without synthetic sensors',()=>{
-    const empty:SitePlan={version:1,dimensions:{widthM:80,lengthM:40},buildings:[],rooms:[],zones:[]}
-    const polygon=[{xM:50,yM:5},{xM:70,yM:5},{xM:70,yM:15},{xM:50,yM:15}]
-    const building=addSiteEntity(empty,'buildings',polygon,true,false)
-    expect(building.error).toBeNull()
-    const zone=addSiteEntity(building.plan,'zones',polygon,false,false)
-    expect(zone.error).toBeNull();expect(zone.plan.zones[0].sensors).toEqual([])
-    expect(siteDimensions(editableFarmPlan(farmPlanDocument(zone.plan)))).toEqual(empty.dimensions)
-    expect(validateSitePlan({...zone.plan,dimensions:{widthM:30,lengthM:40}})).not.toBeNull()
+  it('expands a full plan instead of placing new Areas on top of an existing one',()=>{
+    const first=insertFarmArea({...emptyFarmPlan(),dimensions:{widthM:3,lengthM:3}})
+    let next=first.plan
+    for(let i=0;i<8;i++)next=insertFarmArea(next).plan
+    expect(validateFarmAreaPlan(next)).toBeNull()
+    expect(next.dimensions.widthM).toBeGreaterThan(3)
   })
-  it('compares server JSONB key order canonically without marking a saved plan dirty',()=>{
-    const saved=farmPlanDocument(createSitePlan())
+  it('resizes an L-shaped Area exactly while preserving its shape and ID',()=>{
+    const {plan,id}=insertFarmArea(emptyFarmPlan())
+    const l=[{xM:1,yM:1},{xM:9,yM:1},{xM:9,yM:3},{xM:4,yM:3},{xM:4,yM:6},{xM:1,yM:6}]
+    const shaped=editFarmArea(plan,id,{polygon:l}).plan
+    const resized=resizeFarmArea(shaped,id,16,10)
+    expect(resized.error).toBeNull();expect(resized.plan.areas[0].id).toBe(id)
+    expect(resized.plan.areas[0].polygon).toHaveLength(6)
+    expect(zoneArea(resized.plan.areas[0])).toBeCloseTo(zoneArea(shaped.areas[0])*4)
+  })
+  it('rejects crossing contours, physical overlap and moves outside the plan without changing the original',()=>{
+    const first=insertFarmArea(emptyFarmPlan()),second=insertFarmArea(first.plan)
+    const crossed=editFarmArea(second.plan,first.id,{polygon:[{xM:1,yM:1},{xM:5,yM:5},{xM:1,yM:5},{xM:5,yM:1}]})
+    expect(crossed.error).not.toBeNull();expect(crossed.plan).toBe(second.plan)
+    expect(moveFarmArea(second.plan,second.id,1,1).error).not.toBeNull()
+    expect(moveFarmArea(second.plan,second.id,-1,1).error).not.toBeNull()
+    expect(resizeFarmArea(second.plan,first.id,0,5).error).not.toBeNull()
+  })
+  it('allows a wall-free monitoring zone inside a physical Area',()=>{
+    const first=insertFarmArea(emptyFarmPlan()),next=structuredClone(first.plan)
+    next.areas.push({id:'zone',name:'Growing zone',kind:'zone',height:2,polygon:rectangle(2,2,2,2)})
+    expect(validateFarmAreaPlan(next)).toBeNull()
+    const scene=farmPlanScene(next)
+    expect(scene.buildings.find(b=>b.id==='zone')?.open).toBe(true)
+    expect(scene.zones.every(z=>z.sensors.length===0)).toBe(true)
+  })
+  it('persists one entity per Area and strips any client measurements',()=>{
+    const {plan,id}=insertFarmArea(emptyFarmPlan())
+    const augmented={...plan,sensors:[{temperature:30}],areas:plan.areas.map(a=>({...a,sensors:['DEMO']}))}
+    const saved=farmPlanDocument(augmented)
+    expect(saved.version).toBe(2);expect(saved.areas[0].id).toBe(id)
+    expect(JSON.stringify(saved)).not.toMatch(/temperature|humidity|sensors|DEMO|buildings|zones/)
+    expect(farmPlanScene(saved).zones[0].areaId).toBe(id)
+  })
+  it('compares PostgreSQL JSONB canonically and restores saved Areas without duplicating them',()=>{
+    const {plan}=insertFarmArea(emptyFarmPlan())
     const reverse=(v:unknown):unknown=>Array.isArray(v) ? v.map(reverse) : v && typeof v==='object' ? Object.fromEntries(Object.entries(v).reverse().map(([k,value])=>[k,reverse(value)])) : v
-    const server=JSON.parse(JSON.stringify(reverse(saved)))
-    expect(farmPlanSignature(server)).toBe(farmPlanSignature(saved))
-    expect(JSON.stringify(farmPlanDocument(editableFarmPlan(server)))).toBe(farmPlanSignature(saved))
-    server.buildings[0].name='Changed'
-    expect(farmPlanSignature(server)).not.toBe(farmPlanSignature(saved))
+    const server=JSON.parse(JSON.stringify(reverse(plan)))
+    expect(farmPlanSignature(editableFarmPlan(server))).toBe(farmPlanSignature(plan))
+    server.areas[0].name='Changed';expect(farmPlanSignature(server)).not.toBe(farmPlanSignature(plan))
   })
-  it('keeps a large accepted farm within the camera clipping range',()=>{
-    const matrix=cameraMatrix([10000,15000,10000],[0,0,0],1.5)
-    expect(project([0,0,0],matrix,1200,800).visible).toBe(true)
-  })
-  it('rejects duplicate, deleted or foreign Area references and permits unlinked zones',()=>{
-    const plan=editableFarmPlan(farmPlanDocument(createSitePlan()))
-    expect(farmBindingError(plan,areas)).toBeNull()
-    plan.zones[0].areaId='area-real';expect(farmBindingError(plan,areas)).toBeNull()
-    plan.zones[1].areaId='area-real';expect(farmBindingError(plan,areas)).not.toBeNull()
-    plan.zones[1].areaId='foreign';expect(farmBindingError(plan,areas)).not.toBeNull()
+  it('keeps a large farm within the camera clipping range',()=>{
+    expect(project([0,0,0],cameraMatrix([10000,15000,10000],[0,0,0],1.5),1200,800).visible).toBe(true)
   })
 })

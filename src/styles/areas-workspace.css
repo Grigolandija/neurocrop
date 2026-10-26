@@ -91,12 +91,6 @@
 .nc-areas-modal header span { display: block; margin-top: var(--space-8); color: var(--color-text-secondary); font-size: var(--type-body-sm); line-height: var(--leading-body); }
 .nc-areas-modal header > button { width: 2.25rem; height: 2.25rem; flex: 0 0 auto; border: 1px solid var(--color-border); border-radius: .5rem; background: var(--color-surface); color: var(--color-text-secondary); }
 .nc-areas-modal-error { display: flex; align-items: center; gap: var(--space-8); margin: var(--space-16) var(--space-24) 0; border: 1px solid var(--color-danger-border); border-radius: var(--radius-control); padding: var(--space-12); background: var(--color-danger-soft); color: var(--color-danger); font-size: var(--type-body-sm); }
-.nc-areas-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-16); padding: var(--space-24); }
-.nc-areas-form label { display: grid; gap: var(--space-8); }
-.nc-areas-form label:first-child { grid-column: 1/-1; }
-.nc-areas-form label > span { color: var(--color-text-secondary); font-size: var(--type-label); font-weight: var(--weight-semibold); }
-.nc-areas-form :is(input,select) { width: 100%; height: var(--control-height-lg); border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: 0 var(--space-12); outline: 0; background: var(--color-surface); color: var(--color-text); font-size: var(--type-body); }
-.nc-areas-form :is(input,select):focus { border-color: var(--color-focus); box-shadow: 0 0 0 .1875rem var(--color-focus-ring); }
 .nc-areas-modal > footer { display: flex; justify-content: flex-end; gap: var(--space-8); padding: var(--space-24); }
 .nc-area-delete-choice { display: grid; gap: var(--space-8); padding: var(--space-24); }
 .nc-area-delete-choice label { display: flex; align-items: flex-start; gap: var(--space-12); border: 1px solid var(--color-border); border-radius: .7rem; padding: var(--space-16); cursor: pointer; }
@@ -115,7 +109,6 @@
   .nc-areas-head { align-items: stretch; flex-direction: column; }
   .nc-areas-head > button { width: 100%; }
   .nc-areas-toolbar, .nc-areas-form { grid-template-columns: 1fr; }
-  .nc-areas-form label { grid-column: auto !important; }
   .nc-area-detail { grid-template-columns: 1fr; }
   .nc-areas-register > footer span:last-child { display: none; }
   .nc-areas-modal-backdrop { padding: var(--space-12); }

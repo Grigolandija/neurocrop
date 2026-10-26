@@ -108,6 +108,7 @@ export function siteGeometry(selectedId: string | null, metric: SiteMetric, plan
   const selected=plan.zones.find(z=>z.id===selectedId)
   for(const building of plan.buildings){
     muted=!!selected && selected.buildingId!==building.id
+    if(building.open)continue
     const bounds=zoneBounds(building),h=building.height,steel:Color=[.42,.55,.48]
     const roof=(y:number)=>h*(1-.32*Math.abs(y-(bounds.minY+bounds.maxY)/2)/((bounds.maxY-bounds.minY)/2))
     if(building.greenhouse){

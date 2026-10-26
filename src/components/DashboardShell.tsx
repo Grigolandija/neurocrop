@@ -27,6 +27,7 @@ type NodeSummary = { id: string; name: string; batteryPercent: number | null }
 const navigation = [
   { route: '/', action: 'overview', label: 'Overview', icon: 'fa-chart-pie' },
   { route: '/diagnostics', action: 'diagnostics', label: 'Diagnostics', icon: 'fa-stethoscope' },
+  { route: '/farm-plan', action: 'farm-plan', label: 'Farm plan', icon: 'fa-draw-polygon' },
   { route: '/areas', action: 'sites', label: 'Areas', icon: 'fa-map' },
   { route: '/sections', action: 'zones', label: 'Sections', icon: 'fa-border-all' },
   { route: '/nodes', action: 'nodes', label: 'Nodes', icon: 'fa-microchip' },
@@ -152,7 +153,7 @@ export default function DashboardShell({ user, onSignOut, onPrefetchRoute, child
   const displayName = user.name || user.email.split('@')[0] || 'NeuroCrop user'
   const pathIsActive = (route: string) => route === '/nodes'
     ? location.pathname === route || location.pathname.startsWith('/nodes/')
-    : location.pathname === route || (route === '/areas' && location.pathname === '/farm-plan')
+    : location.pathname === route
 
   async function go(route: string) {
     if (!canAccessWorkspaceRoute(workspaceAccess.stage, route) || route === location.pathname || preparingRoute) return

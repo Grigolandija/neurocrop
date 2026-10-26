@@ -1,4 +1,12 @@
 const english:Record<string,string>={
+  "Ūkio pavadinimas gali būti iki 120 simbolių.": "Farm name must be at most 120 characters.",
+  "Plane gali būti iki 80 erdvių.": "A plan supports up to 80 Areas.",
+  "Erdvių ID negali kartotis.": "Area IDs must be unique.",
+  "Erdvei reikia pavadinimo iki 120 simbolių.": "Each Area needs a name of up to 120 characters.",
+  "Pasirinkite erdvės tipą.": "Choose an Area type.",
+  "Patalpos ir šiltnamiai negali persidengti.": "Rooms and greenhouses cannot overlap.",
+  "Erdvė nerasta.": "Area not found.",
+  "Matmenys turi būti didesni už nulį.": "Dimensions must be greater than zero.",
   "Plano redaktorius": "Plan editor",
   "Pastatai": "Buildings",
   "Patalpos": "Rooms",

@@ -58,6 +58,7 @@ function overlap(a,b){
 /** Whitelist geometry and Area references. Client measurements never enter the farm plan. */
 export function validateFarmPlan(input){
   const invalid=message=>({valid:false,message});
+  if(input?.version===2)return validateAreaPlan(input);
   if(!input || input.version!==1 || !input.dimensions)return invalid('Unsupported farm plan');
   const dimensions={widthM:input.dimensions.widthM,lengthM:input.dimensions.lengthM};
   if(!Object.values(dimensions).every(n=>finite(n) && n>=1 && n<=10000))return invalid('Farm dimensions must be between 1 and 10000 metres');
@@ -96,4 +97,29 @@ export function validateFarmPlan(input){
   }
   if(Buffer.byteLength(JSON.stringify(plan),'utf8')>800000)return invalid('Farm plan is too large');
   return {valid:true,plan,areaIds:[...areaIds]};
+}
+
+
+/** v2 stores authored Areas directly. Shape and business entity share one ID. */
+function validateAreaPlan(input){
+  const invalid=message=>({valid:false,message});
+  const dimensions={widthM:input.dimensions?.widthM,lengthM:input.dimensions?.lengthM};
+  if(!Object.values(dimensions).every(n=>finite(n) && n>=1 && n<=10000))return invalid('Farm dimensions must be between 1 and 10000 metres');
+  if(typeof input.name!=='string' || input.name.length>120)return invalid('Farm name must be at most 120 characters');
+  if(!Array.isArray(input.areas) || input.areas.length>80)return invalid('A farm plan supports up to 80 Areas');
+  const plan={version:2,name:input.name.trim(),dimensions,areas:[]},ids=new Set();
+  for(const raw of input.areas){
+    if(!raw || typeof raw.id!=='string' || !raw.id.trim() || raw.id.length>100 || ids.has(raw.id))return invalid('Each Area needs a unique id');
+    if(typeof raw.name!=='string' || !raw.name.trim() || raw.name.length>120)return invalid('Each Area needs a name of up to 120 characters');
+    if(!['greenhouse','room','zone'].includes(raw.kind))return invalid('Unknown Area type');
+    if(!finite(raw.height) || raw.height<.5 || raw.height>12)return invalid('Area height must be between 0.5 and 12 metres');
+    const error=polygonError(raw.polygon,dimensions);if(error)return invalid(error);
+    ids.add(raw.id);plan.areas.push({id:raw.id,name:raw.name.trim(),kind:raw.kind,height:raw.height,polygon:raw.polygon.map(({xM,yM})=>({xM,yM}))});
+  }
+  for(let i=0;i<plan.areas.length;i++)for(let j=i+1;j<plan.areas.length;j++){
+    const a=plan.areas[i],b=plan.areas[j];
+    if(a.kind!=='zone' && b.kind!=='zone' && overlap(a.polygon,b.polygon))return invalid('Physical Areas cannot overlap');
+  }
+  if(Buffer.byteLength(JSON.stringify(plan),'utf8')>800000)return invalid('Farm plan is too large');
+  return {valid:true,plan,areaIds:[...ids],createsAreas:true};
 }

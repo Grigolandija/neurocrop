@@ -144,37 +144,42 @@ matomas.
 
 API ir DB naudoti pavadinimus `areas`, `sections`, `nodes`, `cropProfiles`.
 
-## Bendras ūkio planas — pirmas integracijos etapas
+## Ūkio struktūra: Farm plan → Areas → Sections
 
-„Areas“ puslapyje pasirinkite **Ūkio planas / Farm plan** (`/farm-plan`).
-Redaktoriuje nustatykite bendrus plano matmenis, nubrėžkite pastatus, jų patalpas ir
-nepriklausomus zonų kontūrus. Galima braižyti ir L ar kitokią ne stačiakampę formą.
-Patalpų kontūrai kuria sienas, zonų kontūrai sienų nekuria. Pakeitimai iškart matomi
-šalia esančioje 3D peržiūroje.
+Naujos paskyros pradžia — **Farm plan**. Tai bendras redaktorius, kuriame kuriamos
+pačios Areas. „Areas“ puslapis rodo tų pačių objektų sąrašą; jo kūrimo ir redagavimo
+mygtukai atidaro bendrą plano redaktorių.
 
-Pasirinkę zoną susiekite ją su jau egzistuojančia **Area**. Vienai Area šiame etape
-skirtas vienas kontūras; zoną galima palikti ir nesusietą. Paspauskite **Išsaugoti
-planą**: planas saugomas serverio duomenų bazėje ir prieinamas kituose kompiuteriuose.
-Šios naršyklės sesijos juodraštis yra tik pagalbinė apsauga iki išsaugojimo.
-Jei kitas naudotojas išsaugo naujesnę versiją, senas juodraštis negali jos perrašyti.
+1. Paspauskite **Pridėti Area / Add Area**. Laisvoje vietoje atsiranda redaguojamas
+   stačiakampis. Kai vietos pritrūksta, plano ribos išplečiamos.
+2. Nurodykite pavadinimą, tipą (patalpa, šiltnamis arba zona be sienų), tikslius
+   matmenis ir aukštį. Tempiant kampus ar kraštines keičiamas kontūras; papildomi
+   taškai leidžia suformuoti L, U ar kitokią paprastą daugiakampę formą.
+3. Tempkite visą Area arba įveskite jos X ir Y padėtį bendrame plane. 3D peržiūra
+   atnaujinama iš karto. Galima pridėti daugiau Areas tuo pačiu mygtuku.
+4. Paspauskite **Išsaugoti planą**. Planas ir tikri Area įrašai sukuriami arba
+   atnaujinami vienoje DB transakcijoje. Pakartotinis išsaugojimas išlaiko jų ID.
+5. Pasirinktoje išsaugotoje Area spauskite **Kurti Section šioje Area**. Sekcijos
+   kūrimo forma jau žino, kuriai erdvei ji priklauso; parenkamas kultūros profilis.
 
-„Overview“ puslapyje atsiranda **Visas ūkis / Whole farm**. Užvedus pelę paryškinamas
-susietos zonos kontūras. Paspaudus zoną arba jos pavadinimą atveriamas tos Area
-esamas matavimų žemėlapis. Į bendrą vaizdą grįžtama tuo pačiu „Visas ūkis“ mygtuku.
-Kol bendro plano nėra, rodomas įprastas Area heatmap.
+„Farm plan“ saugojimo formatas yra `version: 2`: ūkio pavadinimas, plano matmenys
+ir `areas` masyvas su ID, pavadinimu, tipu, aukščiu bei kontūro taškais. Atskiri
+klientui matomi pastato ir zonos susiejimo objektai nekuriami. Fizinių patalpų ir
+šiltnamių kontūrai negali persidengti; stebėjimo zona be sienų gali būti jų viduje.
 
-Šiame etape esami Area išplanavimai, jutiklių koordinatės, jų aukščiai ir matavimai
-neperkeliami į bendras koordinates. Bendrame plane nekuriami pavyzdiniai matavimai
-ar automatiškai pridedama įranga. Tai navigacija į tikrus, jau veikiančius Area
-žemėlapius; naujų daugiakampių heatmap skaičiavimas nėra šio etapo dalis.
+Tuščią plane sukurtą Area galima pašalinti redaktoriuje ir išsaugoti. Jei ji jau
+turi Sections arba Nodes, naudojamas „Areas“ puslapio šalinimas su pasekmių
+pasirinkimu. Kitoje sesijoje ištrinta Area negali tyliai atgyti iš seno juodraščio.
 
-Diegimui reikia **backend ir frontend atnaujinimo**, įskaitant backend migraciją
-`0044_farm_plans.sql` (įprastas release migracijų paleidimas). Vien frontend ZIP
-nepakanka. API: autentifikuoti `GET /farm-plan` ir `PATCH /farm-plan`; rašymui
-reikia `owner`, `admin`, `grower` arba `technician` rolės. PATCH priima `plan` ir
-`expectedRevision`. Planas ir Area susiejimai izoliuoti pagal organizaciją;
-kiekvienas išsaugojimas atomiškai pakeičia planą bei susiejimus ir išlaiko iki
-50 naujausių plano versijų duomenų bazėje.
+„Overview“ rodo visą išsaugotą ūkį ir leidžia pasirinkti Area. Matavimų peržiūra
+naudoja tos Area jutiklių ir įrangos žemėlapį. Šis redaktorius nesukuria jutiklių,
+pavyzdinių matavimų ar automatiškai parinktų kultūros profilių.
+
+API: autentifikuoti `GET /farm-plan` ir `PATCH /farm-plan`; v2 planų rašymui reikia
+`owner`, `admin` arba `grower` rolės. PATCH priima `plan` ir `expectedRevision`.
+Geometrija ir Area įrašai izoliuoti pagal organizaciją; saugomos iki 50 naujausių
+plano versijų. Naudojamos jau esančios `0044_farm_plans.sql` lentelės, papildomos DB
+migracijos nereikia. Naujam srautui būtinas atitinkamas backend ir frontend.
 
 ## Frontend API konfigūracija
 
