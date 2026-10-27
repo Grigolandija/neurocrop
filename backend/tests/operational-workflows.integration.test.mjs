@@ -84,3 +84,78 @@ test('organization alert and intervention workflows persist across requests', { 
     'successful'
   );
 });
+
+test('confirmed Area heat persists work, rejects invented warnings and verifies new cohort readings through HTTP and PostgreSQL', { skip: !configured }, async () => {
+  const { randomUUID, randomBytes } = await import('node:crypto');
+  const { query, closePool } = await import('../db.js');
+  const suffix = randomUUID(), areaId = `heat-area-${suffix}`, sectionId = `heat-scope-${suffix}`, profileId = `heat-profile-${suffix}`;
+  const devEuis = [randomBytes(8).toString('hex'), randomBytes(8).toString('hex')];
+  const login = await request('', '/auth/login', 'POST', { email, password });
+  assert.equal(login.status, 200);
+  const cookie = (login.headers.getSetCookie?.()[0] || login.headers.get('set-cookie')).split(';', 1)[0];
+  const me = await json(cookie, '/auth/me');
+  const org = me.user.organizationId;
+  const raw = { sensors: { sht4x: { present: true, fresh: true } } };
+  const actionPath = `/actions/today/${encodeURIComponent(`${sectionId}:airTemp:high`)}/feedback`;
+  try {
+    await query('INSERT INTO areas (id,organization_id,name) VALUES ($1,$2,$3)', [areaId, org, 'Heat workflow fixture']);
+    await query(`INSERT INTO crop_profiles (id,organization_id,name,hero_name,metrics) VALUES ($1,$2,'Heat profile','Tomato',$3)`, [profileId, org, JSON.stringify({ airTemp: { optimal: [18, 24] } })]);
+    await query(`INSERT INTO sections (id,organization_id,area_id,name,crop_profile) VALUES ($1,$2,$3,'Heat workflow fixture',$4)`, [sectionId, org, areaId, profileId]);
+    for (const devEui of devEuis) {
+      await query(`INSERT INTO nodes (dev_eui,organization_id,area_id,section_id,name,last_received_at,last_seen) VALUES ($1,$2,$3,$4,'Heat test node',now(),now())`, [devEui, org, areaId, sectionId]);
+      for (const minutes of [19, 10, 1]) await query(`INSERT INTO measurements (time,received_at,dev_eui,temperature,raw_object) VALUES (now()-$1*INTERVAL '1 minute',now(),$2,31,$3)`, [minutes, devEui, JSON.stringify(raw)]);
+    }
+    const directory = await json(cookie, '/actions/temperature');
+    const pending = directory.items.find(item => item.action.areaId === areaId);
+    assert.equal(pending.status, 'open');
+    assert.equal(pending.action.value, 31);
+    assert.equal(directory.canRecord, true);
+    assert.equal((await request('', '/actions/temperature')).status, 401);
+    const invented = { ...pending.action, sectionId, id: `${sectionId}:airTemp:low` };
+    await json(cookie, `/actions/today/${encodeURIComponent(invented.id)}/feedback`, 'POST', { status: 'in_progress', action: invented }, 409);
+    await json(cookie, actionPath, 'POST', { status: 'completed', action: pending.action, executionDetails: { type: 'vents_opened', adjustment: 'Opened side vents' } }, 409);
+    await json(cookie, actionPath, 'POST', { status: 'in_progress', action: pending.action }, 201);
+    const started = (await json(cookie, '/actions/temperature')).items.find(item => item.action.areaId === areaId);
+    assert.equal(started.status, 'in_progress');
+    await json(cookie, actionPath, 'POST', {
+      status: 'completed', action: { ...started.action, value: 99, target: [0, 100], verificationNodeIds: ['invented'] },
+      executionDetails: { type: 'vents_opened', adjustment: 'Opened side vents' }
+    }, 201);
+    let result = (await json(cookie, '/actions/temperature')).items.find(item => item.action.areaId === areaId);
+    assert.equal(result.status, 'completed');
+    assert.equal(result.outcome.state, 'awaiting_data');
+    assert.equal(result.action.value, 31);
+    assert.deepEqual(result.action.target, [18, 24]);
+    assert.deepEqual(result.action.verificationNodeIds.sort(), devEuis.sort());
+    // Advance the recorded work relative to the database clock, without real
+    // sleeps or a fake browser clock. All rows belong only to this fixture.
+    await query(`UPDATE action_feedback SET created_at=created_at-INTERVAL '31 minutes' WHERE organization_id=$1 AND action_id=$2`, [org, pending.action.id]);
+    await query('DELETE FROM measurements WHERE dev_eui=ANY($1::text[])', [devEuis]);
+    for (const devEui of devEuis) {
+      for (const minutes of [15, 9, 3]) await query(`INSERT INTO measurements (time,received_at,dev_eui,temperature,raw_object) VALUES (now()-$1*INTERVAL '1 minute',now(),$2,23,$3)`, [minutes, devEui, JSON.stringify(raw)]);
+    }
+    result = (await json(cookie, '/actions/temperature')).items.find(item => item.action.areaId === areaId);
+    assert.equal(result.current, null);
+    assert.equal(result.outcome.state, 'target_reached');
+    assert.equal(result.outcome.currentValue, 23);
+    assert.equal(result.executionDetails.adjustment, 'Opened side vents');
+    const history = await json(cookie, '/actions/history?limit=100');
+    assert.equal(history.items.find(item => item.id === result.id).outcome.state, 'target_reached');
+    const otherLogin = await request('', '/auth/login', 'POST', { email: process.env.TENANT_B_EMAIL || 'tenant-b@ci.neurocrop.test', password: process.env.TENANT_B_PASSWORD || password });
+    assert.equal(otherLogin.status, 200);
+    const otherCookie = (otherLogin.headers.getSetCookie?.()[0] || otherLogin.headers.get('set-cookie')).split(';', 1)[0];
+    assert.equal((await json(otherCookie, '/actions/temperature')).items.some(item => item.action.areaId === areaId), false);
+    // Missing original-sensor evidence cannot keep reporting a successful result.
+    await query('DELETE FROM measurements WHERE dev_eui=$1', [devEuis[1]]);
+    await query(`UPDATE action_feedback SET created_at=created_at-INTERVAL '30 minutes' WHERE organization_id=$1 AND action_id=$2`, [org, pending.action.id]);
+    result = (await json(cookie, '/actions/temperature')).items.find(item => item.action.areaId === areaId);
+    assert.equal(result.outcome.state, 'insufficient_data');
+  } finally {
+    await query('DELETE FROM measurements WHERE dev_eui=ANY($1::text[])', [devEuis]);
+    await query('DELETE FROM nodes WHERE dev_eui=ANY($1::text[])', [devEuis]);
+    await query('DELETE FROM sections WHERE organization_id=$1 AND id=$2', [org, sectionId]);
+    await query('DELETE FROM areas WHERE organization_id=$1 AND id=$2', [org, areaId]);
+    await query('DELETE FROM crop_profiles WHERE organization_id=$1 AND id=$2', [org, profileId]);
+    await closePool();
+  }
+});

@@ -1819,7 +1819,7 @@ test('action feedback is tenant-scoped, role-protected and keeps an immutable sn
   assert.match(route, /action_payload/);
   assert.match(route, /req\.user\.id/);
   assert.match(route, /pg_advisory_xact_lock/);
-  assert.match(route, /\[organizationId, `\$\{actionId\}\|\$\{observedAt\}`\]/);
+  assert.match(route, /action\.scenario === AREA_TEMPERATURE_SCENARIO \? actionId : `\$\{actionId\}\|\$\{observedAt\}`/);
   assert.match(route, /deduplicated: true/);
   assert.match(route, /allowedExecutionTypes/);
   assert.match(route, /\['in_progress', 'completed', 'deferred', 'failed'\]/);

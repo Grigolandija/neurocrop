@@ -1,3 +1,4 @@
+import { AREA_TEMPERATURE_SCENARIO, evaluateAreaTemperatureOutcome } from '../area-temperature.js';
 import { normalizeTelemetryNumber } from '../telemetry-values.js';
 import { buildAgronomicInteractionCandidates } from './live.js';
 import { METRIC_LABELS, METRIC_UNITS } from '../metrics.js';
@@ -329,6 +330,8 @@ export function evaluateActionOutcome(action, feedback, evidence = {}, now = Dat
       observedAt: null
     };
   }
+
+  if (action.scenario === AREA_TEMPERATURE_SCENARIO) return evaluateAreaTemperatureOutcome(action, feedback, evidence, now);
 
   const feedbackTime = new Date(feedback.createdAt || feedback.created_at || 0).getTime();
   const policy = getActionVerificationPolicy(action.metricId);

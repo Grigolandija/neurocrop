@@ -1,3 +1,4 @@
+import AreaTemperatureWorkflow from './AreaTemperatureWorkflow'
 import { getInterfaceLanguage, translateInterfaceText as tx } from '../../i18n'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
@@ -1098,6 +1099,7 @@ export default function OverviewWorkspace() {
         <button type="button" onClick={() => navigate('/diagnostics')}>{isLt ? 'Diagnostika ir ataskaitos' : 'Diagnostics & reports'}</button>
         <button type="button" onClick={openAreaEvidence}>{tx("Open Area analysis")} <i className="fa-solid fa-arrow-right" /></button>
       </div>
+        {neurocropApi.isConnected() && <AreaTemperatureWorkflow refreshToken={refreshKey} />}
         <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong></div>}>
           <OverviewFarmPlan enabled={neurocropApi.isConnected()} areaId={model.areaId} refreshToken={refreshKey} onAreaSelect={changeArea} metric={mapMetric} onMetricChange={setMapMetric} signalReady={!!activeAreaOption?.mapEnabled} renderMap={navigation => activeAreaOption?.mapEnabled ? <ReadingsClimateMap
             areaId={model.areaId}

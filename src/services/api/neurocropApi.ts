@@ -74,6 +74,7 @@ export const neurocropApi = {
   createDiagnosticCycle: (payload: Payload) => request('/diagnostics/cycles', { method: 'POST', body: json(payload) }),
   createControllerEvent: (payload: Payload) => request('/diagnostics/controller-events', { method: 'POST', body: json(payload) }),
   getDashboard: () => request('/dashboard'),
+  getAreaTemperatureWorkflow: () => request('/actions/temperature', { cache: 'no-store' }),
   getTodayActions: (sectionId?: string) => request(`/actions/today${queryString({ sectionId })}`),
   getActionHistory: (limit = 20) => request(`/actions/history${queryString({ limit })}`),
   getActionOverviewSummary: (areaId?: string) => request(`/actions/overview-summary${queryString({ areaId })}`),

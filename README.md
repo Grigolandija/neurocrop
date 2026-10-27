@@ -1,5 +1,15 @@
 # NeuroCrop integravimo instrukcija
 
+## Area temperatūra → atliktas veiksmas → rezultatas
+
+Overview rodo kompaktišką „Temperatūra: veiksmai ir rezultatai“ bloką, kai bent vienoje Area patvirtinta aukšta temperatūra arba yra užregistruotas patikrinimas. Išskleidus galima pradėti patikrinimą, pasirinkti atliktą veiksmą, aprašyti faktinį pakeitimą ir pradėti rezultato stebėjimą. Veiksmai išsaugomi esamoje `action_feedback` istorijoje; puslapio perkrovimas ir įspėjimo išnykimas jų nepraranda. Darbą užbaigia jį pradėjęs darbuotojas; peržiūros teisę turintys naudotojai tik peržiūri.
+
+Įspėjimui reikia tikros profilio temperatūros ribos, tinkamų dabartinių jutiklių duomenų ir bent trijų pilnų matavimų intervalų, atskirtų bent 5 min., kartu apimančių bent 10 min. be normalaus intervalo ar ilgesnės nei 10 min. spragos. Rodoma aukščiausia jutiklių temperatūra, kad vidurkis nepaslėptų karšto taško. Auginimo grupėms su atskirais profiliais išsaugomos jų ribos ir pavadinimai.
+
+Pradėjus patikrinimą serveris užfiksuoja tikrą pradinę temperatūrą, profilio ribas ir dalyvaujančius jutiklius. Pažymėjus darbą atliktu, po 10 min. pradedami vertinti nauji tų pačių jutiklių matavimai iki 60 min. po įrašo. Skirtingu laiku siunčiantys jutikliai sujungiami į pilnus intervalus, kai kiekvienas pateikia naują tinkamą matavimą; pakartotiniai paketai ir greitesni jutikliai papildomų patvirtinimų nesukuria. Grįžimą į ribas patvirtina trys paskutiniai pilni intervalai, kuriuose visų šių jutiklių temperatūra yra tarp abiejų ribų. Atskiriamos būsenos: laukiama duomenų, temperatūra mažėja, grįžo į ribas, aiškaus pagerėjimo nėra, pablogėjo ir duomenų nepakanka. Pasikartojęs kaitimas panaikina ankstyvą sėkmingą vertinimą, kol tikrinimo langas dar atviras. Tai jutiklių pokytis po darbo, o ne priežastinio ryšio įrodymas.
+
+Reikia atnaujinti **backend ir frontend**. Naujos DB migracijos nereikia. API: `GET /actions/temperature`, esamas `POST /actions/today/:actionId/feedback`. Nauji modulio testai įtraukti į `npm test`; HTTP / PostgreSQL ciklas – į esamą CI operacinių scenarijų integracinį testą; Overview eiga – į `e2e/area-temperature.spec.ts`.
+
 ## Mobiliosios versijos būsena
 
 Mobilioji sistemos sąsaja nebepalaikoma ir nebeplėtojama. Telefono ekrane vietoje prisijungimo, darbo aplinkos ir 3D demonstracijų rodomas LT / EN pranešimas, prašantis atidaryti `neurocrop.lt` kompiuterio naršyklėje. Prisijungimo ir darbo aplinkos komponentai tokiame ekrane nemontuojami.

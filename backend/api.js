@@ -1,3 +1,4 @@
+import { AREA_TEMPERATURE_SCENARIO, buildAreaTemperatureActions, temperatureSeriesEvidence, evaluateAreaTemperatureOutcome, mergeAreaTemperatureWorkflow } from './area-temperature.js';
 import { registerAreaCultivationRoutes,resolveNodeAssignment } from './area-cultivation.js';
 import { registerTelemetrySupportRoutes } from './telemetry-support-routes.js';
 import { loadRecentMeasurementsByNode } from './recent-measurements.js';
@@ -1522,7 +1523,7 @@ async function synchronizeCropRiskEpisodes(organizationId, risks, sectionIds) {
   }
 }
 
-async function evaluateCurrentCropRisks(organizationId, requestedSectionId = '', synchronize = false, timing = { mark() {} }) {
+async function loadCurrentRiskSnapshots(organizationId, requestedSectionId = '', timing = { mark() {} }, temperatureHistory = false) {
     const [sectionsResult, nodesResult, profilesResult, measurementsResult, recentMeasurementsResult, sensorConfigsResult] = await Promise.all([
       query(
         `SELECT s.id, s.area_id, CASE WHEN s.is_area_default THEN a.name ELSE s.name END AS name, s.crop_profile, a.name AS area_name
@@ -1533,7 +1534,7 @@ async function evaluateCurrentCropRisks(organizationId, requestedSectionId = '',
         [organizationId]
       ),
       query(
-        `SELECT dev_eui, section_id, last_seen, last_received_at, last_sensor_presence
+        `SELECT dev_eui, name, section_id, last_seen, last_received_at, last_sensor_presence
          FROM nodes WHERE organization_id=$1 AND archived_at IS NULL ORDER BY created_at ASC`,
         [organizationId]
       ),
@@ -1557,13 +1558,14 @@ async function evaluateCurrentCropRisks(organizationId, requestedSectionId = '',
          JOIN LATERAL (
            SELECT m.* FROM measurements m
            WHERE m.dev_eui=n.dev_eui
-             AND m.time >= now() - interval '20 minutes'
+             AND (m.time >= now() - interval '20 minutes'
+               OR ($2::boolean AND m.time >= now() - interval '30 minutes'))
            ORDER BY m.time DESC
            LIMIT 30
          ) recent ON TRUE
          WHERE n.organization_id=$1 AND n.archived_at IS NULL
          ORDER BY n.created_at ASC, recent.time ASC`,
-        [organizationId]
+        [organizationId, temperatureHistory]
       ),
       query(
         `SELECT node_dev_eui, port, use_for_section_score
@@ -1627,6 +1629,7 @@ async function evaluateCurrentCropRisks(organizationId, requestedSectionId = '',
         nodes: nodeRows,
         measurements,
         uniformityMeasurements,
+        recentMeasurements: nodeRows.flatMap(node => recentMeasurementsByDevEui.get(normalizeDevEui(node.dev_eui)) || []),
         nodeStatuses: current.statuses,
         profileMetrics,
         scoreRules: current.scoreRules,
@@ -1638,6 +1641,12 @@ async function evaluateCurrentCropRisks(organizationId, requestedSectionId = '',
         registeredNodes: nodeRows.length
       };
     });
+
+    return { snapshots, sections };
+}
+
+async function evaluateCurrentCropRisks(organizationId, requestedSectionId = '', synchronize = false, timing = { mark() {} }) {
+    const { snapshots, sections } = await loadCurrentRiskSnapshots(organizationId, requestedSectionId, timing);
 
     // Overview filters by Area client-side, so return enough checks for every
     // Section instead of allowing the first three critical Sections to hide
@@ -1719,6 +1728,65 @@ app.get('/actions/today', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('[api] /actions/today:', e.message);
     res.status(500).json({ error: { code: 'DB_ERROR', message: e.message } });
+  }
+});
+
+// The first end-to-end Area workflow deliberately reuses action_feedback:
+// work and its frozen evidence survive normal readings, reloads and new visits.
+app.get('/actions/temperature', requireAuth, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const organizationId = getOrganizationId(req);
+    const [{ snapshots }, { rows: records }] = await Promise.all([
+      loadCurrentRiskSnapshots(organizationId, '', undefined, true),
+      query(`SELECT * FROM (
+        SELECT DISTINCT ON (af.action_id) af.*, a.id AS area_id,
+               a.name AS area_name, u.display_name AS created_by_name
+        FROM action_feedback af
+        JOIN sections s ON s.id=af.section_id AND s.organization_id=af.organization_id
+        JOIN areas a ON a.id=s.area_id AND a.organization_id=af.organization_id
+        LEFT JOIN users u ON u.id=af.created_by
+        WHERE af.organization_id=$1 AND af.action_payload->>'scenario'=$2
+        ORDER BY af.action_id, af.created_at DESC
+      ) recent WHERE status='in_progress' OR created_at>=now()-INTERVAL '7 days'
+      ORDER BY created_at DESC LIMIT 100`, [organizationId, AREA_TEMPERATURE_SCENARIO])
+    ]);
+    const samples = records.length ? (await query(`SELECT af.id AS feedback_id, sample.*
+      FROM action_feedback af
+      JOIN LATERAL (
+        SELECT m.* FROM measurements m
+        JOIN nodes n ON n.dev_eui=m.dev_eui
+        WHERE n.organization_id=af.organization_id AND n.section_id=af.section_id
+          AND n.archived_at IS NULL
+          AND m.time>=af.created_at+INTERVAL '10 minutes'
+          AND m.time<=af.created_at+INTERVAL '60 minutes'
+        ORDER BY m.time DESC LIMIT 500
+      ) sample ON TRUE
+      WHERE af.organization_id=$1 AND af.id=ANY($2::text[]) AND af.status='completed'
+      ORDER BY af.id, sample.time ASC`, [organizationId, records.map(row => row.id)])).rows : [];
+    const byRecord = new Map();
+    for (const sample of samples) {
+      if (!byRecord.has(sample.feedback_id)) byRecord.set(sample.feedback_id, []);
+      byRecord.get(sample.feedback_id).push(sample);
+    }
+    const history = records.map(row => {
+      const feedback = publicActionFeedback(row);
+      const action = { ...row.action_payload, areaId: row.area_id, areaName: row.area_name };
+      return {
+        ...feedback, action, createdByName: row.created_by_name || null,
+        outcome: row.status === 'completed'
+          ? evaluateAreaTemperatureOutcome(action, feedback, temperatureSeriesEvidence(byRecord.get(row.id) || [], action)) : null
+      };
+    });
+    res.json({
+      generatedAt: new Date().toISOString(),
+      canRecord: ['owner', 'admin', 'grower', 'technician'].includes(req.user.role),
+      currentUserId: req.user.id,
+      items: mergeAreaTemperatureWorkflow(buildAreaTemperatureActions(snapshots), history)
+    });
+  } catch (error) {
+    console.error('[api] GET /actions/temperature:', error.message);
+    res.status(500).json({ error: { code: 'DB_ERROR', message: 'Temperature workflow could not be loaded' } });
   }
 });
 
@@ -1834,7 +1902,7 @@ app.post(
       const actionId = String(req.params.actionId || '').trim();
       const status = String(req.body?.status || '').trim();
       const note = String(req.body?.note || '').trim();
-      const action = req.body?.action;
+      let action = req.body?.action;
       const requestedExecutionDetails = req.body?.executionDetails;
 
       if (!['in_progress', 'completed', 'deferred', 'failed'].includes(status)) {
@@ -1887,13 +1955,32 @@ app.post(
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Action identity does not match its section' } });
       }
 
+      if (action.scenario === AREA_TEMPERATURE_SCENARIO && status === 'in_progress') {
+        const { snapshots } = await loadCurrentRiskSnapshots(organizationId, action.sectionId, undefined, true);
+        const canonical = buildAreaTemperatureActions(snapshots).find(item => item.id === actionId);
+        if (!canonical) return res.status(409).json({ error: { code: 'TEMPERATURE_CHANGED', message: 'There is no confirmed high temperature condition now. Refresh before starting.' } });
+        // Keep the client's observation identity only if it is still the exact
+        // server reading, so completion can locate the persisted start record.
+        if (canonical.observedAt !== action.observedAt) return res.status(409).json({ error: { code: 'TEMPERATURE_CHANGED', message: 'New temperature readings are available. Refresh before starting.' } });
+        action = canonical;
+      }
       const observedAt = String(action.observedAt || 'unknown');
       client = await pool.connect();
       await client.query('BEGIN');
       await client.query(
         'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
-        [organizationId, `${actionId}|${observedAt}`]
+        [organizationId, action.scenario === AREA_TEMPERATURE_SCENARIO ? actionId : `${actionId}|${observedAt}`]
       );
+      if (action.scenario === AREA_TEMPERATURE_SCENARIO && status === 'in_progress') {
+        const { rows: activeRows } = await client.query(
+          `SELECT status, action_payload FROM action_feedback
+           WHERE organization_id=$1 AND action_id=$2 AND action_payload->>'scenario'=$3
+           ORDER BY created_at DESC LIMIT 1`, [organizationId, actionId, AREA_TEMPERATURE_SCENARIO]);
+        if (activeRows[0]?.status === 'in_progress' && activeRows[0].action_payload?.observedAt !== observedAt) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ error: { code: 'ACTION_ALREADY_STARTED', message: 'This Area temperature check is already in progress. Refresh to continue.' } });
+        }
+      }
       const { rows: existingRows } = await client.query(
         `SELECT id, action_id, status, note, execution_details, created_by, created_at
          FROM action_feedback
@@ -1908,7 +1995,7 @@ app.post(
         return res.json({ feedback: publicActionFeedback(existingRows[0]), deduplicated: true });
       }
       const { rows: latestRows } = await client.query(
-        `SELECT status, created_by, created_at
+        `SELECT status, created_by, created_at, action_payload
          FROM action_feedback
          WHERE organization_id=$1 AND action_id=$2
            AND COALESCE(action_payload->>'observedAt', 'unknown')=$3
@@ -1917,6 +2004,12 @@ app.post(
         [organizationId, actionId, observedAt]
       );
       const latestFeedback = latestRows[0] || null;
+      if (action.scenario === AREA_TEMPERATURE_SCENARIO && status !== 'in_progress'
+          && latestFeedback?.action_payload?.scenario !== AREA_TEMPERATURE_SCENARIO) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: { code: 'INVALID_ACTION_TRANSITION', message: 'Start this confirmed Area temperature check before recording work' } });
+      }
+      if (latestFeedback?.action_payload?.scenario === AREA_TEMPERATURE_SCENARIO) action = latestFeedback.action_payload;
       if (status === 'in_progress') {
         const { rows: assignmentRows } = await client.query(
           `SELECT assigned_to FROM action_assignments
@@ -2025,9 +2118,11 @@ app.get('/actions/history', requireAuth, async (req, res) => {
            JOIN nodes n ON n.dev_eui=m.dev_eui
            WHERE n.organization_id=af.organization_id
              AND n.section_id=af.section_id
+             AND (af.action_payload->>'scenario' IS DISTINCT FROM 'area-temperature-v1' OR n.archived_at IS NULL)
              AND m.time>af.created_at
              AND m.time<=af.created_at + INTERVAL '4 hours'
-           ORDER BY m.time ASC
+           ORDER BY CASE WHEN af.action_payload->>'scenario'='area-temperature-v1' THEN m.time END DESC,
+                    m.time ASC
            LIMIT 500
          ) sample ON TRUE
          WHERE af.organization_id=$1 AND af.id=ANY($2::text[])
@@ -2044,7 +2139,9 @@ app.get('/actions/history', requireAuth, async (req, res) => {
       items: feedbackRows.map((row) => {
         const feedback = publicActionFeedback(row);
         const action = row.action_payload || {};
-        const evidence = action.verificationMode === 'uniformity'
+        const evidence = action.scenario === AREA_TEMPERATURE_SCENARIO
+          ? temperatureSeriesEvidence(measurementsByFeedback.get(row.id) || [], action)
+          : action.verificationMode === 'uniformity'
           ? uniformitySeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id)
           : metricSeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id);
         return {
@@ -2141,9 +2238,11 @@ app.get('/actions/overview-summary', requireAuth, async (req, res) => {
            JOIN nodes n ON n.dev_eui=m.dev_eui
            WHERE n.organization_id=af.organization_id
              AND n.section_id=af.section_id
+             AND (af.action_payload->>'scenario' IS DISTINCT FROM 'area-temperature-v1' OR n.archived_at IS NULL)
              AND m.time>af.created_at
              AND m.time<=af.created_at + INTERVAL '4 hours'
-           ORDER BY m.time ASC
+           ORDER BY CASE WHEN af.action_payload->>'scenario'='area-temperature-v1' THEN m.time END DESC,
+                    m.time ASC
            LIMIT 500
          ) sample ON TRUE
          WHERE af.organization_id=$1 AND af.id=ANY($2::text[])
@@ -2159,7 +2258,9 @@ app.get('/actions/overview-summary', requireAuth, async (req, res) => {
     const items = feedbackRows.map((row) => {
       const feedback = publicActionFeedback(row);
       const action = row.action_payload || {};
-      const evidence = action.verificationMode === 'uniformity'
+      const evidence = action.scenario === AREA_TEMPERATURE_SCENARIO
+          ? temperatureSeriesEvidence(measurementsByFeedback.get(row.id) || [], action)
+          : action.verificationMode === 'uniformity'
         ? uniformitySeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id)
         : metricSeriesSnapshot(measurementsByFeedback.get(row.id) || [], row.metric_id);
       return {
