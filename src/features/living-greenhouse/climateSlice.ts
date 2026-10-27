@@ -22,7 +22,7 @@ export function initialSliceNormal(readings: SensorReading[], dimensions: Greenh
   return dimensions.widthM >= dimensions.lengthM ? [0, 0, 1] : [1, 0, 0]
 }
 
-export function climateSlice(map: GreenhouseMap, readings: SensorReading[], field: VolumeField, scale: { min: number; max: number }, selection?: SliceSelection | null) {
+export function climateSlice(map: GreenhouseMap, readings: SensorReading[], field: VolumeField, scale: { min: number; max: number }, selection?: (Partial<SliceSelection> & { mode: SliceMode }) | null) {
   const mode = selection?.mode || 'vertical'
   const normal: Vec3 = mode === 'horizontal' ? [0, 1, 0] : selection?.normal || initialSliceNormal(readings, map.dimensions)
   const polygon = outlinePoints(map).map(p => planToScene(p.xM, p.yM, 0, map.dimensions))
@@ -58,7 +58,7 @@ export function climateSlice(map: GreenhouseMap, readings: SensorReading[], fiel
       }
     }
   }
-  return { mode, normal, min, max, position, plane, contours: levels, captions: levels.filter(level => level.anchors.length).slice(0, 3) }
+  return { mode, normal, min, max, position, plane, boundary: sliceBoundary(polygon, plane, mode, field), contours: levels, captions: levels.filter(level => level.anchors.length).slice(0, 3) }
 }
 
 /** Trilinear masked atlas sampling, including reduced support outside measured heights. */
@@ -76,4 +76,45 @@ export function sampleSliceField(field: VolumeField, point: Vec3) {
     alpha += field.pixels[i + 3] / 255 * weight; value += field.pixels[i] / 255 * weight; support += field.pixels[i + 1] / 255 * weight
   }
   return alpha > .9 ? { value: value / alpha, support: support / alpha } : null
+}
+
+/** The actual intersection with the room envelope, including concave plans and pitched roofs. */
+export function sliceBoundary(polygon: Vec3[], plane: SlicePlane, mode: SliceMode, field: VolumeField): Array<[Vec3, Vec3]> {
+  const edges: Array<[Vec3, Vec3]> = []
+  const roof = (p: Vec3) => field.bounds[2] * (1 - (field.roofSlope || 0) * Math.abs(p[2]) / (field.bounds[1] / 2))
+  const sectionIntervals = (normal: Vec3, offset: number) => {
+    const tangent: Vec3 = [-normal[2], 0, normal[0]], hits: number[] = []
+    polygon.forEach((a, i) => {
+      const b = polygon[(i + 1) % polygon.length], da = dot(normal, a) - offset, db = dot(normal, b) - offset
+      if (Math.abs(da) < 1e-7) hits.push(dot(tangent, a))
+      if (da * db < -1e-12) hits.push(dot(tangent, a.map((n, j) => n + (b[j] - n) * da / (da - db)) as Vec3))
+    })
+    const sorted = hits.sort((a, b) => a - b).filter((v, i, values) => !i || v - values[i - 1] > 1e-6)
+    const point = (v: number): Vec3 => [normal[0] * offset + tangent[0] * v, 0, normal[2] * offset + tangent[2] * v]
+    return sorted.flatMap((v, i) => i % 2 || i + 1 === sorted.length ? [] : [[point(v), point(sorted[i + 1])] as [Vec3, Vec3]])
+  }
+  if (mode === 'vertical') {
+    for (const [a, b] of sectionIntervals(plane.slice(0, 3) as Vec3, plane[3])) {
+      const topA: Vec3 = [a[0], roof(a), a[2]], topB: Vec3 = [b[0], roof(b), b[2]]
+      edges.push([a, b], [a, topA], [b, topB])
+      if (a[2] * b[2] < 0 && field.roofSlope) {
+        const t = -a[2] / (b[2] - a[2]), ridge: Vec3 = [a[0] + (b[0] - a[0]) * t, field.bounds[2], 0]
+        edges.push([topA, ridge], [ridge, topB])
+      } else edges.push([topA, topB])
+    }
+  } else {
+    const height = plane[3], slope = field.roofSlope || 0
+    const limit = slope ? Math.max(0, (1 - height / field.bounds[2]) * field.bounds[1] / (2 * slope)) : Infinity
+    polygon.forEach((p, i) => {
+      const q = polygon[(i + 1) % polygon.length], dz = q[2] - p[2]
+      let low = 0, high = 1
+      if (Math.abs(dz) < 1e-9) { if (Math.abs(p[2]) > limit) return }
+      else { const cuts = [(-limit - p[2]) / dz, (limit - p[2]) / dz].sort((a, b) => a - b); low = Math.max(low, cuts[0]); high = Math.min(high, cuts[1]) }
+      if (high > low) edges.push([[p[0] + (q[0] - p[0]) * low, height, p[2] + dz * low], [p[0] + (q[0] - p[0]) * high, height, p[2] + dz * high]])
+    })
+    if (slope && limit < field.bounds[1] / 2) for (const z of [-limit, limit]) {
+      for (const [a, b] of sectionIntervals([0, 0, 1], z)) edges.push([[a[0], height, z], [b[0], height, z]])
+    }
+  }
+  return edges
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { livingDemo, livingMap, measuredSensors } from './livingData'
 import { sceneGeometry, type VolumeField } from './sceneGeometry'
-import { climateSlice, initialSliceNormal, sampleSliceField } from './climateSlice'
+import { climateSlice, initialSliceNormal, sampleSliceField, sliceBoundary } from './climateSlice'
 import { planToScene } from './sceneMath'
 
 function fixture() {
@@ -40,6 +40,35 @@ describe('one spatial heatmap section', () => {
     expect(scene.volume.pixels).toEqual(before); expect(scene.vertices).toEqual(vertices)
     const clipped = climateSlice(map, readings, scene.volume, scene.scale, { scope: 'a', mode: 'horizontal', position: 999, normal: [0, 0, 1] })
     expect(clipped.position).toBeLessThan(scene.height)
+  })
+  it('resets a horizontal section at measured height without switching to vertical', () => {
+    const { map, readings, scene } = fixture()
+    const automatic = climateSlice(map, readings, scene.volume, scene.scale, { mode: 'horizontal' })
+    const heights = readings.filter(r => r.value !== null && r.heightM !== null && r.heightM <= scene.height).map(r => r.heightM!)
+    expect(automatic.mode).toBe('horizontal')
+    expect(automatic.normal).toEqual([0, 1, 0])
+    expect(automatic.position).toBeCloseTo(heights.reduce((a, b) => a + b, 0) / heights.length)
+  })
+  it('keeps horizontal boundaries on an L-shaped room rather than its bounding rectangle', () => {
+    const field = { bounds: [6, 6, 4], roofSlope: 0 } as VolumeField
+    const outline: [number, number, number][] = [[-3,0,-3],[3,0,-3],[3,0,-1],[-1,0,-1],[-1,0,3],[-3,0,3]]
+    const edges = sliceBoundary(outline, [0,1,0,2], 'horizontal', field)
+    expect(edges).toHaveLength(6)
+    expect(edges.flat().every(p => p[1] === 2)).toBe(true)
+    expect(edges).toContainEqual([[3,2,-1],[-1,2,-1]])
+    const vertical = sliceBoundary(outline, [0,0,1,1], 'vertical', field)
+    expect(vertical).toContainEqual([[-1,0,1],[-3,0,1]])
+    expect(vertical.flat().every(p => p[0] <= -1 && p[2] === 1)).toBe(true)
+  })
+  it('clips both section boundaries to the real pitched roof', () => {
+    const field = { bounds: [6, 6, 4], roofSlope: .5 } as VolumeField
+    const outline: [number, number, number][] = [[-3,0,-3],[3,0,-3],[3,0,3],[-3,0,3]]
+    const horizontal = sliceBoundary(outline, [0,1,0,3], 'horizontal', field)
+    expect(horizontal).toHaveLength(4)
+    expect(horizontal.flat().every(p => p[1] === 3 && Math.abs(p[2]) <= 1.5)).toBe(true)
+    const vertical = sliceBoundary(outline, [1,0,0,0], 'vertical', field)
+    expect(vertical).toContainEqual([[0,2,-3],[0,4,0]])
+    expect(vertical).toContainEqual([[0,4,0],[0,2,3]])
   })
   it('ignores stale extremes and handles stacked sensors without an invalid normal', () => {
     const { map, readings } = fixture()
