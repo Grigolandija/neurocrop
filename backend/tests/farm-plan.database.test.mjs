@@ -60,7 +60,9 @@ test('direct Area authoring with PostgreSQL: identity, isolation, deletion and r
     await client.query(`INSERT INTO sections (id,organization_id,area_id,name,crop_profile) VALUES ($1,$2,$3,'Test Section','smoke-profile')`,[`section-${token}`,org,first]);
     result=await invoke('GET');assert.equal(result.body.areas.find(a=>a.id===first).sectionCount,1);
     result=await invoke('PATCH',{plan:{...smaller,areas:[]},expectedRevision:3});assert.equal(result.statusCode,409);assert.equal(result.body.error.code,'AREA_HAS_CHILDREN');
-    assert.equal((await client.query('SELECT count(*)::int AS n FROM sections WHERE organization_id=$1',[org])).rows[0].n,1);
+    // Implicit Area scopes are created automatically; only the explicit crop
+    // group is the child whose preservation this conflict must protect.
+    assert.equal((await client.query('SELECT count(*)::int AS n FROM sections WHERE organization_id=$1 AND NOT is_area_default',[org])).rows[0].n,1);
     await client.query('DELETE FROM sections WHERE organization_id=$1',[org]);
     await client.query('DELETE FROM areas WHERE id=$1',[first]);
     result=await invoke('GET');assert.equal(result.body.plan.areas.length,0);
