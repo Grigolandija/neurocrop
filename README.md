@@ -1,5 +1,11 @@
 # NeuroCrop integravimo instrukcija
 
+## Mobiliosios versijos būsena
+
+Mobilioji sistemos sąsaja nebepalaikoma ir nebeplėtojama. Telefono ekrane vietoje prisijungimo, darbo aplinkos ir 3D demonstracijų rodomas LT / EN pranešimas, prašantis atidaryti `neurocrop.lt` kompiuterio naršyklėje. Prisijungimo ir darbo aplinkos komponentai tokiame ekrane nemontuojami.
+
+Riba: mažiau nei 768 CSS px pločio; gulsčiame telefone taip pat taikoma iki 1023 px pločio ir 500 px aukščio, kai pagrindinis žymeklis yra liečiamas. Vieša ES projekto informacija prieinama visuose įrenginiuose. Mobilieji E2E tikrina tik šį pranešimą; darbo aplinkų funkcijos tikrinamos kompiuterio ekrane.
+
 ## Area ir pasirenkamos auginimo grupės
 
 Pagrindinė struktūra: **Farm plan → Area → Nodes ir įranga**. Area turi savo auginimo profilį. Papildomos auginimo grupės kuriamos tik prireikus ir gali paveldėti Area profilį arba naudoti atskirą.

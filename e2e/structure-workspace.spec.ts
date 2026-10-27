@@ -65,19 +65,19 @@ test('Areas retain responsive controls and old Sections links open optional cult
   await cultivation.locator('.nfa-growing-groups > summary').click()
   await expect(cultivation.getByLabel('Group',{exact:true})).toHaveValue('Tomato zone')
   await expect(cultivation.getByRole('combobox',{name:'Crop profile',exact:true}).first()).toHaveValue('tomato')
-  await page.setViewportSize({width:390,height:844})
+  await page.setViewportSize({width:1024,height:900})
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   await expect(cultivation.getByRole('combobox',{name:'Area crop profile',exact:true})).toBeVisible()
   await page.setViewportSize({width:1440,height:1000})
   await page.locator('[data-sidebar-action="sites"]:visible').click()
   await expect(page.locator('.nc-area-row')).toHaveCount(3)
-  for (const width of [768, 390, 320]) {
+  for (const width of [1440, 1024, 768]) {
     await page.setViewportSize({ width, height: 844 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await expect(page.locator('.nc-area-name').first()).toBeVisible()
   }
-  await page.setViewportSize({ width: 390, height: 844 })
+  await page.setViewportSize({ width: 1024, height: 900 })
   await page.evaluate(() => window.scrollTo(0, 0))
-  await page.screenshot({ path: '/tmp/neurocrop-areas-redesign-mobile.png', animations: 'disabled' })
+  await page.screenshot({ path: '/tmp/neurocrop-areas-redesign-compact.png', animations: 'disabled' })
   expect(errors).toEqual([])
 })

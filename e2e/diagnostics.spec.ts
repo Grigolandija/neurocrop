@@ -16,7 +16,7 @@ const growthFixtures=[
  ['wet-root','soilMoisture',80,'%'],['substrate-salinity','soilEc',4,'mS/cm'],['ph-high','ph',7.5,''],
 ].map(([kind,metric,value,unit])=>({kind,primaryMetric:metric,nodeId:'node-1',nodeName:'NeuroSense 1',sectionId:'north',sectionName:'Šiaurės zona',profileId:'crop',stage:'vegetative',crops:['Tomato'],estimated:false,minutes:120,longestMinutes:60,firstAt:report.from,lastAt:report.to,support:[{metric,minimum:value,maximum:value,target:null,unit}]}))
 const expandedReport=withAgronomicInsights({...report,agronomy:[...report.agronomy,...growthFixtures]},'historical-analysis')
-test('diagnostic navigation, evidence, saved report and mobile layout with explicit fixtures',async({page})=>{
+test('diagnostic navigation, evidence, saved report and compact desktop layout with explicit fixtures',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message))
  let savedSnapshot=withAgronomicInsights({...report,agronomy:expandedReport.agronomy,days:14,from:'2026-08-25T00:00:00Z'}),analysisCalls=0
  await page.route('**/runtime-config.js*',r=>r.fulfill({contentType:'application/javascript',body:`window.NEUROCROP_CONFIG={apiBaseUrl:'${api}'};`}))
@@ -52,10 +52,6 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
  }
  expect((await page.locator('.diag-start').boundingBox())!.height).toBeLessThan(240)
  await page.screenshot({path:'/tmp/neurocrop-diagnostics-start.png',fullPage:true,animations:'disabled'})
- await page.setViewportSize({width:390,height:844})
- await expect(page.getByRole('button',{name:'Generate report',exact:true})).toBeInViewport()
- expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
- await page.screenshot({path:'/tmp/neurocrop-diagnostics-start-mobile.png',animations:'disabled'})
  await page.setViewportSize({width:820,height:900})
  await expect(page.getByRole('button',{name:'Generate report',exact:true})).toBeInViewport()
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
@@ -132,10 +128,10 @@ test('diagnostic navigation, evidence, saved report and mobile layout with expli
  await page.screenshot({path:'/tmp/neurocrop-diagnostics-depth.png',fullPage:true,animations:'disabled'})
  await page.locator('.diag-finding > button').first().click()
  await page.locator('.diag-measurement-review > summary').click()
- await page.setViewportSize({width:390,height:844})
+ await page.setViewportSize({width:1024,height:900})
  await page.evaluate(()=>window.scrollTo(0,0))
- await page.screenshot({path:'/tmp/neurocrop-diagnostics-mobile.png',fullPage:true,animations:'disabled'})
- await page.screenshot({path:'/tmp/neurocrop-diagnostics-redesign-mobile-top.png',animations:'disabled'})
+ await page.screenshot({path:'/tmp/neurocrop-diagnostics-compact.png',fullPage:true,animations:'disabled'})
+ await page.screenshot({path:'/tmp/neurocrop-diagnostics-redesign-compact-top.png',animations:'disabled'})
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
  await page.locator('.diag-measurement-review > summary').click()
  await page.locator('.diag-finding > button').first().click()

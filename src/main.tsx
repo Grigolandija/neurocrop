@@ -3,6 +3,7 @@ import { ClerkProvider } from '@clerk/react'
 import './index.css'
 import App from './App.tsx'
 import ClerkSessionBridge from './components/ClerkSessionBridge.tsx'
+import DesktopOnlyGate from './components/DesktopOnlyGate.tsx'
 
 declare const __BUILD_VERSION__: string
 
@@ -38,11 +39,13 @@ if ('caches' in window) {
 }
 
 createRoot(document.getElementById('root')!).render(
-  publishableKey && !publicSpatialDemo
-    ? (
-      <ClerkProvider publishableKey={publishableKey}>
-        <ClerkSessionBridge>{application}</ClerkSessionBridge>
-      </ClerkProvider>
-    )
-    : application,
+  <DesktopOnlyGate>
+    {publishableKey && !publicSpatialDemo
+      ? (
+        <ClerkProvider publishableKey={publishableKey}>
+          <ClerkSessionBridge>{application}</ClerkSessionBridge>
+        </ClerkProvider>
+      )
+      : application}
+  </DesktopOnlyGate>,
 )

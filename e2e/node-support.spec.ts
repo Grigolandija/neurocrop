@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-test('node support explains sensor faults and loads trace only on demand, including retry and mobile', async ({ page }) => {
+test('node support explains sensor faults and loads trace only on demand, including retry and translations', async ({ page }) => {
   const devEui = '0011223344556677', api = 'http://node-support.test'
   let traceRequests = 0, failTrace = true
   const errors: string[] = []
@@ -43,10 +43,8 @@ test('node support explains sensor faults and loads trace only on demand, includ
   await page.getByRole('button', { name: 'LT', exact: true }).click()
   await expect(page.locator('.nc-node-support')).toContainText('Patikrinkite jutiklio jungtį')
   await expect(page.locator('.nc-node-uplink')).toContainText('Tinkamas naujas matavimas')
-  await page.setViewportSize({ width: 390, height: 844 })
   await page.locator('.nc-node-support').scrollIntoViewIfNeeded()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.screenshot({ path: '/tmp/neurocrop-node-support-mobile.png', animations: 'disabled' })
   expect(traceRequests).toBe(2)
   expect(errors).toEqual([])
 })

@@ -33,7 +33,6 @@ test('grower can set a connected sensor height and explicitly mark it unknown wi
   await expect(page.locator('.nc-sensor-height-trigger')).toHaveText('Set height')
   expect(writes).toEqual([{heightCm:150},{heightCm:null}])
   expect(sensor.targetType).toBe('incubator');expect(sensor.useForSectionScore).toBe(false)
-  await page.setViewportSize({width:390,height:844})
   await page.locator('.nc-sensor-height-trigger').click()
   await expect(dialog).toBeVisible()
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)

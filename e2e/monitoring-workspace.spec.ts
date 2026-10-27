@@ -50,7 +50,7 @@ async function setup(page: Page, start = '/nodes') {
   await page.locator('[data-product-choice="greenhouse"]').click()
 }
 
-test('Nodes prioritizes attention and exposes filters, instructions and a readable mobile list', async ({ page }) => {
+test('Nodes prioritizes attention and exposes filters, instructions and sensor details', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
   await page.setViewportSize({ width: 1440, height: 1000 })
@@ -58,14 +58,6 @@ test('Nodes prioritizes attention and exposes filters, instructions and a readab
   await expect(page.locator('.nc-node-table tbody tr')).toHaveCount(3)
   await expect(page.locator('.nc-node-table tbody tr').first()).toContainText('NSN-000002')
   await page.screenshot({ path: '/tmp/neurocrop-nodes-refresh.png', animations: 'disabled' })
-  await page.setViewportSize({ width: 390, height: 844 })
-  const first = page.locator('.nc-node-table tbody tr').first()
-  await first.scrollIntoViewIfNeeded()
-  await expect(first.locator('td[data-label="Battery"]')).toBeVisible()
-  await expect(first.locator('td[data-label="Latest data"]')).toBeVisible()
-  expect(await page.locator('.nc-data-table-wrap').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-  await page.screenshot({ path: '/tmp/neurocrop-nodes-refresh-mobile.png', animations: 'disabled' })
-  await page.setViewportSize({ width: 1440, height: 1000 })
   await page.locator('.nc-structure-summary').getByRole('button', { name: /Needs attention/ }).click()
   await expect(page.locator('.nc-node-table tbody tr')).toHaveCount(1)
   await expect(page.locator('.nc-node-table tbody')).toContainText('Delayed')
@@ -75,9 +67,7 @@ test('Nodes prioritizes attention and exposes filters, instructions and a readab
   expect(await page.locator('.nc-node-support').evaluate(el => el.nextElementSibling?.classList.contains('node-detail-overview'))).toBe(true)
   await expect(page.locator('.nc-node-support > details')).not.toHaveAttribute('open')
   await page.screenshot({ path: '/tmp/neurocrop-node-detail-refresh.png', animations: 'disabled' })
-  await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  await page.screenshot({ path: '/tmp/neurocrop-node-detail-refresh-mobile.png', animations: 'disabled' })
   expect(errors).toEqual([])
 })
 
@@ -91,9 +81,7 @@ test('Readings preserves current, delayed and missing measurements in its origin
   await expect(page.locator('.nc-reading-cell[data-quality="no-data"]').first()).toContainText('No data')
   await expect(page.locator('.nc-reading-cell[data-quality="stale"]').first()).toContainText('32')
   await page.screenshot({ path: '/tmp/neurocrop-readings-restored.png', animations: 'disabled' })
-  await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.locator('.nc-section-summary-row').first().scrollIntoViewIfNeeded()
-  await page.screenshot({ path: '/tmp/neurocrop-readings-restored-mobile.png', animations: 'disabled' })
   expect(errors).toEqual([])
 })

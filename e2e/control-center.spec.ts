@@ -342,13 +342,13 @@ test('desktop pages do not overflow horizontally', async ({ page }) => {
   }
 })
 
-test('mobile shell is touchable and exposes the complete navigation', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+test('narrow screens show the retirement notice and returning to desktop preserves the session', async ({ page }) => {
   await authenticate(page)
-  await expect(page.locator('.mobile-dock')).toBeVisible()
-  await page.locator('.mobile-dock-command').click()
-  await expect(page.locator('#dashboardSidebar')).toHaveClass(/rail-open/)
-  await page.locator('#dashboardSidebar').getByRole('button', { name: /trends/i }).click()
-  await expect(page).toHaveURL(/\/history$/)
-  await expect(page.locator('.nc-trends-page')).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.locator('.nc-desktop-notice')).toBeVisible()
+  await expect(page.locator('#dashboardShell')).toHaveCount(0)
+  await expect(page.locator('.mobile-dock')).toHaveCount(0)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await expect(page.locator('#dashboardShell')).toBeVisible()
+  await expect(page.locator('.nc-desktop-notice')).toHaveCount(0)
 })
