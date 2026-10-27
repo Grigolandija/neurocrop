@@ -192,7 +192,7 @@ body[data-primary-page="overview"] .dashboard-main-inner {
 }
 
 .nc-overview-area-picker > span {
-  color: #708078;
+  color: #5c6f64;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .11em;
@@ -260,7 +260,7 @@ body[data-primary-page="overview"] .dashboard-main-inner {
 }
 
 .nc-overview-kicker span {
-  color: var(--ov-green);
+  color: #347044;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: .1em;
@@ -268,7 +268,7 @@ body[data-primary-page="overview"] .dashboard-main-inner {
 }
 
 .nc-overview-kicker strong {
-  color: #708078;
+  color: #5c6f64;
   font-weight: 600;
 }
 
@@ -455,7 +455,7 @@ body[data-primary-page="overview"] .dashboard-main-inner {
 
 .nc-overview-normal {
   background: rgba(78, 160, 91, .11);
-  color: #4a9b59;
+  color: #347044;
 }
 
 .nc-overview-normal i {
