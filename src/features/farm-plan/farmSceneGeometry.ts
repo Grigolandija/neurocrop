@@ -101,7 +101,7 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
 
 /** Hover previews an Area; leaving it restores the persistent selection without moving the camera. */
 export function farmSceneEmphasis(hoveredAreaId:string|null,monitoring:boolean,selectedAreaId?:string|null){
-  return {areaId:hoveredAreaId || (monitoring ? selectedAreaId || null : null),opacity:hoveredAreaId && monitoring ? .65 : monitoring && selectedAreaId ? .30 : .40}
+  return {areaId:hoveredAreaId || (monitoring ? selectedAreaId || null : null),opacity:hoveredAreaId && monitoring ? .40 : monitoring && selectedAreaId ? .30 : .40}
 }
 
 /** Shared walls and openings remain solid when either adjoining Area is highlighted. */

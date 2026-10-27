@@ -29,7 +29,7 @@ describe('whole-farm hover presentation',()=>{
     expect(idle.vertices).toBe(mesh.vertices)
     expect(idle.surfaces).toHaveLength(0)
     const hovering=farmSceneEmphasis('b',true,'a'),preview=highlightFarmArea(mesh,hovering.areaId)
-    expect(hovering.opacity).toBe(.65)
+    expect(hovering.opacity).toBe(.4)
     const tank=objectGeometry({...maps.b.objects[0],xM:maps.b.objects[0].xM+4},plan.dimensions,3)
     expect(contains(preview.vertices,tank)).toBe(true)
     expect(contains(preview.surfaces,objectGeometry(maps.a.objects[0],plan.dimensions,3))).toBe(true)
