@@ -3,7 +3,7 @@ import { METRICS, type MetricKey } from '../greenhouse-map/model'
 import { areaMapRepository, type AreaMapHistory } from '../greenhouse-map/services/areaMapRepository'
 import { farmAreaTrend, type FarmAreaComparison } from './farmMonitoringData'
 
-type Props = { name: string; summary: FarmAreaComparison; metric: MetricKey; refreshToken: number; lt: boolean; targetsUnavailable: boolean; onClose: () => void; onRetry: () => void; onMap?: () => void }
+type Props = { name: string; summary: FarmAreaComparison; metric: MetricKey; refreshToken: number; lt: boolean; targetsUnavailable: boolean; onClose: () => void; onRetry: () => void; onMap: () => void }
 export default function FarmAreaSummary({ name, summary, metric, refreshToken, lt, targetsUnavailable, onClose, onRetry, onMap }: Props) {
   const [history, setHistory] = useState<AreaMapHistory | null>(null), [historyError, setHistoryError] = useState(false)
   useEffect(() => {
@@ -27,10 +27,11 @@ export default function FarmAreaSummary({ name, summary, metric, refreshToken, l
   }).join(' ')
   const status = summary.state === 'error' ? (lt ? 'Duomenų atnaujinti nepavyko' : 'Update failed') : summary.state === 'loading' ? (lt ? 'Kraunami matavimai…' : 'Loading readings…') : !summary.range && summary.lastRange ? (lt ? 'Paskutiniai matavimai · vėluoja' : 'Last readings · delayed') : !summary.range ? (lt ? 'Šio parametro matavimų nėra' : 'No readings for this metric') : (lt ? 'Dabartinis matavimų intervalas' : 'Current measured range')
   return <aside className="nc-farm-area-summary" aria-label={`${lt ? 'Area peržiūra' : 'Area overview'}: ${name}`}>
-    <header><strong>{name}</strong><button type="button" onClick={onClose} aria-label={lt ? 'Grįžti į visą ūkį' : 'Back to whole farm'}><i className="fa-solid fa-xmark" /></button></header>
+    <header><strong>{name}</strong><button type="button" onClick={onClose} aria-label={lt ? 'Uždaryti Area peržiūrą' : 'Close Area overview'}><i className="fa-solid fa-xmark" /></button></header>
     <span className="nc-farm-summary-metric">{lt ? definition.labelLt : definition.label}</span>
     <strong className="nc-farm-summary-range" data-delayed={!summary.range}>{rangeText}</strong>
     <p className="nc-farm-summary-status" role="status">{status}{summary.latest && summary.range && ` · ${new Date(summary.latest).toLocaleTimeString(lt ? 'lt-LT' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}`}</p>
+    {onMap && <button type="button" className="nc-farm-open-map" onClick={onMap}>{lt ? 'Atidaryti 2D žemėlapį' : 'Open 2D map'}<i className="fa-solid fa-arrow-right" /></button>}
     <dl><div><dt>{lt ? 'Nauji matavimai' : 'Current readings'}</dt><dd>{summary.current}/{summary.total}</dd></div><div><dt>{lt ? 'Už nustatytų ribų' : 'Outside targets'}</dt><dd>{summary.assessed ? `${summary.outside.length}/${summary.assessed}` : '—'}</dd></div></dl>
     {targetsUnavailable || (summary.current > 0 && summary.assessed < summary.current) ? <p className="nc-farm-summary-note">{targetsUnavailable ? (lt ? 'Auginimo ribų įkelti nepavyko.' : 'Crop targets could not be loaded.') : (lt ? 'Ne visi matavimai turi nustatytas ribas.' : 'Targets are not set for every reading.')}</p> : null}
     {summary.state === 'partial' && <p className="nc-farm-summary-note">{lt ? 'Intervalui naudojami tik nauji matavimai.' : 'Only current readings contribute to the range.'}</p>}
@@ -40,6 +41,5 @@ export default function FarmAreaSummary({ name, summary, metric, refreshToken, l
       <header><span>{lt ? 'Paskutinės 6 val.' : 'Last 6 hours'}</span><small>{lt ? 'Area vidurkis' : 'Area average'}</small></header>
       {historyError ? <p>{lt ? 'Istorijos įkelti nepavyko.' : 'History could not be loaded.'}</p> : !history ? <p>{lt ? 'Kraunama istorija…' : 'Loading history…'}</p> : values.length ? <><svg viewBox="0 0 260 88" role="img" aria-label={`${lt ? definition.labelLt : definition.label}: ${number(low)}–${number(high)} ${definition.unit}`}><path d={path} />{points.filter(point => point.mean !== null).map(point => <circle key={point.at} cx={8 + (Date.parse(point.at) - start) / Math.max(1, end - start) * 244} cy={high === low ? 44 : 76 - (point.mean! - low) / (high - low) * 64} r={1.8} />)}</svg><div><span>−6 {lt ? 'val.' : 'h'}</span><span>{number(low)}–{number(high)} {definition.unit}</span><span>{lt ? 'Dabar' : 'Now'}</span></div></> : <p>{lt ? 'Šio parametro istorinių matavimų nėra.' : 'No historical readings for this metric.'}</p>}
     </section>
-    {onMap && <button type="button" className="nc-farm-open-map" onClick={onMap}>{lt ? 'Atverti detalų heatmap' : 'Open detailed heatmap'}<i className="fa-solid fa-arrow-right" /></button>}
   </aside>
 }

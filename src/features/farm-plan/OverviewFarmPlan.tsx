@@ -9,7 +9,7 @@ import { summarizeFarmArea } from './farmMonitoringData'
 import { loadFarmMonitoring } from './farmMonitoringRepository'
 import FarmPlanScene from './FarmPlanScene'
 import FarmAreaSummary from './FarmAreaSummary'
-import type { FarmSceneMemory } from './farmViewMemory'
+import { farmViewKey, type FarmSceneMemory } from './farmViewMemory'
 import './farm-plan.css'
 import './farm-monitoring.css'
 
@@ -61,17 +61,17 @@ export default function OverviewFarmPlan({ areaId, refreshToken, onAreaSelect, e
   const focused = plan.areas.find(area => area.id === focusedId)
   const choose = (id: string) => { setView({ areaId: id, mode: 'focus' }); onAreaSelect(id) }
   const back = () => setView({ areaId, mode: 'farm' })
-  const showDetail = view.mode === 'detail' && focused?.id === areaId
+  const showDetail = view.mode === 'detail' && !!focused
   return <div className="nc-farm-overview nc-farm-monitoring">
     <header className="nc-farm-monitor-toolbar">
-      <nav className="nc-farm-breadcrumb" aria-label={lt ? 'Ūkio peržiūros kelias' : 'Farm view navigation'}><button type="button" onClick={back} aria-current={!focused ? 'page' : undefined}><i className="fa-solid fa-cubes" />{lt ? 'Visas ūkis' : 'Whole farm'}</button>{focused && <><i className="fa-solid fa-chevron-right" aria-hidden="true" /><button type="button" aria-current="page" onClick={() => choose(focused.id)}>{focused.name}</button></>}</nav>
-      <div>{focused && <select aria-label={lt ? 'Palyginimo parametras' : 'Comparison metric'} value={metric} onChange={event => onMetricChange(event.target.value as MetricKey)}>{(Object.keys(METRICS) as MetricKey[]).map(value => <option key={value} value={value}>{lt ? METRICS[value].labelLt : METRICS[value].label}</option>)}</select>}<select aria-label={lt ? 'Pasirinkti Area peržiūrai' : 'Choose an Area to inspect'} value={focused?.id || ''} onChange={event => event.target.value ? choose(event.target.value) : back()}><option value="">{lt ? 'Visos Areas' : 'All Areas'}</option>{plan.areas.map(area => <option key={area.id} value={area.id}>{area.name}</option>)}</select>{context.permissions.canEdit && <button type="button" className="nc-farm-monitor-edit" onClick={() => navigate('/farm-plan')} aria-label={lt ? 'Redaguoti ūkio planą' : 'Edit farm plan'} title={lt ? 'Redaguoti planą' : 'Edit farm plan'}><i className="fa-solid fa-pen-ruler" /></button>}</div>
+      <nav className="nc-farm-breadcrumb" aria-label={lt ? 'Ūkio peržiūros kelias' : 'Farm view navigation'}><button type="button" onClick={back} aria-label={focused ? lt ? 'Grįžti į visą ūkį' : 'Back to whole farm' : undefined} aria-current={!focused ? 'page' : undefined}><i className={`fa-solid ${focused ? 'fa-arrow-left' : 'fa-cubes'}`} />{lt ? 'Visas ūkis' : 'Whole farm'}</button>{focused && <><i className="fa-solid fa-chevron-right" aria-hidden="true" /><button type="button" aria-current="page" onClick={() => choose(focused.id)}>{focused.name}</button></>}</nav>
+      <div>{focused && !showDetail && <select aria-label={lt ? 'Palyginimo parametras' : 'Comparison metric'} value={metric} onChange={event => onMetricChange(event.target.value as MetricKey)}>{(Object.keys(METRICS) as MetricKey[]).map(value => <option key={value} value={value}>{lt ? METRICS[value].labelLt : METRICS[value].label}</option>)}</select>}<select aria-label={lt ? 'Pasirinkti Area peržiūrai' : 'Choose an Area to inspect'} value={focused?.id || ''} onChange={event => event.target.value ? choose(event.target.value) : back()}><option value="">{lt ? 'Visos Areas' : 'All Areas'}</option>{plan.areas.map(area => <option key={area.id} value={area.id}>{area.name}</option>)}</select>{context.permissions.canEdit && <button type="button" className="nc-farm-monitor-edit" onClick={() => navigate('/farm-plan')} aria-label={lt ? 'Redaguoti ūkio planą' : 'Edit farm plan'} title={lt ? 'Redaguoti planą' : 'Edit farm plan'}><i className="fa-solid fa-pen-ruler" /></button>}</div>
     </header>
     {error && <div className="nc-farm-overview-error" role="status">{error}<button type="button" onClick={() => setRetry(value => value + 1)}>{lt ? 'Bandyti dar kartą' : 'Retry'}</button></div>}
     {!showDetail && <div className="nc-farm-monitor-body" data-focused={!!focused}>
-      <FarmPlanScene cameraMemory={cameraMemory} plan={plan} maps={maps} areas={context.areas} onAreaSelect={choose} selectedAreaId={focused?.id || null} comparison={comparisons} monitoringActive={signalReady} />
-      {focused && <FarmAreaSummary key={focused.id} name={focused.name} summary={comparisons[focused.id]} metric={metric} refreshToken={refreshToken + retry} lt={lt} targetsUnavailable={activeMonitoring?.targetsUnavailable || false} onClose={back} onRetry={() => setRetry(value => value + 1)} onMap={children && focused.id === areaId ? () => setView({ areaId: focused.id, mode: 'detail' }) : undefined} />}
+      <FarmPlanScene key={farmViewKey(focused?.id)} cameraMemory={cameraMemory} isolatedAreaId={focused?.id} plan={plan} maps={maps} areas={context.areas} onAreaSelect={focused ? undefined : choose} selectedAreaId={focused?.id || null} comparison={comparisons} monitoringActive={signalReady} />
+      {focused && <FarmAreaSummary key={focused.id} name={focused.name} summary={comparisons[focused.id]} metric={metric} refreshToken={refreshToken + retry} lt={lt} targetsUnavailable={activeMonitoring?.targetsUnavailable || false} onClose={back} onRetry={() => setRetry(value => value + 1)} onMap={() => setView({ areaId: focused.id, mode: 'detail' })} />}
     </div>}
-    {showDetail && <div className="nc-farm-detail-map"><button type="button" className="nc-farm-return-summary" onClick={() => choose(view.areaId)}><i className="fa-solid fa-arrow-left" />{lt ? 'Grįžti į Area peržiūrą' : 'Back to Area overview'}</button>{children || <div className="nc-farm-help">{lt ? 'Šiai Area žemėlapis dar neparuoštas.' : 'The map is not configured for this Area.'}</div>}</div>}
+    {showDetail && <div className="nc-farm-detail-map"><button type="button" className="nc-farm-return-summary" onClick={() => choose(view.areaId)}><i className="fa-solid fa-arrow-left" />{lt ? 'Grįžti į Area peržiūrą' : 'Back to Area overview'}</button>{focused?.id !== areaId ? <div className="nc-farm-help" role="status">{lt ? 'Atveriamas Area žemėlapis…' : 'Opening the Area map…'}</div> : children || <div className="nc-farm-help">{lt ? 'Šiai Area žemėlapis dar neparuoštas.' : 'The map is not configured for this Area.'}</div>}</div>}
   </div>
 }

@@ -4,7 +4,7 @@ import { objectGeometry } from '../living-greenhouse/objectGeometry'
 import { snapObjectToMapWall } from '../greenhouse-map/geometry'
 import { emptyFarmPlan } from './farmPlanData'
 import { farmEditorMap,newFarmObject } from './farmLayoutData'
-import { farmSceneEmphasis,highlightFarmArea,wholeFarmGeometry,wholeFarmSceneMesh } from './farmSceneGeometry'
+import { farmSceneEmphasis,highlightFarmArea,isolateFarmArea,wholeFarmGeometry,wholeFarmSceneMesh } from './farmSceneGeometry'
 
 const contains=(haystack:Float32Array,needle:Float32Array)=>{
   for(let i=0;i<=haystack.length-needle.length;i+=6){
@@ -87,6 +87,23 @@ describe('whole-farm hover presentation',()=>{
     expect(mesh.vertices).toEqual(original)
     expect(mesh.vertices).toEqual(wholeFarmGeometry(plan,maps))
     expect(JSON.stringify({plan,maps})).toBe(snapshot)
+  })
+  it('isolates a room with its shared door while removing neighbouring rooms and equipment',()=>{
+    const {plan,maps}=fixture(),door=snapObjectToMapWall(newFarmObject('door',maps.a,{xM:3.8,yM:2}),maps.a,1)
+    maps.a.objects.push(door)
+    const mesh=wholeFarmSceneMesh(plan,maps),isolated=isolateFarmArea(mesh,'b')
+    const sharedDoor=objectGeometry(door,plan.dimensions,3)
+    const neighbourTable=objectGeometry(maps.a.objects[0],plan.dimensions,3)
+    const ownTank=objectGeometry({...maps.b.objects[0],xM:maps.b.objects[0].xM+4},plan.dimensions,3)
+    expect(contains(isolated.vertices,sharedDoor)).toBe(true)
+    expect(contains(isolated.vertices,ownTank)).toBe(true)
+    expect(contains(isolated.vertices,neighbourTable)).toBe(false)
+    expect(isolated.vertices.length).toBeLessThan(mesh.vertices.length)
+    expect(isolated.ranges.every(range=>range.areaIds.includes('b'))).toBe(true)
+    expect(isolated.ranges[0].start).toBe(0)
+    expect(isolated.ranges.at(-1)!.end).toBe(isolated.vertices.length)
+    expect(highlightFarmArea(isolated,'b',true).surfaces).toHaveLength(0)
+    expect(isolateFarmArea(mesh,'removed').vertices).toHaveLength(0)
   })
   it('keeps a shared door solid from either adjacent Area, but fades it for a different room',()=>{
     const {plan,maps}=fixture(),door=snapObjectToMapWall(newFarmObject('door',maps.a,{xM:3.8,yM:2}),maps.a,1)

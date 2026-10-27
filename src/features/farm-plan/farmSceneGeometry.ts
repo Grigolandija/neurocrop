@@ -99,6 +99,21 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
   return wholeFarmSceneMesh(plan,maps).vertices
 }
 
+/** Keep the selected room and shared openings, with no invisible neighbours left in the scene. */
+export function isolateFarmArea(mesh:FarmSceneMesh,areaId:string):FarmSceneMesh{
+  const owned=mesh.ranges.filter(range=>range.areaIds.includes(areaId))
+  const vertices=new Float32Array(owned.reduce((length,range)=>length+range.end-range.start,0))
+  const ranges:FarmSceneMesh['ranges']=[]
+  let offset=0
+  for(const range of owned){
+    const data=mesh.vertices.subarray(range.start,range.end)
+    vertices.set(data,offset)
+    ranges.push({...range,start:offset,end:offset+data.length})
+    offset+=data.length
+  }
+  return {vertices,ranges}
+}
+
 /** Hover previews an Area; leaving it restores the persistent selection without moving the camera. */
 export function farmSceneEmphasis(hoveredAreaId:string|null,monitoring:boolean,selectedAreaId?:string|null){
   return {areaId:hoveredAreaId || (monitoring ? selectedAreaId || null : null),opacity:hoveredAreaId && monitoring ? .20 : monitoring && selectedAreaId ? .30 : monitoring ? .25 : .40}

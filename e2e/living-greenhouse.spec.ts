@@ -379,7 +379,7 @@ for(const engine of ['WebGPU','WebGL'] as const){
 }
 
 for (const engine of ['WebGPU', 'WebGL'] as const) {
-  test(`farm selection preserves the viewport and detailed heatmap renders a movable section in ${engine}`, async ({ page }) => {
+  test(`farm selection isolates an Area, restores the farm camera and renders a movable section in ${engine}`, async ({ page }) => {
     test.setTimeout(90000)
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
@@ -427,9 +427,10 @@ for (const engine of ['WebGPU', 'WebGL'] as const) {
     const transform = await other.evaluate(element => element.style.transform)
     await page.getByRole('combobox', { name: 'Choose an Area to inspect', exact: true }).selectOption('a')
     await expect(page.locator('.nc-farm-area-summary')).toBeVisible()
-    expect(await farmCanvas.boundingBox()).toEqual(before)
-    await expect.poll(() => other.evaluate(element => element.style.transform)).toBe(transform)
-    await page.getByRole('button', { name: 'Open detailed heatmap', exact: true }).click()
+    await expect(farm).toHaveAttribute('data-isolated-area', 'a')
+    await expect(other).toHaveCount(0)
+    expect((await farmCanvas.boundingBox())!.width).toBeLessThan(before!.width)
+    await page.getByRole('button', { name: 'Open 2D map', exact: true }).click()
     const detail = page.locator('.nc-farm-detail-map')
     await expect(detail.getByRole('button', { name: '2D', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await expect(detail.locator('.gh-canvas-shell')).toBeVisible()
@@ -455,6 +456,11 @@ for (const engine of ['WebGPU', 'WebGL'] as const) {
     await expect(detail.locator('.nc-living-pin')).toHaveCount(3)
     await detail.getByRole('button', { name: 'Back to Area overview', exact: true }).click()
     await expect(page.locator('.nc-farm-area-summary')).toBeVisible()
+    await expect(farm).toHaveAttribute('data-isolated-area', 'a')
+    await page.locator('.nc-farm-monitor-toolbar').getByRole('button', { name: 'Back to whole farm', exact: true }).click()
+    await expect(page.locator('.nc-farm-area-summary')).toHaveCount(0)
+    await expect(other).toHaveCount(1)
+    await expect.poll(() => other.evaluate(element => element.style.transform)).toBe(transform)
     const restored = await farmCanvas.boundingBox()
     expect(restored?.width).toBe(before?.width)
     expect(restored?.height).toBe(before?.height)

@@ -7,7 +7,7 @@ import type { FarmAreaComparison } from './farmMonitoringData'
 import { siteVolume } from '../living-greenhouse/siteDemoGeometry'
 import { pickSitePoint, siteDimensions } from '../living-greenhouse/siteDemoModel'
 import { farmPlanScene, type FarmPlanDocument, type FarmArea } from './farmPlanData'
-import { farmSceneEmphasis,highlightFarmArea,wholeFarmSceneMesh } from './farmSceneGeometry'
+import { farmSceneEmphasis,highlightFarmArea,isolateFarmArea,wholeFarmSceneMesh } from './farmSceneGeometry'
 import type { FarmMaps } from './farmLayoutData'
 import { focusFarmSceneArea as focusArea,farmViewKey,rememberFarmScene,restoreFarmScene,type FarmSceneMemory } from './farmViewMemory'
 import { farmOverviewCamera } from './farmOverviewCamera'
@@ -22,7 +22,8 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   const [hovered,setHovered]=useState<string|null>(null)
   const [ready,setReady]=useState(false),[failed,setFailed]=useState(false)
   const hoverAreaId=!isolatedAreaId && onAreaSelect && document.areas.some(a=>a.id===hovered) ? hovered : null
-  const mesh=useMemo(()=>wholeFarmSceneMesh(document,maps),[document,maps])
+  const farmMesh=useMemo(()=>wholeFarmSceneMesh(source,maps),[source,maps])
+  const mesh=useMemo(()=>isolatedAreaId ? isolateFarmArea(farmMesh,isolatedAreaId) : farmMesh,[farmMesh,isolatedAreaId])
   const emphasis=farmSceneEmphasis(hoverAreaId,!!comparison,selectedAreaId)
   const geometry=useMemo(()=>highlightFarmArea(mesh,emphasis.areaId,!!comparison),[mesh,emphasis.areaId,comparison])
   const climateField=useMemo(()=>siteVolume(null,'temperature',plan),[plan])
@@ -98,7 +99,7 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   const select=(id?:string)=>{if(id && onAreaSelect){setHovered(null);onAreaSelect(id)}}
   const interactive=(event:ReactPointerEvent<HTMLDivElement>)=>(event.target as Element).closest('button')
   return <div className="nc-farm-scene-shell" data-overview-heatmap-settled={monitoringActive && comparison && (ready || failed) && Object.values(comparison).every(summary=>summary.state!=='loading') ? 'true' : undefined}>
-    <div className="nc-farm-scene" ref={host} role="group" aria-label={lt ? 'Bendras 3D ūkio planas. Pasirinkite Area.' : 'Farm 3D plan. Select an Area.'} data-hovered={!!hoverAreaId} data-comparing={!!comparison} data-selected-area={!!comparison && !!selectedAreaId}
+    <div className="nc-farm-scene" ref={host} role="group" aria-label={isolatedAreaId ? lt ? 'Pasirinktos Area 3D vaizdas.' : 'Selected Area 3D view.' : lt ? 'Bendras 3D ūkio planas. Pasirinkite Area.' : 'Farm 3D plan. Select an Area.'} data-hovered={!!hoverAreaId} data-comparing={!!comparison} data-selected-area={!!comparison && !!selectedAreaId} data-isolated-area={isolatedAreaId || undefined}
       onWheelCapture={event=>{if(event.altKey)autoFrame.current=false}}
       onPointerDown={event=>{if(event.button!==0 || interactive(event))return;down.current={x:event.clientX,y:event.clientY,id:event.pointerId,moved:false};setHovered(null)}}
       onPointerMove={event=>{const start=down.current;if(start && (start.id!==event.pointerId || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)){start.moved=true;autoFrame.current=false}if(event.buttons || interactive(event))return;setHovered(hit(event)?.id || null)}}
