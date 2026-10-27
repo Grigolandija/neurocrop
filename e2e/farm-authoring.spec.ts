@@ -79,7 +79,7 @@ test('a grower creates Areas, saves equipment and Node height, reloads, and open
     await page.getByRole('group', { name: 'Add an object', exact: true }).getByRole('button', { name: 'Lamp', exact: true }).click()
     await editor.getByRole('button', { name: 'Properties', exact: true }).click()
     await object.getByRole('tab', { name: 'Mounting', exact: true }).click()
-    await object.getByLabel('Mounting', { exact: true }).selectOption('ceiling')
+    await object.getByRole('combobox').selectOption('ceiling')
     await object.getByLabel('Ceiling clearance m', { exact: true }).fill('0.3')
     await object.getByLabel('Ceiling clearance m', { exact: true }).press('Enter')
 
