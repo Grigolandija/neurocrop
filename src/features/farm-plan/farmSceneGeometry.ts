@@ -49,17 +49,19 @@ export function wholeFarmSceneMesh(plan:FarmPlanDocument,maps:FarmMaps={},areaCo
   }
   for(const area of plan.areas){own([area.id]);for(const [a,b,c] of triangulateSitePolygon(area.polygon))tri(p(a,.01),p(b,.01),p(c,.01),areaColors[area.id] || (area.kind==='greenhouse' ? [.91,.935,.88] : [.95,.945,.91]))}
   for(const wall of walls){own(wall.areaIds);for(const value of perimeterWallGeometry([wall],openings,d))data.push(value)}
+  const outlineCorners=new Set(plan.areas.filter(area=>area.kind!=='zone').flatMap(area=>area.polygon.map(pointKey)))
   const corners=new Map<string,{point:SitePoint;height:number;areaIds:string[]}>()
   for(const wall of walls){
     own(wall.areaIds)
-    beam(p(wall.a,wall.height),p(wall.b,wall.height),.028,[.42,.55,.48])
+    beam(p(wall.a,wall.height),p(wall.b,wall.height),.014,[.56,.64,.59])
     for(const a of [wall.a,wall.b]){
+      if(!outlineCorners.has(pointKey(a)))continue
       const insideDoor=openings.some(o=>o.sill===0 && collinear(o.a,o.b,a) && along(o.a,o.b,a)>1e-6 && along(o.a,o.b,a)<1-1e-6)
       if(insideDoor)continue
       const key=pointKey(a),old=corners.get(key);corners.set(key,{point:a,height:Math.max(old?.height || 0,wall.height),areaIds:[...new Set([...(old?.areaIds || []),...wall.areaIds])]})
     }
   }
-  for(const corner of corners.values()){own(corner.areaIds);beam(p(corner.point,0),p(corner.point,corner.height),.025,[.42,.55,.48])}
+  for(const corner of corners.values()){own(corner.areaIds);beam(p(corner.point,0),p(corner.point,corner.height),.012,[.56,.64,.59])}
   for(const area of plan.areas){
     own([area.id])
     if(area.kind==='greenhouse'){
@@ -69,7 +71,7 @@ export function wholeFarmSceneMesh(plan:FarmPlanDocument,maps:FarmMaps={},areaCo
         const x=b.minX+(b.maxX-b.minX)*(i+.001)/(count+.002),cuts:number[]=[]
         area.polygon.forEach((a,j)=>{const q=area.polygon[(j+1)%area.polygon.length];if((a.xM<=x && q.xM>x)||(q.xM<=x && a.xM>x))cuts.push(a.yM+(x-a.xM)/(q.xM-a.xM)*(q.yM-a.yM))})
         cuts.sort((a,b)=>a-b)
-        for(let j=0;j+1<cuts.length;j+=2){const low=cuts[j],high=cuts[j+1],ridge=Math.max(low,Math.min(high,(b.minY+b.maxY)/2));beam(p({xM:x,yM:low},roof(low)),p({xM:x,yM:ridge},roof(ridge)),.025,[.42,.55,.48]);beam(p({xM:x,yM:ridge},roof(ridge)),p({xM:x,yM:high},roof(high)),.025,[.42,.55,.48])}
+        for(let j=0;j+1<cuts.length;j+=2){const low=cuts[j],high=cuts[j+1],ridge=Math.max(low,Math.min(high,(b.minY+b.maxY)/2));beam(p({xM:x,yM:low},roof(low)),p({xM:x,yM:ridge},roof(ridge)),.012,[.56,.64,.59]);beam(p({xM:x,yM:ridge},roof(ridge)),p({xM:x,yM:high},roof(high)),.012,[.56,.64,.59])}
       }
     }
     const map=farmEditorMap(plan,area.id,maps),origin=zoneBounds(area),visible=new Set(map.layers.filter(l=>l.visible).map(l=>l.id))
@@ -97,9 +99,9 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
   return wholeFarmSceneMesh(plan,maps).vertices
 }
 
-/** Selection keeps the camera still and preserves readable context around the active Area. */
+/** Hover previews an Area; leaving it restores the persistent selection without moving the camera. */
 export function farmSceneEmphasis(hoveredAreaId:string|null,monitoring:boolean,selectedAreaId?:string|null){
-  return {areaId:monitoring ? selectedAreaId || null : hoveredAreaId,opacity:monitoring && selectedAreaId ? .30 : .40}
+  return {areaId:hoveredAreaId || (monitoring ? selectedAreaId || null : null),opacity:hoveredAreaId && monitoring ? .65 : monitoring && selectedAreaId ? .30 : .40}
 }
 
 /** Shared walls and openings remain solid when either adjoining Area is highlighted. */

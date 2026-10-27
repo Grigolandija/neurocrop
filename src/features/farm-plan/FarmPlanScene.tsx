@@ -61,7 +61,6 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
     createLivingScene(host.current,(matrix,width,height)=>{
       projection.current={matrix,width,height}
       const current=latest.current.plan,d=siteDimensions(current)
-      const placed:Array<{x:number;y:number;w:number;h:number}>=[]
       for(const zone of current.zones){
         polygons.current.get(zone.id)?.setAttribute('points',zone.polygon.map(p=>{const v=project(planToScene(p.xM,p.yM,.07,d),matrix,width,height);return `${v.x},${v.y}`}).join(' '))
         const button=labels.current.get(zone.id)
@@ -72,11 +71,7 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
           if(comparing){
             const w=button.offsetWidth,h=button.offsetHeight
             x=Math.max(w/2+6,Math.min(width-w/2-6,x))
-            for(const shift of [0,-28,28,-56,56]){
-              const candidate=Math.max(h/2+6,Math.min(height-h/2-6,p.y+shift))
-              if(placed.every(other=>Math.abs(other.x-x)>(other.w+w)/2+8 || Math.abs(other.y-candidate)>(other.h+h)/2+6)){y=candidate;break}
-            }
-            if(p.visible)placed.push({x,y,w,h})
+            y=Math.max(h/2+6,Math.min(height-h/2-6,p.y))
           }
           button.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%)`;button.style.visibility=p.visible ? 'visible' : 'hidden'
         }
@@ -109,7 +104,7 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
       onPointerMove={event=>{const start=down.current;if(start && (start.id!==event.pointerId || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)){start.moved=true;autoFrame.current=false}if(event.buttons || interactive(event))return;setHovered(hit(event)?.id || null)}}
       onPointerLeave={()=>setHovered(null)} onPointerCancel={()=>{down.current=null;setHovered(null)}}
       onPointerUp={event=>{const start=down.current;down.current=null;if(!start || start.id!==event.pointerId || start.moved || interactive(event) || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)return;select(hit(event)?.areaId)}}>
-      <svg className="nc-farm-zone-outlines" aria-hidden="true">{plan.zones.map(zone=><polygon key={zone.id} data-active={zone.id===(comparison ? selectedAreaId || hoverAreaId : hoverAreaId)} ref={el=>{if(el)polygons.current.set(zone.id,el);else polygons.current.delete(zone.id)}} />)}</svg>
+      <svg className="nc-farm-zone-outlines" aria-hidden="true">{plan.zones.map(zone=><polygon key={zone.id} data-active={zone.id===emphasis.areaId} ref={el=>{if(el)polygons.current.set(zone.id,el);else polygons.current.delete(zone.id)}} />)}</svg>
       {!isolatedAreaId && plan.zones.map(zone=>{
         const area=areas.find(a=>a.id===zone.areaId),name=area?.name || zone.name
         return <button type="button" key={zone.id} className="nc-farm-zone-label" title={area ? name : `${name} · ${lt ? 'Neišsaugota' : 'Unsaved'}`} ref={el=>{if(el)labels.current.set(zone.id,el);else labels.current.delete(zone.id)}} disabled={!area || !onAreaSelect} data-hovered={zone.id===hoverAreaId} data-muted={!comparison && !!hoverAreaId && zone.id!==hoverAreaId} data-selected={zone.id===selectedAreaId} aria-pressed={selectedAreaId===undefined ? undefined : zone.id===selectedAreaId} onPointerEnter={()=>setHovered(zone.id)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(zone.id)} onBlur={()=>setHovered(null)} onClick={()=>select(area?.id)}><span>{name}</span></button>
