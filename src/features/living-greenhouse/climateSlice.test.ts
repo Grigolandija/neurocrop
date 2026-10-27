@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { livingDemo, livingMap, measuredSensors } from './livingData'
 import { sceneGeometry, type VolumeField } from './sceneGeometry'
-import { climateSlice, initialSliceNormal, sampleSliceField, sliceBoundary } from './climateSlice'
-import { planToScene } from './sceneMath'
+import { climateSlice, sliceNormal, sampleSliceField, sliceBoundary } from './climateSlice'
 
 function fixture() {
   const { context } = livingDemo(), at = Date.parse(context.updatedAt!), map = livingMap(context, null, null)!
@@ -10,16 +9,12 @@ function fixture() {
   return { map, readings: measuredSensors(map, 'air-temperature', at), scene }
 }
 describe('one spatial heatmap section', () => {
-  it('places the automatic vertical plane through the two most different current XYZ observations', () => {
+  it('starts with a centred longitudinal section aligned to the longer plan axis', () => {
     const { map, readings, scene } = fixture()
-    const sorted = readings.filter(r => r.value !== null && r.heightM !== null).sort((a, b) => a.value! - b.value!)
     const section = climateSlice(map, readings, scene.volume, scene.scale)
-    expect(section.mode).toBe('vertical')
-    expect(Math.hypot(...section.normal)).toBeCloseTo(1)
-    for (const r of [sorted[0], sorted.at(-1)!]) {
-      const point = planToScene(r.object.xM + r.object.widthM / 2, r.object.yM + r.object.lengthM / 2, r.heightM!, map.dimensions)
-      expect(section.normal.reduce((v, n, i) => v + n * point[i], 0)).toBeCloseTo(section.position)
-    }
+    expect(section.mode).toBe('longitudinal')
+    expect(section.normal).toEqual(map.dimensions.widthM >= map.dimensions.lengthM ? [0,0,1] : [1,0,0])
+    expect(section.position).toBeCloseTo((section.min + section.max) / 2)
     expect(section.captions.length).toBeGreaterThan(0)
     for (const contour of section.captions) {
       expect(contour.value).toBeGreaterThan(scene.scale.min)
@@ -34,11 +29,11 @@ describe('one spatial heatmap section', () => {
   })
   it('moves one horizontal section in metres without modifying the volume or equipment geometry', () => {
     const { map, readings, scene } = fixture(), before = new Uint8Array(scene.volume.pixels), vertices = new Float32Array(scene.vertices)
-    const low = climateSlice(map, readings, scene.volume, scene.scale, { scope: 'a', mode: 'horizontal', position: .8, normal: [0, 0, 1] })
-    const high = climateSlice(map, readings, scene.volume, scene.scale, { scope: 'a', mode: 'horizontal', position: 2.4, normal: [0, 0, 1] })
+    const low = climateSlice(map, readings, scene.volume, scene.scale, { scope: 'a', mode: 'horizontal', position: .8 })
+    const high = climateSlice(map, readings, scene.volume, scene.scale, { scope: 'a', mode: 'horizontal', position: 2.4 })
     expect(low.plane).toEqual([0, 1, 0, .8]); expect(high.plane).toEqual([0, 1, 0, 2.4])
     expect(scene.volume.pixels).toEqual(before); expect(scene.vertices).toEqual(vertices)
-    const clipped = climateSlice(map, readings, scene.volume, scene.scale, { scope: 'a', mode: 'horizontal', position: 999, normal: [0, 0, 1] })
+    const clipped = climateSlice(map, readings, scene.volume, scene.scale, { scope: 'a', mode: 'horizontal', position: 999 })
     expect(clipped.position).toBeLessThan(scene.height)
   })
   it('resets a horizontal section at measured height without switching to vertical', () => {
@@ -56,7 +51,7 @@ describe('one spatial heatmap section', () => {
     expect(edges).toHaveLength(6)
     expect(edges.flat().every(p => p[1] === 2)).toBe(true)
     expect(edges).toContainEqual([[3,2,-1],[-1,2,-1]])
-    const vertical = sliceBoundary(outline, [0,0,1,1], 'vertical', field)
+    const vertical = sliceBoundary(outline, [0,0,1,1], 'longitudinal', field)
     expect(vertical).toContainEqual([[-1,0,1],[-3,0,1]])
     expect(vertical.flat().every(p => p[0] <= -1 && p[2] === 1)).toBe(true)
   })
@@ -66,18 +61,25 @@ describe('one spatial heatmap section', () => {
     const horizontal = sliceBoundary(outline, [0,1,0,3], 'horizontal', field)
     expect(horizontal).toHaveLength(4)
     expect(horizontal.flat().every(p => p[1] === 3 && Math.abs(p[2]) <= 1.5)).toBe(true)
-    const vertical = sliceBoundary(outline, [1,0,0,0], 'vertical', field)
+    const vertical = sliceBoundary(outline, [1,0,0,0], 'transverse', field)
     expect(vertical).toContainEqual([[0,2,-3],[0,4,0]])
     expect(vertical).toContainEqual([[0,4,0],[0,2,3]])
   })
-  it('ignores stale extremes and handles stacked sensors without an invalid normal', () => {
-    const { map, readings } = fixture()
-    const fresh = readings.filter(r => r.value !== null && r.heightM !== null)
-    const original = initialSliceNormal(fresh, map.dimensions)
-    expect(initialSliceNormal([...fresh, { ...fresh[0], value: null, lastValue: 999 }], map.dimensions)).toEqual(original)
-    const stacked = fresh.map((r, i) => ({ ...r, heightM: 1 + i * .3, object: { ...r.object, xM: 1, yM: 2, widthM: .2, lengthM: .2 } }))
-    const normal = initialSliceNormal(stacked, map.dimensions)
-    expect(normal.every(Number.isFinite)).toBe(true); expect(Math.hypot(...normal)).toBe(1)
+  it('keeps the two upright cuts perpendicular, including in a room whose longer side is Y', () => {
+    expect(sliceNormal('longitudinal', { widthM: 8, lengthM: 5 })).toEqual([0,0,1])
+    expect(sliceNormal('transverse', { widthM: 8, lengthM: 5 })).toEqual([1,0,0])
+    expect(sliceNormal('longitudinal', { widthM: 5, lengthM: 8 })).toEqual([1,0,0])
+    expect(sliceNormal('transverse', { widthM: 5, lengthM: 8 })).toEqual([0,0,1])
+  })
+  it('slides a transverse cut without rotating it when readings change', () => {
+    const { map, readings, scene } = fixture()
+    const first = climateSlice(map, readings, scene.volume, scene.scale, { mode: 'transverse', position: -.5 })
+    const changed = readings.map((r, i) => ({ ...r, value: i % 2 ? 99 : -99 }))
+    const moved = climateSlice(map, changed, scene.volume, scene.scale, { mode: 'transverse', position: .5 })
+    expect(first.normal).toEqual(moved.normal)
+    expect(first.normal[1]).toBe(0)
+    expect(first.plane[3]).toBe(-.5)
+    expect(moved.plane[3]).toBe(.5)
   })
   it('does not sample empty space or above the roof and retains the support channel', () => {
     const field: VolumeField = { width: 2, height: 2, layers: 2, bounds: [4, 4, 4], roofSlope: .32, levels: [], contours: [], pixels: new Uint8Array(32) }

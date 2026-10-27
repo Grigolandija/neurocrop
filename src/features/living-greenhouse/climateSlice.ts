@@ -5,31 +5,26 @@ import { planToScene, type Vec3 } from './sceneMath'
 import type { SensorReading } from './spatialEvidence'
 import type { ClimateContour } from './climateContours'
 
-export type SliceMode = 'vertical' | 'horizontal'
-export type SliceSelection = { scope: string; mode: SliceMode; position: number; normal: Vec3 }
+export type SliceMode = 'longitudinal' | 'transverse' | 'horizontal'
+export type SliceSelection = { scope: string; mode: SliceMode; position: number }
 export type SlicePlane = [number, number, number, number]
 const dot = (a: Vec3, b: Vec3) => a.reduce((sum, value, i) => sum + value * b[i], 0)
 
-/** The initial vertical plane passes through the current minimum and maximum observations. */
-export function initialSliceNormal(readings: SensorReading[], dimensions: GreenhouseMap['dimensions']): Vec3 {
-  const sources = readings.filter(r => r.value !== null && r.heightM !== null && r.heightM <= (dimensions.heightM || Infinity)).sort((a, b) => a.value! - b.value! || a.object.id.localeCompare(b.object.id))
-  if (sources.length > 1) {
-    const a = sources[0].object, b = sources.at(-1)!.object
-    const dx = b.xM + b.widthM / 2 - a.xM - a.widthM / 2, dz = -(b.yM + b.lengthM / 2 - a.yM - a.lengthM / 2)
-    const length = Math.hypot(dx, dz)
-    if (length > .01) return [-dz / length, 0, dx / length]
-  }
-  return dimensions.widthM >= dimensions.lengthM ? [0, 0, 1] : [1, 0, 0]
+/** Upright cuts follow the long and short plan axes, never a diagonal between sensors. */
+export function sliceNormal(mode: SliceMode, dimensions: GreenhouseMap['dimensions']): Vec3 {
+  if (mode === 'horizontal') return [0, 1, 0]
+  const alongWidth = dimensions.widthM >= dimensions.lengthM
+  return (mode === 'longitudinal') === alongWidth ? [0, 0, 1] : [1, 0, 0]
 }
 
 export function climateSlice(map: GreenhouseMap, readings: SensorReading[], field: VolumeField, scale: { min: number; max: number }, selection?: (Partial<SliceSelection> & { mode: SliceMode }) | null) {
-  const mode = selection?.mode || 'vertical'
-  const normal: Vec3 = mode === 'horizontal' ? [0, 1, 0] : selection?.normal || initialSliceNormal(readings, map.dimensions)
+  const mode = selection?.mode || 'longitudinal'
+  const normal: Vec3 = sliceNormal(mode, map.dimensions)
   const polygon = outlinePoints(map).map(p => planToScene(p.xM, p.yM, 0, map.dimensions))
   const projected = polygon.map(p => dot(normal, p))
   const min = mode === 'horizontal' ? 0 : Math.min(...projected), max = mode === 'horizontal' ? field.bounds[2] : Math.max(...projected)
   const sources = readings.filter(r => r.value !== null && r.heightM !== null && r.heightM <= field.bounds[2]).sort((a, b) => a.value! - b.value! || a.object.id.localeCompare(b.object.id))
-  const offsets = (mode === 'horizontal' ? sources : sources.length ? [sources[0], sources.at(-1)!] : []).map(r => dot(normal, planToScene(r.object.xM + r.object.widthM / 2, r.object.yM + r.object.lengthM / 2, r.heightM!, map.dimensions)))
+  const offsets = (mode === 'horizontal' ? sources : []).map(r => dot(normal, planToScene(r.object.xM + r.object.widthM / 2, r.object.yM + r.object.lengthM / 2, r.heightM!, map.dimensions)))
   const initial = offsets.length ? offsets.reduce((a, b) => a + b, 0) / offsets.length : (min + max) / 2
   const position = Math.max(min + (max - min) * .001, Math.min(max - (max - min) * .001, selection?.position ?? initial))
   const plane: SlicePlane = [...normal, position]
@@ -93,7 +88,7 @@ export function sliceBoundary(polygon: Vec3[], plane: SlicePlane, mode: SliceMod
     const point = (v: number): Vec3 => [normal[0] * offset + tangent[0] * v, 0, normal[2] * offset + tangent[2] * v]
     return sorted.flatMap((v, i) => i % 2 || i + 1 === sorted.length ? [] : [[point(v), point(sorted[i + 1])] as [Vec3, Vec3]])
   }
-  if (mode === 'vertical') {
+  if (mode !== 'horizontal') {
     for (const [a, b] of sectionIntervals(plane.slice(0, 3) as Vec3, plane[3])) {
       const topA: Vec3 = [a[0], roof(a), a[2]], topB: Vec3 = [b[0], roof(b), b[2]]
       edges.push([a, b], [a, topA], [b, topB])

@@ -436,7 +436,7 @@ for (const engine of ['WebGPU', 'WebGL'] as const) {
     await detail.getByRole('button', { name: '3D', exact: true }).click()
     await expect(detail.locator('.nc-living-stage')).toHaveAttribute('data-renderer', engine, { timeout: 20000 })
     const controls = detail.getByRole('group', { name: 'Section direction', exact: true })
-    await expect(controls.getByRole('button', { name: 'Vertical', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(controls.getByRole('button', { name: 'Longitudinal', exact: true })).toHaveAttribute('aria-pressed', 'true')
     const canvas = detail.locator('.nc-living-canvas > canvas')
     const capture = async () => {
       await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
@@ -451,7 +451,7 @@ for (const engine of ['WebGPU', 'WebGL'] as const) {
     await slider.fill('2.4')
     await expect(detail.locator('.nc-living-slice-controls output')).toContainText('2.4 m')
     await detail.getByRole('button', { name: 'Auto', exact: true }).click()
-    await expect(controls.getByRole('button', { name: 'Vertical', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(controls.getByRole('button', { name: 'Horizontal', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await expect(detail.locator('.nc-living-pin')).toHaveCount(3)
     await detail.getByRole('button', { name: 'Back to Area overview', exact: true }).click()
     await expect(page.locator('.nc-farm-area-summary')).toBeVisible()

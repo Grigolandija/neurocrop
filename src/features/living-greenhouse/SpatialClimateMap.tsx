@@ -76,7 +76,7 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
   const selectSliceMode = (mode: SliceSelection['mode']) => {
     if (!slice || !map || !geometry) return
     const automatic = climateSlice(map, readings, geometry.volume, geometry.scale, { mode })
-    setSliceSelection({ scope: sliceScope, mode, normal: automatic.normal, position: automatic.position })
+    setSliceSelection({ scope: sliceScope, mode, position: automatic.position })
   }
   const fitView = useCallback(() => {
     const element = host.current, current = currentMap.current, g = currentGeometry.current
@@ -206,12 +206,13 @@ export function SpatialClimateMap({ map, context, metric, at, historyTime, index
           </aside> : null}
           {slice && geometry?.volumeReady && <div className="nc-living-slice-controls" aria-label={text('Heatmap pjūvis','Heatmap section')}>
             <div role="group" aria-label={text('Pjūvio kryptis','Section direction')}>
-              <button type="button" aria-pressed={slice.mode === 'vertical'} onClick={() => selectSliceMode('vertical')}>{text('Vertikalus','Vertical')}</button>
+              <button type="button" aria-pressed={slice.mode === 'longitudinal'} onClick={() => selectSliceMode('longitudinal')} title={text('Išilgai ilgesnės plano kraštinės','Along the longer side of the plan')}>{text('Išilginis','Longitudinal')}</button>
+              <button type="button" aria-pressed={slice.mode === 'transverse'} onClick={() => selectSliceMode('transverse')} title={text('Skersai ilgesnės plano kraštinės','Across the longer side of the plan')}>{text('Skersinis','Transverse')}</button>
               <button type="button" aria-pressed={slice.mode === 'horizontal'} onClick={() => selectSliceMode('horizontal')}>{text('Horizontalus','Horizontal')}</button>
             </div>
-            <label><span>{slice.mode === 'horizontal' ? text('Aukštis','Height') : text('Pjūvio padėtis','Section position')}</span><input type="range" min={slice.min} max={slice.max} step={Math.max(.001,(slice.max-slice.min)/200)} value={slice.position} aria-valuetext={`${(slice.mode === 'horizontal' ? slice.position : slice.position-slice.min).toFixed(2)} m`} onChange={event => setSliceSelection({ scope: sliceScope, mode: slice.mode, normal: slice.normal, position: Number(event.target.value) })} /><output>{(slice.mode === 'horizontal' ? slice.position : slice.position-slice.min).toLocaleString(lt ? 'lt-LT' : 'en-GB',{maximumFractionDigits:2})} m</output></label>
+            <label><span>{slice.mode === 'horizontal' ? text('Aukštis','Height') : text('Pjūvio padėtis','Section position')}</span><input type="range" min={slice.min} max={slice.max} step={Math.max(.001,(slice.max-slice.min)/200)} value={slice.position} aria-valuetext={`${(slice.mode === 'horizontal' ? slice.position : slice.position-slice.min).toFixed(2)} m`} onChange={event => setSliceSelection({ scope: sliceScope, mode: slice.mode, position: Number(event.target.value) })} /><output>{(slice.mode === 'horizontal' ? slice.position : slice.position-slice.min).toLocaleString(lt ? 'lt-LT' : 'en-GB',{maximumFractionDigits:2})} m</output></label>
             <button type="button" aria-pressed={enhanceSlice} onClick={() => setEnhanceSlice(value => !value)} title={text('Išryškinti matavimų skirtumus','Emphasize measured differences')}>{text('Kontrastas','Contrast')}</button>
-            <button type="button" className="nc-living-slice-auto" onClick={() => selectSliceMode(slice.mode)} title={slice.mode === 'horizontal' ? text('Grįžti į jutiklių aukštį','Return to sensor height') : text('Pjūvis per didžiausią matavimų skirtumą','Section through the largest measured difference')}>{text('Automatiškai','Auto')}</button>
+            <button type="button" className="nc-living-slice-auto" onClick={() => selectSliceMode(slice.mode)} title={slice.mode === 'horizontal' ? text('Grįžti į jutiklių aukštį','Return to sensor height') : text('Grįžti į patalpos vidurį','Return to the centre of the room')}>{text('Automatiškai','Auto')}</button>
           </div>}
           <div className="nc-living-view-controls"><button type="button" onClick={()=>{autoFrame.current=true;fitView()}} aria-label={text('Pradinis vaizdas','Reset view')}><i className="fa-solid fa-cube" /></button><span /><button type="button" onClick={()=>{autoFrame.current=false;renderer.current?.zoom(.85)}} aria-label={text('Priartinti','Zoom in')}><i className="fa-solid fa-plus" /></button><button type="button" onClick={()=>{autoFrame.current=false;renderer.current?.zoom(1.18)}} aria-label={text('Atitolinti','Zoom out')}><i className="fa-solid fa-minus" /></button><small className="nc-living-zoom-hint"><span>Option / Alt + {text('ratukas','scroll')}</span>{text('Priartinti / atitolinti','Zoom in / out')}</small></div>
 
