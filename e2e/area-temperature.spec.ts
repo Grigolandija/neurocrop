@@ -49,7 +49,7 @@ test('Area heat warning, recorded work and sensor result remain available after 
   await expect(panel).toContainText('Work in progress')
   await panel.getByRole('button', { name: 'Record work and monitor', exact: true }).click()
   expect(fixture.writes).toHaveLength(1)
-  await panel.getByLabel('Performed action', { exact: true }).selectOption('vents_opened')
+  await panel.getByRole('combobox', { name: 'Performed action', exact: true }).selectOption('vents_opened')
   await panel.getByLabel('Actual change or finding', { exact: true }).fill('Opened the side vents')
   await panel.getByRole('button', { name: 'Record work and monitor', exact: true }).click()
   await expect(panel).toContainText('Monitoring the result')

@@ -81,7 +81,7 @@ function TemperatureCase({ item, open, canRecord, busy, onToggle, onSave }: {
         {canRecord && <button type="button" className="nc-heat-primary" disabled={busy} onClick={() => void onSave('in_progress')}>{text('Pradėti patikrinimą', 'Start check')}</button>}
       </>}
       {item.status === 'in_progress' && (canRecord ? <form className="nc-heat-work-form" onSubmit={submit}>
-        <label>{text('Kas atlikta', 'Performed action')}<select required value={type} disabled={busy} onChange={event => setType(event.target.value)}>
+        <label>{text('Kas atlikta', 'Performed action')}<select aria-label={text('Kas atlikta', 'Performed action')} required value={type} disabled={busy} onChange={event => setType(event.target.value)}>
           <option value="">{text('Pasirinkite', 'Select')}</option>
           <option value="ventilation_increased">{text('Padidintas vėdinimas', 'Ventilation increased')}</option>
           <option value="vents_opened">{text('Atidarytos orlaidės', 'Vents opened')}</option>
