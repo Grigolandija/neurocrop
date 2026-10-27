@@ -80,6 +80,8 @@
   --color-card-inactive: #f0f1ee;
   --color-card-selected: #edf2f5;
   --color-card-selected-border: #6f8d9d;
+  --color-control-selected: var(--color-secondary);
+  --color-control-on-selected: var(--color-text-inverse);
   --color-card-hover: #fafaf8;
   --color-row-stripe: #fafaf8;
   --color-row-hover: #f1f4f3;
@@ -216,6 +218,8 @@ body[data-theme="dark"] {
   --color-card-inactive: #242927;
   --color-card-selected: #253139;
   --color-card-selected-border: #6f8d9d;
+  --color-control-selected: var(--color-secondary);
+  --color-control-on-selected: var(--color-text-inverse);
   --color-card-hover: #292e2b;
   --color-row-stripe: #202422;
   --color-row-hover: #292f2c;
@@ -477,7 +481,7 @@ body.designer-app {
 }
 
 /* Inputs and selectors */
-.designer-app input:not([type="checkbox"]):not([type="radio"]),
+.designer-app input:not([type="checkbox"],[type="radio"],[type="range"],[type="color"],[type="file"],[type="hidden"]),
 .designer-app select,
 .designer-app textarea,
 .designer-app .nc-select-trigger,
@@ -488,7 +492,7 @@ body.designer-app {
   color: var(--color-text) !important;
 }
 
-.designer-app input:not([type="checkbox"]):not([type="radio"]):hover,
+.designer-app input:not([type="checkbox"],[type="radio"],[type="range"],[type="color"],[type="file"],[type="hidden"]):hover,
 .designer-app select:hover,
 .designer-app textarea:hover,
 .designer-app .nc-select-trigger:hover {

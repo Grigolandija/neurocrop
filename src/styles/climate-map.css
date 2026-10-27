@@ -134,7 +134,7 @@
 .nc-climate-history-toggle[aria-pressed="true"] { border-color: var(--color-secondary); color: var(--color-secondary); background: var(--color-info-soft); }
 .nc-climate-history-toggle:disabled { opacity: .45; cursor: default; }
 .nc-climate-options { position: relative; }
-.nc-climate-options > summary { display: grid; width: 42px; min-height: 42px; place-items: center; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text-secondary); cursor: pointer; list-style: none; }
+.nc-climate-options > summary { display: grid; width: var(--control-height-md); min-height: var(--control-height-md); place-items: center; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text-secondary); cursor: pointer; list-style: none; }
 .nc-climate-options > summary::-webkit-details-marker { display: none; }
 .nc-climate-options[open] > summary { background: var(--color-surface-subtle); }
 .nc-climate-options-panel { position: absolute; z-index: 10; top: calc(100% + 10px); right: 0; display: grid; width: min(290px, calc(100vw - 40px)); gap: 12px; border: 1px solid var(--color-border); border-radius: 12px; padding: 16px; background: var(--color-surface); box-shadow: 0 8px 28px #233b281c; font-size: var(--type-caption); color: var(--color-text-secondary); }
@@ -142,7 +142,7 @@
 .nc-climate-options-panel p { margin: 0; line-height: 1.6; }
 .nc-climate-options-panel > span { font-size: var(--type-micro); }
 .nc-climate-options-panel .nc-climate-color-mode button { flex: 1; }
-.nc-climate-update-icon { color: var(--color-text-tertiary); font-size: 12px; }
+.nc-climate-update-icon { color: var(--color-text-tertiary); font-size: var(--type-caption); }
 .nc-climate-update-warning { display: inline-flex; align-items: center; gap: 6px; color: var(--color-warning); font-size: var(--type-micro); }
 .nc-climate-toolbar :is(button,summary):focus-visible { outline: 2px solid var(--color-secondary); outline-offset: 3px; }
 @media (max-width: 600px) {

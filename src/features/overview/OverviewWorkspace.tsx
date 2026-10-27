@@ -1099,16 +1099,14 @@ export default function OverviewWorkspace() {
         <button type="button" onClick={openAreaEvidence}>{tx("Open Area analysis")} <i className="fa-solid fa-arrow-right" /></button>
       </div>
         <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong></div>}>
-          <OverviewFarmPlan enabled={neurocropApi.isConnected()} areaId={model.areaId} refreshToken={refreshKey} onAreaSelect={changeArea} metric={mapMetric} onMetricChange={setMapMetric} signalReady={!!activeAreaOption?.mapEnabled}>
-          {activeAreaOption?.mapEnabled ? <ReadingsClimateMap
+          <OverviewFarmPlan enabled={neurocropApi.isConnected()} areaId={model.areaId} refreshToken={refreshKey} onAreaSelect={changeArea} metric={mapMetric} onMetricChange={setMapMetric} signalReady={!!activeAreaOption?.mapEnabled} renderMap={navigation => activeAreaOption?.mapEnabled ? <ReadingsClimateMap
             areaId={model.areaId}
             refreshToken={refreshKey}
             presentation="overview"
             metric={mapMetric}
             onMetricChange={setMapMetric}
-            areaNavigation={<nav className="nc-area-tabs" role="tablist" aria-label={tx("Choose Area for climate snapshot")}>{areaOptions.filter((area) => area.mapEnabled).map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
-          /> : null}
-          </OverviewFarmPlan>
+            areaNavigation={navigation || <nav className="nc-area-tabs" role="tablist" aria-label={tx("Choose Area for climate snapshot")}>{areaOptions.filter((area) => area.mapEnabled).map((area) => <button type="button" role="tab" aria-selected={area.id === model.areaId} className={area.id === model.areaId ? 'active' : ''} onClick={() => changeArea(area.id)} key={area.id}>{area.name}<b aria-label={`${area.sectionCount} sections`}>{area.sectionCount}</b></button>)}</nav>}
+          /> : null} />
         </Suspense>
       </article>
     </section>

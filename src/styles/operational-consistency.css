@@ -7,6 +7,10 @@
   .nc-readings-hero,
   .nc-alerts-head,
   .nc-settings-page-head,
+  .nc-actions-head,
+  .nc-trends-head,
+  .nc-simulator-header,
+  .diag-heading,
   #nodesManagementSection .node-fleet-page-head,
   .crop-profiles-page-head
 ) {
@@ -24,7 +28,11 @@
   .nc-alerts-eyebrow,
   .nc-settings-page-head > div:first-child > p,
   #nodesManagementSection .node-fleet-page-head p,
-  .profile-page-eyebrow
+  .profile-page-eyebrow,
+  .nc-actions-head > div:first-child > p,
+  .nc-trends-head > div:first-child > p,
+  .nc-simulator-header > div:first-child > p,
+  .diag-eyebrow
 ) {
   margin: 0 0 var(--space-8);
   color: var(--color-secondary);
@@ -42,7 +50,11 @@
   .nc-alerts-head h1,
   .nc-settings-page-head h1,
   #nodesManagementSection .node-fleet-page-head h2,
-  .crop-profiles-page-head h2
+  .crop-profiles-page-head h2,
+  .nc-actions-head h1,
+  .nc-trends-head h1,
+  .nc-simulator-header h1,
+  .diag-heading h1
 ) {
   margin: 0;
   color: var(--color-text);
@@ -60,7 +72,11 @@
   .nc-alerts-description,
   .nc-settings-page-head > div:first-child > span,
   #nodesManagementSection .node-fleet-page-head > div > span,
-  .crop-profiles-page-head > div > p:last-child
+  .crop-profiles-page-head > div > p:last-child,
+  .nc-actions-head > div:first-child > span,
+  .nc-trends-head > div:first-child > span,
+  .nc-simulator-header > div:first-child > span,
+  .diag-heading > div:first-child > p
 ) {
   display: block;
   max-width: 52rem;

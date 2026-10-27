@@ -1,0 +1,126 @@
+/* Shared control contract. Layouts remain local; text, states and dimensions do not. */
+.designer-app button,
+.designer-app summary,
+.login-screen button {
+  font-family: var(--font-ui);
+  font-size: var(--type-body-sm) !important;
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-compact);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.designer-app :is(button, input, select, textarea, summary) { box-sizing: border-box; }
+.designer-app :is(button, summary) > i { flex-shrink: 0; }
+.designer-app :is(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.designer-app :is(input[type="checkbox"], input[type="radio"]) { width: 16px; height: 16px; min-height: 0 !important; padding: 0 !important; margin: 0; flex-shrink: 0; accent-color: var(--color-secondary); }
+.designer-app input[type="range"] { min-height: 0 !important; padding: 0 !important; accent-color: var(--color-secondary); cursor: pointer; }
+.designer-app :is(input, select, textarea)::placeholder { color: var(--color-text-tertiary); opacity: 1; }
+.designer-app :is(label, fieldset) { min-width: 0; }
+.designer-app :is(label, legend) { color: var(--color-text-secondary); }
+.designer-app :is(input, select, textarea):disabled { cursor: not-allowed; }
+
+/* The same ordinary action size is used on every operational page. */
+.designer-app :is(
+  .nc-areas-button, .nc-sections-button, .nc-actions-controls > button,
+  .nc-readings-actions > button, .nc-alerts-review-all, .nc-alert-secondary-action,
+  .nc-alert-primary-action, .nc-settings-button, .settings-primary-button,
+  .settings-secondary-button, .settings-text-button, .admin-button, .admin-link-button,
+  .diagnostic-primary-button, .diagnostic-secondary-button, .diagnostic-link-button,
+  .trend-history-export-button, .node-fleet-primary-action, .node-detail-back,
+  .nc-farm-heading button, .nc-actions-refresh, .nc-trends-head-actions button,
+  .diag-toolbar button
+) {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-8);
+  min-height: var(--control-height-md); border-radius: var(--radius-control);
+  padding: 0 var(--space-16); font-size: var(--type-body-sm); white-space: nowrap;
+}
+
+/* Header action groups wrap together instead of separating labels from actions. */
+.designer-app :is(.nc-actions-head-controls, .nc-trends-head-actions, .diag-toolbar) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); }
+.designer-app .nc-trends-head-actions button.primary { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-on-primary); }
+
+/* Farm, scene and authoring controls share one compact density. */
+.designer-app :is(.nc-farm-monitoring, .nc-living, .nfa-editor, .gh-object-inspector, .gh-library) button {
+  font-size: var(--type-body-sm) !important;
+}
+.designer-app :is(.nc-farm-monitor-toolbar, .nfa-header, .nfa-command-bar, .nfa-drawer-heading) { gap: var(--space-12); }
+.designer-app :is(.nc-farm-monitor-toolbar, .nfa-editor) :is(input:not([type="checkbox"],[type="radio"],[type="range"]), select) {
+  height: var(--control-height-md); border-radius: var(--radius-control);
+}
+.designer-app :is(.nc-farm-camera, .nc-living-view-controls, .nfa-view-controls) button { width: var(--control-height-sm); height: var(--control-height-sm); min-height: var(--control-height-sm); border-radius: var(--radius-control); padding: 0; }
+.designer-app :is(.nc-farm-camera, .nc-living-view-controls, .nfa-view-controls) { gap: var(--space-4); border-color: var(--color-border); border-radius: var(--radius-control); }
+.designer-app :is(.nc-farm-camera, .nc-living-view-controls) small { font-family: var(--font-ui); color: var(--color-text-secondary); font-size: var(--type-caption) !important; }
+.designer-app :is(.nfa-editor button[aria-pressed="true"], .nfa-editor button[aria-expanded="true"], .gh-inspector-tabs button[aria-selected="true"]) { background: var(--color-card-selected); color: var(--color-secondary); }
+.designer-app .nfa-editor :is(.nc-farm-save, .nfa-inline-form > button, .nfa-node-height > button) { min-height: var(--control-height-sm); border-radius: var(--radius-control); }
+.designer-app .nfa-editor .nc-farm-save:not(:disabled) { background: var(--color-primary); color: var(--color-on-primary); }
+.designer-app :is(.nfa-fields, .nfa-node-fields, .nfa-area-fields, .gh-property-fields, .gh-field-row) { gap: var(--space-12); }
+.designer-app :is(.nfa-drawer-heading, .nc-farm-area-summary > header) strong { color: var(--color-text); font-size: var(--type-body-sm); font-weight: var(--weight-semibold); }
+.designer-app .nc-farm-area-summary { padding: var(--space-16); border-color: var(--color-border); }
+.designer-app .nc-farm-area-summary :is(dt, .nc-farm-summary-metric, .nc-farm-summary-status, .nc-farm-summary-note, .nc-farm-summary-trend header, .nc-farm-summary-trend small) { color: var(--color-text-secondary); font-size: var(--type-caption); }
+.designer-app .nc-farm-area-summary .nc-farm-open-map { min-height: var(--control-height-md); border-color: var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-secondary); }
+
+/* All map toolbar items share a 40px outer box and the same text baseline. */
+.designer-app .nc-live-climate-map > header.nc-climate-toolbar,
+.designer-app .nc-overview-climate-card .nc-overview-presentation > header.nc-climate-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  min-height: 64px; gap: var(--space-12) var(--space-16); padding: var(--space-12) var(--space-16);
+}
+.designer-app .nc-climate-toolbar .nc-climate-map-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); margin: 0; }
+.designer-app .nc-climate-toolbar .nc-climate-filter-control { display: flex; align-items: center; min-width: 0; margin: 0; }
+.designer-app .nc-climate-toolbar :is(.nc-climate-filter-control select, .nc-climate-history-toggle, .nc-climate-options > summary) {
+  height: var(--control-height-md); min-height: var(--control-height-md);
+  border: 1px solid var(--color-border); border-radius: var(--radius-control);
+  background: var(--color-surface); color: var(--color-text); font-size: var(--type-body-sm) !important;
+}
+.designer-app .nc-climate-toolbar .nc-climate-history-toggle { padding: 0 var(--space-12); }
+.designer-app .nc-climate-toolbar .nc-climate-options > summary { width: var(--control-height-md); padding: 0; }
+.designer-app :is(.nc-climate-view-mode, .nc-climate-time-mode, .nc-climate-color-mode) {
+  height: var(--control-height-md); min-height: var(--control-height-md); border: 1px solid var(--color-border);
+  border-radius: var(--radius-control); background: var(--color-surface-subtle);
+}
+.designer-app :is(.nc-climate-view-mode, .nc-climate-time-mode, .nc-climate-color-mode) button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: calc(var(--control-height-md) - 2px); min-height: calc(var(--control-height-md) - 2px);
+  min-width: 44px; margin: 0; border: 0; border-radius: 0; padding: 0 var(--space-12);
+  background: transparent; color: var(--color-text-secondary); font-size: var(--type-body-sm) !important;
+}
+.designer-app :is(.nc-climate-view-mode, .nc-climate-time-mode, .nc-climate-color-mode) button.active { background: var(--color-control-selected); color: var(--color-control-on-selected); }
+.designer-app .nc-climate-history-toggle[aria-pressed="true"] { border-color: var(--color-secondary); background: var(--color-card-selected); color: var(--color-secondary); }
+.designer-app .nc-climate-options-panel { gap: var(--space-12); border-color: var(--color-border); border-radius: var(--radius-control); padding: var(--space-16); }
+.designer-app .nc-farm-return-summary { display: inline-flex; align-items: center; gap: var(--space-8); height: var(--control-height-md); min-height: var(--control-height-md); margin: 0; border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: 0 var(--space-12); background: var(--color-surface); color: var(--color-text); font-size: var(--type-body-sm); white-space: nowrap; }
+
+/* Legend copy is interface text; only the actual value ramp uses measurement colours. */
+.designer-app .nc-overview-climate-card .nc-climate-map-legend-slot { padding: var(--space-12) var(--space-16); background: transparent; backdrop-filter: none; }
+.designer-app .nc-climate-map-legend-slot :is(.gh-legend-range, .gh-legend-range span, .gh-target-state, .gh-contour-toggle) { font-family: var(--font-ui); font-size: var(--type-body-sm); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.designer-app .nc-climate-map-legend-slot .gh-contour-toggle { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-8); height: var(--control-height-md); min-height: var(--control-height-md); border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: 0 var(--space-12); background: var(--color-surface); color: var(--color-text-secondary); }
+.designer-app .nc-climate-map-legend-slot .gh-contour-toggle.active { border-color: var(--color-secondary); background: var(--color-card-selected); color: var(--color-secondary); }
+.designer-app .nc-climate-map-legend-slot .gh-target-state { display: inline-flex; align-items: center; min-height: var(--control-height-sm); border-radius: var(--radius-control); padding: var(--space-4) var(--space-8); }
+.designer-app .nc-climate-map-legend-slot .gh-legend-meta { align-items: center; }
+.designer-app .nc-living-slice-controls { align-items: center; gap: var(--space-12); border-color: var(--color-border); border-radius: var(--radius-control); padding: var(--space-8); }
+.designer-app .nc-living-slice-controls button { height: var(--control-height-sm); min-height: var(--control-height-sm); padding: 0 var(--space-8); color: var(--color-text-secondary); }
+.designer-app .nc-living-slice-controls button[aria-pressed="true"] { background: var(--color-card-selected); color: var(--color-secondary); }
+.designer-app .nc-living-slice-controls label { gap: var(--space-8); }
+.designer-app .nc-living-slice-controls output { min-width: 56px; font-family: var(--font-ui); font-size: var(--type-body-sm); color: var(--color-text); font-variant-numeric: tabular-nums; }
+
+/* Warnings and destructive actions retain a consistent semantic treatment. */
+.designer-app :is(.nfa-message, .nc-living-status-chip, .gh-equipment-collisions) { border-color: var(--color-warning-border); background: var(--color-warning-soft); color: var(--color-warning); }
+.designer-app :is(.nfa-delete-area, .nc-farm-heading .danger, .nfa-delete-confirm) { color: var(--color-danger); }
+.designer-app .nfa-delete-dialog .nfa-delete-confirm { border-color: var(--color-danger); background: var(--color-danger); color: var(--color-on-primary); }
+
+.designer-app .nfa-message[role="alert"] { border-color: var(--color-danger-border); background: var(--color-danger-soft); color: var(--color-danger); }
+.designer-app .nc-farm-notice { border-color: var(--color-success-border); background: var(--color-success-soft); color: var(--color-success); }
+.designer-app .nc-farm-unsaved-dialog footer button { min-height: var(--control-height-md); border-radius: var(--radius-control); }
+.designer-app .nc-farm-unsaved-dialog .nc-farm-save-leave { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-on-primary); }
+.designer-app .nc-farm-unsaved-dialog .nc-farm-unsaved-error { color: var(--color-danger); }
+
+@media (max-width: 760px) {
+  :root { --control-height-md: 2.75rem; }
+  .designer-app :is(.nc-actions-head, .nc-trends-head, .nc-simulator-header, .diag-heading) { flex-wrap: wrap; align-items: flex-start; gap: var(--space-16); }
+  .designer-app .nc-live-climate-map > header.nc-climate-toolbar,
+  .designer-app .nc-overview-climate-card .nc-overview-presentation > header.nc-climate-toolbar { padding: var(--space-12); }
+  .designer-app .nc-climate-toolbar .nc-climate-map-filters { width: 100%; gap: var(--space-8); }
+  .designer-app .nc-climate-toolbar .nc-climate-metric-control { flex: 1 1 180px; }
+  .designer-app .nc-climate-toolbar .nc-climate-filter-control select { width: 100%; }
+  .designer-app .nc-farm-return-summary { max-width: 100%; }
+  .designer-app .nc-climate-toolbar :is(.nc-climate-view-mode, .nc-climate-time-mode) { width: auto; }
+}

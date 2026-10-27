@@ -56,7 +56,7 @@
   --control-height-md: 2.5rem;
   --control-height-lg: 3rem;
   --table-row-height: 2.75rem;
-  --radius-control: 0.625rem;
+  --radius-control: 0.5rem;
 
   /* Compatibility aliases for legacy selectors. */
   --font-display: var(--font-ui);
@@ -421,8 +421,8 @@ td {
   letter-spacing: 0 !important;
 }
 
-.designer-app :is(input, select, .nc-select-trigger),
-.login-screen :is(input, select) {
+.designer-app :is(input:not([type="checkbox"],[type="radio"],[type="range"],[type="color"],[type="file"],[type="hidden"]), select, .nc-select-trigger),
+.login-screen :is(input:not([type="checkbox"],[type="radio"],[type="range"],[type="hidden"]), select) {
   min-height: var(--control-height-md) !important;
   padding-inline: var(--space-12) !important;
 }

@@ -83,8 +83,8 @@
 .nc-structure-page :is(.nc-areas-toolbar, .nc-sections-toolbar) > label { min-width: 0; }
 .designer-app .nc-structure-page :is(.nc-areas-toolbar, .nc-sections-toolbar) :is(input, select) {
   min-width: 0;
-  min-height: 2.75rem;
-  height: 2.75rem;
+  min-height: var(--control-height-md);
+  height: var(--control-height-md);
   border-radius: var(--radius-control);
 }
 .designer-app .nc-structure-page :is(.nc-areas-search, .nc-sections-search) > i { bottom: .9rem; }

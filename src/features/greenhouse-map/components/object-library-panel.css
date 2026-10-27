@@ -27,8 +27,8 @@
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  height: 40px;
-  min-height: 40px;
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
   margin: 0;
   border: 1px solid #dce5da;
   border-radius: 7px;
@@ -36,7 +36,7 @@
   background: #fff;
   color: #294135;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--type-body-sm);
   line-height: 1.4;
 }
 .gh-library .gh-library-search > input::placeholder { color: #839084; opacity: 1; }
@@ -44,19 +44,19 @@
 .gh-library .gh-library-search > input::-webkit-search-decoration { -webkit-appearance: none; }
 
 /* A shallow dock keeps the plan visible while the full catalogue stays searchable. */
-.gh-library[data-compact="true"] { --control-height-md: 32px; --type-body: 12px; --type-label: 11px; --space-12: 9px; padding: 0; border: 0; }
+.gh-library[data-compact="true"] { --control-height-md: var(--control-height-sm); --type-body: var(--type-body-sm); --type-label: var(--type-caption); --space-12: 0.75rem; padding: 0; border: 0; }
 .gh-library-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .gh-library[data-compact="true"] .gh-library-search { flex: 0 1 260px; width: 260px; min-width: 0; max-width: 100%; margin: 0; }
-.gh-library[data-compact="true"] .gh-library-search > input[type="search"] { height: 32px; min-height: 32px; padding: 5px 9px; border-radius: 5px; font-size: 12px; }
-.gh-library[data-compact="true"] .gh-library-toolbar > select { flex: 0 1 196px; width: 196px; max-width: 100%; min-width: 0; min-height: 32px; height: 32px; padding: 5px 9px; font-size: 12px; }
-.gh-library-count { color: #8a978d; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gh-library[data-compact="true"] .gh-library-search > input[type="search"] { height: var(--control-height-sm); min-height: var(--control-height-sm); padding: 5px 9px; border-radius: 5px; font-size: var(--type-caption); }
+.gh-library[data-compact="true"] .gh-library-toolbar > select { flex: 0 1 196px; width: 196px; max-width: 100%; min-width: 0; min-height: var(--control-height-sm); height: var(--control-height-sm); padding: 5px 9px; font-size: var(--type-caption); }
+.gh-library-count { color: #8a978d; font-size: var(--type-caption); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gh-library[data-compact="true"] .gh-library-grid { grid-template-columns: repeat(auto-fill,minmax(min(164px,100%),1fr)); gap: 6px; max-height: 82px; padding: 2px; overflow-y: auto; scrollbar-width: thin; }
-.gh-library[data-compact="true"] .gh-library-grid > button { position: relative; gap: 8px; min-width: 0; min-height: 36px; height: 36px; padding: 6px 9px; border: 1px solid #e1e8df; border-radius: 5px; background: #fafbf9; color: #44644f; text-align: left; }
+.gh-library[data-compact="true"] .gh-library-grid > button { position: relative; gap: 8px; min-width: 0; min-height: var(--control-height-sm); height: var(--control-height-sm); padding: 6px 9px; border: 1px solid #e1e8df; border-radius: 5px; background: #fafbf9; color: #44644f; text-align: left; }
 .gh-library[data-compact="true"] .gh-library-grid > button > i { flex: 0 0 16px; width: 16px; color: #6c8877; text-align: center; font-size: 12px; }
-.gh-library[data-compact="true"] .gh-library-grid > button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 1.5; }
-.gh-library[data-compact="true"] .gh-library-grid > button > b { flex: 0 0 auto; color: #99a79a; font-size: 12px; font-weight: 400; }
+.gh-library[data-compact="true"] .gh-library-grid > button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-caption); line-height: 1.5; }
+.gh-library[data-compact="true"] .gh-library-grid > button > b { flex: 0 0 auto; color: #99a79a; font-size: var(--type-caption); font-weight: var(--weight-regular); }
 .gh-library[data-compact="true"] .gh-library-grid > button:hover { border-color: #a5c2ae; background: #eff5ef; }
-.gh-library[data-compact="true"] .gh-library-empty { margin: 0; padding: 8px 0; color: #8a978d; font-size: 11px; text-align: left; }
+.gh-library[data-compact="true"] .gh-library-empty { margin: 0; padding: 8px 0; color: #8a978d; font-size: var(--type-caption); text-align: left; }
 @media(max-width:600px) {
   .gh-library[data-compact="true"] .gh-library-search { flex: 1 1 160px; }
   .gh-library[data-compact="true"] .gh-library-toolbar > select { flex: 1 1 150px; }

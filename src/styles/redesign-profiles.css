@@ -28,7 +28,7 @@
   background: var(--color-critical-soft);
   color: var(--color-critical);
   font-size: .8125rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .crop-profile-standalone {
@@ -53,7 +53,7 @@
   margin: 0 0 var(--space-2, .5rem);
   color: var(--color-text-tertiary);
   font-size: .875rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: .1em;
   line-height: 1.25;
   text-transform: uppercase;
@@ -64,7 +64,7 @@
   margin: 0;
   color: var(--color-text);
   font-size: clamp(3rem, 4vw, 4.5rem);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: -.035em;
   line-height: 1.05;
 }
@@ -120,7 +120,7 @@
   margin: 0;
   color: var(--color-text-inverse);
   font-size: 2.25rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: -.025em;
   line-height: 1.35;
 }
@@ -139,7 +139,7 @@
   padding: 0;
   color: var(--color-neutral-100);
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   list-style: none;
 }
 
@@ -158,7 +158,7 @@
   border-radius: 50%;
   color: var(--color-accent-plant);
   font-size: .875rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .profile-list-new {
@@ -216,7 +216,7 @@
   overflow: hidden;
   color: var(--color-text);
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -246,7 +246,7 @@
   background: var(--color-unknown-soft);
   color: var(--color-unknown);
   font-size: .875rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .profile-list-status::before {
@@ -327,7 +327,7 @@
   margin: 0 0 .375rem;
   color: var(--color-secondary);
   font-size: .6875rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -336,7 +336,7 @@
   margin: 0;
   color: var(--color-text);
   font-size: 1.625rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .crop-profile-create-drawer > header span {
@@ -392,7 +392,7 @@
   margin: 0;
   color: var(--color-text);
   font-size: .8125rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   line-height: 1.25;
 }
 
@@ -400,7 +400,7 @@
   margin-top: -.25rem;
   color: var(--color-text-tertiary);
   font-size: .75rem;
-  font-weight: 400;
+  font-weight: var(--weight-regular);
   line-height: 1.45;
 }
 
@@ -413,7 +413,7 @@
   background: var(--color-surface);
   color: var(--color-text);
   font-size: .875rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   outline: 0;
 }
 
@@ -482,7 +482,7 @@
   background: transparent;
   color: var(--color-secondary);
   font-size: .8125rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .profile-back-button:hover {
@@ -539,7 +539,7 @@
   padding: .5rem .625rem;
   color: var(--color-text-secondary);
   font-size: .8125rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   text-decoration: none;
 }
 
@@ -588,7 +588,7 @@
   margin: 0;
   color: var(--color-text);
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: -.025em;
 }
 
@@ -626,13 +626,13 @@
   border-radius: 50%;
   color: var(--color-secondary);
   font-size: .6875rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .crop-profile-metric-group h4 {
   color: var(--color-text);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .crop-profile-metric-group p {
@@ -643,7 +643,7 @@
 .designer-app .crop-profile-metric-group > header > span {
   color: var(--color-text-tertiary);
   font-size: .75rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .designer-app .crop-profile-metric-heading,
@@ -673,7 +673,7 @@
 .designer-app .crop-profile-metric-name strong {
   color: var(--color-text);
   font-size: .875rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .crop-profile-metric-name span {
@@ -694,7 +694,7 @@
   background: var(--color-surface);
   color: var(--color-text);
   font-size: .8125rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .designer-app .crop-profile-optimal-inputs .profile-target-input:focus,
@@ -708,13 +708,13 @@
 .designer-app .crop-profile-metric-boundary {
   color: var(--color-text-secondary);
   font-size: .75rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .designer-app .crop-profile-metric-boundary b {
   color: var(--color-text-tertiary);
   font-size: .6875rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .designer-app .crop-profile-metric-warning b {

@@ -1,8 +1,8 @@
 .nc-simulator {
-  --sim-ink: #202b26;
-  --sim-muted: #6f7a74;
-  --sim-line: #dce1dd;
-  --sim-green: #275f50;
+  --sim-ink: var(--color-text);
+  --sim-muted: var(--color-text-secondary);
+  --sim-line: var(--color-border);
+  --sim-green: var(--color-secondary);
   width: 100%;
   padding: 44px 18px 84px;
   color: var(--sim-ink);
@@ -23,15 +23,15 @@
 .nc-simulator-limitations > span {
   margin: 0;
   color: #547187;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
   letter-spacing: .08em;
   text-transform: uppercase;
 }
 
 .nc-simulator-header h1 {
   margin: 8px 0 5px;
-  font-size: 32px;
+  font-size: var(--type-display-m);
   letter-spacing: -.03em;
 }
 
@@ -62,13 +62,13 @@
 
 .nc-simulator-model span {
   color: var(--sim-muted);
-  font-size: 11px;
+  font-size: var(--type-caption);
 }
 
 .nc-simulator-model strong {
   margin-bottom: 2px;
   color: var(--sim-ink);
-  font-size: 13px;
+  font-size: var(--type-body-sm);
 }
 
 .nc-simulator-layout {
@@ -93,7 +93,7 @@
 }
 
 .nc-simulator-controls > header strong {
-  font-size: 20px;
+  font-size: var(--type-h3);
 }
 
 .nc-simulator-profile {
@@ -105,15 +105,15 @@
 .nc-simulator-profile > span,
 .nc-simulator-duration legend {
   color: var(--sim-muted);
-  font-size: 11px;
-  font-weight: 750;
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
   letter-spacing: .06em;
   text-transform: uppercase;
 }
 
 .nc-simulator select,
 .nc-simulator input[type="number"] {
-  height: 42px;
+  height: var(--control-height-md);
   border: 1px solid #d9dfda;
   border-radius: 9px;
   background: #fff;
@@ -134,7 +134,7 @@
   padding: 16px;
   border: 1px solid var(--sim-line);
   border-radius: 13px;
-  background: #f8faf7;
+  background: var(--color-surface-subtle);
 }
 
 .nc-simulator-parameters article > header {
@@ -145,7 +145,7 @@
 .nc-simulator-parameters article > header select {
   flex: 1;
   padding: 0 10px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .nc-simulator-parameters article > header button {
@@ -165,14 +165,14 @@
 .nc-simulator-value input {
   width: 112px;
   padding: 0 10px;
-  font-size: 18px;
-  font-weight: 750;
+  font-size: var(--type-h4);
+  font-weight: var(--weight-bold);
 }
 
 .nc-simulator-value span {
   margin-left: 8px;
   color: var(--sim-muted);
-  font-weight: 650;
+  font-weight: var(--weight-semibold);
 }
 
 .nc-simulator input[type="range"] {
@@ -186,7 +186,7 @@
   justify-content: space-between;
   gap: 12px;
   color: #87918c;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .nc-simulator-parameters article > footer strong {
@@ -201,7 +201,7 @@
   border-radius: 10px;
   background: transparent;
   color: var(--sim-green);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .nc-simulator-derived {
@@ -223,8 +223,8 @@
 
 .nc-simulator-derived div span {
   color: #6e7d75;
-  font-size: 10px;
-  font-weight: 750;
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
   letter-spacing: .06em;
   text-transform: uppercase;
 }
@@ -236,21 +236,21 @@
 
 .nc-simulator-derived > b {
   color: #1e5b48;
-  font-size: 20px;
+  font-size: var(--type-h3);
 }
 
 .nc-simulator-derived > p {
   grid-column: 1 / -1;
   margin: 3px 0 0;
   color: #66776e;
-  font-size: 11px;
+  font-size: var(--type-caption);
 }
 
 .nc-simulator-derived.muted {
   display: flex;
   gap: 9px;
   border-color: var(--sim-line);
-  background: #f8faf7;
+  background: var(--color-surface-subtle);
   color: #748078;
 }
 
@@ -278,12 +278,12 @@
 }
 
 .nc-simulator-duration button {
-  height: 40px;
+  height: var(--control-height-md);
   border: 0;
   border-right: 1px solid var(--sim-line);
   background: #fff;
   color: var(--sim-muted);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .nc-simulator-duration button:last-child {
@@ -298,18 +298,18 @@
 .nc-simulator-duration p {
   margin: 7px 0 0;
   color: #87918c;
-  font-size: 11px;
+  font-size: var(--type-caption);
 }
 
 .nc-simulator-run {
   width: 100%;
-  height: 46px;
+  height: var(--control-height-md);
   margin-top: 20px;
   border: 0;
   border-radius: 10px;
   background: #26312c;
   color: #fff;
-  font-weight: 750;
+  font-weight: var(--weight-bold);
 }
 
 .nc-simulator-run i {
@@ -332,7 +332,7 @@
 .nc-simulator-result > header h2 {
   margin: 8px 0 0;
   color: #193d30;
-  font-size: 26px;
+  font-size: var(--type-h1);
   line-height: 1.2;
 }
 
@@ -341,7 +341,7 @@
   border-radius: 999px;
   background: #fff0d3;
   color: #9a640c;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 
 .nc-simulator-result[data-tone="confirmed"] > header > strong,
@@ -388,8 +388,8 @@
 .nc-simulator-reasoning span,
 .nc-simulator-guardrails span {
   color: #547187;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -398,7 +398,7 @@
 .nc-simulator-guardrails p {
   margin: 7px 0 0;
   color: #43564c;
-  font-size: 13px;
+  font-size: var(--type-body-sm);
   line-height: 1.55;
 }
 
@@ -413,7 +413,7 @@
   margin: 8px 0 0;
   padding-left: 17px;
   color: #43564c;
-  font-size: 12px;
+  font-size: var(--type-caption);
   line-height: 1.6;
 }
 
@@ -424,7 +424,7 @@
 .nc-simulator-evidence {
   margin: 12px 2px 0;
   color: #718078;
-  font-size: 11px;
+  font-size: var(--type-caption);
   line-height: 1.45;
 }
 
@@ -445,13 +445,13 @@
 
 .nc-simulator-score span {
   color: var(--sim-muted);
-  font-size: 11px;
+  font-size: var(--type-caption);
   text-transform: uppercase;
 }
 
 .nc-simulator-score strong {
   color: #1e5b48;
-  font-size: 32px;
+  font-size: var(--type-display-m);
 }
 
 .nc-simulator-score small {
@@ -476,7 +476,7 @@
 .nc-simulator-action p {
   margin: 8px 0 0;
   color: var(--sim-muted);
-  font-size: 13px;
+  font-size: var(--type-body-sm);
 }
 
 .nc-simulator-action.stable {
@@ -490,7 +490,7 @@
   gap: 9px;
   margin: 10px 0 0;
   color: var(--sim-muted);
-  font-size: 12px;
+  font-size: var(--type-caption);
   line-height: 1.45;
 }
 
@@ -507,7 +507,7 @@
 
 .nc-simulator-empty > i {
   color: #5b8d78;
-  font-size: 34px;
+  font-size: var(--type-display-m);
 }
 
 .nc-simulator-empty h2 {
@@ -539,7 +539,7 @@
   border-radius: 50%;
   background: #dfeae3;
   color: #275f50;
-  font-weight: 800;
+  font-weight: var(--weight-bold);
 }
 
 .nc-simulator-error {

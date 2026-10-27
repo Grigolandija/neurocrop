@@ -1,10 +1,10 @@
-.nc-farm-unsaved-dialog { width: min(520px,calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; padding: 24px; border: 1px solid #dce5d6; border-radius: 12px; background: #fff; color: #293e32; box-shadow: 0 18px 70px #1e39242b; font-family: inherit; }
+.nc-farm-unsaved-dialog { width: min(520px,calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; padding: 24px; border: 1px solid var(--color-border); border-radius: 12px; background: #fff; color: var(--color-text); box-shadow: 0 18px 70px #1e39242b; font-family: inherit; }
 .nc-farm-unsaved-dialog::backdrop { background: #24372c55; }
-.nc-farm-unsaved-dialog h2 { margin: 0 0 12px; font-size: 20px; line-height: 1.4; }
-.nc-farm-unsaved-dialog p { margin: 0 0 16px; color: #6b7c70; font-size: 13px; line-height: 1.7; }
+.nc-farm-unsaved-dialog h2 { margin: 0 0 12px; font-size: var(--type-h3); line-height: 1.4; }
+.nc-farm-unsaved-dialog p { margin: 0 0 16px; color: #6b7c70; font-size: var(--type-body-sm); line-height: 1.7; }
 .nc-farm-unsaved-dialog .nc-farm-unsaved-error { color: #a45c35; }
 .nc-farm-unsaved-dialog footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-.nc-farm-unsaved-dialog button { padding: 9px 12px; border: 1px solid #dce5d6; border-radius: 6px; background: #fff; color: #42604c; font: inherit; font-size: 12px; cursor: pointer; }
+.nc-farm-unsaved-dialog button { padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 6px; background: #fff; color: #42604c; font: inherit; font-size: var(--type-caption); cursor: pointer; }
 .nc-farm-unsaved-dialog .nc-farm-draft-download { border: 0; padding: 4px 0; text-decoration: underline; }
 .nc-farm-unsaved-dialog .nc-farm-save-leave { border-color: #28694f; background: #28694f; color: #fff; }
 .nc-farm-unsaved-dialog button:disabled { opacity: .5; cursor: default; }

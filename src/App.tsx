@@ -23,6 +23,7 @@ import './styles/app-shell.css'
 import './styles/operational-consistency.css'
 import './styles/mobile-experience.css'
 import './styles/monitoring-workspace.css'
+import './styles/ui-controls.css'
 
 declare global {
   interface Window {

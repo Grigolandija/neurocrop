@@ -11,7 +11,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   overflow: hidden;
   color: var(--gh-ink);
   background: #e9ece7;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--font-ui);
 }
 .gh-app button, .gh-app input, .gh-app select, .gh-app textarea { font: inherit; }
 .gh-toolbar {
@@ -27,20 +27,20 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-brand { display: flex; align-items: center; gap: 10px; width: 285px; }
 .gh-brand > span { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid #4f7469; color: #d9b85e; background: #1d4b3f; }
 .gh-brand strong, .gh-brand small { display: block; }
-.gh-brand strong { font-size: 15px; letter-spacing: .01em; }
+.gh-brand strong { font-size: var(--type-title); letter-spacing: .01em; }
 .gh-brand small { margin-top: 1px; color: #aabdb6; font: 500 10px/1.2 'IBM Plex Mono'; letter-spacing: .05em; text-transform: uppercase; }
 .gh-modes { display: flex; align-items: center; height: 100%; }
 .gh-modes button {
   display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 14px;
-  border-bottom: 2px solid transparent; color: #aabdb6; background: transparent; font-size: 12px; font-weight: 600;
+  border-bottom: 2px solid transparent; color: #aabdb6; background: transparent; font-size: var(--type-caption); font-weight: var(--weight-semibold);
 }
 .gh-modes button:hover { color: #fff; background: #1b473b; }
 .gh-modes button.active { color: #fff; border-bottom-color: #d7ae4d; background: #1c4a3d; }
-.gh-toolbar > select { height: 31px; border: 1px solid #54746b; padding: 0 28px 0 9px; color: #eef5f0; background: #1e4c40; font-size: 11px; }
+.gh-toolbar > select { height: var(--control-height-sm); border: 1px solid #54746b; padding: 0 28px 0 9px; color: #eef5f0; background: #1e4c40; font-size: var(--type-caption); }
 .gh-toolbar-actions { display: flex; align-items: center; gap: 3px; margin-left: auto; }
 .gh-toolbar-actions > span, .gh-action-strip > span { width: 1px; height: 22px; margin: 0 4px; background: rgba(255,255,255,.16); }
 .gh-toolbar-actions button {
-  min-width: 33px; height: 32px; padding: 0 9px; color: #b7c6c1; background: transparent; font-size: 11px;
+  min-width: 33px; height: var(--control-height-sm); padding: 0 9px; color: #b7c6c1; background: transparent; font-size: var(--type-caption);
 }
 .gh-toolbar-actions button:hover:not(:disabled), .gh-toolbar-actions button.active { color: #fff; background: #2b5a4d; }
 .gh-toolbar-actions button:disabled { opacity: .3; }
@@ -50,8 +50,8 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   border-bottom: 1px solid #ccd4cd; background: #fff;
 }
 .gh-action-strip button {
-  display: flex; align-items: center; gap: 7px; height: 29px; padding: 0 10px;
-  color: #385047; background: transparent; font-size: 11px; font-weight: 600;
+  display: flex; align-items: center; gap: 7px; height: var(--control-height-sm); padding: 0 10px;
+  color: #385047; background: transparent; font-size: var(--type-caption); font-weight: var(--weight-semibold);
 }
 .gh-action-strip button:hover { background: #edf2ed; }
 .gh-action-strip button.gh-edit-active { color: #fff; background: #2d6b54; }
@@ -61,8 +61,8 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-action-strip > span { background: #dce1dd; }
 .gh-map-more { position: relative; flex: 0 0 auto; }
 .gh-map-more > summary {
-  display: flex; align-items: center; gap: 7px; height: 29px; padding: 0 10px; cursor: pointer;
-  color: #385047; font-size: 11px; font-weight: 600; list-style: none;
+  display: flex; align-items: center; gap: 7px; height: var(--control-height-sm); padding: 0 10px; cursor: pointer;
+  color: #385047; font-size: var(--type-caption); font-weight: var(--weight-semibold); list-style: none;
 }
 .gh-map-more > summary::-webkit-details-marker { display: none; }
 .gh-map-more > summary:hover, .gh-map-more[open] > summary { background: #edf2ed; }
@@ -71,11 +71,11 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   border: 1px solid #cbd4cd; padding: 5px; background: #fff; box-shadow: 0 10px 28px rgba(18,43,34,.18);
 }
 .gh-action-strip .gh-map-more > div button { justify-content: flex-start; width: 100%; }
-.gh-area-selector { display: flex; align-items: center; gap: 10px; min-width: 250px; color: #68766f; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.gh-area-selector { display: flex; align-items: center; gap: 10px; min-width: 250px; color: #68766f; font-size: var(--type-caption); font-weight: var(--weight-bold); text-transform: uppercase; }
 .gh-area-picker { position: relative; text-transform: none; }
 .gh-action-strip .gh-area-trigger {
   justify-content: space-between; width: clamp(180px,22vw,260px); height: 32px; border: 1px solid #c7d1ca; border-radius: 4px;
-  padding: 0 10px 0 12px; color: #233b32; background: #f9fbf8; font-size: 12px; font-weight: 600;
+  padding: 0 10px 0 12px; color: #233b32; background: #f9fbf8; font-size: var(--type-caption); font-weight: var(--weight-semibold);
 }
 .gh-area-trigger strong { overflow: hidden; font: inherit; text-overflow: ellipsis; white-space: nowrap; }
 .gh-area-trigger i { color: #718079; font-size: 9px; }
@@ -86,7 +86,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   position: absolute; z-index: 70; top: calc(100% + 5px); left: 0; display: grid; width: 100%; max-height: 260px; overflow-y: auto;
   border: 1px solid #becbc3; border-radius: 5px; padding: 4px; background: #fff; box-shadow: 0 12px 30px rgba(18,43,34,.2);
 }
-.gh-action-strip .gh-area-menu button { justify-content: flex-start; width: 100%; min-height: 34px; height: auto; border-radius: 3px; padding: 7px 9px; color: #3d5149; text-align: left; }
+.gh-action-strip .gh-area-menu button { justify-content: flex-start; width: 100%; min-height: var(--control-height-sm); height: auto; border-radius: 3px; padding: 7px 9px; color: #3d5149; text-align: left; }
 .gh-action-strip .gh-area-menu button i { width: 14px; color: #819089; font-size: 9px; text-align: center; }
 .gh-action-strip .gh-area-menu button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gh-action-strip .gh-area-menu button:hover { background: #edf3ee; }
@@ -111,48 +111,48 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 13px;
 }
 .gh-panel-section header small, .gh-properties header small { display: block; margin-bottom: 2px; color: #708078; font: 600 9px/1.2 'IBM Plex Mono'; letter-spacing: .11em; }
-.gh-panel-section h2, .gh-properties h2 { margin: 0; font-size: 14px; line-height: 1.2; }
+.gh-panel-section h2, .gh-properties h2 { margin: 0; font-size: var(--type-body); line-height: 1.2; }
 .gh-panel-section header > span, .gh-panel-section header > i { color: #5d746b; font: 600 10px/1 'IBM Plex Mono'; }
 .gh-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 9px; }
 .gh-field { display: grid; gap: 4px; min-width: 0; }
 .gh-field.wide { margin-bottom: 9px; }
-.gh-field > span { color: #53655e; font-size: 10px; font-weight: 600; }
+.gh-field > span { color: #53655e; font-size: var(--type-caption); font-weight: var(--weight-semibold); }
 .gh-field > span em { color: #8b9691; font: normal 9px 'IBM Plex Mono'; }
 .gh-field input, .gh-field select, .gh-field textarea {
   width: 100%; border: 1px solid #cfd7d1; border-radius: 2px; color: #21372f; background: #fbfcfa; outline: none;
 }
-.gh-field input, .gh-field select { height: 31px; padding: 0 8px; font: 500 11px 'IBM Plex Mono'; }
-.gh-field textarea { min-height: 60px; padding: 8px; resize: vertical; font-size: 11px; }
+.gh-field input, .gh-field select { height: var(--control-height-sm); padding: 0 8px; font: 500 11px 'IBM Plex Mono'; }
+.gh-field textarea { min-height: 60px; padding: 8px; resize: vertical; font-size: var(--type-caption); }
 .gh-field input:focus, .gh-field select:focus, .gh-field textarea:focus { border-color: #438069; box-shadow: 0 0 0 2px rgba(67,128,105,.1); }
 .gh-library-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .gh-library-grid button {
-  position: relative; display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 6px; min-height: 40px;
+  position: relative; display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 6px; min-height: var(--control-height-md);
   border: 1px solid #dce1dc; padding: 5px 19px 5px 7px; color: #364a42; background: #fafbf9; text-align: left;
 }
 .gh-library-grid button:hover { border-color: #7fa08f; background: #eff5f0; }
 .gh-library-grid button i { color: #527465; text-align: center; }
-.gh-library-grid button span { font-size: 10px; line-height: 1.15; }
-.gh-library-grid button b { position: absolute; top: 4px; right: 5px; color: #83928b; font-size: 10px; }
+.gh-library-grid button span { font-size: var(--type-caption); line-height: 1.15; }
+.gh-library-grid button b { position: absolute; top: 4px; right: 5px; color: #83928b; font-size: var(--type-caption); }
 .gh-library-more { margin-top: 9px; }
-.gh-library-more > summary { display: flex; justify-content: space-between; cursor: pointer; color: #53675e; font-size: 10px; font-weight: 650; list-style: none; }
+.gh-library-more > summary { display: flex; justify-content: space-between; cursor: pointer; color: #53675e; font-size: var(--type-caption); font-weight: var(--weight-semibold); list-style: none; }
 .gh-library-more > summary::-webkit-details-marker { display: none; }
 .gh-library-more > summary::before { content: '\f105'; margin-right: 6px; font: 900 10px/1.4 'Font Awesome 6 Free'; }
 .gh-library-more[open] > summary::before { content: '\f107'; }
 .gh-library-more > summary span { margin-left: auto; color: #87928d; font: 500 9px 'IBM Plex Mono'; }
 .gh-library-more > .gh-library-grid { margin-top: 7px; }
-.gh-library-empty { margin: 12px 0 0; color: #7b8882; font-size: 10px; text-align: center; }
+.gh-library-empty { margin: 12px 0 0; color: #7b8882; font-size: var(--type-caption); text-align: center; }
 .gh-toggle-row { display: flex; align-items: center; gap: 12px; margin: 8px 0 10px; }
-.gh-toggle-row label { display: flex; align-items: center; gap: 6px; color: #43574f; font-size: 10px; font-weight: 600; }
+.gh-toggle-row label { display: flex; align-items: center; gap: 6px; color: #43574f; font-size: var(--type-caption); font-weight: var(--weight-semibold); }
 .gh-toggle-row input { accent-color: #24664f; }
 .gh-layer-list { display: grid; gap: 2px; }
 .gh-advanced-panel { border-bottom: 1px solid var(--gh-line); }
-.gh-advanced-panel > summary { display: flex; align-items: center; gap: 7px; padding: 12px 15px; cursor: pointer; color: #53675e; font-size: 10px; font-weight: 650; list-style: none; }
+.gh-advanced-panel > summary { display: flex; align-items: center; gap: 7px; padding: 12px 15px; cursor: pointer; color: #53675e; font-size: var(--type-caption); font-weight: var(--weight-semibold); list-style: none; }
 .gh-advanced-panel > summary::-webkit-details-marker { display: none; }
 .gh-advanced-panel > summary::after { content: '\f105'; margin-left: auto; font: 900 10px 'Font Awesome 6 Free'; }
 .gh-advanced-panel[open] > summary::after { content: '\f107'; }
 .gh-advanced-panel > .gh-panel-section { border: 0; padding-top: 5px; }
 .gh-layer-list > div { display: grid; grid-template-columns: 24px 24px minmax(75px,1fr); align-items: center; min-height: 30px; }
-.gh-layer-list button { width: 20px; height: 22px; padding: 0; color: #718079; background: transparent; font-size: 9px; }
+.gh-layer-list button { width: 20px; height: 22px; padding: 0; color: #718079; background: transparent; font-size: var(--type-caption); }
 .gh-layer-list button:disabled { opacity: .2; }
 .gh-layer-list span { overflow: hidden; color: #405249; font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
 .gh-layer-list input { width: 44px; accent-color: #2f7259; }
@@ -178,7 +178,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-cell-tooltip strong { overflow: hidden; font-size: .78rem; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .gh-sensor-tooltip span,
 .gh-cell-tooltip span { color: #66776f; font-size: .68rem; line-height: 1.2; }
-.gh-sensor-tooltip b { font-family: "IBM Plex Mono", monospace; font-size: .95rem; line-height: 1.3; }
+.gh-sensor-tooltip b { font-family: var(--font-technical); font-size: .95rem; line-height: 1.3; }
 .gh-sensor-tooltip dl,
 .gh-cell-tooltip dl { display: grid; gap: .18rem; margin: .35rem 0 0; padding-top: .4rem; border-top: 1px solid rgba(39, 69, 59, .13); }
 .gh-sensor-tooltip dl div,
@@ -186,13 +186,13 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-sensor-tooltip dt,
 .gh-cell-tooltip dt { color: #718079; }
 .gh-sensor-tooltip dd,
-.gh-cell-tooltip dd { margin: 0; color: #29453b; text-align: right; font-family: "IBM Plex Mono", monospace; }
+.gh-cell-tooltip dd { margin: 0; color: #29453b; text-align: right; font-family: var(--font-technical); }
 .gh-cell-tooltip { min-width: 14rem; }
 .gh-view-controls {
   position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 1px; height: 34px;
   border: 1px solid #c4cec7; background: rgba(255,255,255,.96); box-shadow: 0 3px 10px rgba(31,49,42,.1);
 }
-.gh-view-controls button { width: 34px; height: 32px; color: #4e6259; background: transparent; }
+.gh-view-controls button { width: 34px; height: var(--control-height-sm); color: #4e6259; background: transparent; }
 .gh-view-controls button:hover, .gh-view-controls button.active { color: #fff; background: #35624f; }
 .gh-view-controls span { width: 1px; height: 19px; background: #d4dad5; }
 .gh-statusbar {
@@ -205,7 +205,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   color: #253a32; background: rgba(255,255,255,.95); box-shadow: 0 8px 24px rgba(28,48,40,.13);
 }
 .gh-legend-heading small { display: block; color: #708078; font: 600 8px 'IBM Plex Mono'; letter-spacing: .1em; }
-.gh-legend-heading strong { display: block; margin: 3px 0 8px; font-size: 13px; }
+.gh-legend-heading strong { display: block; margin: 3px 0 8px; font-size: var(--type-body-sm); }
 .gh-contour-toggle { display: flex; align-items: center; gap: 5px; width: 100%; margin-bottom: 8px; border: 1px solid #cbd4cd; padding: 5px 7px; color: #607169; background: #f4f6f3; font: 600 8px 'IBM Plex Mono'; }
 .gh-contour-toggle.active { border-color: #7da08f; color: #285f4b; background: #e7f0e9; }
 .gh-contour-toggle:disabled { cursor: not-allowed; opacity: .48; }
@@ -217,23 +217,23 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   box-shadow: 0 0 0 1px rgba(255,255,255,.7); pointer-events: none;
 }
 .gh-legend-range { display: flex; justify-content: space-between; margin-top: 4px; font: 500 8px 'IBM Plex Mono'; }
-.gh-legend-meta p { margin: 8px 0 5px; color: #4d6058; font-size: 9px; }
-.gh-legend-meta em { display: block; color: #79684d; font-size: 8px; line-height: 1.35; }
-.gh-mode-note { position: absolute; right: 15px; bottom: 42px; max-width: 360px; border: 1px solid #c4cec7; padding: 8px 10px; color: #4d6259; background: rgba(255,255,255,.94); font-size: 9px; }
+.gh-legend-meta p { margin: 8px 0 5px; color: #4d6058; font-size: var(--type-caption); }
+.gh-legend-meta em { display: block; color: #79684d; font-size: var(--type-caption); line-height: 1.35; }
+.gh-mode-note { position: absolute; right: 15px; bottom: 42px; max-width: 360px; border: 1px solid #c4cec7; padding: 8px 10px; color: #4d6259; background: rgba(255,255,255,.94); font-size: var(--type-caption); }
 .gh-mode-note i { margin-right: 5px; color: #326e58; }
 .gh-insufficient-heatmap { position: absolute; left: 50%; top: 50%; z-index: 4; display: grid; justify-items: center; width: min(28rem,calc(100% - 2rem)); transform: translate(-50%,-50%); border: 1px solid rgba(69,91,81,.22); border-radius: 14px; padding: 20px 22px; color: #30483f; background: rgba(250,251,248,.94); box-shadow: 0 14px 34px rgba(28,48,40,.14); text-align: center; pointer-events: none; }
 .gh-insufficient-heatmap i { display: grid; place-items: center; width: 36px; height: 36px; margin-bottom: 10px; border-radius: 50%; color: #547166; background: #e7ece8; }
-.gh-insufficient-heatmap strong { font-size: 14px; }
-.gh-insufficient-heatmap span { margin-top: 5px; color: #687b73; font-size: 11px; line-height: 1.45; }
+.gh-insufficient-heatmap strong { font-size: var(--type-body); }
+.gh-insufficient-heatmap span { margin-top: 5px; color: #687b73; font-size: var(--type-caption); line-height: 1.45; }
 .gh-empty-selection { display: grid; place-items: center; padding: 68px 27px; text-align: center; }
 .gh-empty-selection > span { display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 14px; border: 1px solid #cbd5ce; color: #577268; background: #f1f5f1; }
-.gh-empty-selection h2 { margin: 0 0 7px; font-size: 15px; }
-.gh-empty-selection p { margin: 0 0 12px; color: #6b7973; font-size: 11px; line-height: 1.5; }
+.gh-empty-selection h2 { margin: 0 0 7px; font-size: var(--type-title); }
+.gh-empty-selection p { margin: 0 0 12px; color: #6b7973; font-size: var(--type-caption); line-height: 1.5; }
 .gh-empty-selection small { color: #88938e; font: 500 9px 'IBM Plex Mono'; }
 .gh-type-badge { display: grid; place-items: center; width: 31px; height: 31px; color: #fff; background: #285a49; }
-.gh-muted { color: #6b7973; font-size: 11px; line-height: 1.45; }
+.gh-muted { color: #6b7973; font-size: var(--type-caption); line-height: 1.45; }
 .gh-align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-.gh-align-grid button { height: 34px; border: 1px solid #d6ddd7; color: #4b6158; background: #fafbf9; font-size: 9px; text-transform: capitalize; }
+.gh-align-grid button { height: var(--control-height-sm); border: 1px solid #d6ddd7; color: #4b6158; background: #fafbf9; font-size: var(--type-caption); text-transform: capitalize; }
 .gh-align-grid button i { margin-right: 5px; }
 .gh-align-grid button:disabled { cursor: not-allowed; opacity: .38; }
 .gh-properties { padding-bottom: 14px; }
@@ -243,9 +243,9 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-node-identity { display: grid; gap: 0; margin: 0 0 11px; border: 1px solid #d7ddd8; background: #fff; }
 .gh-node-identity div { display: grid; grid-template-columns: 78px minmax(0,1fr); gap: 8px; padding: 6px 8px; border-bottom: 1px solid #e2e6e2; }
 .gh-node-identity div:last-child { border-bottom: 0; }
-.gh-node-identity dt { color: #74817b; font-size: 8px; }
+.gh-node-identity dt { color: #74817b; font-size: var(--type-caption); }
 .gh-node-identity dd { overflow: hidden; margin: 0; color: #30483f; font: 500 8.5px 'IBM Plex Mono'; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
-.gh-lock-notice { display: flex; align-items: center; gap: 6px; margin: -2px 0 10px; padding: 7px 8px; color: #6f5d3f; background: #fbf4e7; font-size: 9px; }
+.gh-lock-notice { display: flex; align-items: center; gap: 6px; margin: -2px 0 10px; padding: 7px 8px; color: #6f5d3f; background: #fbf4e7; font-size: var(--type-caption); }
 .gh-field input:disabled, .gh-field select:disabled, .gh-field textarea:disabled { cursor: not-allowed; color: #78847e; background: #eef1ee; }
 .gh-radio-row { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 4px; margin: 8px 0 10px; }
 .gh-radio-row span { padding: 6px; border: 1px solid #d8ded9; background: #fff; }
@@ -254,7 +254,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-radio-row strong { margin-top: 2px; font: 600 9px 'IBM Plex Mono'; }
 .gh-notice {
   position: fixed; z-index: 1000; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 9px; min-width: 290px;
-  border: 1px solid #b9cac0; padding: 11px 13px; color: #27493c; background: #f8fbf8; box-shadow: 0 10px 30px rgba(23,54,43,.2); font-size: 11px; text-align: left;
+  border: 1px solid #b9cac0; padding: 11px 13px; color: #27493c; background: #f8fbf8; box-shadow: 0 10px 30px rgba(23,54,43,.2); font-size: var(--type-caption); text-align: left;
 }
 .gh-notice.error { border-color: #d4aea6; color: #7a3f35; background: #fff8f6; }
 .gh-notice i:last-child { margin-left: auto; }
@@ -268,10 +268,10 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 }
 .gh-setup-guide > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid #dce3de; }
 .gh-setup-guide > header small { color: #708078; font: 600 9px 'IBM Plex Mono'; letter-spacing: .12em; }
-.gh-setup-guide > header h2 { margin: 4px 0 0; font-size: 19px; }
-.gh-setup-guide > header button { width: 32px; height: 32px; color: #62736b; background: #f0f4f0; }
+.gh-setup-guide > header h2 { margin: 4px 0 0; font-size: var(--type-h3); }
+.gh-setup-guide > header button { width: var(--control-height-sm); height: var(--control-height-sm); color: #62736b; background: #f0f4f0; }
 .gh-setup-guide > ol { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; margin: 0; padding: 15px 20px; list-style: none; background: #f4f7f3; }
-.gh-setup-guide > ol li { display: flex; align-items: center; gap: 7px; color: #8a9690; font-size: 10px; font-weight: 700; }
+.gh-setup-guide > ol li { display: flex; align-items: center; gap: 7px; color: #8a9690; font-size: var(--type-caption); font-weight: var(--weight-bold); }
 .gh-setup-guide > ol li::after { content: ''; flex: 1; height: 1px; margin: 0 8px; background: #d2dad4; }
 .gh-setup-guide > ol li:last-child::after { display: none; }
 .gh-setup-guide > ol li span { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid #c9d3cc; border-radius: 50%; background: #fff; font: 600 9px 'IBM Plex Mono'; }
@@ -279,33 +279,33 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-setup-guide > ol li.active span { border-color: #2d7158; color: #fff; background: #2d7158; }
 .gh-setup-guide > ol li.done span { border-color: #85ad99; color: #2d7158; background: #e5f0e9; }
 .gh-setup-step { min-height: 285px; padding: 30px 48px 22px; text-align: center; }
-.gh-setup-icon { display: grid; place-items: center; width: 48px; height: 48px; margin: 0 auto 13px; color: #fff; background: #2d6b54; font-size: 18px; }
-.gh-setup-step h3 { margin: 0 0 7px; font-size: 18px; }
-.gh-setup-step > p { max-width: 430px; margin: 0 auto 20px; color: #66766f; font-size: 11px; line-height: 1.5; }
+.gh-setup-icon { display: grid; place-items: center; width: 48px; height: 48px; margin: 0 auto 13px; color: #fff; background: #2d6b54; font-size: var(--type-h4); }
+.gh-setup-step h3 { margin: 0 0 7px; font-size: var(--type-h4); }
+.gh-setup-step > p { max-width: 430px; margin: 0 auto 20px; color: #66766f; font-size: var(--type-caption); line-height: 1.5; }
 .gh-setup-step .gh-field-row { max-width: 360px; margin: 0 auto; text-align: left; }
 .gh-setup-list { display: grid; gap: 5px; max-height: 150px; overflow: auto; margin: 0 auto 14px; text-align: left; }
-.gh-setup-list > span { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 7px; min-height: 34px; padding: 5px 9px; border: 1px solid #dce3de; background: #f8faf7; }
+.gh-setup-list > span { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 7px; min-height: 34px; padding: 5px 9px; border: 1px solid #dce3de; background: var(--color-surface-subtle); }
 .gh-setup-list i { color: #4e927d; font-size: 8px; }
-.gh-setup-list b { font-size: 10px; }
+.gh-setup-list b { font-size: var(--type-caption); }
 .gh-setup-list small { color: #75827c; font: 500 8px 'IBM Plex Mono'; }
 .gh-setup-node-list > span { grid-template-columns: 18px minmax(110px,1fr) minmax(120px, .8fr); }
 .gh-setup-step button.primary, .gh-setup-guide > footer button.primary { color: #fff; background: #2d6b54; }
 .gh-setup-guide > footer { display: flex; align-items: center; gap: 8px; padding: 13px 20px; border-top: 1px solid #dce3de; background: #fafbf9; }
 .gh-setup-guide > footer span { flex: 1; }
-.gh-setup-guide > footer button { min-width: 84px; height: 34px; padding: 0 13px; color: #50635a; background: #edf2ed; font-size: 10px; font-weight: 700; }
+.gh-setup-guide > footer button { min-width: 84px; height: var(--control-height-sm); padding: 0 13px; color: #50635a; background: #edf2ed; font-size: var(--type-caption); font-weight: var(--weight-bold); }
 .gh-setup-guide > footer button:disabled { opacity: .35; }
 .gh-integrated-loading { display: grid; place-items: center; background: #edf1ec; }
 .gh-integrated-loading > div { display: grid; place-items: center; width: min(430px, 90vw); border: 1px solid #ccd6cf; padding: 42px; background: #fff; box-shadow: 0 16px 45px rgba(26,55,44,.12); text-align: center; }
 .gh-integrated-loading i { margin-bottom: 16px; color: #2d7057; font-size: 24px; }
-.gh-integrated-loading strong { font-size: 17px; }
-.gh-integrated-loading span { margin-top: 8px; color: #68766f; font-size: 11px; line-height: 1.5; }
-.gh-integrated-loading button { margin-top: 18px; height: 34px; padding: 0 14px; color: #fff; background: #245b48; font-size: 11px; font-weight: 700; }
+.gh-integrated-loading strong { font-size: var(--type-h4); }
+.gh-integrated-loading span { margin-top: 8px; color: #68766f; font-size: var(--type-caption); line-height: 1.5; }
+.gh-integrated-loading button { margin-top: 18px; height: var(--control-height-sm); padding: 0 14px; color: #fff; background: #245b48; font-size: var(--type-caption); font-weight: var(--weight-bold); }
 .gh-integrated-loading .gh-create-area { width: min(460px, 92vw); }
 .gh-section-health p.good i { color: #2d805d; }
 .gh-section-health p.warning { color: #7b5430; background: #fff6e8; }
 .gh-section-health p.warning i { color: #b27731; }
-.gh-target-state { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 6px 7px; color: #506159; background: #eef2ee; font-size: 8px; }
-.gh-target-state b { font-size: 9px; }
+.gh-target-state { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 6px 7px; color: #506159; background: #eef2ee; font-size: var(--type-caption); }
+.gh-target-state b { font-size: var(--type-caption); }
 .gh-target-state.optimal { color: #286548; background: #e5f3e9; }
 .gh-target-state.low, .gh-target-state.high { color: #82532d; background: #fff1dc; }
 .gh-mobile-only { display: none !important; }
@@ -342,7 +342,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   .gh-action-strip { overflow-x: auto; }
   .gh-area-menu { position: fixed; top: 104px; left: 8px; width: min(300px, calc(100vw - 16px)); }
   .gh-map-more > div { position: fixed; top: 104px; right: 8px; }
-  .gh-action-strip button { flex: 0 0 auto; min-height: 36px; }
+  .gh-action-strip button { flex: 0 0 auto; min-height: var(--control-height-sm); }
   .gh-mobile-only { display: flex !important; }
   .gh-workspace { position: relative; display: block; height: calc(100vh - 100px); }
   .gh-mobile-panel-scrim { position: absolute; z-index: 25; inset: 0; width: 100%; height: 100%; border: 0; padding: 0; background: rgba(16,38,31,.28); }
@@ -352,7 +352,7 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
   .gh-right-panel { right: 0; transform: translateX(105%); }
   .gh-mobile-left .gh-left-panel { transform: translateX(0); }
   .gh-mobile-right .gh-right-panel { transform: translateX(0); }
-  .gh-view-controls button { width: 42px; height: 40px; }
+  .gh-view-controls button { width: 42px; height: var(--control-height-md); }
   .gh-view-controls { height: 42px; }
 }
 
@@ -363,10 +363,10 @@ body.gh-map-active { overflow: hidden; background: #e9ece7; }
 .gh-embedded.gh-without-left-panel .gh-workspace { grid-template-columns: minmax(0,1fr) 260px; }
 .gh-embedded.gh-without-right-panel .gh-workspace { grid-template-columns: 230px minmax(0,1fr); }
 .gh-embedded.gh-without-left-panel.gh-without-right-panel .gh-workspace { grid-template-columns: minmax(0,1fr); }
-.gh-outline-source { display: grid; gap: 10px; margin-bottom: 16px; font-size: 12px; color: var(--gh-muted); }
+.gh-outline-source { display: grid; gap: 10px; margin-bottom: 16px; font-size: var(--type-caption); color: var(--gh-muted); }
 .gh-outline-source p { margin: 0; line-height: 1.6; }
 .gh-outline-source button { padding: 8px; border: 1px solid var(--gh-line); border-radius: 6px; background: #fff; color: var(--gh-pine); }
-.gh-outline-warning { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 18px; background: #fff3dc; color: #8c622e; font-size: 12px; }
+.gh-outline-warning { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 18px; background: #fff3dc; color: #8c622e; font-size: var(--type-caption); }
 .gh-outline-warning span { flex-basis: 100%; }
 .gh-outline-warning button { padding: 5px 8px; border: 1px solid #d9b884; border-radius: 5px; background: #fff; color: inherit; }
 @media(max-width:1000px) { .gh-embedded .gh-workspace, .gh-embedded.gh-without-left-panel .gh-workspace, .gh-embedded.gh-without-right-panel .gh-workspace { grid-template-columns: minmax(0,1fr); } }

@@ -1,43 +1,43 @@
 /* Monitoring stays separate from plan authoring; every overlay opens only on selection. */
-.nc-farm-monitoring { --control-height-md: 34px; --type-body: 12px; --type-label: 11px; --space-12: 10px; }
+.nc-farm-monitoring { --control-height-md: var(--control-height-sm); --type-body: var(--type-body-sm); --type-label: var(--type-caption); --space-12: 0.75rem; }
 .nc-farm-monitor-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 18px; border-bottom: 0; background: transparent; }
 .nc-farm-monitor-toolbar > div, .nc-farm-breadcrumb { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .nc-farm-monitoring button { font-family: inherit; cursor: pointer; }
-.nc-farm-breadcrumb > button { display: inline-flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 0; border: 0; background: none; color: #809083; font-size: 12px; }
-.nc-farm-breadcrumb > button[aria-current="page"] { color: #294b3c; font-weight: 600; }
-.nc-farm-breadcrumb > i { color: #b0bdb1; font-size: 8px; }
-.nc-farm-monitor-toolbar select { width: 190px; max-width: 32vw; min-height: 34px; height: 34px; border: 1px solid #dee6dc; border-radius: 6px; padding: 5px 10px; background: #fff; color: #456354; font: inherit; font-size: 12px; }
-.nc-farm-monitor-toolbar .nc-farm-monitor-edit { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #e3e9e0; border-radius: 6px; background: #fff; color: #7f9383; }
+.nc-farm-breadcrumb > button { display: inline-flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 0; border: 0; background: none; color: var(--color-text-secondary); font-size: var(--type-caption); }
+.nc-farm-breadcrumb > button[aria-current="page"] { color: var(--color-text); font-weight: var(--weight-semibold); }
+.nc-farm-breadcrumb > i { color: var(--color-text-secondary); font-size: 8px; }
+.nc-farm-monitor-toolbar select { width: 190px; max-width: 32vw; min-height: var(--control-height-sm); height: var(--control-height-sm); border: 1px solid var(--color-border); border-radius: 6px; padding: 5px 10px; background: #fff; color: var(--color-text-secondary); font: inherit; font-size: var(--type-caption); }
+.nc-farm-monitor-toolbar .nc-farm-monitor-edit { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--color-border); border-radius: 6px; background: #fff; color: var(--color-text-secondary); }
 .nc-farm-monitor-body { --farm-view-height: clamp(420px,calc(100dvh - 210px),840px); position: relative; display: block; align-items: stretch; min-width: 0; }
 .nc-farm-monitor-body[data-focused="true"] { display: grid; grid-template-columns: minmax(0,1fr) 290px; }
 .nc-farm-monitor-body > .nc-farm-scene-shell { min-width: 0; }
 .nc-farm-monitor-body .nc-farm-scene { height: var(--farm-view-height); }
-.nc-farm-area-summary { position: relative; z-index: 6; height: var(--farm-view-height); min-width: 0; box-shadow: -8px 0 24px #2845340a; max-height: var(--farm-view-height); overflow-y: auto; padding: 18px; border-left: 1px solid #e2e9df; background: #fff; scrollbar-width: thin; }
+.nc-farm-area-summary { position: relative; z-index: 6; height: var(--farm-view-height); min-width: 0; box-shadow: -8px 0 24px #2845340a; max-height: var(--farm-view-height); overflow-y: auto; padding: 18px; border-left: 1px solid var(--color-border); background: #fff; scrollbar-width: thin; }
 .nc-farm-area-summary > header { display: flex; align-items: start; justify-content: space-between; gap: 10px; margin-bottom: 20px; }
-.nc-farm-area-summary > header > strong { color: #35523f; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
-.nc-farm-area-summary > header > button { flex: 0 0 24px; width: 24px; height: 24px; border: 0; border-radius: 4px; background: #f5f8f3; color: #8a9b88; font-size: 12px; }
-.nc-farm-summary-metric { color: #7e9081; font-size: 11px; }
-.nc-farm-summary-range { display: block; margin-top: 4px; color: #304d3a; font-size: 27px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.4; }
-.nc-farm-summary-range[data-delayed="true"] { color: #91a092; }
-.nc-farm-area-summary > .nc-farm-summary-status { margin: 3px 0 18px; color: #91a08e; font-size: 10px; line-height: 1.6; }
+.nc-farm-area-summary > header > strong { color: var(--color-text); font-size: var(--type-body-sm); font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
+.nc-farm-area-summary > header > button { flex: 0 0 24px; width: 24px; height: 24px; border: 0; border-radius: 4px; background: var(--color-surface-subtle); color: var(--color-text-secondary); font-size: var(--type-caption); }
+.nc-farm-summary-metric { color: var(--color-text-secondary); font-size: var(--type-caption); }
+.nc-farm-summary-range { display: block; margin-top: 4px; color: var(--color-text); font-size: var(--type-h1); font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; line-height: 1.4; }
+.nc-farm-summary-range[data-delayed="true"] { color: var(--color-text-secondary); }
+.nc-farm-area-summary > .nc-farm-summary-status { margin: 3px 0 18px; color: var(--color-text-secondary); font-size: var(--type-caption); line-height: 1.6; }
 .nc-farm-area-summary dl { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 0; padding: 14px 0; border-block: 1px solid #edf1e9; }
-.nc-farm-area-summary dt { color: #8a9b89; font-size: 10px; }
-.nc-farm-area-summary dd { margin: 5px 0 0; color: #4b6650; font-size: 18px; font-variant-numeric: tabular-nums; }
-.nc-farm-area-summary > .nc-farm-summary-note { margin: 8px 0 0; color: #98a292; font-size: 10px; line-height: 1.6; }
+.nc-farm-area-summary dt { color: var(--color-text-secondary); font-size: var(--type-caption); }
+.nc-farm-area-summary dd { margin: 5px 0 0; color: var(--color-text-secondary); font-size: var(--type-h4); font-variant-numeric: tabular-nums; }
+.nc-farm-area-summary > .nc-farm-summary-note { margin: 8px 0 0; color: var(--color-text-secondary); font-size: var(--type-caption); line-height: 1.6; }
 .nc-farm-summary-attention { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
-.nc-farm-summary-attention li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: #9a7a42; font-size: 11px; }
+.nc-farm-summary-attention li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: #9a7a42; font-size: var(--type-caption); }
 .nc-farm-summary-attention li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nc-farm-summary-attention strong { flex: 0 0 auto; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.nc-farm-summary-attention strong { flex: 0 0 auto; font-size: var(--type-caption); font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; }
 .nc-farm-summary-trend { margin-top: 22px; }
-.nc-farm-summary-trend > header { display: flex; justify-content: space-between; gap: 8px; color: #71866f; font-size: 11px; }
-.nc-farm-summary-trend small { color: #a1ad99; font-size: 10px; }
+.nc-farm-summary-trend > header { display: flex; justify-content: space-between; gap: 8px; color: var(--color-text-secondary); font-size: var(--type-caption); }
+.nc-farm-summary-trend small { color: var(--color-text-secondary); font-size: var(--type-caption); }
 .nc-farm-summary-trend > svg { display: block; width: 100%; height: 88px; margin-top: 4px; overflow: visible; }
 .nc-farm-summary-trend path { fill: none; stroke: #5c947e; stroke-width: 1.7px; stroke-linecap: round; stroke-linejoin: round; }
 .nc-farm-summary-trend circle { fill: #5c947e; }
-.nc-farm-summary-trend > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: #98a793; font-size: 9px; }
-.nc-farm-summary-trend > p { margin: 16px 0; color: #98a793; font-size: 11px; }
-.nc-farm-area-summary > .nc-farm-open-map { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin: 0 0 18px; padding: 9px 10px; border: 1px solid #dce8da; border-radius: 6px; background: #f4f8f1; color: #547651; font-size: 11px; }
-.nc-farm-summary-retry, .nc-farm-return-summary { display: inline-flex; align-items: center; gap: 7px; margin: 10px 16px; padding: 6px 9px; border: 1px solid #dce5d8; border-radius: 5px; background: #fff; color: #6e8862; font-size: 11px; }
+.nc-farm-summary-trend > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: var(--color-text-secondary); font-size: var(--type-caption); }
+.nc-farm-summary-trend > p { margin: 16px 0; color: var(--color-text-secondary); font-size: var(--type-caption); }
+.nc-farm-area-summary > .nc-farm-open-map { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin: 0 0 18px; padding: 9px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface-subtle); color: #547651; font-size: var(--type-caption); }
+.nc-farm-summary-retry, .nc-farm-return-summary { display: inline-flex; align-items: center; gap: 7px; margin: 10px 16px; padding: 6px 9px; border: 1px solid var(--color-border); border-radius: 5px; background: #fff; color: var(--color-text-secondary); font-size: var(--type-caption); }
 .nc-farm-area-summary > .nc-farm-summary-retry { margin-inline: 0; }
 @media(max-width:900px) {
   .nc-farm-monitor-body[data-focused="true"] { grid-template-columns: minmax(0,1fr) 250px; }
@@ -50,14 +50,14 @@
   .nc-farm-monitor-toolbar select { flex: 1; min-width: 0; width: auto; max-width: none; }
   .nc-farm-monitor-body { --farm-view-height: 420px; }
   .nc-farm-monitor-body[data-focused="true"] { grid-template-columns: minmax(0,1fr); }
-  .nc-farm-area-summary { height: auto; max-height: none; border-left: 0; border-top: 1px solid #e2e9df; }
+  .nc-farm-area-summary { height: auto; max-height: none; border-left: 0; border-top: 1px solid var(--color-border); }
   .nc-farm-area-summary > header { margin-bottom: 12px; }
   .nc-farm-summary-trend { max-width: 320px; }
 }
 
-.nc-farm-monitor-body .nc-farm-camera { left: 16px; bottom: 16px; gap: 2px; padding: 3px; border-color: #dfe7df; border-radius: 8px; box-shadow: 0 2px 8px #294b3508; }
-.nc-farm-monitor-body .nc-farm-camera button { width: 30px; height: 30px; color: #53715d; }
-.nc-farm-monitor-body .nc-farm-camera small { padding-inline: 8px; color: #93a194; }
+.nc-farm-monitor-body .nc-farm-camera { left: 16px; bottom: 16px; gap: 2px; padding: 3px; border-color: var(--color-border); border-radius: 8px; box-shadow: 0 2px 8px #294b3508; }
+.nc-farm-monitor-body .nc-farm-camera button { width: var(--control-height-sm); height: var(--control-height-sm); color: #53715d; }
+.nc-farm-monitor-body .nc-farm-camera small { padding-inline: 8px; color: var(--color-text-secondary); }
 
-/* The detailed map stays inside the selected Area; changing Areas starts from the farm. */
-.nc-farm-detail-map .nc-climate-area-navigation { display: none; }
+/* Area navigation shares the map toolbar rather than taking a separate row. */
+.nc-farm-detail-map .nc-climate-area-navigation { display: flex; align-items: center; min-width: 0; }
