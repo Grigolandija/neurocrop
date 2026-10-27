@@ -1578,10 +1578,10 @@ body[data-primary-page="overview"] .dashboard-main-inner {
   overflow: hidden;
   contain: layout paint;
   isolation: isolate;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  border: 1px solid #dde6dd;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 3px 18px #294b3510;
 }
 
 .nc-overview-climate-card .nc-live-climate-map {
@@ -2036,4 +2036,16 @@ body[data-primary-page="overview"] .dashboard-main-inner {
   .nc-overview-climate-card .nc-overview-presentation > header { grid-template-columns: 1fr; }
   .nc-overview-climate-card .nc-overview-presentation .nc-climate-area-navigation { grid-column: 1; grid-row: 2; }
   .nc-overview-climate-card .nc-overview-presentation .nc-climate-map-filters { grid-row: 3; }
+}
+
+/* Live status and farm drawing share one restrained surface. */
+.nc-overview-climate-card .nc-overview-map-status { display: flex; flex-wrap: wrap; justify-content: flex-start; min-height: 40px; gap: 8px 18px; padding: 9px 18px; border-top: 0; border-bottom: 1px solid #e7ede5; background: #fff; color: #819086; font-size: 11px; }
+.nc-overview-climate-card .nc-overview-map-status > span:first-child { gap: 8px; }
+.nc-overview-climate-card .nc-overview-map-status > span:first-child i { width: 6px; height: 6px; box-shadow: 0 0 0 3px #51ad6312; }
+.nc-overview-climate-card .nc-overview-map-status button { margin-left: 0; padding: 0; color: #60806e; font-size: 11px; font-weight: 500; }
+.nc-overview-climate-card .nc-overview-map-status button:first-of-type { margin-left: auto; }
+.nc-overview-climate-card .nc-overview-map-status button i { margin-left: 6px; }
+@media (max-width: 680px) {
+  .nc-overview-climate-card .nc-overview-map-status { padding: 9px 12px; gap: 8px 12px; }
+  .nc-overview-climate-card .nc-overview-map-status button:first-of-type { margin-left: 0; }
 }

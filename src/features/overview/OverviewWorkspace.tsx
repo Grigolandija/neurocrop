@@ -1087,16 +1087,17 @@ export default function OverviewWorkspace() {
           </section> : null}
         </figure>
       </div>
-      <footer className="nc-overview-trust">
+
+    </section>
+    <section className="nc-overview-insights" aria-label={tx("Operational overview")}>
+      <article className="nc-overview-climate-card">
+      <div className="nc-overview-trust nc-overview-map-status">
         <span><i />{model.reporting}</span>
         <span>{model.updated}</span>
         <span>{actionRows.length} {tx("actions ·")} {watchRows.length} {tx("watch conditions")}</span>
         <button type="button" onClick={() => navigate('/diagnostics')}>{isLt ? 'Diagnostika ir ataskaitos' : 'Diagnostics & reports'}</button>
         <button type="button" onClick={openAreaEvidence}>{tx("Open Area analysis")} <i className="fa-solid fa-arrow-right" /></button>
-      </footer>
-    </section>
-    <section className="nc-overview-insights" aria-label={tx("Operational overview")}>
-      <article className="nc-overview-climate-card">
+      </div>
         <Suspense fallback={<div className="nc-climate-map-state" data-state="loading" aria-busy="true"><i className="fa-solid fa-spinner fa-spin" /><strong>{tx("Loading live climate map…")}</strong></div>}>
           <OverviewFarmPlan enabled={neurocropApi.isConnected()} areaId={model.areaId} refreshToken={refreshKey} onAreaSelect={changeArea} metric={mapMetric} onMetricChange={setMapMetric} signalReady={!!activeAreaOption?.mapEnabled}>
           {activeAreaOption?.mapEnabled ? <ReadingsClimateMap

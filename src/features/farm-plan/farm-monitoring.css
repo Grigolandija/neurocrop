@@ -1,6 +1,6 @@
 /* Monitoring stays separate from plan authoring; every overlay opens only on selection. */
 .nc-farm-monitoring { --control-height-md: 34px; --type-body: 12px; --type-label: 11px; --space-12: 10px; }
-.nc-farm-monitor-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #e2e9df; background: #fff; }
+.nc-farm-monitor-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 18px; border-bottom: 1px solid #e2e9df; background: #fff; }
 .nc-farm-monitor-toolbar > div, .nc-farm-breadcrumb { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .nc-farm-monitoring button { font-family: inherit; cursor: pointer; }
 .nc-farm-breadcrumb > button { display: inline-flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 0; border: 0; background: none; color: #809083; font-size: 12px; }
@@ -10,7 +10,7 @@
 .nc-farm-monitor-toolbar .nc-farm-monitor-edit { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #e3e9e0; border-radius: 6px; background: #fff; color: #7f9383; }
 .nc-farm-monitor-body { position: relative; display: block; align-items: stretch; min-width: 0; }
 .nc-farm-monitor-body > .nc-farm-scene-shell { min-width: 0; }
-.nc-farm-monitor-body .nc-farm-scene { height: clamp(440px,60vh,680px); }
+.nc-farm-monitor-body .nc-farm-scene { height: clamp(420px,54vh,640px); }
 .nc-farm-scene[data-selected-area="true"] .nc-farm-zone-label[data-selected="false"] { opacity: .55; }
 .nc-farm-area-summary { position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; width: 290px; min-width: 0; box-shadow: -8px 0 24px #2845340a; max-height: 100%; overflow-y: auto; padding: 18px; border-left: 1px solid #e2e9df; background: #fff; scrollbar-width: thin; }
 .nc-farm-area-summary > header { display: flex; align-items: start; justify-content: space-between; gap: 10px; margin-bottom: 20px; }
@@ -47,8 +47,12 @@
   .nc-farm-monitor-toolbar { padding: 10px; }
   .nc-farm-monitor-toolbar > div { width: 100%; }
   .nc-farm-monitor-toolbar select { flex: 1; min-width: 0; width: auto; max-width: none; }
-  .nc-farm-monitor-body .nc-farm-scene { height: 430px; }
+  .nc-farm-monitor-body .nc-farm-scene { height: 420px; }
   .nc-farm-area-summary { width: min(290px,calc(100% - 16px)); border-left: 1px solid #e2e9df; }
   .nc-farm-area-summary > header { margin-bottom: 12px; }
   .nc-farm-summary-trend { max-width: 320px; }
 }
+
+.nc-farm-monitor-body .nc-farm-camera { left: 16px; bottom: 16px; gap: 2px; padding: 3px; border-color: #dfe7df; border-radius: 8px; box-shadow: 0 2px 8px #294b3508; }
+.nc-farm-monitor-body .nc-farm-camera button { width: 30px; height: 30px; color: #53715d; }
+.nc-farm-monitor-body .nc-farm-camera small { padding-inline: 8px; color: #93a194; }

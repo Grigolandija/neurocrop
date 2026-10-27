@@ -10,6 +10,7 @@ import { farmPlanScene, type FarmPlanDocument, type FarmArea } from './farmPlanD
 import { farmSceneEmphasis,highlightFarmArea,wholeFarmSceneMesh } from './farmSceneGeometry'
 import type { FarmMaps } from './farmLayoutData'
 import { focusFarmSceneArea as focusArea,farmViewKey,rememberFarmScene,restoreFarmScene,type FarmSceneMemory } from './farmViewMemory'
+import { farmOverviewCamera } from './farmOverviewCamera'
 import './farm-plan.css'
 const EMPTY_MAPS:FarmMaps={}
 
@@ -32,6 +33,7 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   const cameraAreaId=isolatedAreaId || (comparison ? null : selectedAreaId)
   const viewKey=farmViewKey(cameraAreaId)
   const latest=useRef({plan,geometry,field,cameraAreaId,viewKey,comparing:!!comparison})
+  const autoFrame=useRef(true)
   const projection=useRef<{matrix:Float32Array;width:number;height:number}|null>(null)
   const polygons=useRef(new Map<string,SVGPolygonElement>()),labels=useRef(new Map<string,HTMLButtonElement>())
   const down=useRef<{x:number;y:number;id:number;moved:boolean}|null>(null)
@@ -48,6 +50,14 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   useEffect(()=>{
     if(!host.current)return
     let cancelled=false
+    const element=host.current
+    const frame=()=>{
+      if(!autoFrame.current || !latest.current.comparing || !scene.current)return
+      const view=farmOverviewCamera(latest.current.plan,{width:element.clientWidth,height:element.clientHeight})
+      if(view)scene.current.restoreCamera(view)
+    }
+    const observer=new ResizeObserver(frame)
+    observer.observe(element)
     createLivingScene(host.current,(matrix,width,height)=>{
       projection.current={matrix,width,height}
       const current=latest.current.plan,d=siteDimensions(current)
@@ -77,10 +87,12 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
       const current=latest.current,d=siteDimensions(current.plan)
       renderer.update(current.geometry.vertices,Math.max(d.widthM,d.lengthM),current.field)
       renderer.setPresentation('points')
-      if(!restoreFarmScene(memory,current.viewKey,renderer,d))focusArea(renderer,current.plan,current.cameraAreaId)
+      if(restoreFarmScene(memory,current.viewKey,renderer,d))autoFrame.current=false
+      else if(current.comparing)frame()
+      else focusArea(renderer,current.plan,current.cameraAreaId)
       setReady(true)
     }).catch(()=>{if(!cancelled)setFailed(true)})
-    return ()=>{cancelled=true;if(scene.current){rememberFarmScene(memory,latest.current.viewKey,scene.current,siteDimensions(latest.current.plan));scene.current.dispose();scene.current=null}}
+    return ()=>{cancelled=true;observer.disconnect();if(scene.current){rememberFarmScene(memory,latest.current.viewKey,scene.current,siteDimensions(latest.current.plan));scene.current.dispose();scene.current=null}}
   },[memory])
   const hit=(event:ReactPointerEvent<HTMLDivElement>)=>{
     if(!projection.current || !host.current)return null
@@ -92,8 +104,9 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
   const interactive=(event:ReactPointerEvent<HTMLDivElement>)=>(event.target as Element).closest('button')
   return <div className="nc-farm-scene-shell" data-overview-heatmap-settled={monitoringActive && comparison && (ready || failed) && Object.values(comparison).every(summary=>summary.state!=='loading') ? 'true' : undefined}>
     <div className="nc-farm-scene" ref={host} role="group" aria-label={lt ? 'Bendras 3D ūkio planas. Pasirinkite Area.' : 'Farm 3D plan. Select an Area.'} data-hovered={!!hoverAreaId} data-comparing={!!comparison} data-selected-area={!!comparison && !!selectedAreaId}
+      onWheelCapture={event=>{if(event.altKey)autoFrame.current=false}}
       onPointerDown={event=>{if(event.button!==0 || interactive(event))return;down.current={x:event.clientX,y:event.clientY,id:event.pointerId,moved:false};setHovered(null)}}
-      onPointerMove={event=>{const start=down.current;if(start && (start.id!==event.pointerId || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6))start.moved=true;if(event.buttons || interactive(event))return;setHovered(hit(event)?.id || null)}}
+      onPointerMove={event=>{const start=down.current;if(start && (start.id!==event.pointerId || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)){start.moved=true;autoFrame.current=false}if(event.buttons || interactive(event))return;setHovered(hit(event)?.id || null)}}
       onPointerLeave={()=>setHovered(null)} onPointerCancel={()=>{down.current=null;setHovered(null)}}
       onPointerUp={event=>{const start=down.current;down.current=null;if(!start || start.id!==event.pointerId || start.moved || interactive(event) || Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)return;select(hit(event)?.areaId)}}>
       <svg className="nc-farm-zone-outlines" aria-hidden="true">{plan.zones.map(zone=><polygon key={zone.id} data-active={zone.id===(comparison ? selectedAreaId || hoverAreaId : hoverAreaId)} ref={el=>{if(el)polygons.current.set(zone.id,el);else polygons.current.delete(zone.id)}} />)}</svg>
@@ -101,7 +114,7 @@ export default function FarmPlanScene({plan:source,areas,onAreaSelect,selectedAr
         const area=areas.find(a=>a.id===zone.areaId),name=area?.name || zone.name
         return <button type="button" key={zone.id} className="nc-farm-zone-label" title={area ? name : `${name} · ${lt ? 'Neišsaugota' : 'Unsaved'}`} ref={el=>{if(el)labels.current.set(zone.id,el);else labels.current.delete(zone.id)}} disabled={!area || !onAreaSelect} data-hovered={zone.id===hoverAreaId} data-muted={!comparison && !!hoverAreaId && zone.id!==hoverAreaId} data-selected={zone.id===selectedAreaId} aria-pressed={selectedAreaId===undefined ? undefined : zone.id===selectedAreaId} onPointerEnter={()=>setHovered(zone.id)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(zone.id)} onBlur={()=>setHovered(null)} onClick={()=>select(area?.id)}><span>{name}</span></button>
       })}
-      <div className="nc-farm-camera" onPointerEnter={()=>setHovered(null)}><button type="button" aria-label={lt ? 'Visas ūkis' : 'Fit farm'} onClick={()=>{if(scene.current){scene.current.reset();focusArea(scene.current,latest.current.plan)}}}><i className="fa-solid fa-cube" /></button><button type="button" aria-label={lt ? 'Priartinti' : 'Zoom in'} onClick={()=>scene.current?.zoom(.85)}>+</button><button type="button" aria-label={lt ? 'Atitolinti' : 'Zoom out'} onClick={()=>scene.current?.zoom(1.18)}>−</button><small>{lt ? 'Option / Alt + ratukas' : 'Option / Alt + scroll'}</small></div>
+      <div className="nc-farm-camera" onPointerEnter={()=>setHovered(null)}><button type="button" aria-label={lt ? 'Visas ūkis' : 'Fit farm'} onClick={()=>{if(scene.current){scene.current.reset();autoFrame.current=true;const view=latest.current.comparing && host.current ? farmOverviewCamera(latest.current.plan,{width:host.current.clientWidth,height:host.current.clientHeight}) : null;if(view)scene.current.restoreCamera(view);else focusArea(scene.current,latest.current.plan)}}}><i className="fa-solid fa-cube" /></button><button type="button" aria-label={lt ? 'Priartinti' : 'Zoom in'} onClick={()=>{autoFrame.current=false;scene.current?.zoom(.85)}}>+</button><button type="button" aria-label={lt ? 'Atitolinti' : 'Zoom out'} onClick={()=>{autoFrame.current=false;scene.current?.zoom(1.18)}}>−</button><small>{lt ? 'Option / Alt + ratukas' : 'Option / Alt + scroll'}</small></div>
       {!plan.buildings.length && ready && <p className="nc-farm-scene-empty">{lt ? 'Pridėkite pirmą Area plano redaktoriuje.' : 'Add the first Area in the plan editor.'}</p>}
       {!ready && !failed && <div className="nc-farm-scene-status" role="status">{lt ? 'Kraunamas ūkio planas…' : 'Loading farm plan…'}</div>}
       {failed && <div className="nc-farm-scene-status" role="status"><p>{lt ? 'Šioje naršyklėje 3D vaizdas nepasiekiamas. Zonas galite pasirinkti sąraše.' : '3D is unavailable in this browser. Select an Area below.'}</p><div>{plan.zones.filter(z=>z.areaId).map(z=><button type="button" key={z.id} onPointerEnter={()=>setHovered(z.id)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(z.id)} onBlur={()=>setHovered(null)} onClick={()=>select(z.areaId)}>{areas.find(a=>a.id===z.areaId)?.name || z.name}</button>)}</div></div>}
