@@ -342,13 +342,15 @@ test('desktop pages do not overflow horizontally', async ({ page }) => {
   }
 })
 
-test('narrow screens show the retirement notice and returning to desktop preserves the session', async ({ page }) => {
+test('resizing a desktop browser preserves its mounted workspace instead of opening the phone notice', async ({ page }) => {
   await authenticate(page)
+  const shell = await page.locator('#dashboardShell').elementHandle()
   await page.setViewportSize({ width: 390, height: 844 })
-  await expect(page.locator('.nc-desktop-notice')).toBeVisible()
-  await expect(page.locator('#dashboardShell')).toHaveCount(0)
-  await expect(page.locator('.mobile-dock')).toHaveCount(0)
+  await expect(page.locator('.nc-desktop-notice')).toHaveCount(0)
+  await expect(page.locator('#dashboardShell')).toBeVisible()
+  expect(await shell?.evaluate(element => element.isConnected)).toBe(true)
   await page.setViewportSize({ width: 1440, height: 1000 })
   await expect(page.locator('#dashboardShell')).toBeVisible()
+  expect(await shell?.evaluate(element => element.isConnected)).toBe(true)
   await expect(page.locator('.nc-desktop-notice')).toHaveCount(0)
 })

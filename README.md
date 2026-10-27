@@ -14,7 +14,7 @@ Reikia atnaujinti **backend ir frontend**. Naujos DB migracijos nereikia. API: `
 
 Mobilioji sistemos sąsaja nebepalaikoma ir nebeplėtojama. Telefono ekrane vietoje prisijungimo, darbo aplinkos ir 3D demonstracijų rodomas LT / EN pranešimas, prašantis atidaryti `neurocrop.lt` kompiuterio naršyklėje. Prisijungimo ir darbo aplinkos komponentai tokiame ekrane nemontuojami.
 
-Riba: mažiau nei 768 CSS px pločio; gulsčiame telefone taip pat taikoma iki 1023 px pločio ir 500 px aukščio, kai pagrindinis žymeklis yra liečiamas. Vieša ES projekto informacija prieinama visuose įrenginiuose. Mobilieji E2E tikrina tik šį pranešimą; darbo aplinkų funkcijos tikrinamos kompiuterio ekrane.
+Pranešimas taikomas įrenginiams, kurių pagrindinis žymeklis yra liečiamas: mažiau nei 768 CSS px pločio arba iki 1023 px pločio ir 500 px aukščio gulsčiame telefone. Kompiuterio lango dydžio keitimas neperjungia prisijungusios sistemos į telefono pranešimą ir neišmontuoja atvertų darbo ekranų. Vieša ES projekto informacija prieinama visuose įrenginiuose. Mobilieji E2E tikrina tik šį pranešimą; darbo aplinkų funkcijos tikrinamos kompiuterio ekrane.
 
 ## Area ir pasirenkamos auginimo grupės
 

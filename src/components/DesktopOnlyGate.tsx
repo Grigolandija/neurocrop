@@ -2,9 +2,10 @@ import { useEffect, useSyncExternalStore, type ReactNode } from 'react'
 import { useInterfaceLanguage } from '../i18n'
 import './DesktopOnlyGate.css'
 
-// Mobile workspaces are retired. Include landscape phones, while retaining
-// the desktop workspace on tablets and ordinary computer-sized viewports.
-const mobileViewport = window.matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (pointer: coarse)')
+// Mobile workspaces are retired. Require a touch-oriented device: temporary
+// viewport changes (including full-page capture) must not unmount desktop
+// sessions, dismiss dialogs or discard unsaved workspace state.
+const mobileViewport = window.matchMedia('(pointer: coarse) and (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 500px)')
 const subscribe = (listener: () => void) => {
   mobileViewport.addEventListener('change', listener)
   return () => mobileViewport.removeEventListener('change', listener)
