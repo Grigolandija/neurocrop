@@ -40,6 +40,26 @@ describe('whole-farm hover presentation',()=>{
     const editing=farmSceneEmphasis('a',false)
     expect(highlightFarmArea(mesh,editing.areaId).surfaces.length).toBeGreaterThan(0)
   })
+  it('subdues only lamps at rest and restores the hovered Area lamps and equipment without changing materials',()=>{
+    const {plan,maps}=fixture()
+    const lampA={...newFarmObject('lamp',maps.a,{xM:.5,yM:1}),widthM:2,lengthM:.6}
+    const lampB={...newFarmObject('lamp',maps.b,{xM:.5,yM:1}),widthM:2,lengthM:.6}
+    maps.a.objects.push(lampA);maps.b.objects.push(lampB)
+    const snapshot=JSON.stringify({plan,maps}),mesh=wholeFarmSceneMesh(plan,maps),original=new Float32Array(mesh.vertices)
+    const lamp=objectGeometry(lampA,plan.dimensions,3),neighbourLamp=objectGeometry({...lampB,xM:lampB.xM+4},plan.dimensions,3)
+    const table=objectGeometry(maps.a.objects[0],plan.dimensions,3),tank=objectGeometry({...maps.b.objects[0],xM:maps.b.objects[0].xM+4},plan.dimensions,3)
+    const idle=highlightFarmArea(mesh,null,true)
+    expect(farmSceneEmphasis(null,true).opacity).toBe(.25)
+    expect(contains(idle.surfaces,lamp)).toBe(true);expect(contains(idle.surfaces,neighbourLamp)).toBe(true)
+    expect(contains(idle.vertices,lamp)).toBe(false)
+    expect(contains(idle.vertices,table)).toBe(true);expect(contains(idle.vertices,tank)).toBe(true)
+    const hover=highlightFarmArea(mesh,'a',true)
+    expect(contains(hover.vertices,lamp)).toBe(true);expect(contains(hover.vertices,table)).toBe(true)
+    expect(contains(hover.surfaces,neighbourLamp)).toBe(true);expect(contains(hover.surfaces,tank)).toBe(true)
+    expect(highlightFarmArea(mesh,null,true)).toEqual(idle)
+    expect(highlightFarmArea(mesh,null).vertices).toBe(mesh.vertices)
+    expect(mesh.vertices).toEqual(original);expect(JSON.stringify({plan,maps})).toBe(snapshot)
+  })
   it('tints only Area floors for comparison without changing equipment, positions or stored plans',()=>{
     const {plan,maps}=fixture(),snapshot=JSON.stringify({plan,maps}),original=wholeFarmSceneMesh(plan,maps),tinted=wholeFarmSceneMesh(plan,maps,{a:[.2,.4,.6]})
     expect(tinted.vertices.length).toBe(original.vertices.length)

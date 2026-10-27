@@ -30,13 +30,13 @@ export function farmWalls(plan:FarmPlanDocument,maps:FarmMaps={}):Wall[]{
   return [...unique.values()]
 }
 
-export type FarmSceneMesh={vertices:Float32Array;ranges:Array<{start:number;end:number;areaIds:string[]}>}
+export type FarmSceneMesh={vertices:Float32Array;ranges:Array<{start:number;end:number;areaIds:string[];subdued?:boolean}>}
 
 /** Retain ownership once, so hovering never rebuilds detailed equipment meshes. */
 export function wholeFarmSceneMesh(plan:FarmPlanDocument,maps:FarmMaps={},areaColors:Record<string,Vec3>={}):FarmSceneMesh{
   const data:number[]=[],d=plan.dimensions,openings=farmOpenings(plan,maps)
   const ranges:FarmSceneMesh['ranges']=[],walls=farmWalls(plan,maps)
-  const own=(areaIds:string[])=>{const previous=ranges.at(-1);if(previous)previous.end=data.length;ranges.push({start:data.length,end:data.length,areaIds})}
+  const own=(areaIds:string[],subdued=false)=>{const previous=ranges.at(-1);if(previous)previous.end=data.length;ranges.push({start:data.length,end:data.length,areaIds,subdued})}
   const p=(a:SitePoint,h:number)=>planToScene(a.xM,a.yM,h,d)
   const tri=(a:Vec3,b:Vec3,c:Vec3,color:Vec3)=>{for(const point of [a,b,c])data.push(...point,...color)}
   const quad=(a:Vec3,b:Vec3,c:Vec3,e:Vec3,color:Vec3)=>{tri(a,b,c,color);tri(a,c,e,color)}
@@ -80,7 +80,7 @@ export function wholeFarmSceneMesh(plan:FarmPlanDocument,maps:FarmMaps={},areaCo
       const opening=openings.find(o=>o.areaId===area.id && o.object.id===object.id)
       if(['door','window','ventilation-opening'].includes(object.type) && !opening)continue
       const shared=opening ? walls.filter(w=>collinear(opening.a,opening.b,w.a) && collinear(opening.a,opening.b,w.b) && along(opening.a,opening.b,at(w.a,w.b,.5))>=-1e-6 && along(opening.a,opening.b,at(w.a,w.b,.5))<=1+1e-6).flatMap(w=>w.areaIds) : []
-      own(shared.length ? [...new Set(shared)] : [area.id])
+      own(shared.length ? [...new Set(shared)] : [area.id],object.type==='lamp')
       const global={...object,xM:object.xM+origin.minX,yM:object.yM+origin.minY}
       if(object.type==='sensor-node'){
         const height=object.metadata.sensor?.installationHeightM,point={xM:global.xM+object.widthM/2,yM:global.yM+object.lengthM/2},center=p(point,typeof height==='number' ? height : .06),r=Math.max(.045,Math.min(.12,Math.max(d.widthM,d.lengthM)*.002))
@@ -101,18 +101,20 @@ export function wholeFarmGeometry(plan:FarmPlanDocument,maps:FarmMaps={}){
 
 /** Hover previews an Area; leaving it restores the persistent selection without moving the camera. */
 export function farmSceneEmphasis(hoveredAreaId:string|null,monitoring:boolean,selectedAreaId?:string|null){
-  return {areaId:hoveredAreaId || (monitoring ? selectedAreaId || null : null),opacity:hoveredAreaId && monitoring ? .20 : monitoring && selectedAreaId ? .30 : .40}
+  return {areaId:hoveredAreaId || (monitoring ? selectedAreaId || null : null),opacity:hoveredAreaId && monitoring ? .20 : monitoring && selectedAreaId ? .30 : monitoring ? .25 : .40}
 }
 
 /** Shared walls and openings remain solid when either adjoining Area is highlighted. */
-export function highlightFarmArea(mesh:FarmSceneMesh,areaId:string|null){
-  if(!areaId || !mesh.ranges.some(r=>r.areaIds.includes(areaId)))return {vertices:mesh.vertices,surfaces:new Float32Array()}
-  const solidLength=mesh.ranges.filter(r=>r.areaIds.includes(areaId)).reduce((sum,r)=>sum+r.end-r.start,0)
+export function highlightFarmArea(mesh:FarmSceneMesh,areaId:string|null,subdueLights=false){
+  const focused=areaId && mesh.ranges.some(r=>r.areaIds.includes(areaId)) ? areaId : null
+  if(!focused && (!subdueLights || !mesh.ranges.some(r=>r.subdued)))return {vertices:mesh.vertices,surfaces:new Float32Array()}
+  const solidRange=(range:FarmSceneMesh['ranges'][number])=>focused ? range.areaIds.includes(focused) : !range.subdued
+  const solidLength=mesh.ranges.filter(solidRange).reduce((sum,r)=>sum+r.end-r.start,0)
   const vertices=new Float32Array(solidLength),surfaces=new Float32Array(mesh.vertices.length-solidLength)
   let solid=0,faded=0
   for(const range of mesh.ranges){
     const data=mesh.vertices.subarray(range.start,range.end)
-    if(range.areaIds.includes(areaId)){vertices.set(data,solid);solid+=data.length}else{surfaces.set(data,faded);faded+=data.length}
+    if(solidRange(range)){vertices.set(data,solid);solid+=data.length}else{surfaces.set(data,faded);faded+=data.length}
   }
   return {vertices,surfaces}
 }
