@@ -9,6 +9,7 @@ const tenants = [
   { suffix: 'a', email: 'tenant-a@ci.neurocrop.test', devEui: '00000000000000a1' },
   { suffix: 'b', email: 'tenant-b@ci.neurocrop.test', devEui: '00000000000000b1' },
   { suffix: 'empty', email: 'tenant-empty@ci.neurocrop.test', empty: true },
+  { suffix: 'authoring', email: 'tenant-authoring@ci.neurocrop.test', empty: true, devEui: '00000000000000c1' },
   { suffix: 'large', email: 'tenant-large@ci.neurocrop.test', large: true }
 ];
 
@@ -43,7 +44,15 @@ for (const tenant of tenants) {
      ON CONFLICT (organization_id, user_id) DO UPDATE SET role='owner'`,
     [organizationId, userId]
   );
-  if (tenant.empty) continue;
+  if (tenant.empty) {
+    if (tenant.devEui) {
+      await query(`INSERT INTO nodes (dev_eui,organization_id,name,last_seen) VALUES ($1,$2,'CI Authoring Node',now())
+        ON CONFLICT (dev_eui) DO UPDATE SET organization_id=EXCLUDED.organization_id,area_id=NULL,section_id=NULL,last_seen=now()`,[tenant.devEui,organizationId]);
+      await query(`INSERT INTO measurements (time,received_at,dev_eui,temperature,humidity,battery_percent,raw_object)
+        VALUES (now(),now(),$1,22,60,90,$2::jsonb)`,[tenant.devEui,JSON.stringify({sensors:{sht45:{present:true}}})]);
+    }
+    continue;
+  }
   if (tenant.large) {
     for (let index = 1; index <= 101; index += 1) {
       await query(

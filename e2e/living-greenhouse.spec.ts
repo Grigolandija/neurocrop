@@ -11,6 +11,7 @@ async function expectVolumeChangesPixels(page: Page) {
   const canvas=page.locator('.nsd-scene canvas')
   const mode=page.locator('.nsd-segments')
   const capture=async()=>{
+    await expect(page.locator('.nsd-render-error')).toHaveCount(0)
     await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
     await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))))
     return canvas.screenshot({animations:'disabled',style:'.nsd-pins, .nsd-scene-info, .nsd-legend, .nsd-camera { visibility: hidden !important; }'})
@@ -440,6 +441,8 @@ for (const engine of ['WebGPU', 'WebGL'] as const) {
     await expect(controls.getByRole('button', { name: 'Longitudinal', exact: true })).toHaveAttribute('aria-pressed', 'true')
     const canvas = detail.locator('.nc-living-canvas > canvas')
     const capture = async () => {
+      await expect(detail.locator('.nc-living-empty')).toHaveCount(0)
+      await expect(canvas).toBeVisible()
       await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
       return canvas.screenshot({ animations: 'disabled' })
     }

@@ -8,6 +8,7 @@ import { volumeWgsl, volumeVertexGl, volumeFragmentGl } from './volumeShaders'
 type Backend = {
   canvas: HTMLCanvasElement
   name: 'WebGPU' | 'WebGL'
+  maxPixels?: number
   upload: (data: Float32Array, field: VolumeField) => void
   draw: (matrix: Float32Array, presentation: number) => void
   resize: () => void
@@ -19,6 +20,12 @@ const clear = { r: .965, g: .973, b: .953, a: 1 }
 async function webgpu(onLost: () => void): Promise<Backend> {
   const adapter = await navigator.gpu?.requestAdapter({ powerPreference: 'low-power' })
   if (!adapter) throw new Error('WebGPU unavailable')
+  // Software Vulkan executes the volume shader on the CPU. A full HiDPI
+  // framebuffer can hit the driver's watchdog before the first frame finishes.
+  // Keep CSS coordinates and camera framing intact; bound only raster density.
+  const software = /swiftshader|software|llvmpipe/i.test(
+    [adapter.info?.vendor, adapter.info?.architecture, adapter.info?.device, adapter.info?.description].join(' ')
+  )
   const device = await adapter.requestDevice()
   let disposed = false
   try {
@@ -58,10 +65,10 @@ async function webgpu(onLost: () => void): Promise<Backend> {
         { binding: 4, resource: fieldSampler },
       ] })
     }
-    void device.lost.then(info => { if (!disposed && info.reason !== 'destroyed') onLost() })
-    device.addEventListener('uncapturederror', () => { if (!disposed) onLost() })
+    void device.lost.then(info => { if (!disposed && info.reason !== 'destroyed') { console.warn('NeuroCrop WebGPU device lost:', info.reason, info.message); onLost() } })
+    device.addEventListener('uncapturederror', event => { if (!disposed) { console.warn('NeuroCrop WebGPU rendering error:', event.error.message); onLost() } })
     return {
-      canvas, name: 'WebGPU',
+      canvas, name: 'WebGPU', maxPixels: software ? 262144 : undefined,
       resize() {
         depth?.destroy(); color?.destroy()
         depth = device.createTexture({ size: [canvas.width, canvas.height], format: 'depth24plus', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING })
@@ -193,7 +200,14 @@ export async function createLivingScene(host: HTMLElement, onProject: (matrix: F
   const reducedMotion=camera.animateIntro===false || matchMedia('(prefers-reduced-motion: reduce)').matches
   const pointers=new Map<number,{ x:number; y:number }>()
   let pinch=0
-  const resize=() => { width=host.clientWidth; height=host.clientHeight; const dpr=Math.min(2,devicePixelRatio || 1); canvas.width=Math.max(1,Math.round(width*dpr)); canvas.height=Math.max(1,Math.round(height*dpr)); backend.resize(); dirty=true }
+  let allocated=false
+  const resize=() => {
+    width=host.clientWidth; height=host.clientHeight
+    const dpr=Math.min(2,devicePixelRatio || 1,Math.sqrt((backend.maxPixels ?? Infinity)/Math.max(1,width*height)))
+    const nextWidth=Math.max(1,Math.round(width*dpr)),nextHeight=Math.max(1,Math.round(height*dpr))
+    if(!allocated || canvas.width!==nextWidth || canvas.height!==nextHeight){canvas.width=nextWidth;canvas.height=nextHeight;backend.resize();allocated=true}
+    dirty=true
+  }
   const observer=new ResizeObserver(resize); observer.observe(host); resize()
   const down=(e:PointerEvent) => { pointers.set(e.pointerId,{x:e.clientX,y:e.clientY}); canvas.setPointerCapture(e.pointerId); pinch=0 }
   const move=(e:PointerEvent) => {

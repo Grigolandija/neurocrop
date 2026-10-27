@@ -103,6 +103,11 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run migrate
+      - name: Verify Farm plan persistence and shared Area geometry in PostgreSQL
+        env:
+          NEUROCROP_FARM_PLAN_DB_TEST: "1"
+          NEUROCROP_AREA_OUTLINE_DB_TEST: "1"
+        run: node --test tests/farm-plan.database.test.mjs tests/area-map-outline.database.test.mjs
       - run: node scripts/seed-ci-tenants.mjs
       - name: Start ChirpStack mock
         run: node tests/chirpstack-mock.mjs > /tmp/chirpstack-mock.log 2>&1 &
