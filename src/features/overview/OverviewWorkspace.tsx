@@ -1091,7 +1091,7 @@ export default function OverviewWorkspace() {
     </section>
     <section className="nc-overview-insights" aria-label={tx("Operational overview")}>
       <article className="nc-overview-climate-card">
-      <div className="nc-overview-trust nc-overview-map-status">
+      <div className="nc-overview-map-status">
         <span><i />{model.reporting}</span>
         <span>{model.updated}</span>
         <span>{actionRows.length} {tx("actions ·")} {watchRows.length} {tx("watch conditions")}</span>

@@ -6,5 +6,5 @@ import { fitSceneCamera } from '../living-greenhouse/sceneFraming'
 export function farmOverviewCamera(plan: SitePlan, viewport: { width: number; height: number }) {
   const dimensions = siteDimensions(plan)
   const points = plan.zones.flatMap(zone => zone.polygon.flatMap(p => [planToScene(p.xM, p.yM, 0, dimensions), planToScene(p.xM, p.yM, zone.height, dimensions)]))
-  return fitSceneCamera(points, viewport)
+  return fitSceneCamera(points, viewport, { x: 24, y: 24 })
 }

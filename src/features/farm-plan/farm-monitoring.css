@@ -10,7 +10,7 @@
 .nc-farm-monitor-toolbar .nc-farm-monitor-edit { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #e3e9e0; border-radius: 6px; background: #fff; color: #7f9383; }
 .nc-farm-monitor-body { position: relative; display: block; align-items: stretch; min-width: 0; }
 .nc-farm-monitor-body > .nc-farm-scene-shell { min-width: 0; }
-.nc-farm-monitor-body .nc-farm-scene { height: clamp(420px,54vh,640px); }
+.nc-farm-monitor-body .nc-farm-scene { height: clamp(420px,calc(100dvh - 210px),840px); }
 .nc-farm-area-summary { position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; width: 290px; min-width: 0; box-shadow: -8px 0 24px #2845340a; max-height: 100%; overflow-y: auto; padding: 18px; border-left: 1px solid #e2e9df; background: #fff; scrollbar-width: thin; }
 .nc-farm-area-summary > header { display: flex; align-items: start; justify-content: space-between; gap: 10px; margin-bottom: 20px; }
 .nc-farm-area-summary > header > strong { color: #35523f; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
