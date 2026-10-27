@@ -198,7 +198,9 @@ jobs:
       - name: Start services
         run: |
           (cd backend && node api.js > /tmp/neurocrop-e2e-api.log 2>&1 &)
-          pnpm build
+          # The API uses NODE_ENV=test, but browsers must exercise the shipped
+          # production React bundle rather than StrictMode's dev-only remounts.
+          NODE_ENV=production pnpm build
           pnpm preview --host 127.0.0.1 --port 4173 > /tmp/neurocrop-e2e-frontend.log 2>&1 &
           for url in http://127.0.0.1:3100/health http://127.0.0.1:4173/; do
             for attempt in $(seq 1 30); do
@@ -208,7 +210,7 @@ jobs:
             curl --fail --silent "$url" >/dev/null
           done
       - name: Run E2E with a virtual display for WebGPU
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1440x24" pnpm test:e2e
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1440x24" pnpm test:e2e --max-failures=1
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v6

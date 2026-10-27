@@ -34,7 +34,7 @@ test('a grower creates Areas, saves equipment and Node height, reloads, and open
   const initial = await get<SavedFarm>(page, '/farm-plan')
   // This tenant belongs only to this scenario, including retries. Never alter
   // tenant A/B fixtures used by the other integration and browser tests.
-  for (const area of initial.plan.areas) {
+  for (const area of initial.plan.areas || []) {
     const response = await page.request.delete(`${apiBaseUrl}/areas/${area.id}?keepSections=true`)
     expect(response.ok(), await response.text()).toBe(true)
   }
@@ -135,7 +135,7 @@ test('a grower creates Areas, saves equipment and Node height, reloads, and open
     expect(errors).toEqual([])
   } finally {
     const latest = await get<SavedFarm>(page, '/farm-plan')
-    for (const id of new Set([...created, ...latest.plan.areas.map(area => area.id)])) {
+    for (const id of new Set([...created, ...(latest.plan.areas || []).map(area => area.id)])) {
       const response = await page.request.delete(`${apiBaseUrl}/areas/${id}?keepSections=true`)
       expect([200, 404]).toContain(response.status())
     }
