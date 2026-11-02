@@ -3,6 +3,18 @@ import { getDashboardState, notifyUnauthorized, setApiConnected, subscribeDashbo
 
 export type ApiRequestOptions = RequestInit & { timeoutMs?: number }
 export type ApiRequest = <T = unknown>(path: string, options?: ApiRequestOptions) => Promise<T>
+type AuthTokenProvider = (options?: { skipCache?: boolean }) => Promise<string | null>
+
+export class ApiError extends Error {
+  readonly status: number
+  readonly code: string
+  constructor(message: string, status: number, code = '') {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.code = code
+  }
+}
 
 const GET_CACHE_TTL_MS = 60_000
 const MAX_GET_CACHE_ENTRIES = 200
@@ -11,8 +23,9 @@ const getRequestsInFlight = new Map<string, Promise<unknown>>()
 let cacheGeneration = 0
 let apiConnectionLost = !getDashboardState().connected
 let sessionCheckInFlight: Promise<boolean> | null = null
-let authTokenProvider: (() => Promise<string | null>) | null = null
+let authTokenProvider: AuthTokenProvider | null = null
 let authTokenInFlight: Promise<string | null> | null = null
+let authTokenRefreshInFlight: Promise<string | null> | null = null
 let cachedAuthToken: { value: string | null; expiresAt: number } | null = null
 let authTokenGeneration = 0
 subscribeDashboardState(() => {
@@ -60,6 +73,13 @@ function responseErrorMessage(payload: unknown, fallback: string) {
   return String(payload || fallback).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+function responseError(payload: unknown, response: Response) {
+  const code = payload && typeof payload === 'object'
+    ? String((payload as { error?: { code?: unknown } }).error?.code || '')
+    : ''
+  return new ApiError(responseErrorMessage(payload, `API request failed with ${response.status}.`), response.status, code)
+}
+
 function isPublicAuthenticationRequest(path: string) {
   return path === '/auth/login'
     || path === '/auth/register'
@@ -94,12 +114,13 @@ async function requestHeaders(options: RequestInit, accept = 'application/json')
   if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   const now = Date.now()
   if (!cachedAuthToken || cachedAuthToken.expiresAt <= now) {
-    if (!authTokenInFlight) {
+    if (!authTokenInFlight && !authTokenRefreshInFlight) {
       const generation = authTokenGeneration
+      const provider = authTokenProvider
       authTokenInFlight = Promise.resolve()
-        .then(() => authTokenProvider?.() ?? null)
+        .then(() => provider?.() ?? null)
         .then((value) => {
-          if (authTokenGeneration === generation) {
+          if (authTokenGeneration === generation && !authTokenRefreshInFlight) {
             cachedAuthToken = { value, expiresAt: Date.now() + 1_000 }
           }
           return value
@@ -112,17 +133,58 @@ async function requestHeaders(options: RequestInit, accept = 'application/json')
   const reusableAuthToken = cachedAuthToken
   const token = reusableAuthToken && reusableAuthToken.expiresAt > now
     ? reusableAuthToken.value
-    : await authTokenInFlight
+    : await (authTokenRefreshInFlight || authTokenInFlight)
   if (token) headers.set('Authorization', `Bearer ${token}`)
   return headers
 }
 
+async function refreshRejectedToken(rejectedToken: string) {
+  if (cachedAuthToken?.value && cachedAuthToken.value !== rejectedToken && cachedAuthToken.expiresAt > Date.now()) {
+    return cachedAuthToken.value
+  }
+  if (!authTokenRefreshInFlight) {
+    const generation = authTokenGeneration
+    const provider = authTokenProvider
+    cachedAuthToken = null
+    authTokenRefreshInFlight = Promise.resolve()
+      .then(() => provider?.({ skipCache: true }) ?? null)
+      .then((value) => {
+        if (generation !== authTokenGeneration) return null
+        cachedAuthToken = { value, expiresAt: Date.now() + 1_000 }
+        return value
+      })
+      .catch(() => {
+        throw new ApiError('Sign-in could not be refreshed. Check your connection and try again.', 503, 'AUTH_REFRESH_FAILED')
+      })
+      .finally(() => {
+        if (generation === authTokenGeneration) authTokenRefreshInFlight = null
+      })
+  }
+  return await authTokenRefreshInFlight
+}
+
+async function fetchWithSessionRecovery(input: RequestInfo | URL, options: RequestInit, accept?: string) {
+  const generation = authTokenGeneration
+  const headers = await requestHeaders(options, accept)
+  if (generation !== authTokenGeneration) throw new ApiError('The signed-in account changed. Please try again.', 409, 'AUTH_CHANGED')
+  const response = await fetchWithConnectionStatus(input, { ...options, headers })
+  const rejectedToken = headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
+  if (response.status !== 401 || !authTokenProvider || !rejectedToken || options.signal?.aborted) return response
+  const detail = await readResponseBody(response.clone()).catch(() => null)
+  // Only authentication middleware rejections are replayable, including writes:
+  // the protected endpoint has not run. Never retry arbitrary 401s or 403s.
+  if (responseError(detail, response).code !== 'INVALID_CLERK_SESSION') return response
+  const token = await refreshRejectedToken(rejectedToken)
+  if (!token || generation !== authTokenGeneration || options.signal?.aborted) return response
+  headers.set('Authorization', `Bearer ${token}`)
+  return await fetchWithConnectionStatus(input, { ...options, headers })
+}
+
 async function sessionHasEnded() {
   if (!sessionCheckInFlight) {
-    sessionCheckInFlight = fetchWithConnectionStatus(`${apiBaseUrl()}/auth/me`, {
+    sessionCheckInFlight = fetchWithSessionRecovery(`${apiBaseUrl()}/auth/me`, {
       credentials: 'include',
       signal: requestSignal(null, 15_000),
-      headers: await requestHeaders({}),
     })
       .then((response) => response.status === 401)
       .catch(() => false)
@@ -149,25 +211,26 @@ export const request: ApiRequest = async <T>(path: string, { timeoutMs = 15_000,
   }
 
   const execute = async () => {
-    const response = await fetchWithConnectionStatus(cacheKey, {
+    const response = await fetchWithSessionRecovery(cacheKey, {
       ...options,
       credentials: 'include',
       signal: requestSignal(options.signal, timeoutMs),
-      headers: await requestHeaders(options),
     })
     recordServerTiming(`${method} ${path}`, response.headers.get('Server-Timing'))
 
     if (!response.ok) {
+      const detail = await readResponseBody(response).catch(() => null)
+      const error = responseError(detail, response)
       // An unauthenticated /auth/me response is the normal signed-out state, not
       // an expired-session event that should alarm the user.
       if (response.status === 401 && !isPublicAuthenticationRequest(path)) {
-        if (await sessionHasEnded()) {
+        if (error.code === 'INVALID_CLERK_SESSION' || await sessionHasEnded()) {
           notifyUnauthorized()
-          throw new Error('Your session has ended. Please sign in again.')
+          invalidateRequestCache()
+          throw new ApiError('Your session has ended. Please sign in again.', 401, 'SESSION_EXPIRED')
         }
       }
-      const detail = await readResponseBody(response).catch(() => null)
-      throw new Error(responseErrorMessage(detail, `API request failed with ${response.status}.`))
+      throw error
     }
 
     return await readResponseBody(response) as T
@@ -196,29 +259,31 @@ export function invalidateRequestCache() {
   getRequestsInFlight.clear()
 }
 
-export function setAuthTokenProvider(provider: (() => Promise<string | null>) | null) {
+export function setAuthTokenProvider(provider: AuthTokenProvider | null) {
   authTokenGeneration += 1
   authTokenProvider = provider
   authTokenInFlight = null
+  authTokenRefreshInFlight = null
   cachedAuthToken = null
   sessionCheckInFlight = null
   invalidateRequestCache()
 }
 
 export async function downloadFile(path: string, fallbackFilename: string) {
-  const response = await fetchWithConnectionStatus(`${apiBaseUrl()}${path}`, {
+  const response = await fetchWithSessionRecovery(`${apiBaseUrl()}${path}`, {
     credentials: 'include',
     signal: requestSignal(null, 60_000),
-    headers: await requestHeaders({}, 'text/csv'),
-  })
+  }, 'text/csv')
 
   if (!response.ok) {
-    if (response.status === 401) {
-      notifyUnauthorized()
-      throw new Error('Your session has ended. Please sign in again.')
-    }
     const detail = await readResponseBody(response).catch(() => null)
-    throw new Error(responseErrorMessage(detail, `Export failed with ${response.status}.`))
+    const error = responseError(detail, response)
+    if (response.status === 401 && (error.code === 'INVALID_CLERK_SESSION' || await sessionHasEnded())) {
+      notifyUnauthorized()
+      invalidateRequestCache()
+      throw new ApiError('Your session has ended. Please sign in again.', 401, 'SESSION_EXPIRED')
+    }
+    throw error
   }
 
   const disposition = response.headers.get('content-disposition') || ''

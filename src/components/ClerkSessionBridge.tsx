@@ -3,7 +3,7 @@ import { useLayoutEffect, type ReactNode } from 'react'
 import { setAuthTokenProvider } from '../services/api/client'
 
 export default function ClerkSessionBridge({ children }: { children: ReactNode }) {
-  const { getToken, isLoaded } = useAuth()
+  const { getToken, isLoaded, sessionId } = useAuth()
 
   useLayoutEffect(() => {
     if (!isLoaded) return
@@ -11,7 +11,7 @@ export default function ClerkSessionBridge({ children }: { children: ReactNode }
     return () => {
       setAuthTokenProvider(null)
     }
-  }, [getToken, isLoaded])
+  }, [getToken, isLoaded, sessionId])
 
   return children
 }

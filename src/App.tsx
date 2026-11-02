@@ -6,10 +6,11 @@ import LoginScreen from './components/LoginScreen'
 import ClerkLoginScreen from './components/ClerkLoginScreen'
 import WorkspaceLoading from './components/WorkspaceLoading'
 import SessionLoading from './components/SessionLoading'
+import SessionErrorScreen from './components/SessionErrorScreen'
 import type { DashboardUser } from './components/DashboardShell'
 import { neurocropApi } from './services/api/neurocropApi'
+import { ApiError } from './services/api/client'
 import { canAccessWorkspaceRoute, useWorkspaceAccess, WorkspaceAccessProvider, workspaceStageRedirect } from './state/workspaceAccess'
-import { useInterfaceLanguage } from './i18n'
 import { FieldComingSoonScreen, ProductEntryScreen } from './features/auth/ProductEntryScreen'
 import EuFundedProjectPage from './features/auth/EuFundedProject'
 import { useProductChoice } from './features/auth/productChoice'
@@ -45,10 +46,10 @@ const clerkConfigured = Boolean(String(import.meta.env.VITE_CLERK_PUBLISHABLE_KE
 
 function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?: string; onClerkSignOut?: () => Promise<void> }) {
   const location = useLocation()
-  const { t } = useInterfaceLanguage()
   const [user, setUser] = useState<DashboardUser | null>(null)
-  const [authError, setAuthError] = useState('')
+  const [authError, setAuthError] = useState<unknown>(null)
   const [authChecked, setAuthChecked] = useState(false)
+  const [authAttempt, setAuthAttempt] = useState(0)
   const { product, selectedNow, chooseProduct, clearProduct } = useProductChoice()
 
   function signOutCurrentUser() {
@@ -63,11 +64,12 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
     void neurocropApi.getCurrentUser()
       .then((response) => {
         const current = (response as { user?: DashboardUser }).user
+        if (clerkUserId && !current?.email) throw new ApiError('The account response is incomplete.', 502, 'INVALID_ACCOUNT_RESPONSE')
         if (active && current?.email) setUser(current)
       })
       .catch((reason) => {
         if (active && clerkUserId) {
-          setAuthError(reason instanceof Error ? reason.message : 'This account could not be connected to NeuroCrop.')
+          setAuthError(reason || new Error('Could not verify workspace access.'))
         }
       })
       .finally(() => {
@@ -78,24 +80,16 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
       document.body.classList.remove('designer-app')
       delete document.body.dataset.primaryPage
     }
-  }, [clerkUserId])
+  }, [clerkUserId, authAttempt])
 
   if (!authChecked) return <SessionLoading />
 
   if (authError) {
-    const approvalPending = authError === 'Your workspace request is awaiting administrator approval.'
-    const approvalRejected = authError === 'Your workspace request was not approved.'
-    return (
-      <main className="login-screen">
-        <section className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-8 text-center">
-          <div className={`flex h-14 w-14 items-center justify-center rounded-3xl text-xl ${approvalPending ? 'bg-[#e5f1ea] text-pine' : 'bg-[#f9e3df] text-ember'}`}><i className={`fa-solid ${approvalPending ? 'fa-clock' : 'fa-triangle-exclamation'}`} /></div>
-          <h1 className="mt-6 font-display text-3xl font-bold text-ink">{t(approvalPending ? 'Workspace request pending' : approvalRejected ? 'Workspace request declined' : 'Account connection required')}</h1>
-          <p className="mt-3 text-sm leading-6 text-ink/60">{t(authError)}</p>
-          {approvalPending || approvalRejected ? null : <p className="mt-2 text-sm leading-6 text-ink/60">{t('Use the same verified email address as your existing NeuroCrop account.')}</p>}
-          <button className="login-submit mt-7 max-w-xs" type="button" onClick={() => void onClerkSignOut?.()}>{t('Sign out')}</button>
-        </section>
-      </main>
-    )
+    return <SessionErrorScreen reason={authError} onSignOut={onClerkSignOut} onRetry={() => {
+      setAuthError(null)
+      setAuthChecked(false)
+      setAuthAttempt((attempt) => attempt + 1)
+    }} />
   }
 
   if (!user) return clerkConfigured
@@ -118,10 +112,10 @@ function AuthenticatedMainRoute({ clerkUserId, onClerkSignOut }: { clerkUserId?:
 }
 
 function ClerkMainRoute() {
-  const { isLoaded, isSignedIn, userId, signOut } = useAuth()
+  const { isLoaded, isSignedIn, userId, sessionId, signOut } = useAuth()
   if (!isLoaded) return <SessionLoading />
   if (!isSignedIn || !userId) return <ClerkLoginScreen />
-  return <AuthenticatedMainRoute key={userId} clerkUserId={userId} onClerkSignOut={() => signOut()} />
+  return <AuthenticatedMainRoute key={`${userId}:${sessionId}`} clerkUserId={userId} onClerkSignOut={() => signOut()} />
 }
 
 function MainRoute() {
